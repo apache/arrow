@@ -433,6 +433,7 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
       table, false /* use_threads */, row_group_size, {}, &result, arrow_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
+  ASSERT_OK(result->ValidateFull());
   ::arrow::AssertTablesEqual(*table, *result, false);
 }
 
@@ -2434,6 +2435,198 @@ TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {
   CheckSimpleRoundtrip(expected, 2);
 }
 
+TEST(ArrowReadWrite, ListOfStruct) {
+  using ::arrow::field;
+
+  auto type = ::arrow::list(::arrow::struct_(
+      {field("a", ::arrow::int16(), /*nullable=*/false), field("b", ::arrow::utf8())}));
+
+  const char* json = R"([
+      [{"a": 4, "b": "foo"}, {"a": 5}, {"a": 6, "b": "bar"}],
+      [null, {"a": 7}],
+      null,
+      []])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfList1) {
+  using ::arrow::field;
+  using ::arrow::list;
+  using ::arrow::struct_;
+
+  auto type = list(struct_({field("a", ::arrow::int16(), /*nullable=*/false),
+                            field("b", list(::arrow::int64()))}));
+
+  const char* json = R"([
+      [{"a": 123, "b": [1, 2, null, 3]}, null],
+      null,
+      [],
+      [{"a": 456}, {"a": 789, "b": []}, {"a": 876, "b": [4, 5, 6]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, Map) {
+  using ::arrow::field;
+  using ::arrow::map;
+
+  auto type = map(::arrow::int16(), ::arrow::utf8());
+
+  const char* json = R"([
+      [[1, "a"], [2, "b"]],
+      [[3, "c"]],
+      [],
+      null,
+      [[4, "d"], [5, "e"], [6, "f"]]
+  ])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, LargeList) {
+  using ::arrow::field;
+  using ::arrow::large_list;
+  using ::arrow::struct_;
+
+  auto type = large_list(::arrow::int16());
+
+  const char* json = R"([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, FixedSizeList) {
+  using ::arrow::field;
+  using ::arrow::fixed_size_list;
+  using ::arrow::struct_;
+
+  auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
+
+  const char* json = R"([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfList2) {
+  using ::arrow::field;
+  using ::arrow::list;
+  using ::arrow::struct_;
+
+  auto type =
+      list(field("item",
+                 struct_({field("a", ::arrow::int16(), /*nullable=*/false),
+                          field("b", list(::arrow::int64()), /*nullable=*/false)}),
+                 /*nullable=*/false));
+
+  const char* json = R"([
+      [{"a": 123, "b": [1, 2, 3]}],
+      null,
+      [],
+      [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, StructOfLists) {
+  using ::arrow::field;
+  using ::arrow::list;
+
+  auto type = ::arrow::struct_(
+      {field("a", list(::arrow::utf8()), /*nullable=*/false),
+       field("b", list(field("f", ::arrow::int64(), /*nullable=*/false)))});
+
+  const char* json = R"([
+      {"a": ["1", "2"], "b": []},
+      {"a": [], "b": [3, 4, 5]},
+      {"a": ["6"], "b": null},
+      {"a": [null, "7"], "b": [8]}])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfLists1) {
+  using ::arrow::field;
+  using ::arrow::list;
+
+  auto type = list(::arrow::struct_(
+      {field("a", list(::arrow::utf8()), /*nullable=*/false),
+       field("b", list(field("f", ::arrow::int64(), /*nullable=*/false)))}));
+
+  const char* json = R"([
+      [{"a": ["1", "2"], "b": []}, null],
+      [],
+      null,
+      [null],
+      [{"a": [], "b": [3, 4, 5]}, {"a": ["6"], "b": null}],
+      [null, {"a": [null, "7"], "b": [8]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfLists2) {
+  using ::arrow::field;
+  using ::arrow::list;
+
+  auto type = list(
+      field("x",
+            ::arrow::struct_(
+                {field("a", list(::arrow::utf8()), /*nullable=*/false),
+                 field("b", list(field("f", ::arrow::int64(), /*nullable=*/false)))}),
+            /*nullable=*/false));
+
+  const char* json = R"([
+      [{"a": ["1", "2"], "b": []}],
+      [],
+      null,
+      [],
+      [{"a": [], "b": [3, 4, 5]}, {"a": ["6"], "b": null}],
+      [{"a": [null, "7"], "b": [8]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfLists3) {
+  using ::arrow::field;
+  using ::arrow::list;
+
+  auto type = list(field(
+      "x",
+      ::arrow::struct_({field("a", list(::arrow::utf8()), /*nullable=*/false),
+                        field("b", list(field("f", ::arrow::int64(), /*nullable=*/false)),
+                              /*nullable=*/false)}),
+      /*nullable=*/false));
+
+  const char* json = R"([
+      [{"a": ["1", "2"], "b": []}],
+      [],
+      null,
+      [],
+      [{"a": [], "b": [3, 4, 5]}, {"a": ["6"], "b": []}],
+      [{"a": [null, "7"], "b": [8]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
 TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // This is a regression test for this:
   //
@@ -2494,6 +2687,39 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   auto expected_table = Table::Make(schema, columns);
 
   ::arrow::AssertTablesEqual(*expected_table, *result, false);
+}
+
+TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
+  // ARROW-10237
+  auto dict_with_dupes = ArrayFromJSON(::arrow::utf8(), R"(["a", "a", "b"])");
+  // test with all valid 4-long `indices`
+  for (int i = 0; i < 4 * 4 * 4 * 4; ++i) {
+    int j = i;
+    ASSERT_OK_AND_ASSIGN(
+        auto indices,
+        ArrayFromBuilderVisitor(::arrow::int32(), 4, [&](::arrow::Int32Builder* b) {
+          if (j % 4 < dict_with_dupes->length()) {
+            b->UnsafeAppend(j % 4);
+          } else {
+            b->UnsafeAppendNull();
+          }
+          j /= 4;
+        }));
+    ASSERT_OK_AND_ASSIGN(auto plain, ::arrow::compute::Take(*dict_with_dupes, *indices));
+    ASSERT_OK_AND_ASSIGN(auto encoded,
+                         ::arrow::DictionaryArray::FromArrays(indices, dict_with_dupes));
+
+    auto table = Table::Make(::arrow::schema({::arrow::field("d", encoded->type())}),
+                             ::arrow::ArrayVector{encoded});
+
+    ASSERT_OK(table->ValidateFull());
+
+    std::shared_ptr<Table> round_tripped;
+    ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, true, 20, {}, &round_tripped));
+
+    ASSERT_OK(round_tripped->ValidateFull());
+    ::arrow::AssertArraysEqual(*plain, *round_tripped->column(0)->chunk(0), true);
+  }
 }
 
 TEST(TestArrowWrite, CheckChunkSize) {
@@ -3291,7 +3517,6 @@ TEST(TestArrowWriteDictionaries, AutoReadAsDictionary) {
 }
 
 TEST(TestArrowWriteDictionaries, NestedSubfield) {
-  // FIXME (ARROW-9943): Automatic decoding of dictionary subfields
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 2, 3]");
   auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
   auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
@@ -3302,20 +3527,14 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
   ASSERT_OK_AND_ASSIGN(auto values,
                        ::arrow::ListArray::FromArrays(*offsets, *dict_values));
 
-  auto dense_ty = ::arrow::list(::arrow::utf8());
-  auto dense_values =
-      ::arrow::ArrayFromJSON(dense_ty, "[[], [\"foo\", \"foo\"], [\"foo\"]]");
-
   auto table = MakeSimpleTable(values, /*nullable=*/true);
-  auto expected_table = MakeSimpleTable(dense_values, /*nullable=*/true);
 
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
   std::shared_ptr<Table> actual;
   DoRoundtrip(table, values->length(), &actual, default_writer_properties(),
               props_store_schema);
 
-  // The nested subfield is not automatically decoded to dictionary
-  ::arrow::AssertTablesEqual(*expected_table, *actual);
+  ::arrow::AssertTablesEqual(*table, *actual);
 }
 
 }  // namespace arrow

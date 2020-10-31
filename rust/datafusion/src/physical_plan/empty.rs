@@ -17,13 +17,17 @@
 
 //! EmptyRelation execution plan
 
-use std::sync::{Arc, Mutex};
+use std::any::Any;
+use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::memory::MemoryIterator;
+use crate::error::{DataFusionError, Result};
+use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::RecordBatchReader;
+
+use super::SendableRecordBatchStream;
+
+use async_trait::async_trait;
 
 /// Execution plan for empty relation (produces no rows)
 #[derive(Debug)]
@@ -38,7 +42,13 @@ impl EmptyExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for EmptyExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -62,30 +72,27 @@ impl ExecutionPlan for EmptyExec {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match children.len() {
             0 => Ok(Arc::new(EmptyExec::new(self.schema.clone()))),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "EmptyExec wrong number of children".to_string(),
             )),
         }
     }
 
-    fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "EmptyExec invalid partition {} (expected 0)",
                 partition
             )));
         }
 
         let data = vec![];
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+        Ok(Box::pin(MemoryStream::try_new(
             data,
             self.schema.clone(),
             None,
-        )?)))
+        )?))
     }
 }
 
@@ -95,16 +102,16 @@ mod tests {
     use crate::physical_plan::common;
     use crate::test;
 
-    #[test]
-    fn empty() -> Result<()> {
+    #[tokio::test]
+    async fn empty() -> Result<()> {
         let schema = test::aggr_test_schema();
 
         let empty = EmptyExec::new(schema.clone());
         assert_eq!(empty.schema(), schema);
 
         // we should have no results
-        let iter = empty.execute(0)?;
-        let batches = common::collect(iter)?;
+        let iter = empty.execute(0).await?;
+        let batches = common::collect(iter).await?;
         assert!(batches.is_empty());
 
         Ok(())
@@ -126,14 +133,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn invalid_execute() -> Result<()> {
+    #[tokio::test]
+    async fn invalid_execute() -> Result<()> {
         let schema = test::aggr_test_schema();
         let empty = EmptyExec::new(schema.clone());
 
         // ask for the wrong partition
-        assert!(empty.execute(1).is_err());
-        assert!(empty.execute(20).is_err());
+        assert!(empty.execute(1).await.is_err());
+        assert!(empty.execute(20).await.is_err());
         Ok(())
     }
 }

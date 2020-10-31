@@ -306,6 +306,26 @@ cdef class Decimal128Scalar(Scalar):
             return None
 
 
+cdef class Decimal256Scalar(Scalar):
+    """
+    Concrete class for decimal256 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python Decimal.
+        """
+        cdef:
+            CDecimal256Scalar* sp = <CDecimal256Scalar*> self.wrapped.get()
+            CDecimal256Type* dtype = <CDecimal256Type*> sp.type.get()
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
+
+
 cdef class Date32Scalar(Scalar):
     """
     Concrete class for date32 scalars.
@@ -805,7 +825,8 @@ cdef dict _scalar_classes = {
     _Type_HALF_FLOAT: HalfFloatScalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
-    _Type_DECIMAL: Decimal128Scalar,
+    _Type_DECIMAL128: Decimal128Scalar,
+    _Type_DECIMAL256: Decimal256Scalar,
     _Type_DATE32: Date32Scalar,
     _Type_DATE64: Date64Scalar,
     _Type_TIME32: Time32Scalar,

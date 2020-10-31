@@ -33,7 +33,7 @@ use super::{
     type_coercion::{coerce, data_types},
     PhysicalExpr,
 };
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::math_expressions;
@@ -131,7 +131,7 @@ impl fmt::Display for BuiltinScalarFunction {
 }
 
 impl FromStr for BuiltinScalarFunction {
-    type Err = ExecutionError;
+    type Err = DataFusionError;
     fn from_str(name: &str) -> Result<BuiltinScalarFunction> {
         Ok(match name {
             "sqrt" => BuiltinScalarFunction::Sqrt,
@@ -156,7 +156,7 @@ impl FromStr for BuiltinScalarFunction {
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "array" => BuiltinScalarFunction::Array,
             _ => {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
                     name
                 )))
@@ -179,7 +179,7 @@ pub fn return_type(
     if arg_types.len() == 0 {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
-        return Err(ExecutionError::General(
+        return Err(DataFusionError::Plan(
             format!("Function '{}' requires at least one argument", fun).to_string(),
         ));
     }
@@ -188,7 +188,16 @@ pub fn return_type(
     // will be built-in functions whose return type depends on the
     // incoming type.
     match fun {
-        BuiltinScalarFunction::Length => Ok(DataType::UInt32),
+        BuiltinScalarFunction::Length => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         BuiltinScalarFunction::ToTimestamp => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
@@ -226,7 +235,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Trunc => math_expressions::trunc,
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
-        BuiltinScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
+        BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
@@ -257,7 +266,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::Length => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Array => {
@@ -351,10 +362,7 @@ mod tests {
     use super::*;
     use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
     use arrow::{
-        array::{
-            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
-            StringArray,
-        },
+        array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray},
         datatypes::Field,
         record_batch::RecordBatch,
     };
@@ -435,7 +443,7 @@ mod tests {
     fn test_concat_error() -> Result<()> {
         let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
         if let Ok(_) = result {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 "Function 'concat' cannot accept zero arguments".to_string(),
             ))
         } else {

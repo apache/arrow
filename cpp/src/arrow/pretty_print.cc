@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/pretty_print.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -28,7 +30,6 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -226,6 +227,11 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const Decimal256Array& array) {
+    WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_list_like<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     bool skip_comma = true;
@@ -327,7 +333,6 @@ class ArrayPrinter : public PrettyPrinter {
       if (offset != 0) {
         field = field->Slice(offset, length);
       }
-
       RETURN_NOT_OK(PrettyPrint(*field, indent_ + options_.indent_size, sink_));
     }
     return Status::OK();
@@ -552,7 +557,7 @@ Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
 }
 
 Status DebugPrint(const Array& arr, int indent) {
-  return PrettyPrint(arr, indent, &std::cout);
+  return PrettyPrint(arr, indent, &std::cerr);
 }
 
 class SchemaPrinter : public PrettyPrinter {

@@ -19,7 +19,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.CommonUtil;
-import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -37,6 +36,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.TransferPair;
 
 import java.util.Arrays;
@@ -63,7 +63,6 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
-import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 
 import static org.apache.arrow.vector.types.UnionMode.Dense;
@@ -306,13 +305,13 @@ public class DenseUnionVector implements FieldVector {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? || minor.class == "Decimal">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
 
-  public ${name}Vector get${name}Vector(byte typeId<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
+  public ${name}Vector get${name}Vector(byte typeId<#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
     ValueVector vector = typeId < 0 ? null : childVectors[typeId];
     if (vector == null) {
       int vectorCount = internalStruct.size();
-      vector = addOrGet(typeId, MinorType.${name?upper_case}<#if minor.class == "Decimal">, arrowType</#if>, ${name}Vector.class);
+      vector = addOrGet(typeId, MinorType.${name?upper_case}<#if minor.class?starts_with("Decimal")>, arrowType</#if>, ${name}Vector.class);
       childVectors[typeId] = vector;
       if (internalStruct.size() > vectorCount) {
         vector.allocateNew();
@@ -810,7 +809,7 @@ public class DenseUnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? || minor.class == "Decimal">
+          <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
       case ${name?upper_case}:
       Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
       reader.read(${uncappedName}Holder);
@@ -834,13 +833,13 @@ public class DenseUnionVector implements FieldVector {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class == "Decimal">
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
   public void setSafe(int index, Nullable${name}Holder holder) {
     while (index >= getOffsetBufferValueCapacity()) {
       reallocOffsetBuffer();
     }
     byte typeId = getTypeId(index);
-    ${name}Vector vector = get${name}Vector(typeId<#if minor.class == "Decimal">, new ArrowType.Decimal(holder.precision, holder.scale)</#if>);
+    ${name}Vector vector = get${name}Vector(typeId<#if minor.class?starts_with("Decimal")>, new ArrowType.Decimal(holder.precision, holder.scale, holder.WIDTH * 8)</#if>);
     int offset = vector.getValueCount();
     vector.setValueCount(offset + 1);
     vector.setSafe(offset, holder);

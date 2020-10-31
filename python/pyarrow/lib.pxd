@@ -135,6 +135,11 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         const CDecimal128Type* decimal128_type
 
 
+cdef class Decimal256Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal256Type* decimal256_type
+
+
 cdef class BaseExtensionType(DataType):
     cdef:
         const CExtensionType* ext_type
@@ -345,6 +350,10 @@ cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
 
+cdef class Decimal256Array(FixedSizeBinaryArray):
+    pass
+
+
 cdef class StructArray(Array):
     pass
 
@@ -483,7 +492,7 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         shared_ptr[CRecordBatchWriter] writer
 
 
-cdef class _CRecordBatchReader(_Weakrefable):
+cdef class RecordBatchReader(_Weakrefable):
     cdef:
         shared_ptr[CRecordBatchReader] reader
 

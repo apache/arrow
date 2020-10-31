@@ -155,7 +155,7 @@ function validateBuilderWithNullValues(suiteName: string, nullValues: any[], gen
     }
 
     if (DataType.isInt(type) && type.bitWidth === 64 && ArrayBuffer.isView(nullValues[0])) {
-        referenceNullValues[0] = util.BN.new(nullValues[0])[Symbol.toPrimitive]('default');
+        referenceNullValues[0] = util.BN.new<any>(nullValues[0])[Symbol.toPrimitive]('default');
     }
 
     describe(suiteName, () => {

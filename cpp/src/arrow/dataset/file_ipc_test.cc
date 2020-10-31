@@ -28,11 +28,13 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace dataset {
@@ -122,7 +124,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
 
@@ -139,7 +141,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     AssertSchemaEqual(*batch->schema(), *schema_);
     row_count += batch->num_rows();
   }
@@ -156,11 +158,43 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  auto options = format_->DefaultWriteOptions();
+  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
 
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
 
   AssertBufferEqual(*written, *source->buffer());
+}
+
+TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  auto ipc_options =
+      checked_pointer_cast<IpcFileWriteOptions>(format_->DefaultWriteOptions());
+  if (util::Codec::IsAvailable(Compression::ZSTD)) {
+    EXPECT_OK_AND_ASSIGN(ipc_options->options->codec,
+                         util::Codec::Create(Compression::ZSTD));
+  }
+  ipc_options->metadata = key_value_metadata({{"hello", "world"}});
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       format_->MakeWriter(sink, reader->schema(), ipc_options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
+
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto ipc_reader, ipc::RecordBatchFileReader::Open(
+                                            std::make_shared<io::BufferReader>(written)));
+
+  EXPECT_EQ(ipc_reader->metadata()->sorted_pairs(),
+            ipc_options->metadata->sorted_pairs());
 }
 
 class TestIpcFileSystemDataset : public testing::Test,
@@ -168,7 +202,9 @@ class TestIpcFileSystemDataset : public testing::Test,
  public:
   void SetUp() override {
     MakeSourceDataset();
-    format_ = std::make_shared<IpcFileFormat>();
+    auto ipc_format = std::make_shared<IpcFileFormat>();
+    format_ = ipc_format;
+    SetWriteOptions(ipc_format->DefaultWriteOptions());
   }
 };
 
@@ -221,7 +257,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
@@ -268,7 +304,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);

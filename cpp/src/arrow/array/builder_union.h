@@ -117,6 +117,26 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return child_builder->AppendNull();
   }
 
+  Status AppendEmptyValue() final {
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(static_cast<int32_t>(child_builder->length())));
+    // Append an empty value arbitrarily to the first child
+    return child_builder->AppendEmptyValue();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(length, static_cast<int32_t>(child_builder->length())));
+    // Append just a single empty value to the first child
+    return child_builder->AppendEmptyValue();
+  }
+
   /// \brief Append an element to the UnionArray. This must be followed
   ///        by an append to the appropriate child builder.
   ///
@@ -159,23 +179,45 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
                      const std::shared_ptr<DataType>& type)
       : BasicUnionBuilder(pool, children, type) {}
 
-  /// \brief Append a null value. A null is added automatically to all the
-  /// children but the type id in the slot will be 0
+  /// \brief Append a null value.
+  ///
+  /// A null is appended to the first child, empty values to the other children.
   Status AppendNull() final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(type_codes_[0]));
-    for (int8_t code : type_codes_) {
-      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendNull());
+    const auto first_child_code = type_codes_[0];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(first_child_code));
+    ARROW_RETURN_NOT_OK(type_id_to_children_[first_child_code]->AppendNull());
+    for (int i = 1; i < static_cast<int>(type_codes_.size()); ++i) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[type_codes_[i]]->AppendEmptyValue());
     }
     return Status::OK();
   }
 
-  /// \brief Append multiple null values. Nulls will be automatically appended
-  /// to all the children but the type ids will be all 0.
+  /// \brief Append multiple null values.
+  ///
+  /// Nulls are appended to the first child, empty values to the other children.
   Status AppendNulls(int64_t length) final {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
-    // Append nulls to children
+    const auto first_child_code = type_codes_[0];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
+    ARROW_RETURN_NOT_OK(type_id_to_children_[first_child_code]->AppendNulls(length));
+    for (int i = 1; i < static_cast<int>(type_codes_.size()); ++i) {
+      ARROW_RETURN_NOT_OK(
+          type_id_to_children_[type_codes_[i]]->AppendEmptyValues(length));
+    }
+    return Status::OK();
+  }
+
+  Status AppendEmptyValue() final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(type_codes_[0]));
     for (int8_t code : type_codes_) {
-      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendNulls(length));
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmptyValue());
+    }
+    return Status::OK();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
+    for (int8_t code : type_codes_) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmptyValues(length));
     }
     return Status::OK();
   }
@@ -186,7 +228,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// \param[in] next_type type_id of the child to which the next value will be appended.
   ///
   /// The corresponding child builder must be appended to independently after this method
-  /// is called, and all other child builders must have null appended
+  /// is called, and all other child builders must have null or empty value appended.
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
 };
 

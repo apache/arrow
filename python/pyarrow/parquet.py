@@ -35,8 +35,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
-from pyarrow.fs import (
-    LocalFileSystem, _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileSystem,
+                        _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path
 
@@ -1126,7 +1126,15 @@ use_legacy_dataset : bool, default True
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
-                use_legacy_dataset=True):
+                use_legacy_dataset=None):
+        if use_legacy_dataset is None:
+            # if a new filesystem is passed -> default to new implementation
+            if isinstance(filesystem, FileSystem):
+                use_legacy_dataset = False
+            # otherwise the default is still True
+            else:
+                use_legacy_dataset = True
+
         if not use_legacy_dataset:
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,
@@ -1348,7 +1356,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    open_file_func=open_file_func,
-                                   pathsep=fs.pathsep,
+                                   pathsep=getattr(fs, "pathsep", "/"),
                                    metadata_nthreads=metadata_nthreads)
         common_metadata_path = manifest.common_metadata_path
         metadata_path = manifest.metadata_path
@@ -1400,28 +1408,10 @@ class _ParquetDatasetV2:
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
             read_options.update(dictionary_columns=read_dictionary)
-        parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         # map filters to Expressions
         self._filters = filters
         self._filter_expression = filters and _filters_to_expression(filters)
-
-        # check for single NativeFile dataset
-        if not isinstance(path_or_paths, list):
-            if not _is_path_like(path_or_paths):
-                fragment = parquet_format.make_fragment(path_or_paths)
-                self._dataset = ds.FileSystemDataset(
-                    [fragment], schema=fragment.physical_schema,
-                    format=parquet_format,
-                    filesystem=fragment.filesystem
-                )
-                return
-
-        # check partitioning to enable dictionary encoding
-        if partitioning == "hive":
-            partitioning = ds.HivePartitioning.discover(
-                max_partition_dictionary_size=-1
-            )
 
         # map old filesystems to new one
         if filesystem is not None:
@@ -1430,7 +1420,49 @@ class _ParquetDatasetV2:
         elif filesystem is None and memory_map:
             # if memory_map is specified, assume local file system (string
             # path can in principle be URI for any filesystem)
-            filesystem = LocalFileSystem(use_mmap=True)
+            filesystem = LocalFileSystem(use_mmap=memory_map)
+
+        # check for single fragment dataset
+        single_file = None
+        if isinstance(path_or_paths, list):
+            if len(path_or_paths) == 1:
+                single_file = path_or_paths[0]
+        else:
+            if _is_path_like(path_or_paths):
+                path = str(path_or_paths)
+                if filesystem is None:
+                    # path might be a URI describing the FileSystem as well
+                    try:
+                        filesystem, path = FileSystem.from_uri(path)
+                    except ValueError:
+                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                if filesystem.get_file_info(path).is_file:
+                    single_file = path
+            else:
+                single_file = path_or_paths
+
+        if single_file is not None:
+            self._enable_parallel_column_conversion = True
+            read_options.update(enable_parallel_column_conversion=True)
+
+            parquet_format = ds.ParquetFileFormat(read_options=read_options)
+            fragment = parquet_format.make_fragment(single_file, filesystem)
+
+            self._dataset = ds.FileSystemDataset(
+                [fragment], schema=fragment.physical_schema,
+                format=parquet_format,
+                filesystem=fragment.filesystem
+            )
+            return
+        else:
+            self._enable_parallel_column_conversion = False
+
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+
+        # check partitioning to enable dictionary encoding
+        if partitioning == "hive":
+            partitioning = ds.HivePartitioning.discover(
+                infer_dictionary=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
@@ -1473,6 +1505,12 @@ class _ParquetDatasetV2:
                     if not isinstance(col, dict)
                 ]
                 columns = columns + list(set(index_columns) - set(columns))
+
+        if self._enable_parallel_column_conversion:
+            if use_threads:
+                # Allow per-column parallelism; would otherwise cause
+                # contention in the presence of per-file parallelism.
+                use_threads = False
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
@@ -1724,7 +1762,8 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     partition_filename_cb=None, filesystem=None, **kwargs):
+                     partition_filename_cb=None, filesystem=None,
+                     use_legacy_dataset=True, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -1758,6 +1797,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         A callback function that takes the partition key(s) as an argument
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
+    use_legacy_dataset : bool, default True
+        Set to False to enable the new code path (experimental, using the
+        new Arrow Dataset API). This is more efficient when using partition
+        columns, but does not (yet) support `partition_filename_cb` and
+        `metadata_collector` keywords.
     **kwargs : dict,
         Additional kwargs for write_table function. See docstring for
         `write_table` or `ParquetWriter` for more information.
@@ -1765,6 +1809,43 @@ def write_to_dataset(table, root_path, partition_cols=None,
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
     """
+    if not use_legacy_dataset:
+        import pyarrow.dataset as ds
+
+        # extract non-file format options
+        schema = kwargs.pop("schema", None)
+        use_threads = kwargs.pop("use_threads", True)
+
+        # raise for unsupported keywords
+        msg = (
+            "The '{}' argument is not supported with the new dataset "
+            "implementation."
+        )
+        metadata_collector = kwargs.pop('metadata_collector', None)
+        if metadata_collector is not None:
+            raise ValueError(msg.format("metadata_collector"))
+        if partition_filename_cb is not None:
+            raise ValueError(msg.format("partition_filename_cb"))
+
+        # map format arguments
+        parquet_format = ds.ParquetFileFormat()
+        write_options = parquet_format.make_write_options(**kwargs)
+
+        # map old filesystems to new one
+        if filesystem is not None:
+            filesystem = _ensure_filesystem(filesystem)
+
+        partitioning = None
+        if partition_cols:
+            part_schema = table.select(partition_cols).schema
+            partitioning = ds.partitioning(part_schema, flavor="hive")
+
+        ds.write_dataset(
+            table, root_path, filesystem=filesystem,
+            format=parquet_format, file_options=write_options, schema=schema,
+            partitioning=partitioning, use_threads=use_threads)
+        return
+
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
     _mkdir_if_not_exists(fs, root_path)

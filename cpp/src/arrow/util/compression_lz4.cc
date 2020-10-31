@@ -298,10 +298,10 @@ class Lz4FrameCodec : public Codec {
     return ptr;
   }
 
-  const char* name() const override { return "lz4"; }
+  Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
 
  protected:
-  LZ4F_preferences_t prefs_;
+  const LZ4F_preferences_t prefs_;
 };
 
 // ----------------------------------------------------------------------
@@ -348,7 +348,7 @@ class Lz4Codec : public Codec {
         "Try using LZ4 frame format instead.");
   }
 
-  const char* name() const override { return "lz4_raw"; }
+  Compression::type compression_type() const override { return Compression::LZ4; }
 };
 
 // ----------------------------------------------------------------------
@@ -407,7 +407,7 @@ class Lz4HadoopCodec : public Lz4Codec {
         "Try using LZ4 frame format instead.");
   }
 
-  const char* name() const override { return "lz4_hadoop_raw"; }
+  Compression::type compression_type() const override { return Compression::LZ4_HADOOP; }
 
  protected:
   // Offset starting at which page data can be read/written

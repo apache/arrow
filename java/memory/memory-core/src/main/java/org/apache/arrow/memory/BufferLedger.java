@@ -31,7 +31,7 @@ import org.apache.arrow.util.Preconditions;
  * ArrowBufs managed by this reference manager share a common
  * fate (same reference count).
  */
-public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager {
+public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, ReferenceManager {
   private final IdentityHashMap<ArrowBuf, Object> buffers =
           BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
@@ -41,14 +41,14 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   // manage request for retain
   // correctly
   private final long lCreationTime = System.nanoTime();
-  private final BaseAllocator allocator;
+  private final BufferAllocator allocator;
   private final AllocationManager allocationManager;
   private final HistoricalLog historicalLog =
       BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
         "BufferLedger[%d]", 1) : null;
   private volatile long lDestructionTime = 0;
 
-  BufferLedger(final BaseAllocator allocator, final AllocationManager allocationManager) {
+  BufferLedger(final BufferAllocator allocator, final AllocationManager allocationManager) {
     this.allocator = allocator;
     this.allocationManager = allocationManager;
   }
@@ -57,7 +57,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     return this == allocationManager.getOwningLedger();
   }
 
-  public BaseAllocator getKey() {
+  public BufferAllocator getKey() {
     return allocator;
   }
 
@@ -238,7 +238,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
               "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
                       "UnsafeDirectLittleEndian[identityHashCode == " +
                       "%d](%s)) => ledger hc == %d",
-              allocator.name, System.identityHashCode(derivedBuf), derivedBuf.toString(),
+              allocator.getName(), System.identityHashCode(derivedBuf), derivedBuf.toString(),
               System.identityHashCode(this));
 
       synchronized (buffers) {
@@ -275,7 +275,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       historicalLog.recordEvent(
           "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
           "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
-          allocator.name, System.identityHashCode(buf), buf.toString(),
+          allocator.getName(), System.identityHashCode(buf), buf.toString(),
           System.identityHashCode(this));
 
       synchronized (buffers) {
@@ -317,7 +317,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator) target);
+    final BufferLedger targetRefManager = allocationManager.associate(target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final long targetBufLength = srcBuffer.capacity();
     ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
@@ -336,8 +336,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   boolean transferBalance(final ReferenceManager targetReferenceManager) {
     Preconditions.checkArgument(targetReferenceManager != null,
         "Expecting valid target reference manager");
-    final BaseAllocator targetAllocator = (BaseAllocator) targetReferenceManager.getAllocator();
-    Preconditions.checkArgument(allocator.root == targetAllocator.root,
+    final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
+    Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
         "You can only transfer between two allocators that share the same root.");
 
     allocator.assertOpen();
@@ -411,7 +411,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // alternatively, if there was already a mapping for <buffer allocator, ref manager> in
     // allocation manager, the ref count of the new buffer will be targetrefmanager.refcount() + 1
     // and this will be true for all the existing buffers currently managed by targetrefmanager
-    final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator) target);
+    final BufferLedger targetRefManager = allocationManager.associate(target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
     final long targetBufLength = srcBuffer.capacity();
     final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
@@ -486,7 +486,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       .append("ledger[")
       .append(ledgerId)
       .append("] allocator: ")
-      .append(allocator.name)
+      .append(allocator.getName())
       .append("), isOwning: ")
       .append(", size: ")
       .append(", references: ")

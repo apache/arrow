@@ -34,7 +34,7 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private BaseReader[] readers = new BaseReader[43];
+  private BaseReader[] readers = new BaseReader[44];
   public UnionVector data;
   
   public UnionReader(UnionVector data) {
@@ -45,7 +45,7 @@ public class UnionReader extends AbstractFieldReader {
     return TYPES[data.getTypeValue(idx())];
   }
 
-  private static MinorType[] TYPES = new MinorType[43];
+  private static MinorType[] TYPES = new MinorType[44];
 
   static {
     for (MinorType minorType : MinorType.values()) {
@@ -88,7 +88,7 @@ public class UnionReader extends AbstractFieldReader {
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class == "Decimal">
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
     case ${name?upper_case}:
       return (FieldReader) get${name}();
         </#if>
@@ -157,7 +157,7 @@ public class UnionReader extends AbstractFieldReader {
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
       <#assign safeType=friendlyType />
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-      <#if !minor.typeParams?? || minor.class == "Decimal" >
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 

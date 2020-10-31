@@ -593,7 +593,6 @@ mod tests {
     use crate::array::*;
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
-    use crate::record_batch::RecordBatchReader;
     use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;
@@ -633,7 +632,7 @@ mod tests {
                 File::open(format!("target/debug/testdata/{}.arrow_file", "arrow"))
                     .unwrap();
             let mut reader = FileReader::try_new(file).unwrap();
-            while let Ok(Some(read_batch)) = reader.next_batch() {
+            while let Some(Ok(read_batch)) = reader.next() {
                 read_batch
                     .columns()
                     .iter()
@@ -679,9 +678,10 @@ mod tests {
 
         {
             let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
-            let mut reader = FileReader::try_new(file).unwrap();
-            while let Ok(Some(read_batch)) = reader.next_batch() {
-                read_batch
+            let reader = FileReader::try_new(file).unwrap();
+            reader.for_each(|maybe_batch| {
+                maybe_batch
+                    .unwrap()
                     .columns()
                     .iter()
                     .zip(batch.columns())
@@ -690,7 +690,7 @@ mod tests {
                         assert_eq!(a.len(), b.len());
                         assert_eq!(a.null_count(), b.null_count());
                     });
-            }
+            });
         }
     }
 
@@ -721,7 +721,7 @@ mod tests {
                     File::create(format!("target/debug/testdata/{}.arrow_file", path))
                         .unwrap();
                 let mut writer = FileWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next_batch() {
+                while let Some(Ok(batch)) = reader.next() {
                     writer.write(&batch).unwrap();
                 }
                 writer.finish().unwrap();
@@ -756,16 +756,16 @@ mod tests {
             ))
             .unwrap();
 
-            let mut reader = StreamReader::try_new(file).unwrap();
+            let reader = StreamReader::try_new(file).unwrap();
 
             // read and rewrite the stream to a temp location
             {
                 let file = File::create(format!("target/debug/testdata/{}.stream", path))
                     .unwrap();
                 let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
-                while let Ok(Some(batch)) = reader.next_batch() {
-                    writer.write(&batch).unwrap();
-                }
+                reader.for_each(|batch| {
+                    writer.write(&batch.unwrap()).unwrap();
+                });
                 writer.finish().unwrap();
             }
 

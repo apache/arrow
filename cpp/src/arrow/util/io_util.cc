@@ -41,15 +41,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
 
-// Defines that don't exist in MinGW
-#if defined(__MINGW32__)
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR
-#elif defined(_MSC_VER)  // Visual Studio
-
-#else  // gcc / clang on POSIX platforms
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
-#endif
-
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
@@ -927,7 +918,7 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
     oflag |= O_RDWR;
   }
 
-  fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
+  fd = open(file_name.ToNative().c_str(), oflag, 0666);
   errno_actual = errno;
 #endif
 
@@ -1476,14 +1467,8 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 
 std::string MakeRandomName(int num_chars) {
   static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-#ifdef ARROW_VALGRIND
-  // Valgrind can crash, hang or enter an infinite loop on std::random_device,
-  // use a PRNG instead.
-  static std::random_device::result_type seed = 42;
-  std::default_random_engine gen(seed++);
-#else
-  std::random_device gen;
-#endif
+  std::default_random_engine gen(
+      static_cast<std::default_random_engine::result_type>(GetRandomSeed()));
   std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
 
   std::string s;
@@ -1493,6 +1478,7 @@ std::string MakeRandomName(int num_chars) {
   }
   return s;
 }
+
 }  // namespace
 
 Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& prefix) {
@@ -1600,6 +1586,35 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
   return SignalHandler(cb);
 #endif
   return Status::OK();
+}
+
+namespace {
+
+std::mt19937_64 GetSeedGenerator() {
+  // Initialize Mersenne Twister PRNG with a true random seed.
+#ifdef ARROW_VALGRIND
+  // Valgrind can crash, hang or enter an infinite loop on std::random_device,
+  // use a crude initializer instead.
+  // Make sure to mix in process id to avoid clashes when parallel testing.
+  const uint8_t dummy = 0;
+  ARROW_UNUSED(dummy);
+  std::mt19937_64 seed_gen(reinterpret_cast<uintptr_t>(&dummy) ^
+                           static_cast<uintptr_t>(getpid()));
+#else
+  std::random_device true_random;
+  std::mt19937_64 seed_gen(static_cast<uint64_t>(true_random()) ^
+                           (static_cast<uint64_t>(true_random()) << 32));
+#endif
+  return seed_gen;
+}
+
+}  // namespace
+
+int64_t GetRandomSeed() {
+  // The process-global seed generator to aims to avoid calling std::random_device
+  // unless truly necessary (it can block on some systems, see ARROW-10287).
+  static auto seed_gen = GetSeedGenerator();
+  return static_cast<int64_t>(seed_gen());
 }
 
 }  // namespace internal

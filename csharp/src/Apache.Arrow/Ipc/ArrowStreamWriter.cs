@@ -44,7 +44,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
-            IArrowArrayVisitor<BinaryArray>
+            IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<StructArray>
         {
             public readonly struct Buffer
             {
@@ -100,6 +101,16 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }
+
+            public void Visit(StructArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(this);
+                }
             }
 
             private void CreateBuffers(BooleanArray array)
@@ -204,7 +215,7 @@ namespace Apache.Arrow.Ipc
         {
             if (type is NestedType nestedType)
             {
-                foreach (Field childField in nestedType.Children)
+                foreach (Field childField in nestedType.Fields)
                 {
                     CountSelfAndChildrenNodes(childField.DataType, ref count);
                 }
@@ -467,12 +478,12 @@ namespace Apache.Arrow.Ipc
                 return System.Array.Empty<Offset<Flatbuf.Field>>();
             }
 
-            int childrenCount = type.Children.Count;
+            int childrenCount = type.Fields.Count;
             var children = new Offset<Flatbuf.Field>[childrenCount];
 
             for (int i = 0; i < childrenCount; i++)
             {
-                Field childField = type.Children[i];
+                Field childField = type.Fields[i];
                 StringOffset childFieldNameOffset = Builder.CreateString(childField.Name);
                 ArrowTypeFlatbufferBuilder.FieldType childFieldType = _fieldTypeBuilder.BuildFieldType(childField);
                 VectorOffset childFieldChildrenVectorOffset = Builder.CreateVectorOfTables(GetChildrenFieldOffsets(childField));

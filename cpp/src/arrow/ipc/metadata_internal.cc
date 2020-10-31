@@ -236,8 +236,6 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   return TimeUnit::SECOND;
 }
 
-constexpr int32_t kDecimalBitWidth = 128;
-
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                                   const std::vector<std::shared_ptr<Field>>& children,
                                   std::shared_ptr<DataType>* out) {
@@ -273,10 +271,13 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      if (dec_type->bitWidth() != kDecimalBitWidth) {
-        return Status::Invalid("Library only supports 128-bit decimal values");
+      if (dec_type->bitWidth() == 128) {
+        return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+      } else if (dec_type->bitWidth() == 256) {
+        return Decimal256Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+      } else {
+        return Status::Invalid("Library only supports 128-bit or 256-bit decimal values");
       }
-      return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
@@ -427,8 +428,7 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
                                     const DictionaryType& type, int64_t dictionary_id,
                                     DictionaryOffset* out) {
   // We assume that the dictionary index type (as an integer) has already been
-  // validated elsewhere, and can safely assume we are dealing with signed
-  // integers
+  // validated elsewhere, and can safely assume we are dealing with integers
   const auto& index_type = checked_cast<const IntegerType&>(*type.index_type());
 
   auto index_type_offset =
@@ -594,11 +594,21 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalType& type) {
+  Status Visit(const Decimal128Type& type) {
     const auto& dec_type = checked_cast<const Decimal128Type&>(type);
     fb_type_ = flatbuf::Type::Decimal;
-    type_offset_ =
-        flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale()).Union();
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/128)
+                       .Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Type& type) {
+    const auto& dec_type = checked_cast<const Decimal256Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWith=*/256)
+                       .Union();
     return Status::OK();
   }
 
@@ -858,12 +868,12 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
 Result<std::shared_ptr<Buffer>> WriteFBMessage(
     FBB& fbb, flatbuf::MessageHeader header_type, flatbuffers::Offset<void> header,
     int64_t body_length, MetadataVersion version,
-    const std::shared_ptr<const KeyValueMetadata>& custom_metadata = nullptr) {
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata, MemoryPool* pool) {
   auto message = flatbuf::CreateMessage(fbb, MetadataVersionToFlatbuffer(version),
                                         header_type, header, body_length,
                                         SerializeCustomMetadata(fbb, custom_metadata));
   fbb.Finish(message);
-  return WriteFlatbufferBuilder(fbb);
+  return WriteFlatbufferBuilder(fbb, pool);
 }
 
 using FieldNodeVector =
@@ -903,15 +913,15 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
 
 static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
                                  BodyCompressionOffset* out) {
-  if (options.compression != Compression::UNCOMPRESSED) {
+  if (options.codec != nullptr) {
     flatbuf::CompressionType codec;
-    if (options.compression == Compression::LZ4_FRAME) {
+    if (options.codec->compression_type() == Compression::LZ4_FRAME) {
       codec = flatbuf::CompressionType::LZ4_FRAME;
-    } else if (options.compression == Compression::ZSTD) {
+    } else if (options.codec->compression_type() == Compression::ZSTD) {
       codec = flatbuf::CompressionType::ZSTD;
     } else {
       return Status::Invalid("Unsupported IPC compression codec: ",
-                             util::Codec::GetCodecAsString(options.compression));
+                             options.codec->name());
     }
     *out = flatbuf::CreateBodyCompression(fbb, codec,
                                           flatbuf::BodyCompressionMethod::BUFFER);
@@ -1170,7 +1180,8 @@ Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& map
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(),
-                        /*body_length=*/0, options.metadata_version)
+                        /*body_length=*/0, options.metadata_version,
+                        /*custom_metadata=*/nullptr, options.memory_pool)
       .Value(out);
 }
 
@@ -1184,7 +1195,8 @@ Status WriteRecordBatchMessage(
   RETURN_NOT_OK(
       MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
-                        body_length, options.metadata_version, custom_metadata)
+                        body_length, options.metadata_version, custom_metadata,
+                        options.memory_pool)
       .Value(out);
 }
 
@@ -1218,7 +1230,8 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
       flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
 
   return WriteFBMessage(fbb, flatbuf::MessageHeader::Tensor, fb_tensor.Union(),
-                        body_length, options.metadata_version);
+                        body_length, options.metadata_version,
+                        /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
 Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
@@ -1229,7 +1242,8 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
   RETURN_NOT_OK(
       MakeSparseTensor(fbb, sparse_tensor, body_length, buffers, &fb_sparse_tensor));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::SparseTensor,
-                        fb_sparse_tensor.Union(), body_length, options.metadata_version);
+                        fb_sparse_tensor.Union(), body_length, options.metadata_version,
+                        /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
 Status WriteDictionaryMessage(
@@ -1244,7 +1258,8 @@ Status WriteDictionaryMessage(
   auto dictionary_batch =
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
-                        body_length, options.metadata_version, custom_metadata)
+                        body_length, options.metadata_version, custom_metadata,
+                        options.memory_pool)
       .Value(out);
 }
 

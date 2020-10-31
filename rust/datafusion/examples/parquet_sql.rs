@@ -22,7 +22,8 @@ use datafusion::prelude::*;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
@@ -41,7 +42,7 @@ fn main() -> Result<()> {
         FROM alltypes_plain \
         WHERE id > 1 AND tinyint_col < double_col",
     )?;
-    let results = df.collect()?;
+    let results = df.collect().await?;
 
     // print the results
     pretty::print_batches(&results)?;

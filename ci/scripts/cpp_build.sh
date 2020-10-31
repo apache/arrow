@@ -101,6 +101,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
       -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
       -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
+      -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
       -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
       -DBOOST_SOURCE=${BOOST_SOURCE:-} \
       -DBrotli_SOURCE=${Brotli_SOURCE:-} \

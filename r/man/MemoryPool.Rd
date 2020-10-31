@@ -9,7 +9,10 @@ class arrow::MemoryPool
 }
 \section{Methods}{
 
-
-TODO
+\itemize{
+\item \code{bytes_allocated()}
+\item \code{max_memory()}
+}
 }
 
+\keyword{internal}

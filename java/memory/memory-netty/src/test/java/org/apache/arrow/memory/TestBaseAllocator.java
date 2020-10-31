@@ -393,7 +393,7 @@ public class TestBaseAllocator {
         .maxAllocation(MAX_ALLOCATION)
         .allocationManagerFactory(new AllocationManager.Factory() {
           @Override
-          public AllocationManager create(BaseAllocator accountingAllocator, long requestedSize) {
+          public AllocationManager create(BufferAllocator accountingAllocator, long requestedSize) {
             return new AllocationManager(accountingAllocator) {
               private final Unsafe unsafe = getUnsafe();
               private final long address = unsafe.allocateMemory(requestedSize);

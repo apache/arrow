@@ -16,6 +16,7 @@
 // under the License.
 
 use std::any::Any;
+use std::borrow::Borrow;
 use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
@@ -410,25 +411,18 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     raw_values: RawPtrBox<T::Native>,
 }
 
-/// Common operations for primitive types, including numeric types and boolean type.
-pub trait PrimitiveArrayOps<T: ArrowPrimitiveType> {
+impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Returns a `Buffer` holding all the values of this array.
     ///
     /// Note this doesn't take the offset of this array into account.
-    fn values(&self) -> Buffer;
+    pub fn values(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
 
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    fn value(&self, i: usize) -> T::Native;
-}
-
-impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
-    fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
-    fn value(&self, i: usize) -> T::Native {
+    pub fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
         unsafe { T::index(self.raw_values.get(), offset) }
     }
@@ -462,7 +456,7 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 /// Boolean arrays are bit-packed and so implemented separately.
 impl<T: ArrowNumericType> PrimitiveArray<T> {
     pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
-        let array_data = ArrayData::builder(T::get_data_type())
+        let array_data = ArrayData::builder(T::DATA_TYPE)
             .len(length)
             .add_buffer(values)
             .null_count(null_count)
@@ -501,6 +495,98 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     }
 }
 
+fn as_datetime<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveDateTime> {
+    match T::DATA_TYPE {
+        DataType::Date32(_) => {
+            // convert days into seconds
+            Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
+        }
+        DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
+            // extract seconds from milliseconds
+            v / MILLISECONDS,
+            // discard extracted seconds and convert milliseconds to nanoseconds
+            (v % MILLISECONDS * MICROSECONDS) as u32,
+        )),
+        DataType::Time32(_) | DataType::Time64(_) => None,
+        DataType::Timestamp(unit, _) => match unit {
+            TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
+            TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
+                // extract seconds from milliseconds
+                v / MILLISECONDS,
+                // discard extracted seconds and convert milliseconds to nanoseconds
+                (v % MILLISECONDS * MICROSECONDS) as u32,
+            )),
+            TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
+                // extract seconds from microseconds
+                v / MICROSECONDS,
+                // discard extracted seconds and convert microseconds to nanoseconds
+                (v % MICROSECONDS * MILLISECONDS) as u32,
+            )),
+            TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
+                // extract seconds from nanoseconds
+                v / NANOSECONDS,
+                // discard extracted seconds
+                (v % NANOSECONDS) as u32,
+            )),
+        },
+        // interval is not yet fully documented [ARROW-3097]
+        DataType::Interval(_) => None,
+        _ => None,
+    }
+}
+
+fn as_date<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveDate> {
+    as_datetime::<T>(v).map(|datetime| datetime.date())
+}
+
+fn as_time<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveTime> {
+    match T::DATA_TYPE {
+        DataType::Time32(unit) => {
+            // safe to immediately cast to u32 as `self.value(i)` is positive i32
+            let v = v as u32;
+            match unit {
+                TimeUnit::Second => Some(NaiveTime::from_num_seconds_from_midnight(v, 0)),
+                TimeUnit::Millisecond => {
+                    Some(NaiveTime::from_num_seconds_from_midnight(
+                        // extract seconds from milliseconds
+                        v / MILLISECONDS as u32,
+                        // discard extracted seconds and convert milliseconds to
+                        // nanoseconds
+                        v % MILLISECONDS as u32 * MICROSECONDS as u32,
+                    ))
+                }
+                _ => None,
+            }
+        }
+        DataType::Time64(unit) => {
+            match unit {
+                TimeUnit::Microsecond => {
+                    Some(NaiveTime::from_num_seconds_from_midnight(
+                        // extract seconds from microseconds
+                        (v / MICROSECONDS) as u32,
+                        // discard extracted seconds and convert microseconds to
+                        // nanoseconds
+                        (v % MICROSECONDS * MILLISECONDS) as u32,
+                    ))
+                }
+                TimeUnit::Nanosecond => {
+                    Some(NaiveTime::from_num_seconds_from_midnight(
+                        // extract seconds from nanoseconds
+                        (v / NANOSECONDS) as u32,
+                        // discard extracted seconds
+                        (v % NANOSECONDS) as u32,
+                    ))
+                }
+                _ => None,
+            }
+        }
+        DataType::Timestamp(_, _) => as_datetime::<T>(v).map(|datetime| datetime.time()),
+        DataType::Date32(_) | DataType::Date64(_) => Some(NaiveTime::from_hms(0, 0, 0)),
+        DataType::Interval(_) => None,
+        _ => None,
+    }
+}
+
 impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
 where
     i64: std::convert::From<T::Native>,
@@ -510,44 +596,7 @@ where
     /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned.
     /// A valid value is expected, thus the user should first check for validity.
     pub fn value_as_datetime(&self, i: usize) -> Option<NaiveDateTime> {
-        let v = i64::from(self.value(i));
-        match self.data_type() {
-            DataType::Date32(_) => {
-                // convert days into seconds
-                Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
-            }
-            DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
-                // extract seconds from milliseconds
-                v / MILLISECONDS,
-                // discard extracted seconds and convert milliseconds to nanoseconds
-                (v % MILLISECONDS * MICROSECONDS) as u32,
-            )),
-            DataType::Time32(_) | DataType::Time64(_) => None,
-            DataType::Timestamp(unit, _) => match unit {
-                TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
-                TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
-                    // extract seconds from milliseconds
-                    v / MILLISECONDS,
-                    // discard extracted seconds and convert milliseconds to nanoseconds
-                    (v % MILLISECONDS * MICROSECONDS) as u32,
-                )),
-                TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
-                    // extract seconds from microseconds
-                    v / MICROSECONDS,
-                    // discard extracted seconds and convert microseconds to nanoseconds
-                    (v % MICROSECONDS * MILLISECONDS) as u32,
-                )),
-                TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
-                    // extract seconds from nanoseconds
-                    v / NANOSECONDS,
-                    // discard extracted seconds
-                    (v % NANOSECONDS) as u32,
-                )),
-            },
-            // interval is not yet fully documented [ARROW-3097]
-            DataType::Interval(_) => None,
-            _ => None,
-        }
+        as_datetime::<T>(i64::from(self.value(i)))
     }
 
     /// Returns value as a chrono `NaiveDate` by using `Self::datetime()`
@@ -561,105 +610,36 @@ where
     ///
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
     pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
-        match self.data_type() {
-            DataType::Time32(unit) => {
-                // safe to immediately cast to u32 as `self.value(i)` is positive i32
-                let v = i64::from(self.value(i)) as u32;
-                match unit {
-                    TimeUnit::Second => {
-                        Some(NaiveTime::from_num_seconds_from_midnight(v, 0))
-                    }
-                    TimeUnit::Millisecond => {
-                        Some(NaiveTime::from_num_seconds_from_midnight(
-                            // extract seconds from milliseconds
-                            v / MILLISECONDS as u32,
-                            // discard extracted seconds and convert milliseconds to
-                            // nanoseconds
-                            v % MILLISECONDS as u32 * MICROSECONDS as u32,
-                        ))
-                    }
-                    _ => None,
-                }
-            }
-            DataType::Time64(unit) => {
-                let v = i64::from(self.value(i));
-                match unit {
-                    TimeUnit::Microsecond => {
-                        Some(NaiveTime::from_num_seconds_from_midnight(
-                            // extract seconds from microseconds
-                            (v / MICROSECONDS) as u32,
-                            // discard extracted seconds and convert microseconds to
-                            // nanoseconds
-                            (v % MICROSECONDS * MILLISECONDS) as u32,
-                        ))
-                    }
-                    TimeUnit::Nanosecond => {
-                        Some(NaiveTime::from_num_seconds_from_midnight(
-                            // extract seconds from nanoseconds
-                            (v / NANOSECONDS) as u32,
-                            // discard extracted seconds
-                            (v % NANOSECONDS) as u32,
-                        ))
-                    }
-                    _ => None,
-                }
-            }
-            DataType::Timestamp(_, _) => {
-                self.value_as_datetime(i).map(|datetime| datetime.time())
-            }
-            DataType::Date32(_) | DataType::Date64(_) => {
-                Some(NaiveTime::from_hms(0, 0, 0))
-            }
-            DataType::Interval(_) => None,
-            _ => None,
-        }
+        as_time::<T>(i64::from(self.value(i)))
     }
 }
 
 impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
-    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
-    }
-}
-
-impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
-    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
-    }
-}
-
-impl<T: ArrowNumericType + ArrowTemporalType> fmt::Debug for PrimitiveArray<T>
-where
-    i64: std::convert::From<T::Native>,
-{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        print_long_array(self, f, |array, index, f| match T::get_data_type() {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
+        print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
             DataType::Date32(_) | DataType::Date64(_) => {
-                match array.value_as_date(index) {
+                let v = self.value(index).to_usize().unwrap() as i64;
+                match as_date::<T>(v) {
                     Some(date) => write!(f, "{:?}", date),
                     None => write!(f, "null"),
                 }
             }
             DataType::Time32(_) | DataType::Time64(_) => {
-                match array.value_as_time(index) {
+                let v = self.value(index).to_usize().unwrap() as i64;
+                match as_time::<T>(v) {
                     Some(time) => write!(f, "{:?}", time),
                     None => write!(f, "null"),
                 }
             }
-            DataType::Timestamp(_, _) => match array.value_as_datetime(index) {
-                Some(datetime) => write!(f, "{:?}", datetime),
-                None => write!(f, "null"),
-            },
-            _ => write!(f, "null"),
+            DataType::Timestamp(_, _) => {
+                let v = self.value(index).to_usize().unwrap() as i64;
+                match as_datetime::<T>(v) {
+                    Some(datetime) => write!(f, "{:?}", datetime),
+                    None => write!(f, "null"),
+                }
+            }
+            _ => fmt::Debug::fmt(&array.value(index), f),
         })?;
         write!(f, "]")
     }
@@ -683,13 +663,58 @@ impl PrimitiveArray<BooleanType> {
     }
 }
 
-impl fmt::Debug for PrimitiveArray<BooleanType> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
+impl<'a, T: ArrowPrimitiveType> IntoIterator for &'a PrimitiveArray<T> {
+    type Item = Option<<T as ArrowPrimitiveType>::Native>;
+    type IntoIter = PrimitiveIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PrimitiveIter::<'a, T>::new(self)
+    }
+}
+
+impl<'a, T: ArrowPrimitiveType> PrimitiveArray<T> {
+    /// constructs a new iterator
+    pub fn iter(&'a self) -> PrimitiveIter<'a, T> {
+        PrimitiveIter::<'a, T>::new(&self)
+    }
+}
+
+impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native>>>
+    FromIterator<Ptr> for PrimitiveArray<T>
+{
+    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(
+            data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+        );
+
+        let null = vec![0; mem::size_of::<<T as ArrowPrimitiveType>::Native>()];
+
+        let null_slice = null_buf.data_mut();
+        iter.enumerate().for_each(|(i, item)| {
+            if let Some(a) = item.borrow() {
+                bit_util::set_bit(null_slice, i);
+                val_buf.write_all(a.to_byte_slice()).unwrap();
+            } else {
+                val_buf.write_all(&null).unwrap();
+            }
+        });
+
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            data_len,
+            None,
+            Some(null_buf.freeze()),
+            0,
+            vec![val_buf.freeze()],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
     }
 }
 
@@ -700,7 +725,7 @@ macro_rules! def_numeric_from_vec {
     ( $ty:ident ) => {
         impl From<Vec<<$ty as ArrowPrimitiveType>::Native>> for PrimitiveArray<$ty> {
             fn from(data: Vec<<$ty as ArrowPrimitiveType>::Native>) -> Self {
-                let array_data = ArrayData::builder($ty::get_data_type())
+                let array_data = ArrayData::builder($ty::DATA_TYPE)
                     .len(data.len())
                     .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
@@ -713,34 +738,7 @@ macro_rules! def_numeric_from_vec {
             for PrimitiveArray<$ty>
         {
             fn from(data: Vec<Option<<$ty as ArrowPrimitiveType>::Native>>) -> Self {
-                let data_len = data.len();
-                let mut null_buf = make_null_buffer(data_len);
-                let mut val_buf = MutableBuffer::new(
-                    data_len * mem::size_of::<<$ty as ArrowPrimitiveType>::Native>(),
-                );
-
-                {
-                    let null =
-                        vec![0; mem::size_of::<<$ty as ArrowPrimitiveType>::Native>()];
-                    let null_slice = null_buf.data_mut();
-                    for (i, v) in data.iter().enumerate() {
-                        if let Some(n) = v {
-                            bit_util::set_bit(null_slice, i);
-                            // unwrap() in the following should be safe here since we've
-                            // made sure enough space is allocated for the values.
-                            val_buf.write_all(&n.to_byte_slice()).unwrap();
-                        } else {
-                            val_buf.write_all(&null).unwrap();
-                        }
-                    }
-                }
-
-                let array_data = ArrayData::builder($ty::get_data_type())
-                    .len(data_len)
-                    .add_buffer(val_buf.freeze())
-                    .null_bit_buffer(null_buf.freeze())
-                    .build();
-                PrimitiveArray::from(array_data)
+                PrimitiveArray::from_iter(data.iter())
             }
         }
     };
@@ -869,7 +867,7 @@ impl From<Vec<Option<bool>>> for BooleanArray {
 
 /// Constructs a `PrimitiveArray` from an array data reference.
 impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
-    default fn from(data: ArrayDataRef) -> Self {
+    fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -893,7 +891,7 @@ pub trait ListArrayOps<OffsetSize: OffsetSizeTrait> {
 }
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
-pub trait OffsetSizeTrait: ArrowNativeType + Num {
+pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord {
     fn prefix() -> &'static str;
 
     fn to_isize(&self) -> isize;
@@ -1115,12 +1113,12 @@ impl FixedSizeListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self) -> i32 {
+    pub const fn value_length(&self) -> i32 {
         self.length
     }
 
     #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
+    const fn value_offset_at(&self, i: usize) -> i32 {
         i as i32 * self.length
     }
 }
@@ -1197,13 +1195,27 @@ impl fmt::Debug for FixedSizeListArray {
     }
 }
 
-pub struct GenericBinaryArray<OffsetSize> {
+/// Like OffsetSizeTrait, but specialized for Binary
+// This allow us to expose a constant datatype for the GenericBinaryArray
+pub trait BinaryOffsetSizeTrait: OffsetSizeTrait {
+    const DATA_TYPE: DataType;
+}
+
+impl BinaryOffsetSizeTrait for i32 {
+    const DATA_TYPE: DataType = DataType::Binary;
+}
+
+impl BinaryOffsetSizeTrait for i64 {
+    const DATA_TYPE: DataType = DataType::LargeBinary;
+}
+
+pub struct GenericBinaryArray<OffsetSize: BinaryOffsetSizeTrait> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
 }
 
-impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
+impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
     /// Returns the offset for the element at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
@@ -1249,7 +1261,8 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         }
     }
 
-    fn from_vec(v: Vec<&[u8]>, data_type: DataType) -> Self {
+    /// Creates a [GenericBinaryArray] from a vector of byte slices
+    pub fn from_vec(v: Vec<&[u8]>) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
         let mut length_so_far: OffsetSize = OffsetSize::zero();
@@ -1259,7 +1272,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
             offsets.push(length_so_far);
             values.extend_from_slice(s);
         }
-        let array_data = ArrayData::builder(data_type)
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
@@ -1267,7 +1280,39 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         GenericBinaryArray::<OffsetSize>::from(array_data)
     }
 
-    fn from_list(v: GenericListArray<OffsetSize>, datatype: DataType) -> Self {
+    /// Creates a [GenericBinaryArray] from a vector of Optional (null) byte slices
+    pub fn from_opt_vec(v: Vec<Option<&[u8]>>) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut null_buf = make_null_buffer(v.len());
+        let mut length_so_far: OffsetSize = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        {
+            let null_slice = null_buf.data_mut();
+
+            for (i, s) in v.iter().enumerate() {
+                if let Some(s) = s {
+                    bit_util::set_bit(null_slice, i);
+                    length_so_far =
+                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                    values.extend_from_slice(s);
+                }
+                // always add an element in offsets
+                offsets.push(length_so_far);
+            }
+        }
+
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        GenericBinaryArray::<OffsetSize>::from(array_data)
+    }
+
+    fn from_list(v: GenericListArray<OffsetSize>) -> Self {
         assert_eq!(
             v.data_ref().child_data()[0].child_data().len(),
             0,
@@ -1280,7 +1325,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
             "BinaryArray can only be created from List<u8> arrays, mismatched data types."
         );
 
-        let mut builder = ArrayData::builder(datatype)
+        let mut builder = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(v.data_ref().buffers()[0].clone())
             .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
@@ -1295,7 +1340,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> {
+impl<OffsetSize: BinaryOffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}BinaryArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
@@ -1305,7 +1350,7 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> 
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> Array for GenericBinaryArray<OffsetSize> {
+impl<OffsetSize: BinaryOffsetSizeTrait> Array for GenericBinaryArray<OffsetSize> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -1329,7 +1374,7 @@ impl<OffsetSize: OffsetSizeTrait> Array for GenericBinaryArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+impl<OffsetSize: BinaryOffsetSizeTrait> ListArrayOps<OffsetSize>
     for GenericBinaryArray<OffsetSize>
 {
     fn value_offset_at(&self, i: usize) -> OffsetSize {
@@ -1337,8 +1382,15 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericBinaryArray<OffsetSize> {
+impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayDataRef>
+    for GenericBinaryArray<OffsetSize>
+{
     fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.data_type(),
+            &<OffsetSize as BinaryOffsetSizeTrait>::DATA_TYPE,
+            "[Large]BinaryArray expects Datatype::[Large]Binary"
+        );
         assert_eq!(
             data.buffers().len(),
             2,
@@ -1364,36 +1416,62 @@ pub type LargeBinaryArray = GenericBinaryArray<i64>;
 
 impl From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
-        BinaryArray::from_vec(v, DataType::Binary)
+        BinaryArray::from_vec(v)
+    }
+}
+
+impl From<Vec<Option<&[u8]>>> for BinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        BinaryArray::from_opt_vec(v)
     }
 }
 
 impl From<Vec<&[u8]>> for LargeBinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
-        LargeBinaryArray::from_vec(v, DataType::LargeBinary)
+        LargeBinaryArray::from_vec(v)
+    }
+}
+
+impl From<Vec<Option<&[u8]>>> for LargeBinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        LargeBinaryArray::from_opt_vec(v)
     }
 }
 
 impl From<ListArray> for BinaryArray {
     fn from(v: ListArray) -> Self {
-        BinaryArray::from_list(v, DataType::Binary)
+        BinaryArray::from_list(v)
     }
 }
 
 impl From<LargeListArray> for LargeBinaryArray {
     fn from(v: LargeListArray) -> Self {
-        LargeBinaryArray::from_list(v, DataType::LargeBinary)
+        LargeBinaryArray::from_list(v)
     }
 }
 
-/// Generic struct for [Large]StringArray
-pub struct GenericStringArray<OffsetSize> {
+/// Like OffsetSizeTrait, but specialized for Strings
+// This allow us to expose a constant datatype for the GenericStringArray
+pub trait StringOffsetSizeTrait: OffsetSizeTrait {
+    const DATA_TYPE: DataType;
+}
+
+impl StringOffsetSizeTrait for i32 {
+    const DATA_TYPE: DataType = DataType::Utf8;
+}
+
+impl StringOffsetSizeTrait for i64 {
+    const DATA_TYPE: DataType = DataType::LargeUtf8;
+}
+
+/// Generic struct for \[Large\]StringArray
+pub struct GenericStringArray<OffsetSize: StringOffsetSizeTrait> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
 }
 
-impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     /// Returns the offset for the element at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
@@ -1441,7 +1519,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         }
     }
 
-    fn from_list(v: GenericListArray<OffsetSize>, data_type: DataType) -> Self {
+    fn from_list(v: GenericListArray<OffsetSize>) -> Self {
         assert_eq!(
             v.data().child_data()[0].child_data().len(),
             0,
@@ -1454,7 +1532,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
             "StringArray can only be created from List<u8> arrays, mismatched data types."
         );
 
-        let mut builder = ArrayData::builder(data_type)
+        let mut builder = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(v.data_ref().buffers()[0].clone())
             .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
@@ -1468,7 +1546,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(data)
     }
 
-    pub(crate) fn from_vec(v: Vec<&str>, data_type: DataType) -> Self {
+    pub(crate) fn from_vec(v: Vec<&str>) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
         let mut length_so_far = OffsetSize::zero();
@@ -1478,7 +1556,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
             offsets.push(length_so_far);
             values.extend_from_slice(s.as_bytes());
         }
-        let array_data = ArrayData::builder(data_type)
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
@@ -1486,14 +1564,30 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(array_data)
     }
 
-    pub(crate) fn from_opt_vec(v: Vec<Option<&str>>, data_type: DataType) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
+    pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
+        let iter = v.iter().map(|e| e.map(|e| e.to_string()));
+        GenericStringArray::from_iter(iter)
+    }
+}
+
+impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Ptr>
+    for GenericStringArray<OffsetSize>
+where
+    Ptr: Borrow<Option<String>>,
+{
+    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let mut offsets = Vec::with_capacity(data_len + 1);
         let mut values = Vec::new();
-        let mut null_buf = make_null_buffer(v.len());
+        let mut null_buf = make_null_buffer(data_len);
         let mut length_so_far = OffsetSize::zero();
         offsets.push(length_so_far);
-        for (i, s) in v.iter().enumerate() {
-            if let Some(s) = s {
+
+        for (i, s) in iter.enumerate() {
+            if let Some(s) = s.borrow() {
                 // set null bit
                 let null_slice = null_buf.data_mut();
                 bit_util::set_bit(null_slice, i);
@@ -1503,11 +1597,12 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
                 values.extend_from_slice(s.as_bytes());
             } else {
                 offsets.push(length_so_far);
-                values.extend_from_slice("".as_bytes());
+                values.extend_from_slice(b"");
             }
         }
-        let array_data = ArrayData::builder(data_type)
-            .len(v.len())
+
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+            .len(data_len)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .null_bit_buffer(null_buf.freeze())
@@ -1516,7 +1611,23 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
+impl<'a, T: StringOffsetSizeTrait> IntoIterator for &'a GenericStringArray<T> {
+    type Item = Option<&'a str>;
+    type IntoIter = GenericStringIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        GenericStringIter::<'a, T>::new(self)
+    }
+}
+
+impl<'a, T: StringOffsetSizeTrait> GenericStringArray<T> {
+    /// constructs a new iterator
+    pub fn iter(&'a self) -> GenericStringIter<'a, T> {
+        GenericStringIter::<'a, T>::new(&self)
+    }
+}
+
+impl<OffsetSize: StringOffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}StringArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
@@ -1526,7 +1637,7 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> 
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -1550,8 +1661,15 @@ impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
+    for GenericStringArray<OffsetSize>
+{
     fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.data_type(),
+            &<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE,
+            "[Large]StringArray expects Datatype::[Large]Utf8"
+        );
         assert_eq!(
             data.buffers().len(),
             2,
@@ -1569,7 +1687,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<Offs
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+impl<OffsetSize: StringOffsetSizeTrait> ListArrayOps<OffsetSize>
     for GenericStringArray<OffsetSize>
 {
     fn value_offset_at(&self, i: usize) -> OffsetSize {
@@ -1587,37 +1705,37 @@ pub type LargeStringArray = GenericStringArray<i64>;
 
 impl From<ListArray> for StringArray {
     fn from(v: ListArray) -> Self {
-        StringArray::from_list(v, DataType::Utf8)
+        StringArray::from_list(v)
     }
 }
 
 impl From<LargeListArray> for LargeStringArray {
     fn from(v: LargeListArray) -> Self {
-        LargeStringArray::from_list(v, DataType::LargeUtf8)
+        LargeStringArray::from_list(v)
     }
 }
 
 impl From<Vec<&str>> for StringArray {
     fn from(v: Vec<&str>) -> Self {
-        StringArray::from_vec(v, DataType::Utf8)
+        StringArray::from_vec(v)
     }
 }
 
 impl From<Vec<&str>> for LargeStringArray {
     fn from(v: Vec<&str>) -> Self {
-        LargeStringArray::from_vec(v, DataType::LargeUtf8)
+        LargeStringArray::from_vec(v)
     }
 }
 
 impl From<Vec<Option<&str>>> for StringArray {
     fn from(v: Vec<Option<&str>>) -> Self {
-        StringArray::from_opt_vec(v, DataType::Utf8)
+        StringArray::from_opt_vec(v)
     }
 }
 
 impl From<Vec<Option<&str>>> for LargeStringArray {
     fn from(v: Vec<Option<&str>>) -> Self {
-        LargeStringArray::from_opt_vec(v, DataType::LargeUtf8)
+        LargeStringArray::from_opt_vec(v)
     }
 }
 
@@ -1843,15 +1961,16 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
         let mut null: Option<Buffer> = None;
         for (field_name, array) in values {
             let child_datum = array.data();
+            let child_datum_len = child_datum.len();
             if let Some(len) = len {
-                if len != child_datum.len() {
+                if len != child_datum_len {
                     return Err(ArrowError::InvalidArgumentError(
-                        format!("Array of field \"{}\" has length {}, but previous elements have length {}. 
-                        All arrays in every entry in a struct array must have the same length.", field_name, child_datum.len(), len)
+                        format!("Array of field \"{}\" has length {}, but previous elements have length {}.
+                        All arrays in every entry in a struct array must have the same length.", field_name, child_datum_len, len)
                     ));
                 }
             } else {
-                len = Some(child_datum.len())
+                len = Some(child_datum_len)
             }
             child_data.push(child_datum.clone());
             fields.push(Field::new(
@@ -1862,7 +1981,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
 
             if let Some(child_null_buffer) = child_datum.null_buffer() {
                 null = Some(if let Some(null_buffer) = &null {
-                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, null_buffer.len())
+                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, child_datum_len)
                 } else {
                     child_null_buffer.clone()
                 });
@@ -2013,13 +2132,13 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
 /// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
-    /// Array of keys, much like a PrimitiveArray
+    /// Array of keys, stored as a PrimitiveArray<K>.
     data: ArrayDataRef,
 
     /// Pointer to the key values.
     raw_values: RawPtrBox<K::Native>,
 
-    /// Array of any values.
+    /// Array of dictionary values (can by any DataType).
     values: ArrayRef,
 
     /// Values are ordered.
@@ -2138,7 +2257,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     pub fn keys_array(&self) -> PrimitiveArray<K> {
         let data = self.data_ref();
         let keys_data = ArrayData::new(
-            K::get_data_type(),
+            K::DATA_TYPE,
             data.len(),
             Some(data.null_count()),
             data.null_buffer().cloned(),
@@ -3394,7 +3513,7 @@ mod tests {
         let offsets: [i64; 4] = [0, 5, 5, 12];
 
         // Array data: ["hello", "", "parquet"]
-        let array_data = ArrayData::builder(DataType::Binary)
+        let array_data = ArrayData::builder(DataType::LargeBinary)
             .len(3)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
@@ -3511,6 +3630,32 @@ mod tests {
         }
     }
 
+    fn test_generic_binary_array_from_opt_vec<T: BinaryOffsetSizeTrait>() {
+        let values: Vec<Option<&[u8]>> =
+            vec![Some(b"one"), Some(b"two"), None, Some(b""), Some(b"three")];
+        let array = GenericBinaryArray::<T>::from_opt_vec(values);
+        assert_eq!(array.len(), 5);
+        assert_eq!(array.value(0), b"one");
+        assert_eq!(array.value(1), b"two");
+        assert_eq!(array.value(3), b"");
+        assert_eq!(array.value(4), b"three");
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), false);
+        assert_eq!(array.is_null(2), true);
+        assert_eq!(array.is_null(3), false);
+        assert_eq!(array.is_null(4), false);
+    }
+
+    #[test]
+    fn test_large_binary_array_from_opt_vec() {
+        test_generic_binary_array_from_opt_vec::<i64>()
+    }
+
+    #[test]
+    fn test_binary_array_from_opt_vec() {
+        test_generic_binary_array_from_opt_vec::<i32>()
+    }
+
     #[test]
     fn test_string_array_from_u8_slice() {
         let values: Vec<&str> = vec!["hello", "", "parquet"];
@@ -3529,6 +3674,13 @@ mod tests {
             assert!(string_array.is_valid(i));
             assert!(!string_array.is_null(i));
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "[Large]StringArray expects Datatype::[Large]Utf8")]
+    fn test_string_array_from_int() {
+        let array = LargeStringArray::from(vec!["a", "b"]);
+        StringArray::from(array.data());
     }
 
     #[test]

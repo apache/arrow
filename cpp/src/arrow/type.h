@@ -126,7 +126,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ARROW_DEPRECATED("Use field(i)")
   const std::shared_ptr<Field>& child(int i) const { return field(i); }
 
-  /// Returns the the child-field at index i.
+  /// Returns the child-field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
   ARROW_DEPRECATED("Use fields()")
@@ -861,10 +861,9 @@ class ARROW_EXPORT StructType : public NestedType {
 /// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
-  explicit DecimalType(int32_t byte_width, int32_t precision, int32_t scale)
-      : FixedSizeBinaryType(byte_width, Type::DECIMAL),
-        precision_(precision),
-        scale_(scale) {}
+  explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
+                       int32_t scale)
+      : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
@@ -879,7 +878,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 /// \brief Concrete type class for 128-bit decimal data
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL;
+  static constexpr Type::type type_id = Type::DECIMAL128;
 
   static constexpr const char* type_name() { return "decimal"; }
 
@@ -894,6 +893,26 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
+};
+
+/// \brief Concrete type class for 256-bit decimal data
+class ARROW_EXPORT Decimal256Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL256;
+
+  static constexpr const char* type_name() { return "decimal256"; }
+
+  /// Decimal256Type constructor that aborts on invalid input.
+  explicit Decimal256Type(int32_t precision, int32_t scale);
+
+  /// Decimal256Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString() const override;
+  std::string name() const override { return "decimal256"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 76;
 };
 
 /// \brief Concrete type class for union data
@@ -1699,18 +1718,18 @@ class ARROW_EXPORT SchemaBuilder {
   };
 
   /// \brief Construct an empty SchemaBuilder
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a list of fields
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       std::vector<std::shared_ptr<Field>> fields,
       ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       const std::shared_ptr<Schema>& schema,
       ConflictPolicy conflict_policy = CONFLICT_APPEND,

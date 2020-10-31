@@ -49,16 +49,13 @@ public class DictionaryUtility {
       return field;
     }
     DictionaryEncoding encoding = field.getDictionary();
-    List<Field> children = field.getChildren();
+    List<Field> children;
 
-    List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child : children) {
-      updatedChildren.add(toMessageFormat(child, provider, dictionaryIdsUsed));
-    }
 
     ArrowType type;
     if (encoding == null) {
       type = field.getType();
+      children = field.getChildren();
     } else {
       long id = encoding.getId();
       Dictionary dictionary = provider.lookup(id);
@@ -66,8 +63,14 @@ public class DictionaryUtility {
         throw new IllegalArgumentException("Could not find dictionary with ID " + id);
       }
       type = dictionary.getVectorType();
+      children = dictionary.getVector().getField().getChildren();
 
       dictionaryIdsUsed.add(id);
+    }
+
+    final List<Field> updatedChildren = new ArrayList<>(children.size());
+    for (Field child : children) {
+      updatedChildren.add(toMessageFormat(child, provider, dictionaryIdsUsed));
     }
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
@@ -115,8 +118,10 @@ public class DictionaryUtility {
     }
 
     ArrowType type;
+    List<Field> fieldChildren = null;
     if (encoding == null) {
       type = field.getType();
+      fieldChildren = updatedChildren;
     } else {
       // re-type the field for in-memory format
       type = encoding.getIndexType();
@@ -127,13 +132,14 @@ public class DictionaryUtility {
       if (!dictionaries.containsKey(encoding.getId())) {
         // create a new dictionary vector for the values
         String dictName = "DICT" + encoding.getId();
-        Field dictionaryField = new Field(dictName, new FieldType(false, field.getType(), null, null), children);
+        Field dictionaryField = new Field(dictName,
+            new FieldType(field.isNullable(), field.getType(), null, null), updatedChildren);
         FieldVector dictionaryVector = dictionaryField.createVector(allocator);
         dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
       }
     }
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
-      updatedChildren);
+      fieldChildren);
   }
 }

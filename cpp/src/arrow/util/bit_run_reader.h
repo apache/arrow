@@ -64,7 +64,7 @@ class BitRunReaderLinear {
 };
 
 #if ARROW_LITTLE_ENDIAN
-/// A convenience class for counting the number of continguous set/unset bits
+/// A convenience class for counting the number of contiguous set/unset bits
 /// in a bitmap.
 class ARROW_EXPORT BitRunReader {
  public:
@@ -145,7 +145,7 @@ class ARROW_EXPORT BitRunReader {
     }
 
     // Two cases:
-    //   1. For unset, CountTrailingZeros works natually so we don't
+    //   1. For unset, CountTrailingZeros works naturally so we don't
     //   invert the word.
     //   2. Otherwise invert so we can use CountTrailingZeros.
     if (current_run_bit_set_) {

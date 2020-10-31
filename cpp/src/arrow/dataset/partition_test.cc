@@ -89,8 +89,12 @@ class TestPartitioning : public ::testing::Test {
     return field(std::move(name), utf8());
   }
 
-  static std::shared_ptr<Field> Dict(std::string name) {
+  static std::shared_ptr<Field> DictStr(std::string name) {
     return field(std::move(name), dictionary(int32(), utf8()));
+  }
+
+  static std::shared_ptr<Field> DictInt(std::string name) {
+    return field(std::move(name), dictionary(int32(), int32()));
   }
 
   std::shared_ptr<Partitioning> partitioning_;
@@ -152,34 +156,37 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   // fall back to string if any segment for field alpha is not parseable as int
   AssertInspect({"/0/1", "/hello/1"}, {Str("alpha"), Int("beta")});
 
+  // If there are too many digits fall back to string
+  AssertInspect({"/3760212050/1"}, {Str("alpha"), Int("beta")});
+
   // missing segment for beta doesn't cause an error or fallback
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryInference) {
   PartitioningFactoryOptions options;
-  options.max_partition_dictionary_size = 2;
+  options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // type is still int32 if possible
-  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
+  AssertInspect({"/0/1"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"/3760212050/1"}, {DictStr("alpha"), DictInt("beta")});
 
   // successful dictionary inference
-  AssertInspect({"/a/0"}, {Dict("alpha"), Int("beta")});
-  AssertInspect({"/a/0", "/a/1"}, {Dict("alpha"), Int("beta")});
-  AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {Dict("alpha"), Int("beta")});
-  AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {Dict("alpha"), Dict("beta")});
-
-  // fall back to string if max dictionary size is exceeded
-  AssertInspect({"/a/0", "/b/0", "/c/1", "/d/1"}, {Str("alpha"), Int("beta")});
+  AssertInspect({"/a/0"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/a/0", "/a/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   PartitioningFactoryOptions options;
-  options.max_partition_dictionary_size = -1;
+  options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha"}, options);
 
-  auto alpha = Dict("alpha");
+  auto alpha = DictStr("alpha");
   AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
@@ -255,6 +262,9 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // (...so ensure your partitions are ordered the same for all paths)
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
 
+  // If there are too many digits fall back to string
+  AssertInspect({"/alpha=3760212050"}, {Str("alpha")});
+
   // missing path segments will not cause an error
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Int("alpha"), Int("beta"), Str("gamma")});
@@ -262,34 +272,32 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 
 TEST_F(TestPartitioning, HiveDictionaryInference) {
   PartitioningFactoryOptions options;
-  options.max_partition_dictionary_size = 2;
+  options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is still int32 if possible
-  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
+  AssertInspect({"/alpha=0/beta=1"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"/alpha=3760212050"}, {DictStr("alpha")});
 
   // successful dictionary inference
-  AssertInspect({"/alpha=a/beta=0"}, {Dict("alpha"), Int("beta")});
-  AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {Dict("alpha"), Int("beta")});
+  AssertInspect({"/alpha=a/beta=0"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"/alpha=a/beta=0", "/alpha=a/1"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect(
       {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=a/beta=1", "/alpha=b/beta=1"},
-      {Dict("alpha"), Int("beta")});
+      {DictStr("alpha"), DictInt("beta")});
   AssertInspect(
       {"/alpha=a/beta=-", "/alpha=b/beta=-", "/alpha=a/beta=_", "/alpha=b/beta=_"},
-      {Dict("alpha"), Dict("beta")});
-
-  // fall back to string if max dictionary size is exceeded
-  AssertInspect(
-      {"/alpha=a/beta=0", "/alpha=b/beta=0", "/alpha=c/beta=1", "/alpha=d/beta=1"},
-      {Str("alpha"), Int("beta")});
+      {DictStr("alpha"), DictStr("beta")});
 }
 
 TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   PartitioningFactoryOptions options;
-  options.max_partition_dictionary_size = -1;
+  options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
-  auto alpha = Dict("alpha");
+  auto alpha = DictStr("alpha");
   AssertInspect({"/alpha=a", "/alpha=b", "/alpha=a", "/alpha=b", "/alpha=c", "/alpha=a"},
                 {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
@@ -439,7 +447,7 @@ class RangePartitioning : public Partitioning {
   }
 
   Result<std::string> Format(const Expression&) const override { return ""; }
-  Result<std::vector<PartitionedBatch>> Partition(
+  Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();
   }

@@ -60,7 +60,7 @@ public class TestDecimalVector {
   @Test
   public void testValuesWriteRead() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(10, scale), allocator);) {
+        new ArrowType.Decimal(10, scale, 128), allocator);) {
 
       try (DecimalVector oldConstructor = new DecimalVector("decimal", allocator, 10, scale);) {
         assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
@@ -86,7 +86,7 @@ public class TestDecimalVector {
   @Test
   public void testBigDecimalDifferentScaleAndPrecision() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(4, 2), allocator);) {
+        new ArrowType.Decimal(4, 2, 128), allocator);) {
       decimalVector.allocateNew();
 
       // test BigDecimal with different scale
@@ -116,7 +116,7 @@ public class TestDecimalVector {
   @Test
   public void testWriteBigEndian() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(38, 9), allocator);) {
+        new ArrowType.Decimal(38, 9, 128), allocator);) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -161,7 +161,7 @@ public class TestDecimalVector {
   @Test
   public void testLongReadWrite() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(38, 0), allocator)) {
+            new ArrowType.Decimal(38, 0, 128), allocator)) {
       decimalVector.allocateNew();
 
       long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
@@ -182,7 +182,7 @@ public class TestDecimalVector {
   @Test
   public void testBigDecimalReadWrite() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(38, 9), allocator);) {
+        new ArrowType.Decimal(38, 9, 128), allocator);) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -222,7 +222,7 @@ public class TestDecimalVector {
   @Test
   public void decimalBE2LE() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(21, 2), allocator)) {
+        new ArrowType.Decimal(21, 2, 128), allocator)) {
       decimalVector.allocateNew();
 
       BigInteger[] testBigInts = new BigInteger[] {
@@ -272,7 +272,7 @@ public class TestDecimalVector {
   @Test
   public void setUsingArrowBufOfLEInts() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(5, 2), allocator);
+            new ArrowType.Decimal(5, 2, 128), allocator);
          ArrowBuf buf = allocator.buffer(8);) {
       decimalVector.allocateNew();
 
@@ -301,7 +301,7 @@ public class TestDecimalVector {
   @Test
   public void setUsingArrowLongLEBytes() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(18, 0), allocator);
+            new ArrowType.Decimal(18, 0, 128), allocator);
          ArrowBuf buf = allocator.buffer(16);) {
       decimalVector.allocateNew();
 
@@ -327,7 +327,7 @@ public class TestDecimalVector {
   @Test
   public void setUsingArrowBufOfBEBytes() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(5, 2), allocator);
+            new ArrowType.Decimal(5, 2, 128), allocator);
          ArrowBuf buf = allocator.buffer(9);) {
       BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
               .valueOf(-705.32), BigDecimal.valueOf(705.32)};
@@ -335,7 +335,7 @@ public class TestDecimalVector {
     }
 
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(36, 2), allocator);
+            new ArrowType.Decimal(36, 2, 128), allocator);
          ArrowBuf buf = allocator.buffer(45);) {
       BigDecimal[] expectedValues = new BigDecimal[] {new BigDecimal("2982346298346289346293467923465345.63"),
                                                       new BigDecimal("-2982346298346289346293467923465345.63"),

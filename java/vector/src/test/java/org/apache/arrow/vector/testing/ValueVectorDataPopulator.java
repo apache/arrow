@@ -21,6 +21,8 @@ import static org.junit.Assert.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -60,8 +62,10 @@ import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
 /**
@@ -672,5 +676,33 @@ public class ValueVectorDataPopulator {
     }
     dataVector.setValueCount(curPos);
     vector.setValueCount(values.length);
+  }
+
+  /**
+   * Populate values for {@link StructVector}.
+   */
+  public static void setVector(StructVector vector, Map<String, List<Integer>> values) {
+    vector.allocateNewSafe();
+
+    int valueCount = 0;
+    for (final Entry<String, List<Integer>> entry : values.entrySet()) {
+      // Add the child
+      final IntVector child = vector.addOrGet(entry.getKey(),
+          FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+
+      // Write the values to the child
+      child.allocateNew();
+      final List<Integer> v = entry.getValue();
+      for (int i = 0; i < v.size(); i++) {
+        if (v.get(i) != null) {
+          child.set(i, v.get(i));
+          vector.setIndexDefined(i);
+        } else {
+          child.setNull(i);
+        }
+      }
+      valueCount = Math.max(valueCount, v.size());
+    }
+    vector.setValueCount(valueCount);
   }
 }

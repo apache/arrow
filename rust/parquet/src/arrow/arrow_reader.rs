@@ -19,13 +19,15 @@
 
 use crate::arrow::array_reader::{build_array_reader, ArrayReader, StructArrayReader};
 use crate::arrow::schema::parquet_to_arrow_schema;
-use crate::arrow::schema::parquet_to_arrow_schema_by_columns;
+use crate::arrow::schema::{
+    parquet_to_arrow_schema_by_columns, parquet_to_arrow_schema_by_root_columns,
+};
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::FileReader;
-use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::{array::StructArray, error::ArrowError};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -40,7 +42,12 @@ pub trait ArrowReader {
 
     /// Read parquet schema and convert it into arrow schema.
     /// This schema only includes columns identified by `column_indices`.
-    fn get_schema_by_columns<T>(&mut self, column_indices: T) -> Result<Schema>
+    /// To select leaf columns (i.e. `a.b.c` instead of `a`), set `leaf_columns = true`
+    fn get_schema_by_columns<T>(
+        &mut self,
+        column_indices: T,
+        leaf_columns: bool,
+    ) -> Result<Schema>
     where
         T: IntoIterator<Item = usize>;
 
@@ -84,16 +91,28 @@ impl ArrowReader for ParquetFileArrowReader {
         )
     }
 
-    fn get_schema_by_columns<T>(&mut self, column_indices: T) -> Result<Schema>
+    fn get_schema_by_columns<T>(
+        &mut self,
+        column_indices: T,
+        leaf_columns: bool,
+    ) -> Result<Schema>
     where
         T: IntoIterator<Item = usize>,
     {
         let file_metadata = self.file_reader.metadata().file_metadata();
-        parquet_to_arrow_schema_by_columns(
-            file_metadata.schema_descr(),
-            column_indices,
-            file_metadata.key_value_metadata(),
-        )
+        if leaf_columns {
+            parquet_to_arrow_schema_by_columns(
+                file_metadata.schema_descr(),
+                column_indices,
+                file_metadata.key_value_metadata(),
+            )
+        } else {
+            parquet_to_arrow_schema_by_root_columns(
+                file_metadata.schema_descr(),
+                column_indices,
+                file_metadata.key_value_metadata(),
+            )
+        }
     }
 
     fn get_record_reader(
@@ -123,6 +142,7 @@ impl ArrowReader for ParquetFileArrowReader {
                 .metadata()
                 .file_metadata()
                 .schema_descr_ptr(),
+            self.get_schema()?,
             column_indices,
             self.file_reader.clone(),
         )?;
@@ -143,37 +163,42 @@ pub struct ParquetRecordBatchReader {
     schema: SchemaRef,
 }
 
+impl Iterator for ParquetRecordBatchReader {
+    type Item = ArrowResult<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.array_reader.next_batch(self.batch_size) {
+            Err(error) => Some(Err(error.into())),
+            Ok(array) => {
+                let struct_array =
+                    array.as_any().downcast_ref::<StructArray>().ok_or_else(|| {
+                        ArrowError::ParquetError(
+                            "Struct array reader should return struct array".to_string(),
+                        )
+                    });
+                match struct_array {
+                    Err(err) => Some(Err(err)),
+                    Ok(e) => {
+                        match RecordBatch::try_new(self.schema.clone(), e.columns_ref()) {
+                            Err(err) => Some(Err(err)),
+                            Ok(record_batch) => {
+                                if record_batch.num_rows() > 0 {
+                                    Some(Ok(record_batch))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl RecordBatchReader for ParquetRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        self.array_reader
-            .next_batch(self.batch_size)
-            .map_err(|err| err.into())
-            .and_then(|array| {
-                array
-                    .as_any()
-                    .downcast_ref::<StructArray>()
-                    .ok_or_else(|| {
-                        general_err!("Struct array reader should return struct array")
-                            .into()
-                    })
-                    .and_then(|struct_array| {
-                        RecordBatch::try_new(
-                            self.schema.clone(),
-                            struct_array.columns_ref(),
-                        )
-                    })
-            })
-            .map(|record_batch| {
-                if record_batch.num_rows() > 0 {
-                    Some(record_batch)
-                } else {
-                    None
-                }
-            })
     }
 }
 
@@ -472,7 +497,7 @@ mod tests {
         for i in 0..opts.num_iterations {
             let start = i * opts.record_batch_size;
 
-            let batch = record_reader.next_batch().unwrap();
+            let batch = record_reader.next();
             if start < expected_data.len() {
                 let end = min(start + opts.record_batch_size, expected_data.len());
                 assert!(batch.is_some());
@@ -483,6 +508,7 @@ mod tests {
                 assert_eq!(
                     &converter.convert(data).unwrap(),
                     batch
+                        .unwrap()
                         .unwrap()
                         .column(0)
                         .as_any()
@@ -554,9 +580,8 @@ mod tests {
     ) {
         for i in 0..20 {
             let array: Option<StructArray> = record_batch_reader
-                .next_batch()
-                .expect("Failed to read record batch!")
-                .map(|r| r.into());
+                .next()
+                .map(|r| r.expect("Failed to read record batch!").into());
 
             let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
 

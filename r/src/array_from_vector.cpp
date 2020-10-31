@@ -321,7 +321,7 @@ struct VectorToArrayConverter {
 
   static std::shared_ptr<Array> Visit(SEXP x, const std::shared_ptr<DataType>& type) {
     std::unique_ptr<ArrayBuilder> builder;
-    StopIfNotOk(MakeBuilder(arrow::default_memory_pool(), type, &builder));
+    StopIfNotOk(MakeBuilder(gc_memory_pool(), type, &builder));
 
     VectorToArrayConverter converter{x, builder.get()};
     StopIfNotOk(arrow::VisitTypeInline(*type, &converter));
@@ -342,7 +342,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
   auto n = factor.size();
 
   std::shared_ptr<Buffer> indices_buffer =
-      ValueOrStop(AllocateBuffer(n * sizeof(value_type)));
+      ValueOrStop(AllocateBuffer(n * sizeof(value_type), gc_memory_pool()));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
@@ -357,7 +357,8 @@ std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
 
   if (i < n) {
     // there are NA's so we need a null buffer
-    auto null_buffer = ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n)));
+    auto null_buffer =
+        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up
@@ -1367,7 +1368,8 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
 
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_na<value_type>);
   if (first_na < p_vec_end) {
-    auto null_bitmap = ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n)));
+    auto null_bitmap =
+        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA
@@ -1512,7 +1514,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // Create ArrayBuilder for type
   std::unique_ptr<arrow::ArrayBuilder> type_builder;
-  StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+  StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
   StopIfNotOk(converter->Init(type_builder.get()));
 
   // ingest R data and grab the result array
@@ -1568,7 +1570,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
   if (n == 0) {
     std::shared_ptr<arrow::Array> array;
     std::unique_ptr<arrow::ArrayBuilder> type_builder;
-    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
     StopIfNotOk(type_builder->Finish(&array));
     vec.push_back(array);
   } else {

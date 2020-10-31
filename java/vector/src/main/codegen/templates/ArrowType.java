@@ -165,7 +165,34 @@ public abstract class ArrowType {
     ${fieldType} ${field.name};
     </#list>
 
+
+    <#if type.name == "Decimal">
+    // Needed to support golden file integration tests.
     @JsonCreator
+    public static Decimal createDecimal(
+      @JsonProperty("precision") int precision,
+      @JsonProperty("scale") int scale,
+      @JsonProperty("bitWidth") Integer bitWidth) {
+
+      return new Decimal(precision, scale, bitWidth == null ? 128 : bitWidth);
+    }
+
+    /**
+     * Construct Decimal with 128 bits.
+     * 
+     * This is kept mainly for the sake of backward compatibility.
+     * Please use {@link org.apache.arrow.vector.types.pojo.ArrowType.Decimal#Decimal(int, int, int)} instead.
+     *
+     * @deprecated This API will be removed in a future release.
+     */
+    @Deprecated
+    public Decimal(int precision, int scale) {
+      this(precision, scale, 128);
+    }
+
+    <#else>
+    @JsonCreator
+    </#if>
     public ${type.name}(
     <#list type.fields as field>
     <#assign fieldType = field.valueType!field.type>
@@ -327,9 +354,8 @@ public abstract class ArrowType {
       </#if>
       </#list>
       <#if type.name == "Decimal">
-      int bitWidth = ${nameLower}Type.bitWidth();
-      if (bitWidth != defaultDecimalBitWidth) {
-        throw new IllegalArgumentException("Library only supports 128-bit decimal values");
+      if (bitWidth != defaultDecimalBitWidth && bitWidth != 256) {
+        throw new IllegalArgumentException("Library only supports 128-bit and 256-bit decimal values");
       }
       </#if>
       return new ${name}(<#list type.fields as field><#if field.valueType??>${field.valueType}.fromFlatbufID(${field.name})<#else>${field.name}</#if><#if field_has_next>, </#if></#list>);

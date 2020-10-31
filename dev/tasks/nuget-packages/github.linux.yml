@@ -40,7 +40,9 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
       - name: Setup Archery
         run: pip install -e arrow/dev/archery[docker]
       - name: Prepare version

@@ -466,11 +466,20 @@ def _get_index_level(df, name):
     return df.index.get_level_values(key)
 
 
+def _level_name(name):
+    # preserve type when default serializable, otherwise str it
+    try:
+        json.dumps(name)
+        return name
+    except TypeError:
+        return str(name)
+
+
 def _get_range_index_descriptor(level):
     # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
-        'name': level.name,
+        'name': _level_name(level.name),
         'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
         'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
         'step': _pandas_api.get_rangeindex_attribute(level, 'step')
@@ -969,9 +978,8 @@ def _extract_index_level(table, result_table, field_name,
         # non-writeable arrays when calling MultiIndex.from_arrays
         values = values.copy()
 
-    if isinstance(col.type, pa.lib.TimestampType):
-        index_level = (pd.Series(values).dt.tz_localize('utc')
-                       .dt.tz_convert(col.type.tz))
+    if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
+        index_level = make_tz_aware(pd.Series(values), col.type.tz)
     else:
         index_level = pd.Series(values, dtype=values.dtype)
     result_table = result_table.remove_column(

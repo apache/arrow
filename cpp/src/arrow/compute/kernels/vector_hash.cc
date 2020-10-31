@@ -498,7 +498,8 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::LARGE_STRING:
       return HashInit<LargeBinaryType, Action>;
     case Type::FIXED_SIZE_BINARY:
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
       return HashInit<FixedSizeBinaryType, Action>;
     default:
       DCHECK(false);
@@ -624,6 +625,22 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   DCHECK_OK(func->AddKernel(base));
 }
 
+const FunctionDoc unique_doc(
+    "Compute unique elements",
+    ("Return an array with distinct values.  Nulls in the input are ignored."),
+    {"array"});
+
+const FunctionDoc value_counts_doc(
+    "Compute counts of unique elements",
+    ("For each distinct value, compute the number of times it occurs in the array.\n"
+     "The result is returned as an array of `struct<input type, int64>`.\n"
+     "Nulls in the input are ignored."),
+    {"array"});
+
+const FunctionDoc dictionary_encode_doc(
+    "Dictionary-encode array",
+    ("Return a dictionary-encoded version of the input array."), {"array"});
+
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
@@ -635,7 +652,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
-  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary());
+  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), &unique_doc);
   AddHashKernels<UniqueAction>(unique.get(), base, OutputType(FirstType));
 
   // Dictionary unique
@@ -651,7 +668,8 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   // value_counts
 
   base.finalize = ValueCountsFinalize;
-  auto value_counts = std::make_shared<VectorFunction>("value_counts", Arity::Unary());
+  auto value_counts =
+      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), &value_counts_doc);
   AddHashKernels<ValueCountsAction>(value_counts.get(), base,
                                     OutputType(ValueCountsOutput));
 
@@ -670,8 +688,8 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   base.finalize = DictEncodeFinalize;
   // Unique and ValueCounts output unchunked arrays
   base.output_chunked = true;
-  auto dict_encode =
-      std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary());
+  auto dict_encode = std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary(),
+                                                      &dictionary_encode_doc);
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 
   // Calling dictionary_encode on dictionary input not supported, but if it

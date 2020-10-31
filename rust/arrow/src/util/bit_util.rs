@@ -20,9 +20,9 @@
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
-static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+const BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
-static POPCOUNT_TABLE: [u8; 256] = [
+const POPCOUNT_TABLE: [u8; 256] = [
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4,
     3, 4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5,
     3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4,
@@ -43,7 +43,7 @@ pub fn round_upto_multiple_of_64(num: usize) -> usize {
 
 /// Returns the nearest multiple of `factor` that is `>=` than `num`. Here `factor` must
 /// be a power of 2.
-fn round_upto_power_of_2(num: usize, factor: usize) -> usize {
+pub fn round_upto_power_of_2(num: usize, factor: usize) -> usize {
     debug_assert!(factor > 0 && (factor & (factor - 1)) == 0);
     (num + (factor - 1)) & !(factor - 1)
 }
@@ -409,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64")))]
     fn test_ceil() {
         assert_eq!(ceil(0, 1), 0);
         assert_eq!(ceil(1, 1), 1);

@@ -20,11 +20,10 @@
 use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
-use crate::buffer::{buffer_bin_and, Buffer};
+use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
 #[cfg(feature = "simd")]
 use crate::datatypes::*;
-use crate::error::{ArrowError, Result};
-use crate::util::bit_util::ceil;
+use crate::error::Result;
 #[cfg(feature = "simd")]
 use num::One;
 #[cfg(feature = "simd")]
@@ -44,29 +43,54 @@ pub(super) fn combine_option_bitmap(
     let left = left_data.null_buffer();
     let right = right_data.null_buffer();
 
-    if (left.is_some() && left_offset_in_bits % 8 != 0)
-        || (right.is_some() && right_offset_in_bits % 8 != 0)
-    {
-        return Err(ArrowError::ComputeError(
-            "Cannot combine option bitmaps that are not byte-aligned.".to_string(),
-        ));
-    }
+    match left {
+        None => match right {
+            None => Ok(None),
+            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
+        },
+        Some(l) => match right {
+            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
 
-    let left_offset = left_offset_in_bits / 8;
-    let right_offset = right_offset_in_bits / 8;
+            Some(r) => Ok(Some(buffer_bin_and(
+                &l,
+                left_offset_in_bits,
+                &r,
+                right_offset_in_bits,
+                len_in_bits,
+            ))),
+        },
+    }
+}
+
+/// Compares the null bitmaps of two arrays using a bitwise `or` operation.
+///
+/// This function is useful when implementing operations on higher level arrays.
+pub(super) fn compare_option_bitmap(
+    left_data: &ArrayDataRef,
+    right_data: &ArrayDataRef,
+    len_in_bits: usize,
+) -> Result<Option<Buffer>> {
+    let left_offset_in_bits = left_data.offset();
+    let right_offset_in_bits = right_data.offset();
+
+    let left = left_data.null_buffer();
+    let right = right_data.null_buffer();
 
     match left {
         None => match right {
             None => Ok(None),
-            Some(r) => Ok(Some(r.slice(right_offset))),
+            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
         },
         Some(l) => match right {
-            None => Ok(Some(l.slice(left_offset))),
+            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
 
-            Some(r) => {
-                let len = ceil(len_in_bits, 8);
-                Ok(Some(buffer_bin_and(&l, left_offset, &r, right_offset, len)))
-            }
+            Some(r) => Ok(Some(buffer_bin_or(
+                &l,
+                left_offset_in_bits,
+                &r,
+                right_offset_in_bits,
+                len_in_bits,
+            ))),
         },
     }
 }
@@ -208,6 +232,8 @@ mod tests {
         let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
         let some_bitmap =
             make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
         assert_eq!(
             None,
             combine_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
@@ -223,6 +249,39 @@ mod tests {
         assert_eq!(
             Some(Buffer::from([0b01001010])),
             combine_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b0])),
+            combine_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_compare_option_bitmap() {
+        let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
+        let some_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
+        assert_eq!(
+            None,
+            compare_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&none_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b11111111])),
+            compare_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
         );
     }
 

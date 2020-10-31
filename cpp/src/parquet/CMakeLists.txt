@@ -203,7 +203,7 @@ set(PARQUET_SRCS
     stream_writer.cc
     types.cc)
 
-if(CXX_SUPPORTS_AVX2)
+if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
   set_source_files_properties(level_comparison_avx2.cc

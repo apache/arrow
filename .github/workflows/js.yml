@@ -40,7 +40,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 NodeJS 11
+    name: AMD64 Debian 10 NodeJS 14
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
@@ -75,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [11]
+        node: [14]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -103,7 +103,7 @@ jobs:
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       node: [11]
+  #       node: [14]
   #   steps:
   #     - name: Checkout Arrow
   #       uses: actions/checkout@v1

@@ -17,12 +17,11 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::convert::TryFrom;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
-use std::{cell::RefCell, convert::TryFrom};
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
@@ -50,6 +49,7 @@ use arrow::{
     },
     datatypes::Field,
 };
+use compute::can_cast_types;
 
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
@@ -122,7 +122,7 @@ pub fn sum_return_type(arg_type: &DataType) -> Result<DataType> {
         }
         DataType::Float32 => Ok(DataType::Float32),
         DataType::Float64 => Ok(DataType::Float64),
-        other => Err(ExecutionError::General(format!(
+        other => Err(DataFusionError::Plan(format!(
             "SUM does not support type \"{:?}\"",
             other
         ))),
@@ -162,10 +162,8 @@ impl AggregateExpr for Sum {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(SumAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(SumAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -206,7 +204,7 @@ fn sum_batch(values: &ArrayRef) -> Result<ScalarValue> {
         DataType::UInt16 => typed_sum_delta_batch!(values, UInt16Array, UInt16),
         DataType::UInt8 => typed_sum_delta_batch!(values, UInt8Array, UInt8),
         e => {
-            return Err(ExecutionError::InternalError(format!(
+            return Err(DataFusionError::Internal(format!(
                 "Sum is not expected to receive the type {:?}",
                 e
             )))
@@ -290,7 +288,7 @@ fn sum(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
             typed_sum!(lhs, rhs, Int64, i64)
         }
         e => {
-            return Err(ExecutionError::InternalError(format!(
+            return Err(DataFusionError::Internal(format!(
                 "Sum is not expected to receive a scalar {:?}",
                 e
             )))
@@ -352,7 +350,7 @@ pub fn avg_return_type(arg_type: &DataType) -> Result<DataType> {
         | DataType::UInt64
         | DataType::Float32
         | DataType::Float64 => Ok(DataType::Float64),
-        other => Err(ExecutionError::General(format!(
+        other => Err(DataFusionError::Plan(format!(
             "AVG does not support {:?}",
             other
         ))),
@@ -391,11 +389,11 @@ impl AggregateExpr for Avg {
         ])
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(AvgAccumulator::try_new(
             // avg is f64
             &DataType::Float64,
-        )?)))
+        )?))
     }
 
     fn expressions(&self) -> Vec<Arc<dyn PhysicalExpr>> {
@@ -472,7 +470,7 @@ impl Accumulator for AvgAccumulator {
                 Some(f) => Some(f / self.count as f64),
                 None => None,
             })),
-            _ => Err(ExecutionError::InternalError(
+            _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
         }
@@ -521,10 +519,8 @@ impl AggregateExpr for Max {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(MaxAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(MaxAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -568,10 +564,11 @@ macro_rules! min_max_batch {
             DataType::UInt16 => typed_min_max_batch!($VALUES, UInt16Array, UInt16, $OP),
             DataType::UInt8 => typed_min_max_batch!($VALUES, UInt8Array, UInt8, $OP),
             other => {
-                return Err(ExecutionError::NotImplemented(format!(
+                // This should have been handled before
+                return Err(DataFusionError::Internal(format!(
                     "Min/Max accumulator not implemented for type {:?}",
                     other
-                )))
+                )));
             }
         }
     }};
@@ -668,7 +665,7 @@ macro_rules! min_max {
                 typed_min_max_string!(lhs, rhs, LargeUtf8, $OP)
             }
             e => {
-                return Err(ExecutionError::InternalError(format!(
+                return Err(DataFusionError::Internal(format!(
                     "MIN/MAX is not expected to receive a scalar {:?}",
                     e
                 )))
@@ -774,10 +771,8 @@ impl AggregateExpr for Min {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(MinAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(MinAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -869,8 +864,8 @@ impl AggregateExpr for Count {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(CountAccumulator::new())))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(CountAccumulator::new()))
     }
 }
 
@@ -894,7 +889,7 @@ impl CountAccumulator {
             (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
             (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
             _ => {
-                return Err(ExecutionError::InternalError(
+                return Err(DataFusionError::Internal(
                     "Code should not be reached reach".to_string(),
                 ))
             }
@@ -922,7 +917,7 @@ impl Accumulator for CountAccumulator {
             // value is null => no change in count
             (e, true) => e.clone(),
             (_, false) => {
-                return Err(ExecutionError::InternalError(
+                return Err(DataFusionError::Internal(
                     "Count is always of type u64".to_string(),
                 ))
             }
@@ -988,7 +983,7 @@ macro_rules! binary_string_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1012,7 +1007,7 @@ macro_rules! binary_primitive_array_op {
             DataType::UInt64 => compute_op!($LEFT, $RIGHT, $OP, UInt64Array),
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1039,7 +1034,7 @@ macro_rules! binary_array_op {
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
             }
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1086,7 +1081,40 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
-// the type that both lhs and rhs can be casted to for the purpose of a string computation
+/// Coercion rules for dictionary values (aka the type of the  dictionary itself)
+fn dictionary_value_coercion(
+    lhs_type: &DataType,
+    rhs_type: &DataType,
+) -> Option<DataType> {
+    numerical_coercion(lhs_type, rhs_type).or_else(|| string_coercion(lhs_type, rhs_type))
+}
+
+/// Coercion rules for Dictionaries: the type that both lhs and rhs
+/// can be casted to for the purpose of a computation.
+///
+/// It would likely be preferable to cast primitive values to
+/// dictionaries, and thus avoid unpacking dictionary as well as doing
+/// faster comparisons. However, the arrow compute kernels (e.g. eq)
+/// don't have DictionaryArray support yet, so fall back to unpacking
+/// the dictionaries
+fn dictionary_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+    match (lhs_type, rhs_type) {
+        (
+            DataType::Dictionary(_lhs_index_type, lhs_value_type),
+            DataType::Dictionary(_rhs_index_type, rhs_value_type),
+        ) => dictionary_value_coercion(lhs_value_type, rhs_value_type),
+        (DataType::Dictionary(_index_type, value_type), _) => {
+            dictionary_value_coercion(value_type, rhs_type)
+        }
+        (_, DataType::Dictionary(_index_type, value_type)) => {
+            dictionary_value_coercion(lhs_type, value_type)
+        }
+        _ => None,
+    }
+}
+
+/// Coercion rules for Strings: the type that both lhs and rhs can be
+/// casted to for the purpose of a string computation
 fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
     match (lhs_type, rhs_type) {
@@ -1098,7 +1126,9 @@ fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType>
     }
 }
 
-/// coercion rule for numerical types
+/// Coercion rule for numerical types: The type that both lhs and rhs
+/// can be casted to for numerical calculation, while maintaining
+/// maximum precision
 pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
 
@@ -1156,6 +1186,7 @@ fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
         return Some(lhs_type.clone());
     }
     numerical_coercion(lhs_type, rhs_type)
+        .or_else(|| dictionary_coercion(lhs_type, rhs_type))
 }
 
 // coercion rules that assume an ordered set, such as "less than".
@@ -1166,16 +1197,13 @@ fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> 
         return Some(lhs_type.clone());
     }
 
-    match numerical_coercion(lhs_type, rhs_type) {
-        None => {
-            // strings are naturally ordered, and thus ordering can be applied to them.
-            string_coercion(lhs_type, rhs_type)
-        }
-        t => t,
-    }
+    numerical_coercion(lhs_type, rhs_type)
+        .or_else(|| string_coercion(lhs_type, rhs_type))
+        .or_else(|| dictionary_coercion(lhs_type, rhs_type))
 }
 
-/// coercion rules for all binary operators
+/// Coercion rules for all binary operators. Returns the output type
+/// of applying `op` to an argument of `lhs_type` and `rhs_type`.
 fn common_binary_type(
     lhs_type: &DataType,
     op: &Operator,
@@ -1202,7 +1230,7 @@ fn common_binary_type(
             numerical_coercion(lhs_type, rhs_type)
         }
         Operator::Modulus => {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             ))
         }
@@ -1210,7 +1238,7 @@ fn common_binary_type(
 
     // re-write the error message of failed coercions to include the operator's information
     match result {
-        None => Err(ExecutionError::General(
+        None => Err(DataFusionError::Plan(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
@@ -1250,7 +1278,7 @@ pub fn binary_operator_data_type(
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
             Ok(common_type)
         }
-        Operator::Modulus => Err(ExecutionError::NotImplemented(
+        Operator::Modulus => Err(DataFusionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
         )),
     }
@@ -1292,7 +1320,8 @@ impl PhysicalExpr for BinaryExpr {
         let left = self.left.evaluate(batch)?;
         let right = self.right.evaluate(batch)?;
         if left.data_type() != right.data_type() {
-            return Err(ExecutionError::General(format!(
+            // this should have been captured during planning
+            return Err(DataFusionError::Internal(format!(
                 "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                 self.op,
                 left.data_type(),
@@ -1316,7 +1345,7 @@ impl PhysicalExpr for BinaryExpr {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, and)
                 } else {
-                    return Err(ExecutionError::General(format!(
+                    return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                         self.op,
                         left.data_type(),
@@ -1328,7 +1357,7 @@ impl PhysicalExpr for BinaryExpr {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, or)
                 } else {
-                    return Err(ExecutionError::General(format!(
+                    return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                         self.op,
                         left.data_type(),
@@ -1336,7 +1365,7 @@ impl PhysicalExpr for BinaryExpr {
                     )));
                 }
             }
-            Operator::Modulus => Err(ExecutionError::NotImplemented(
+            Operator::Modulus => Err(DataFusionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             )),
         }
@@ -1404,7 +1433,7 @@ pub fn not(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let data_type = arg.data_type(input_schema)?;
     if data_type != DataType::Boolean {
-        Err(ExecutionError::General(
+        Err(DataFusionError::Internal(
             format!(
                 "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
                 arg, data_type,
@@ -1532,7 +1561,10 @@ impl PhysicalExpr for CastExpr {
     }
 }
 
-/// Returns a cast operation, if casting needed.
+/// Return a PhysicalExpression representing `expr` casted to
+/// `cast_type`, if any casting is needed.
+///
+/// Note that such casts may lose type information
 pub fn cast(
     expr: Arc<dyn PhysicalExpr>,
     input_schema: &Schema,
@@ -1540,19 +1572,12 @@ pub fn cast(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let expr_type = expr.data_type(input_schema)?;
     if expr_type == cast_type {
-        return Ok(expr.clone());
-    }
-    if is_numeric(&expr_type) && (is_numeric(&cast_type) || cast_type == DataType::Utf8) {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if is_numeric(&expr_type)
-        && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
-    {
+        Ok(expr.clone())
+    } else if can_cast_types(&expr_type, &cast_type) {
         Ok(Arc::new(CastExpr { expr, cast_type }))
     } else {
-        Err(ExecutionError::General(format!(
-            "Invalid CAST from {:?} to {:?}",
+        Err(DataFusionError::Internal(format!(
+            "Unsupported CAST from {:?} to {:?}",
             expr_type, cast_type
         )))
     }
@@ -1639,7 +1664,7 @@ impl PhysicalExpr for Literal {
                 StringBuilder,
                 value.as_ref().and_then(|e| Some(&*e))
             ),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported literal type {:?}",
                 other
             ))),
@@ -1675,11 +1700,14 @@ impl PhysicalSortExpr {
 mod tests {
     use super::*;
     use crate::error::Result;
-    use arrow::array::{
-        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
-        Time64NanosecondArray,
-    };
     use arrow::datatypes::*;
+    use arrow::{
+        array::{
+            LargeStringArray, PrimitiveArray, PrimitiveBuilder, StringArray,
+            StringDictionaryBuilder, Time64NanosecondArray,
+        },
+        util::display::array_value_to_string,
+    };
 
     // Create a binary expression without coercion. Used here when we do not want to coerce the expressions
     // to valid types. Usage can result in an execution (after plan) error.
@@ -1782,11 +1810,13 @@ mod tests {
 
     // runs an end-to-end test of physical type coercion:
     // 1. construct a record batch with two columns of type A and B
+    //  (*_ARRAY is the Rust Arrow array type, and *_TYPE is the DataType of the elements)
     // 2. construct a physical expression of A OP B
     // 3. evaluate the expression
     // 4. verify that the resulting expression is of type C
+    // 5. verify that the results of evaluation are $VEC
     macro_rules! test_coercion {
-        ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $B_ARRAY:ident, $B_TYPE:expr, $B_VEC:expr, $OP:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
+        ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $B_ARRAY:ident, $B_TYPE:expr, $B_VEC:expr, $OP:expr, $C_ARRAY:ident, $C_TYPE:expr, $VEC:expr) => {{
             let schema = Schema::new(vec![
                 Field::new("a", $A_TYPE, false),
                 Field::new("b", $B_TYPE, false),
@@ -1802,18 +1832,18 @@ mod tests {
             let expression = binary(col("a"), $OP, col("b"), &schema)?;
 
             // verify that the expression's type is correct
-            assert_eq!(expression.data_type(&schema)?, $TYPE);
+            assert_eq!(expression.data_type(&schema)?, $C_TYPE);
 
             // compute
             let result = expression.evaluate(&batch)?;
 
             // verify that the array's data_type is correct
-            assert_eq!(*result.data_type(), $TYPE);
+            assert_eq!(*result.data_type(), $C_TYPE);
 
             // verify that the data itself is downcastable
             let result = result
                 .as_any()
-                .downcast_ref::<$TYPEARRAY>()
+                .downcast_ref::<$C_ARRAY>()
                 .expect("failed to downcast");
             // verify that the result itself is correct
             for (i, x) in $VEC.iter().enumerate() {
@@ -1888,16 +1918,117 @@ mod tests {
     }
 
     #[test]
+    fn test_dictionary_type_coersion() -> Result<()> {
+        use DataType::*;
+
+        // TODO: In the future, this would ideally return Dictionary types and avoid unpacking
+        let lhs_type = Dictionary(Box::new(Int8), Box::new(Int32));
+        let rhs_type = Dictionary(Box::new(Int8), Box::new(Int16));
+        assert_eq!(dictionary_coercion(&lhs_type, &rhs_type), Some(Int32));
+
+        let lhs_type = Dictionary(Box::new(Int8), Box::new(Utf8));
+        let rhs_type = Dictionary(Box::new(Int8), Box::new(Int16));
+        assert_eq!(dictionary_coercion(&lhs_type, &rhs_type), None);
+
+        let lhs_type = Dictionary(Box::new(Int8), Box::new(Utf8));
+        let rhs_type = Utf8;
+        assert_eq!(dictionary_coercion(&lhs_type, &rhs_type), Some(Utf8));
+
+        let lhs_type = Utf8;
+        let rhs_type = Dictionary(Box::new(Int8), Box::new(Utf8));
+        assert_eq!(dictionary_coercion(&lhs_type, &rhs_type), Some(Utf8));
+
+        Ok(())
+    }
+
+    // Note it would be nice to use the same test_coercion macro as
+    // above, but sadly the type of the values of the dictionary are
+    // not encoded in the rust type of the DictionaryArray. Thus there
+    // is no way at the time of this writing to create a dictionary
+    // array using the `From` trait
+    #[test]
+    fn test_dictionary_type_to_array_coersion() -> Result<()> {
+        // Test string  a string dictionary
+        let dict_type =
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+        let string_type = DataType::Utf8;
+
+        // build dictionary
+        let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let values_builder = StringBuilder::new(10);
+        let mut dict_builder = StringDictionaryBuilder::new(keys_builder, values_builder);
+
+        dict_builder.append("one")?;
+        dict_builder.append_null()?;
+        dict_builder.append("three")?;
+        dict_builder.append("four")?;
+        let dict_array = dict_builder.finish();
+
+        let str_array =
+            StringArray::from(vec![Some("not one"), Some("two"), None, Some("four")]);
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("dict", dict_type.clone(), true),
+            Field::new("str", string_type.clone(), true),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(dict_array), Arc::new(str_array)],
+        )?;
+
+        let expected = "false\n\n\ntrue";
+
+        // Test 1: dict = str
+
+        // verify that we can construct the expression
+        let expression = binary(col("dict"), Operator::Eq, col("str"), &schema)?;
+        assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
+
+        // evaluate and verify the result type matched
+        let result = expression.evaluate(&batch)?;
+        assert_eq!(result.data_type(), &DataType::Boolean);
+
+        // verify that the result itself is correct
+        assert_eq!(expected, array_to_string(&result)?);
+
+        // Test 2: now test the other direction
+        // str = dict
+
+        // verify that we can construct the expression
+        let expression = binary(col("str"), Operator::Eq, col("dict"), &schema)?;
+        assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
+
+        // evaluate and verify the result type matched
+        let result = expression.evaluate(&batch)?;
+        assert_eq!(result.data_type(), &DataType::Boolean);
+
+        // verify that the result itself is correct
+        assert_eq!(expected, array_to_string(&result)?);
+
+        Ok(())
+    }
+
+    // Convert the array to a newline delimited string of pretty printed values
+    fn array_to_string(array: &ArrayRef) -> Result<String> {
+        let s = (0..array.len())
+            .map(|i| array_value_to_string(array, i))
+            .collect::<std::result::Result<Vec<_>, arrow::error::ArrowError>>()?
+            .join("\n");
+        Ok(s)
+    }
+
+    #[test]
     fn test_coersion_error() -> Result<()> {
         let expr =
             common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
 
-        if let Err(ExecutionError::General(e)) = expr {
+        if let Err(DataFusionError::Plan(e)) = expr {
             assert_eq!(e, "'Float32 + Utf8' can't be evaluated because there isn't a common type to coerce the types to");
             Ok(())
         } else {
-            Err(ExecutionError::General(
-                "Coercion should have returned an ExecutionError::General".to_string(),
+            Err(DataFusionError::Internal(
+                "Coercion should have returned an DataFusionError::Internal".to_string(),
             ))
         }
     }
@@ -1992,533 +2123,497 @@ mod tests {
 
     #[test]
     fn invalid_cast() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        let result = cast(col("a"), &schema, DataType::Int32);
-        result.expect_err("Invalid CAST from Utf8 to Int32");
+        // Ensure a useful error happens at plan time if invalid casts are used
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let result = cast(col("a"), &schema, DataType::LargeBinary);
+        result.expect_err("expected Invalid CAST");
         Ok(())
+    }
+
+    /// macro to perform an aggregation and verify the result.
+    macro_rules! generic_test_op {
+        ($ARRAY:expr, $DATATYPE:expr, $OP:ident, $EXPECTED:expr, $EXPECTED_DATATYPE:expr) => {{
+            let schema = Schema::new(vec![Field::new("a", $DATATYPE, false)]);
+
+            let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![$ARRAY])?;
+
+            let agg =
+                Arc::new(<$OP>::new(col("a"), "bla".to_string(), $EXPECTED_DATATYPE));
+            let actual = aggregate(&batch, agg)?;
+            let expected = ScalarValue::from($EXPECTED);
+
+            assert_eq!(expected, actual);
+
+            Ok(())
+        }};
     }
 
     #[test]
     fn sum_i32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::Int64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(15i64);
-
-        assert_eq!(expected, actual);
-
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Sum,
+            ScalarValue::from(15i64),
+            DataType::Int64
+        )
     }
 
     #[test]
     fn avg_i32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Avg,
+            ScalarValue::from(3_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn max_i32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5i32);
-
-        assert_eq!(expected, actual);
-
-        Ok(())
-    }
-
-    #[test]
-    fn max_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-
-        let a = StringArray::from(vec!["d", "a", "c", "b"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Utf8));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Utf8(Some("d".to_string()));
-
-        assert_eq!(expected, actual);
-        Ok(())
-    }
-
-    #[test]
-    fn max_large_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
-
-        let a = LargeStringArray::from(vec!["d", "a", "c", "b"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::LargeUtf8));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::LargeUtf8(Some("d".to_string()));
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Max,
+            ScalarValue::from(5i32),
+            DataType::Int32
+        )
     }
 
     #[test]
     fn min_i32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Min,
+            ScalarValue::from(1i32),
+            DataType::Int32
+        )
+    }
 
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+    #[test]
+    fn max_utf8() -> Result<()> {
+        let a: ArrayRef = Arc::new(StringArray::from(vec!["d", "a", "c", "b"]));
+        generic_test_op!(
+            a,
+            DataType::Utf8,
+            Max,
+            ScalarValue::Utf8(Some("d".to_string())),
+            DataType::Utf8
+        )
+    }
 
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(1i32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+    #[test]
+    fn max_large_utf8() -> Result<()> {
+        let a: ArrayRef = Arc::new(LargeStringArray::from(vec!["d", "a", "c", "b"]));
+        generic_test_op!(
+            a,
+            DataType::LargeUtf8,
+            Max,
+            ScalarValue::LargeUtf8(Some("d".to_string())),
+            DataType::LargeUtf8
+        )
     }
 
     #[test]
     fn min_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-
-        let a = StringArray::from(vec!["d", "a", "c", "b"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Utf8));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Utf8(Some("a".to_string()));
-
-        assert_eq!(expected, actual);
-
-        Ok(())
+        let a: ArrayRef = Arc::new(StringArray::from(vec!["d", "a", "c", "b"]));
+        generic_test_op!(
+            a,
+            DataType::Utf8,
+            Min,
+            ScalarValue::Utf8(Some("a".to_string())),
+            DataType::Utf8
+        )
     }
 
     #[test]
     fn min_large_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
-
-        let a = LargeStringArray::from(vec!["d", "a", "c", "b"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::LargeUtf8));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::LargeUtf8(Some("a".to_string()));
-
-        assert_eq!(expected, actual);
-
-        Ok(())
+        let a: ArrayRef = Arc::new(LargeStringArray::from(vec!["d", "a", "c", "b"]));
+        generic_test_op!(
+            a,
+            DataType::LargeUtf8,
+            Min,
+            ScalarValue::LargeUtf8(Some("a".to_string())),
+            DataType::LargeUtf8
+        )
     }
 
     #[test]
     fn sum_i32_with_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::Int64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(13i64);
-
-        assert_eq!(expected, actual);
-
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            None,
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Sum,
+            ScalarValue::from(13i64),
+            DataType::Int64
+        )
     }
 
     #[test]
     fn avg_i32_with_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3.25f64);
-
-        assert_eq!(expected, actual);
-
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            None,
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Avg,
+            ScalarValue::from(3.25f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn max_i32_with_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5i32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            None,
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Max,
+            ScalarValue::from(5i32),
+            DataType::Int32
+        )
     }
 
     #[test]
     fn min_i32_with_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(1i32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            None,
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Min,
+            ScalarValue::from(1i32),
+            DataType::Int32
+        )
     }
 
     #[test]
     fn sum_i32_all_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![None, None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::Int64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Int64(None);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, None]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Sum,
+            ScalarValue::Int64(None),
+            DataType::Int64
+        )
     }
 
     #[test]
     fn max_i32_all_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![None, None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Int32(None);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, None]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Max,
+            ScalarValue::Int32(None),
+            DataType::Int32
+        )
     }
 
     #[test]
     fn min_i32_all_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![None, None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Int32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Int32(None);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, None]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Min,
+            ScalarValue::Int32(None),
+            DataType::Int32
+        )
     }
 
     #[test]
     fn avg_i32_all_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-
-        let a = Int32Array::from(vec![None, None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::Float64(None);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![None, None]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Avg,
+            ScalarValue::Float64(None),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn sum_u32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
-
-        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(15u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        generic_test_op!(
+            a,
+            DataType::UInt32,
+            Sum,
+            ScalarValue::from(15u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn avg_u32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
-
-        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3.0f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        generic_test_op!(
+            a,
+            DataType::UInt32,
+            Avg,
+            ScalarValue::from(3.0f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn max_u32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
-
-        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::UInt32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5u32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        generic_test_op!(
+            a,
+            DataType::UInt32,
+            Max,
+            ScalarValue::from(5_u32),
+            DataType::UInt32
+        )
     }
 
     #[test]
     fn min_u32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
-
-        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::UInt32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(1u32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]));
+        generic_test_op!(
+            a,
+            DataType::UInt32,
+            Min,
+            ScalarValue::from(1u32),
+            DataType::UInt32
+        )
     }
 
     #[test]
     fn sum_f32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
-
-        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::Float32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(15_f32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        generic_test_op!(
+            a,
+            DataType::Float32,
+            Sum,
+            ScalarValue::from(15_f32),
+            DataType::Float32
+        )
     }
 
     #[test]
     fn avg_f32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
-
-        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        generic_test_op!(
+            a,
+            DataType::Float32,
+            Avg,
+            ScalarValue::from(3_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn max_f32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
-
-        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Float32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5_f32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        generic_test_op!(
+            a,
+            DataType::Float32,
+            Max,
+            ScalarValue::from(5_f32),
+            DataType::Float32
+        )
     }
 
     #[test]
     fn min_f32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
-
-        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Float32));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(1_f32);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]));
+        generic_test_op!(
+            a,
+            DataType::Float32,
+            Min,
+            ScalarValue::from(1_f32),
+            DataType::Float32
+        )
     }
 
     #[test]
     fn sum_f64() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
-
-        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Sum::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(15_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        generic_test_op!(
+            a,
+            DataType::Float64,
+            Sum,
+            ScalarValue::from(15_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn avg_f64() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
-
-        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Avg::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        generic_test_op!(
+            a,
+            DataType::Float64,
+            Avg,
+            ScalarValue::from(3_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn max_f64() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
-
-        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Max::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        generic_test_op!(
+            a,
+            DataType::Float64,
+            Max,
+            ScalarValue::from(5_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn min_f64() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
-
-        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Min::new(col("a"), "bla".to_string(), DataType::Float64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(1_f64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]));
+        generic_test_op!(
+            a,
+            DataType::Float64,
+            Min,
+            ScalarValue::from(1_f64),
+            DataType::Float64
+        )
     }
 
     #[test]
     fn count_elements() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Count,
+            ScalarValue::from(5u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn count_with_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![Some(1), Some(2), None, None, Some(3), None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(3u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            None,
+            Some(3),
+            None,
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Int32,
+            Count,
+            ScalarValue::from(3u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn count_all_nulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
-        let a = BooleanArray::from(vec![None, None, None, None, None, None, None, None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(0u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef = Arc::new(BooleanArray::from(vec![
+            None, None, None, None, None, None, None, None,
+        ]));
+        generic_test_op!(
+            a,
+            DataType::Boolean,
+            Count,
+            ScalarValue::from(0u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn count_empty() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
-        let a = BooleanArray::from(Vec::<bool>::new());
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(0u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: Vec<bool> = vec![];
+        let a: ArrayRef = Arc::new(BooleanArray::from(a));
+        generic_test_op!(
+            a,
+            DataType::Boolean,
+            Count,
+            ScalarValue::from(0u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn count_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        let a = StringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(StringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
+        generic_test_op!(
+            a,
+            DataType::Utf8,
+            Count,
+            ScalarValue::from(5u64),
+            DataType::UInt64
+        )
     }
 
     #[test]
     fn count_large_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
-        let a = LargeStringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let agg = Arc::new(Count::new(col("a"), "bla".to_string(), DataType::UInt64));
-        let actual = aggregate(&batch, agg)?;
-        let expected = ScalarValue::from(5u64);
-
-        assert_eq!(expected, actual);
-        Ok(())
+        let a: ArrayRef =
+            Arc::new(LargeStringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]));
+        generic_test_op!(
+            a,
+            DataType::LargeUtf8,
+            Count,
+            ScalarValue::from(5u64),
+            DataType::UInt64
+        )
     }
 
     fn aggregate(
         batch: &RecordBatch,
         agg: Arc<dyn AggregateExpr>,
     ) -> Result<ScalarValue> {
-        let accum = agg.create_accumulator()?;
+        let mut accum = agg.create_accumulator()?;
         let expr = agg.expressions();
         let values = expr
             .iter()
             .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
-        let mut accum = accum.borrow_mut();
         accum.update_batch(&values)?;
         accum.evaluate()
     }

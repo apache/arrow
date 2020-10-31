@@ -1227,6 +1227,21 @@ extern "C" SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
+SEXP csv___ReadOptions__column_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__column_names(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
+	Rf_error("Cannot call csv___ReadOptions__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
@@ -1270,6 +1285,65 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 	Rf_error("Cannot call csv___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>& parser);
+extern "C" SEXP _arrow_TimestampParser__kind(SEXP parser_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampParser>&>::type parser(parser_sexp);
+	return cpp11::as_sexp(TimestampParser__kind(parser));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__kind(SEXP parser_sexp){
+	Rf_error("Cannot call TimestampParser__kind(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TimestampParser__format(const std::shared_ptr<arrow::TimestampParser>& parser);
+extern "C" SEXP _arrow_TimestampParser__format(SEXP parser_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampParser>&>::type parser(parser_sexp);
+	return cpp11::as_sexp(TimestampParser__format(parser));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__format(SEXP parser_sexp){
+	Rf_error("Cannot call TimestampParser__format(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(std::string format);
+extern "C" SEXP _arrow_TimestampParser__MakeStrptime(SEXP format_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type format(format_sexp);
+	return cpp11::as_sexp(TimestampParser__MakeStrptime(format));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__MakeStrptime(SEXP format_sexp){
+	Rf_error("Cannot call TimestampParser__MakeStrptime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601();
+extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
+BEGIN_CPP11
+	return cpp11::as_sexp(TimestampParser__MakeISO8601());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
+	Rf_error("Cannot call TimestampParser__MakeISO8601(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1558,34 +1632,103 @@ extern "C" SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeRead(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(const std::shared_ptr<ds::FileFormat>& fmt);
+extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
 BEGIN_CPP11
-	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
-	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
-	arrow::r::Input<cpp11::strings>::type dict_columns(dict_columns_sexp);
-	return cpp11::as_sexp(dataset___ParquetFileFormat__MakeRead(use_buffered_stream, buffer_size, dict_columns));
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type fmt(fmt_sexp);
+	return cpp11::as_sexp(dataset___FileFormat__DefaultWriteOptions(fmt));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
-	Rf_error("Cannot call dataset___ParquetFileFormat__MakeRead(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
+	Rf_error("Cannot call dataset___FileFormat__DefaultWriteOptions(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeWrite(const std::shared_ptr<parquet::WriterProperties>& writer_props, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_props);
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeWrite(SEXP writer_props_sexp, SEXP arrow_props_sexp){
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<parquet::WriterProperties>&>::type writer_props(writer_props_sexp);
-	arrow::r::Input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_props(arrow_props_sexp);
-	return cpp11::as_sexp(dataset___ParquetFileFormat__MakeWrite(writer_props, arrow_props));
+	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
+	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
+	arrow::r::Input<cpp11::strings>::type dict_columns(dict_columns_sexp);
+	return cpp11::as_sexp(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeWrite(SEXP writer_props_sexp, SEXP arrow_props_sexp){
-	Rf_error("Cannot call dataset___ParquetFileFormat__MakeWrite(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string dataset___FileWriteOptions__type_name(const std::shared_ptr<ds::FileWriteOptions>& options);
+extern "C" SEXP _arrow_dataset___FileWriteOptions__type_name(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(dataset___FileWriteOptions__type_name(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___FileWriteOptions__type_name(SEXP options_sexp){
+	Rf_error("Cannot call dataset___FileWriteOptions__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void dataset___ParquetFileWriteOptions__update(const std::shared_ptr<ds::ParquetFileWriteOptions>& options, const std::shared_ptr<parquet::WriterProperties>& writer_props, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_writer_props);
+extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_sexp, SEXP writer_props_sexp, SEXP arrow_writer_props_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::ParquetFileWriteOptions>&>::type options(options_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterProperties>&>::type writer_props(writer_props_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_writer_props(arrow_writer_props_sexp);
+	dataset___ParquetFileWriteOptions__update(options, writer_props, arrow_writer_props);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_sexp, SEXP writer_props_sexp, SEXP arrow_writer_props_sexp){
+	Rf_error("Cannot call dataset___ParquetFileWriteOptions__update(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update2(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update2(ipc_options, use_legacy_format, codec, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update1(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update1(ipc_options, use_legacy_format, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1823,6 +1966,21 @@ extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___Scanner__schema(const std::shared_ptr<ds::Scanner>& sc);
+extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type sc(sc_sexp);
+	return cpp11::as_sexp(dataset___Scanner__schema(sc));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
+	Rf_error("Cannot call dataset___Scanner__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
 extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 BEGIN_CPP11
@@ -1838,21 +1996,21 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<fs::FileSystem>& filesystem, std::string path, const std::shared_ptr<ds::Partitioning>& partitioning);
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
-	arrow::r::Input<std::string>::type path(path_sexp);
+	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
-	dataset___Dataset__Write(ds, schema, format, filesystem, path, partitioning);
+	arrow::r::Input<std::string>::type basename_template(basename_template_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -3595,6 +3753,36 @@ extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_fs(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_fs(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string fs___SubTreeFileSystem__base_path(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_path(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 BEGIN_CPP11
@@ -3652,6 +3840,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs);
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::S3FileSystem>&>::type fs(fs_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__region(fs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+	Rf_error("Cannot call fs___S3FileSystem__region(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6203,9 +6406,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
+		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
+		{ "_arrow_TimestampParser__kind", (DL_FUNC) &_arrow_TimestampParser__kind, 1}, 
+		{ "_arrow_TimestampParser__format", (DL_FUNC) &_arrow_TimestampParser__format, 1}, 
+		{ "_arrow_TimestampParser__MakeStrptime", (DL_FUNC) &_arrow_TimestampParser__MakeStrptime, 1}, 
+		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
@@ -6224,8 +6432,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make1", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make1, 3}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make3", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make3, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
-		{ "_arrow_dataset___ParquetFileFormat__MakeRead", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__MakeRead, 3}, 
-		{ "_arrow_dataset___ParquetFileFormat__MakeWrite", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__MakeWrite, 2}, 
+		{ "_arrow_dataset___FileFormat__DefaultWriteOptions", (DL_FUNC) &_arrow_dataset___FileFormat__DefaultWriteOptions, 1}, 
+		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
+		{ "_arrow_dataset___FileWriteOptions__type_name", (DL_FUNC) &_arrow_dataset___FileWriteOptions__type_name, 1}, 
+		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
@@ -6241,6 +6453,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__Scan", (DL_FUNC) &_arrow_dataset___Scanner__Scan, 1}, 
+		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
@@ -6356,9 +6569,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_fs", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_fs, 1}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
+		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

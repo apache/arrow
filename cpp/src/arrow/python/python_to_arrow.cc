@@ -167,6 +167,12 @@ class PyValue {
     return value;
   }
 
+  static Result<Decimal256> Convert(const Decimal256Type* type, const O&, I obj) {
+    Decimal256 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
   static Result<int32_t> Convert(const Date32Type*, const O&, I obj) {
     int32_t value;
     if (PyDate_Check(obj)) {
@@ -249,18 +255,26 @@ class PyValue {
           value = internal::PyDateTime_to_s(dt) - offset;
           break;
         case TimeUnit::MILLI:
-          value = internal::PyDateTime_to_ms(dt) - offset * 1000;
+          value = internal::PyDateTime_to_ms(dt) - offset * 1000LL;
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDateTime_to_us(dt) - offset * 1000 * 1000;
+          value = internal::PyDateTime_to_us(dt) - offset * 1000000LL;
           break;
         case TimeUnit::NANO:
-          // Conversion to nanoseconds can overflow -> check multiply of microseconds
-          value = internal::PyDateTime_to_us(dt);
-          if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
-            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          if (internal::IsPandasTimestamp(obj)) {
+            OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
+            RETURN_IF_PYERROR();
+            RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
+          } else {
+            // Conversion to nanoseconds can overflow -> check multiply of microseconds
+            value = internal::PyDateTime_to_us(dt);
+            if (arrow::internal::MultiplyWithOverflow(value, 1000LL, &value)) {
+              return internal::InvalidValue(obj,
+                                            "out of bounds for nanosecond resolution");
+            }
           }
-          if (arrow::internal::SubtractWithOverflow(value, offset * 1000 * 1000 * 1000,
+          // Adjust with offset and check for overflow
+          if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
                                                     &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
           }
@@ -298,7 +312,13 @@ class PyValue {
           value = internal::PyDelta_to_us(dt);
           break;
         case TimeUnit::NANO:
-          value = internal::PyDelta_to_ns(dt);
+          if (internal::IsPandasTimedelta(obj)) {
+            OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
+            RETURN_IF_PYERROR();
+            RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
+          } else {
+            value = internal::PyDelta_to_ns(dt);
+          }
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -664,12 +684,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     }                                                           \
     return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
   }
-// Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
-#define LIST_SLOW_CASE(TYPE_ID)                               \
-  case Type::TYPE_ID: {                                       \
-    return Extend(this->value_converter_.get(), value, size); \
-  }
-      LIST_SLOW_CASE(NA)
+      LIST_FAST_CASE(BOOL, BooleanType, NPY_BOOL)
       LIST_FAST_CASE(UINT8, UInt8Type, NPY_UINT8)
       LIST_FAST_CASE(INT8, Int8Type, NPY_INT8)
       LIST_FAST_CASE(UINT16, UInt16Type, NPY_UINT16)
@@ -683,24 +698,9 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       LIST_FAST_CASE(DOUBLE, DoubleType, NPY_DOUBLE)
       LIST_FAST_CASE(TIMESTAMP, TimestampType, NPY_DATETIME)
       LIST_FAST_CASE(DURATION, DurationType, NPY_TIMEDELTA)
-      LIST_SLOW_CASE(DATE32)
-      LIST_SLOW_CASE(DATE64)
-      LIST_SLOW_CASE(TIME32)
-      LIST_SLOW_CASE(TIME64)
-      LIST_SLOW_CASE(BINARY)
-      LIST_SLOW_CASE(FIXED_SIZE_BINARY)
-      LIST_SLOW_CASE(STRING)
 #undef LIST_FAST_CASE
-#undef LIST_SLOW_CASE
-      case Type::LIST: {
-        if (PyArray_DESCR(ndarray)->type_num != NPY_OBJECT) {
-          return Status::Invalid(
-              "Can only convert list types from NumPy object array input");
-        }
-        return Extend(this->value_converter_.get(), value, /*reserved=*/0);
-      }
       default: {
-        return Status::TypeError("Unknown list item type: ", value_type->ToString());
+        return Extend(this->value_converter_.get(), value, size);
       }
     }
   }
@@ -1004,6 +1004,13 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
+  ARROW_ASSIGN_OR_RAISE(auto is_pandas_imported, internal::IsModuleImported("pandas"));
+  if (is_pandas_imported) {
+    // If pandas has been already imported initialize the static pandas objects to
+    // support converting from pd.Timedelta and pd.Timestamp objects
+    internal::InitPandasStaticData();
+  }
+
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
   tmp_seq_nanny.reset(seq);
@@ -1034,7 +1041,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     return chunked_converter->ToChunkedArray();
   } else {
     // If the converter can't overflow spare the capacity error checking on the hot-path,
-    // this improves the performance roughly by ~10 for primitive types.
+    // this improves the performance roughly by ~10% for primitive types.
     if (mask != nullptr && mask != Py_None) {
       RETURN_NOT_OK(ExtendMasked(converter.get(), seq, mask, size));
     } else {

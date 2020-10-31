@@ -22,30 +22,19 @@ addons:
   homebrew:
     packages:
       - automake
+      - bison
       - boost
-      - brotli
-      - c-ares
       - ccache
       - cmake
       - flatbuffers
+      - flex
       - git
-      - glog
-      - grpc
-      - lz4
-      - ninja
-      - numpy
       - openssl@1.1
       - protobuf
       - python@3.8
-      - rapidjson
-      - re2
-      - snappy
       - thrift
       - wget
-      - zstd
-      - bison
-      - flex
-    update: true
+    update: false
 
 # don't build twice
 if: tag IS blank
@@ -57,12 +46,12 @@ env:
     - PYARROW_VERSION={{ arrow.no_rc_version }}
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
-    - MACOSX_DEPLOYMENT_TARGET="10.9"
-    - HOMEBREW_NO_AUTO_UPDATE=1
+    - MACOSX_DEPLOYMENT_TARGET={{ macos_deployment_target }}
+    - ARROW_S3={{ arrow_s3 }}
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild
-  - git -C multibuild checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
+  - git -C multibuild checkout 8882150df6529658700b66bec124dfb77eefca26
 
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}

@@ -31,15 +31,16 @@ use super::{
     type_coercion::{coerce, data_types},
     Accumulator, AggregateExpr, PhysicalExpr,
 };
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
+use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
 use arrow::datatypes::{DataType, Schema};
 use expressions::{avg_return_type, sum_return_type};
-use std::{cell::RefCell, fmt, rc::Rc, str::FromStr, sync::Arc};
+use std::{fmt, str::FromStr, sync::Arc};
 
 /// the implementation of an aggregate function
 pub type AccumulatorFunctionImplementation =
-    Arc<dyn Fn() -> Result<Rc<RefCell<dyn Accumulator>>> + Send + Sync>;
+    Arc<dyn Fn() -> Result<Box<dyn Accumulator>> + Send + Sync>;
 
 /// This signature corresponds to which types an aggregator serializes
 /// its state, given its return datatype.
@@ -69,7 +70,7 @@ impl fmt::Display for AggregateFunction {
 }
 
 impl FromStr for AggregateFunction {
-    type Err = ExecutionError;
+    type Err = DataFusionError;
     fn from_str(name: &str) -> Result<AggregateFunction> {
         Ok(match &*name.to_uppercase() {
             "MIN" => AggregateFunction::Min,
@@ -78,7 +79,7 @@ impl FromStr for AggregateFunction {
             "AVG" => AggregateFunction::Avg,
             "SUM" => AggregateFunction::Sum,
             _ => {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
                     name
                 )))
@@ -110,6 +111,7 @@ pub fn return_type(
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_aggregate_expr(
     fun: &AggregateFunction,
+    distinct: bool,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
     name: String,
@@ -124,14 +126,40 @@ pub fn create_aggregate_expr(
 
     let return_type = return_type(&fun, &arg_types)?;
 
-    Ok(match fun {
-        AggregateFunction::Count => {
+    Ok(match (fun, distinct) {
+        (AggregateFunction::Count, false) => {
             Arc::new(expressions::Count::new(arg, name, return_type))
         }
-        AggregateFunction::Sum => Arc::new(expressions::Sum::new(arg, name, return_type)),
-        AggregateFunction::Min => Arc::new(expressions::Min::new(arg, name, return_type)),
-        AggregateFunction::Max => Arc::new(expressions::Max::new(arg, name, return_type)),
-        AggregateFunction::Avg => Arc::new(expressions::Avg::new(arg, name, return_type)),
+        (AggregateFunction::Count, true) => {
+            Arc::new(distinct_expressions::DistinctCount::new(
+                arg_types,
+                args.clone(),
+                name,
+                return_type,
+            ))
+        }
+        (AggregateFunction::Sum, false) => {
+            Arc::new(expressions::Sum::new(arg, name, return_type))
+        }
+        (AggregateFunction::Sum, true) => {
+            return Err(DataFusionError::NotImplemented(
+                "SUM(DISTINCT) aggregations are not available".to_string(),
+            ));
+        }
+        (AggregateFunction::Min, _) => {
+            Arc::new(expressions::Min::new(arg, name, return_type))
+        }
+        (AggregateFunction::Max, _) => {
+            Arc::new(expressions::Max::new(arg, name, return_type))
+        }
+        (AggregateFunction::Avg, false) => {
+            Arc::new(expressions::Avg::new(arg, name, return_type))
+        }
+        (AggregateFunction::Avg, true) => {
+            return Err(DataFusionError::NotImplemented(
+                "AVG(DISTINCT) aggregations are not available".to_string(),
+            ));
+        }
     })
 }
 

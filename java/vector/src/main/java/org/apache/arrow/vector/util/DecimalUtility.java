@@ -32,24 +32,26 @@ public class DecimalUtility {
   private DecimalUtility() {}
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
-  public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                                                      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   /**
    * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal
    * with the given scale.
    */
-  public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale) {
-    byte[] value = new byte[DECIMAL_BYTE_LENGTH];
+  public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale, int byteWidth) {
+    byte[] value = new byte[byteWidth];
     byte temp;
-    final int startIndex = index * DECIMAL_BYTE_LENGTH;
+    final long startIndex = (long) index * byteWidth;
 
     // Decimal stored as little endian, need to swap bytes to make BigDecimal
-    bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
-    int stop = DECIMAL_BYTE_LENGTH / 2;
+    bytebuf.getBytes(startIndex, value, 0, byteWidth);
+    int stop = byteWidth / 2;
     for (int i = 0, j; i < stop; i++) {
       temp = value[i];
-      j = (DECIMAL_BYTE_LENGTH - 1) - i;
+      j = (byteWidth - 1) - i;
       value[i] = value[j];
       value[j] = temp;
     }
@@ -61,8 +63,8 @@ public class DecimalUtility {
    * Read an ArrowType.Decimal from the ByteBuffer and convert to a BigDecimal with the given
    * scale.
    */
-  public static BigDecimal getBigDecimalFromByteBuffer(ByteBuffer bytebuf, int scale) {
-    byte[] value = new byte[DECIMAL_BYTE_LENGTH];
+  public static BigDecimal getBigDecimalFromByteBuffer(ByteBuffer bytebuf, int scale, int byteWidth) {
+    byte[] value = new byte[byteWidth];
     bytebuf.get(value);
     BigInteger unscaledValue = new BigInteger(value);
     return new BigDecimal(unscaledValue, scale);
@@ -72,10 +74,10 @@ public class DecimalUtility {
    * Read an ArrowType.Decimal from the ArrowBuf at the given value index and return it as a byte
    * array.
    */
-  public static byte[] getByteArrayFromArrowBuf(ArrowBuf bytebuf, int index) {
-    final byte[] value = new byte[DECIMAL_BYTE_LENGTH];
-    final long startIndex = (long) index * DECIMAL_BYTE_LENGTH;
-    bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
+  public static byte[] getByteArrayFromArrowBuf(ArrowBuf bytebuf, int index, int byteWidth) {
+    final byte[] value = new byte[byteWidth];
+    final long startIndex = (long) index * byteWidth;
+    bytebuf.getBytes(startIndex, value, 0, byteWidth);
     return value;
   }
 
@@ -119,9 +121,9 @@ public class DecimalUtility {
    * UnsupportedOperationException if the decimal size is greater than the Decimal vector byte
    * width.
    */
-  public static void writeBigDecimalToArrowBuf(BigDecimal value, ArrowBuf bytebuf, int index) {
+  public static void writeBigDecimalToArrowBuf(BigDecimal value, ArrowBuf bytebuf, int index, int byteWidth) {
     final byte[] bytes = value.unscaledValue().toByteArray();
-    writeByteArrayToArrowBufHelper(bytes, bytebuf, index);
+    writeByteArrayToArrowBufHelper(bytes, bytebuf, index, byteWidth);
   }
 
   /**
@@ -139,14 +141,14 @@ public class DecimalUtility {
    * UnsupportedOperationException if the decimal size is greater than the Decimal vector byte
    * width.
    */
-  public static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index) {
-    writeByteArrayToArrowBufHelper(bytes, bytebuf, index);
+  public static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index, int byteWidth) {
+    writeByteArrayToArrowBufHelper(bytes, bytebuf, index, byteWidth);
   }
 
-  private static void writeByteArrayToArrowBufHelper(byte[] bytes, ArrowBuf bytebuf, int index) {
-    final long startIndex = (long) index * DECIMAL_BYTE_LENGTH;
-    if (bytes.length > DECIMAL_BYTE_LENGTH) {
-      throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
+  private static void writeByteArrayToArrowBufHelper(byte[] bytes, ArrowBuf bytebuf, int index, int byteWidth) {
+    final long startIndex = (long) index * byteWidth;
+    if (bytes.length > byteWidth) {
+      throw new UnsupportedOperationException("Decimal size greater than " + byteWidth + " bytes: " + bytes.length);
     }
 
     // Decimal stored as little endian, need to swap data bytes before writing to ArrowBuf
@@ -156,8 +158,8 @@ public class DecimalUtility {
     }
 
     // Write LE data
-    byte [] padByes = bytes[0] < 0 ? minus_one : zeroes;
+    byte [] padBytes = bytes[0] < 0 ? minus_one : zeroes;
     bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
-    bytebuf.setBytes(startIndex + bytes.length, padByes, 0, DECIMAL_BYTE_LENGTH - bytes.length);
+    bytebuf.setBytes(startIndex + bytes.length, padBytes, 0, byteWidth - bytes.length);
   }
 }

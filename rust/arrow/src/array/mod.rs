@@ -49,7 +49,7 @@
 //! ```
 //! extern crate arrow;
 //!
-//! use arrow::array::{Int16Array, PrimitiveArrayOps};
+//! use arrow::array::Int16Array;
 //!
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
@@ -87,6 +87,7 @@ mod builder;
 mod cast;
 mod data;
 mod equal;
+mod iterator;
 mod null;
 mod ord;
 mod union;
@@ -159,7 +160,7 @@ pub use self::array::GenericBinaryArray;
 pub use self::array::GenericListArray;
 pub use self::array::GenericStringArray;
 pub use self::array::OffsetSizeTrait;
-pub use self::array::PrimitiveArrayOps;
+pub use self::array::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 
@@ -239,14 +240,18 @@ pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
 
+// --------------------- Array Iterator ---------------------
+
+pub use self::iterator::*;
+
 // --------------------- Array Equality ---------------------
 
 pub use self::equal::ArrayEqual;
 pub use self::equal::JsonEqual;
 
-// --------------------- Sortable Array ---------------------
+// --------------------- Array's values comparison ---------------------
 
-pub use self::ord::{as_ordarray, OrdArray};
+pub use self::ord::{build_compare, DynComparator};
 
 // --------------------- Array downcast helper functions ---------------------
 

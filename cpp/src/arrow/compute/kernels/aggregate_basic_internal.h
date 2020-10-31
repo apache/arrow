@@ -59,6 +59,8 @@ void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels();
+std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels();
+std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels();
 
 // ----------------------------------------------------------------------
 // Sum implementation

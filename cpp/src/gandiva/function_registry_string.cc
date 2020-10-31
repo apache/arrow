@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/function_registry_string.h"
+
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -48,8 +49,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
 
-      UNARY_OCTET_LEN_FN(octet_length, {}),
-      UNARY_OCTET_LEN_FN(bit_length, {}),
+      UNARY_OCTET_LEN_FN(octet_length, {}), UNARY_OCTET_LEN_FN(bit_length, {}),
 
       UNARY_UNSAFE_NULL_IF_NULL(char_length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
@@ -62,16 +62,25 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
-      UNARY_UNSAFE_NULL_IF_NULL(castINT, {}, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(castBIGINT, {}, utf8, int64),
-      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT4, {}, utf8, float32),
-      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT8, {}, utf8, float64),
-
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "lower_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
+                     "gdv_fn_castINT_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castBIGINT", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
+                     "gdv_fn_castBIGINT_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castFLOAT4", {}, DataTypeVector{utf8()}, float32(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT4_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("castFLOAT8", {}, DataTypeVector{utf8()}, float64(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
@@ -106,11 +115,84 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
                      NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "concatOperator_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull, "concatOperator_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "concatOperator_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull,
+                     "concatOperator_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction(
+          "concatOperator", {},
+          DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8()}, utf8(),
+          kResultNullIfNull, "concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+          NativeFunction::kNeedsContext),
+      NativeFunction(
+          "concatOperator", {},
+          DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
+          utf8(), kResultNullIfNull,
+          "concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+          NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(),
+                                    utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull,
+                     "concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concatOperator", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(),
+                                    utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullIfNull,
+                     "concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       // concat treats null inputs as empty strings whereas concatOperator returns null if
       // one of the inputs is null
       NativeFunction("concat", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullNever, "concat_utf8_utf8", NativeFunction::kNeedsContext),
+      NativeFunction("concat", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullNever, "concat_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concat", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullNever, "concat_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concat", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullNever, "concat_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concat", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullNever, "concat_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction(
+          "concat", {},
+          DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8()}, utf8(),
+          kResultNullNever, "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+          NativeFunction::kNeedsContext),
+      NativeFunction(
+          "concat", {},
+          DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8(), utf8()},
+          utf8(), kResultNullNever, "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+          NativeFunction::kNeedsContext),
+      NativeFunction("concat", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(),
+                                    utf8(), utf8(), utf8()},
+                     utf8(), kResultNullNever,
+                     "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+      NativeFunction("concat", {},
+                     DataTypeVector{utf8(), utf8(), utf8(), utf8(), utf8(), utf8(),
+                                    utf8(), utf8(), utf8(), utf8()},
+                     utf8(), kResultNullNever,
+                     "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
@@ -123,7 +205,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "replace_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
-  };
+
+      NativeFunction("binary_string", {}, DataTypeVector{utf8()}, binary(),
+                     kResultNullIfNull, "binary_string", NativeFunction::kNeedsContext),
+
+      NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "split_part",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return string_fn_registry_;
 }

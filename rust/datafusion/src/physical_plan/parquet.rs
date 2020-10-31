@@ -17,22 +17,28 @@
 
 //! Execution plan for reading Parquet files
 
+use std::any::Any;
 use std::fs::File;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::{fmt, thread};
 
-use crate::error::{ExecutionError, Result};
+use super::{RecordBatchStream, SendableRecordBatchStream};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+
+use async_trait::async_trait;
+use futures::stream::Stream;
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
@@ -57,7 +63,7 @@ impl ParquetExec {
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, ".parquet")?;
         if filenames.is_empty() {
-            Err(ExecutionError::General("No files found".to_string()))
+            Err(DataFusionError::Plan("No files found".to_string()))
         } else {
             let file = File::open(&filenames[0])?;
             let file_reader = Rc::new(SerializedFileReader::new(file)?);
@@ -86,7 +92,13 @@ impl ParquetExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for ParquetExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -108,22 +120,19 @@ impl ExecutionPlan for ParquetExec {
         if children.is_empty() {
             Ok(Arc::new(self.clone()))
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Internal(format!(
                 "Children cannot be replaced in {:?}",
                 self
             )))
         }
     }
 
-    fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
-            Sender<ArrowResult<Option<RecordBatch>>>,
-            Receiver<ArrowResult<Option<RecordBatch>>>,
+            Sender<Option<ArrowResult<RecordBatch>>>,
+            Receiver<Option<ArrowResult<RecordBatch>>>,
         ) = bounded(2);
 
         let filename = self.filenames[partition].clone();
@@ -136,22 +145,20 @@ impl ExecutionPlan for ParquetExec {
             }
         });
 
-        let iterator = Arc::new(Mutex::new(ParquetIterator {
+        Ok(Box::pin(ParquetStream {
             schema: self.schema.clone(),
             response_rx,
-        }));
-
-        Ok(iterator)
+        }))
     }
 }
 
 fn send_result(
-    response_tx: &Sender<ArrowResult<Option<RecordBatch>>>,
-    result: ArrowResult<Option<RecordBatch>>,
+    response_tx: &Sender<Option<ArrowResult<RecordBatch>>>,
+    result: Option<ArrowResult<RecordBatch>>,
 ) -> Result<()> {
     response_tx
         .send(result)
-        .map_err(|e| ExecutionError::ExecutionError(e.to_string()))?;
+        .map_err(|e| DataFusionError::Execution(e.to_string()))?;
     Ok(())
 }
 
@@ -159,7 +166,7 @@ fn read_file(
     filename: &str,
     projection: Vec<usize>,
     batch_size: usize,
-    response_tx: Sender<ArrowResult<Option<RecordBatch>>>,
+    response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     let file = File::open(&filename)?;
     let file_reader = Rc::new(SerializedFileReader::new(file)?);
@@ -167,64 +174,71 @@ fn read_file(
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
-        match batch_reader.next_batch() {
-            Ok(Some(batch)) => send_result(&response_tx, Ok(Some(batch)))?,
-            Ok(None) => {
+        match batch_reader.next() {
+            Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,
+            None => {
                 // finished reading file
-                send_result(&response_tx, Ok(None))?;
+                send_result(&response_tx, None)?;
                 break;
             }
-            Err(e) => {
+            Some(Err(e)) => {
                 let err_msg =
                     format!("Error reading batch from {}: {}", filename, e.to_string());
                 // send error to operator
                 send_result(
                     &response_tx,
-                    Err(ArrowError::ParquetError(err_msg.clone())),
+                    Some(Err(ArrowError::ParquetError(err_msg.clone()))),
                 )?;
                 // terminate thread with error
-                return Err(ExecutionError::ExecutionError(err_msg));
+                return Err(DataFusionError::Execution(err_msg));
             }
         }
     }
     Ok(())
 }
 
-struct ParquetIterator {
+struct ParquetStream {
     schema: SchemaRef,
-    response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
+    response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
 }
 
-impl RecordBatchReader for ParquetIterator {
+impl Stream for ParquetStream {
+    type Item = ArrowResult<RecordBatch>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        match self.response_rx.recv() {
+            Ok(batch) => Poll::Ready(batch),
+            // RecvError means receiver has exited and closed the channel
+            Err(RecvError) => Poll::Ready(None),
+        }
+    }
+}
+
+impl RecordBatchStream for ParquetStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        match self.response_rx.recv() {
-            Ok(batch) => batch,
-            // RecvError means receiver has exited and closed the channel
-            Err(RecvError) => Ok(None),
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::StreamExt;
     use std::env;
 
-    #[test]
-    fn test() -> Result<()> {
+    #[tokio::test]
+    async fn test() -> Result<()> {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
         let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
-        let results = parquet_exec.execute(0)?;
-        let mut results = results.lock().unwrap();
-        let batch = results.next_batch()?.unwrap();
+        let mut results = parquet_exec.execute(0).await?;
+        let batch = results.next().await.unwrap()?;
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -234,13 +248,13 @@ mod tests {
             schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next_batch()?;
+        let batch = results.next().await;
         assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
+        let batch = results.next().await;
         assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
+        let batch = results.next().await;
         assert!(batch.is_none());
 
         Ok(())

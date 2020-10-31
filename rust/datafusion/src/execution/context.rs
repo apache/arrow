@@ -21,10 +21,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
-use std::{
-    sync::Arc,
-    thread::{self, JoinHandle},
-};
+use std::sync::Arc;
+
+use futures::{StreamExt, TryStreamExt};
 
 use arrow::csv;
 use arrow::datatypes::*;
@@ -33,9 +32,11 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{
+    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
+};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -116,11 +117,6 @@ impl ExecutionContext {
         ctx
     }
 
-    /// Create a context from existing context state
-    pub(crate) fn from(state: ExecutionContextState) -> Self {
-        Self { state }
-    }
-
     /// Get the configuration of this execution context
     pub fn config(&self) -> &ExecutionConfig {
         &self.state.config
@@ -154,7 +150,7 @@ impl ExecutionContext {
                     let plan = LogicalPlanBuilder::empty().build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
-                _ => Err(ExecutionError::ExecutionError(format!(
+                _ => Err(DataFusionError::NotImplemented(format!(
                     "Unsupported file type {:?}.",
                     file_type
                 ))),
@@ -170,7 +166,7 @@ impl ExecutionContext {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
-            return Err(ExecutionError::NotImplemented(format!(
+            return Err(DataFusionError::NotImplemented(format!(
                 "The context currently only supports a single SQL statement",
             )));
         }
@@ -243,6 +239,25 @@ impl ExecutionContext {
         )))
     }
 
+    /// Creates a DataFrame for reading a custom TableProvider
+    pub fn read_table(
+        &mut self,
+        provider: Arc<dyn TableProvider + Send + Sync>,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let schema = provider.schema().clone();
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema.clone(),
+            projected_schema: schema,
+            projection: None,
+        };
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
     /// Register a CSV data source so that it can be referenced from SQL statements
     /// executed against this context.
     pub fn register_csv(
@@ -284,7 +299,7 @@ impl ExecutionContext {
                 let schema = provider.schema().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
-                    table_name: table_name.to_string(),
+                    source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
                     projected_schema: schema,
                     projection: None,
@@ -294,7 +309,7 @@ impl ExecutionContext {
                     &LogicalPlanBuilder::from(&table_scan).build()?,
                 )))
             }
-            _ => Err(ExecutionError::General(format!(
+            _ => Err(DataFusionError::Plan(format!(
                 "No table named '{}'",
                 table_name
             ))),
@@ -327,63 +342,51 @@ impl ExecutionContext {
     }
 
     /// Execute a physical plan and collect the results in memory
-    pub fn collect(&self, plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+    pub async fn collect(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+    ) -> Result<Vec<RecordBatch>> {
         match plan.output_partitioning().partition_count() {
             0 => Ok(vec![]),
             1 => {
-                let it = plan.execute(0)?;
-                common::collect(it)
+                let it = plan.execute(0).await?;
+                common::collect(it).await
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(plan.clone(), self.state.config.concurrency);
+                let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0)?)
+                common::collect(plan.execute(0).await?).await
             }
         }
     }
 
     /// Execute a query and write the results to a partitioned CSV file
-    pub fn write_csv(&self, plan: Arc<dyn ExecutionPlan>, path: &str) -> Result<()> {
+    pub async fn write_csv(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        path: String,
+    ) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
-        let path = path.to_string();
+        let path = path.to_owned();
         fs::create_dir(&path)?;
 
-        let threads: Vec<JoinHandle<Result<()>>> =
-            (0..plan.output_partitioning().partition_count())
-                .enumerate()
-                .map(|(i, p)| {
-                    let p = p.clone();
-                    let path = path.clone();
-                    let plan = plan.clone();
-                    thread::spawn(move || {
-                        let filename = format!("part-{}.csv", i);
-                        let path = Path::new(&path).join(&filename);
-                        let file = fs::File::create(path)?;
-                        let mut writer = csv::Writer::new(file);
-                        let reader = plan.execute(p)?;
-                        let mut reader = reader.lock().unwrap();
-                        loop {
-                            match reader.next_batch() {
-                                Ok(Some(batch)) => {
-                                    writer.write(&batch)?;
-                                }
-                                Ok(None) => break,
-                                Err(e) => return Err(ExecutionError::from(e)),
-                            }
-                        }
-                        Ok(())
-                    })
-                })
-                .collect();
+        for i in 0..plan.output_partitioning().partition_count() {
+            let path = path.clone();
+            let plan = plan.clone();
+            let filename = format!("part-{}.csv", i);
+            let path = Path::new(&path).join(&filename);
+            let file = fs::File::create(path)?;
+            let mut writer = csv::Writer::new(file);
+            let stream = plan.execute(i).await?;
 
-        // combine the results from each thread
-        for thread in threads {
-            let join = thread.join().expect("Failed to join thread");
-            join?;
+            stream
+                .map(|batch| writer.write(&batch?))
+                .try_collect()
+                .await
+                .map_err(|e| DataFusionError::from(e))?;
         }
-
         Ok(())
     }
 
@@ -393,7 +396,13 @@ impl ExecutionContext {
     }
 }
 
-/// A planner used to add extensions to DataFusion logical and phusical plans.
+impl From<ExecutionContextState> for ExecutionContext {
+    fn from(state: ExecutionContextState) -> Self {
+        ExecutionContext { state }
+    }
+}
+
+/// A planner used to add extensions to DataFusion logical and physical plans.
 pub trait QueryPlanner {
     /// Given a `LogicalPlan`, create a new, modified `LogicalPlan`
     /// plan. This method is run after built in `OptimizerRule`s. By
@@ -513,7 +522,7 @@ impl FunctionRegistry for ExecutionContextState {
     fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
         if result.is_none() {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 format!("There is no UDF named \"{}\" in the registry", name).to_string(),
             ))
         } else {
@@ -524,7 +533,7 @@ impl FunctionRegistry for ExecutionContextState {
     fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
         let result = self.aggregate_functions.get(name);
         if result.is_none() {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 format!("There is no UDAF named \"{}\" in the registry", name)
                     .to_string(),
             ))
@@ -546,19 +555,18 @@ mod tests {
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{
-        ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
-    };
+    use arrow::array::{ArrayRef, Float64Array, Int32Array, StringArray};
     use arrow::compute::add;
-    use std::{cell::RefCell, fs::File, rc::Rc};
+    use std::fs::File;
+    use std::thread::{self, JoinHandle};
     use std::{io::prelude::*, sync::Mutex};
     use tempfile::TempDir;
     use test::*;
 
-    #[test]
-    fn parallel_projection() -> Result<()> {
+    #[tokio::test]
+    async fn parallel_projection() -> Result<()> {
         let partition_count = 4;
-        let results = execute("SELECT c1, c2 FROM test", partition_count)?;
+        let results = execute("SELECT c1, c2 FROM test", partition_count).await?;
 
         // there should be one batch per partition
         assert_eq!(results.len(), partition_count);
@@ -574,8 +582,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn create_variable_expr() -> Result<()> {
+    #[tokio::test]
+    async fn create_variable_expr() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
@@ -588,7 +596,7 @@ mod tests {
         let provider = test::create_table_dual();
         ctx.register_table("dual", provider);
 
-        let results = collect(&mut ctx, "SELECT @@version, @name FROM dual")?;
+        let results = collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
 
         let batch = &results[0];
         assert_eq!(2, batch.num_columns());
@@ -612,8 +620,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn parallel_query_with_filter() -> Result<()> {
+    #[tokio::test]
+    async fn parallel_query_with_filter() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
@@ -624,7 +632,7 @@ mod tests {
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
 
-        let results = ctx.collect(physical_plan)?;
+        let results = ctx.collect(physical_plan).await?;
 
         // there should be one batch per partition
         assert_eq!(results.len(), partition_count);
@@ -635,8 +643,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn projection_on_table_scan() -> Result<()> {
+    #[tokio::test]
+    async fn projection_on_table_scan() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
@@ -671,7 +679,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan)?;
+        let batches = ctx.collect(physical_plan).await?;
         assert_eq!(4, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(10, batches[0].num_rows());
@@ -700,8 +708,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn projection_on_memory_scan() -> Result<()> {
+    #[tokio::test]
+    async fn projection_on_memory_scan() -> Result<()> {
         let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -751,7 +759,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("b", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan)?;
+        let batches = ctx.collect(physical_plan).await?;
         assert_eq!(1, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(4, batches[0].num_rows());
@@ -759,9 +767,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn sort() -> Result<()> {
-        let results = execute("SELECT c1, c2 FROM test ORDER BY c1 DESC, c2 ASC", 4)?;
+    #[tokio::test]
+    async fn sort() -> Result<()> {
+        let results =
+            execute("SELECT c1, c2 FROM test ORDER BY c1 DESC, c2 ASC", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -776,9 +785,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate() -> Result<()> {
-        let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4)?;
+    #[tokio::test]
+    async fn aggregate() -> Result<()> {
+        let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -793,9 +802,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_avg() -> Result<()> {
-        let results = execute("SELECT AVG(c1), AVG(c2) FROM test", 4)?;
+    #[tokio::test]
+    async fn aggregate_avg() -> Result<()> {
+        let results = execute("SELECT AVG(c1), AVG(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -810,9 +819,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_max() -> Result<()> {
-        let results = execute("SELECT MAX(c1), MAX(c2) FROM test", 4)?;
+    #[tokio::test]
+    async fn aggregate_max() -> Result<()> {
+        let results = execute("SELECT MAX(c1), MAX(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -827,9 +836,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_min() -> Result<()> {
-        let results = execute("SELECT MIN(c1), MIN(c2) FROM test", 4)?;
+    #[tokio::test]
+    async fn aggregate_min() -> Result<()> {
+        let results = execute("SELECT MIN(c1), MIN(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -844,9 +853,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_grouped() -> Result<()> {
-        let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4)?;
+    #[tokio::test]
+    async fn aggregate_grouped() -> Result<()> {
+        let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -861,9 +870,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_grouped_avg() -> Result<()> {
-        let results = execute("SELECT c1, AVG(c2) FROM test GROUP BY c1", 4)?;
+    #[tokio::test]
+    async fn aggregate_grouped_avg() -> Result<()> {
+        let results = execute("SELECT c1, AVG(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -878,10 +887,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_grouped_empty() -> Result<()> {
+    #[tokio::test]
+    async fn aggregate_grouped_empty() -> Result<()> {
         let results =
-            execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4)?;
+            execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -896,9 +905,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_grouped_max() -> Result<()> {
-        let results = execute("SELECT c1, MAX(c2) FROM test GROUP BY c1", 4)?;
+    #[tokio::test]
+    async fn aggregate_grouped_max() -> Result<()> {
+        let results = execute("SELECT c1, MAX(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -913,9 +922,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn aggregate_grouped_min() -> Result<()> {
-        let results = execute("SELECT c1, MIN(c2) FROM test GROUP BY c1", 4)?;
+    #[tokio::test]
+    async fn aggregate_grouped_min() -> Result<()> {
+        let results = execute("SELECT c1, MIN(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -930,9 +939,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn count_basic() -> Result<()> {
-        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1)?;
+    #[tokio::test]
+    async fn count_basic() -> Result<()> {
+        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -946,9 +955,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn count_partitioned() -> Result<()> {
-        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 4)?;
+    #[tokio::test]
+    async fn count_partitioned() -> Result<()> {
+        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -962,9 +971,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn count_aggregated() -> Result<()> {
-        let results = execute("SELECT c1, COUNT(c2) FROM test GROUP BY c1", 4)?;
+    #[tokio::test]
+    async fn count_aggregated() -> Result<()> {
+        let results = execute("SELECT c1, COUNT(c2) FROM test GROUP BY c1", 4).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
@@ -975,6 +984,133 @@ mod tests {
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
+        Ok(())
+    }
+
+    async fn run_count_distinct_integers_aggregated_scenario(
+        partitions: Vec<Vec<(&str, u64)>>,
+    ) -> Result<Vec<RecordBatch>> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = ExecutionContext::new();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c_group", DataType::Utf8, false),
+            Field::new("c_int8", DataType::Int8, false),
+            Field::new("c_int16", DataType::Int16, false),
+            Field::new("c_int32", DataType::Int32, false),
+            Field::new("c_int64", DataType::Int64, false),
+            Field::new("c_uint8", DataType::UInt8, false),
+            Field::new("c_uint16", DataType::UInt16, false),
+            Field::new("c_uint32", DataType::UInt32, false),
+            Field::new("c_uint64", DataType::UInt64, false),
+        ]));
+
+        for (i, partition) in partitions.iter().enumerate() {
+            let filename = format!("partition-{}.csv", i);
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+            for row in partition {
+                let row_str = format!(
+                    "{},{}\n",
+                    row.0,
+                    // Populate values for each of the integer fields in the
+                    // schema.
+                    (0..8)
+                        .map(|_| { row.1.to_string() })
+                        .collect::<Vec<_>>()
+                        .join(","),
+                );
+                file.write_all(row_str.as_bytes())?;
+            }
+        }
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            CsvReadOptions::new().schema(&schema).has_header(false),
+        )?;
+
+        let results = collect(
+            &mut ctx,
+            "
+              SELECT
+                c_group,
+                COUNT(c_uint64),
+                COUNT(DISTINCT c_int8),
+                COUNT(DISTINCT c_int16),
+                COUNT(DISTINCT c_int32),
+                COUNT(DISTINCT c_int64),
+                COUNT(DISTINCT c_uint8),
+                COUNT(DISTINCT c_uint16),
+                COUNT(DISTINCT c_uint32),
+                COUNT(DISTINCT c_uint64)
+              FROM test
+              GROUP BY c_group
+            ",
+        )
+        .await?;
+
+        Ok(results)
+    }
+
+    #[tokio::test]
+    async fn count_distinct_integers_aggregated_single_partition() -> Result<()> {
+        let partitions = vec![
+            // The first member of each tuple will be the value for the
+            // `c_group` column, and the second member will be the value for
+            // each of the int/uint fields.
+            vec![
+                ("a", 1),
+                ("a", 1),
+                ("a", 2),
+                ("b", 9),
+                ("c", 9),
+                ("c", 10),
+                ("c", 9),
+            ],
+        ];
+
+        let results = run_count_distinct_integers_aggregated_scenario(partitions).await?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        assert_eq!(batch.num_rows(), 3);
+        assert_eq!(batch.num_columns(), 10);
+        assert_eq!(
+            test::format_batch(&batch),
+            vec![
+                "a,3,2,2,2,2,2,2,2,2",
+                "c,3,2,2,2,2,2,2,2,2",
+                "b,1,1,1,1,1,1,1,1,1",
+            ],
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn count_distinct_integers_aggregated_multiple_partitions() -> Result<()> {
+        let partitions = vec![
+            // The first member of each tuple will be the value for the
+            // `c_group` column, and the second member will be the value for
+            // each of the int/uint fields.
+            vec![("a", 1), ("a", 1), ("a", 2), ("b", 9), ("c", 9)],
+            vec![("a", 1), ("a", 3), ("b", 8), ("b", 9), ("b", 10), ("b", 11)],
+        ];
+
+        let results = run_count_distinct_integers_aggregated_scenario(partitions).await?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        assert_eq!(batch.num_rows(), 3);
+        assert_eq!(batch.num_columns(), 10);
+        assert_eq!(
+            test::format_batch(&batch),
+            vec![
+                "a,5,3,3,3,3,3,3,3,3",
+                "c,1,1,1,1,1,1,1,1,1",
+                "b,5,4,4,4,4,4,4,4,4",
+            ],
+        );
+
         Ok(())
     }
 
@@ -1004,15 +1140,15 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn write_csv_results() -> Result<()> {
+    #[tokio::test]
+    async fn write_csv_results() -> Result<()> {
         // create partitioned input file and context
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 4)?;
 
         // execute a simple query and write the results to CSV
         let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
-        write_csv(&mut ctx, "SELECT c1, c2 FROM test", &out_dir)?;
+        write_csv(&mut ctx, "SELECT c1, c2 FROM test", &out_dir).await?;
 
         // create a new context and verify that the results were saved to a partitioned csv file
         let mut ctx = ExecutionContext::new();
@@ -1030,11 +1166,11 @@ mod tests {
         ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
-        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
-        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
-        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2")?;
-        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3")?;
-        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts")?;
+        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
+        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
+        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
+        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
+        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
         let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
         let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
@@ -1051,8 +1187,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn query_csv_with_custom_partition_extension() -> Result<()> {
+    #[tokio::test]
+    async fn query_csv_with_custom_partition_extension() -> Result<()> {
         let tmp_dir = TempDir::new()?;
 
         // The main stipulation of this test: use a file extension that isn't .csv.
@@ -1067,7 +1203,8 @@ mod tests {
                 .schema(&schema)
                 .file_extension(file_extension),
         )?;
-        let results = collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test")?;
+        let results =
+            collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test").await?;
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].num_rows(), 1);
@@ -1103,8 +1240,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn scalar_udf() -> Result<()> {
+    #[tokio::test]
+    async fn scalar_udf() -> Result<()> {
         let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -1162,7 +1299,7 @@ mod tests {
 
         let plan = ctx.optimize(&plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        let result = ctx.collect(plan)?;
+        let result = ctx.collect(plan).await?;
 
         let batch = &result[0];
         assert_eq!(3, batch.num_columns());
@@ -1195,8 +1332,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn simple_avg() -> Result<()> {
+    #[tokio::test]
+    async fn simple_avg() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let batch1 = RecordBatch::try_new(
@@ -1213,7 +1350,7 @@ mod tests {
         let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let result = collect(&mut ctx, "SELECT AVG(a) FROM t")?;
+        let result = collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
 
         let batch = &result[0];
         assert_eq!(1, batch.num_columns());
@@ -1231,8 +1368,8 @@ mod tests {
     }
 
     /// tests the creation, registration and usage of a UDAF
-    #[test]
-    fn simple_udaf() -> Result<()> {
+    #[tokio::test]
+    async fn simple_udaf() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let batch1 = RecordBatch::try_new(
@@ -1254,17 +1391,13 @@ mod tests {
             "MY_AVG",
             DataType::Float64,
             Arc::new(DataType::Float64),
-            Arc::new(|| {
-                Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
-                    &DataType::Float64,
-                )?)))
-            }),
+            Arc::new(|| Ok(Box::new(AvgAccumulator::try_new(&DataType::Float64)?))),
             Arc::new(vec![DataType::UInt64, DataType::Float64]),
         );
 
         ctx.register_udaf(my_avg);
 
-        let result = collect(&mut ctx, "SELECT MY_AVG(a) FROM t")?;
+        let result = collect(&mut ctx, "SELECT MY_AVG(a) FROM t").await?;
 
         let batch = &result[0];
         assert_eq!(1, batch.num_columns());
@@ -1281,14 +1414,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn custom_query_planner() -> Result<()> {
+    #[tokio::test]
+    async fn custom_query_planner() -> Result<()> {
         let mut ctx = ExecutionContext::with_config(
             ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {})),
         );
 
         let df = ctx.sql("SELECT 1")?;
-        df.collect().expect_err("query not supported");
+        df.collect().await.expect_err("query not supported");
         Ok(())
     }
 
@@ -1300,7 +1433,7 @@ mod tests {
             _logical_plan: &LogicalPlan,
             _ctx_state: &ExecutionContextState,
         ) -> Result<Arc<dyn ExecutionPlan>> {
-            Err(ExecutionError::NotImplemented(
+            Err(DataFusionError::NotImplemented(
                 "query not supported".to_string(),
             ))
         }
@@ -1320,11 +1453,11 @@ mod tests {
     }
 
     /// Execute SQL and return results
-    fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+    async fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.collect(physical_plan)
+        ctx.collect(physical_plan).await
     }
 
     fn field_names(result: &RecordBatch) -> Vec<String> {
@@ -1337,18 +1470,22 @@ mod tests {
     }
 
     /// Execute SQL and return results
-    fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
+    async fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
-        collect(&mut ctx, sql)
+        collect(&mut ctx, sql).await
     }
 
     /// Execute SQL and write results to partitioned csv files
-    fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
+    async fn write_csv(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+        out_dir: &str,
+    ) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.write_csv(physical_plan, out_dir)
+        ctx.write_csv(physical_plan, out_dir.to_string()).await
     }
 
     /// Generate CSV partitions within the supplied directory

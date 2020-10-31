@@ -467,6 +467,20 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   bool HasMinMax() const override { return has_min_max_; }
 
+  bool Equals(const Statistics& raw_other) const override {
+    if (physical_type() != raw_other.physical_type()) return false;
+
+    const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
+
+    if (has_min_max_ != other.has_min_max_) return false;
+
+    return (has_min_max_ && MinMaxEqual(other)) && null_count() == other.null_count() &&
+           distinct_count() == other.distinct_count() &&
+           num_values() == other.num_values();
+  }
+
+  bool MinMaxEqual(const TypedStatisticsImpl& other) const;
+
   void Reset() override {
     ResetCounts();
     has_min_max_ = false;
@@ -583,6 +597,20 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
   }
 };
+
+template <>
+inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
+    const TypedStatisticsImpl<FLBAType>& other) const {
+  uint32_t len = descr_->type_length();
+  return std::memcmp(min_.ptr, other.min_.ptr, len) == 0 &&
+         std::memcmp(max_.ptr, other.max_.ptr, len) == 0;
+}
+
+template <typename DType>
+bool TypedStatisticsImpl<DType>::MinMaxEqual(
+    const TypedStatisticsImpl<DType>& other) const {
+  return min_ != other.min_ && max_ != other.max_;
+}
 
 template <>
 inline void TypedStatisticsImpl<FLBAType>::Copy(const FLBA& src, FLBA* dst,

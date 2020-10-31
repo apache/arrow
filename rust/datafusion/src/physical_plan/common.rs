@@ -19,9 +19,11 @@
 
 use std::fs;
 use std::fs::metadata;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::task::{Context, Poll};
 
-use crate::error::{ExecutionError, Result};
+use super::{RecordBatchStream, SendableRecordBatchStream};
+use crate::error::{DataFusionError, Result};
 
 use array::{
     BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
@@ -30,23 +32,24 @@ use array::{
 };
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{self, ArrayRef},
     datatypes::Schema,
 };
+use futures::{Stream, TryStreamExt};
 
-/// Iterator over a vector of record batches
-pub struct RecordBatchIterator {
+/// Stream of record batches
+pub struct SizedRecordBatchStream {
     schema: SchemaRef,
     batches: Vec<Arc<RecordBatch>>,
     index: usize,
 }
 
-impl RecordBatchIterator {
+impl SizedRecordBatchStream {
     /// Create a new RecordBatchIterator
     pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
-        RecordBatchIterator {
+        SizedRecordBatchStream {
             schema,
             index: 0,
             batches,
@@ -54,39 +57,34 @@ impl RecordBatchIterator {
     }
 }
 
-impl RecordBatchReader for RecordBatchIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Stream for SizedRecordBatchStream {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        if self.index < self.batches.len() {
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        Poll::Ready(if self.index < self.batches.len() {
             self.index += 1;
-            Ok(Some(self.batches[self.index - 1].as_ref().clone()))
+            Some(Ok(self.batches[self.index - 1].as_ref().clone()))
         } else {
-            Ok(None)
-        }
+            None
+        })
     }
 }
 
-/// Create a vector of record batches from an iterator
-pub fn collect(
-    it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-) -> Result<Vec<RecordBatch>> {
-    let mut reader = it.lock().unwrap();
-    let mut results: Vec<RecordBatch> = vec![];
-    loop {
-        match reader.next_batch() {
-            Ok(Some(batch)) => {
-                results.push(batch);
-            }
-            Ok(None) => {
-                // end of result set
-                return Ok(results);
-            }
-            Err(e) => return Err(ExecutionError::from(e)),
-        }
+impl RecordBatchStream for SizedRecordBatchStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
+}
+
+/// Create a vector of record batches from a stream
+pub async fn collect(stream: SendableRecordBatchStream) -> Result<Vec<RecordBatch>> {
+    stream
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|e| DataFusionError::from(e))
 }
 
 /// Recursively build a list of files in a directory with a given extension
@@ -109,7 +107,7 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
                     }
                 }
             } else {
-                return Err(ExecutionError::General("Invalid path".to_string()));
+                return Err(DataFusionError::Plan("Invalid path".to_string()));
             }
         }
     }
@@ -161,12 +159,12 @@ pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
             DataType::Boolean => {
                 Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
             }
-            _ => Err(ExecutionError::NotImplemented(format!(
+            _ => Err(DataFusionError::NotImplemented(format!(
                 "Cannot convert datatype {:?} to array",
                 f.data_type()
             ))),
         })
         .collect::<Result<_>>()
-        .map_err(ExecutionError::into_arrow_external_error)?;
+        .map_err(DataFusionError::into_arrow_external_error)?;
     RecordBatch::try_new(Arc::new(schema.to_owned()), columns)
 }

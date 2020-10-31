@@ -173,8 +173,8 @@ table Bool {
 }
 
 /// Exact decimal value represented as an integer value in two's
-/// complement. Currently only 128-bit (16-byte) integers are used but this may
-/// be expanded in the future. The representation uses the endianness indicated
+/// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
+/// are used. The representation uses the endianness indicated
 /// in the Schema.
 table Decimal {
   /// Total number of decimal digits
@@ -183,10 +183,8 @@ table Decimal {
   /// Number of digits after the decimal point "."
   scale: int;
 
-  /// Number of bits per value. The only accepted width right now is 128 but
-  /// this field exists for forward compatibility so that other bit widths may
-  /// be supported in future format versions. We use bitWidth for consistency
-  /// with Int::bitWidth.
+  /// Number of bits per value. The only accepted widths are 128 and 256.
+  /// We use bitWidth for consistency with Int::bitWidth.
   bitWidth: int = 128;
 }
 

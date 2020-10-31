@@ -70,6 +70,7 @@ def test_type_to_pandas_dtype():
         (pa.string(), np.object_),
         (pa.list_(pa.int8()), np.object_),
         # (pa.list_(pa.int8(), 2), np.object_),  # TODO needs pandas conversion
+        (pa.map_(pa.int64(), pa.float64()), np.object_),
     ]
     for arrow_type, numpy_type in cases:
         assert arrow_type.to_pandas_dtype() == numpy_type
@@ -603,6 +604,7 @@ def test_type_schema_pickling():
         pa.timestamp('ms'),
         pa.timestamp('ns'),
         pa.decimal128(12, 2),
+        pa.decimal256(76, 38),
         pa.field('a', 'string', metadata={b'foo': b'bar'})
     ]
 
@@ -707,3 +709,14 @@ def test_schema_merge():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.unify_schemas([b, d])
+
+
+def test_undecodable_metadata():
+    # ARROW-10214: undecodable metadata shouldn't fail repr()
+    data1 = b'abcdef\xff\x00'
+    data2 = b'ghijkl\xff\x00'
+    schema = pa.schema(
+        [pa.field('ints', pa.int16(), metadata={'key': data1})],
+        metadata={'key': data2})
+    assert 'abcdef' in str(schema)
+    assert 'ghijkl' in str(schema)

@@ -56,7 +56,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
   public void test_add() throws GandivaException {
     int precision = 38;
     int scale = 8;
-    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale, 128);
     Field a = Field.nullable("a", decimal);
     Field b = Field.nullable("b", decimal);
     List<Field> args = Lists.newArrayList(a, b);
@@ -115,8 +115,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
   public void test_add_literal() throws GandivaException {
     int precision = 2;
     int scale = 0;
-    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
-    ArrowType.Decimal literalType = new ArrowType.Decimal(2, 1);
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale, 128);
+    ArrowType.Decimal literalType = new ArrowType.Decimal(2, 1, 128);
     Field a = Field.nullable("a", decimal);
 
     ArrowType.Decimal outputType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
@@ -169,7 +169,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
   public void test_multiply() throws GandivaException {
     int precision = 38;
     int scale = 8;
-    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale);
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale, 128);
     Field a = Field.nullable("a", decimal);
     Field b = Field.nullable("b", decimal);
     List<Field> args = Lists.newArrayList(a, b);
@@ -226,8 +226,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCompare() throws GandivaException {
-    Decimal aType = new Decimal(38, 3);
-    Decimal bType = new Decimal(38, 2);
+    Decimal aType = new Decimal(38, 3, 128);
+    Decimal bType = new Decimal(38, 2, 128);
     Field a = Field.nullable("a", aType);
     Field b = Field.nullable("b", bType);
     List<Field> args = Lists.newArrayList(a, b);
@@ -315,9 +315,9 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testRound() throws GandivaException {
-    Decimal aType = new Decimal(38, 2);
-    Decimal aWithScaleZero = new Decimal(38, 0);
-    Decimal aWithScaleOne = new Decimal(38, 1);
+    Decimal aType = new Decimal(38, 2, 128);
+    Decimal aWithScaleZero = new Decimal(38, 0, 128);
+    Decimal aWithScaleOne = new Decimal(38, 1, 128);
     Field a = Field.nullable("a", aType);
     List<Field> args = Lists.newArrayList(a);
 
@@ -419,8 +419,8 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCastToDecimal() throws GandivaException {
-    Decimal decimalType = new Decimal(38, 2);
-    Decimal decimalWithScaleOne = new Decimal(38, 1);
+    Decimal decimalType = new Decimal(38, 2, 128);
+    Decimal decimalWithScaleOne = new Decimal(38, 1, 128);
     Field dec = Field.nullable("dec", decimalType);
     Field int64f = Field.nullable("int64", int64);
     Field doublef = Field.nullable("float64", float64);
@@ -517,7 +517,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCastToLong() throws GandivaException {
-    Decimal decimalType = new Decimal(38, 2);
+    Decimal decimalType = new Decimal(38, 2, 128);
     Field dec = Field.nullable("dec", decimalType);
 
     Schema schema = new Schema(Lists.newArrayList(dec));
@@ -575,7 +575,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCastToDouble() throws GandivaException {
-    Decimal decimalType = new Decimal(38, 2);
+    Decimal decimalType = new Decimal(38, 2, 128);
     Field dec = Field.nullable("dec", decimalType);
 
     Schema schema = new Schema(Lists.newArrayList(dec));
@@ -633,7 +633,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCastToString() throws GandivaException {
-    Decimal decimalType = new Decimal(38, 2);
+    Decimal decimalType = new Decimal(38, 2, 128);
     Field dec = Field.nullable("dec", decimalType);
     Field str = Field.nullable("str", new ArrowType.Utf8());
     TreeNode field = TreeBuilder.makeField(dec);
@@ -695,7 +695,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testCastStringToDecimal() throws GandivaException {
-    Decimal decimalType = new Decimal(4, 2);
+    Decimal decimalType = new Decimal(4, 2, 128);
     Field dec = Field.nullable("dec", decimalType);
 
     Field str = Field.nullable("str", new ArrowType.Utf8());
@@ -761,7 +761,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     exception.expect(IllegalArgumentException.class);
     exception.expectMessage("Gandiva only supports decimals of upto 38 precision. Input precision" +
             " : 0");
-    Decimal decimalType = new Decimal(0, 0);
+    Decimal decimalType = new Decimal(0, 0, 128);
     Field int64f = Field.nullable("int64", int64);
 
     Schema schema = new Schema(Lists.newArrayList(int64f));
@@ -780,7 +780,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     exception.expect(IllegalArgumentException.class);
     exception.expectMessage("Gandiva only supports decimals of upto 38 precision. Input precision" +
             " : 42");
-    Decimal decimalType = new Decimal(42, 0);
+    Decimal decimalType = new Decimal(42, 0, 128);
     Field int64f = Field.nullable("int64", int64);
 
     Schema schema = new Schema(Lists.newArrayList(int64f));

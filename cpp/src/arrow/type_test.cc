@@ -1770,43 +1770,85 @@ TEST(TestDictionaryType, UnifyLarge) {
 TEST(TypesTest, TestDecimal128Small) {
   Decimal128Type t1(8, 4);
 
-  ASSERT_EQ(t1.id(), Type::DECIMAL);
-  ASSERT_EQ(t1.precision(), 8);
-  ASSERT_EQ(t1.scale(), 4);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
+  EXPECT_EQ(t1.precision(), 8);
+  EXPECT_EQ(t1.scale(), 4);
 
-  ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1.byte_width(), 16);
+  EXPECT_EQ(t1.bit_width(), 128);
 }
 
 TEST(TypesTest, TestDecimal128Medium) {
   Decimal128Type t1(12, 5);
 
-  ASSERT_EQ(t1.id(), Type::DECIMAL);
-  ASSERT_EQ(t1.precision(), 12);
-  ASSERT_EQ(t1.scale(), 5);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 5);
 
-  ASSERT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1.byte_width(), 16);
+  EXPECT_EQ(t1.bit_width(), 128);
 }
 
 TEST(TypesTest, TestDecimal128Large) {
   Decimal128Type t1(27, 7);
 
-  ASSERT_EQ(t1.id(), Type::DECIMAL);
-  ASSERT_EQ(t1.precision(), 27);
-  ASSERT_EQ(t1.scale(), 7);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
+  EXPECT_EQ(t1.precision(), 27);
+  EXPECT_EQ(t1.scale(), 7);
 
-  ASSERT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  EXPECT_EQ(t1.byte_width(), 16);
+  EXPECT_EQ(t1.bit_width(), 128);
+}
+
+TEST(TypesTest, TestDecimal256Small) {
+  Decimal256Type t1(8, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
+  EXPECT_EQ(t1.precision(), 8);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal256(8, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 32);
+  EXPECT_EQ(t1.bit_width(), 256);
+}
+
+TEST(TypesTest, TestDecimal256Medium) {
+  Decimal256Type t1(12, 5);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 5);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal256(12, 5)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 32);
+  EXPECT_EQ(t1.bit_width(), 256);
+}
+
+TEST(TypesTest, TestDecimal256Large) {
+  Decimal256Type t1(76, 38);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
+  EXPECT_EQ(t1.precision(), 76);
+  EXPECT_EQ(t1.scale(), 38);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal256(76, 38)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 32);
+  EXPECT_EQ(t1.bit_width(), 256);
 }
 
 TEST(TypesTest, TestDecimalEquals) {
@@ -1815,12 +1857,24 @@ TEST(TypesTest, TestDecimalEquals) {
   Decimal128Type t3(8, 5);
   Decimal128Type t4(27, 5);
 
+  Decimal256Type t5(8, 4);
+  Decimal256Type t6(8, 4);
+  Decimal256Type t7(8, 5);
+  Decimal256Type t8(27, 5);
+
   FixedSizeBinaryType t9(16);
+  FixedSizeBinaryType t10(32);
 
   AssertTypeEqual(t1, t2);
   AssertTypeNotEqual(t1, t3);
   AssertTypeNotEqual(t1, t4);
   AssertTypeNotEqual(t1, t9);
+
+  AssertTypeEqual(t5, t6);
+  AssertTypeNotEqual(t5, t1);
+  AssertTypeNotEqual(t5, t7);
+  AssertTypeNotEqual(t5, t8);
+  AssertTypeNotEqual(t5, t10);
 }
 
 }  // namespace arrow

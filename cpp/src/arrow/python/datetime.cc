@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
-#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -416,6 +415,16 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   // HH:MM offset string representation
   if (PyObject_IsInstance(tzinfo, class_timezone.obj()) ||
       PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
+    // still recognize datetime.timezone.utc as UTC (instead of +00:00)
+    OwnedRef tzname_object(PyObject_CallMethod(tzinfo, "tzname", "O", Py_None));
+    RETURN_IF_PYERROR();
+    if (PyUnicode_Check(tzname_object.obj())) {
+      std::string result;
+      RETURN_NOT_OK(internal::PyUnicode_AsStdString(tzname_object.obj(), &result));
+      if (result == "UTC") {
+        return result;
+      }
+    }
     return PyTZInfo_utcoffset_hhmm(tzinfo);
   }
 

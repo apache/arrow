@@ -249,6 +249,10 @@ if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
+if(ARROW_S3)
+  set(ARROW_WITH_ZLIB ON)
+endif()
+
 if(NOT ARROW_COMPUTE)
   # utf8proc is only potentially used in kernels for now
   set(ARROW_WITH_UTF8PROC OFF)
@@ -298,6 +302,33 @@ else()
   set_urls(
     ABSL_SOURCE_URL
     "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_COMMON_URL})
+  set(AWS_C_COMMON_SOURCE_URL "$ENV{ARROW_AWS_C_COMMON_URL}")
+else()
+  set_urls(
+    AWS_C_COMMON_SOURCE_URL
+    "https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_CHECKSUMS_URL})
+  set(AWS_CHECKSUMS_SOURCE_URL "$ENV{ARROW_AWS_CHECKSUMS_URL}")
+else()
+  set_urls(
+    AWS_CHECKSUMS_SOURCE_URL
+    "https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
+  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+else()
+  set_urls(
+    AWS_C_EVENT_STREAM_SOURCE_URL
+    "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_AWSSDK_URL})
@@ -971,8 +1002,24 @@ endif()
 
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
-  # This must work
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  # OpenSSL is required
+  if(ARROW_OPENSSL_USE_SHARED)
+    # Find shared OpenSSL libraries.
+    set(OpenSSL_USE_STATIC_LIBS OFF)
+    # Seems that different envs capitalize this differently?
+    set(OPENSSL_USE_STATIC_LIBS OFF)
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+
+    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
+    unset(BUILD_SHARED_LIBS_KEEP)
+  else()
+    # Find static OpenSSL headers and libs
+    set(OpenSSL_USE_STATIC_LIBS ON)
+    set(OPENSSL_USE_STATIC_LIBS ON)
+    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  endif()
   set(ARROW_USE_OPENSSL ON)
 endif()
 
@@ -1647,10 +1694,7 @@ macro(build_gtest)
   add_dependencies(GTest::gmock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS
-   OR ARROW_BUILD_INTEGRATION
-   OR ARROW_FUZZING)
+if(ARROW_TESTING)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)
@@ -1780,6 +1824,7 @@ macro(build_rapidjson)
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
 
   add_dependencies(toolchain rapidjson_ep)
+  add_dependencies(toolchain-tests rapidjson_ep)
   add_dependencies(rapidjson rapidjson_ep)
 
   set(RAPIDJSON_VENDORED TRUE)
@@ -1850,9 +1895,11 @@ macro(build_zlib)
   file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
 
   add_library(ZLIB::ZLIB STATIC IMPORTED)
+  set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+  set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
   set_target_properties(ZLIB::ZLIB
-                        PROPERTIES IMPORTED_LOCATION "${ZLIB_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_PREFIX}/include")
+                        PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
+                                   INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
@@ -2194,6 +2241,13 @@ macro(build_cares)
                         PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
   add_dependencies(c-ares::cares cares_ep)
+
+  if(APPLE)
+    # libresolv must be linked from c-ares version 1.16.1
+    find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
+    set_target_properties(c-ares::cares
+                          PROPERTIES INTERFACE_LINK_LIBRARIES "${LIBRESOLV_LIBRARY}")
+  endif()
 
   set(CARES_VENDORED TRUE)
 
@@ -2612,12 +2666,14 @@ endif()
 # AWS SDK for C++
 
 macro(build_awssdk)
-  message(
-    FATAL_ERROR "FIXME: Building AWS C++ SDK from source will link with wrong libcrypto")
   message("Building AWS C++ SDK from source")
-
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+    message(FATAL_ERROR "AWS C++ SDK requires gcc >= 4.9")
+  endif()
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
+  set(AWSSDK_LIB_DIR "lib")
 
   if(WIN32)
     # On Windows, need to match build types
@@ -2626,50 +2682,133 @@ macro(build_awssdk)
     # Otherwise, always build in release mode.
     # Especially with gcc, debug builds can fail with "asm constraint" errors:
     # https://github.com/TileDB-Inc/TileDB/issues/1351
-    set(AWSSDK_BUILD_TYPE Release)
+    set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  set(AWSSDK_CMAKE_ARGS
-      -DCMAKE_BUILD_TYPE=Release
-      -DCMAKE_INSTALL_LIBDIR=lib
-      -DBUILD_ONLY=s3;core;config;identity-management;sts
-      -DENABLE_UNITY_BUILD=on
-      -DENABLE_TESTING=off
-      "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-      "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}")
+  set(AWSSDK_COMMON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_SHARED_LIBS=OFF
+      -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
+      -DENABLE_TESTING=OFF
+      -DENABLE_UNITY_BUILD=ON
+      "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
   set(
-    AWSSDK_CORE_SHARED_LIB
-    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-core${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    )
-  set(
-    AWSSDK_S3_SHARED_LIB
-    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-s3${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    )
-  set(
-    AWSSDK_IAM_SHARED_LIB
-    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-identity-management${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    )
-  set(
-    AWSSDK_STS_SHARED_LIB
-    "${AWSSDK_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}aws-cpp-sdk-sts${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    )
-  set(AWSSDK_SHARED_LIBS "${AWSSDK_CORE_SHARED_LIB}" "${AWSSDK_S3_SHARED_LIB}"
-                         "${AWSSDK_IAM_SHARED_LIB}" "${AWSSDK_STS_SHARED_LIB}")
+    AWSSDK_CMAKE_ARGS
+    ${AWSSDK_COMMON_CMAKE_ARGS} -DBUILD_DEPS=OFF
+    -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
+    -DMINIMIZE_SIZE=ON)
+  if(UNIX AND TARGET zlib_ep)
+    list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
+                -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+  endif()
+
+  file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
+
+  # AWS C++ SDK related libraries to link statically
+  set(_AWSSDK_LIBS
+      aws-cpp-sdk-identity-management
+      aws-cpp-sdk-sts
+      aws-cpp-sdk-cognito-identity
+      aws-cpp-sdk-s3
+      aws-cpp-sdk-core
+      aws-c-event-stream
+      aws-checksums
+      aws-c-common)
+  set(AWSSDK_LIBRARIES)
+  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
+    # aws-c-common -> AWS-C-COMMON
+    string(TOUPPER ${_AWSSDK_LIB} _AWSSDK_LIB_UPPER)
+    # AWS-C-COMMON -> AWS_C_COMMON
+    string(REPLACE "-" "_" _AWSSDK_LIB_NAME_PREFIX ${_AWSSDK_LIB_UPPER})
+    set(
+      _AWSSDK_STATIC_LIBRARY
+      "${AWSSDK_PREFIX}/${AWSSDK_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
+      set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
+    else()
+      set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
+    endif()
+    add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
+    set_target_properties(
+      ${_AWSSDK_TARGET_NAME}
+      PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
+                 "${AWSSDK_INCLUDE_DIR}")
+    set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
+    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
+  endforeach()
+
+  externalproject_add(aws_c_common_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_COMMON_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
+  add_dependencies(AWS::aws-c-common aws_c_common_ep)
+
+  externalproject_add(aws_checksums_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_CHECKSUMS_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY})
+  add_dependencies(AWS::aws-checksums aws_checksums_ep)
+
+  externalproject_add(aws_c_event_stream_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep aws_checksums_ep)
+  add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWSSDK_SHARED_LIBS})
-
-  file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
-
+                      BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
+                      DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
-  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_SHARED_LIBS})
-  set(AWSSDK_VENDORED TRUE)
+  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
+    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
+      add_dependencies(${_AWSSDK_LIB} awssdk_ep)
+    endif()
+  endforeach()
 
-  # AWSSDK is shared-only build
+  set(AWSSDK_VENDORED TRUE)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
+  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
+  if(UNIX)
+    # on linux and macos curl seems to be required
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For old FindCURL.cmake
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                       "${CURL_LIBRARIES}")
+    endif()
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
+    set_property(TARGET CURL::libcurl
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+    if(TARGET zlib_ep)
+      set_property(TARGET aws-cpp-sdk-core
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
+      add_dependencies(awssdk_ep zlib_ep)
+    endif()
+  endif()
+
+  # AWSSDK is static-only build
 endmacro()
 
 if(ARROW_S3)

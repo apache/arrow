@@ -17,18 +17,22 @@
 
 //! Defines the SORT plan
 
-use std::sync::{Arc, Mutex};
+use std::any::Any;
+use std::sync::Arc;
 
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::common::RecordBatchIterator;
+use super::SendableRecordBatchStream;
+use crate::error::{DataFusionError, Result};
+use crate::physical_plan::common::SizedRecordBatchStream;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
+
+use async_trait::async_trait;
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -56,7 +60,13 @@ impl SortExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for SortExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.input.schema().clone()
     }
@@ -84,18 +94,15 @@ impl ExecutionPlan for SortExec {
                 children[0].clone(),
                 self.concurrency,
             )?)),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "SortExec wrong number of children".to_string(),
             )),
         }
     }
 
-    fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "SortExec invalid partition {}",
                 partition
             )));
@@ -103,12 +110,12 @@ impl ExecutionPlan for SortExec {
 
         // sort needs to operate on a single partition currently
         if 1 != self.input.output_partitioning().partition_count() {
-            return Err(ExecutionError::General(
+            return Err(DataFusionError::Internal(
                 "SortExec requires a single input partition".to_owned(),
             ));
         }
-        let it = self.input.execute(0)?;
-        let batches = common::collect(it)?;
+        let it = self.input.execute(0).await?;
+        let batches = common::collect(it).await?;
 
         // combine all record batches into one for each column
         let combined_batch = RecordBatch::try_new(
@@ -157,10 +164,10 @@ impl ExecutionPlan for SortExec {
                 .collect::<Result<Vec<ArrayRef>>>()?,
         )?;
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Box::pin(SizedRecordBatchStream::new(
             self.schema(),
             vec![Arc::new(sorted_batch)],
-        ))))
+        )))
     }
 }
 
@@ -175,8 +182,8 @@ mod tests {
     use arrow::array::*;
     use arrow::datatypes::*;
 
-    #[test]
-    fn test_sort() -> Result<()> {
+    #[tokio::test]
+    async fn test_sort() -> Result<()> {
         let schema = test::aggr_test_schema();
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
@@ -201,11 +208,11 @@ mod tests {
                     options: SortOptions::default(),
                 },
             ],
-            Arc::new(MergeExec::new(Arc::new(csv), 2)),
+            Arc::new(MergeExec::new(Arc::new(csv))),
             2,
         )?);
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec)?;
+        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();
@@ -225,8 +232,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_lex_sort_by_float() -> Result<()> {
+    #[tokio::test]
+    async fn test_lex_sort_by_float() -> Result<()> {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Float32, true),
             Field::new("b", DataType::Float64, true),
@@ -283,7 +290,7 @@ mod tests {
         assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());
         assert_eq!(DataType::Float64, *sort_exec.schema().field(1).data_type());
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec)?;
+        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();

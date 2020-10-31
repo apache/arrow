@@ -53,6 +53,7 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
@@ -122,7 +123,7 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   auto ctx = arrow::internal::make_unique<llvm::LLVMContext>();
   auto module = arrow::internal::make_unique<llvm::Module>("codegen", *ctx);
 
-  // Capture before moving, ExceutionEngine does not allow retrieving the
+  // Capture before moving, ExecutionEngine does not allow retrieving the
   // original Module.
   auto module_ptr = module.get();
 

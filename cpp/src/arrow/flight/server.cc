@@ -472,7 +472,16 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
                          GrpcServerCallContext& flight_context) {
     if (!auth_handler_) {
-      flight_context.peer_identity_ = "";
+      const auto auth_context = context->auth_context();
+      if (auth_context && auth_context->IsPeerAuthenticated()) {
+        auto peer_identity = auth_context->GetPeerIdentity();
+        flight_context.peer_identity_ =
+            peer_identity.empty()
+                ? ""
+                : std::string(peer_identity.front().begin(), peer_identity.front().end());
+      } else {
+        flight_context.peer_identity_ = "";
+      }
     } else {
       const auto client_metadata = context->client_metadata();
       const auto auth_header = client_metadata.find(internal::kGrpcAuthHeader);

@@ -173,20 +173,19 @@ class ZSTDCompressor : public Compressor {
 
 class ZSTDCodec : public Codec {
  public:
-  explicit ZSTDCodec(int compression_level) {
-    compression_level_ = compression_level == kUseDefaultCompressionLevel
-                             ? kZSTDDefaultCompressionLevel
-                             : compression_level;
-  }
+  explicit ZSTDCodec(int compression_level)
+      : compression_level_(compression_level == kUseDefaultCompressionLevel
+                               ? kZSTDDefaultCompressionLevel
+                               : compression_level) {}
 
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
     if (output_buffer == nullptr) {
       // We may pass a NULL 0-byte output buffer but some zstd versions demand
       // a valid pointer: https://github.com/facebook/zstd/issues/1385
-      static uint8_t empty_buffer[1];
+      static uint8_t empty_buffer;
       DCHECK_EQ(output_buffer_len, 0);
-      output_buffer = empty_buffer;
+      output_buffer = &empty_buffer;
     }
 
     size_t ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len),
@@ -228,10 +227,12 @@ class ZSTDCodec : public Codec {
     return ptr;
   }
 
-  const char* name() const override { return "zstd"; }
+  Compression::type compression_type() const override { return Compression::ZSTD; }
+
+  int compression_level() const override { return compression_level_; }
 
  private:
-  int compression_level_;
+  const int compression_level_;
 };
 
 }  // namespace

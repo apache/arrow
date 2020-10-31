@@ -39,8 +39,10 @@ RUN apt-get update -y && \
         gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
+        libfribidi-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
+        libharfbuzz-dev \
         libtool \
         libxml2-dev \
         ninja-build \
@@ -63,7 +65,7 @@ RUN /arrow/ci/scripts/util_download_apache.sh \
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
-ARG node=11
+ARG node=14
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \

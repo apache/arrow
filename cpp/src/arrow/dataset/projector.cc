@@ -46,6 +46,15 @@ Status CheckProjectable(const Schema& from, const Schema& to) {
                                from);
     }
 
+    if (from_field->type()->id() == Type::NA) {
+      // promotion from null to any type is supported
+      if (to_field->nullable()) continue;
+
+      return Status::TypeError("field ", to_field->ToString(),
+                               " is not nullable but has type ", NullType(),
+                               " in origin schema ", from);
+    }
+
     if (!from_field->type()->Equals(to_field->type())) {
       return Status::TypeError("fields had matching names but differing types. From: ",
                                from_field->ToString(), " To: ", to_field->ToString());
@@ -98,7 +107,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatchProjector::Project(
     RETURN_NOT_OK(ResizeMissingColumns(batch.num_rows(), pool));
   }
 
-  std::vector<std::shared_ptr<Array>> columns(to_->num_fields());
+  ArrayVector columns(to_->num_fields());
 
   for (int i = 0; i < to_->num_fields(); ++i) {
     if (column_indices_[i] != kNoMatch) {
@@ -120,7 +129,8 @@ Status RecordBatchProjector::SetInputSchema(std::shared_ptr<Schema> from,
     ARROW_ASSIGN_OR_RAISE(auto match,
                           FieldRef(to_->field(i)->name()).FindOneOrNone(*from_));
 
-    if (match.indices().empty()) {
+    if (match.indices().empty() ||
+        from_->field(match.indices()[0])->type()->id() == Type::NA) {
       // Mark column i as missing by setting missing_columns_[i]
       // to a non-null placeholder.
       ARROW_ASSIGN_OR_RAISE(missing_columns_[i],

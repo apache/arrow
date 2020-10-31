@@ -31,8 +31,8 @@ import (
 // will be sent as part of the context metadata in subsequent requests after
 // authentication is performed using the key "auth-token-bin".
 type ClientAuthHandler interface {
-	Authenticate(AuthConn) error
-	GetToken() (string, error)
+	Authenticate(context.Context, AuthConn) error
+	GetToken(context.Context) (string, error)
 }
 
 type clientAuthConn struct {
@@ -60,7 +60,7 @@ func createClientAuthUnaryInterceptor(auth ClientAuthHandler) grpc.UnaryClientIn
 	}
 
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		tok, err := auth.GetToken()
+		tok, err := auth.GetToken(ctx)
 		if err != nil {
 			return status.Errorf(codes.Unauthenticated, "error retrieving token: %s", err)
 		}
@@ -81,7 +81,7 @@ func createClientAuthStreamInterceptor(auth ClientAuthHandler) grpc.StreamClient
 			return streamer(ctx, desc, cc, method, opts...)
 		}
 
-		tok, err := auth.GetToken()
+		tok, err := auth.GetToken(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Unauthenticated, "error retrieving token: %s", err)
 		}

@@ -40,6 +40,10 @@
 %define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
 %define use_ninja (%{_centos_ver} >= 8)
 %define use_parquet (%{_centos_ver} >= 7)
+# TODO: Enable this. This works on local but is fragile on GitHub Actions and
+# Travis CI.
+# %define use_s3 (%{_centos_ver} >= 8)
+%define use_s3 0
 
 %define use_glib (%{_centos_ver} >= 7)
 %define use_meson (%{_centos_ver} >= 8)
@@ -67,6 +71,9 @@ BuildRequires:	brotli-devel
 %endif
 BuildRequires:	bzip2-devel
 BuildRequires:	cmake%{cmake_version}
+%if %{use_s3}
+BuildRequires:	curl-devel
+%endif
 BuildRequires:	gcc-c++
 %if %{_centos_ver} >= 7
 BuildRequires:	gflags-devel
@@ -137,7 +144,9 @@ cd cpp/build
 %endif
   -DARROW_PLASMA=ON \
   -DARROW_PYTHON=ON \
-  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+%if %{use_s3}
+  -DARROW_S3=ON \
+%endif
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -789,6 +798,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Mon Oct 12 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 2.0.0-1
+- New upstream release.
+
 * Mon Jul 20 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 1.0.0-1
 - New upstream release.
 

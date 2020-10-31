@@ -22,6 +22,7 @@ import os
 import pyarrow as pa
 
 from pyarrow.lib import (IpcWriteOptions, Message, MessageReader,  # noqa
+                         RecordBatchReader, _ReadPandasMixin,
                          MetadataVersion,
                          read_message, read_record_batch, read_schema,
                          read_tensor, write_tensor,
@@ -29,28 +30,7 @@ from pyarrow.lib import (IpcWriteOptions, Message, MessageReader,  # noqa
 import pyarrow.lib as lib
 
 
-class _ReadPandasOption:
-
-    def read_pandas(self, **options):
-        """
-        Read contents of stream to a pandas.DataFrame.
-
-        Read all record batches as a pyarrow.Table then convert it to a
-        pandas.DataFrame using Table.to_pandas.
-
-        Parameters
-        ----------
-        **options : arguments to forward to Table.to_pandas
-
-        Returns
-        -------
-        df : pandas.DataFrame
-        """
-        table = self.read_all()
-        return table.to_pandas(**options)
-
-
-class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
+class RecordBatchStreamReader(lib._RecordBatchStreamReader):
     """
     Reader for the Arrow streaming binary format.
 
@@ -97,7 +77,7 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
         self._open(sink, schema, options=options)
 
 
-class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
+class RecordBatchFileReader(lib._RecordBatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 

@@ -124,7 +124,7 @@ public class ComplexCopier {
           Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
           reader.read(${uncappedName}Holder);
           if (${uncappedName}Holder.isSet == 1) {
-            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class == "Decimal">, new ArrowType.Decimal(decimalHolder.precision, decimalHolder.scale)</#if>);
+            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, new ArrowType.Decimal(${uncappedName}Holder.precision, ${uncappedName}Holder.scale, ${name}Holder.WIDTH * 8)</#if>);
           }
         } else {
           writer.writeNull();
@@ -145,7 +145,7 @@ public class ComplexCopier {
     case ${name?upper_case}:
       return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>(name);
     </#if>
-    <#if minor.class == "Decimal">
+    <#if minor.class?starts_with("Decimal")>
     case ${name?upper_case}:
       if (reader.getField().getType() instanceof ArrowType.Decimal) {
         ArrowType.Decimal type = (ArrowType.Decimal) reader.getField().getType();
@@ -154,6 +154,7 @@ public class ComplexCopier {
         return (FieldWriter) writer.${uncappedName}(name);
       }
     </#if>
+    
     </#list></#list>
     case STRUCT:
       return (FieldWriter) writer.struct(name);

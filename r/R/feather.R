@@ -24,9 +24,8 @@
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream]
-#' @param filesystem A [FileSystem] where `sink` should be written if it is a
-#' string file path; default is the local file system
+#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' system (`SubTreeFileSystem`)
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -54,7 +53,6 @@
 #' @include arrow-package.R
 write_feather <- function(x,
                           sink,
-                          filesystem = NULL,
                           version = 2,
                           chunk_size = 65536L,
                           compression = c("default", "lz4", "uncompressed", "zstd"),
@@ -108,11 +106,10 @@ write_feather <- function(x,
   }
   assert_is(x, "Table")
 
-  if (is.string(sink)) {
-    sink <- make_output_stream(sink, filesystem)
+  if (!inherits(sink, "OutputStream")) {
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
-  assert_is(sink, "OutputStream")
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
   invisible(x_out)
 }
@@ -144,9 +141,9 @@ write_feather <- function(x,
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
-read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, filesystem = NULL, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file, filesystem = filesystem)
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file, ...)

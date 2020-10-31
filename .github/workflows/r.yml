@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["3.6", "4.0"]
+        r: ["3.6"]
         ubuntu: [18.04]
     env:
       R: ${{ matrix.r }}
@@ -92,21 +92,20 @@ jobs:
         continue-on-error: true
         run: archery docker push ubuntu-r
 
-  rstudio:
-    name: "rstudio/r-base:${{ matrix.r_version }}-${{ matrix.r_image }}"
+  bundled:
+    name: "${{ matrix.config.org }}/${{ matrix.config.image }}:${{ matrix.config.tag }}"
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       fail-fast: false
       matrix:
-        # See https://hub.docker.com/r/rstudio/r-base
-        r_version: ["3.6", "4.0"]
-        r_image:
-          - centos7
+        config:
+          - {org: 'rstudio', image: 'r-base', tag: '4.0-centos7'}
+          - {org: 'rhub', image: 'debian-gcc-devel', tag: 'latest'}
     env:
-      R_ORG: rstudio
-      R_IMAGE: r-base
-      R_TAG: ${{ matrix.r_version }}-${{ matrix.r_image }}
+      R_ORG: ${{ matrix.config.org }}
+      R_IMAGE: ${{ matrix.config.image }}
+      R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -120,8 +119,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: ${{ matrix.r_image }}-r-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.r_image }}-r-
+          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.config.image }}-r-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

@@ -18,7 +18,7 @@
 //! Projection Push Down optimizer rule ensures that only referenced columns are
 //! loaded into memory
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
@@ -62,7 +62,7 @@ fn get_projected_schema(
     has_projection: bool,
 ) -> Result<(Vec<usize>, SchemaRef)> {
     if projection.is_some() {
-        return Err(ExecutionError::General(
+        return Err(DataFusionError::Internal(
             "Cannot run projection push-down rule more than once".to_string(),
         ));
     }
@@ -216,7 +216,7 @@ fn optimize_plan(
         // * remove un-used columns from the scan projection
         LogicalPlan::TableScan {
             schema_name,
-            table_name,
+            source,
             table_schema,
             projection,
             ..
@@ -231,7 +231,7 @@ fn optimize_plan(
             // return the table scan with projection
             Ok(LogicalPlan::TableScan {
                 schema_name: schema_name.to_string(),
-                table_name: table_name.to_string(),
+                source: source.clone(),
                 table_schema: table_schema.clone(),
                 projection: Some(projection),
                 projected_schema: projected_schema,

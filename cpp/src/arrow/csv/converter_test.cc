@@ -354,6 +354,26 @@ TEST(BooleanConversion, CustomNulls) {
                                       {{true, false}, {false, true}}, options);
 }
 
+TEST(Date32Conversion, Basics) {
+  AssertConversion<Date32Type, int32_t>(date32(), {"1945-05-08\n", "2020-03-15\n"},
+                                        {{-9004, 18336}});
+}
+
+TEST(Date32Conversion, Nulls) {
+  AssertConversion<Date32Type, int32_t>(date32(), {"N/A\n", "2020-03-15\n"}, {{0, 18336}},
+                                        {{false, true}});
+}
+
+TEST(Date64Conversion, Basics) {
+  AssertConversion<Date64Type, int64_t>(date64(), {"1945-05-08\n", "2020-03-15\n"},
+                                        {{-777945600000LL, 1584230400000LL}});
+}
+
+TEST(Date64Conversion, Nulls) {
+  AssertConversion<Date64Type, int64_t>(date64(), {"N/A\n", "2020-03-15\n"},
+                                        {{0, 1584230400000LL}}, {{false, true}});
+}
+
 TEST(TimestampConversion, Basics) {
   auto type = timestamp(TimeUnit::SECOND);
 

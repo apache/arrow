@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>2.0.0-SNAPSHOT</version>
+  <version>2.0.0</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -38,7 +38,7 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.9.0</dep.fbs.version>
     <dep.flatc.version>1.9.0</dep.flatc.version>
-    <dep.avro.version>1.9.2</dep.avro.version>
+    <dep.avro.version>1.10.0</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
@@ -49,7 +49,7 @@
     <connection>scm:git:https://github.com/apache/arrow.git</connection>
     <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
     <url>https://github.com/apache/arrow</url>
-    <tag>apache-arrow-0.10.0</tag>
+    <tag>apache-arrow-2.0.0</tag>
   </scm>
 
   <mailingLists>

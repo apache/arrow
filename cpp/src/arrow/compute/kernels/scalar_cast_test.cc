@@ -65,7 +65,7 @@ struct TestCType<T, enable_if_base_binary<T>> {
 };
 
 template <typename T>
-struct TestCType<T, enable_if_decimal<T>> {
+struct TestCType<T, enable_if_decimal128<T>> {
   using type = Decimal128;
 };
 

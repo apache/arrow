@@ -34,6 +34,15 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    wget && \
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${LLVM} main" > \
+    /etc/apt/sources.list.d/llvm.list && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
     build-essential \
     cmake \
     debhelper \
@@ -45,6 +54,7 @@ RUN \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
+    libcurl4-openssl-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \

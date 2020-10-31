@@ -74,11 +74,12 @@ struct IsNullOperator {
   }
 };
 
-void MakeFunction(std::string name, std::vector<InputType> in_types, OutputType out_type,
+void MakeFunction(std::string name, const FunctionDoc* doc,
+                  std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
                   MemAllocation::type mem_allocation, bool can_write_into_slices) {
   Arity arity{static_cast<int>(in_types.size())};
-  auto func = std::make_shared<ScalarFunction>(name, arity);
+  auto func = std::make_shared<ScalarFunction>(name, arity, doc);
 
   ScalarKernel kernel(std::move(in_types), out_type, exec);
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
@@ -123,14 +124,22 @@ void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
+const FunctionDoc is_valid_doc(
+    "Return true if non-null",
+    ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
+
+const FunctionDoc is_null_doc("Return true if null",
+                              ("For each input value, emit true iff the value is null."),
+                              {"values"});
+
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
-  MakeFunction("is_valid", {ValueDescr::ANY}, boolean(), IsValidExec, registry,
-               MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
+  MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
+               registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", {ValueDescr::ANY}, boolean(), IsNullExec, registry,
-               MemAllocation::PREALLOCATE,
+  MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
+               registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 }
 

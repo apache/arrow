@@ -2223,3 +2223,11 @@ exception of some code pulled in from other repositories (such as
 public domain, released using the CC0 1.0 Universal dedication (*).
 
 (*) https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+--------------------------------------------------------------------------------
+
+The files in cpp/src/arrow/vendored/fast_float/ contain code from
+
+https://github.com/lemire/fast_float
+
+which is made available under the Apache License 2.0.

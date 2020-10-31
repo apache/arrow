@@ -307,7 +307,24 @@ class UnionBuilderTest : public ::testing::Test {
     AppendString("def");
     AppendInt(-10);
     AppendDouble(0.5);
+
     ASSERT_OK(union_builder->Finish(&actual));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
+  }
+
+  void AppendNullsAndEmptyValues() {
+    AppendString("abc");
+    ASSERT_OK(union_builder->AppendNull());
+    ASSERT_OK(union_builder->AppendEmptyValue());
+    expected_types_vector.insert(expected_types_vector.end(), 3, I8);
+    AppendInt(42);
+    ASSERT_OK(union_builder->AppendNulls(2));
+    ASSERT_OK(union_builder->AppendEmptyValues(2));
+    expected_types_vector.insert(expected_types_vector.end(), 3, I8);
+
+    ASSERT_OK(union_builder->Finish(&actual));
+    ASSERT_OK(actual->ValidateFull());
     ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
   }
 
@@ -329,7 +346,9 @@ class UnionBuilderTest : public ::testing::Test {
     AppendDouble(1.0);
     AppendDouble(-1.0);
     AppendDouble(0.5);
+
     ASSERT_OK(union_builder->Finish(&actual));
+    ASSERT_OK(actual->ValidateFull());
     ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
 
     ASSERT_EQ(I8, 0);
@@ -357,6 +376,7 @@ class UnionBuilderTest : public ::testing::Test {
     AppendDouble(0.5);
 
     ASSERT_OK(list_builder.Finish(actual));
+    ASSERT_OK((*actual)->ValidateFull());
     ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
   }
 
@@ -376,20 +396,20 @@ class SparseUnionBuilderTest : public UnionBuilderTest<SparseUnionBuilder> {
 
   void AppendInt(int8_t i) override {
     Base::AppendInt(i);
-    ASSERT_OK(str_builder->AppendNull());
-    ASSERT_OK(dbl_builder->AppendNull());
+    ASSERT_OK(str_builder->AppendEmptyValue());
+    ASSERT_OK(dbl_builder->AppendEmptyValue());
   }
 
   void AppendString(const std::string& str) override {
     Base::AppendString(str);
-    ASSERT_OK(i8_builder->AppendNull());
-    ASSERT_OK(dbl_builder->AppendNull());
+    ASSERT_OK(i8_builder->AppendEmptyValue());
+    ASSERT_OK(dbl_builder->AppendEmptyValue());
   }
 
   void AppendDouble(double dbl) override {
     Base::AppendDouble(dbl);
-    ASSERT_OK(i8_builder->AppendNull());
-    ASSERT_OK(str_builder->AppendNull());
+    ASSERT_OK(i8_builder->AppendEmptyValue());
+    ASSERT_OK(str_builder->AppendEmptyValue());
   }
 };
 
@@ -413,6 +433,34 @@ TEST_F(DenseUnionBuilderTest, Basics) {
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(DenseUnionBuilderTest, NullsAndEmptyValues) {
+  union_builder.reset(new DenseUnionBuilder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      dense_union({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                  {I8, STR, DBL})));
+  AppendNullsAndEmptyValues();
+
+  // Four null / empty values (the latter implementation-defined) were appended to I8
+  auto expected_i8 = ArrayFromJSON(int8(), "[null, 0, 42, null, 0]");
+  auto expected_str = ArrayFromJSON(utf8(), R"(["abc"])");
+  auto expected_dbl = ArrayFromJSON(float64(), "[]");
+
+  // "abc", null, 0, 42, null, null, 0, 0
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 3, 3, 4, 4]");
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       DenseUnionArray::Make(*expected_types, *expected_offsets,
+                                             {expected_i8, expected_str, expected_dbl},
+                                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+  // Physical arrays must be as expected
+  ASSERT_ARRAYS_EQUAL(*expected_i8, *actual->field(0));
+  ASSERT_ARRAYS_EQUAL(*expected_str, *actual->field(1));
+  ASSERT_ARRAYS_EQUAL(*expected_dbl, *actual->field(2));
 }
 
 TEST_F(DenseUnionBuilderTest, InferredType) {
@@ -465,6 +513,32 @@ TEST_F(SparseUnionBuilderTest, Basics) {
 
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(SparseUnionBuilderTest, NullsAndEmptyValues) {
+  union_builder.reset(new SparseUnionBuilder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      sparse_union({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                   {I8, STR, DBL})));
+  AppendNullsAndEmptyValues();
+
+  // "abc", null, 0, 42, null, null, 0, 0
+  // (note that getting 0 for empty values is implementation-defined)
+  auto expected_i8 = ArrayFromJSON(int8(), "[0, null, 0, 42, null, null, 0, 0]");
+  auto expected_str = ArrayFromJSON(utf8(), R"(["abc", "", "", "", "", "", "", ""])");
+  auto expected_dbl = ArrayFromJSON(float64(), "[0, 0, 0, 0, 0, 0, 0, 0]");
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      SparseUnionArray::Make(*expected_types, {expected_i8, expected_str, expected_dbl},
+                             {"i8", "str", "dbl"}, {I8, STR, DBL}));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+  // Physical arrays must be as expected
+  ASSERT_ARRAYS_EQUAL(*expected_i8, *actual->field(0));
+  ASSERT_ARRAYS_EQUAL(*expected_str, *actual->field(1));
+  ASSERT_ARRAYS_EQUAL(*expected_dbl, *actual->field(2));
 }
 
 TEST_F(SparseUnionBuilderTest, InferredType) {

@@ -18,6 +18,7 @@
 # Check if the target architecture and compiler supports some special
 # instruction sets that would boost performance.
 include(CheckCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
 # Get cpu architecture
 
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -60,17 +61,36 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     message(STATUS "Disable AVX512 support on MINGW for now")
   else()
-    check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
+    # Check for AVX512 support in the compiler.
+    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
+    check_cxx_source_compiles("
+      #ifdef _MSC_VER
+      #include <intrin.h>
+      #else
+      #include <immintrin.h>
+      #endif
+
+      int main() {
+        __m512i mask = _mm512_set1_epi32(0x1);
+        char out[32];
+        _mm512_storeu_si512(out, mask);
+        return 0;
+      }" CXX_SUPPORTS_AVX512)
+    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
-  # Runtime SIMD level it can get from compiler
+  # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2
      AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SSE4_2|AVX2|AVX512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
   if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_AVX2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
   if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_AVX512 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
 elseif(ARROW_CPU_FLAG STREQUAL "ppc")

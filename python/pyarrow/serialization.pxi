@@ -17,6 +17,16 @@
 
 from cpython.ref cimport PyObject
 
+import warnings
+
+
+def _deprecate_serialization(name):
+    msg = (
+        "'pyarrow.{}' is deprecated as of 2.0.0 and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead."
+    ).format(name)
+    warnings.warn(msg, DeprecationWarning, stacklevel=3)
+
 
 def is_named_tuple(cls):
     """
@@ -224,9 +234,10 @@ _default_context_initialized = False
 
 def _get_default_context():
     global _default_context_initialized
-    from pyarrow.serialization import register_default_serialization_handlers
+    from pyarrow.serialization import _register_default_serialization_handlers
     if not _default_context_initialized:
-        register_default_serialization_handlers(_default_serialization_context)
+        _register_default_serialization_handlers(
+            _default_serialization_context)
         _default_context_initialized = True
     return _default_serialization_context
 
@@ -369,6 +380,11 @@ def serialize(object value, SerializationContext context=None):
     serialized : SerializedPyObject
 
     """
+    _deprecate_serialization("serialize")
+    return _serialize(value, context)
+
+
+def _serialize(object value, SerializationContext context=None):
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
 
@@ -394,7 +410,8 @@ def serialize_to(object value, sink, SerializationContext context=None):
         Custom serialization and deserialization context, uses a default
         context with some standard type handlers if not specified.
     """
-    serialized = serialize(value, context)
+    _deprecate_serialization("serialize_to")
+    serialized = _serialize(value, context)
     serialized.write_to(sink)
 
 
@@ -414,6 +431,11 @@ def read_serialized(source, base=None):
     -------
     serialized : the serialized data
     """
+    _deprecate_serialization("read_serialized")
+    return _read_serialized(source, base=base)
+
+
+def _read_serialized(source, base=None):
     cdef shared_ptr[CRandomAccessFile] stream
     get_reader(source, True, &stream)
 
@@ -447,7 +469,8 @@ def deserialize_from(source, object base, SerializationContext context=None):
     object
         Python object for the deserialized sequence.
     """
-    serialized = read_serialized(source, base=base)
+    _deprecate_serialization("deserialize_from")
+    serialized = _read_serialized(source, base=base)
     return serialized.deserialize(context)
 
 
@@ -465,6 +488,7 @@ def deserialize_components(components, SerializationContext context=None):
     -------
     object : the Python object that was originally serialized
     """
+    _deprecate_serialization("deserialize_components")
     serialized = SerializedPyObject.from_components(components)
     return serialized.deserialize(context)
 
@@ -487,5 +511,11 @@ def deserialize(obj, SerializationContext context=None):
     -------
     deserialized : object
     """
+    _deprecate_serialization("deserialize")
+    return _deserialize(obj, context=context)
+
+
+def _deserialize(obj, SerializationContext context=None):
     source = BufferReader(obj)
-    return deserialize_from(source, obj, context)
+    serialized = _read_serialized(source, base=obj)
+    return serialized.deserialize(context)

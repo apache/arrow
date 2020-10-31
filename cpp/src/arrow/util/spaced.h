@@ -161,7 +161,7 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
       idx_buffer -= kBatchSize;
       idx_decode -= current_block.popcount;
 
-      // Foward scan and pack the target data to temp
+      // Forward scan and pack the target data to temp
       int idx = idx_decode + 1;
       for (uint64_t i = 0; i < kBatchSize; i++) {
         if (valid_bits_reader.IsSet()) {

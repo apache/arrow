@@ -19,7 +19,9 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+use tokio::runtime::Runtime;
 
 extern crate arrow;
 extern crate datafusion;
@@ -34,16 +36,18 @@ use datafusion::error::Result;
 use datafusion::datasource::MemTable;
 use datafusion::execution::context::ExecutionContext;
 
-fn query(ctx: &mut ExecutionContext, sql: &str) {
-    // execute the query
-    let df = ctx.sql(&sql).unwrap();
-    let results = df.collect().unwrap();
+fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
+    let mut rt = Runtime::new().unwrap();
 
-    // display the relation
-    for _batch in results {}
+    // execute the query
+    let df = ctx.lock().unwrap().sql(&sql).unwrap();
+    rt.block_on(df.collect()).unwrap();
 }
 
-fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContext> {
+fn create_context(
+    array_len: usize,
+    batch_size: usize,
+) -> Result<Arc<Mutex<ExecutionContext>>> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
         Field::new("f32", DataType::Float32, false),
@@ -70,29 +74,36 @@ fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContex
     let provider = MemTable::new(schema, vec![batches])?;
     ctx.register_table("t", Box::new(provider));
 
-    Ok(ctx)
+    Ok(Arc::new(Mutex::new(ctx)))
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
+    let array_len = 1048576; // 2^20
+    let batch_size = 512; // 2^9
+    let ctx = create_context(array_len, batch_size).unwrap();
+    c.bench_function("sqrt_20_9", |b| {
+        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
+    });
+
+    let array_len = 1048576; // 2^20
+    let batch_size = 4096; // 2^12
+    let ctx = create_context(array_len, batch_size).unwrap();
     c.bench_function("sqrt_20_12", |b| {
-        let array_len = 1048576; // 2^20
-        let batch_size = 4096; // 2^12
-        let mut ctx = create_context(array_len, batch_size).unwrap();
-        b.iter(|| query(&mut ctx, "SELECT sqrt(f32) FROM t"))
+        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
     });
 
+    let array_len = 4194304; // 2^22
+    let batch_size = 4096; // 2^12
+    let ctx = create_context(array_len, batch_size).unwrap();
     c.bench_function("sqrt_22_12", |b| {
-        let array_len = 4194304; // 2^22
-        let batch_size = 4096; // 2^12
-        let mut ctx = create_context(array_len, batch_size).unwrap();
-        b.iter(|| query(&mut ctx, "SELECT sqrt(f32) FROM t"))
+        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
     });
 
+    let array_len = 4194304; // 2^22
+    let batch_size = 16384; // 2^14
+    let ctx = create_context(array_len, batch_size).unwrap();
     c.bench_function("sqrt_22_14", |b| {
-        let array_len = 4194304; // 2^22
-        let batch_size = 16384; // 2^14
-        let mut ctx = create_context(array_len, batch_size).unwrap();
-        b.iter(|| query(&mut ctx, "SELECT sqrt(f32) FROM t"))
+        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
     });
 }
 

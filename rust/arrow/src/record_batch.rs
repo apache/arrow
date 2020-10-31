@@ -33,7 +33,7 @@ use crate::error::{ArrowError, Result};
 /// datatypes.
 ///
 /// Record batches are a convenient unit of work for various
-/// serialization and computation functions, possibly incremental.  
+/// serialization and computation functions, possibly incremental.
 /// See also [CSV reader](crate::csv::Reader) and
 /// [JSON reader](crate::json::Reader).
 #[derive(Clone, Debug)]
@@ -217,7 +217,7 @@ impl Into<StructArray> for RecordBatch {
 }
 
 /// Trait for types that can read `RecordBatch`'s.
-pub trait RecordBatchReader {
+pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
     /// Returns the schema of this `RecordBatchReader`.
     ///
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
@@ -225,7 +225,13 @@ pub trait RecordBatchReader {
     fn schema(&self) -> SchemaRef;
 
     /// Reads the next `RecordBatch`.
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>>;
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `next` from the trait Iterator."
+    )]
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+        self.next().transpose()
+    }
 }
 
 #[cfg(test)]
@@ -255,7 +261,7 @@ mod tests {
             .add_buffer(Buffer::from(offset_data.to_byte_slice()))
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
-        let b = BinaryArray::from(array_data);
+        let b = StringArray::from(array_data);
 
         let record_batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])

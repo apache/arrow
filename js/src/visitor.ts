@@ -122,6 +122,7 @@ function inferDType<T extends DataType>(type: T): Type {
                 case 32: return isSigned ? Type.Int32 : Type.Uint32;
                 case 64: return isSigned ? Type.Int64 : Type.Uint64;
             }
+            // @ts-ignore
             return Type.Int;
         case Type.Float:
             switch((type as any as Float).precision) {
@@ -129,6 +130,7 @@ function inferDType<T extends DataType>(type: T): Type {
                 case Precision.SINGLE: return Type.Float32;
                 case Precision.DOUBLE: return Type.Float64;
             }
+            // @ts-ignore
             return Type.Float;
         case Type.Binary: return Type.Binary;
         case Type.Utf8: return Type.Utf8;
@@ -141,6 +143,7 @@ function inferDType<T extends DataType>(type: T): Type {
                 case TimeUnit.MICROSECOND: return Type.TimeMicrosecond;
                 case TimeUnit.NANOSECOND: return Type.TimeNanosecond;
             }
+            // @ts-ignore
             return Type.Time;
         case Type.Timestamp:
             switch ((type as any as Timestamp).unit) {
@@ -149,18 +152,21 @@ function inferDType<T extends DataType>(type: T): Type {
                 case TimeUnit.MICROSECOND: return Type.TimestampMicrosecond;
                 case TimeUnit.NANOSECOND: return Type.TimestampNanosecond;
             }
+            // @ts-ignore
             return Type.Timestamp;
         case Type.Date:
             switch ((type as any as Date_).unit) {
                 case DateUnit.DAY: return Type.DateDay;
                 case DateUnit.MILLISECOND: return Type.DateMillisecond;
             }
+            // @ts-ignore
             return Type.Date;
         case Type.Interval:
             switch ((type as any as Interval).unit) {
                 case IntervalUnit.DAY_TIME: return Type.IntervalDayTime;
                 case IntervalUnit.YEAR_MONTH: return Type.IntervalYearMonth;
             }
+            // @ts-ignore
             return Type.Interval;
         case Type.Map: return Type.Map;
         case Type.List: return Type.List;
@@ -170,6 +176,7 @@ function inferDType<T extends DataType>(type: T): Type {
                 case UnionMode.Dense: return Type.DenseUnion;
                 case UnionMode.Sparse: return Type.SparseUnion;
             }
+            // @ts-ignore
             return Type.Union;
         case Type.FixedSizeBinary: return Type.FixedSizeBinary;
         case Type.FixedSizeList: return Type.FixedSizeList;

@@ -20,7 +20,7 @@
 use crate::error::Result;
 use crate::scalar::ScalarValue;
 
-/// Variable type, system/user defiend
+/// Variable type, system/user defined
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VarType {
     /// System variable, like @@version

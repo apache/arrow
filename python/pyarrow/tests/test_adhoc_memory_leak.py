@@ -32,7 +32,7 @@ except ImportError:
 @pytest.mark.pandas
 def test_deserialize_pandas_arrow_7956():
     df = pd.DataFrame({'a': np.arange(10000),
-                       'b': [pd.util.testing.rands(5) for _ in range(10000)]})
+                       'b': [test_util.rands(5) for _ in range(10000)]})
 
     def action():
         df_bytes = pa.ipc.serialize_pandas(df).to_pybytes()

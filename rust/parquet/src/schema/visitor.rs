@@ -50,7 +50,7 @@ pub trait TypeVisitor<R, C> {
                         {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                list_item,
+                                list_item.clone(),
                                 context,
                             )
                         } else {
@@ -70,13 +70,13 @@ pub trait TypeVisitor<R, C> {
                         {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                fields.first().unwrap(),
+                                fields.first().unwrap().clone(),
                                 context,
                             )
                         } else {
                             self.visit_list_with_item(
                                 list_type.clone(),
-                                list_item,
+                                list_item.clone(),
                                 context,
                             )
                         }
@@ -114,7 +114,7 @@ pub trait TypeVisitor<R, C> {
     fn visit_list_with_item(
         &mut self,
         list_type: TypePtr,
-        item_type: &Type,
+        item_type: TypePtr,
         context: C,
     ) -> Result<R>;
 }
@@ -125,7 +125,7 @@ mod tests {
     use crate::basic::Type as PhysicalType;
     use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
-    use crate::schema::types::{Type, TypePtr};
+    use crate::schema::types::TypePtr;
     use std::rc::Rc;
 
     struct TestVisitorContext {}
@@ -174,7 +174,7 @@ mod tests {
         fn visit_list_with_item(
             &mut self,
             list_type: TypePtr,
-            item_type: &Type,
+            item_type: TypePtr,
             _context: TestVisitorContext,
         ) -> Result<bool> {
             assert_eq!(

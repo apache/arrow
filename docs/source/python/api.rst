@@ -27,6 +27,7 @@ API Reference
    api/datatypes
    api/arrays
    api/memory
+   api/compute
    api/files
    api/tables
    api/ipc

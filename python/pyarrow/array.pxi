@@ -790,7 +790,7 @@ cdef class Array(_PandasConvertible):
         cdef c_string result
         with nogil:
             result = self.ap.Diff(deref(other.ap))
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def cast(self, object target_type, safe=True):
         """
@@ -992,7 +992,7 @@ cdef class Array(_PandasConvertible):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def format(self, **kwargs):
         import warnings
@@ -1082,6 +1082,7 @@ cdef class Array(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.ap.Slice(offset)
         else:
@@ -1483,6 +1484,12 @@ cdef class FixedSizeBinaryArray(Array):
 cdef class Decimal128Array(FixedSizeBinaryArray):
     """
     Concrete class for Arrow arrays of decimal128 data type.
+    """
+
+
+cdef class Decimal256Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal256 data type.
     """
 
 cdef class BaseListArray(Array):
@@ -2275,7 +2282,8 @@ cdef dict _array_classes = {
     _Type_LARGE_STRING: LargeStringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
-    _Type_DECIMAL: Decimal128Array,
+    _Type_DECIMAL128: Decimal128Array,
+    _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
     _Type_EXTENSION: ExtensionArray,
 }

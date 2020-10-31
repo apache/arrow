@@ -158,6 +158,13 @@ test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
 test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   x <- bit64::as.integer64(1:10) + MAX_INT
   expect_chunked_roundtrip(list(x, x), int64())
+  # Also with a first chunk that would downcast
+  zero <- Array$create(0L)$cast(int64())
+  expect_type_equal(zero, int64())
+  ca <- ChunkedArray$create(zero, x)
+  expect_type_equal(ca, int64())
+  expect_is(as.vector(ca), "integer64")
+  expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
 test_that("ChunkedArray supports difftime", {

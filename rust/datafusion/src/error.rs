@@ -19,109 +19,102 @@
 
 use std::error;
 use std::fmt::{Display, Formatter};
-use std::io::Error;
+use std::io;
 use std::result;
 
 use arrow::error::ArrowError;
 use parquet::errors::ParquetError;
 use sqlparser::parser::ParserError;
 
-/// Result type for operations that could result in an `ExecutionError`
-pub type Result<T> = result::Result<T, ExecutionError>;
+/// Result type for operations that could result in an [DataFusionError]
+pub type Result<T> = result::Result<T, DataFusionError>;
 
 /// DataFusion error
 #[derive(Debug)]
 #[allow(missing_docs)]
-pub enum ExecutionError {
-    /// Wraps an error from the Arrow crate
+pub enum DataFusionError {
+    /// Error returned by arrow.
     ArrowError(ArrowError),
     /// Wraps an error from the Parquet crate
     ParquetError(ParquetError),
-    /// I/O error
-    IoError(Error),
-    /// SQL parser error
-    ParserError(ParserError),
-    /// General error
-    General(String),
-    /// Invalid column error
-    InvalidColumn(String),
-    /// Missing functionality
+    /// Error associated to I/O operations and associated traits.
+    IoError(io::Error),
+    /// Error returned when SQL is syntatically incorrect.
+    SQL(ParserError),
+    /// Error returned on a branch that we know it is possible
+    /// but to which we still have no implementation for.
+    /// Often, these errors are tracked in our issue tracker.
     NotImplemented(String),
-    /// Internal error
-    InternalError(String),
-    /// Query engine execution error
-    ExecutionError(String),
+    /// Error returned as a consequence of an error in DataFusion.
+    /// This error should not happen in normal usage of DataFusion.
+    // DataFusions has internal invariants that we are unable to ask the compiler to check for us.
+    // This error is raised when one of those invariants is not verified during execution.
+    Internal(String),
+    /// This error happens whenever a plan is not valid. Examples include
+    /// impossible casts, schema inference not possible and non-unique column names.
+    Plan(String),
+    /// Error returned during execution of the query.
+    /// Examples include files not found, errors in parsing certain types.
+    Execution(String),
 }
 
-impl ExecutionError {
-    /// Wraps this `ExecutionError` in arrow's `ExternalError` variant.
+impl DataFusionError {
+    /// Wraps this [DataFusionError] as an [Arrow::error::ArrowError].
     pub fn into_arrow_external_error(self) -> ArrowError {
         ArrowError::from_external_error(Box::new(self))
     }
 }
 
-impl From<Error> for ExecutionError {
-    fn from(e: Error) -> Self {
-        ExecutionError::IoError(e)
+impl From<io::Error> for DataFusionError {
+    fn from(e: io::Error) -> Self {
+        DataFusionError::IoError(e)
     }
 }
 
-impl From<String> for ExecutionError {
-    fn from(e: String) -> Self {
-        ExecutionError::General(e)
-    }
-}
-
-impl From<&'static str> for ExecutionError {
-    fn from(e: &'static str) -> Self {
-        ExecutionError::General(e.to_string())
-    }
-}
-
-impl From<ArrowError> for ExecutionError {
+impl From<ArrowError> for DataFusionError {
     fn from(e: ArrowError) -> Self {
-        ExecutionError::ArrowError(e)
+        DataFusionError::ArrowError(e)
     }
 }
 
-impl From<ParquetError> for ExecutionError {
+impl From<ParquetError> for DataFusionError {
     fn from(e: ParquetError) -> Self {
-        ExecutionError::ParquetError(e)
+        DataFusionError::ParquetError(e)
     }
 }
 
-impl From<ParserError> for ExecutionError {
+impl From<ParserError> for DataFusionError {
     fn from(e: ParserError) -> Self {
-        ExecutionError::ParserError(e)
+        DataFusionError::SQL(e)
     }
 }
 
-impl Display for ExecutionError {
+impl Display for DataFusionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match *self {
-            ExecutionError::ArrowError(ref desc) => write!(f, "Arrow error: {}", desc),
-            ExecutionError::ParquetError(ref desc) => {
+            DataFusionError::ArrowError(ref desc) => write!(f, "Arrow error: {}", desc),
+            DataFusionError::ParquetError(ref desc) => {
                 write!(f, "Parquet error: {}", desc)
             }
-            ExecutionError::IoError(ref desc) => write!(f, "IO error: {}", desc),
-            ExecutionError::ParserError(ref desc) => {
-                write!(f, "Parser error: {:?}", desc)
+            DataFusionError::IoError(ref desc) => write!(f, "IO error: {}", desc),
+            DataFusionError::SQL(ref desc) => {
+                write!(f, "SQL error: {:?}", desc)
             }
-            ExecutionError::General(ref desc) => write!(f, "General error: {}", desc),
-            ExecutionError::InvalidColumn(ref desc) => {
-                write!(f, "Invalid column error: {}", desc)
+            DataFusionError::NotImplemented(ref desc) => {
+                write!(f, "This feature is not implemented: {}", desc)
             }
-            ExecutionError::NotImplemented(ref desc) => {
-                write!(f, "NotImplemented: {}", desc)
+            DataFusionError::Internal(ref desc) => {
+                write!(f, "Internal error: {}. This was likely caused by a bug in DataFusion's \
+                    code and we would welcome that you file an bug report in our issue tracker", desc)
             }
-            ExecutionError::InternalError(ref desc) => {
-                write!(f, "Internal error: {}", desc)
+            DataFusionError::Plan(ref desc) => {
+                write!(f, "Error during planning: {}", desc)
             }
-            ExecutionError::ExecutionError(ref desc) => {
+            DataFusionError::Execution(ref desc) => {
                 write!(f, "Execution error: {}", desc)
             }
         }
     }
 }
 
-impl error::Error for ExecutionError {}
+impl error::Error for DataFusionError {}

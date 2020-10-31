@@ -59,7 +59,7 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
 };
 
 /// \brief Partitioning options for NthToIndices
-struct PartitionNthOptions : public FunctionOptions {
+struct ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot) : pivot(pivot) {}
 
   /// The index into the equivalent sorted array of the partition pivot element.

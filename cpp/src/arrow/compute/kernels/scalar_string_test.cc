@@ -334,6 +334,88 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
                    &options_double_char_2);
 }
 
+TYPED_TEST(TestStringKernels, SplitBasics) {
+  SplitPatternOptions options{" "};
+  // basics
+  this->CheckUnary("split_pattern", R"(["foo bar", "foo"])", list(this->type()),
+                   R"([["foo", "bar"], ["foo"]])", &options);
+  this->CheckUnary("split_pattern", R"(["foo bar", "foo", null])", list(this->type()),
+                   R"([["foo", "bar"], ["foo"], null])", &options);
+  // edgy cases
+  this->CheckUnary("split_pattern", R"(["f  o o "])", list(this->type()),
+                   R"([["f", "", "o", "o", ""]])", &options);
+  this->CheckUnary("split_pattern", "[]", list(this->type()), "[]", &options);
+  // longer patterns
+  SplitPatternOptions options_long{"---"};
+  this->CheckUnary("split_pattern", R"(["-foo---bar--", "---foo---b"])",
+                   list(this->type()), R"([["-foo", "bar--"], ["", "foo", "b"]])",
+                   &options_long);
+  SplitPatternOptions options_long_reverse{"---", -1, /*reverse=*/true};
+  this->CheckUnary("split_pattern", R"(["-foo---bar--", "---foo---b"])",
+                   list(this->type()), R"([["-foo", "bar--"], ["", "foo", "b"]])",
+                   &options_long_reverse);
+}
+
+TYPED_TEST(TestStringKernels, SplitMax) {
+  SplitPatternOptions options{"---", 2};
+  SplitPatternOptions options_reverse{"---", 2, /*reverse=*/true};
+  this->CheckUnary("split_pattern", R"(["foo---bar", "foo", "foo---bar------ar"])",
+                   list(this->type()),
+                   R"([["foo", "bar"], ["foo"], ["foo", "bar", "---ar"]])", &options);
+  this->CheckUnary(
+      "split_pattern", R"(["foo---bar", "foo", "foo---bar------ar"])", list(this->type()),
+      R"([["foo", "bar"], ["foo"], ["foo---bar", "", "ar"]])", &options_reverse);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceAscii) {
+  SplitOptions options;
+  SplitOptions options_max{1};
+  // basics
+  this->CheckUnary("ascii_split_whitespace", R"(["foo bar", "foo  bar \tba"])",
+                   list(this->type()), R"([["foo", "bar"], ["foo", "bar", "ba"]])",
+                   &options);
+  this->CheckUnary("ascii_split_whitespace", R"(["foo bar", "foo  bar \tba"])",
+                   list(this->type()), R"([["foo", "bar"], ["foo", "bar \tba"]])",
+                   &options_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceAsciiReverse) {
+  SplitOptions options{-1, /*reverse=*/true};
+  SplitOptions options_max{1, /*reverse=*/true};
+  // basics
+  this->CheckUnary("ascii_split_whitespace", R"(["foo bar", "foo  bar \tba"])",
+                   list(this->type()), R"([["foo", "bar"], ["foo", "bar", "ba"]])",
+                   &options);
+  this->CheckUnary("ascii_split_whitespace", R"(["foo bar", "foo  bar \tba"])",
+                   list(this->type()), R"([["foo", "bar"], ["foo  bar", "ba"]])",
+                   &options_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8) {
+  SplitOptions options;
+  SplitOptions options_max{1};
+  // \xe2\x80\x88 is punctuation space
+  this->CheckUnary("utf8_split_whitespace",
+                   "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
+                   R"([["foo", "bar"], ["foo", "bar", "ba"]])", &options);
+  this->CheckUnary("utf8_split_whitespace",
+                   "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
+                   R"([["foo", "bar"], ["foo", "bar \tba"]])", &options_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
+  SplitOptions options{-1, /*reverse=*/true};
+  SplitOptions options_max{1, /*reverse=*/true};
+  // \xe2\x80\x88 is punctuation space
+  this->CheckUnary("utf8_split_whitespace",
+                   "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
+                   R"([["foo", "bar"], ["foo", "bar", "ba"]])", &options);
+  this->CheckUnary("utf8_split_whitespace",
+                   "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
+                   "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
+                   &options_max);
+}
+
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";

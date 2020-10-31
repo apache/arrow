@@ -23,7 +23,6 @@ use crate::execution::context::ExecutionContext;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array;
-use arrow::array::PrimitiveArrayOps;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::env;
@@ -56,9 +55,9 @@ pub fn arrow_testdata_path() -> String {
 }
 
 /// Execute a physical plan and collect the results
-pub fn execute(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+pub async fn execute(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
     let ctx = ExecutionContext::new();
-    ctx.collect(plan)
+    ctx.collect(plan).await
 }
 
 /// Generated partitioned copy of a CSV file
@@ -135,6 +134,13 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
             }
             let array = batch.column(column_index);
             match array.data_type() {
+                DataType::Utf8 => s.push_str(
+                    array
+                        .as_any()
+                        .downcast_ref::<array::StringArray>()
+                        .unwrap()
+                        .value(row_index),
+                ),
                 DataType::Int8 => s.push_str(&format!(
                     "{:?}",
                     array
@@ -244,3 +250,50 @@ pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {
 }
 
 pub mod variable;
+
+mod tests {
+    use super::*;
+
+    use arrow::array::{BooleanArray, Int32Array, StringArray};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
+
+    #[test]
+    fn test_format_batch() -> Result<()> {
+        let array_int32 = Int32Array::from(vec![1000, 2000]);
+        let array_string = StringArray::from(vec!["bow \u{1F3F9}", "arrow \u{2191}"]);
+
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Utf8, false),
+        ]);
+
+        let record_batch = RecordBatch::try_new(
+            Arc::new(schema),
+            vec![Arc::new(array_int32), Arc::new(array_string)],
+        )?;
+
+        let result = format_batch(&record_batch);
+
+        assert_eq!(result, vec!["1000,bow \u{1F3F9}", "2000,arrow \u{2191}"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_format_batch_unknown() -> Result<()> {
+        // Use any Array type not yet handled by format_batch().
+        let array_bool = BooleanArray::from(vec![false, true]);
+
+        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
+
+        let record_batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(array_bool)])?;
+
+        let result = format_batch(&record_batch);
+
+        assert_eq!(result, vec!["?", "?"]);
+
+        Ok(())
+    }
+}

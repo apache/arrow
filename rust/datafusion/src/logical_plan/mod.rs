@@ -22,14 +22,17 @@
 //! physical query plans and executed.
 
 use fmt::Debug;
-use std::{any::Any, collections::HashSet, fmt, sync::Arc};
+use std::{any::Any, collections::HashMap, collections::HashSet, fmt, sync::Arc};
 
 use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::{
+    compute::can_cast_types,
+    datatypes::{DataType, Field, Schema, SchemaRef},
+};
 
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::{
     datasource::csv::{CsvFile, CsvReadOptions},
     physical_plan::udaf::AggregateUDF,
@@ -37,8 +40,7 @@ use crate::{
 };
 use crate::{
     physical_plan::{
-        aggregates, expressions::binary_operator_data_type, functions,
-        type_coercion::can_coerce_from, udf::ScalarUDF,
+        aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
     },
     sql::parser::FileType,
 };
@@ -50,6 +52,7 @@ pub use operators::Operator;
 
 fn create_function_name(
     fun: &String,
+    distinct: bool,
     args: &[Expr],
     input_schema: &Schema,
 ) -> Result<String> {
@@ -57,7 +60,11 @@ fn create_function_name(
         .iter()
         .map(|e| create_name(e, input_schema))
         .collect::<Result<_>>()?;
-    Ok(format!("{}({})", fun, names.join(",")))
+    let distinct_str = match distinct {
+        true => "DISTINCT ",
+        false => "",
+    };
+    Ok(format!("{}({}{})", fun, distinct_str, names.join(",")))
 }
 
 /// Returns a readable name of an expression based on the input schema.
@@ -90,14 +97,17 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             Ok(format!("{} IS NOT NULL", expr))
         }
         Expr::ScalarFunction { fun, args, .. } => {
-            create_function_name(&fun.to_string(), args, input_schema)
+            create_function_name(&fun.to_string(), false, args, input_schema)
         }
         Expr::ScalarUDF { fun, args, .. } => {
-            create_function_name(&fun.name, args, input_schema)
+            create_function_name(&fun.name, false, args, input_schema)
         }
-        Expr::AggregateFunction { fun, args, .. } => {
-            create_function_name(&fun.to_string(), args, input_schema)
-        }
+        Expr::AggregateFunction {
+            fun,
+            distinct,
+            args,
+            ..
+        } => create_function_name(&fun.to_string(), *distinct, args, input_schema),
         Expr::AggregateUDF { fun, args } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
@@ -105,7 +115,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             }
             Ok(format!("{}({})", fun.name, names.join(",")))
         }
-        other => Err(ExecutionError::NotImplemented(format!(
+        other => Err(DataFusionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
             other
         ))),
@@ -195,6 +205,8 @@ pub enum Expr {
         fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
+        /// Whether this is a DISTINCT aggregation or not
+        distinct: bool,
     },
     /// aggregate function
     AggregateUDF {
@@ -263,7 +275,7 @@ impl Expr {
                 &right.get_type(schema)?,
             ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
-            Expr::Wildcard => Err(ExecutionError::General(
+            Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
             Expr::Nested(e) => e.get_type(schema),
@@ -297,7 +309,7 @@ impl Expr {
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
             Expr::Nested(e) => e.nullable(input_schema),
-            Expr::Wildcard => Err(ExecutionError::General(
+            Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
         }
@@ -323,18 +335,19 @@ impl Expr {
     ///
     /// # Errors
     ///
-    /// This function errors when it is impossible to cast the expression to the target [arrow::datatypes::DataType].
+    /// This function errors when it is impossible to cast the
+    /// expression to the target [arrow::datatypes::DataType].
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
-        } else if can_coerce_from(cast_to_type, &this_type) {
+        } else if can_cast_types(&this_type, cast_to_type) {
             Ok(Expr::Cast {
                 expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Plan(format!(
                 "Cannot automatically convert {:?} to {:?}",
                 this_type, cast_to_type
             )))
@@ -447,6 +460,7 @@ pub fn col(name: &str) -> Expr {
 pub fn min(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Min,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -455,6 +469,7 @@ pub fn min(expr: Expr) -> Expr {
 pub fn max(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Max,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -463,6 +478,7 @@ pub fn max(expr: Expr) -> Expr {
 pub fn sum(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Sum,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -471,6 +487,7 @@ pub fn sum(expr: Expr) -> Expr {
 pub fn avg(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Avg,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -479,6 +496,7 @@ pub fn avg(expr: Expr) -> Expr {
 pub fn count(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Count,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -620,9 +638,18 @@ pub fn create_udaf(
     )
 }
 
-fn fmt_function(f: &mut fmt::Formatter, fun: &String, args: &Vec<Expr>) -> fmt::Result {
+fn fmt_function(
+    f: &mut fmt::Formatter,
+    fun: &String,
+    distinct: bool,
+    args: &Vec<Expr>,
+) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
-    write!(f, "{}({})", fun, args.join(", "))
+    let distinct_str = match distinct {
+        true => "DISTINCT ",
+        false => "",
+    };
+    write!(f, "{}({}{})", fun, distinct_str, args.join(", "))
 }
 
 impl fmt::Debug for Expr {
@@ -658,13 +685,20 @@ impl fmt::Debug for Expr {
                 }
             }
             Expr::ScalarFunction { fun, args, .. } => {
-                fmt_function(f, &fun.to_string(), args)
+                fmt_function(f, &fun.to_string(), false, args)
             }
-            Expr::ScalarUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
-            Expr::AggregateFunction { fun, ref args, .. } => {
-                fmt_function(f, &fun.to_string(), args)
+            Expr::ScalarUDF { fun, ref args, .. } => {
+                fmt_function(f, &fun.name, false, args)
             }
-            Expr::AggregateUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
+            Expr::AggregateFunction {
+                fun,
+                distinct,
+                ref args,
+                ..
+            } => fmt_function(f, &fun.to_string(), *distinct, args),
+            Expr::AggregateUDF { fun, ref args, .. } => {
+                fmt_function(f, &fun.name, false, args)
+            }
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
         }
@@ -676,12 +710,12 @@ impl fmt::Debug for Expr {
 ///
 /// See the example in
 /// [user_defined_plan.rs](../../tests/user_defined_plan.rs) for an
-/// example of how to use this extenison API
+/// example of how to use this extension API
 pub trait UserDefinedLogicalNode: Debug {
     /// Return a reference to self as Any, to support dynamic downcasting
     fn as_any(&self) -> &dyn Any;
 
-    /// Return the the logical plan's inputs
+    /// Return the logical plan's inputs
     fn inputs(&self) -> Vec<&LogicalPlan>;
 
     /// Return the output schema of this logical plan node
@@ -727,6 +761,15 @@ pub trait UserDefinedLogicalNode: Debug {
         exprs: &Vec<Expr>,
         inputs: &Vec<LogicalPlan>,
     ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
+}
+
+/// Describes the source of the table, either registered on the context or by reference
+#[derive(Clone)]
+pub enum TableSource {
+    /// The source provider is registered in the context with the corresponding name
+    FromContext(String),
+    /// The source provider is passed directly by reference
+    FromProvider(Arc<dyn TableProvider + Send + Sync>),
 }
 
 /// A LogicalPlan represents the different types of relational
@@ -782,14 +825,13 @@ pub enum LogicalPlan {
         /// The incoming logical plan
         input: Arc<LogicalPlan>,
     },
-    /// Produces rows from a table that has been registered on a
-    /// context
+    /// Produces rows from a table provider by reference or from the context
     TableScan {
         /// The name of the schema
         schema_name: String,
-        /// The name of the table
-        table_name: String,
-        /// The schema of the CSV file(s)
+        /// The source of the table
+        source: TableSource,
+        /// The schema of the source data
         table_schema: SchemaRef,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
@@ -925,10 +967,17 @@ impl LogicalPlan {
         match *self {
             LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
             LogicalPlan::TableScan {
-                ref table_name,
+                ref source,
                 ref projection,
                 ..
-            } => write!(f, "TableScan: {} projection={:?}", table_name, projection),
+            } => match source {
+                TableSource::FromContext(table_name) => {
+                    write!(f, "TableScan: {} projection={:?}", table_name, projection)
+                }
+                TableSource::FromProvider(_) => {
+                    write!(f, "TableScan: projection={:?}", projection)
+                }
+            },
             LogicalPlan::InMemoryScan { ref projection, .. } => {
                 write!(f, "InMemoryScan: projection={:?}", projection)
             }
@@ -1122,14 +1171,19 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
-            table_name: table_name.to_owned(),
+            source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
             projected_schema,
             projection,
         }))
     }
 
-    /// Apply a projection
+    /// Apply a projection.
+    ///
+    /// # Errors
+    /// This function errors under any of the following conditions:
+    /// * Two or more expressions have the same name
+    /// * An invalid expression is used (e.g. a `sort` expression)
     pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
         let mut projected_expr = vec![];
@@ -1140,6 +1194,8 @@ impl LogicalPlanBuilder {
             }
             _ => projected_expr.push(expr[i].clone()),
         });
+
+        validate_unique_names("Projections", &projected_expr, input_schema)?;
 
         let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
 
@@ -1179,6 +1235,8 @@ impl LogicalPlanBuilder {
         let mut all_expr: Vec<Expr> = group_expr.clone();
         aggr_expr.iter().for_each(|x| all_expr.push(x.clone()));
 
+        validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
+
         let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
@@ -1210,6 +1268,33 @@ impl LogicalPlanBuilder {
     pub fn build(&self) -> Result<LogicalPlan> {
         Ok(self.plan.clone())
     }
+}
+
+/// Errors if one or more expressions have equal names.
+fn validate_unique_names(
+    node_name: &str,
+    expressions: &[Expr],
+    input_schema: &Schema,
+) -> Result<()> {
+    let mut unique_names = HashMap::new();
+    expressions.iter().enumerate().map(|(position, expr)| {
+        let name = expr.name(input_schema)?;
+        match unique_names.get(&name) {
+            None => {
+                unique_names.insert(name, (position, expr));
+                Ok(())
+            },
+            Some((existing_position, existing_expr)) => {
+                Err(DataFusionError::Plan(
+                    format!("{} require unique expression names \
+                             but the expression \"{:?}\" at position {} and \"{:?}\" \
+                             at position {} have the same name. Consider aliasing (\"AS\") one of them.",
+                             node_name, existing_expr, existing_position, expr, position,
+                            )
+                ))
+            }
+        }
+    }).collect::<Result<()>>()
 }
 
 /// Represents which type of plan
@@ -1334,7 +1419,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn plan_builder_sort() -> Result<()> {
         let plan = LogicalPlanBuilder::scan(
             "default",
@@ -1362,6 +1446,54 @@ mod tests {
         assert_eq!(expected, format!("{:?}", plan));
 
         Ok(())
+    }
+
+    #[test]
+    fn projection_non_unique_names() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        // two columns with the same name => error
+        .project(vec![col("id"), col("first_name").alias("id")]);
+
+        match plan {
+            Err(DataFusionError::Plan(e)) => {
+                assert_eq!(e, "Projections require unique expression names \
+                    but the expression \"#id\" at position 0 and \"#first_name AS id\" at \
+                    position 1 have the same name. Consider aliasing (\"AS\") one of them.");
+                Ok(())
+            }
+            _ => Err(DataFusionError::Plan(
+                "Plan should have returned an DataFusionError::Plan".to_string(),
+            )),
+        }
+    }
+
+    #[test]
+    fn aggregate_non_unique_names() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan(
+            "default",
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![0, 3]),
+        )?
+        // two columns with the same name => error
+        .aggregate(vec![col("state")], vec![sum(col("salary")).alias("state")]);
+
+        match plan {
+            Err(DataFusionError::Plan(e)) => {
+                assert_eq!(e, "Aggregations require unique expression names \
+                    but the expression \"#state\" at position 0 and \"SUM(#salary) AS state\" at \
+                    position 1 have the same name. Consider aliasing (\"AS\") one of them.");
+                Ok(())
+            }
+            _ => Err(DataFusionError::Plan(
+                "Plan should have returned an DataFusionError::Plan".to_string(),
+            )),
+        }
     }
 
     fn employee_schema() -> Schema {

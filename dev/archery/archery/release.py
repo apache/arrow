@@ -88,9 +88,8 @@ class Jira(JIRA):
 
     def project_version(self, version_string, project='ARROW'):
         # query version from jira to populated with additional metadata
-        versions = self.project_versions(project)
-        # Version instances are comparable with strings
-        return versions[versions.index(version_string)]
+        versions = {str(v): v for v in self.project_versions(project)}
+        return versions[version_string]
 
     def project_versions(self, project):
         versions = []

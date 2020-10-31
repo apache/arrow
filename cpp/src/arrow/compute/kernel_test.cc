@@ -38,7 +38,7 @@ TEST(TypeMatcher, SameTypeId) {
   ASSERT_TRUE(matcher->Matches(*decimal(12, 2)));
   ASSERT_FALSE(matcher->Matches(*int8()));
 
-  ASSERT_EQ("Type::DECIMAL", matcher->ToString());
+  ASSERT_EQ("Type::DECIMAL128", matcher->ToString());
 
   ASSERT_TRUE(matcher->Equals(*matcher));
   ASSERT_TRUE(matcher->Equals(*match::SameTypeId(Type::DECIMAL)));
@@ -103,7 +103,7 @@ TEST(InputType, Constructors) {
   // Same type id constructor
   InputType ty2(Type::DECIMAL);
   ASSERT_EQ(InputType::USE_TYPE_MATCHER, ty2.kind());
-  ASSERT_EQ("any[Type::DECIMAL]", ty2.ToString());
+  ASSERT_EQ("any[Type::DECIMAL128]", ty2.ToString());
   ASSERT_TRUE(ty2.type_matcher().Matches(*decimal(12, 2)));
   ASSERT_FALSE(ty2.type_matcher().Matches(*int16()));
 
@@ -135,9 +135,9 @@ TEST(InputType, Constructors) {
   ASSERT_EQ("array[int8]", ty1_array.ToString());
   ASSERT_EQ("scalar[int8]", ty1_scalar.ToString());
 
-  ASSERT_EQ("any[Type::DECIMAL]", ty2.ToString());
-  ASSERT_EQ("array[Type::DECIMAL]", ty2_array.ToString());
-  ASSERT_EQ("scalar[Type::DECIMAL]", ty2_scalar.ToString());
+  ASSERT_EQ("any[Type::DECIMAL128]", ty2.ToString());
+  ASSERT_EQ("array[Type::DECIMAL128]", ty2_array.ToString());
+  ASSERT_EQ("scalar[Type::DECIMAL128]", ty2_scalar.ToString());
 
   InputType ty7(match::TimestampTypeUnit(TimeUnit::MICRO));
   ASSERT_EQ("any[timestamp(us)]", ty7.ToString());
@@ -484,14 +484,14 @@ TEST(KernelSignature, ToString) {
                                      InputType(Type::DECIMAL, ValueDescr::ARRAY),
                                      InputType(utf8())};
   KernelSignature sig(in_types, utf8());
-  ASSERT_EQ("(scalar[int8], array[Type::DECIMAL], any[string]) -> string",
+  ASSERT_EQ("(scalar[int8], array[Type::DECIMAL128], any[string]) -> string",
             sig.ToString());
 
   OutputType out_type([](KernelContext*, const std::vector<ValueDescr>& args) {
     return Status::Invalid("NYI");
   });
   KernelSignature sig2({int8(), InputType(Type::DECIMAL)}, out_type);
-  ASSERT_EQ("(any[int8], any[Type::DECIMAL]) -> computed", sig2.ToString());
+  ASSERT_EQ("(any[int8], any[Type::DECIMAL128]) -> computed", sig2.ToString());
 }
 
 TEST(KernelSignature, VarArgsToString) {

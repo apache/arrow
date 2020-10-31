@@ -28,6 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -119,8 +120,11 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
-static constexpr uint64_t kIntMask = 0xFFFFFFFF;
-static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
+#ifdef ARROW_USE_NATIVE_INT128
+static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
+#else
+static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
+#endif
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
@@ -248,40 +252,146 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
   return *this;
 }
 
-BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
-  // Break the left and right numbers into 32 bit chunks
-  // so that we can multiply them without overflow.
-  const uint64_t L0 = static_cast<uint64_t>(high_bits_) >> 32;
-  const uint64_t L1 = static_cast<uint64_t>(high_bits_) & kIntMask;
-  const uint64_t L2 = low_bits_ >> 32;
-  const uint64_t L3 = low_bits_ & kIntMask;
+namespace {
 
-  const uint64_t R0 = static_cast<uint64_t>(right.high_bits_) >> 32;
-  const uint64_t R1 = static_cast<uint64_t>(right.high_bits_) & kIntMask;
-  const uint64_t R2 = right.low_bits_ >> 32;
-  const uint64_t R3 = right.low_bits_ & kIntMask;
-
-  uint64_t product = L3 * R3;
-  low_bits_ = product & kIntMask;
-
-  uint64_t sum = product >> 32;
-
-  product = L2 * R3;
-  sum += product;
-  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
-
-  product = L3 * R2;
-  sum += product;
-
-  low_bits_ += sum << 32;
-
-  if (sum < product) {
-    high_bits_ += kCarryBit;
+// Convenience wrapper type over 128 bit unsigned integers. We opt not to
+// replace the uint128_t type in int128_internal.h because it would require
+// significantly more implementation work to be done. This class merely
+// provides the minimum necessary set of functions to perform 128+ bit
+// multiplication operations when there may or may not be native support.
+#ifdef ARROW_USE_NATIVE_INT128
+struct uint128_t {
+  uint128_t() {}
+  uint128_t(uint64_t hi, uint64_t lo) : val_((static_cast<__uint128_t>(hi) << 64) | lo) {}
+  explicit uint128_t(const BasicDecimal128& decimal) {
+    val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits();
   }
 
-  high_bits_ += static_cast<int64_t>(sum >> 32);
-  high_bits_ += L1 * R3 + L2 * R2 + L3 * R1;
-  high_bits_ += (L0 * R3 + L1 * R2 + L2 * R1 + L3 * R0) << 32;
+  explicit uint128_t(uint64_t value) : val_(value) {}
+
+  uint64_t hi() { return val_ >> 64; }
+  uint64_t lo() { return val_ & kInt64Mask; }
+
+  uint128_t& operator+=(const uint128_t& other) {
+    val_ += other.val_;
+    return *this;
+  }
+
+  uint128_t& operator*=(const uint128_t& other) {
+    val_ *= other.val_;
+    return *this;
+  }
+
+  __uint128_t val_;
+};
+
+#else
+// Multiply two 64 bit word components into a 128 bit result, with high bits
+// stored in hi and low bits in lo.
+inline void ExtendAndMultiply(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
+  // Perform multiplication on two 64 bit words x and y into a 128 bit result
+  // by splitting up x and y into 32 bit high/low bit components,
+  // allowing us to represent the multiplication as
+  // x * y = x_lo * y_lo + x_hi * y_lo * 2^32 + y_hi * x_lo * 2^32
+  // + x_hi * y_hi * 2^64
+  //
+  // Now, consider the final output as lo_lo || lo_hi || hi_lo || hi_hi
+  // Therefore,
+  // lo_lo is (x_lo * y_lo)_lo,
+  // lo_hi is ((x_lo * y_lo)_hi + (x_hi * y_lo)_lo + (x_lo * y_hi)_lo)_lo,
+  // hi_lo is ((x_hi * y_hi)_lo + (x_hi * y_lo)_hi + (x_lo * y_hi)_hi)_hi,
+  // hi_hi is (x_hi * y_hi)_hi
+  const uint64_t x_lo = x & kInt32Mask;
+  const uint64_t y_lo = y & kInt32Mask;
+  const uint64_t x_hi = x >> 32;
+  const uint64_t y_hi = y >> 32;
+
+  const uint64_t t = x_lo * y_lo;
+  const uint64_t t_lo = t & kInt32Mask;
+  const uint64_t t_hi = t >> 32;
+
+  const uint64_t u = x_hi * y_lo + t_hi;
+  const uint64_t u_lo = u & kInt32Mask;
+  const uint64_t u_hi = u >> 32;
+
+  const uint64_t v = x_lo * y_hi + u_lo;
+  const uint64_t v_hi = v >> 32;
+
+  *hi = x_hi * y_hi + u_hi + v_hi;
+  *lo = (v << 32) + t_lo;
+}
+
+struct uint128_t {
+  uint128_t() {}
+  uint128_t(uint64_t hi, uint64_t lo) : hi_(hi), lo_(lo) {}
+  explicit uint128_t(const BasicDecimal128& decimal) {
+    hi_ = decimal.high_bits();
+    lo_ = decimal.low_bits();
+  }
+
+  uint64_t hi() const { return hi_; }
+  uint64_t lo() const { return lo_; }
+
+  uint128_t& operator+=(const uint128_t& other) {
+    // To deduce the carry bit, we perform "65 bit" addition on the low bits and
+    // seeing if the resulting high bit is 1. This is accomplished by shifting the
+    // low bits to the right by 1 (chopping off the lowest bit), then adding 1 if the
+    // result of adding the two chopped bits would have produced a carry.
+    uint64_t carry = (((lo_ & other.lo_) & 1) + (lo_ >> 1) + (other.lo_ >> 1)) >> 63;
+    hi_ += other.hi_ + carry;
+    lo_ += other.lo_;
+    return *this;
+  }
+
+  uint128_t& operator*=(const uint128_t& other) {
+    uint128_t r;
+    ExtendAndMultiply(lo_, other.lo_, &r.hi_, &r.lo_);
+    r.hi_ += (hi_ * other.lo_) + (lo_ * other.hi_);
+    *this = r;
+    return *this;
+  }
+
+  uint64_t hi_;
+  uint64_t lo_;
+};
+#endif
+
+// Multiplies two N * 64 bit unsigned integer types, represented by a uint64_t
+// array into a same sized output. Elements in the array should be in
+// little endian order, and output will be the same. Overflow in multiplication
+// will result in the lower N * 64 bits of the result being set.
+template <int N>
+inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
+                                  const std::array<uint64_t, N>& rh,
+                                  std::array<uint64_t, N>* result) {
+  for (int j = 0; j < N; ++j) {
+    uint64_t carry = 0;
+    for (int i = 0; i < N - j; ++i) {
+      uint128_t tmp(lh[i]);
+      tmp *= uint128_t(rh[j]);
+      tmp += uint128_t((*result)[i + j]);
+      tmp += uint128_t(carry);
+      (*result)[i + j] = tmp.lo();
+      carry = tmp.hi();
+    }
+  }
+}
+
+}  // namespace
+
+BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
+  // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
+  // min the negation taking the absolute values here should always be safe.
+  const bool negate = Sign() != right.Sign();
+  BasicDecimal128 x = BasicDecimal128::Abs(*this);
+  BasicDecimal128 y = BasicDecimal128::Abs(right);
+  uint128_t r(x);
+  r *= uint128_t{y};
+  high_bits_ = r.hi();
+  low_bits_ = r.lo();
+  if (negate) {
+    Negate();
+  }
   return *this;
 }
 
@@ -723,6 +833,101 @@ int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   } else {
     return BitUtil::CountLeadingZeros(static_cast<uint64_t>(high_bits_));
   }
+}
+
+#if ARROW_LITTLE_ENDIAN
+BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
+    : little_endian_array_(
+          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[0],
+                                   reinterpret_cast<const uint64_t*>(bytes)[1],
+                                   reinterpret_cast<const uint64_t*>(bytes)[2],
+                                   reinterpret_cast<const uint64_t*>(bytes)[3]})) {}
+#else
+BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
+    : little_endian_array_(
+          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[3],
+                                   reinterpret_cast<const uint64_t*>(bytes)[2],
+                                   reinterpret_cast<const uint64_t*>(bytes)[1],
+                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {
+#endif
+
+BasicDecimal256& BasicDecimal256::Negate() {
+  uint64_t carry = 1;
+  for (uint64_t& elem : little_endian_array_) {
+    elem = ~elem + carry;
+    carry &= (elem == 0);
+  }
+  return *this;
+}
+
+BasicDecimal256& BasicDecimal256::Abs() { return *this < 0 ? Negate() : *this; }
+
+BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
+  BasicDecimal256 result(in);
+  return result.Abs();
+}
+
+std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
+  std::array<uint8_t, 32> out{{0}};
+  ToBytes(out.data());
+  return out;
+}
+
+void BasicDecimal256::ToBytes(uint8_t* out) const {
+  DCHECK_NE(out, nullptr);
+#if ARROW_LITTLE_ENDIAN
+  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[0];
+  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[1];
+  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[2];
+  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[3];
+#else
+    reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
+    reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
+    reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
+    reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
+#endif
+}
+
+BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
+  // Since the max value of BasicDecimal256 is supposed to be 1e76 - 1 and the
+  // min the negation taking the absolute values here should always be safe.
+  const bool negate = Sign() != right.Sign();
+  BasicDecimal256 x = BasicDecimal256::Abs(*this);
+  BasicDecimal256 y = BasicDecimal256::Abs(right);
+
+  uint128_t r_hi;
+  uint128_t r_lo;
+  std::array<uint64_t, 4> res{0, 0, 0, 0};
+  MultiplyUnsignedArray<4>(x.little_endian_array_, y.little_endian_array_, &res);
+  little_endian_array_ = res;
+  if (negate) {
+    Negate();
+  }
+  return *this;
+}
+
+DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
+                                       BasicDecimal256* out) const {
+  if (original_scale == new_scale) {
+    return DecimalStatus::kSuccess;
+  }
+  // TODO: implement.
+  return DecimalStatus::kRescaleDataLoss;
+}
+
+BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 result = left;
+  result *= right;
+  return result;
+}
+
+bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
+  const std::array<uint64_t, 4>& lhs = left.little_endian_array();
+  const std::array<uint64_t, 4>& rhs = right.little_endian_array();
+  return lhs[3] != rhs[3]
+             ? static_cast<int64_t>(lhs[3]) < static_cast<int64_t>(rhs[3])
+             : lhs[2] != rhs[2] ? lhs[2] < rhs[2]
+                                : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
 }
 
 }  // namespace arrow

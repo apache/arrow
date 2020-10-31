@@ -57,7 +57,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    */
   public DecimalVector(String name, BufferAllocator allocator,
                                int precision, int scale) {
-    this(name, FieldType.nullable(new ArrowType.Decimal(precision, scale)), allocator);
+    this(name, FieldType.nullable(new ArrowType.Decimal(precision, scale, TYPE_WIDTH * 8)), allocator);
   }
 
   /**
@@ -158,7 +158,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale);
+      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
     }
   }
 
@@ -246,7 +246,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param start    start index of data in the buffer
    * @param buffer   ArrowBuf containing decimal value.
    */
-  public void set(int index, int start, ArrowBuf buffer) {
+  public void set(int index, long start, ArrowBuf buffer) {
     BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setBytes((long) index * TYPE_WIDTH, buffer, start, TYPE_WIDTH);
   }
@@ -258,7 +258,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param buffer contains the decimal in little endian bytes
    * @param length length of the value in the buffer
    */
-  public void setSafe(int index, int start, ArrowBuf buffer, int length) {
+  public void setSafe(int index, long start, ArrowBuf buffer, int length) {
     handleSafe(index);
     BitVectorHelper.setBit(validityBuffer, index);
 
@@ -285,7 +285,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param buffer contains the decimal in big endian bytes
    * @param length length of the value in the buffer
    */
-  public void setBigEndianSafe(int index, int start, ArrowBuf buffer, int length) {
+  public void setBigEndianSafe(int index, long start, ArrowBuf buffer, int length) {
     handleSafe(index);
     BitVectorHelper.setBit(validityBuffer, index);
 
@@ -318,7 +318,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public void set(int index, BigDecimal value) {
     BitVectorHelper.setBit(validityBuffer, index);
     DecimalUtility.checkPrecisionAndScale(value, precision, scale);
-    DecimalUtility.writeBigDecimalToArrowBuf(value, valueBuffer, index);
+    DecimalUtility.writeBigDecimalToArrowBuf(value, valueBuffer, index, TYPE_WIDTH);
   }
 
   /**
@@ -394,7 +394,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param start    start index of data in the buffer
    * @param buffer   ArrowBuf containing decimal value.
    */
-  public void setSafe(int index, int start, ArrowBuf buffer) {
+  public void setSafe(int index, long start, ArrowBuf buffer) {
     handleSafe(index);
     set(index, start, buffer);
   }
@@ -460,7 +460,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param start start position of the value in the buffer
    * @param buffer buffer containing the value to be stored in the vector
    */
-  public void set(int index, int isSet, int start, ArrowBuf buffer) {
+  public void set(int index, int isSet, long start, ArrowBuf buffer) {
     if (isSet > 0) {
       set(index, start, buffer);
     } else {
@@ -478,7 +478,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param start start position of the value in the buffer
    * @param buffer buffer containing the value to be stored in the vector
    */
-  public void setSafe(int index, int isSet, int start, ArrowBuf buffer) {
+  public void setSafe(int index, int isSet, long start, ArrowBuf buffer) {
     handleSafe(index);
     set(index, isSet, start, buffer);
   }

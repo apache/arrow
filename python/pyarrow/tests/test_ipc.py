@@ -15,11 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import UserList
 import io
 import pytest
 import socket
 import sys
 import threading
+import weakref
 
 import numpy as np
 
@@ -763,6 +765,7 @@ def test_serialize_pandas_no_preserve_index():
     assert_frame_equal(result, df)
 
 
+@pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
 def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
     s = pd.Series([1, 2, 3, 4])
@@ -858,3 +861,36 @@ def test_write_empty_ipc_file():
         table = reader.read_all()
     assert len(table) == 0
     assert table.schema.equals(schema)
+
+
+def test_py_record_batch_reader():
+    def make_schema():
+        return pa.schema([('field', pa.int64())])
+
+    def make_batches():
+        schema = make_schema()
+        batch1 = pa.record_batch([[1, 2, 3]], schema=schema)
+        batch2 = pa.record_batch([[4, 5]], schema=schema)
+        return [batch1, batch2]
+
+    # With iterable
+    batches = UserList(make_batches())  # weakrefable
+    wr = weakref.ref(batches)
+
+    with pa.ipc.RecordBatchReader.from_batches(make_schema(),
+                                               batches) as reader:
+        batches = None
+        assert wr() is not None
+        assert list(reader) == make_batches()
+        assert wr() is None
+
+    # With iterator
+    batches = iter(UserList(make_batches()))  # weakrefable
+    wr = weakref.ref(batches)
+
+    with pa.ipc.RecordBatchReader.from_batches(make_schema(),
+                                               batches) as reader:
+        batches = None
+        assert wr() is not None
+        assert list(reader) == make_batches()
+        assert wr() is None

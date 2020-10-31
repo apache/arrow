@@ -49,6 +49,25 @@ struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   std::string pattern;
 };
 
+struct ARROW_EXPORT SplitOptions : public FunctionOptions {
+  explicit SplitOptions(int64_t max_splits = -1, bool reverse = false)
+      : max_splits(max_splits), reverse(reverse) {}
+
+  /// Maximum number of splits allowed, or unlimited when -1
+  int64_t max_splits;
+  /// Start splitting from the end of the string (only relevant when max_splits != -1)
+  bool reverse;
+};
+
+struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
+  explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
+                               bool reverse = false)
+      : SplitOptions(max_splits, reverse), pattern(std::move(pattern)) {}
+
+  /// The exact substring to look for inside input values.
+  std::string pattern;
+};
+
 /// Options for IsIn and IndexIn functions
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, bool skip_nulls)

@@ -20,10 +20,10 @@
 use std::sync::Arc;
 
 use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    Expr, LogicalPlan, PlanType, StringifiedPlan, UserDefinedLogicalNode,
+    Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode,
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
@@ -117,10 +117,7 @@ impl DefaultPhysicalPlanner {
                             if child.output_partitioning().partition_count() == 1 {
                                 child.clone()
                             } else {
-                                Arc::new(MergeExec::new(
-                                    child.clone(),
-                                    ctx_state.config.concurrency,
-                                ))
+                                Arc::new(MergeExec::new(child.clone()))
                             }
                         })
                         .collect(),
@@ -139,15 +136,21 @@ impl DefaultPhysicalPlanner {
 
         match logical_plan {
             LogicalPlan::TableScan {
-                table_name,
-                projection,
-                ..
-            } => match ctx_state.datasources.get(table_name) {
-                Some(provider) => provider.scan(projection, batch_size),
-                _ => Err(ExecutionError::General(format!(
-                    "No table named {}",
-                    table_name
-                ))),
+                source, projection, ..
+            } => match source {
+                TableSource::FromContext(table_name) => {
+                    match ctx_state.datasources.get(table_name) {
+                        Some(provider) => provider.scan(projection, batch_size),
+                        _ => Err(DataFusionError::Plan(format!(
+                            "No table named {}. Existing tables: {:?}",
+                            table_name,
+                            ctx_state.datasources.keys().collect::<Vec<_>>(),
+                        ))),
+                    }
+                }
+                TableSource::FromProvider(ref provider) => {
+                    provider.scan(projection, batch_size)
+                }
             },
             LogicalPlan::InMemoryScan {
                 data,
@@ -272,7 +275,7 @@ impl DefaultPhysicalPlanner {
                             },
                             ctx_state,
                         ),
-                        _ => Err(ExecutionError::ExecutionError(
+                        _ => Err(DataFusionError::Plan(
                             "Sort only accepts sort expressions".to_string(),
                         )),
                     })
@@ -311,7 +314,7 @@ impl DefaultPhysicalPlanner {
                 // TABLE" -- it must be handled at a higher level (so
                 // that the appropriate table can be registered with
                 // the context)
-                Err(ExecutionError::General(
+                Err(DataFusionError::Internal(
                     "Unsupported logical plan: CreateExternalTable".to_string(),
                 ))
             }
@@ -356,7 +359,7 @@ impl DefaultPhysicalPlanner {
                 // declared logical schema to catch and warn about
                 // logic errors when creating user defined plans.
                 if plan.schema() != *node.schema() {
-                    Err(ExecutionError::General(format!(
+                    Err(DataFusionError::Plan(format!(
                         "Extension planner for {:?} created an ExecutionPlan with mismatched schema. \
                          LogicalPlan schema: {:?}, ExecutionPlan schema: {:?}",
                         node, node.schema(), plan.schema()
@@ -393,7 +396,7 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(ExecutionError::General(format!(
+                        _ => Err(DataFusionError::Plan(format!(
                             "No system variable provider found"
                         ))),
                     }
@@ -404,7 +407,7 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(ExecutionError::General(format!(
+                        _ => Err(DataFusionError::Plan(format!(
                             "No user defined variable provider found"
                         ))),
                     }
@@ -455,7 +458,7 @@ impl DefaultPhysicalPlanner {
                     input_schema,
                 )
             }
-            other => Err(ExecutionError::NotImplemented(format!(
+            other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
                 other
             ))),
@@ -469,17 +472,29 @@ impl DefaultPhysicalPlanner {
         input_schema: &Schema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
+        // unpack aliased logical expressions, e.g. "sum(col) as total"
+        let (name, e) = match e {
+            Expr::Alias(sub_expr, alias) => (alias.clone(), sub_expr.as_ref()),
+            _ => (e.name(input_schema)?, e),
+        };
+
         match e {
-            Expr::AggregateFunction { fun, args, .. } => {
+            Expr::AggregateFunction {
+                fun,
+                distinct,
+                args,
+                ..
+            } => {
                 let args = args
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
                 aggregates::create_aggregate_expr(
                     fun,
+                    *distinct,
                     &args,
                     input_schema,
-                    e.name(input_schema)?,
+                    name,
                 )
             }
             Expr::AggregateUDF { fun, args, .. } => {
@@ -488,14 +503,9 @@ impl DefaultPhysicalPlanner {
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                udaf::create_aggregate_expr(
-                    fun,
-                    &args,
-                    input_schema,
-                    e.name(input_schema)?,
-                )
+                udaf::create_aggregate_expr(fun, &args, input_schema, name)
             }
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Invalid aggregate expression '{:?}'",
                 other
             ))),
@@ -535,7 +545,7 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
         _inputs: Vec<Arc<dyn ExecutionPlan>>,
         _ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(ExecutionError::NotImplemented(format!(
+        Err(DataFusionError::NotImplemented(format!(
             "DefaultPhysicalPlanner does not know how to plan {:?}. \
                      Provide a custom ExtensionPlanNodePlanner that does",
             node
@@ -546,15 +556,16 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{col, lit, sum, LogicalPlanBuilder};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
-    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
-    use arrow::{
-        datatypes::{DataType, Field, SchemaRef},
-        record_batch::RecordBatchReader,
+    use crate::{
+        logical_plan::{col, lit, sum, LogicalPlanBuilder},
+        physical_plan::SendableRecordBatchStream,
     };
+    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
+    use arrow::datatypes::{DataType, Field, SchemaRef};
+    use async_trait::async_trait;
     use fmt::Debug;
-    use std::{any::Any, collections::HashMap, fmt, sync::Mutex};
+    use std::{any::Any, collections::HashMap, fmt};
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
@@ -655,12 +666,11 @@ mod tests {
         for case in cases {
             let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
                 .project(vec![case.clone()]);
-            if let Ok(_) = logical_plan {
-                return Err(ExecutionError::General(format!(
-                    "Expression {:?} expected to error due to impossible coercion",
-                    case
-                )));
-            };
+            let message = format!(
+                "Expression {:?} expected to error due to impossible coercion",
+                case
+            );
+            assert!(logical_plan.is_err(), message);
         }
         Ok(())
     }
@@ -773,7 +783,13 @@ mod tests {
         schema: SchemaRef,
     }
 
+    #[async_trait]
     impl ExecutionPlan for NoOpExecutionPlan {
+        /// Return a reference to Any that can be used for downcasting
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
@@ -793,11 +809,7 @@ mod tests {
             unimplemented!("NoOpExecutionPlan::with_new_children");
         }
 
-        /// Execute one partition and return an iterator over RecordBatch
-        fn execute(
-            &self,
-            _partition: usize,
-        ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
             unimplemented!("NoOpExecutionPlan::execute");
         }
     }

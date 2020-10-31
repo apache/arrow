@@ -90,7 +90,7 @@ public class TestSchema {
         field("g", new Utf8()),
         field("h", new Binary()),
         field("i", new Bool()),
-        field("j", new Decimal(5, 5)),
+        field("j", new Decimal(5, 5, 128)),
         field("k", new Date(DateUnit.DAY)),
         field("l", new Date(DateUnit.MILLISECOND)),
         field("m", new Time(TimeUnit.SECOND, 32)),

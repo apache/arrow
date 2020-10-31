@@ -115,6 +115,22 @@
     },
     {
       major: "Fixed",
+      width: 32,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+
+      minor: [
+        {
+          class: "Decimal256",
+          maxPrecisionDigits: 76, nDecimalDigits: 4, friendlyType: "BigDecimal",
+          typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
+          fields: [{name: "start", type: "long"}, {name: "buffer", type: "ArrowBuf"}]
+        }
+      ]
+    },
+    {
+      major: "Fixed",
       width: 16,
       javaType: "ArrowBuf",
       boxedType: "ArrowBuf",
@@ -125,10 +141,11 @@
           maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal",
           typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
           arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
-          fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}]
+          fields: [{name: "start", type: "long"}, {name: "buffer", type: "ArrowBuf"}]
         }
       ]
     },
+
     {
       major: "Fixed",
       width: -1,

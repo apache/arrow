@@ -89,9 +89,9 @@ class PARQUET_EXPORT ApplicationVersion {
     std::string build_info;
   } version;
 
-  ApplicationVersion() {}
+  ApplicationVersion() = default;
   explicit ApplicationVersion(const std::string& created_by);
-  ApplicationVersion(const std::string& application, int major, int minor, int patch);
+  ApplicationVersion(std::string application, int major, int minor, int patch);
 
   // Returns true if version is strictly less than other_version
   bool VersionLt(const ApplicationVersion& other_version) const;
@@ -108,6 +108,8 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
  public:
   static std::unique_ptr<ColumnCryptoMetaData> Make(const uint8_t* metadata);
   ~ColumnCryptoMetaData();
+
+  bool Equals(const ColumnCryptoMetaData& other) const;
 
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool encrypted_with_footer_key() const;
@@ -138,6 +140,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~ColumnChunkMetaData();
+
+  bool Equals(const ColumnChunkMetaData& other) const;
 
   // column chunk
   int64_t file_offset() const;
@@ -189,6 +193,8 @@ class PARQUET_EXPORT RowGroupMetaData {
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~RowGroupMetaData();
+
+  bool Equals(const RowGroupMetaData& other) const;
 
   /// \brief The number of columns in this row group. The order must match the
   /// parent's column ordering.
@@ -243,6 +249,8 @@ class PARQUET_EXPORT FileMetaData {
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   ~FileMetaData();
+
+  bool Equals(const FileMetaData& other) const;
 
   /// \brief The number of top-level columns in the schema.
   ///
@@ -333,6 +341,10 @@ class PARQUET_EXPORT FileMetaData {
   ///
   /// \throws ParquetException if schemas are not equal.
   void AppendRowGroups(const FileMetaData& other);
+
+  /// \brief Return a FileMetaData containing a subset of the row groups in this
+  /// FileMetaData.
+  std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
  private:
   friend FileMetaDataBuilder;

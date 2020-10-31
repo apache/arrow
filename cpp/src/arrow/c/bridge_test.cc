@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cerrno>
 #include <deque>
 #include <functional>
 #include <string>
@@ -22,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/c/bridge.h"
@@ -40,6 +42,8 @@ namespace arrow {
 
 using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
+using internal::ArrayStreamExportGuard;
+using internal::ArrayStreamExportTraits;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
 
@@ -78,11 +82,11 @@ class ReleaseCallback {
   explicit ReleaseCallback(CType* c_struct) : called_(false) {
     orig_release_ = c_struct->release;
     orig_private_data_ = c_struct->private_data;
-    c_struct->release = ReleaseUnbound;
+    c_struct->release = StaticRelease;
     c_struct->private_data = this;
   }
 
-  static void ReleaseUnbound(CType* c_struct) {
+  static void StaticRelease(CType* c_struct) {
     reinterpret_cast<ReleaseCallback*>(c_struct->private_data)->Release(c_struct);
   }
 
@@ -277,6 +281,7 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(large_utf8(), "U");
 
   TestPrimitive(decimal(16, 4), "d:16,4");
+  TestPrimitive(decimal256(16, 4), "d:16,4,256");
 }
 
 TEST_F(TestSchemaExport, Temporal) {
@@ -736,6 +741,7 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(large_utf8(), R"(["foo", "bar", null])");
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
@@ -1182,6 +1188,13 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", float32()));
   FillPrimitive("g");
   CheckImport(field("", float64()));
+
+  FillPrimitive("d:16,4");
+  CheckImport(field("", decimal128(16, 4)));
+  FillPrimitive("d:16,4,128");
+  CheckImport(field("", decimal128(16, 4)));
+  FillPrimitive("d:16,4,256");
+  CheckImport(field("", decimal256(16, 4)));
 }
 
 TEST_F(TestSchemaImport, Temporal) {
@@ -2369,6 +2382,8 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(float16);
 
   TestWithTypeFactory(std::bind(decimal, 19, 4));
+  TestWithTypeFactory(std::bind(decimal128, 19, 4));
+  TestWithTypeFactory(std::bind(decimal256, 19, 4));
   TestWithTypeFactory(std::bind(fixed_size_binary, 3));
   TestWithTypeFactory(binary);
   TestWithTypeFactory(large_utf8);
@@ -2426,7 +2441,7 @@ TEST_F(TestSchemaRoundtrip, Map) {
 
 TEST_F(TestSchemaRoundtrip, Schema) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal256(19, 4)));
   auto md1 = key_value_metadata(kMetadataKeys1, kMetadataValues1);
   auto md2 = key_value_metadata(kMetadataKeys2, kMetadataValues2);
 
@@ -2570,8 +2585,13 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(int32(), "[]");
   TestWithJSON(int32(), "[4, 5, null]");
 
+  TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
+
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
+  TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
@@ -2677,5 +2697,249 @@ TEST_F(TestArrayRoundtrip, RecordBatch) {
 }
 
 // TODO C -> C++ -> C roundtripping tests?
+
+////////////////////////////////////////////////////////////////////////////
+// Array stream export tests
+
+class FailingRecordBatchReader : public RecordBatchReader {
+ public:
+  explicit FailingRecordBatchReader(Status error) : error_(std::move(error)) {}
+
+  static std::shared_ptr<Schema> expected_schema() { return arrow::schema({}); }
+
+  std::shared_ptr<Schema> schema() const override { return expected_schema(); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override { return error_; }
+
+ protected:
+  Status error_;
+};
+
+class BaseArrayStreamTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    pool_ = default_memory_pool();
+    orig_allocated_ = pool_->bytes_allocated();
+  }
+
+  void TearDown() override { ASSERT_EQ(pool_->bytes_allocated(), orig_allocated_); }
+
+  RecordBatchVector MakeBatches(std::shared_ptr<Schema> schema, ArrayVector arrays) {
+    DCHECK_EQ(schema->num_fields(), 1);
+    RecordBatchVector batches;
+    for (const auto& array : arrays) {
+      batches.push_back(RecordBatch::Make(schema, array->length(), {array}));
+    }
+    return batches;
+  }
+
+ protected:
+  MemoryPool* pool_;
+  int64_t orig_allocated_;
+};
+
+class TestArrayStreamExport : public BaseArrayStreamTest {
+ public:
+  void AssertStreamSchema(struct ArrowArrayStream* c_stream, const Schema& expected) {
+    struct ArrowSchema c_schema;
+    ASSERT_EQ(0, c_stream->get_schema(c_stream, &c_schema));
+
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(expected, *schema);
+  }
+
+  void AssertStreamEnd(struct ArrowArrayStream* c_stream) {
+    struct ArrowArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    ArrayExportGuard guard(&c_array);
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array));
+  }
+
+  void AssertStreamNext(struct ArrowArrayStream* c_stream, const RecordBatch& expected) {
+    struct ArrowArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    ArrayExportGuard guard(&c_array);
+    ASSERT_FALSE(ArrowArrayIsReleased(&c_array));
+
+    ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_array, expected.schema()));
+    AssertBatchesEqual(expected, *batch);
+  }
+};
+
+TEST_F(TestArrayStreamExport, Empty) {
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(schema, {});
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, schema));
+
+  struct ArrowArrayStream c_stream;
+
+  ASSERT_OK(ExportRecordBatchReader(reader, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+  AssertStreamSchema(&c_stream, *schema);
+  AssertStreamEnd(&c_stream);
+  AssertStreamEnd(&c_stream);
+}
+
+TEST_F(TestArrayStreamExport, Simple) {
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(
+      schema, {ArrayFromJSON(int32(), "[1, 2]"), ArrayFromJSON(int32(), "[4, 5, null]")});
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, schema));
+
+  struct ArrowArrayStream c_stream;
+
+  ASSERT_OK(ExportRecordBatchReader(reader, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+  AssertStreamSchema(&c_stream, *schema);
+  AssertStreamNext(&c_stream, *batches[0]);
+  AssertStreamNext(&c_stream, *batches[1]);
+  AssertStreamEnd(&c_stream);
+  AssertStreamEnd(&c_stream);
+}
+
+TEST_F(TestArrayStreamExport, ArrayLifetime) {
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(
+      schema, {ArrayFromJSON(int32(), "[1, 2]"), ArrayFromJSON(int32(), "[4, 5, null]")});
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, schema));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+  struct ArrowArray c_array0, c_array1;
+
+  ASSERT_OK(ExportRecordBatchReader(reader, &c_stream));
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array0));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array1));
+    AssertStreamEnd(&c_stream);
+  }
+
+  ArrayExportGuard guard0(&c_array0), guard1(&c_array1);
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(*schema, *got_schema);
+  }
+
+  ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+  ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_array1, schema));
+  AssertBatchesEqual(*batches[1], *batch);
+  ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_array0, schema));
+  AssertBatchesEqual(*batches[0], *batch);
+}
+
+TEST_F(TestArrayStreamExport, Errors) {
+  auto reader =
+      std::make_shared<FailingRecordBatchReader>(Status::Invalid("some example error"));
+
+  struct ArrowArrayStream c_stream;
+
+  ASSERT_OK(ExportRecordBatchReader(reader, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  struct ArrowSchema c_schema;
+  ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+  ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(schema, arrow::schema({}));
+  }
+
+  struct ArrowArray c_array;
+  ASSERT_EQ(EINVAL, c_stream.get_next(&c_stream, &c_array));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Array stream roundtrip tests
+
+class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
+ public:
+  void Roundtrip(std::shared_ptr<RecordBatchReader>* reader,
+                 struct ArrowArrayStream* c_stream) {
+    ASSERT_OK(ExportRecordBatchReader(*reader, c_stream));
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(c_stream));
+
+    ASSERT_OK_AND_ASSIGN(auto got_reader, ImportRecordBatchReader(c_stream));
+    *reader = std::move(got_reader);
+  }
+
+  void Roundtrip(
+      std::shared_ptr<RecordBatchReader> reader,
+      std::function<void(const std::shared_ptr<RecordBatchReader>&)> check_func) {
+    ArrowArrayStream c_stream;
+
+    // NOTE: ReleaseCallback<> is not immediately usable with ArrowArrayStream,
+    // because get_next and get_schema need the original private_data.
+    std::weak_ptr<RecordBatchReader> weak_reader(reader);
+    ASSERT_EQ(weak_reader.use_count(), 1);  // Expiration check will fail otherwise
+
+    ASSERT_OK(ExportRecordBatchReader(std::move(reader), &c_stream));
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    {
+      ASSERT_OK_AND_ASSIGN(auto new_reader, ImportRecordBatchReader(&c_stream));
+      // Stream was moved
+      ASSERT_TRUE(ArrowArrayStreamIsReleased(&c_stream));
+      ASSERT_FALSE(weak_reader.expired());
+
+      check_func(new_reader);
+    }
+    // Stream was released when `new_reader` was destroyed
+    ASSERT_TRUE(weak_reader.expired());
+  }
+
+  void AssertReaderNext(const std::shared_ptr<RecordBatchReader>& reader,
+                        const RecordBatch& expected) {
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    ASSERT_NE(batch, nullptr);
+    AssertBatchesEqual(expected, *batch);
+  }
+
+  void AssertReaderEnd(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    ASSERT_EQ(batch, nullptr);
+  }
+};
+
+TEST_F(TestArrayStreamRoundtrip, Simple) {
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")});
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    AssertSchemaEqual(*orig_schema, *reader->schema());
+    AssertReaderNext(reader, *batches[0]);
+    AssertReaderNext(reader, *batches[1]);
+    AssertReaderEnd(reader);
+    AssertReaderEnd(reader);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, Errors) {
+  auto reader = std::make_shared<FailingRecordBatchReader>(
+      Status::Invalid("roundtrip error example"));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    auto status = reader->Next().status();
+    ASSERT_RAISES(Invalid, status);
+    ASSERT_THAT(status.message(), ::testing::HasSubstr("roundtrip error example"));
+  });
+}
 
 }  // namespace arrow

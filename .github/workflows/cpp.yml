@@ -102,7 +102,9 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    if: github.event_name == 'push'
+    # TODO(kszucs): re-enable once the self-hosted workers are properly
+    # registered to github
+    if: false && github.event_name == 'push'
     defaults:
       # To use certain environment variables set by .bashrc, an interactive
       # bash shell must be used
@@ -119,11 +121,12 @@ jobs:
             debian: 10
             title: ARM32v7 Debian 10 C++
             image: |
-              -e CPP_MAKE_PARALLELISM=4 \
+              -e CPP_MAKE_PARALLELISM=2 \
               -e CXXFLAGS=-Wno-psabi \
               -e ARROW_PARQUET=OFF \
               -e ARROW_FLIGHT=OFF \
               -e ARROW_GANDIVA=OFF \
+              -e ARROW_ORC=OFF \
               -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
               debian-cpp
             arch: 'arm32v7'
@@ -186,23 +189,24 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
       # TODO(kszucs): link error in the tests
-      ARROW_DATASET: ON
       ARROW_ORC: OFF
-      ARROW_FLIGHT: ON
-      ARROW_HDFS: ON
-      ARROW_PLASMA: ON
-      ARROW_GANDIVA: ON
       ARROW_PARQUET: ON
-      ARROW_WITH_ZLIB: ON
-      ARROW_WITH_LZ4: ON
-      ARROW_WITH_BZ2: ON
-      ARROW_WITH_ZSTD: ON
-      ARROW_WITH_SNAPPY: ON
+      ARROW_PLASMA: ON
+      ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
-      ARROW_BUILD_TESTS: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -334,7 +338,6 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
-      CMAKE_GENERATOR: MSYS Makefiles
       CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
@@ -371,6 +374,14 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download MinIO
+        shell: msys2 {0}
+        run: |
+          mkdir -p /usr/local/bin
+          wget \
+            --output-document /usr/local/bin/minio.exe \
+            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+          chmod +x /usr/local/bin/minio.exe
       - name: Test
         shell: msys2 {0}
         run: |

@@ -29,7 +29,7 @@ use crate::util::bit_util;
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
 /// primitive, list, struct) are implemented in `Array`.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ArrayData {
     /// The data type for this array data
     data_type: DataType,
@@ -97,12 +97,14 @@ impl ArrayData {
     }
 
     /// Returns a builder to construct a `ArrayData` instance.
-    pub fn builder(data_type: DataType) -> ArrayDataBuilder {
+    #[inline]
+    pub const fn builder(data_type: DataType) -> ArrayDataBuilder {
         ArrayDataBuilder::new(data_type)
     }
 
     /// Returns a reference to the data type of this array data
-    pub fn data_type(&self) -> &DataType {
+    #[inline]
+    pub const fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
@@ -125,7 +127,8 @@ impl ArrayData {
     }
 
     /// Returns a reference to the null bitmap of this array data
-    pub fn null_bitmap(&self) -> &Option<Bitmap> {
+    #[inline]
+    pub const fn null_bitmap(&self) -> &Option<Bitmap> {
         &self.null_bitmap
     }
 
@@ -143,22 +146,26 @@ impl ArrayData {
     }
 
     /// Returns the length (i.e., number of elements) of this array
-    pub fn len(&self) -> usize {
+    #[inline]
+    pub const fn len(&self) -> usize {
         self.len
     }
 
-    pub fn is_empty(&self) -> bool {
+    // Returns whether array data is empty
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the offset of this array
     #[inline]
-    pub fn offset(&self) -> usize {
+    pub const fn offset(&self) -> usize {
         self.offset
     }
 
     /// Returns the total number of nulls in this array
-    pub fn null_count(&self) -> usize {
+    #[inline]
+    pub const fn null_count(&self) -> usize {
         self.null_count
     }
 
@@ -202,6 +209,61 @@ impl ArrayData {
     }
 }
 
+impl PartialEq for ArrayData {
+    fn eq(&self, other: &Self) -> bool {
+        assert_eq!(
+            self.data_type(),
+            other.data_type(),
+            "Data types not the same"
+        );
+        assert_eq!(self.len(), other.len(), "Lengths not the same");
+        // TODO: when adding tests for this, test that we can compare with arrays that have offsets
+        assert_eq!(self.offset(), other.offset(), "Offsets not the same");
+        assert_eq!(self.null_count(), other.null_count());
+        // compare buffers excluding padding
+        let self_buffers = self.buffers();
+        let other_buffers = other.buffers();
+        assert_eq!(self_buffers.len(), other_buffers.len());
+        self_buffers.iter().zip(other_buffers).for_each(|(s, o)| {
+            compare_buffer_regions(
+                s,
+                self.offset(), // TODO mul by data length
+                o,
+                other.offset(), // TODO mul by data len
+            );
+        });
+        // assert_eq!(self.buffers(), other.buffers());
+
+        assert_eq!(self.child_data(), other.child_data());
+        // null arrays can skip the null bitmap, thus only compare if there are no nulls
+        if self.null_count() != 0 || other.null_count() != 0 {
+            compare_buffer_regions(
+                self.null_buffer().unwrap(),
+                self.offset(),
+                other.null_buffer().unwrap(),
+                other.offset(),
+            )
+        }
+        true
+    }
+}
+
+/// A helper to compare buffer regions of 2 buffers.
+/// Compares the length of the shorter buffer.
+fn compare_buffer_regions(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+) {
+    // for convenience, we assume that the buffer lengths are only unequal if one has padding,
+    // so we take the shorter length so we can discard the padding from the longer length
+    let shorter_len = left.len().min(right.len());
+    let s_sliced = left.bit_slice(left_offset, shorter_len);
+    let o_sliced = right.bit_slice(right_offset, shorter_len);
+    assert_eq!(s_sliced, o_sliced);
+}
+
 /// Builder for `ArrayData` type
 #[derive(Debug)]
 pub struct ArrayDataBuilder {
@@ -215,7 +277,8 @@ pub struct ArrayDataBuilder {
 }
 
 impl ArrayDataBuilder {
-    pub fn new(data_type: DataType) -> Self {
+    #[inline]
+    pub const fn new(data_type: DataType) -> Self {
         Self {
             data_type,
             len: 0,
@@ -227,12 +290,14 @@ impl ArrayDataBuilder {
         }
     }
 
-    pub fn len(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn len(mut self, n: usize) -> Self {
         self.len = n;
         self
     }
 
-    pub fn null_count(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn null_count(mut self, n: usize) -> Self {
         self.null_count = Some(n);
         self
     }
@@ -242,7 +307,8 @@ impl ArrayDataBuilder {
         self
     }
 
-    pub fn offset(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn offset(mut self, n: usize) -> Self {
         self.offset = n;
         self
     }

@@ -317,6 +317,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\", optional = true }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }"],
                        ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"]
                      ],
@@ -553,6 +555,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", optional = true }"],
                        ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
                         "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"]
                      ],

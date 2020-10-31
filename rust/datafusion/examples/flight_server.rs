@@ -34,10 +34,6 @@ use arrow_flight::{
 #[derive(Clone)]
 pub struct FlightServiceImpl {}
 
-/**
- * Example Flight Server wrapping DataFusion that supports looking up schema information for
- * Parquet files and executing SQL queries against Parquet files.
- */
 #[tonic::async_trait]
 impl FlightService for FlightServiceImpl {
     type HandshakeStream = Pin<
@@ -103,7 +99,10 @@ impl FlightService for FlightServiceImpl {
                     .map_err(|e| to_tonic_err(&e))?;
 
                 // execute the query
-                let results = ctx.collect(plan.clone()).map_err(|e| to_tonic_err(&e))?;
+                let results = ctx
+                    .collect(plan.clone())
+                    .await
+                    .map_err(|e| to_tonic_err(&e))?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }
@@ -179,10 +178,13 @@ impl FlightService for FlightServiceImpl {
     }
 }
 
-fn to_tonic_err(e: &datafusion::error::ExecutionError) -> Status {
+fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
     Status::internal(format!("{:?}", e))
 }
 
+/// This example shows how to wrap DataFusion with `FlightService` to support looking up schema information for
+/// Parquet files and executing SQL queries against them on a remote server.
+/// This example is run along-side the example `flight_client`.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50051".parse()?;

@@ -16,7 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/opt/python/cp37-cp37m/bin/pip install cmake ninja
+export CMAKE_VERSION=3.18.2.post1
+/opt/python/cp37-cp37m/bin/pip install cmake==${CMAKE_VERSION} ninja
 ln -s /opt/python/cp37-cp37m/bin/cmake /usr/local/bin/cmake
 ln -s /opt/python/cp37-cp37m/bin/ninja /usr/local/bin/ninja
 strip /opt/_internal/cpython-3.*/lib/python3.7/site-packages/cmake/data/bin/*

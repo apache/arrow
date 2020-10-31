@@ -57,6 +57,9 @@ Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self)),
     Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
+  ),
+  active = list(
+    schema = function() shared_ptr(Schema, dataset___Scanner__schema(self))
   )
 )
 Scanner$create <- function(dataset,
@@ -65,7 +68,7 @@ Scanner$create <- function(dataset,
                            use_threads = option_use_threads(),
                            batch_size = NULL,
                            ...) {
-  if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
+  if (inherits(dataset, "arrow_dplyr_query")) {
     return(Scanner$create(
       dataset$.data,
       dataset$selected_columns,
@@ -74,7 +77,11 @@ Scanner$create <- function(dataset,
       ...
     ))
   }
+  if (inherits(dataset, c("data.frame", "RecordBatch", "Table"))) {
+    dataset <- InMemoryDataset$create(dataset)
+  }
   assert_is(dataset, "Dataset")
+
   scanner_builder <- dataset$NewScan()
   if (use_threads) {
     scanner_builder$UseThreads()
@@ -90,6 +97,9 @@ Scanner$create <- function(dataset,
   }
   scanner_builder$Finish()
 }
+
+#' @export
+names.Scanner <- function(x) names(x$schema)
 
 ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
   public = list(

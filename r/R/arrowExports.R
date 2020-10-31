@@ -312,6 +312,10 @@ csv___ParseOptions__initialize <- function(options){
     .Call(`_arrow_csv___ParseOptions__initialize` , options)
 }
 
+csv___ReadOptions__column_names <- function(options){
+    .Call(`_arrow_csv___ReadOptions__column_names` , options)
+}
+
 csv___ConvertOptions__initialize <- function(options){
     .Call(`_arrow_csv___ConvertOptions__initialize` , options)
 }
@@ -322,6 +326,22 @@ csv___TableReader__Make <- function(input, read_options, parse_options, convert_
 
 csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
+}
+
+TimestampParser__kind <- function(parser){
+    .Call(`_arrow_TimestampParser__kind` , parser)
+}
+
+TimestampParser__format <- function(parser){
+    .Call(`_arrow_TimestampParser__format` , parser)
+}
+
+TimestampParser__MakeStrptime <- function(format){
+    .Call(`_arrow_TimestampParser__MakeStrptime` , format)
+}
+
+TimestampParser__MakeISO8601 <- function(){
+    .Call(`_arrow_TimestampParser__MakeISO8601` )
 }
 
 dataset___Dataset__NewScan <- function(ds){
@@ -396,12 +416,28 @@ dataset___FileFormat__type_name <- function(format){
     .Call(`_arrow_dataset___FileFormat__type_name` , format)
 }
 
-dataset___ParquetFileFormat__MakeRead <- function(use_buffered_stream, buffer_size, dict_columns){
-    .Call(`_arrow_dataset___ParquetFileFormat__MakeRead` , use_buffered_stream, buffer_size, dict_columns)
+dataset___FileFormat__DefaultWriteOptions <- function(fmt){
+    .Call(`_arrow_dataset___FileFormat__DefaultWriteOptions` , fmt)
 }
 
-dataset___ParquetFileFormat__MakeWrite <- function(writer_props, arrow_props){
-    .Call(`_arrow_dataset___ParquetFileFormat__MakeWrite` , writer_props, arrow_props)
+dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
+}
+
+dataset___FileWriteOptions__type_name <- function(options){
+    .Call(`_arrow_dataset___FileWriteOptions__type_name` , options)
+}
+
+dataset___ParquetFileWriteOptions__update <- function(options, writer_props, arrow_writer_props){
+    invisible(.Call(`_arrow_dataset___ParquetFileWriteOptions__update` , options, writer_props, arrow_writer_props))
+}
+
+dataset___IpcFileWriteOptions__update2 <- function(ipc_options, use_legacy_format, codec, metadata_version){
+    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update2` , ipc_options, use_legacy_format, codec, metadata_version))
+}
+
+dataset___IpcFileWriteOptions__update1 <- function(ipc_options, use_legacy_format, metadata_version){
+    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update1` , ipc_options, use_legacy_format, metadata_version))
 }
 
 dataset___IpcFileFormat__Make <- function(){
@@ -464,12 +500,16 @@ dataset___Scanner__Scan <- function(scanner){
     .Call(`_arrow_dataset___Scanner__Scan` , scanner)
 }
 
+dataset___Scanner__schema <- function(sc){
+    .Call(`_arrow_dataset___Scanner__schema` , sc)
+}
+
 dataset___ScanTask__get_batches <- function(scan_task){
     .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
-dataset___Dataset__Write <- function(ds, schema, format, filesystem, path, partitioning){
-    invisible(.Call(`_arrow_dataset___Dataset__Write` , ds, schema, format, filesystem, path, partitioning))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner){
+    invisible(.Call(`_arrow_dataset___Dataset__Write` , file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
 }
 
 shared_ptr_is_null <- function(xp){
@@ -924,6 +964,14 @@ fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
 }
 
+fs___SubTreeFileSystem__base_fs <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_fs` , file_system)
+}
+
+fs___SubTreeFileSystem__base_path <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_path` , file_system)
+}
+
 fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }
@@ -934,6 +982,10 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
 
 fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes){
     .Call(`_arrow_fs___S3FileSystem__create` , anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
+}
+
+fs___S3FileSystem__region <- function(fs){
+    .Call(`_arrow_fs___S3FileSystem__region` , fs)
 }
 
 io___Readable__Read <- function(x, nbytes){

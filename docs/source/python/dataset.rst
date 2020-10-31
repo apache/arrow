@@ -46,7 +46,7 @@ For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
 to the Parquet format and not tied to Python: the same datasets API is exposed
 in the R bindings or Arrow. In addition ``pyarrow.dataset`` boasts improved
-perfomance and new features (e.g. filtering within files rather than only on
+performance and new features (e.g. filtering within files rather than only on
 partition keys).
 
 
@@ -341,6 +341,41 @@ useful for testing or benchmarking.
     minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
     dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
                          partitioning=["year", "month"])
+
+
+Working with Parquet Datasets
+-----------------------------
+
+While the Datasets API provides a unified interface to different file formats,
+some specific methods exist for Parquet Datasets.
+
+Some processing frameworks such as Dask (optionally) use a ``_metadata`` file
+with partitioned datasets which includes information about the schema and the
+row group metadata of the full dataset. Using such file can give a more
+efficient creation of a parquet Dataset, since it does not need to infer the
+schema and crawl the directories for all Parquet files (this is especially the
+case for filesystems where accessing files is expensive). The
+:func:`parquet_dataset` function allows to create a Dataset from a partitioned
+dataset with a ``_metadata`` file:
+
+.. code-block:: python
+
+    dataset = ds.parquet_dataset("/path/to/dir/_metadata")
+
+By default, the constructed :class:`Dataset` object for Parquet datasets maps
+each fragment to a single Parquet file. If you want fragments mapping to each
+row group of a Parquet file, you can use the ``split_by_row_group()`` method of
+the fragments:
+
+.. code-block:: python
+
+    fragments = list(dataset.get_fragments())
+    fragments[0].split_by_row_group()
+
+This method returns a list of new Fragments mapping to each row group of
+the original Fragment (Parquet file). Both ``get_fragments()`` and
+``split_by_row_group()`` accept an optional filter expression to get a
+filtered list of fragments.
 
 
 Manual specification of the Dataset

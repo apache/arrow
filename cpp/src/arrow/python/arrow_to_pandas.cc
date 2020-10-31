@@ -67,6 +67,30 @@ using internal::CheckIndexBounds;
 using internal::GetByteWidth;
 using internal::OptionalParallelFor;
 
+namespace py {
+namespace {
+
+// Fix options for conversion of an inner (child) array.
+PandasOptions MakeInnerOptions(PandasOptions options) {
+  // Make sure conversion of inner dictionary arrays always returns an array,
+  // not a dict {'indices': array, 'dictionary': array, 'ordered': bool}
+  options.decode_dictionaries = true;
+  options.categorical_columns.clear();
+  options.strings_to_categorical = false;
+
+  // In ARROW-7723, we found as a result of ARROW-3789 that second
+  // through microsecond resolution tz-aware timestamps were being promoted to
+  // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
+  // array in this function. PyArray_GETITEM returns datetime.datetime for
+  // units second through microsecond but PyLong for nanosecond (because
+  // datetime.datetime does not support nanoseconds).
+  // We force the object conversion to preserve the value of the timezone.
+  // Nanoseconds are returned as integers.
+  options.coerce_temporal_nanoseconds = false;
+
+  return options;
+}
+
 // ----------------------------------------------------------------------
 // PyCapsule code for setting ndarray base to reference C++ object
 
@@ -78,8 +102,6 @@ struct BufferCapsule {
   std::shared_ptr<Buffer> buffer;
 };
 
-namespace {
-
 void ArrayCapsule_Destructor(PyObject* capsule) {
   delete reinterpret_cast<ArrayCapsule*>(PyCapsule_GetPointer(capsule, "arrow::Array"));
 }
@@ -88,12 +110,8 @@ void BufferCapsule_Destructor(PyObject* capsule) {
   delete reinterpret_cast<BufferCapsule*>(PyCapsule_GetPointer(capsule, "arrow::Buffer"));
 }
 
-}  // namespace
-
 // ----------------------------------------------------------------------
 // pandas 0.x DataFrame conversion internals
-
-namespace py {
 
 using internal::arrow_traits;
 using internal::npy_traits;
@@ -149,7 +167,8 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -628,8 +647,8 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   return Status::OK();
 }
 
-inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& data,
-                            PyObject** out_values) {
+Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
+                     PyObject** out_values) {
   if (data.num_chunks() == 0) {
     return Status::OK();
   }
@@ -641,29 +660,18 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
 
-  // In ARROW-7723, we found as a result of ARROW-3789 that second
-  // through microsecond resolution tz-aware timestamps were being promoted to
-  // use the DATETIME_NANO_TZ conversion path, yielding a datetime64[ns] NumPy
-  // array in this function. PyArray_GETITEM returns datetime.datetime for
-  // units second through microsecond but PyLong for nanosecond (because
-  // datetime.datetime does not support nanoseconds).
-  // We force the object conversion to preserve the value of the timezone.
-  // Nanoseconds are returned integers inside of structs.
-  PandasOptions modified_options = options;
-  modified_options.coerce_temporal_nanoseconds = false;
+  // See notes in MakeInnerOptions.
+  options = MakeInnerOptions(std::move(options));
+  // Don't blindly convert because timestamps in lists are handled differently.
+  options.timestamp_as_object = true;
 
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
-      PyObject* numpy_array;
-      std::shared_ptr<Array> field = arr->field(static_cast<int>(i));
-      // See notes above about timestamp conversion.  Don't blindly convert because
-      // timestamps in lists are handled differently.
-      modified_options.timestamp_as_object =
-          field->type()->id() == Type::TIMESTAMP ? true : options.timestamp_as_object;
-      RETURN_NOT_OK(ConvertArrayToPandas(modified_options, field, nullptr, &numpy_array));
-      fields_data[i].reset(numpy_array);
+      const auto field = arr->field(static_cast<int>(i));
+      RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr, fields_data[i].ref()));
+      DCHECK(PyArray_Check(fields_data[i].obj()));
     }
 
     // Construct a dictionary for each row
@@ -707,7 +715,7 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
 }
 
 Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& dense_type,
-                          std::vector<std::shared_ptr<Array>>* arrays) {
+                          ArrayVector* arrays) {
   compute::ExecContext ctx(pool);
   compute::CastOptions options;
   for (size_t i = 0; i < arrays->size(); ++i) {
@@ -717,11 +725,19 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
   return Status::OK();
 }
 
+Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& dense_type,
+                          std::shared_ptr<ChunkedArray>* array) {
+  auto chunks = (*array)->chunks();
+  RETURN_NOT_OK(DecodeDictionaries(pool, dense_type, &chunks));
+  *array = std::make_shared<ChunkedArray>(std::move(chunks), dense_type);
+  return Status::OK();
+}
+
 template <typename ListArrayT>
-Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
+Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
                         PyObject** out_values) {
   // Get column of underlying value arrays
-  std::vector<std::shared_ptr<Array>> value_arrays;
+  ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
     value_arrays.emplace_back(arr.values());
@@ -730,44 +746,29 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
   const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
   auto value_type = list_type.value_type();
 
-  if (value_type->id() == Type::DICTIONARY) {
-    // ARROW-6899: Convert dictionary-encoded children to dense instead of
-    // failing below. A more efficient conversion than this could be done later
-    auto dense_type = checked_cast<const DictionaryType&>(*value_type).value_type();
-    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &value_arrays));
-    value_type = dense_type;
-  }
-
   auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
-  // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
-  //    Storing a reference to the whole Array would be too expensive.
 
-  // ARROW-3789(wesm): During refactoring I found that unit tests assumed that
-  // timestamp units would be preserved on list<timestamp UNIT> conversions in
-  // Table.to_pandas. So we set the option here to not coerce things to
-  // nanoseconds. Bit of a hack but this seemed the simplest thing to satisfy
-  // the existing unit tests
-  PandasOptions modified_options = options;
-  modified_options.coerce_temporal_nanoseconds = false;
+  options = MakeInnerOptions(std::move(options));
 
   OwnedRefNoGIL owned_numpy_array;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_column, nullptr,
+  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
                                             owned_numpy_array.ref()));
 
   PyObject* numpy_array = owned_numpy_array.obj();
+  DCHECK(PyArray_Check(numpy_array));
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = std::static_pointer_cast<ListArrayT>(data.chunk(c));
+    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
 
     const bool has_nulls = data.null_count() > 0;
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (has_nulls && arr->IsNull(i)) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        OwnedRef start(PyLong_FromLongLong(arr->value_offset(i) + chunk_offset));
-        OwnedRef end(PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset));
+        OwnedRef start(PyLong_FromLongLong(arr.value_offset(i) + chunk_offset));
+        OwnedRef end(PyLong_FromLongLong(arr.value_offset(i + 1) + chunk_offset));
         OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
 
         if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
@@ -785,7 +786,111 @@ Status ConvertListsLike(const PandasOptions& options, const ChunkedArray& data,
     }
     RETURN_IF_PYERROR();
 
-    chunk_offset += arr->values()->length();
+    chunk_offset += arr.values()->length();
+  }
+
+  return Status::OK();
+}
+
+Status ConvertMap(PandasOptions options, const ChunkedArray& data,
+                  PyObject** out_values) {
+  // Get columns of underlying key/item arrays
+  std::vector<std::shared_ptr<Array>> key_arrays;
+  std::vector<std::shared_ptr<Array>> item_arrays;
+  for (int c = 0; c < data.num_chunks(); ++c) {
+    const auto& map_arr = checked_cast<const MapArray&>(*data.chunk(c));
+    key_arrays.emplace_back(map_arr.keys());
+    item_arrays.emplace_back(map_arr.items());
+  }
+
+  const auto& map_type = checked_cast<const MapType&>(*data.type());
+  auto key_type = map_type.key_type();
+  auto item_type = map_type.item_type();
+
+  // ARROW-6899: Convert dictionary-encoded children to dense instead of
+  // failing below. A more efficient conversion than this could be done later
+  if (key_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*key_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &key_arrays));
+    key_type = dense_type;
+  }
+  if (item_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*item_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &item_arrays));
+    item_type = dense_type;
+  }
+
+  // See notes in MakeInnerOptions.
+  options = MakeInnerOptions(std::move(options));
+  // Don't blindly convert because timestamps in lists are handled differently.
+  options.timestamp_as_object = true;
+
+  auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
+  auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
+  OwnedRef list_item;
+  OwnedRef key_value;
+  OwnedRef item_value;
+  OwnedRefNoGIL owned_numpy_keys;
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_keys, nullptr, owned_numpy_keys.ref()));
+  OwnedRefNoGIL owned_numpy_items;
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_items, nullptr, owned_numpy_items.ref()));
+  PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
+  PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
+
+  int64_t chunk_offset = 0;
+  for (int c = 0; c < data.num_chunks(); ++c) {
+    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
+    const bool has_nulls = data.null_count() > 0;
+
+    // Make a list of key/item pairs for each row in array
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        int64_t entry_offset = arr.value_offset(i);
+        int64_t num_maps = arr.value_offset(i + 1) - entry_offset;
+
+        // Build the new list object for the row of maps
+        list_item.reset(PyList_New(num_maps));
+        RETURN_IF_PYERROR();
+
+        // Add each key/item pair in the row
+        for (int64_t j = 0; j < num_maps; ++j) {
+          // Get key value, key is non-nullable for a valid row
+          auto ptr_key = reinterpret_cast<const char*>(
+              PyArray_GETPTR1(py_keys, chunk_offset + entry_offset + j));
+          key_value.reset(PyArray_GETITEM(py_keys, ptr_key));
+          RETURN_IF_PYERROR();
+
+          if (item_arrays[c]->IsNull(entry_offset + j)) {
+            // Translate the Null to a None
+            Py_INCREF(Py_None);
+            item_value.reset(Py_None);
+          } else {
+            // Get valid value from item array
+            auto ptr_item = reinterpret_cast<const char*>(
+                PyArray_GETPTR1(py_items, chunk_offset + entry_offset + j));
+            item_value.reset(PyArray_GETITEM(py_items, ptr_item));
+            RETURN_IF_PYERROR();
+          }
+
+          // Add the key/item pair to the list for the row
+          PyList_SET_ITEM(list_item.obj(), j,
+                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+          RETURN_IF_PYERROR();
+        }
+
+        // Pass ownership to the resulting array
+        *out_values = list_item.detach();
+      }
+      ++out_values;
+    }
+    RETURN_IF_PYERROR();
+
+    chunk_offset += arr.values()->length();
   }
 
   return Status::OK();
@@ -1014,6 +1119,31 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal256Type& type) {
+    OwnedRef decimal;
+    OwnedRef Decimal;
+    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
+    PyObject* decimal_constructor = Decimal.obj();
+
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
+
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsNull(i)) {
+          Py_INCREF(Py_None);
+          *out_values++ = Py_None;
+        } else {
+          *out_values++ =
+              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
+          RETURN_IF_PYERROR();
+        }
+      }
+    }
+
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
               Status>
@@ -1026,6 +1156,8 @@ struct ObjectWriterVisitor {
     }
     return ConvertListsLike<ArrayType>(options, data, out_values);
   }
+
+  Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
 
   Status Visit(const StructType& type) {
     return ConvertStruct(options, data, out_values);
@@ -1739,7 +1871,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::STRUCT:             // fall through
     case Type::TIME32:             // fall through
     case Type::TIME64:             // fall through
-    case Type::DECIMAL:            // fall through
+    case Type::DECIMAL128:         // fall through
+    case Type::DECIMAL256:         // fall through
       *output_type = PandasWriter::OBJECT;
       break;
     case Type::DATE32:  // fall through
@@ -1801,7 +1934,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     } break;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST:
+    case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
@@ -1834,9 +1968,8 @@ class PandasBlockCreator {
  public:
   using WriterMap = std::unordered_map<int, std::shared_ptr<PandasWriter>>;
 
-  explicit PandasBlockCreator(const PandasOptions& options,
-                              std::vector<std::shared_ptr<Field>> fields,
-                              std::vector<std::shared_ptr<ChunkedArray>> arrays)
+  explicit PandasBlockCreator(const PandasOptions& options, FieldVector fields,
+                              ChunkedArrayVector arrays)
       : options_(options), fields_(std::move(fields)), arrays_(std::move(arrays)) {
     num_columns_ = static_cast<int>(arrays_.size());
     if (num_columns_ > 0) {
@@ -1864,8 +1997,8 @@ class PandasBlockCreator {
  protected:
   PandasOptions options_;
 
-  std::vector<std::shared_ptr<Field>> fields_;
-  std::vector<std::shared_ptr<ChunkedArray>> arrays_;
+  FieldVector fields_;
+  ChunkedArrayVector arrays_;
   int num_columns_;
   int64_t num_rows_;
 
@@ -2038,9 +2171,8 @@ class SplitBlockCreator : public PandasBlockCreator {
   std::vector<std::shared_ptr<PandasWriter>> writers_;
 };
 
-Status ConvertCategoricals(const PandasOptions& options,
-                           std::vector<std::shared_ptr<ChunkedArray>>* arrays,
-                           std::vector<std::shared_ptr<Field>>* fields) {
+Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arrays,
+                           FieldVector* fields) {
   std::vector<int> columns_to_encode;
 
   // For Categorical conversions
@@ -2076,6 +2208,8 @@ Status ConvertCategoricals(const PandasOptions& options,
                              static_cast<int>(columns_to_encode.size()), EncodeColumn);
 }
 
+}  // namespace
+
 Status ConvertArrayToPandas(const PandasOptions& options, std::shared_ptr<Array> arr,
                             PyObject* py_ref, PyObject** out) {
   return ConvertChunkedArrayToPandas(
@@ -2085,6 +2219,13 @@ Status ConvertArrayToPandas(const PandasOptions& options, std::shared_ptr<Array>
 Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                                    std::shared_ptr<ChunkedArray> arr, PyObject* py_ref,
                                    PyObject** out) {
+  if (options.decode_dictionaries && arr->type()->id() == Type::DICTIONARY) {
+    const auto& dense_type =
+        checked_cast<const DictionaryType&>(*arr->type()).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));
+    DCHECK_NE(arr->type()->id(), Type::DICTIONARY);
+  }
+
   if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
@@ -2105,6 +2246,9 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
 
   PandasWriter::type output_type;
   RETURN_NOT_OK(GetPandasWriterType(*arr, modified_options, &output_type));
+  if (options.decode_dictionaries) {
+    DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
+  }
 
   std::shared_ptr<PandasWriter> writer;
   RETURN_NOT_OK(MakeWriter(modified_options, output_type, *arr->type(), arr->length(),
@@ -2115,8 +2259,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
 
 Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table> table,
                             PyObject** out) {
-  std::vector<std::shared_ptr<ChunkedArray>> arrays = table->columns();
-  std::vector<std::shared_ptr<Field>> fields = table->fields();
+  ChunkedArrayVector arrays = table->columns();
+  FieldVector fields = table->fields();
 
   // ARROW-3789: allow "self-destructing" by releasing references to columns as
   // we convert them to pandas

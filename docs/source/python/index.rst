@@ -36,6 +36,7 @@ files into Arrow structures.
    install
    memory
    data
+   compute
    ipc
    filesystems
    filesystems_deprecated

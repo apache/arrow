@@ -28,12 +28,22 @@
 #include "arrow/result.h"
 
 namespace arrow {
+namespace ipc {
+
+class RecordBatchWriter;
+struct IpcWriteOptions;
+
+}  // namespace ipc
 namespace dataset {
 
 /// \brief A FileFormat implementation that reads from and writes to Ipc files
 class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return "ipc"; }
+
+  bool Equals(const FileFormat& other) const override {
+    return type_name() == other.type_name();
+  }
 
   bool splittable() const override { return true; }
 
@@ -47,8 +57,41 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context,
                                     FileFragment* fragment) const override;
 
-  Status WriteFragment(RecordBatchReader* batches,
-                       io::OutputStream* destination) const override;
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const override;
+
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
+};
+
+class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
+ public:
+  /// Options passed to ipc::MakeFileWriter. use_threads is ignored
+  std::shared_ptr<ipc::IpcWriteOptions> options;
+
+  /// custom_metadata written to the file's footer
+  std::shared_ptr<const KeyValueMetadata> metadata;
+
+ protected:
+  using FileWriteOptions::FileWriteOptions;
+
+  friend class IpcFileFormat;
+};
+
+class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
+ public:
+  Status Write(const std::shared_ptr<RecordBatch>& batch) override;
+
+  Status Finish() override;
+
+ private:
+  IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+                std::shared_ptr<Schema> schema,
+                std::shared_ptr<IpcFileWriteOptions> options);
+
+  std::shared_ptr<ipc::RecordBatchWriter> batch_writer_;
+
+  friend class IpcFileFormat;
 };
 
 }  // namespace dataset

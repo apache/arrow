@@ -17,52 +17,57 @@
 
 //! Defines kernel for length of a string array
 
-use crate::array::*;
+use crate::datatypes::ToByteSlice;
+use crate::{array::*, buffer::Buffer};
 use crate::{
     datatypes::DataType,
-    datatypes::UInt32Type,
     error::{ArrowError, Result},
 };
 use std::sync::Arc;
 
-/// Returns an array of UInt32 denoting the number of characters in each string in the array.
+fn length_string<OffsetSize>(array: &Array, data_type: DataType) -> Result<ArrayRef>
+where
+    OffsetSize: OffsetSizeTrait,
+{
+    // note: offsets are stored as u8, but they can be interpreted as OffsetSize
+    let offsets = array.data_ref().clone().buffers()[0].clone();
+    // this is a 30% improvement over iterating over u8s and building OffsetSize, which
+    // justifies the usage of `unsafe`.
+    let slice: &[OffsetSize] =
+        &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
+
+    let lengths: Vec<OffsetSize> = slice
+        .windows(2)
+        .map(|offset| offset[1] - offset[0])
+        .collect();
+
+    let null_bit_buffer = array
+        .data_ref()
+        .null_bitmap()
+        .as_ref()
+        .map(|b| b.bits.clone());
+
+    let data = ArrayData::new(
+        data_type,
+        array.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![Buffer::from(lengths.to_byte_slice())],
+        vec![],
+    );
+    Ok(make_array(Arc::new(data)))
+}
+
+/// Returns an array of Int32/Int64 denoting the number of characters in each string in the array.
 ///
-/// * this only accepts StringArray
+/// * this only accepts StringArray/Utf8 and LargeString/LargeUtf8
 /// * length of null is null.
 /// * length is in number of bytes
-pub fn length(array: &Array) -> Result<UInt32Array> {
+pub fn length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::Utf8 => {
-            // note: offsets are stored as u8, but they can be interpreted as u32
-            let offsets = array.data_ref().clone().buffers()[0].clone();
-            // this is a 30% improvement over iterating over u8s and building u32, which
-            // justifies the usage of `unsafe`.
-            let slice: &[u32] = unsafe { offsets.typed_data::<u32>() };
-
-            let mut builder = UInt32BufferBuilder::new(array.len());
-            let lengths: Vec<u32> = slice
-                .windows(2)
-                .map(|offset| offset[1] - offset[0])
-                .collect();
-            builder.append_slice(lengths.as_slice())?;
-
-            let null_bit_buffer = array
-                .data_ref()
-                .null_bitmap()
-                .as_ref()
-                .map(|b| b.bits.clone());
-
-            let data = ArrayData::new(
-                DataType::UInt32,
-                array.len(),
-                None,
-                null_bit_buffer,
-                0,
-                vec![builder.finish()],
-                vec![],
-            );
-            Ok(PrimitiveArray::<UInt32Type>::from(Arc::new(data)))
-        }
+        DataType::Utf8 => length_string::<i32>(array, DataType::Int32),
+        DataType::LargeUtf8 => length_string::<i64>(array, DataType::Int64),
         _ => Err(ArrowError::ComputeError(format!(
             "length not supported for {:?}",
             array.data_type()
@@ -74,60 +79,12 @@ pub fn length(array: &Array) -> Result<UInt32Array> {
 mod tests {
     use super::*;
 
-    /// Tests a vector whose len is not a multiple of 4
-    #[test]
-    fn len_3() -> Result<()> {
-        let array = StringArray::from(vec!["hello", " ", "world"]);
-        let result = length(&array)?;
-        assert_eq!(3, result.len());
-        assert_eq!(
-            vec![5, 1, 5],
-            vec![result.value(0), result.value(1), result.value(2)]
-        );
-        Ok(())
-    }
-
-    /// Tests a vector whose len is multiple of 4
-    #[test]
-    fn len_4() -> Result<()> {
-        let array = StringArray::from(vec!["hello", " ", "world", "!"]);
-        let result = length(&array)?;
-        assert_eq!(4, result.len());
-        assert_eq!(
-            vec![5, 1, 5, 1],
-            vec![
-                result.value(0),
-                result.value(1),
-                result.value(2),
-                result.value(3)
-            ]
-        );
-        Ok(())
-    }
-
-    /// Tests a vector with a character with more than one code point.
-    #[test]
-    fn special() -> Result<()> {
-        let mut builder: StringBuilder = StringBuilder::new(1);
-        builder.append_value("💖")?;
-        let array = builder.finish();
-
-        let result = length(&array)?;
-
-        assert_eq!(1, result.len());
-
-        assert_eq!(4, result.value(0));
-        Ok(())
-    }
-
-    /// Tests a vector with more than 255 entries, to ensure that offsets are correctly computed beyond simple cases
-    #[test]
-    fn long_array() -> Result<()> {
+    fn cases() -> Vec<(Vec<&'static str>, usize, Vec<i32>)> {
         fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
             [&v[..], &v[..]].concat()
         }
 
-        // double ["hello", " ", "world", "!"] 10 times
+        // a large array
         let mut values = vec!["one", "on", "o", ""];
         let mut expected = vec![3, 2, 1, 0];
         for _ in 0..10 {
@@ -135,34 +92,93 @@ mod tests {
             expected = double_vec(expected);
         }
 
-        let a = StringArray::from(values);
-
-        let result = length(&a)?;
-
-        assert_eq!(4096, result.len()); // 2^12
-
-        let expected: UInt32Array = expected.into();
-        assert_eq!(expected, result);
-        Ok(())
+        vec![
+            (vec!["hello", " ", "world"], 3, vec![5, 1, 5]),
+            (vec!["hello", " ", "world", "!"], 4, vec![5, 1, 5, 1]),
+            (vec!["💖"], 1, vec![4]),
+            (values, 4096, expected),
+        ]
     }
 
-    /// Tests handling of null values
     #[test]
-    fn null() -> Result<()> {
-        let mut builder: StringBuilder = StringBuilder::new(4);
-        builder.append_value("one")?;
-        builder.append_null()?;
-        builder.append_value("three")?;
-        builder.append_value("four")?;
-        let array = builder.finish();
+    fn test_string() -> Result<()> {
+        cases()
+            .into_iter()
+            .map(|(input, len, expected)| {
+                let array = StringArray::from(input);
+                let result = length(&array)?;
+                assert_eq!(len, result.len());
+                let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
+                expected.iter().enumerate().for_each(|(i, value)| {
+                    assert_eq!(*value, result.value(i));
+                });
+                Ok(())
+            })
+            .collect::<Result<()>>()
+    }
 
-        let a = length(&array)?;
-        assert_eq!(a.len(), array.len());
+    #[test]
+    fn test_large_string() -> Result<()> {
+        cases()
+            .into_iter()
+            .map(|(input, len, expected)| {
+                let array = LargeStringArray::from(input);
+                let result = length(&array)?;
+                assert_eq!(len, result.len());
+                let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
+                expected.iter().enumerate().for_each(|(i, value)| {
+                    assert_eq!(*value as i64, result.value(i));
+                });
+                Ok(())
+            })
+            .collect::<Result<()>>()
+    }
 
-        let expected: UInt32Array = vec![Some(3), None, Some(5), Some(4)].into();
+    fn null_cases() -> Vec<(Vec<Option<&'static str>>, usize, Vec<Option<i32>>)> {
+        vec![(
+            vec![Some("one"), None, Some("three"), Some("four")],
+            4,
+            vec![Some(3), None, Some(5), Some(4)],
+        )]
+    }
 
-        assert_eq!(expected.data(), a.data());
-        Ok(())
+    #[test]
+    fn null_string() -> Result<()> {
+        null_cases()
+            .into_iter()
+            .map(|(input, len, expected)| {
+                let array = StringArray::from(input);
+                let result = length(&array)?;
+                assert_eq!(len, result.len());
+                let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
+
+                let expected: Int32Array = expected.into();
+                assert_eq!(expected.data(), result.data());
+                Ok(())
+            })
+            .collect::<Result<()>>()
+    }
+
+    #[test]
+    fn null_large_string() -> Result<()> {
+        null_cases()
+            .into_iter()
+            .map(|(input, len, expected)| {
+                let array = LargeStringArray::from(input);
+                let result = length(&array)?;
+                assert_eq!(len, result.len());
+                let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
+
+                // convert to i64
+                let expected: Int64Array = expected
+                    .iter()
+                    .map(|e| e.map(|e| e as i64))
+                    .collect::<Vec<_>>()
+                    .into();
+                assert_eq!(expected.data(), result.data());
+                Ok(())
+            })
+            .collect::<Result<()>>()
     }
 
     /// Tests that length is not valid for u64.
@@ -171,6 +187,25 @@ mod tests {
         let array: UInt64Array = vec![1u64].into();
 
         assert!(length(&array).is_err());
+        Ok(())
+    }
+
+    /// Tests with an offset
+    #[test]
+    fn offsets() -> Result<()> {
+        let a = StringArray::from(vec!["hello", " ", "world"]);
+        let b = make_array(
+            ArrayData::builder(DataType::Utf8)
+                .len(2)
+                .offset(1)
+                .buffers(a.data_ref().buffers().to_vec())
+                .build(),
+        );
+        let result = length(b.as_ref())?;
+
+        let expected = Int32Array::from(vec![1, 5]);
+        assert_eq!(expected.data(), result.data());
+
         Ok(())
     }
 }

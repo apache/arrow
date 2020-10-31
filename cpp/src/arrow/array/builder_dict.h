@@ -134,7 +134,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  DictionaryBuilderBase(
+  explicit DictionaryBuilderBase(
       enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
           value_type,
       MemoryPool* pool = default_memory_pool())
@@ -176,8 +176,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   // This constructor doesn't check for errors. Use InsertMemoValues instead.
-  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(pool, dictionary)),
         delta_offset_(0),
@@ -189,6 +189,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief The current number of entries in the dictionary
   int64_t dictionary_length() const { return memo_table_->size(); }
+
+  /// \brief The value byte width (for FixedSizeBinaryType)
+  template <typename T1 = T>
+  enable_if_fixed_size_binary<T1, int32_t> byte_width() const {
+    return byte_width_;
+  }
 
   /// \brief Append a scalar value
   Status Append(Value value) {
@@ -234,10 +240,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a decimal (only for Decimal128Type)
   template <typename T1 = T>
-  enable_if_decimal<T1, Status> Append(const Decimal128& value) {
+  enable_if_decimal128<T1, Status> Append(const Decimal128& value) {
     uint8_t data[16];
     value.ToBytes(data);
     return Append(data, 16);
+  }
+
+  /// \brief Append a decimal (only for Decimal128Type)
+  template <typename T1 = T>
+  enable_if_decimal256<T1, Status> Append(const Decimal256& value) {
+    uint8_t data[32];
+    value.ToBytes(data);
+    return Append(data, 32);
   }
 
   /// \brief Append a scalar null value
@@ -253,6 +267,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
     null_count_ += length;
 
     return indices_builder_.AppendNulls(length);
+  }
+
+  Status AppendEmptyValue() final {
+    length_ += 1;
+
+    return indices_builder_.AppendEmptyValue();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    length_ += length;
+
+    return indices_builder_.AppendEmptyValues(length);
   }
 
   /// \brief Insert values into the dictionary's memo, but do not append any
@@ -398,8 +424,8 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
 
-  DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   template <typename B = BuilderType>
@@ -412,8 +438,8 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
-  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   /// \brief Append a scalar null value
@@ -429,6 +455,18 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
     null_count_ += length;
 
     return indices_builder_.AppendNulls(length);
+  }
+
+  Status AppendEmptyValue() final {
+    length_ += 1;
+
+    return indices_builder_.AppendEmptyValue();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    length_ += length;
+
+    return indices_builder_.AppendEmptyValues(length);
   }
 
   /// \brief Append a whole dense array to the builder

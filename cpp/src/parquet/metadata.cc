@@ -17,9 +17,8 @@
 
 #include "parquet/metadata.h"
 
-#include <inttypes.h>
-
 #include <algorithm>
+#include <cinttypes>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -159,8 +158,6 @@ class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
   explicit ColumnCryptoMetaDataImpl(const format::ColumnCryptoMetaData* crypto_metadata)
       : crypto_metadata_(crypto_metadata) {}
 
-  ~ColumnCryptoMetaDataImpl() {}
-
   bool encrypted_with_footer_key() const {
     return crypto_metadata_->__isset.ENCRYPTION_WITH_FOOTER_KEY;
   }
@@ -188,7 +185,7 @@ ColumnCryptoMetaData::ColumnCryptoMetaData(const uint8_t* metadata)
     : impl_(new ColumnCryptoMetaDataImpl(
           reinterpret_cast<const format::ColumnCryptoMetaData*>(metadata))) {}
 
-ColumnCryptoMetaData::~ColumnCryptoMetaData() {}
+ColumnCryptoMetaData::~ColumnCryptoMetaData() = default;
 
 std::shared_ptr<schema::ColumnPath> ColumnCryptoMetaData::path_in_schema() const {
   return impl_->path_in_schema();
@@ -203,11 +200,11 @@ const std::string& ColumnCryptoMetaData::key_metadata() const {
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
-  explicit ColumnChunkMetaDataImpl(
-      const format::ColumnChunk* column, const ColumnDescriptor* descr,
-      int16_t row_group_ordinal, int16_t column_ordinal,
-      const ApplicationVersion* writer_version,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
+  explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
+                                   const ColumnDescriptor* descr,
+                                   int16_t row_group_ordinal, int16_t column_ordinal,
+                                   const ApplicationVersion* writer_version,
+                                   std::shared_ptr<InternalFileDecryptor> file_decryptor)
       : column_(column), descr_(descr), writer_version_(writer_version) {
     column_metadata_ = &column->meta_data;
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
@@ -222,10 +219,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
           std::string aad_column_metadata = encryption::CreateModuleAad(
               file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
-              column_ordinal, (int16_t)-1);
+              column_ordinal, static_cast<int16_t>(-1));
           auto decryptor = file_decryptor->GetColumnMetaDecryptor(
               path->ToDotString(), key_metadata, aad_column_metadata);
-          uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
+          auto len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
           DeserializeThriftMsg(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
               &len, &decrypted_metadata_, decryptor);
@@ -247,6 +244,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
     possible_stats_ = nullptr;
   }
+
+  bool Equals(const ColumnChunkMetaDataImpl& other) const {
+    return *column_metadata_ == *other.column_metadata_;
+  }
+
   // column chunk
   inline int64_t file_offset() const { return column_->file_offset; }
   inline const std::string& file_path() const { return column_->file_path; }
@@ -340,18 +342,20 @@ std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     int16_t column_ordinal, std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal, column_ordinal,
-                              writer_version, file_decryptor));
+                              writer_version, std::move(file_decryptor)));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(
     const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,
     int16_t column_ordinal, const ApplicationVersion* writer_version,
     std::shared_ptr<InternalFileDecryptor> file_decryptor)
-    : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
+    : impl_{new ColumnChunkMetaDataImpl(
           reinterpret_cast<const format::ColumnChunk*>(metadata), descr,
-          row_group_ordinal, column_ordinal, writer_version, file_decryptor))} {}
+          row_group_ordinal, column_ordinal, writer_version, std::move(file_decryptor))} {
+}
 
-ColumnChunkMetaData::~ColumnChunkMetaData() {}
+ColumnChunkMetaData::~ColumnChunkMetaData() = default;
+
 // column chunk
 int64_t ColumnChunkMetaData::file_offset() const { return impl_->file_offset(); }
 
@@ -417,6 +421,10 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
+bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
+
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
@@ -427,7 +435,11 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       : row_group_(row_group),
         schema_(schema),
         writer_version_(writer_version),
-        file_decryptor_(file_decryptor) {}
+        file_decryptor_(std::move(file_decryptor)) {}
+
+  bool Equals(const RowGroupMetaDataImpl& other) const {
+    return *row_group_ == *other.row_group_;
+  }
 
   inline int num_columns() const { return static_cast<int>(row_group_->columns.size()); }
 
@@ -444,15 +456,13 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
-    if (!(i < num_columns())) {
-      std::stringstream ss;
-      ss << "The file only has " << num_columns()
-         << " columns, requested metadata for column: " << i;
-      throw ParquetException(ss.str());
+    if (i < num_columns()) {
+      return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
+                                       writer_version_, row_group_->ordinal,
+                                       static_cast<int16_t>(i), file_decryptor_);
     }
-    return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                     writer_version_, row_group_->ordinal, (int16_t)i,
-                                     file_decryptor_);
+    throw ParquetException("The file only has ", num_columns(),
+                           " columns, requested metadata for column: ", i);
   }
 
  private:
@@ -467,17 +477,21 @@ std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
     const ApplicationVersion* writer_version,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::unique_ptr<RowGroupMetaData>(
-      new RowGroupMetaData(metadata, schema, writer_version, file_decryptor));
+      new RowGroupMetaData(metadata, schema, writer_version, std::move(file_decryptor)));
 }
 
 RowGroupMetaData::RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
                                    const ApplicationVersion* writer_version,
                                    std::shared_ptr<InternalFileDecryptor> file_decryptor)
-    : impl_{std::unique_ptr<RowGroupMetaDataImpl>(
-          new RowGroupMetaDataImpl(reinterpret_cast<const format::RowGroup*>(metadata),
-                                   schema, writer_version, file_decryptor))} {}
+    : impl_{new RowGroupMetaDataImpl(reinterpret_cast<const format::RowGroup*>(metadata),
+                                     schema, writer_version, std::move(file_decryptor))} {
+}
 
-RowGroupMetaData::~RowGroupMetaData() {}
+RowGroupMetaData::~RowGroupMetaData() = default;
+
+bool RowGroupMetaData::Equals(const RowGroupMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
 
 int RowGroupMetaData::num_columns() const { return impl_->num_columns(); }
 
@@ -506,12 +520,12 @@ bool RowGroupMetaData::can_decompress() const {
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
-  FileMetaDataImpl() : metadata_len_(0) {}
+  FileMetaDataImpl() = default;
 
   explicit FileMetaDataImpl(
       const void* metadata, uint32_t* metadata_len,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
-      : metadata_len_(0), file_decryptor_(file_decryptor) {
+      : file_decryptor_(file_decryptor) {
     metadata_.reset(new format::FileMetaData);
 
     auto footer_decryptor =
@@ -544,9 +558,9 @@ class FileMetaData::FileMetaDataImpl {
     serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
 
     // encrypt with nonce
-    uint8_t* nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature));
-    uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature)) +
-                   encryption::kNonceLength;
+    auto nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature));
+    auto tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature)) +
+               encryption::kNonceLength;
 
     std::string key = file_decryptor_->GetFooterKey();
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
@@ -634,6 +648,10 @@ class FileMetaData::FileMetaDataImpl {
                                   file_decryptor_);
   }
 
+  bool Equals(const FileMetaDataImpl& other) const {
+    return *metadata_ == *other.metadata_;
+  }
+
   const SchemaDescriptor* schema() const { return &schema_; }
 
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
@@ -666,13 +684,52 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) {
+    for (int i : row_groups) {
+      if (i < num_row_groups()) continue;
+
+      throw ParquetException(
+          "The file only has ", num_row_groups(),
+          " row groups, but requested a subset including row group: ", i);
+    }
+
+    std::shared_ptr<FileMetaData> out(new FileMetaData());
+    out->impl_.reset(new FileMetaDataImpl());
+    out->impl_->metadata_.reset(new format::FileMetaData());
+
+    auto metadata = out->impl_->metadata_.get();
+    metadata->version = metadata_->version;
+    metadata->schema = metadata_->schema;
+
+    metadata->row_groups.resize(row_groups.size());
+    int i = 0;
+    for (int selected_index : row_groups) {
+      metadata->num_rows += row_group(selected_index).num_rows;
+      metadata->row_groups[i++] = row_group(selected_index);
+    }
+
+    metadata->key_value_metadata = metadata_->key_value_metadata;
+    metadata->created_by = metadata_->created_by;
+    metadata->column_orders = metadata_->column_orders;
+    metadata->encryption_algorithm = metadata_->encryption_algorithm;
+    metadata->footer_signing_key_metadata = metadata_->footer_signing_key_metadata;
+    metadata->__isset = metadata_->__isset;
+
+    out->impl_->schema_ = schema_;
+    out->impl_->writer_version_ = writer_version_;
+    out->impl_->key_value_metadata_ = key_value_metadata_;
+    out->impl_->file_decryptor_ = file_decryptor_;
+
+    return out;
+  }
+
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor) {
     file_decryptor_ = file_decryptor;
   }
 
  private:
   friend FileMetaDataBuilder;
-  uint32_t metadata_len_;
+  uint32_t metadata_len_ = 0;
   std::unique_ptr<format::FileMetaData> metadata_;
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
@@ -733,7 +790,11 @@ FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
 FileMetaData::FileMetaData()
     : impl_{std::unique_ptr<FileMetaDataImpl>(new FileMetaDataImpl())} {}
 
-FileMetaData::~FileMetaData() {}
+FileMetaData::~FileMetaData() = default;
+
+bool FileMetaData::Equals(const FileMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
 
 std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
@@ -811,6 +872,11 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
 }
 
+std::shared_ptr<FileMetaData> FileMetaData::Subset(
+    const std::vector<int>& row_groups) const {
+  return impl_->Subset(row_groups);
+}
+
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
@@ -818,15 +884,13 @@ void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
  public:
-  FileCryptoMetaDataImpl() {}
+  FileCryptoMetaDataImpl() = default;
 
   explicit FileCryptoMetaDataImpl(const uint8_t* metadata, uint32_t* metadata_len) {
     metadata_.reset(new format::FileCryptoMetaData);
     DeserializeThriftMsg(metadata, metadata_len, metadata_.get());
     metadata_len_ = *metadata_len;
   }
-
-  ~FileCryptoMetaDataImpl() {}
 
   EncryptionAlgorithm encryption_algorithm() {
     return FromThrift(metadata_->encryption_algorithm);
@@ -863,7 +927,7 @@ FileCryptoMetaData::FileCryptoMetaData(const uint8_t* serialized_metadata,
 
 FileCryptoMetaData::FileCryptoMetaData() : impl_(new FileCryptoMetaDataImpl()) {}
 
-FileCryptoMetaData::~FileCryptoMetaData() {}
+FileCryptoMetaData::~FileCryptoMetaData() = default;
 
 void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   impl_->WriteTo(dst);
@@ -878,9 +942,9 @@ std::string FileMetaData::SerializeToString() const {
   return metadata_buffer->ToString();
 }
 
-ApplicationVersion::ApplicationVersion(const std::string& application, int major,
-                                       int minor, int patch)
-    : application_(application), version{major, minor, patch, "", "", ""} {}
+ApplicationVersion::ApplicationVersion(std::string application, int major, int minor,
+                                       int patch)
+    : application_(std::move(application)), version{major, minor, patch, "", "", ""} {}
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
   // Use singletons to compile only once (ARROW-9863)
@@ -1179,7 +1243,7 @@ ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
               std::move(props), column,
               reinterpret_cast<format::ColumnChunk*>(contents)))} {}
 
-ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() {}
+ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() = default;
 
 const void* ColumnChunkMetaDataBuilder::contents() const { return impl_->contents(); }
 
@@ -1297,10 +1361,9 @@ std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(
 RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(std::shared_ptr<WriterProperties> props,
                                                  const SchemaDescriptor* schema_,
                                                  void* contents)
-    : impl_{std::unique_ptr<RowGroupMetaDataBuilderImpl>(
-          new RowGroupMetaDataBuilderImpl(std::move(props), schema_, contents))} {}
+    : impl_{new RowGroupMetaDataBuilderImpl(std::move(props), schema_, contents)} {}
 
-RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() {}
+RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() = default;
 
 ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
@@ -1328,10 +1391,10 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   explicit FileMetaDataBuilderImpl(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-      : properties_(std::move(props)),
+      : metadata_(new format::FileMetaData()),
+        properties_(std::move(props)),
         schema_(schema),
         key_value_metadata_(std::move(key_value_metadata)) {
-    metadata_.reset(new format::FileMetaData());
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
@@ -1398,8 +1461,9 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       EncryptionAlgorithm algo = file_encryption_properties->algorithm();
       signing_algorithm.aad.aad_file_unique = algo.aad.aad_file_unique;
       signing_algorithm.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
-      if (!algo.aad.supply_aad_prefix)
+      if (!algo.aad.supply_aad_prefix) {
         signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
+      }
       signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
 
       metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
@@ -1466,7 +1530,7 @@ FileMetaDataBuilder::FileMetaDataBuilder(
     : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(new FileMetaDataBuilderImpl(
           schema, std::move(props), std::move(key_value_metadata)))} {}
 
-FileMetaDataBuilder::~FileMetaDataBuilder() {}
+FileMetaDataBuilder::~FileMetaDataBuilder() = default;
 
 RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();

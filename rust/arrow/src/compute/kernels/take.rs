@@ -29,7 +29,25 @@ use crate::{array::*, buffer::buffer_bin_and};
 use num::Zero;
 use TimeUnit::*;
 
-/// Take elements from `ArrayRef` by supplying an array of indices.
+/// Take elements from `ArrayRef` by copying the data from `values` at
+/// each index in `indices` into a new `ArrayRef`
+///
+/// For example:
+/// ```
+/// use std::sync::Arc;
+/// use arrow::array::{Array, StringArray, UInt32Array};
+/// use arrow::compute::take;
+///
+/// let values = StringArray::from(vec!["zero", "one", "two"]);
+/// let values: Arc<dyn Array> = Arc::new(values);
+///
+/// // Take items at index 2, and 1:
+/// let indices = UInt32Array::from(vec![2, 1]);
+/// let taken = take(&values, &indices, None).unwrap();
+/// let taken = taken.as_any().downcast_ref::<StringArray>().unwrap();
+///
+/// assert_eq!(*taken, StringArray::from(vec!["two", "one"]));
+/// ```
 ///
 /// Supports:
 ///  * null indices, returning a null value for the index
@@ -107,8 +125,8 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_string::<i32>(values, indices, DataType::Utf8),
-        DataType::LargeUtf8 => take_string::<i64>(values, indices, DataType::LargeUtf8),
+        DataType::Utf8 => take_string::<i32>(values, indices),
+        DataType::LargeUtf8 => take_string::<i64>(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -193,7 +211,7 @@ where
     };
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         indices.len(),
         None,
         Some(nulls),
@@ -221,10 +239,8 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
         let index = indices.value(i) as usize;
         if array.is_null(index) {
             bit_util::unset_bit(null_slice, i);
-        } else {
-            if array.value(index) {
-                bit_util::set_bit(val_slice, i);
-            }
+        } else if array.value(index) {
+            bit_util::set_bit(val_slice, i);
         }
     });
 
@@ -246,13 +262,9 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 }
 
 /// `take` implementation for string arrays
-fn take_string<OffsetSize>(
-    values: &ArrayRef,
-    indices: &UInt32Array,
-    data_type: DataType,
-) -> Result<ArrayRef>
+fn take_string<OffsetSize>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
 where
-    OffsetSize: Zero + AddAssign + OffsetSizeTrait,
+    OffsetSize: Zero + AddAssign + StringOffsetSizeTrait,
 {
     let data_len = indices.len();
 
@@ -290,7 +302,7 @@ where
         None => null_buf.freeze(),
     };
 
-    let data = ArrayData::builder(data_type)
+    let data = ArrayData::builder(<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE)
         .len(data_len)
         .null_bit_buffer(nulls)
         .add_buffer(Buffer::from(offsets.to_byte_slice()))

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include "arrow/python/extension_type.h"
@@ -70,6 +71,16 @@ PyObject* DeserializeExtInstance(PyObject* type_class,
 }  // namespace
 
 static const char* kExtensionName = "arrow.py_extension_type";
+
+std::string PyExtensionType::ToString() const {
+  PyAcquireGIL lock;
+
+  std::stringstream ss;
+  OwnedRef instance(GetInstance());
+  ss << "extension<" << this->extension_name() << "<" << Py_TYPE(instance.obj())->tp_name
+     << ">>";
+  return ss.str();
+}
 
 PyExtensionType::PyExtensionType(std::shared_ptr<DataType> storage_type, PyObject* typ,
                                  PyObject* inst)

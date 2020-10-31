@@ -86,6 +86,7 @@ impl<'a, T> FatPtr<'a, T> {
         self.ptr
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_slice_mut(&mut self) -> &mut [T] {
         self.ptr
     }
@@ -121,26 +122,6 @@ impl<T: DataType> RecordReader<T> {
             values_written: 0,
             in_middle_of_record: false,
         }
-    }
-
-    pub(crate) fn cast<U: DataType>(&mut self) -> &mut RecordReader<U> {
-        trait CastRecordReader<T: DataType, U: DataType> {
-            fn cast(&mut self) -> &mut RecordReader<U>;
-        }
-
-        impl<T: DataType, U: DataType> CastRecordReader<T, U> for RecordReader<T> {
-            default fn cast(&mut self) -> &mut RecordReader<U> {
-                panic!("Attempted to cast RecordReader to the wrong type")
-            }
-        }
-
-        impl<T: DataType> CastRecordReader<T, T> for RecordReader<T> {
-            fn cast(&mut self) -> &mut RecordReader<T> {
-                self
-            }
-        }
-
-        CastRecordReader::<T, U>::cast(self)
     }
 
     /// Set the current page reader.

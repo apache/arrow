@@ -244,6 +244,9 @@ class PARQUET_EXPORT Statistics {
   /// \brief The full type descriptor from the column schema
   virtual const ColumnDescriptor* descr() const = 0;
 
+  /// \brief Check two Statistics for equality
+  virtual bool Equals(const Statistics& other) const = 0;
+
  protected:
   static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
                                           const void* max, int64_t num_values,

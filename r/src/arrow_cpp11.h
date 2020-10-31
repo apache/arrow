@@ -22,6 +22,8 @@
 #include <vector>
 #undef Free
 
+#include "./nameof.h"
+
 namespace cpp11 {
 
 template <typename T>
@@ -157,8 +159,17 @@ struct ns {
 
 template <typename Pointer>
 Pointer r6_to_pointer(SEXP self) {
-  return reinterpret_cast<Pointer>(
-      R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+  if (!Rf_inherits(self, "ArrowObject")) {
+    std::string type_name = arrow::util::nameof<
+        cpp11::decay_t<typename std::remove_pointer<Pointer>::type>>();
+    cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
+  }
+  void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
+  if (p == nullptr) {
+    SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
+    cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
+  }
+  return reinterpret_cast<Pointer>(p);
 }
 
 // T is either std::shared_ptr<U> or std::unique_ptr<U>
@@ -280,6 +291,8 @@ std::vector<T> from_r_list(cpp11::list args) {
   }
   return vec;
 }
+
+bool GetBoolOption(const std::string& name, bool default_);
 
 }  // namespace r
 }  // namespace arrow

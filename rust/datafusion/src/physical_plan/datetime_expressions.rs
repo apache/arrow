@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use arrow::{
     array::{Array, ArrayData, ArrayRef, StringArray, TimestampNanosecondArray},
     buffer::Buffer,
@@ -34,7 +34,7 @@ use chrono::{prelude::*, LocalResult};
 /// Implements the `to_timestamp` function to convert a string to a
 /// timestamp, following the model of spark SQL’s to_`timestamp`.
 ///
-/// In addition to RFC3339 / ISO8601 standard tiemstamps, it also
+/// In addition to RFC3339 / ISO8601 standard timestamps, it also
 /// accepts strings that use a space ` ` to separate the date and time
 /// as well as strings that have no explicit timezone offset.
 ///
@@ -96,7 +96,7 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
         return Ok(ts.timestamp_nanos());
     }
 
-    // with an explict Z, using ' ' as a separator
+    // with an explicit Z, using ' ' as a separator
     // Example: 2020-09-08 13:42:29Z
     if let Ok(ts) = Utc.datetime_from_str(s, "%Y-%m-%d %H:%M:%S%.fZ") {
         return Ok(ts.timestamp_nanos());
@@ -136,7 +136,7 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
     // strings and we don't know which the user was trying to
     // match. Ths any of the specific error messages is likely to be
     // be more confusing than helpful
-    Err(ExecutionError::General(format!(
+    Err(DataFusionError::Execution(format!(
         "Error parsing '{}' as timestamp",
         s
     )))
@@ -148,7 +148,7 @@ fn naive_datetime_to_timestamp(s: &str, datetime: NaiveDateTime) -> Result<i64> 
     let l = Local {};
 
     match l.from_local_datetime(&datetime) {
-        LocalResult::None => Err(ExecutionError::General(format!(
+        LocalResult::None => Err(DataFusionError::Execution(format!(
             "Error parsing '{}' as timestamp: local time representation is invalid",
             s
         ))),
@@ -174,8 +174,8 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
-                ExecutionError::General(format!(
-                    "Internal error: could not cast to_timestamp input to StringArray"
+                DataFusionError::Internal(format!(
+                    "could not cast to_timestamp input to StringArray"
                 ))
             })?;
 

@@ -842,8 +842,8 @@ struct HashTraits<T, enable_if_t<has_string_view<T>::value &&
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 
-template <>
-struct HashTraits<Decimal128Type> {
+template <typename T>
+struct HashTraits<T, enable_if_decimal<T>> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 

@@ -303,6 +303,13 @@ class SchemaWriter {
     writer_->Int(type.scale());
   }
 
+  void WriteTypeMetadata(const Decimal256Type& type) {
+    writer_->Key("precision");
+    writer_->Int(type.precision());
+    writer_->Key("scale");
+    writer_->Int(type.scale());
+  }
+
   void WriteTypeMetadata(const UnionType& type) {
     writer_->Key("mode");
     switch (type.mode()) {
@@ -376,6 +383,7 @@ class SchemaWriter {
   }
 
   Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
+  Status Visit(const Decimal256Type& type) { return WritePrimitive("decimal256", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
   Status Visit(const DurationType& type) { return WritePrimitive(kDuration, type); }
   Status Visit(const MonthIntervalType& type) { return WritePrimitive("interval", type); }
@@ -539,6 +547,18 @@ class ArrayWriter {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         const Decimal128 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
+    }
+  }
+
+  void WriteDataValues(const Decimal256Array& arr) {
+    static const char null_string[] = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        const Decimal256 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
         writer_->String(null_string, sizeof(null_string));
@@ -819,8 +839,20 @@ Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                         GetMemberInt<int32_t>(json_type, "precision"));
   ARROW_ASSIGN_OR_RAISE(const int32_t scale, GetMemberInt<int32_t>(json_type, "scale"));
+  int32_t bit_width = 128;
+  Result<int32_t> maybe_bit_width = GetMemberInt<int32_t>(json_type, "bitWidth");
+  if (maybe_bit_width.ok()) {
+    bit_width = maybe_bit_width.ValueOrDie();
+  }
 
-  *type = decimal(precision, scale);
+  if (bit_width == 128) {
+    *type = decimal128(precision, scale);
+  } else if (bit_width == 256) {
+    *type = decimal256(precision, scale);
+  } else {
+    return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+                           bit_width);
+  }
   return Status::OK();
 }
 
@@ -1296,8 +1328,9 @@ class ArrayReader {
         DCHECK_GT(val.GetStringLength(), 0)
             << "Empty string found when parsing Decimal128 value";
 
-        Decimal128 value;
-        ARROW_ASSIGN_OR_RAISE(value, Decimal128::FromString(val.GetString()));
+        using Value = typename TypeTraits<T>::ScalarType::ValueType;
+        Value value;
+        ARROW_ASSIGN_OR_RAISE(value, Value::FromString(val.GetString()));
         RETURN_NOT_OK(builder.Append(value));
       }
     }

@@ -122,31 +122,58 @@ class AwsTestMixin : public ::testing::Test {
   // EC2 metadata endpoint
   AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
 
+  void SetUp() override {
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+    auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
+    aws_options_.loggingOptions.logLevel = aws_log_level;
+    aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
+      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(aws_log_level);
+    };
+    Aws::InitAPI(aws_options_);
+#endif
+  }
+
+  void TearDown() override {
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+    Aws::ShutdownAPI(aws_options_);
+#endif
+  }
+
  private:
   EnvVarGuard ec2_metadata_disabled_guard_;
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+  Aws::SDKOptions aws_options_;
+#endif
 };
 
 class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
+    AwsTestMixin::SetUp();
+
     ASSERT_OK(minio_.Start());
 
-    client_config_.endpointOverride = ToAwsString(minio_.connect_string());
-    client_config_.scheme = Aws::Http::Scheme::HTTP;
-    client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    client_config_.reset(new Aws::Client::ClientConfiguration());
+    client_config_->endpointOverride = ToAwsString(minio_.connect_string());
+    client_config_->scheme = Aws::Http::Scheme::HTTP;
+    client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
     credentials_ = {ToAwsString(minio_.access_key()), ToAwsString(minio_.secret_key())};
     bool use_virtual_addressing = false;
     client_.reset(
-        new Aws::S3::S3Client(credentials_, client_config_,
+        new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
   }
 
-  void TearDown() override { ASSERT_OK(minio_.Stop()); }
+  void TearDown() override {
+    ASSERT_OK(minio_.Stop());
+
+    AwsTestMixin::TearDown();
+  }
 
  protected:
   MinioTestServer minio_;
-  Aws::Client::ClientConfiguration client_config_;
+  std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
 };

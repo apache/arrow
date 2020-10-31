@@ -1393,6 +1393,14 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // It's a new dictionary. Call PutDictionary and keep track of it
     PARQUET_CATCH_NOT_OK(dict_encoder->PutDictionary(*dictionary));
 
+    // If there were duplicate value in the dictionary, the encoder's memo table
+    // will be out of sync with the indices in the Arrow array.
+    // The easiest solution for this uncommon case is to fallback to plain encoding.
+    if (dict_encoder->num_entries() != dictionary->length()) {
+      PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
+      return WriteDense();
+    }
+
     // TODO(wesm): If some dictionary values are unobserved, then the
     // statistics will be inaccurate. Do we care enough to fix it?
     if (page_statistics_ != nullptr) {
@@ -1852,7 +1860,8 @@ using ::arrow::internal::checked_pointer_cast;
 // Requires a custom serializer because decimal128 in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<ArrowType>> {
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal128<ArrowType>> {
   Status Serialize(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx,
                    FLBA* out) {
     AllocateScratch(array, ctx);
@@ -1900,13 +1909,23 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
   int64_t* scratch;
 };
 
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal256<ArrowType>> {
+  Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+    return Status::NotImplemented("Decimal256 serialization isn't implemented");
+  }
+};
+
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
-    WRITE_SERIALIZE_CASE(DECIMAL, Decimal128Type, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
     default:
       break;
   }

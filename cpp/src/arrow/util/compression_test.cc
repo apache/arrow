@@ -320,30 +320,30 @@ class CodecTest : public ::testing::TestWithParam<Compression::type> {
 };
 
 TEST(TestCodecMisc, GetCodecAsString) {
-  ASSERT_EQ("UNCOMPRESSED", Codec::GetCodecAsString(Compression::UNCOMPRESSED));
-  ASSERT_EQ("SNAPPY", Codec::GetCodecAsString(Compression::SNAPPY));
-  ASSERT_EQ("GZIP", Codec::GetCodecAsString(Compression::GZIP));
-  ASSERT_EQ("LZO", Codec::GetCodecAsString(Compression::LZO));
-  ASSERT_EQ("BROTLI", Codec::GetCodecAsString(Compression::BROTLI));
-  ASSERT_EQ("LZ4_RAW", Codec::GetCodecAsString(Compression::LZ4));
-  ASSERT_EQ("LZ4", Codec::GetCodecAsString(Compression::LZ4_FRAME));
-  ASSERT_EQ("ZSTD", Codec::GetCodecAsString(Compression::ZSTD));
-  ASSERT_EQ("BZ2", Codec::GetCodecAsString(Compression::BZ2));
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::UNCOMPRESSED), "uncompressed");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::SNAPPY), "snappy");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::GZIP), "gzip");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::LZO), "lzo");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::BROTLI), "brotli");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::LZ4), "lz4_raw");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::LZ4_FRAME), "lz4");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::ZSTD), "zstd");
+  EXPECT_EQ(Codec::GetCodecAsString(Compression::BZ2), "bz2");
 }
 
 TEST(TestCodecMisc, GetCompressionType) {
-  ASSERT_OK_AND_EQ(Compression::UNCOMPRESSED, Codec::GetCompressionType("UNCOMPRESSED"));
-  ASSERT_OK_AND_EQ(Compression::SNAPPY, Codec::GetCompressionType("SNAPPY"));
-  ASSERT_OK_AND_EQ(Compression::GZIP, Codec::GetCompressionType("GZIP"));
-  ASSERT_OK_AND_EQ(Compression::LZO, Codec::GetCompressionType("LZO"));
-  ASSERT_OK_AND_EQ(Compression::BROTLI, Codec::GetCompressionType("BROTLI"));
-  ASSERT_OK_AND_EQ(Compression::LZ4, Codec::GetCompressionType("LZ4_RAW"));
-  ASSERT_OK_AND_EQ(Compression::LZ4_FRAME, Codec::GetCompressionType("LZ4"));
-  ASSERT_OK_AND_EQ(Compression::ZSTD, Codec::GetCompressionType("ZSTD"));
-  ASSERT_OK_AND_EQ(Compression::BZ2, Codec::GetCompressionType("BZ2"));
+  ASSERT_OK_AND_EQ(Compression::UNCOMPRESSED, Codec::GetCompressionType("uncompressed"));
+  ASSERT_OK_AND_EQ(Compression::SNAPPY, Codec::GetCompressionType("snappy"));
+  ASSERT_OK_AND_EQ(Compression::GZIP, Codec::GetCompressionType("gzip"));
+  ASSERT_OK_AND_EQ(Compression::LZO, Codec::GetCompressionType("lzo"));
+  ASSERT_OK_AND_EQ(Compression::BROTLI, Codec::GetCompressionType("brotli"));
+  ASSERT_OK_AND_EQ(Compression::LZ4, Codec::GetCompressionType("lz4_raw"));
+  ASSERT_OK_AND_EQ(Compression::LZ4_FRAME, Codec::GetCompressionType("lz4"));
+  ASSERT_OK_AND_EQ(Compression::ZSTD, Codec::GetCompressionType("zstd"));
+  ASSERT_OK_AND_EQ(Compression::BZ2, Codec::GetCompressionType("bz2"));
 
   ASSERT_RAISES(Invalid, Codec::GetCompressionType("unk"));
-  ASSERT_RAISES(Invalid, Codec::GetCompressionType("snappy"));
+  ASSERT_RAISES(Invalid, Codec::GetCompressionType("SNAPPY"));
 }
 
 TEST_P(CodecTest, CodecRoundtrip) {

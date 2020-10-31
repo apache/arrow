@@ -18,13 +18,13 @@
 /// In this example we will declare a single-type, single return type UDAF that computes the geometric mean.
 /// The geometric mean is described here: https://en.wikipedia.org/wiki/Geometric_mean
 use arrow::{
-    array::Float32Array, array::Float64Array, array::PrimitiveArrayOps,
-    datatypes::DataType, record_batch::RecordBatch,
+    array::Float32Array, array::Float64Array, datatypes::DataType,
+    record_batch::RecordBatch,
 };
 
 use datafusion::{error::Result, logical_plan::create_udaf, physical_plan::Accumulator};
 use datafusion::{prelude::*, scalar::ScalarValue};
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 // create local execution context with an in-memory table
 fn create_context() -> Result<ExecutionContext> {
@@ -125,7 +125,8 @@ impl Accumulator for GeometricMean {
     // By default, these methods call `update` and `merge` row by row
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut ctx = create_context()?;
 
     // here is where we define the UDAF. We also declare its signature:
@@ -137,7 +138,7 @@ fn main() -> Result<()> {
         // the return type; DataFusion expects this to match the type returned by `evaluate`.
         Arc::new(DataType::Float64),
         // This is the accumulator factory; DataFusion uses it to create new accumulators.
-        Arc::new(|| Ok(Rc::new(RefCell::new(GeometricMean::new())))),
+        Arc::new(|| Ok(Box::new(GeometricMean::new()))),
         // This is the description of the state. `state()` must match the types here.
         Arc::new(vec![DataType::Float64, DataType::UInt32]),
     );
@@ -152,7 +153,7 @@ fn main() -> Result<()> {
     // note that "a" is f32, not f64. DataFusion coerces it to match the UDAF's signature.
 
     // execute the query
-    let results = df.collect()?;
+    let results = df.collect().await?;
 
     // downcast the array to the expected type
     let result = results[0]
@@ -163,6 +164,7 @@ fn main() -> Result<()> {
 
     // verify that the calculation is correct
     assert_eq!(result.value(0), 8.0);
+    println!("The geometric mean of [2,4,8,64] is {}", result.value(0));
 
     Ok(())
 }

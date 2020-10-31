@@ -645,7 +645,9 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 template <typename ParquetType>
 Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
                        const std::shared_ptr<DataType>& type, Datum* out) {
-  DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
+  if (type->id() != ::arrow::Type::DECIMAL128) {
+    return Status::NotImplemented("Only reading decimal128 types is currently supported");
+  }
 
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
