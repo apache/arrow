@@ -1422,7 +1422,6 @@ impl<'a> ArrayReaderBuilder {
     ) -> Result<Box<dyn ArrayReader>> {
         let column_desc = Rc::new(ColumnDescriptor::new(
             cur_type.clone(),
-            Some(self.root_schema.clone()),
             context.def_level,
             context.rep_level,
             context.path.clone(),

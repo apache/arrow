@@ -592,13 +592,6 @@ pub struct ColumnDescriptor {
     // The "leaf" primitive type of this column
     primitive_type: TypePtr,
 
-    // The root type of this column. For instance, if the column is "a.b.c.d", then the
-    // primitive type is 'd' while the root_type is 'a'.
-    //
-    // NOTE: this is sometimes `None` for the convenience of testing. It should NEVER be
-    // `None` when running in production.
-    root_type: Option<TypePtr>,
-
     // The maximum definition level for this column
     max_def_level: i16,
 
@@ -613,14 +606,12 @@ impl ColumnDescriptor {
     /// Creates new descriptor for leaf-level column.
     pub fn new(
         primitive_type: TypePtr,
-        root_type: Option<TypePtr>,
         max_def_level: i16,
         max_rep_level: i16,
         path: ColumnPath,
     ) -> Self {
         Self {
             primitive_type,
-            root_type,
             max_def_level,
             max_rep_level,
             path,
@@ -651,13 +642,6 @@ impl ColumnDescriptor {
     /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
-    }
-
-    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field)
-    /// for this leaf column.
-    pub fn root_type(&self) -> &Type {
-        assert!(self.root_type.is_some());
-        self.root_type.as_ref().unwrap()
     }
 
     /// Returns column name.
@@ -724,7 +708,16 @@ pub struct SchemaDescriptor {
     // -- -- b     |
     // -- -- -- c  |
     // -- -- -- -- d
-    leaf_to_base: HashMap<usize, TypePtr>,
+    leaf_to_base: Vec<TypePtr>,
+}
+
+impl fmt::Debug for SchemaDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Skip leaves and leaf_to_base as they only a cache information already found in `schema`
+        f.debug_struct("SchemaDescriptor")
+            .field("schema", &self.schema)
+            .finish()
+    }
 }
 
 impl SchemaDescriptor {
@@ -732,19 +725,10 @@ impl SchemaDescriptor {
     pub fn new(tp: TypePtr) -> Self {
         assert!(tp.is_group(), "SchemaDescriptor should take a GroupType");
         let mut leaves = vec![];
-        let mut leaf_to_base = HashMap::new();
+        let mut leaf_to_base = Vec::new();
         for f in tp.get_fields() {
             let mut path = vec![];
-            build_tree(
-                f.clone(),
-                tp.clone(),
-                f.clone(),
-                0,
-                0,
-                &mut leaves,
-                &mut leaf_to_base,
-                &mut path,
-            );
+            build_tree(f, f, 0, 0, &mut leaves, &mut leaf_to_base, &mut path);
         }
 
         Self {
@@ -796,13 +780,9 @@ impl SchemaDescriptor {
             self.leaves.len()
         );
 
-        let result = self.leaf_to_base.get(&i);
-        assert!(
-            result.is_some(),
-            "Expected a value for index {} but found None",
-            i
-        );
-        result.unwrap()
+        self.leaf_to_base
+            .get(i)
+            .unwrap_or_else(|| panic!("Expected a value for index {} but found None", i))
     }
 
     /// Returns schema as [`Type`](crate::schema::types::Type).
@@ -820,19 +800,18 @@ impl SchemaDescriptor {
     }
 }
 
-fn build_tree(
-    tp: TypePtr,
-    root_tp: TypePtr,
-    base_tp: TypePtr,
+fn build_tree<'a>(
+    tp: &'a TypePtr,
+    base_tp: &TypePtr,
     mut max_rep_level: i16,
     mut max_def_level: i16,
     leaves: &mut Vec<ColumnDescPtr>,
-    leaf_to_base: &mut HashMap<usize, TypePtr>,
-    path_so_far: &mut Vec<String>,
+    leaf_to_base: &mut Vec<TypePtr>,
+    path_so_far: &mut Vec<&'a str>,
 ) {
     assert!(tp.get_basic_info().has_repetition());
 
-    path_so_far.push(String::from(tp.name()));
+    path_so_far.push(tp.name());
     match tp.get_basic_info().repetition() {
         Repetition::OPTIONAL => {
             max_def_level += 1;
@@ -847,30 +826,27 @@ fn build_tree(
     match tp.as_ref() {
         Type::PrimitiveType { .. } => {
             let mut path: Vec<String> = vec![];
-            path.extend_from_slice(&path_so_far[..]);
+            path.extend(path_so_far.iter().copied().map(String::from));
             leaves.push(Rc::new(ColumnDescriptor::new(
                 tp.clone(),
-                Some(root_tp),
                 max_def_level,
                 max_rep_level,
                 ColumnPath::new(path),
             )));
-            leaf_to_base.insert(leaves.len() - 1, base_tp);
+            leaf_to_base.push(base_tp.clone());
         }
         Type::GroupType { ref fields, .. } => {
             for f in fields {
                 build_tree(
-                    f.clone(),
-                    root_tp.clone(),
-                    base_tp.clone(),
+                    f,
+                    base_tp,
                     max_rep_level,
                     max_def_level,
                     leaves,
                     leaf_to_base,
                     path_so_far,
                 );
-                let idx = path_so_far.len() - 1;
-                path_so_far.remove(idx);
+                path_so_far.pop();
             }
         }
     }
@@ -1354,19 +1330,7 @@ mod tests {
             .with_logical_type(LogicalType::UTF8)
             .build()?;
 
-        let root_tp = Type::group_type_builder("root")
-            .with_logical_type(LogicalType::LIST)
-            .build()
-            .unwrap();
-        let root_tp_rc = Rc::new(root_tp);
-
-        let descr = ColumnDescriptor::new(
-            Rc::new(tp),
-            Some(root_tp_rc.clone()),
-            4,
-            1,
-            ColumnPath::from("name"),
-        );
+        let descr = ColumnDescriptor::new(Rc::new(tp), 4, 1, ColumnPath::from("name"));
 
         assert_eq!(descr.path(), &ColumnPath::from("name"));
         assert_eq!(descr.logical_type(), LogicalType::UTF8);
@@ -1377,7 +1341,6 @@ mod tests {
         assert_eq!(descr.type_length(), -1);
         assert_eq!(descr.type_precision(), -1);
         assert_eq!(descr.type_scale(), -1);
-        assert_eq!(descr.root_type(), root_tp_rc.as_ref());
 
         Ok(())
     }

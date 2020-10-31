@@ -16,7 +16,7 @@
 // under the License.
 
 //! Contains column writer API.
-use std::{cmp, collections::VecDeque, rc::Rc};
+use std::{cmp, collections::VecDeque, convert::TryFrom, rc::Rc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
 use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
@@ -295,20 +295,13 @@ impl<T: DataType> ColumnWriterImpl<T> {
         let write_batch_size = self.props.write_batch_size();
         let num_batches = min_len / write_batch_size;
 
-        let mut values_offset = 0;
-        let mut levels_offset = 0;
-
         // Process pre-calculated statistics
         match (min, max) {
             (Some(min), Some(max)) => {
-                if self.min_column_value.is_none()
-                    || self.min_column_value.as_ref().unwrap() > min
-                {
+                if self.min_column_value.as_ref().map_or(true, |v| v > min) {
                     self.min_column_value = Some(min.clone());
                 }
-                if self.max_column_value.is_none()
-                    || self.max_column_value.as_ref().unwrap() < max
-                {
+                if self.max_column_value.as_ref().map_or(true, |v| v < max) {
                     self.max_column_value = Some(max.clone());
                 }
             }
@@ -331,6 +324,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             && null_count.is_none()
             && distinct_count.is_none();
 
+        let mut values_offset = 0;
+        let mut levels_offset = 0;
         for _ in 0..num_batches {
             values_offset += self.write_mini_batch(
                 &values[values_offset..values_offset + write_batch_size],
@@ -435,20 +430,11 @@ impl<T: DataType> ColumnWriterImpl<T> {
         rep_levels: Option<&[i16]>,
         calculate_page_stats: bool,
     ) -> Result<usize> {
-        let num_values;
         let mut values_to_write = 0;
 
         // Check if number of definition levels is the same as number of repetition
         // levels.
-        if def_levels.is_some() && rep_levels.is_some() {
-            let def = match def_levels {
-                Some(a) => a,
-                _ => unreachable!(),
-            };
-            let rep = match rep_levels {
-                Some(a) => a,
-                _ => unreachable!(),
-            };
+        if let (Some(def), Some(rep)) = (def_levels, rep_levels) {
             if def.len() != rep.len() {
                 return Err(general_err!(
                     "Inconsistent length of definition and repetition levels: {} != {}",
@@ -459,16 +445,14 @@ impl<T: DataType> ColumnWriterImpl<T> {
         }
 
         // Process definition levels and determine how many values to write.
-        if self.descr.max_def_level() > 0 {
-            if def_levels.is_none() {
-                return Err(general_err!(
+        let num_values = if self.descr.max_def_level() > 0 {
+            let levels = def_levels.ok_or_else(|| {
+                general_err!(
                     "Definition levels are required, because max definition level = {}",
                     self.descr.max_def_level()
-                ));
-            }
+                )
+            })?;
 
-            let levels = def_levels.unwrap();
-            num_values = levels.len();
             for &level in levels {
                 if level == self.descr.max_def_level() {
                     values_to_write += 1;
@@ -478,23 +462,23 @@ impl<T: DataType> ColumnWriterImpl<T> {
             }
 
             self.write_definition_levels(levels);
+            u32::try_from(levels.len()).unwrap()
         } else {
             values_to_write = values.len();
-            num_values = values_to_write;
-        }
+            u32::try_from(values_to_write).unwrap()
+        };
 
         // Process repetition levels and determine how many rows we are about to process.
         if self.descr.max_rep_level() > 0 {
             // A row could contain more than one value.
-            if rep_levels.is_none() {
-                return Err(general_err!(
+            let levels = rep_levels.ok_or_else(|| {
+                general_err!(
                     "Repetition levels are required, because max repetition level = {}",
                     self.descr.max_rep_level()
-                ));
-            }
+                )
+            })?;
 
             // Count the occasions where we start a new row
-            let levels = rep_levels.unwrap();
             for &level in levels {
                 self.num_buffered_rows += (level == 0) as u32
             }
@@ -503,28 +487,28 @@ impl<T: DataType> ColumnWriterImpl<T> {
         } else {
             // Each value is exactly one row.
             // Equals to the number of values, we count nulls as well.
-            self.num_buffered_rows += num_values as u32;
+            self.num_buffered_rows += num_values;
         }
 
         // Check that we have enough values to write.
-        if values.len() < values_to_write {
-            return Err(general_err!(
+        let values_to_write = values.get(0..values_to_write).ok_or_else(|| {
+            general_err!(
                 "Expected to write {} values, but have only {}",
                 values_to_write,
                 values.len()
-            ));
-        }
+            )
+        })?;
 
         if calculate_page_stats {
-            for val in &values[0..values_to_write] {
+            for val in values_to_write {
                 self.update_page_min_max(val);
             }
         }
 
-        self.write_values(&values[0..values_to_write])?;
+        self.write_values(values_to_write)?;
 
-        self.num_buffered_values += num_values as u32;
-        self.num_buffered_encoded_values += values_to_write as u32;
+        self.num_buffered_values += num_values;
+        self.num_buffered_encoded_values += u32::try_from(values_to_write.len()).unwrap();
 
         if self.should_add_data_page() {
             self.add_data_page(calculate_page_stats)?;
@@ -534,7 +518,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             self.dict_fallback()?;
         }
 
-        Ok(values_to_write)
+        Ok(values_to_write.len())
     }
 
     #[inline]
@@ -689,14 +673,9 @@ impl<T: DataType> ColumnWriterImpl<T> {
                 // Data Page v2 compresses values only.
                 match self.compressor {
                     Some(ref mut cmpr) => {
-                        let mut compressed_buf =
-                            Vec::with_capacity(value_bytes.data().len());
-                        cmpr.compress(value_bytes.data(), &mut compressed_buf)?;
-                        buffer.extend_from_slice(&compressed_buf[..]);
+                        cmpr.compress(value_bytes.data(), &mut buffer)?;
                     }
-                    None => {
-                        buffer.extend_from_slice(value_bytes.data());
-                    }
+                    None => buffer.extend_from_slice(value_bytes.data()),
                 }
 
                 let data_page = Page::DataPageV2 {
@@ -840,12 +819,12 @@ impl<T: DataType> ColumnWriterImpl<T> {
     /// Writes dictionary page into underlying sink.
     #[inline]
     fn write_dictionary_page(&mut self) -> Result<()> {
-        if self.dict_encoder.is_none() {
-            return Err(general_err!("Dictionary encoder is not set"));
-        }
-
         let compressed_page = {
-            let encoder = self.dict_encoder.as_ref().unwrap();
+            let encoder = self
+                .dict_encoder
+                .as_ref()
+                .ok_or_else(|| general_err!("Dictionary encoder is not set"))?;
+
             let is_sorted = encoder.is_sorted();
             let num_values = encoder.num_entries();
             let mut values_buf = encoder.write_dict()?;
@@ -941,24 +920,26 @@ impl<T: DataType> ColumnWriterImpl<T> {
     }
 
     fn update_page_min_max(&mut self, val: &T::T) {
-        if self.min_page_value.is_none() || self.min_page_value.as_ref().unwrap() > val {
+        if self.min_page_value.as_ref().map_or(true, |min| min > val) {
             self.min_page_value = Some(val.clone());
         }
-        if self.max_page_value.is_none() || self.max_page_value.as_ref().unwrap() < val {
+        if self.max_page_value.as_ref().map_or(true, |max| max < val) {
             self.max_page_value = Some(val.clone());
         }
     }
 
     fn update_column_min_max(&mut self) {
-        if self.min_column_value.is_none()
-            || self.min_column_value.as_ref().unwrap()
-                > self.min_page_value.as_ref().unwrap()
+        if self
+            .min_column_value
+            .as_ref()
+            .map_or(true, |min| min > self.min_page_value.as_ref().unwrap())
         {
             self.min_column_value = self.min_page_value.clone();
         }
-        if self.max_column_value.is_none()
-            || self.max_column_value.as_ref().unwrap()
-                < self.max_page_value.as_ref().unwrap()
+        if self
+            .max_column_value
+            .as_ref()
+            .map_or(true, |max| max < self.max_page_value.as_ref().unwrap())
         {
             self.max_column_value = self.max_page_value.clone();
         }
@@ -1940,7 +1921,7 @@ mod tests {
             .with_length(1)
             .build()
             .unwrap();
-        ColumnDescriptor::new(Rc::new(tpe), None, max_def_level, max_rep_level, path)
+        ColumnDescriptor::new(Rc::new(tpe), max_def_level, max_rep_level, path)
     }
 
     /// Returns page writer that collects pages without serializing them.

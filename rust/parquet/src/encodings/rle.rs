@@ -56,9 +56,6 @@ pub struct RleEncoder {
     // Underlying writer which holds an internal buffer.
     bit_writer: BitWriter,
 
-    // If this is true, the buffer is full and subsequent `put()` calls will fail.
-    buffer_full: bool,
-
     // The maximum byte size a single run can take.
     max_run_byte_size: usize,
 
@@ -104,7 +101,6 @@ impl RleEncoder {
         RleEncoder {
             bit_width,
             bit_writer,
-            buffer_full: false,
             max_run_byte_size,
             buffered_values: [0; 8],
             num_buffered_values: 0,
@@ -149,10 +145,6 @@ impl RleEncoder {
     pub fn put(&mut self, value: u64) -> Result<bool> {
         // This function buffers 8 values at a time. After seeing 8 values, it
         // decides whether the current run should be encoded in bit-packed or RLE.
-        if self.buffer_full {
-            // The value cannot fit in the current buffer.
-            return Ok(false);
-        }
         if self.current_value == value {
             self.repeat_count += 1;
             if self.repeat_count > 8 {
@@ -209,7 +201,6 @@ impl RleEncoder {
     #[inline]
     pub fn clear(&mut self) {
         self.bit_writer.clear();
-        self.buffer_full = false;
         self.num_buffered_values = 0;
         self.current_value = 0;
         self.repeat_count = 0;

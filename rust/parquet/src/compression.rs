@@ -114,12 +114,13 @@ mod snappy_codec {
         }
 
         fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
+            let output_buf_len = output_buf.len();
             let required_len = max_compress_len(input_buf.len());
-            if output_buf.len() < required_len {
-                output_buf.resize(required_len, 0);
-            }
-            let n = self.encoder.compress(input_buf, &mut output_buf[..])?;
-            output_buf.truncate(n);
+            output_buf.resize(output_buf_len + required_len, 0);
+            let n = self
+                .encoder
+                .compress(input_buf, &mut output_buf[output_buf_len..])?;
+            output_buf.truncate(output_buf_len + n);
             Ok(())
         }
     }

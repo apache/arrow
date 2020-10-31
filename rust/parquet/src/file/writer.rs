@@ -375,7 +375,7 @@ impl<W: 'static + ParquetWriter> RowGroupWriter for SerializedRowGroupWriter<W> 
         if self.row_group_metadata.is_none() {
             self.assert_previous_writer_closed()?;
 
-            let column_chunks = std::mem::replace(&mut self.column_chunks, vec![]);
+            let column_chunks = std::mem::take(&mut self.column_chunks);
             let row_group_metadata = RowGroupMetaData::builder(self.descr.clone())
                 .set_column_metadata(column_chunks)
                 .set_total_byte_size(self.total_bytes_written as i64)

@@ -42,10 +42,11 @@ use crate::errors::{ParquetError, Result};
 use crate::file::statistics::{self, Statistics};
 use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, SchemaDescriptor,
-    Type as SchemaType, TypePtr,
+    Type as SchemaType,
 };
 
 /// Global Parquet metadata.
+#[derive(Debug)]
 pub struct ParquetMetaData {
     file_metadata: FileMetaData,
     row_groups: Vec<RowGroupMetaData>,
@@ -89,12 +90,12 @@ pub type KeyValue = parquet_format::KeyValue;
 pub type FileMetaDataPtr = Rc<FileMetaData>;
 
 /// Metadata for a Parquet file.
+#[derive(Debug)]
 pub struct FileMetaData {
     version: i32,
     num_rows: i64,
     created_by: Option<String>,
     key_value_metadata: Option<Vec<KeyValue>>,
-    schema: TypePtr,
     schema_descr: SchemaDescPtr,
     column_orders: Option<Vec<ColumnOrder>>,
 }
@@ -106,7 +107,6 @@ impl FileMetaData {
         num_rows: i64,
         created_by: Option<String>,
         key_value_metadata: Option<Vec<KeyValue>>,
-        schema: TypePtr,
         schema_descr: SchemaDescPtr,
         column_orders: Option<Vec<ColumnOrder>>,
     ) -> Self {
@@ -115,7 +115,6 @@ impl FileMetaData {
             num_rows,
             created_by,
             key_value_metadata,
-            schema,
             schema_descr,
             column_orders,
         }
@@ -150,7 +149,7 @@ impl FileMetaData {
 
     /// Returns Parquet ['Type`] that describes schema in this file.
     pub fn schema(&self) -> &SchemaType {
-        self.schema.as_ref()
+        self.schema_descr.root_schema()
     }
 
     /// Returns a reference to schema descriptor.
@@ -188,6 +187,7 @@ impl FileMetaData {
 pub type RowGroupMetaDataPtr = Rc<RowGroupMetaData>;
 
 /// Metadata for a row group.
+#[derive(Debug)]
 pub struct RowGroupMetaData {
     columns: Vec<ColumnChunkMetaData>,
     num_rows: i64,
@@ -325,6 +325,7 @@ impl RowGroupMetaDataBuilder {
 }
 
 /// Metadata for a column chunk.
+#[derive(Debug)]
 pub struct ColumnChunkMetaData {
     column_type: Type,
     column_path: ColumnPath,
