@@ -169,6 +169,7 @@ public class FlightServer implements AutoCloseable {
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
     private ServerPropertyHandler propertyHandler = ServerPropertyHandler.NO_OP;
+    private ServerSessionHandler sessionHandler = ServerSessionHandler.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
@@ -202,6 +203,12 @@ public class FlightServer implements AutoCloseable {
       if (propertyHandler != ServerPropertyHandler.NO_OP) {
         this.middleware(FlightServerMiddleware.Key.of(FlightConstants.PROPERTY_HEADER),
             new ServerPropertyMiddleware.Factory(propertyHandler));
+      }
+
+      // TODO: Add support for session header
+      if (sessionHandler != ServerSessionHandler.NO_OP) {
+        this.middleware(FlightServerMiddleware.Key.of(FlightConstants.SESSION_HEADER),
+                new ServerSessionMiddleware.Factory(sessionHandler));
       }
 
       final NettyServerBuilder builder;
@@ -364,6 +371,14 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder propertyHandler(ServerPropertyHandler propertyHandler) {
       this.propertyHandler = propertyHandler;
+      return this;
+    }
+
+    /**
+     * Set the session handler.
+     */
+    public Builder sessionHandler(ServerSessionHandler sessionHandler) {
+      this.sessionHandler = sessionHandler;
       return this;
     }
 

@@ -14,16 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /**
- * String constants relevant to flight implementations.
+ * ServerSessionHandler interface to retrieve the current session ID.
  */
-public interface FlightConstants {
+public interface ServerSessionHandler {
+    /**
+     * A session handler that returns an empty session ID.
+     */
+    ServerSessionHandler NO_OP = () -> "";
 
-  String SERVICE = "arrow.flight.protocol.FlightService";
-  String PROPERTY_HEADER = "Arrow-Properties";
-  String SESSION_HEADER = "SET-SESSION";
-
+    /**
+     * Retrieves the current session ID. Generates a new session ID if there is no pre-existing
+     * session ID.
+     *
+     * @return the current session ID.
+     * @throws FlightRuntimeException with CallStatus {@code UNAUTHENTICATED} if session ID has expired.
+     */
+    String getSessionID();
 }

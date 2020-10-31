@@ -14,16 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /**
- * String constants relevant to flight implementations.
+ * Keeps track of the current session ID.
  */
-public interface FlightConstants {
-
-  String SERVICE = "arrow.flight.protocol.FlightService";
-  String PROPERTY_HEADER = "Arrow-Properties";
-  String SESSION_HEADER = "SET-SESSION";
+public class ClientSessionWriter {
 
 }
