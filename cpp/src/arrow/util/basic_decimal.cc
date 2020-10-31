@@ -881,10 +881,10 @@ void BasicDecimal256::ToBytes(uint8_t* out) const {
   reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[2];
   reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[3];
 #else
-    reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
-    reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
-    reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
-    reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
+  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
+  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
+  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
+  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
 #endif
 }
 
