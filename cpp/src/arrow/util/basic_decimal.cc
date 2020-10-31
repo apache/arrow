@@ -848,7 +848,7 @@ BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
           std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[3],
                                    reinterpret_cast<const uint64_t*>(bytes)[2],
                                    reinterpret_cast<const uint64_t*>(bytes)[1],
-                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {
+                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {}
 #endif
 
 BasicDecimal256& BasicDecimal256::Negate() {
