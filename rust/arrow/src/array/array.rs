@@ -1565,49 +1565,63 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 
     pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
-        let iter = v.iter().map(|e| e.map(|e| e.to_string()));
-        GenericStringArray::from_iter(iter)
+        GenericStringArray::from_iter(v.into_iter())
     }
 }
 
-impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Ptr>
-    for GenericStringArray<OffsetSize>
+fn from_str<'a, OffsetSize, Ptr, I>(iter: I) -> GenericStringArray<OffsetSize>
 where
-    Ptr: Borrow<Option<String>>,
+    OffsetSize: StringOffsetSizeTrait,
+    Ptr: AsRef<str>,
+    I: Iterator<Item = Option<Ptr>>,
 {
-    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let (_, data_len) = iter.size_hint();
-        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+    let (_, data_len) = iter.size_hint();
+    let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
-        let mut offsets = Vec::with_capacity(data_len + 1);
-        let mut values = Vec::new();
-        let mut null_buf = make_null_buffer(data_len);
-        let mut length_so_far = OffsetSize::zero();
-        offsets.push(length_so_far);
+    let mut offsets = Vec::with_capacity(data_len + 1);
+    let mut values = Vec::new();
+    let mut null_buf = make_null_buffer(data_len);
+    let mut length_so_far = OffsetSize::zero();
+    offsets.push(length_so_far);
 
-        for (i, s) in iter.enumerate() {
-            if let Some(s) = s.borrow() {
-                // set null bit
-                let null_slice = null_buf.data_mut();
-                bit_util::set_bit(null_slice, i);
+    for (i, s) in iter.enumerate() {
+        if let Some(s) = s {
+            let s = s.as_ref();
+            // set null bit
+            let null_slice = null_buf.data_mut();
+            bit_util::set_bit(null_slice, i);
 
-                length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
-                offsets.push(length_so_far);
-                values.extend_from_slice(s.as_bytes());
-            } else {
-                offsets.push(length_so_far);
-                values.extend_from_slice(b"");
-            }
+            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            offsets.push(length_so_far);
+            values.extend_from_slice(s.as_bytes());
+        } else {
+            offsets.push(length_so_far);
+            values.extend_from_slice(b"");
         }
+    }
 
-        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
-            .len(data_len)
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .null_bit_buffer(null_buf.freeze())
-            .build();
-        Self::from(array_data)
+    let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+        .len(data_len)
+        .add_buffer(Buffer::from(offsets.to_byte_slice()))
+        .add_buffer(Buffer::from(&values[..]))
+        .null_bit_buffer(null_buf.freeze())
+        .build();
+    GenericStringArray::<OffsetSize>::from(array_data)
+}
+
+impl<'a, OffsetSize: StringOffsetSizeTrait> FromIterator<Option<&'a str>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from_iter<I: IntoIterator<Item = Option<&'a str>>>(iter: I) -> Self {
+        from_str::<OffsetSize, _, _>(iter.into_iter())
+    }
+}
+
+impl<'a, OffsetSize: StringOffsetSizeTrait> FromIterator<Option<String>>
+    for GenericStringArray<OffsetSize>
+{
+    fn from_iter<I: IntoIterator<Item = Option<String>>>(iter: I) -> Self {
+        from_str::<OffsetSize, _, _>(iter.into_iter())
     }
 }
 
@@ -3674,6 +3688,13 @@ mod tests {
             assert!(string_array.is_valid(i));
             assert!(!string_array.is_null(i));
         }
+    }
+
+    fn test_string_from_iter() {
+        let data = vec![Some("a"), Some("b"), None];
+        let a = data.clone().into_iter();
+        let array: LargeStringArray = a.collect();
+        assert_eq!(array, LargeStringArray::from(data));
     }
 
     #[test]

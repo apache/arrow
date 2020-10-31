@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use crate::array::ArrayRef;
+use crate::array::{ArrayRef, GenericStringArray, StringOffsetSizeTrait};
 use crate::{
     array::{Array, PrimitiveArray},
     datatypes::ArrowPrimitiveType,
@@ -83,12 +83,10 @@ where
 
 /// Merges two primitive arrays, returning a new primitive array
 pub fn merge_primitive<T: ArrowPrimitiveType>(
-    lhs: &dyn Array,
-    rhs: &dyn Array,
+    lhs: &PrimitiveArray<T>,
+    rhs: &PrimitiveArray<T>,
     is_left: &[bool],
 ) -> PrimitiveArray<T> {
-    let lhs = lhs.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    let rhs = rhs.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     TakeTogether::new(lhs.iter(), rhs.iter(), is_left.to_owned().into_iter()).collect()
 }
 
@@ -97,7 +95,18 @@ fn dyn_merge_primitive<T: ArrowPrimitiveType>(
     rhs: &dyn Array,
     is_left: &[bool],
 ) -> Arc<Array> {
+    let lhs = lhs.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+    let rhs = rhs.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
     Arc::new(merge_primitive::<T>(lhs, rhs, is_left))
+}
+
+/// Merges two string arrays, returning a new string array
+pub fn merge_string<OffsetSize: StringOffsetSizeTrait>(
+    lhs: &GenericStringArray<OffsetSize>,
+    rhs: &GenericStringArray<OffsetSize>,
+    is_left: &[bool],
+) -> GenericStringArray<OffsetSize> {
+    TakeTogether::new(lhs.iter(), rhs.iter(), is_left.to_owned().into_iter()).collect()
 }
 
 /// Merges two arrays by taking the values from `lhs` and `rhs` depending on `is_left` slice.
@@ -143,6 +152,28 @@ pub fn merge(lhs: &dyn Array, rhs: &dyn Array, is_left: &[bool]) -> Result<Array
         DataType::Duration(_) => {
             dyn_merge_primitive::<DurationSecondType>(lhs, rhs, is_left)
         }
+        DataType::Utf8 => {
+            let lhs = lhs
+                .as_any()
+                .downcast_ref::<GenericStringArray<i32>>()
+                .unwrap();
+            let rhs = rhs
+                .as_any()
+                .downcast_ref::<GenericStringArray<i32>>()
+                .unwrap();
+            Arc::new(merge_string::<i32>(lhs, rhs, is_left))
+        }
+        DataType::LargeUtf8 => {
+            let lhs = lhs
+                .as_any()
+                .downcast_ref::<GenericStringArray<i64>>()
+                .unwrap();
+            let rhs = rhs
+                .as_any()
+                .downcast_ref::<GenericStringArray<i64>>()
+                .unwrap();
+            Arc::new(merge_string::<i64>(lhs, rhs, is_left))
+        }
         other => {
             return Err(ArrowError::InvalidArgumentError(format!(
                 "Merge still not supported for type {:?}",
@@ -159,7 +190,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_merge_array() -> Result<()> {
+    fn test_merge_primitive() -> Result<()> {
         let array1 = UInt32Array::from(vec![1, 2, 3]);
         let array2 = UInt32Array::from(vec![4, 5, 6]);
         let is_left = &[true, false, true, false, true, false];
@@ -168,6 +199,25 @@ mod tests {
         let result = merge(&array1, &array2, is_left)?;
 
         let result = result.as_any().downcast_ref::<UInt32Array>().unwrap();
+
+        assert_eq!(&expected, result);
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_string() -> Result<()> {
+        let array1 = GenericStringArray::<i32>::from(vec!["1", "2", "3"]);
+        let array2 = GenericStringArray::<i32>::from(vec!["4", "5", "6"]);
+        let is_left = &[true, false, true, false, true, false];
+        let expected =
+            GenericStringArray::<i32>::from(vec!["1", "4", "2", "5", "3", "6"]);
+
+        let result = merge(&array1, &array2, is_left)?;
+
+        let result = result
+            .as_any()
+            .downcast_ref::<GenericStringArray<i32>>()
+            .unwrap();
 
         assert_eq!(&expected, result);
         Ok(())
