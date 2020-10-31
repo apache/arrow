@@ -881,8 +881,6 @@ mod tests {
         assert_eq!(&expected_values, dict_values);
         assert_eq!(&expected_values, &result_values);
 
-        let result_keys: Int16Array = result.keys().collect::<Vec<_>>().into();
-
         let expected_keys = Int16Array::from(vec![
             Some(0),
             Some(0),
@@ -892,9 +890,6 @@ mod tests {
             Some(2),
             None,
         ]);
-
-        assert_eq!(expected_keys.len(), result_keys.len());
-        assert_eq!(expected_keys.data_type(), result_keys.data_type());
-        assert_eq!(expected_keys, result_keys);
+        assert_eq!(result.keys(), &expected_keys);
     }
 }

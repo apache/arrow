@@ -250,11 +250,9 @@ impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<DictionaryArray<T>>().unwrap();
 
-        let iter_a = self.keys().take(end_idx).skip(start_idx);
-        let iter_b = other.keys().skip(other_start_idx);
-
         // For now, all the values must be the same
-        iter_a.eq(iter_b)
+        self.keys()
+            .range_equals(other.keys(), start_idx, end_idx, other_start_idx)
             && self
                 .values()
                 .range_equals(&*other.values(), 0, other.values().len(), 0)
@@ -910,13 +908,8 @@ impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericListArray<OffsetSize>> for Va
 
 impl<T: ArrowPrimitiveType> JsonEqual for DictionaryArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
-        self.keys().zip(json.iter()).all(|aj| match aj {
-            (None, Value::Null) => true,
-            (Some(a), Value::Number(j)) => {
-                a.to_usize().unwrap() as u64 == j.as_u64().unwrap()
-            }
-            _ => false,
-        })
+        // todo: this is wrong: we must test the values also
+        self.keys().equals_json(json)
     }
 }
 

@@ -1544,10 +1544,9 @@ mod tests {
         assert_eq!(true, dd.is_valid(2));
         assert_eq!(false, dd.is_valid(11));
 
-        let keys: Vec<_> = dd.keys().collect();
         assert_eq!(
-            keys,
-            vec![
+            dd.keys(),
+            &Int16Array::from(vec![
                 None,
                 Some(0),
                 Some(1),
@@ -1560,7 +1559,7 @@ mod tests {
                 Some(0),
                 Some(0),
                 None
-            ]
+            ])
         );
     }
 
