@@ -38,6 +38,11 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type> out);
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, ArrayBuilder* builder);
+
+Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray);
+
+Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowIndexOffset, int& arrowChunkOffset, int64_t length, ChunkedArray* pchunkedArray);
+
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
