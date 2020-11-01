@@ -19,6 +19,28 @@
 
 # pyarrow_gandiva
 
+This library provides a Python API for functionality provided by the Arrow
+Gandiva C++ libraries. Gandiva is a toolset for compiling and evaluating
+expressions that project and filter arrow record batches. It uses LLVM for doing
+just-in-time compilation of the expressions.
+
+## Installation
+
+pyarrow_gandiva is meant to be installed with pyarrow. Across platforms, you can
+install a recent version of pyarrow_gandiva with the conda package manager:
+
+```shell
+conda install pyarrow_gandiva -c conda-forge
+```
+
+pyarrow will be installed as a dependency, if it is not already installed.
+
+On Linux, macOS, and Windows, you can also install binary wheels from PyPI with
+pip:
+
+```shell
+pip install pyarrow[gandiva]
+```
 
 
 ## Development
