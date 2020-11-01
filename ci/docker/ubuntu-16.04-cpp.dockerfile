@@ -50,6 +50,9 @@ RUN apt-get update -y -q && \
         libgoogle-glog-dev \
         liblz4-dev \
         libre2-dev \
+        libsnappy-dev \
+        libradospp-dev \
+        rados-objclass-dev \
         libssl-dev \
         libutf8proc-dev \
         libzstd1-dev \

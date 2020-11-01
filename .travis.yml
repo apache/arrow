@@ -51,6 +51,7 @@ jobs:
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
+          -e ARROW_RADOS=ON
           -e ARROW_S3=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
