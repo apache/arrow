@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: debian-10-rust-${{ hashFiles('rust/**.rs') }}
+          key: debian-10-rust-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
           restore-keys: debian-10-rust-
       - name: Setup Python
         uses: actions/setup-python@v1
@@ -118,7 +118,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: windows-rust-${{ hashFiles('rust/**.rs') }}
+          key: windows-rust-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
           restore-keys: windows-rust-
       - name: Build
         shell: bash
