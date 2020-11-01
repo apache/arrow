@@ -198,7 +198,6 @@ import pyarrow.hdfs as hdfs
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 
-import pyarrow.gandiva as gandiva
 
 localfs = LocalFileSystem.get_instance()
 
