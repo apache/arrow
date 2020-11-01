@@ -34,6 +34,8 @@ RUN apt-get update -y -q && \
       libprotoc-dev \
       libre2-dev \
       libsnappy-dev \
+      libradospp-dev \
+      rados-objclass-dev \
       libthrift-dev \
       libutf8proc-dev \
       libzstd-dev \

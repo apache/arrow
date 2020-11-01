@@ -56,7 +56,7 @@ class CppConfiguration:
                  with_ipc=True, with_json=None, with_jni=None,
                  with_mimalloc=None,
                  with_parquet=None, with_plasma=None, with_python=True,
-                 with_r=None, with_s3=None,
+                 with_r=None, with_s3=None, with_rados=None,
                  # Compressions
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
@@ -105,6 +105,7 @@ class CppConfiguration:
         self.with_python = with_python
         self.with_r = with_r
         self.with_s3 = with_s3
+        self.with_rados = with_rados
 
         self.with_brotli = with_brotli
         self.with_bz2 = with_bz2
@@ -226,6 +227,7 @@ class CppConfiguration:
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))
+        yield ("ARROW_RADOS", truthifier(self.with_rados))
 
         # Compressions
         yield ("ARROW_WITH_BROTLI", truthifier(self.with_brotli))
