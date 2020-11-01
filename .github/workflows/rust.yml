@@ -118,8 +118,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: windows-rust-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
-          restore-keys: windows-rust-
+          key: windows-rust-v1-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
+          restore-keys: windows-rust-v1-
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
