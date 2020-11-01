@@ -20,7 +20,6 @@
 #pragma once
 
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/dataset_rados.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_csv.h"
@@ -28,5 +27,7 @@
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
-#include "arrow/dataset/scanner_rados.h"
-#include "arrow/dataset/rados_utils.h"
+
+#ifdef ARROW_RADOS
+#include "arrow/dataset/dataset_rados.h"
+#endif
