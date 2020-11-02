@@ -45,15 +45,6 @@ public class DecimalUtilityTest {
         BigDecimal expected = BigDecimal.valueOf(val);
         Assert.assertEquals(expected, actual);
       }
-
-      long [] longValues = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
-      for (long val : longValues) {
-        buf.clear();
-        DecimalUtility.writeLongToArrowBuf(val, buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
-        BigDecimal expected = BigDecimal.valueOf(val);
-        Assert.assertEquals(expected, actual);
-      }
     }
   }
 

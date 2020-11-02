@@ -132,6 +132,7 @@ public class DecimalUtility {
 
   /**
    * Write the given long to the ArrowBuf at the given value index.
+   * This routine extends the original sign bit to a new upper 64-bit in 128-bit.
    */
   public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
     final long addressOfValue = bytebuf.memoryAddress() + (long) index * DECIMAL_BYTE_LENGTH;
@@ -160,6 +161,7 @@ public class DecimalUtility {
       throw new UnsupportedOperationException("Decimal size greater than " + byteWidth + " bytes: " + bytes.length);
     }
 
+    byte [] padBytes = bytes[0] < 0 ? minus_one : zeroes;
     if (LITTLE_ENDIAN) {
       // Decimal stored as native-endian, need to swap data bytes before writing to ArrowBuf if LE
       byte[] bytesLE = new byte[bytes.length];
@@ -168,14 +170,12 @@ public class DecimalUtility {
       }
 
       // Write LE data
-      byte [] padByes = bytes[0] < 0 ? minus_one : zeroes;
       bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
-      bytebuf.setBytes(startIndex + bytes.length, padByes, 0, byteWidth - bytes.length);
+      bytebuf.setBytes(startIndex + bytes.length, padBytes, 0, byteWidth - bytes.length);
     } else {
       // Write BE data
-      byte [] padByes = bytes[0] < 0 ? minus_one : zeroes;
       bytebuf.setBytes(startIndex + byteWidth - bytes.length, bytes, 0, bytes.length);
-      bytebuf.setBytes(startIndex, padByes, 0, byteWidth - bytes.length);
+      bytebuf.setBytes(startIndex, padBytes, 0, byteWidth - bytes.length);
     }
   }
 }
