@@ -139,7 +139,7 @@ public class DecimalUtility {
       throw new UnsupportedOperationException("DeciimalUtility.writeLongToArrowBuf() currently supports " +
           "128-bit or 256-bit width data");
     }
-    final long addressOfValue = bytebuf.memoryAddress() + (long) index * DECIMAL_BYTE_LENGTH;
+    final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     if (LITTLE_ENDIAN) {
       PlatformDependent.putLong(addressOfValue, value);
