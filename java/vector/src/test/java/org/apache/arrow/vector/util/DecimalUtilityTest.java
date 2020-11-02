@@ -34,16 +34,19 @@ public class DecimalUtilityTest {
 
   @Test
   public void testSetLongInDecimalArrowBuf() {
-    try (BufferAllocator allocator = new RootAllocator(128);
-         ArrowBuf buf = allocator.buffer(16);
-    ) {
-      int [] intValues = new int [] {Integer.MAX_VALUE, Integer.MIN_VALUE, 0};
-      for (int val : intValues) {
-        buf.clear();
-        DecimalUtility.writeLongToArrowBuf((long) val, buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
-        BigDecimal expected = BigDecimal.valueOf(val);
-        Assert.assertEquals(expected, actual);
+    int[] byteLengths = new int[]{16, 32};
+    for (int x = 0; x < 2; x++) {
+      try (BufferAllocator allocator = new RootAllocator(128);
+           ArrowBuf buf = allocator.buffer(byteLengths[x]);
+      ) {
+        int [] intValues = new int [] {Integer.MAX_VALUE, Integer.MIN_VALUE, 0};
+        for (int val : intValues) {
+          buf.clear();
+          DecimalUtility.writeLongToArrowBuf((long) val, buf, 0, byteLengths[x]);
+          BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
+          BigDecimal expected = BigDecimal.valueOf(val);
+          Assert.assertEquals(expected, actual);
+        }
       }
     }
   }

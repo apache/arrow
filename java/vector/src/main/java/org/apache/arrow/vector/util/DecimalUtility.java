@@ -132,17 +132,25 @@ public class DecimalUtility {
 
   /**
    * Write the given long to the ArrowBuf at the given value index.
-   * This routine extends the original sign bit to a new upper 64-bit in 128-bit.
+   * This routine extends the original sign bit to a new upper area in 128-bit or 256-bit.
    */
-  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
+  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index, int byteWidth) {
+    if (byteWidth != 16 && byteWidth != 32) {
+      throw new UnsupportedOperationException("DeciimalUtility.writeLongToArrowBuf() currently supports " +
+          "128-bit or 256-bit width data");
+    }
     final long addressOfValue = bytebuf.memoryAddress() + (long) index * DECIMAL_BYTE_LENGTH;
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     if (LITTLE_ENDIAN) {
       PlatformDependent.putLong(addressOfValue, value);
-      PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
+      for (int i = 1; i <= (byteWidth - 8) / 8; i++) {
+        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+      }
     } else {
-      PlatformDependent.putLong(addressOfValue, padValue);
-      PlatformDependent.putLong(addressOfValue + Long.BYTES, value);
+      for (int i = 0; i < (byteWidth - 8) / 8; i++) {
+        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+      }
+      PlatformDependent.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
     }
   }
 

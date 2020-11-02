@@ -364,7 +364,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    */
   public void set(int index, long value) {
     BitVectorHelper.setBit(validityBuffer, index);
-    DecimalUtility.writeLongToArrowBuf(value, valueBuffer, index);
+    DecimalUtility.writeLongToArrowBuf(value, valueBuffer, index, TYPE_WIDTH);
   }
 
   /**
