@@ -70,24 +70,34 @@ impl ParquetExec {
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
             let schema = arrow_reader.get_schema()?;
 
-            let projection = match projection {
-                Some(p) => p,
-                None => (0..schema.fields().len()).collect(),
-            };
+            Ok(Self::new(filenames, schema, projection, batch_size))
+        }
+    }
 
-            let projected_schema = Schema::new(
-                projection
-                    .iter()
-                    .map(|i| schema.field(*i).clone())
-                    .collect(),
-            );
+    /// Create a new Parquet reader execution plan with provided files and schema
+    pub fn new(
+        filenames: Vec<String>,
+        schema: Schema,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Self {
+        let projection = match projection {
+            Some(p) => p,
+            None => (0..schema.fields().len()).collect(),
+        };
 
-            Ok(Self {
-                filenames,
-                schema: Arc::new(projected_schema),
-                projection,
-                batch_size,
-            })
+        let projected_schema = Schema::new(
+            projection
+                .iter()
+                .map(|i| schema.field(*i).clone())
+                .collect(),
+        );
+
+        Self {
+            filenames,
+            schema: Arc::new(projected_schema),
+            projection,
+            batch_size,
         }
     }
 }
