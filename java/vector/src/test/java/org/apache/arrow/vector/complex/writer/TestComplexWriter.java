@@ -310,7 +310,7 @@ public class TestComplexWriter {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       DecimalHolder holder = new DecimalHolder();
-      holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      holder.buffer = allocator.buffer(16);
       ArrowType arrowType = new ArrowType.Decimal(10, 0, 128);
       for (int i = 0; i < COUNT; i++) {
         listWriter.startList();

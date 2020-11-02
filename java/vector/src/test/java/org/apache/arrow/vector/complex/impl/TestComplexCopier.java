@@ -526,7 +526,7 @@ public class TestComplexCopier {
       to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
 
       DecimalHolder holder = new DecimalHolder();
-      holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      holder.buffer = allocator.buffer(16);
       ArrowType arrowType = new ArrowType.Decimal(3, 0, 128);
 
       // populate from vector

@@ -32,7 +32,6 @@ import io.netty.util.internal.PlatformDependent;
 public class DecimalUtility {
   private DecimalUtility() {}
 
-  public static final int DECIMAL_BYTE_LENGTH = 16;
   public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
