@@ -33,7 +33,7 @@ These benchmarks are derived from the [TPC-H][1] benchmark.
 Data for this benchmark can be generated using the [tpch-dbgen][2] command-line tool. Run the following commands to
 clone the repository and build the source code.
 
-```
+```bash
 git clone git@github.com:databricks/tpch-dbgen.git
 cd tpch-dbgen
 make
@@ -42,7 +42,7 @@ make
 Data can now be generated with the following command. Note that `-s 1` means use Scale Factor 1 or ~1 GB of
 data. This value can be increased to generate larger data sets.
 
-```
+```bash
 ./dbgen -vf -s 1
 ```
 
