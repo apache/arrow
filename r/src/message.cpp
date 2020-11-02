@@ -21,6 +21,15 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 
+namespace cpp11 {
+template <> std::string r6_class_name<arrow::ipc::MessageReader>(const std::shared_ptr<arrow::ipc::MessageReader>& x) {
+  return "MessageReader";
+}
+template <> std::string r6_class_name<arrow::ipc::Message>(const std::shared_ptr<arrow::ipc::Message>& x) {
+  return "Message";
+}
+}
+
 // [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body_length();
@@ -28,12 +37,12 @@ int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& m
 
 // [[arrow::export]]
 R6 ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return cpp11::r6(message->metadata(), "Buffer");
+  return message->metadata();
 }
 
 // [[arrow::export]]
 R6 ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return cpp11::r6(message->body(), "Buffer");
+  return message->body();
 }
 
 // [[arrow::export]]
@@ -61,43 +70,39 @@ R6 ipc___ReadRecordBatch__Message__Schema(
   arrow::ipc::DictionaryMemo memo;
   auto batch = ValueOrStop(arrow::ipc::ReadRecordBatch(
       *message, schema, &memo, arrow::ipc::IpcReadOptions::Defaults()));
-  return cpp11::r6(batch, "RecordBatch");
+  return batch;
 }
 
 // [[arrow::export]]
 R6 ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream) {
   // TODO: promote to function argument
   arrow::ipc::DictionaryMemo memo;
-  return cpp11::r6(ValueOrStop(arrow::ipc::ReadSchema(stream.get(), &memo)), "Schema");
+  return ValueOrStop(arrow::ipc::ReadSchema(stream.get(), &memo));
 }
 
 // [[arrow::export]]
 R6 ipc___ReadSchema_Message(const std::unique_ptr<arrow::ipc::Message>& message) {
   arrow::ipc::DictionaryMemo empty_memo;
-  return cpp11::r6(ValueOrStop(arrow::ipc::ReadSchema(*message, &empty_memo)), "Schema");
+  return ValueOrStop(arrow::ipc::ReadSchema(*message, &empty_memo));
 }
 
 //--------- MessageReader
 
 // [[arrow::export]]
 R6 ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::ipc::MessageReader> reader(
+  return std::shared_ptr<arrow::ipc::MessageReader>(
       arrow::ipc::MessageReader::Open(stream));
-  return cpp11::r6(reader, "MessageReader");
 }
 
 // [[arrow::export]]
 R6 ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
-  std::shared_ptr<arrow::ipc::Message> msg = ValueOrStop(reader->ReadNextMessage());
-  return cpp11::r6(msg, "Message");
+  return ValueOrStop(reader->ReadNextMessage());
 }
 
 // [[arrow::export]]
 R6 ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::ipc::Message> msg =
-      ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
-  return cpp11::r6(msg, "Message");
+  return ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
 }
 
 #endif

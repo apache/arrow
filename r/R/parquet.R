@@ -21,7 +21,7 @@
 #' This function enables you to read Parquet files into R.
 #'
 #' @inheritParams read_feather
-#' @param props [ParquetReaderProperties]
+#' @param props [ParquetArrowReaderProperties]
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
@@ -38,7 +38,7 @@
 read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
-                         props = ParquetReaderProperties$create(),
+                         props = ParquetArrowReaderProperties$create(),
                          ...) {
   if (is.string(file)) {
     file <- make_readable_file(file)
@@ -425,7 +425,7 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' - `file` A character file name, raw vector, or Arrow file connection object
 #'    (e.g. `RandomAccessFile`).
-#' - `props` Optional [ParquetReaderProperties]
+#' - `props` Optional [ParquetArrowReaderProperties]
 #' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
 #' - `...` Additional arguments, currently ignored
 #'
@@ -510,18 +510,18 @@ ParquetFileReader <- R6Class("ParquetFileReader",
 )
 
 ParquetFileReader$create <- function(file,
-                                     props = ParquetReaderProperties$create(),
+                                     props = ParquetArrowReaderProperties$create(),
                                      mmap = TRUE,
                                      ...) {
   file <- make_readable_file(file, mmap)
-  assert_is(props, "ParquetReaderProperties")
+  assert_is(props, "ParquetArrowReaderProperties")
 
   parquet___arrow___FileReader__OpenFile(file, props)
 }
 
-#' @title ParquetReaderProperties class
-#' @rdname ParquetReaderProperties
-#' @name ParquetReaderProperties
+#' @title ParquetArrowReaderProperties class
+#' @rdname ParquetArrowReaderProperties
+#' @name ParquetArrowReaderProperties
 #' @docType class
 #' @usage NULL
 #' @format NULL
@@ -530,7 +530,7 @@ ParquetFileReader$create <- function(file,
 #'
 #' @section Factory:
 #'
-#' The `ParquetReaderProperties$create()` factory method instantiates the object
+#' The `ParquetArrowReaderProperties$create()` factory method instantiates the object
 #' and takes the following arguments:
 #'
 #' - `use_threads` Logical: whether to use multithreading (default `TRUE`)
@@ -542,7 +542,7 @@ ParquetFileReader$create <- function(file,
 #' - `$use_threads(use_threads)`
 #'
 #' @export
-ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
   inherit = ArrowObject,
   public = list(
     read_dictionary = function(column_index) {
@@ -563,6 +563,6 @@ ParquetReaderProperties <- R6Class("ParquetReaderProperties",
   )
 )
 
-ParquetReaderProperties$create <- function(use_threads = option_use_threads()) {
+ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
 }

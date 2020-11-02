@@ -20,6 +20,12 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
+namespace cpp11 {
+template <> inline std::string r6_class_name<arrow::ipc::RecordBatchWriter>(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& x) {
+  return "RecordBatchWriter";
+}
+}
+
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
@@ -49,8 +55,7 @@ R6 ipc___RecordBatchFileWriter__Open(
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
 
-  auto writer = ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
-  return cpp11::r6(writer, "RecordBatchFileWriter");
+  return ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
 }
 
 // [[arrow::export]]
@@ -62,8 +67,7 @@ R6 ipc___RecordBatchStreamWriter__Open(
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
 
-  auto writer = ValueOrStop(MakeStreamWriter(stream, schema, options));
-  return cpp11::r6(writer, "RecordBatchStreamWriter");
+  return ValueOrStop(MakeStreamWriter(stream, schema, options));
 }
 
 #endif

@@ -24,10 +24,46 @@
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 
+namespace parquet {
+
+class WriterPropertiesBuilder : public WriterProperties::Builder {
+public:
+  using WriterProperties::Builder::Builder;
+};
+
+class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
+public:
+  using ArrowWriterProperties::Builder::Builder;
+};
+
+}  // namespace parquet
+
+namespace cpp11 {
+template <> std::string r6_class_name<parquet::ArrowReaderProperties>(const std::shared_ptr<parquet::ArrowReaderProperties>& x) {
+  return "ParquetArrowReaderProperties";
+}
+template <> std::string r6_class_name<parquet::ArrowWriterProperties>(const std::shared_ptr<parquet::ArrowWriterProperties>& x) {
+  return "ParquetArrowWriterProperties";
+}
+template <> std::string r6_class_name<parquet::WriterProperties>(const std::shared_ptr<parquet::WriterProperties>& x) {
+  return "ParquetWriterProperties";
+}
+
+template <> std::string r6_class_name<parquet::arrow::FileReader>(const std::shared_ptr<parquet::arrow::FileReader>& x) {
+  return "ParquetFileReader";
+}
+template <> std::string r6_class_name<parquet::WriterPropertiesBuilder>(const std::shared_ptr<parquet::WriterPropertiesBuilder>& x) {
+  return "ParquetWriterPropertiesBuilder";
+}
+
+template <> std::string r6_class_name<parquet::arrow::FileWriter>(const std::shared_ptr<parquet::arrow::FileWriter>& x) {
+  return "ParquetFileWriter";
+}
+}
+
 // [[arrow::export]]
 R6 parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
-  return cpp11::r6(std::make_shared<parquet::ArrowReaderProperties>(use_threads),
-                   "ParquetReaderProperties");
+  return std::make_shared<parquet::ArrowReaderProperties>(use_threads);
 }
 
 // [[arrow::export]]
@@ -64,8 +100,7 @@ R6 parquet___arrow___FileReader__OpenFile(
   PARQUET_THROW_NOT_OK(builder.Open(file));
   PARQUET_THROW_NOT_OK(
       builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
-  return cpp11::r6(std::shared_ptr<parquet::arrow::FileReader>(std::move(reader)),
-                   "ParquetFileReader");
+  return std::move(reader);
 }
 
 // [[arrow::export]]
@@ -73,7 +108,7 @@ R6 parquet___arrow___FileReader__ReadTable1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -82,7 +117,7 @@ R6 parquet___arrow___FileReader__ReadTable2(
     const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(column_indices, &table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -90,7 +125,7 @@ R6 parquet___arrow___FileReader__ReadRowGroup1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroup(i, &table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -99,7 +134,7 @@ R6 parquet___arrow___FileReader__ReadRowGroup2(
     const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroup(i, column_indices, &table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -108,7 +143,7 @@ R6 parquet___arrow___FileReader__ReadRowGroups1(
     const std::vector<int>& row_groups) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroups(row_groups, &table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -117,7 +152,7 @@ R6 parquet___arrow___FileReader__ReadRowGroups2(
     const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroups(row_groups, column_indices, &table));
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
@@ -143,22 +178,8 @@ R6 parquet___arrow___FileReader__ReadColumn(
     const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->ReadColumn(i - 1, &array));
-  return cpp11::r6(array, "ChunkedArray");
+  return array;
 }
-
-namespace parquet {
-
-class WriterPropertiesBuilder : public WriterProperties::Builder {
- public:
-  using WriterProperties::Builder::Builder;
-};
-
-class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
- public:
-  using ArrowWriterProperties::Builder::Builder;
-};
-
-}  // namespace parquet
 
 // [[arrow::export]]
 R6 parquet___ArrowWriterProperties___create(bool allow_truncated_timestamps,
@@ -178,13 +199,12 @@ R6 parquet___ArrowWriterProperties___create(bool allow_truncated_timestamps,
     builder->coerce_timestamps(static_cast<arrow::TimeUnit::type>(timestamp_unit));
   }
 
-  return cpp11::r6(builder->build(), "ParquetArrowWriterProperties");
+  return builder->build();
 }
 
 // [[arrow::export]]
 R6 parquet___WriterProperties___Builder__create() {
-  return cpp11::r6(std::make_shared<parquet::WriterPropertiesBuilder>(),
-                   "ParquetWriterPropertiesBuilder");
+  return std::make_shared<parquet::WriterPropertiesBuilder>();
 }
 
 // [[arrow::export]]
@@ -278,7 +298,7 @@ void parquet___ArrowWriterProperties___Builder__data_page_size(
 // [[arrow::export]]
 R6 parquet___WriterProperties___Builder__build(
     const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder) {
-  return cpp11::r6(builder->build(), "ParquetWriterProperties");
+  return builder->build();
 }
 
 // [[arrow::export]]
@@ -290,8 +310,7 @@ R6 parquet___arrow___ParquetFileWriter__Open(
   std::unique_ptr<parquet::arrow::FileWriter> writer;
   PARQUET_THROW_NOT_OK(parquet::arrow::FileWriter::Open(
       *schema, gc_memory_pool(), sink, properties, arrow_properties, &writer));
-  return cpp11::r6(std::shared_ptr<parquet::arrow::FileWriter>(std::move(writer)),
-                   "ParquetFileWriter");
+  return std::shared_ptr<parquet::arrow::FileWriter>(std::move(writer));
 }
 
 // [[arrow::export]]
@@ -322,7 +341,7 @@ R6 parquet___arrow___FileReader__GetSchema(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Schema> schema;
   StopIfNotOk(reader->GetSchema(&schema));
-  return cpp11::r6(schema, "Schema");
+  return schema;
 }
 
 #endif

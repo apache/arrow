@@ -41,21 +41,24 @@ int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
 
 // [[arrow::export]]
 R6 r___RBuffer__initialize(SEXP x) {
+  std::shared_ptr<arrow::Buffer> out;
   switch (TYPEOF(x)) {
     case RAWSXP:
-      return cpp11::r6(std::make_shared<arrow::r::RBuffer<cpp11::raws>>(x), "Buffer");
-    case REALSXP:
-      return cpp11::r6(std::make_shared<arrow::r::RBuffer<cpp11::doubles>>(x), "Buffer");
-    case INTSXP:
-      return cpp11::r6(std::make_shared<arrow::r::RBuffer<cpp11::integers>>(x), "Buffer");
-    case CPLXSXP:
-      return cpp11::r6(
-          std::make_shared<arrow::r::RBuffer<arrow::r::complexs>>(arrow::r::complexs(x)),
-          "Buffer");
-    default:
+      out = std::make_shared<arrow::r::RBuffer<cpp11::raws>>(x);
       break;
+    case REALSXP:
+      out = std::make_shared<arrow::r::RBuffer<cpp11::doubles>>(x);
+      break;
+    case INTSXP:
+      out = std::make_shared<arrow::r::RBuffer<cpp11::integers>>(x);
+      break;
+    case CPLXSXP:
+      out = std::make_shared<arrow::r::RBuffer<arrow::r::complexs>>(arrow::r::complexs(x));
+      break;
+    default:
+      cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
   }
-  cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
+  return out;
 }
 
 // [[arrow::export]]

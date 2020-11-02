@@ -21,6 +21,12 @@
 #include <arrow/ipc/feather.h>
 #include <arrow/type.h>
 
+namespace cpp11 {
+template <> inline std::string r6_class_name<arrow::ipc::feather::Reader>(const std::shared_ptr<arrow::ipc::feather::Reader>& codec) {
+  return "FeatherReader";
+}
+}
+
 // ---------- WriteFeather
 
 // [[arrow::export]]
@@ -69,14 +75,13 @@ R6 ipc___feather___Reader__Read(
       break;
   }
 
-  return cpp11::r6(table, "Table");
+  return table;
 }
 
 // [[arrow::export]]
 R6 ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  return cpp11::r6(ValueOrStop(arrow::ipc::feather::Reader::Open(stream)),
-                   "FeatherReader");
+  return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
 }
 
 // [[arrow::export]]

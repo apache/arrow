@@ -122,13 +122,43 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
 namespace cpp11 {
 
-R6 r6_Array(const std::shared_ptr<arrow::Array>& array);
-R6 r6_DataType(const std::shared_ptr<arrow::DataType>& type);
-R6 r6_Field(const std::shared_ptr<arrow::Field>& field);
-R6 r6_ChunkedArray(const std::shared_ptr<arrow::ChunkedArray>& array);
-R6 r6_RecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch);
-R6 r6_Scalar(const std::shared_ptr<arrow::Scalar>& ptr);
-R6 r6_FileSystem(const std::shared_ptr<arrow::fs::FileSystem>& file_system);
+template <> std::string r6_class_name<arrow::Array>(const std::shared_ptr<arrow::Array>& array);
+template <> std::string r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>& type);
+template <> std::string r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>& ptr);
+
+template <> inline std::string r6_class_name<arrow::Field>(const std::shared_ptr<arrow::Field>& array_data) {
+  return "Field";
+}
+template <> inline std::string r6_class_name<arrow::ArrayData>(const std::shared_ptr<arrow::ArrayData>& array_data) {
+  return "ArrayData";
+}
+template <> inline std::string r6_class_name<arrow::ChunkedArray>(const std::shared_ptr<arrow::ChunkedArray>& array) {
+  return "ChunkedArray";
+}
+template <> inline std::string r6_class_name<arrow::Buffer>(const std::shared_ptr<arrow::Buffer>& array) {
+  return "Buffer";
+}
+template <> inline std::string r6_class_name<arrow::util::Codec>(const std::shared_ptr<arrow::util::Codec>& codec) {
+  return "Codec";
+}
+template <> inline std::string r6_class_name<arrow::io::CompressedOutputStream>(const std::shared_ptr<arrow::io::CompressedOutputStream>& codec) {
+  return "CompressedOutputStream";
+}
+template <> inline std::string r6_class_name<arrow::io::CompressedInputStream>(const std::shared_ptr<arrow::io::CompressedInputStream>& codec) {
+  return "CompressedInputStream";
+}
+template <> inline std::string r6_class_name<arrow::RecordBatch>(const std::shared_ptr<arrow::RecordBatch>& codec) {
+  return "RecordBatch";
+}
+template <> inline std::string r6_class_name<arrow::Table>(const std::shared_ptr<arrow::Table>& codec) {
+  return "Table";
+}
+template <> inline std::string r6_class_name<arrow::Schema>(const std::shared_ptr<arrow::Schema>& codec) {
+  return "Schema";
+}
+template <> inline std::string r6_class_name<arrow::MemoryPool>(const std::shared_ptr<arrow::MemoryPool>& x) {
+  return "MemoryPool";
+}
 
 }  // namespace cpp11
 

@@ -22,7 +22,7 @@
 
 // [[arrow::export]]
 R6 ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x) {
-  return cpp11::r6_DataType(x->type);
+  return x->type;
 }
 
 // [[arrow::export]]
@@ -42,9 +42,7 @@ int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
 
 // [[arrow::export]]
 cpp11::list ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
-  return arrow::r::to_r_list(x->buffers, [](const std::shared_ptr<arrow::Buffer>& buf) {
-    return cpp11::r6(buf, "Buffer");
-  });
+  return arrow::r::to_r_list(x->buffers, cpp11::to_r6<arrow::Buffer>);
 }
 
 #endif

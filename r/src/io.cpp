@@ -21,11 +21,29 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 
+namespace cpp11 {
+template <> inline std::string r6_class_name<arrow::io::MemoryMappedFile>(const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
+  return "MemoryMappedFile";
+}
+template <> inline std::string r6_class_name<arrow::io::ReadableFile>(const std::shared_ptr<arrow::io::ReadableFile>& x) {
+  return "ReadableFile";
+}
+template <> inline std::string r6_class_name<arrow::io::BufferReader>(const std::shared_ptr<arrow::io::BufferReader>& x) {
+  return "BufferReader";
+}
+template <> inline std::string r6_class_name<arrow::io::FileOutputStream>(const std::shared_ptr<arrow::io::FileOutputStream>& x) {
+  return "FileOutputStream";
+}
+template <> inline std::string r6_class_name<arrow::io::BufferOutputStream>(const std::shared_ptr<arrow::io::BufferOutputStream>& x) {
+  return "BufferOutputStream";
+}
+}
+
 // ------ arrow::io::Readable
 
 // [[arrow::export]]
 R6 io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
-  return cpp11::r6(ValueOrStop(x->Read(nbytes)), "Buffer");
+  return ValueOrStop(x->Read(nbytes));
 }
 
 // ------ arrow::io::InputStream
@@ -74,27 +92,25 @@ R6 io___RandomAccessFile__Read0(const std::shared_ptr<arrow::io::RandomAccessFil
 
   int64_t n = ValueOrStop(x->GetSize());
 
-  return cpp11::r6(ValueOrStop(x->Read(n - current)), "Buffer");
+  return ValueOrStop(x->Read(n - current));
 }
 
 // [[arrow::export]]
 R6 io___RandomAccessFile__ReadAt(const std::shared_ptr<arrow::io::RandomAccessFile>& x,
                                  int64_t position, int64_t nbytes) {
-  return cpp11::r6(ValueOrStop(x->ReadAt(position, nbytes)), "Buffer");
+  return ValueOrStop(x->ReadAt(position, nbytes));
 }
 
 // ------ arrow::io::MemoryMappedFile
 
 // [[arrow::export]]
 R6 io___MemoryMappedFile__Create(const std::string& path, int64_t size) {
-  auto out = ValueOrStop(arrow::io::MemoryMappedFile::Create(path, size));
-  return cpp11::r6(out, "MemoryMappedFile");
+  return ValueOrStop(arrow::io::MemoryMappedFile::Create(path, size));
 }
 
 // [[arrow::export]]
 R6 io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode) {
-  auto out = ValueOrStop(arrow::io::MemoryMappedFile::Open(path, mode));
-  return cpp11::r6(out, "MemoryMappedFile");
+  return ValueOrStop(arrow::io::MemoryMappedFile::Open(path, mode));
 }
 
 // [[arrow::export]]
@@ -107,16 +123,14 @@ void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMapped
 
 // [[arrow::export]]
 R6 io___ReadableFile__Open(const std::string& path) {
-  auto file = ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
-  return cpp11::r6(file, "ReadableFile");
+  return ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
 }
 
 // ------ arrow::io::BufferReader
 
 // [[arrow::export]]
 R6 io___BufferReader__initialize(const std::shared_ptr<arrow::Buffer>& buffer) {
-  auto reader = std::make_shared<arrow::io::BufferReader>(buffer);
-  return cpp11::r6(reader, "BufferReader");
+  return std::make_shared<arrow::io::BufferReader>(buffer);
 }
 
 // ------- arrow::io::Writable
@@ -138,17 +152,15 @@ int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& 
 
 // [[arrow::export]]
 R6 io___FileOutputStream__Open(const std::string& path) {
-  return cpp11::r6(ValueOrStop(arrow::io::FileOutputStream::Open(path)),
-                   "FileOutputStream");
+  return ValueOrStop(arrow::io::FileOutputStream::Open(path));
 }
 
 // ------ arrow::BufferOutputStream
 
 // [[arrow::export]]
 R6 io___BufferOutputStream__Create(int64_t initial_capacity) {
-  auto stream = ValueOrStop(
+  return ValueOrStop(
       arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
-  return cpp11::r6(stream, "BufferOutputStream");
 }
 
 // [[arrow::export]]
@@ -160,7 +172,7 @@ int64_t io___BufferOutputStream__capacity(
 // [[arrow::export]]
 R6 io___BufferOutputStream__Finish(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return cpp11::r6(ValueOrStop(stream->Finish()), "Buffer");
+  return ValueOrStop(stream->Finish());
 }
 
 // [[arrow::export]]

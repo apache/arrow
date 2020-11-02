@@ -24,7 +24,7 @@
 
 // [[arrow::export]]
 R6 schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-  return cpp11::r6(arrow::schema(fields), "Schema");
+  return arrow::schema(fields);
 }
 
 // [[arrow::export]]
@@ -43,17 +43,17 @@ R6 Schema__field(const std::shared_ptr<arrow::Schema>& s, int i) {
     cpp11::stop("Invalid field index for schema.");
   }
 
-  return cpp11::r6(s->field(i), "Field");
+  return s->field(i);
 }
 
 // [[arrow::export]]
 R6 Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x) {
-  return cpp11::r6(s->GetFieldByName(x), "Field");
+  return s->GetFieldByName(x);
 }
 
 // [[arrow::export]]
 cpp11::list Schema__fields(const std::shared_ptr<arrow::Schema>& schema) {
-  return arrow::r::to_r_list(schema->fields(), cpp11::r6_Field);
+  return arrow::r::to_r_list(schema->fields(), cpp11::to_r6<arrow::Field>);
 }
 
 // [[arrow::export]]
@@ -98,7 +98,7 @@ R6 Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema,
 
   auto kv =
       std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
-  return cpp11::r6(schema->WithMetadata(std::move(kv)), "Schema");
+  return schema->WithMetadata(std::move(kv));
 }
 
 // [[arrow::export]]
@@ -116,7 +116,7 @@ bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema,
 
 // [[arrow::export]]
 R6 arrow__UnifySchemas(const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
-  return cpp11::r6(ValueOrStop(arrow::UnifySchemas(schemas)), "Schema");
+  return ValueOrStop(arrow::UnifySchemas(schemas));
 }
 
 #endif

@@ -20,15 +20,11 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/type.h>
 
-namespace cpp11 {
-R6 r6_Field(const std::shared_ptr<arrow::Field>& field) { return r6(field, "Field"); }
-}  // namespace cpp11
-
 // [[arrow::export]]
 R6 Field__initialize(const std::string& name,
                      const std::shared_ptr<arrow::DataType>& field,
                      bool nullable = true) {
-  return cpp11::r6(arrow::field(name, field, nullable), "Field");
+  return arrow::field(name, field, nullable);
 }
 
 // [[arrow::export]]
@@ -54,7 +50,7 @@ bool Field__nullable(const std::shared_ptr<arrow::Field>& field) {
 
 // [[arrow::export]]
 R6 Field__type(const std::shared_ptr<arrow::Field>& field) {
-  return cpp11::r6_DataType(field->type());
+  return field->type();
 }
 
 #endif

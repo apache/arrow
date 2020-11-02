@@ -24,8 +24,6 @@
 
 #include "./nameof.h"
 
-using R6 = SEXP;
-
 // TODO: move this include up once we can resolve this issue in cpp11
 //       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
@@ -296,8 +294,13 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
-R6 r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
+std::string r6_class_name(const std::shared_ptr<T>& x) ;
+
+template <typename T>
+SEXP to_r6(const std::shared_ptr<T>& x) {
   if (x == nullptr) return R_NilValue;
+
+  auto r_class_name = cpp11::r6_class_name<T>(x);
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
   SEXP r6_class = Rf_install(r_class_name.c_str());
 
@@ -311,6 +314,28 @@ R6 r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
   UNPROTECT(3);
   return r6;
 }
+}
+
+class R6 {
+public:
+
+  template <typename T>
+  R6(const std::shared_ptr<T>& x) : data_(cpp11::to_r6<T>(x)){}
+
+  template <typename T>
+  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::shared_ptr<T>(x.release()))){}
+
+  R6(SEXP data) : data_(data){}
+
+  operator SEXP() const {
+    return data_;
+  }
+
+private:
+  SEXP data_;
+};
+
+namespace cpp11 {
 
 template <typename T>
 using enable_if_shared_ptr = typename std::enable_if<

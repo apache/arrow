@@ -22,13 +22,13 @@
 // [[arrow::export]]
 R6 ImportArray(arrow::r::Pointer<struct ArrowArray> array,
                arrow::r::Pointer<struct ArrowSchema> schema) {
-  return cpp11::r6_Array(ValueOrStop(arrow::ImportArray(array, schema)));
+  return ValueOrStop(arrow::ImportArray(array, schema));
 }
 
 // [[arrow::export]]
 R6 ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array,
                      arrow::r::Pointer<struct ArrowSchema> schema) {
-  return cpp11::r6(ValueOrStop(arrow::ImportRecordBatch(array, schema)), "RecordBatch");
+  return ValueOrStop(arrow::ImportRecordBatch(array, schema));
 }
 
 // [[arrow::export]]
