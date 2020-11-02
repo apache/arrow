@@ -125,23 +125,22 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchExact(inputs));
   std::unique_ptr<KernelState> state;
 
+  KernelContext kernel_ctx{ctx};
   if (kernel->init) {
-    KernelContext kernel_ctx{ctx};
     state = kernel->init(&kernel_ctx, {kernel, inputs, options});
     RETURN_NOT_OK(kernel_ctx.status());
+    kernel_ctx.SetState(state.get());
   }
 
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
-    ARROW_ASSIGN_OR_RAISE(
-        executor, detail::KernelExecutor::MakeScalar(ctx, {kernel, inputs, options}));
+    executor = detail::KernelExecutor::MakeScalar();
   } else if (kind() == Function::VECTOR) {
-    ARROW_ASSIGN_OR_RAISE(
-        executor, detail::KernelExecutor::MakeVector(ctx, {kernel, inputs, options}));
+    executor = detail::KernelExecutor::MakeVector();
   } else {
-    ARROW_ASSIGN_OR_RAISE(executor, detail::KernelExecutor::MakeScalarAggregate(
-                                        ctx, {kernel, inputs, options}));
+    executor = detail::KernelExecutor::MakeScalarAggregate();
   }
+  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
   auto listener = std::make_shared<detail::DatumAccumulator>();
   RETURN_NOT_OK(executor->Execute(args, listener.get()));

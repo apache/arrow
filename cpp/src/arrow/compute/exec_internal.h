@@ -106,21 +106,18 @@ class ARROW_EXPORT KernelExecutor {
  public:
   virtual ~KernelExecutor() = default;
 
+  virtual Status Init(KernelContext*, KernelInitArgs) = 0;
+
   /// XXX: Better configurability for listener
   /// Not thread-safe
   virtual Status Execute(const std::vector<Datum>& args, ExecListener* listener) = 0;
 
-  virtual ValueDescr output_descr() const = 0;
-
   virtual Datum WrapResults(const std::vector<Datum>& args,
                             const std::vector<Datum>& outputs) = 0;
 
-  static Result<std::unique_ptr<KernelExecutor>> MakeScalar(ExecContext* ctx,
-                                                            KernelInitArgs);
-  static Result<std::unique_ptr<KernelExecutor>> MakeVector(ExecContext* ctx,
-                                                            KernelInitArgs);
-  static Result<std::unique_ptr<KernelExecutor>> MakeScalarAggregate(ExecContext* ctx,
-                                                                     KernelInitArgs);
+  static std::unique_ptr<KernelExecutor> MakeScalar();
+  static std::unique_ptr<KernelExecutor> MakeVector();
+  static std::unique_ptr<KernelExecutor> MakeScalarAggregate();
 };
 
 /// \brief Populate validity bitmap with the intersection of the nullity of the
