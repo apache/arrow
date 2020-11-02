@@ -32,11 +32,11 @@ import io.grpc.Metadata.Key;
  *
  * <p>This allows us to present the headers (metadata) from gRPC without copying to/from our own object.
  */
-class MetadataAdapter implements CallHeaders {
+public class MetadataAdapter implements CallHeaders {
 
   private final Metadata metadata;
 
-  MetadataAdapter(Metadata metadata) {
+  public MetadataAdapter(Metadata metadata) {
     this.metadata = metadata;
   }
 

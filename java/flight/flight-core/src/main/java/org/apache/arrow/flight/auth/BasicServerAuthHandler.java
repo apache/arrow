@@ -71,5 +71,4 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   public Optional<String> isValid(byte[] token) {
     return authValidator.isValid(token);
   }
-
 }

@@ -22,6 +22,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -33,7 +34,12 @@ import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
+import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientHandshakeWrapper;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -80,6 +86,7 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
+  private final List<FlightClientMiddleware.Factory> middleware;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
@@ -88,6 +95,7 @@ public class FlightClient implements AutoCloseable {
       List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
+    this.middleware = middleware;
 
     final ClientInterceptor[] interceptors;
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
@@ -174,6 +182,32 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
     ClientAuthWrapper.doClientAuth(handler, CallOptions.wrapStub(asyncStub, options));
     authInterceptor.setAuthHandler(handler);
+  }
+
+  /**
+   * Authenticates with a username and password.
+   *
+   * @param username the username.
+   * @param password the password.
+   * @return a CredentialCallOption containing a bearer token if the server emitted one, or
+   *     empty if no bearer token was returned. This can be used in subsequent API calls.
+   */
+  public Optional<CredentialCallOption> authenticateBasicToken(String username, String password) {
+    final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
+            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+    middleware.add(clientAuthMiddleware);
+    handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
+
+    return Optional.ofNullable(clientAuthMiddleware.getCredentialCallOption());
+  }
+
+  /**
+   * Executes the handshake against the Flight service.
+   *
+   * @param options RPC-layer hints for this call.
+   */
+  public void handshake(CallOption... options) {
+    ClientHandshakeWrapper.doClientHandshake(CallOptions.wrapStub(asyncStub, options));
   }
 
   /**
@@ -381,6 +415,9 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
+  /**
+   * A stream observer for Flight.PutResult
+   */
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
@@ -524,7 +561,6 @@ public class FlightClient implements AutoCloseable {
    * A builder for Flight clients.
    */
   public static final class Builder {
-
     private BufferAllocator allocator;
     private Location location;
     private boolean forceTls = false;

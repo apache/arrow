@@ -217,7 +217,7 @@ public class TestServerMiddleware {
       ErrorRecorder instance = new ErrorRecorder();
 
       @Override
-      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
         return instance;
       }
     }

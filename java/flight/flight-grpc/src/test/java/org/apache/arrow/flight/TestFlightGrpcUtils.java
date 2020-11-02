@@ -57,7 +57,7 @@ public class TestFlightGrpcUtils {
     final ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     final ExecutorService exec = Executors.newCachedThreadPool();
     final BindableService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer,
-            authHandler, exec);
+        authHandler, exec);
 
     //initializes server with 2 services - FlightBindingService & TestService
     final String serverName = InProcessServerBuilder.generateName();
