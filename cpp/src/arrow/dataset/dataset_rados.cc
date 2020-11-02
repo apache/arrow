@@ -47,6 +47,24 @@ std::shared_ptr<RadosOptions> RadosOptions::FromPoolName(std::string pool_name) 
   return options;
 }
 
+Status RadosFragment::WriteFragment(RecordBatchVector& batches,
+                                    std::shared_ptr<RadosOptions> rados_options,
+                                    std::shared_ptr<RadosObject> object) {
+  ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batches));
+
+  librados::bufferlist in, out;
+  RETURN_NOT_OK(serialize_table_to_bufferlist(table, in));
+
+  int e = rados_options->io_ctx_interface_->exec(
+      object->id(), rados_options->cls_name_.c_str(), "write", in, out);
+  if (e != 0) {
+    return Status::ExecutionError(
+        "call to exec() in RadosFragment::WriteFragment() returned non-zero exit code.");
+  }
+
+  return Status::OK();
+}
+
 Result<ScanTaskIterator> RadosFragment::Scan(std::shared_ptr<ScanOptions> options,
                                              std::shared_ptr<ScanContext> context) {
   ScanTaskVector v{std::make_shared<RadosScanTask>(std::move(options), std::move(context),
