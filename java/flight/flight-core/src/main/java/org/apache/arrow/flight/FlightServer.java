@@ -168,6 +168,7 @@ public class FlightServer implements AutoCloseable {
     private final Map<String, Object> builderOptions;
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
+    private ServerSessionHandler sessionHandler = ServerSessionHandler.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
@@ -196,6 +197,12 @@ public class FlightServer implements AutoCloseable {
         this.middleware(FlightServerMiddleware.Key.of(Auth2Constants.AUTHORIZATION_HEADER),
             new ServerCallHeaderAuthMiddleware.Factory(headerAuthenticator));
       }
+
+      if (sessionHandler != ServerSessionHandler.NO_OP) {
+        this.middleware(FlightServerMiddleware.Key.of(FlightConstants.SESSION_HEADER),
+                new ServerSessionMiddleware.Factory(sessionHandler));
+      }
+
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
         case LocationSchemes.GRPC_DOMAIN_SOCKET: {
@@ -348,6 +355,14 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder headerAuthenticator(CallHeaderAuthenticator headerAuthenticator) {
       this.headerAuthenticator = headerAuthenticator;
+      return this;
+    }
+
+    /**
+     * Set the session handler.
+     */
+    public Builder sessionHandler(ServerSessionHandler sessionHandler) {
+      this.sessionHandler = sessionHandler;
       return this;
     }
 

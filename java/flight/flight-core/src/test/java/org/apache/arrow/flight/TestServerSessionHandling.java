@@ -17,12 +17,5 @@
 
 package org.apache.arrow.flight;
 
-/**
- * String constants relevant to flight implementations.
- */
-public interface FlightConstants {
-
-  String SERVICE = "arrow.flight.protocol.FlightService";
-  String SESSION_HEADER = "SET-SESSION";
-
+public class TestServerSessionHandling {
 }
