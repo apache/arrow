@@ -95,6 +95,16 @@ class ARROW_DS_EXPORT RadosFragment : public Fragment {
 
   bool splittable() const override { return false; }
 
+  /// \brief Write data to a Fragment.
+  ///
+  /// \param[in] batches the vector of RecordBatches to write.
+  /// \param[in] rados_options the connection information to the RADOS cluster.
+  /// \param[in] object a RadosObject instance containing information about the object to
+  /// write.
+  static Status WriteFragment(RecordBatchVector& batches,
+                              std::shared_ptr<RadosOptions> rados_options,
+                              std::shared_ptr<RadosObject> object);
+
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
   std::shared_ptr<RadosObject> object_;
