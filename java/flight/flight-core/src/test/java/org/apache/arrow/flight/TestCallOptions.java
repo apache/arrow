@@ -18,9 +18,13 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -64,14 +68,95 @@ public class TestCallOptions {
     });
   }
 
-  void test(Consumer<FlightClient> testFn) {
+  @Test
+  public void singleProperty() {
+    final String keyVal = "key";
+    final String propVal = "prop";
+    final Map<String, Object> properties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
+    });
+
+    Assert.assertTrue(properties.containsKey(keyVal));
+    Assert.assertEquals(propVal, properties.get(keyVal));
+  }
+
+  @Test
+  public void nullProperty() {
+    final String keyVal = "key";
+    final String propVal = null;
+    final Map<String, Object> properties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
+    });
+
+    Assert.assertTrue(properties.containsKey(keyVal));
+    Assert.assertNull(properties.get(keyVal));
+  }
+
+  @Test
+  public void multipleProperties() {
+    final Map<String, Serializable> properties = new HashMap<>();
+    properties.put("key", "value");
+    properties.put("key2", "value2");
+    final Map<String, Object> receivedProperties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
+    });
+
+    Assert.assertEquals(properties, receivedProperties);
+  }
+
+  @Test
+  public void separatorCharProperties() {
+    final Map<String, Serializable> properties = new HashMap<>();
+    properties.put("key", "val=ue");
+    properties.put("key2", "val;ue2");
+    properties.put("ke=y3", "value");
+    properties.put("ke;y4", "value2");
+    final Map<String, Object> receivedProperties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
+    });
+
+    Assert.assertEquals(properties, receivedProperties);
+  }
+
+  @Test
+  public void specialCharProperties() {
+    final Map<String, Serializable> properties = new HashMap<>();
+    properties.put("key", "ëfßæ");
+    properties.put("keÿñœy2", "value2");
+    final Map<String, Object> receivedProperties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
+    });
+
+    Assert.assertEquals(properties, receivedProperties);
+  }
+
+  @Test
+  public void objectProperty() {
+    // Use ArrayList instead of List as it's Serializable.
+    final ArrayList<Integer> propList = new ArrayList<>();
+    propList.add(2);
+    propList.add(5);
+
+    final Map<String, Serializable> properties = new HashMap<>();
+    properties.put("key", propList);
+    final Map<String, Object> receivedProperties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
+    });
+
+    Assert.assertEquals(properties, receivedProperties);
+  }
+
+  Map<String, Object> test(Consumer<FlightClient> testFn) {
+    final Map<String, Object> properties = new HashMap<>();
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+            FlightTestUtil.getStartedServer((location) ->
+                FlightServer.builder(a, location, producer).propertyHandler(properties::putAll).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
+      return properties;
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }

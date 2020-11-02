@@ -17,12 +17,15 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Map;
+import java.util.function.Consumer;
+
 /**
- * String constants relevant to flight implementations.
+ * Interface for server side property handling.
  */
-public interface FlightConstants {
-
-  String SERVICE = "arrow.flight.protocol.FlightService";
-  String PROPERTY_HEADER = "Arrow-Properties";
-
+public interface ServerPropertyHandler extends Consumer<Map<String, Object>> {
+  /**
+   * A property handler that does nothing.
+   */
+  ServerPropertyHandler NO_OP = (s) -> { };
 }
