@@ -26,6 +26,7 @@
 #include "arrow/dataset/rados_utils.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
+#include "arrow/util/iterator.h"
 
 #include "arrow/adapters/skyhookdm-ceph-cls/cls_arrow_test_utils.h"
 #include "gtest/gtest.h"
@@ -83,6 +84,15 @@ int create_test_arrow_table(std::shared_ptr<arrow::Table>* out_table) {
     return -1;
   }
   return 0;
+}
+
+arrow::RecordBatchVector create_test_record_batches() {
+  std::shared_ptr<arrow::Table> table;
+  create_test_arrow_table(&table);
+  arrow::TableBatchReader table_reader(*table);
+  arrow::RecordBatchVector batches;
+  table_reader.ReadAll(&batches);
+  return batches;
 }
 
 TEST(ClsSDK, TestWriteAndReadTable) {
@@ -174,56 +184,51 @@ TEST(ClsSDK, TestSelection) {
 }
 
 TEST(ClsSDK, TestEndToEnd) {
+  /// Create a test pool in the Cluster.
   librados::Rados cluster;
-  std::string pool_name = "test-pool";
-  librados::create_one_pool_pp(pool_name, cluster);
-  librados::IoCtx ioctx;
-  cluster.ioctx_create(pool_name.c_str(), ioctx);
+  librados::create_one_pool_pp("test-pool", cluster);
 
-  librados::bufferlist in, out;
-  std::shared_ptr<arrow::Table> table;
-  create_test_arrow_table(&table);
-  arrow::dataset::serialize_table_to_bufferlist(table, in);
-
-  arrow::TableBatchReader table_reader(*table);
-  arrow::RecordBatchVector batches;
-  table_reader.ReadAll(&batches);
-
-  for (int i = 0; i < 4; i++) {
-    std::string obj_id = "obj." + std::to_string(i);
-    ASSERT_EQ(0, ioctx.exec(obj_id, "arrow", "write", in, out));
-  }
-
+  /// Instantiate the RadosDataset.
+  auto options = arrow::dataset::RadosOptions::FromPoolName("test-pool");
   auto schema = arrow::schema(
       {arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
        arrow::field("cost_components", arrow::list(arrow::float64()))});
-
   arrow::dataset::RadosObjectVector objects;
-  for (int i = 0; i < 1; i++)
+  for (int i = 0; i < 4; i++)
     objects.push_back(
         std::make_shared<arrow::dataset::RadosObject>("obj." + std::to_string(i)));
-
-  auto rados_options = arrow::dataset::RadosOptions::FromPoolName("test-pool");
-
   auto rados_ds =
-      std::make_shared<arrow::dataset::RadosDataset>(schema, objects, rados_options);
-  auto inmemory_ds = std::make_shared<arrow::dataset::InMemoryDataset>(schema, batches);
+      std::make_shared<arrow::dataset::RadosDataset>(schema, objects, options);
 
-  auto context = std::make_shared<arrow::dataset::ScanContext>();
+  /// Prepare RecordBatches and Write the fragments.
+  auto record_batches = create_test_record_batches();
+  for (int i = 0; i < 4; i++) {
+    arrow::dataset::RadosFragment::WriteFragment(record_batches, options, objects[i]);
+  }
 
+  /// Perform filter and projection on the RadosDataset.
   auto rados_scanner_builder = rados_ds->NewScan().ValueOrDie();
-  auto inmemory_scanner_builder = inmemory_ds->NewScan().ValueOrDie();
-
   rados_scanner_builder->Filter(("id"_ > int32_t(7)).Copy());
   rados_scanner_builder->Project(std::vector<std::string>{"cost", "id"});
   auto rados_scanner = rados_scanner_builder->Finish().ValueOrDie();
+  auto result_table = rados_scanner->ToTable().ValueOrDie();
 
+  /// Perform the same operations through an InMemoryDataset.
+  arrow::RecordBatchVector batches;
+  for (auto batch : record_batches) {
+    batches.push_back(batch);
+    batches.push_back(batch);
+    batches.push_back(batch);
+    batches.push_back(batch);
+  }
+
+  auto inmemory_ds = std::make_shared<arrow::dataset::InMemoryDataset>(schema, batches);
+  auto inmemory_scanner_builder = inmemory_ds->NewScan().ValueOrDie();
   inmemory_scanner_builder->Filter(("id"_ > int32_t(7)).Copy());
   inmemory_scanner_builder->Project(std::vector<std::string>{"cost", "id"});
   auto inmemory_scanner = inmemory_scanner_builder->Finish().ValueOrDie();
-
   auto expected_table = inmemory_scanner->ToTable().ValueOrDie();
-  auto result_table = rados_scanner->ToTable().ValueOrDie();
 
+  /// Check if both the result Tables are same or not.
   ASSERT_EQ(result_table->Equals(*expected_table), 1);
 }
