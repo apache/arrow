@@ -52,9 +52,41 @@ The benchmark can then be run (assuming the data created from `dbgen` is in `/mn
 cargo run --release --bin tpch -- --iterations 3 --path /mnt/tpch-dbgen --format tbl --query 1 --batch-size 4096
 ```
 
-The benchmark program also supports CSV and Parquet input file formats. This crate does not currently provide a method
-for converting the generated tbl format to CSV or Parquet so it is necessary to use other tools to perform this
-conversion.
+The benchmark program also supports CSV and Parquet input file formats.
+
+This crate does not currently provide a method for converting the generated tbl format to CSV or Parquet so it is 
+necessary to use other tools to perform this conversion.
+
+One option is to use the following Docker image to perform the conversion from `tbl` files to CSV or Parquet.
+
+```bash
+docker run -it ballistacompute/spark-benchmarks:0.4.0-SNAPSHOT 
+  -h, --help   Show help message
+
+Subcommand: convert-tpch
+  -i, --input  <arg>
+      --input-format  <arg>
+  -o, --output  <arg>
+      --output-format  <arg>
+  -p, --partitions  <arg>
+  -h, --help                   Show help message
+```
+
+Note that it is necessary to mount volumes into the Docker container as appropriate so that the file conversion process
+can access files on the host system.
+
+Here is a full example that assumes that data is stored in the `/mnt` path on the host system.
+
+```bash
+docker run -v /mnt:/mnt -it ballistacompute/spark-benchmarks:0.4.0-SNAPSHOT \
+  convert-tpch \
+  --input /mnt/tpch/csv \
+  --input-format tbl \
+  --output /mnt/tpch/parquet \
+  --output-format parquet \
+  --partitions 64
+```
+
 
 ## NYC Taxi Benchmark
 
