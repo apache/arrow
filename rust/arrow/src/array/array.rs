@@ -1002,7 +1002,9 @@ where
     A: Array,
     F: Fn(&A, usize, &mut fmt::Formatter) -> fmt::Result,
 {
-    for i in 0..std::cmp::min(10, array.len()) {
+    let head = std::cmp::min(10, array.len());
+
+    for i in 0..head {
         if array.is_null(i) {
             writeln!(f, "  null,")?;
         } else {
@@ -1015,7 +1017,10 @@ where
         if array.len() > 20 {
             writeln!(f, "  ...{} elements...,", array.len() - 20)?;
         }
-        for i in array.len() - 10..array.len() {
+
+        let tail = std::cmp::max(head, array.len() - 10);
+
+        for i in tail..array.len() {
             if array.is_null(i) {
                 writeln!(f, "  null,")?;
             } else {
@@ -2717,6 +2722,24 @@ mod tests {
             "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
             format!("{:?}", arr)
         );
+    }
+
+    #[test]
+    fn test_fmt_debug_up_to_20_elements() {
+        (1..=20).for_each(|i| {
+            let values = (0..i).collect::<Vec<i16>>();
+            let array_expected = format!(
+                "PrimitiveArray<Int16>\n[\n{}\n]",
+                values
+                    .iter()
+                    .map(|v| { format!("  {},", v) })
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+            let array = Int16Array::from(values);
+
+            assert_eq!(array_expected, format!("{:?}", array));
+        })
     }
 
     #[test]
