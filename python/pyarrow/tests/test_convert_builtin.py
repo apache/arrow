@@ -2008,7 +2008,7 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     restored = pa.array(data, type=ty)
     assert arr.equals(restored)
     assert restored.to_pylist() == [
-        pd.Timestamp(value, unit='ns', tz='US/Eastern')
+        pd.Timestamp(value, unit='ns').tz_localize("UTC").tz_convert('US/Eastern')
     ]
 
 
