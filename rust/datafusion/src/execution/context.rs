@@ -162,7 +162,7 @@ impl ExecutionContext {
 
     /// Creates a logical plan. This function is intended for internal use and should not be
     /// called directly.
-    pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
+    pub fn create_logical_plan(&self, sql: &str) -> Result<LogicalPlan> {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
@@ -624,7 +624,7 @@ mod tests {
     async fn parallel_query_with_filter() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let partition_count = 4;
-        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+        let ctx = create_ctx(&tmp_dir, partition_count)?;
 
         let logical_plan =
             ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")?;
@@ -1225,7 +1225,7 @@ mod tests {
             .map(|_| ctx.clone())
             .map(|ctx_clone| {
                 thread::spawn(move || {
-                    let mut ctx = ctx_clone.lock().expect("Locked context");
+                    let ctx = ctx_clone.lock().expect("Locked context");
                     // Ensure we can create logical plan code on a separate thread.
                     ctx.create_logical_plan(
                         "SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3",
