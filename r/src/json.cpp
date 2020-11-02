@@ -21,17 +21,22 @@
 #include <arrow/json/reader.h>
 
 namespace cpp11 {
-template <> std::string r6_class_name<arrow::json::ReadOptions>(const std::shared_ptr<arrow::json::ReadOptions>& x) {
+template <>
+std::string r6_class_name<arrow::json::ReadOptions>(
+    const std::shared_ptr<arrow::json::ReadOptions>& x) {
   return "JsonReadOptions";
 }
-template <> std::string r6_class_name<arrow::json::ParseOptions>(const std::shared_ptr<arrow::json::ParseOptions>& x) {
+template <>
+std::string r6_class_name<arrow::json::ParseOptions>(
+    const std::shared_ptr<arrow::json::ParseOptions>& x) {
   return "JsonParseOptions";
 }
-template <> std::string r6_class_name<arrow::json::TableReader>(const std::shared_ptr<arrow::json::TableReader>& x) {
+template <>
+std::string r6_class_name<arrow::json::TableReader>(
+    const std::shared_ptr<arrow::json::TableReader>& x) {
   return "JsonTableReader";
 }
-}
-
+}  // namespace cpp11
 
 // [[arrow::export]]
 R6 json___ReadOptions__initialize(bool use_threads, int block_size) {
@@ -55,8 +60,8 @@ R6 json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
     const std::shared_ptr<arrow::json::ParseOptions>& parse_options) {
-  return ValueOrStop(arrow::json::TableReader::Make(
-      gc_memory_pool(), input, *read_options, *parse_options));
+  return ValueOrStop(arrow::json::TableReader::Make(gc_memory_pool(), input,
+                                                    *read_options, *parse_options));
 }
 
 // [[arrow::export]]

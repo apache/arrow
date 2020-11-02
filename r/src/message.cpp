@@ -22,13 +22,17 @@
 #include <arrow/ipc/writer.h>
 
 namespace cpp11 {
-template <> std::string r6_class_name<arrow::ipc::MessageReader>(const std::shared_ptr<arrow::ipc::MessageReader>& x) {
+template <>
+std::string r6_class_name<arrow::ipc::MessageReader>(
+    const std::shared_ptr<arrow::ipc::MessageReader>& x) {
   return "MessageReader";
 }
-template <> std::string r6_class_name<arrow::ipc::Message>(const std::shared_ptr<arrow::ipc::Message>& x) {
+template <>
+std::string r6_class_name<arrow::ipc::Message>(
+    const std::shared_ptr<arrow::ipc::Message>& x) {
   return "Message";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {

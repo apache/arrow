@@ -53,7 +53,7 @@ R6 Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x
 
 // [[arrow::export]]
 cpp11::list Schema__fields(const std::shared_ptr<arrow::Schema>& schema) {
-  return arrow::r::to_r_list(schema->fields(), cpp11::to_r6<arrow::Field>);
+  return arrow::r::to_r_list(schema->fields());
 }
 
 // [[arrow::export]]

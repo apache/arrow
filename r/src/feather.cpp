@@ -22,10 +22,12 @@
 #include <arrow/type.h>
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<arrow::ipc::feather::Reader>(const std::shared_ptr<arrow::ipc::feather::Reader>& codec) {
+template <>
+inline std::string r6_class_name<arrow::ipc::feather::Reader>(
+    const std::shared_ptr<arrow::ipc::feather::Reader>& codec) {
   return "FeatherReader";
 }
-}
+}  // namespace cpp11
 
 // ---------- WriteFeather
 

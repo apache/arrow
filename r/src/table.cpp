@@ -31,9 +31,7 @@ int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x) { return x->num_rows(); }
 
 // [[arrow::export]]
-R6 Table__schema(const std::shared_ptr<arrow::Table>& x) {
-  return x->schema();
-}
+R6 Table__schema(const std::shared_ptr<arrow::Table>& x) { return x->schema(); }
 
 // [[arrow::export]]
 R6 Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x,
@@ -64,7 +62,7 @@ cpp11::list Table__columns(const std::shared_ptr<arrow::Table>& table) {
   for (int i = 0; i < nc; i++) {
     res[i] = table->column(i);
   }
-  return arrow::r::to_r_list(res, cpp11::to_r6<arrow::ChunkedArray>);
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]

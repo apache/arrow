@@ -27,39 +27,51 @@
 namespace parquet {
 
 class WriterPropertiesBuilder : public WriterProperties::Builder {
-public:
+ public:
   using WriterProperties::Builder::Builder;
 };
 
 class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
-public:
+ public:
   using ArrowWriterProperties::Builder::Builder;
 };
 
 }  // namespace parquet
 
 namespace cpp11 {
-template <> std::string r6_class_name<parquet::ArrowReaderProperties>(const std::shared_ptr<parquet::ArrowReaderProperties>& x) {
+template <>
+std::string r6_class_name<parquet::ArrowReaderProperties>(
+    const std::shared_ptr<parquet::ArrowReaderProperties>& x) {
   return "ParquetArrowReaderProperties";
 }
-template <> std::string r6_class_name<parquet::ArrowWriterProperties>(const std::shared_ptr<parquet::ArrowWriterProperties>& x) {
+template <>
+std::string r6_class_name<parquet::ArrowWriterProperties>(
+    const std::shared_ptr<parquet::ArrowWriterProperties>& x) {
   return "ParquetArrowWriterProperties";
 }
-template <> std::string r6_class_name<parquet::WriterProperties>(const std::shared_ptr<parquet::WriterProperties>& x) {
+template <>
+std::string r6_class_name<parquet::WriterProperties>(
+    const std::shared_ptr<parquet::WriterProperties>& x) {
   return "ParquetWriterProperties";
 }
 
-template <> std::string r6_class_name<parquet::arrow::FileReader>(const std::shared_ptr<parquet::arrow::FileReader>& x) {
+template <>
+std::string r6_class_name<parquet::arrow::FileReader>(
+    const std::shared_ptr<parquet::arrow::FileReader>& x) {
   return "ParquetFileReader";
 }
-template <> std::string r6_class_name<parquet::WriterPropertiesBuilder>(const std::shared_ptr<parquet::WriterPropertiesBuilder>& x) {
+template <>
+std::string r6_class_name<parquet::WriterPropertiesBuilder>(
+    const std::shared_ptr<parquet::WriterPropertiesBuilder>& x) {
   return "ParquetWriterPropertiesBuilder";
 }
 
-template <> std::string r6_class_name<parquet::arrow::FileWriter>(const std::shared_ptr<parquet::arrow::FileWriter>& x) {
+template <>
+std::string r6_class_name<parquet::arrow::FileWriter>(
+    const std::shared_ptr<parquet::arrow::FileWriter>& x) {
   return "ParquetFileWriter";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 R6 parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {

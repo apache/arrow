@@ -30,31 +30,39 @@ namespace fs = ::arrow::fs;
 
 namespace cpp11 {
 
-template <> std::string r6_class_name<ds::Dataset>(const std::shared_ptr<ds::Dataset>& dataset) {
+template <>
+std::string r6_class_name<ds::Dataset>(const std::shared_ptr<ds::Dataset>& dataset) {
   auto type_name = dataset->type_name();
 
   if (type_name == "union") {
     return "UnionDataset";
   } else if (type_name == "filesystem") {
     return "FileSystemDataset";
-  } else if(type_name == "in-memory"){
+  } else if (type_name == "in-memory") {
     return "InMemoryDataset";
   } else {
     return "Dataset";
   }
 }
-template <> std::string r6_class_name<ds::UnionDataset>(const std::shared_ptr<ds::UnionDataset>& dataset) {
+template <>
+std::string r6_class_name<ds::UnionDataset>(
+    const std::shared_ptr<ds::UnionDataset>& dataset) {
   return "UnionDataset";
 }
-template <> std::string r6_class_name<ds::InMemoryDataset>(const std::shared_ptr<ds::InMemoryDataset>& dataset) {
+template <>
+std::string r6_class_name<ds::InMemoryDataset>(
+    const std::shared_ptr<ds::InMemoryDataset>& dataset) {
   return "InMemoryDataset";
 }
-template <> std::string r6_class_name<ds::FileSystemDataset>(const std::shared_ptr<ds::FileSystemDataset>& dataset) {
+template <>
+std::string r6_class_name<ds::FileSystemDataset>(
+    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
   return "FileSystemDataset";
 }
 
-
-template <> std::string r6_class_name<fs::FileSystem>(const std::shared_ptr<fs::FileSystem>& file_system) {
+template <>
+std::string r6_class_name<fs::FileSystem>(
+    const std::shared_ptr<fs::FileSystem>& file_system) {
   auto type_name = file_system->type_name();
 
   if (type_name == "local") {
@@ -68,7 +76,9 @@ template <> std::string r6_class_name<fs::FileSystem>(const std::shared_ptr<fs::
   }
 }
 
-template <> std::string r6_class_name<ds::FileFormat>(const std::shared_ptr<ds::FileFormat>& file_format) {
+template <>
+std::string r6_class_name<ds::FileFormat>(
+    const std::shared_ptr<ds::FileFormat>& file_format) {
   auto type_name = file_format->type_name();
   if (type_name == "parquet") {
     return "ParquetFileFormat";
@@ -80,41 +90,63 @@ template <> std::string r6_class_name<ds::FileFormat>(const std::shared_ptr<ds::
     return "FileFormat";
   }
 }
-template <> std::string r6_class_name<ds::ScannerBuilder>(const std::shared_ptr<ds::ScannerBuilder>& x) {
+template <>
+std::string r6_class_name<ds::ScannerBuilder>(
+    const std::shared_ptr<ds::ScannerBuilder>& x) {
   return "ScannerBuilder";
 }
-template <> std::string r6_class_name<ds::DatasetFactory>(const std::shared_ptr<ds::DatasetFactory>& x) {
+template <>
+std::string r6_class_name<ds::DatasetFactory>(
+    const std::shared_ptr<ds::DatasetFactory>& x) {
   return "DatasetFactory";
 }
-template <> std::string r6_class_name<ds::FileSystemDatasetFactory>(const std::shared_ptr<ds::FileSystemDatasetFactory>& x) {
+template <>
+std::string r6_class_name<ds::FileSystemDatasetFactory>(
+    const std::shared_ptr<ds::FileSystemDatasetFactory>& x) {
   return "FileSystemDatasetFactory";
 }
-template <> std::string r6_class_name<ds::PartitioningFactory>(const std::shared_ptr<ds::PartitioningFactory>& x) {
+template <>
+std::string r6_class_name<ds::PartitioningFactory>(
+    const std::shared_ptr<ds::PartitioningFactory>& x) {
   return "PartitioningFactory";
 }
 
-template <> std::string r6_class_name<ds::ParquetFileFormat>(const std::shared_ptr<ds::ParquetFileFormat>& x) {
+template <>
+std::string r6_class_name<ds::ParquetFileFormat>(
+    const std::shared_ptr<ds::ParquetFileFormat>& x) {
   return "ParquetFileFormat";
 }
-template <> std::string r6_class_name<ds::IpcFileFormat>(const std::shared_ptr<ds::IpcFileFormat>& x) {
+template <>
+std::string r6_class_name<ds::IpcFileFormat>(
+    const std::shared_ptr<ds::IpcFileFormat>& x) {
   return "IpcFileFormat";
 }
-template <> std::string r6_class_name<ds::CsvFileFormat>(const std::shared_ptr<ds::CsvFileFormat>& x) {
+template <>
+std::string r6_class_name<ds::CsvFileFormat>(
+    const std::shared_ptr<ds::CsvFileFormat>& x) {
   return "CsvFileFormat";
 }
-template <> std::string r6_class_name<ds::DirectoryPartitioning>(const std::shared_ptr<ds::DirectoryPartitioning>& x) {
+template <>
+std::string r6_class_name<ds::DirectoryPartitioning>(
+    const std::shared_ptr<ds::DirectoryPartitioning>& x) {
   return "DirectoryPartitioning";
 }
-template <> std::string r6_class_name<ds::HivePartitioning>(const std::shared_ptr<ds::HivePartitioning>& x) {
+template <>
+std::string r6_class_name<ds::HivePartitioning>(
+    const std::shared_ptr<ds::HivePartitioning>& x) {
   return "HivePartitioning";
 }
-template <> std::string r6_class_name<ds::Scanner>(const std::shared_ptr<ds::Scanner>& x) {
+template <>
+std::string r6_class_name<ds::Scanner>(const std::shared_ptr<ds::Scanner>& x) {
   return "Scanner";
 }
-template <> std::string r6_class_name<ds::ScanTask>(const std::shared_ptr<ds::ScanTask>& x) {
+template <>
+std::string r6_class_name<ds::ScanTask>(const std::shared_ptr<ds::ScanTask>& x) {
   return "ScanTask";
 }
-template <> std::string r6_class_name<ds::FileWriteOptions>(const std::shared_ptr<ds::FileWriteOptions>& x) {
+template <>
+std::string r6_class_name<ds::FileWriteOptions>(
+    const std::shared_ptr<ds::FileWriteOptions>& x) {
   return "FileWriteOptions";
 }
 
@@ -159,7 +191,7 @@ R6 dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table)
 // [[arrow::export]]
 cpp11::list dataset___UnionDataset__children(
     const std::shared_ptr<ds::UnionDataset>& ds) {
-  return arrow::r::to_r_list(ds->children(), cpp11::to_r6<ds::Dataset>);
+  return arrow::r::to_r_list(ds->children());
 }
 
 // [[arrow::export]]
@@ -315,9 +347,7 @@ void dataset___IpcFileWriteOptions__update1(
 }
 
 // [[arrow::export]]
-R6 dataset___IpcFileFormat__Make() {
-  return std::make_shared<ds::IpcFileFormat>();
-}
+R6 dataset___IpcFileFormat__Make() { return std::make_shared<ds::IpcFileFormat>(); }
 
 // [[arrow::export]]
 R6 dataset___CsvFileFormat__Make(
@@ -423,7 +453,7 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
     out.push_back(scan_task);
   }
 
-  return arrow::r::to_r_list(out, cpp11::to_r6<ds::ScanTask>);
+  return arrow::r::to_r_list(out);
 }
 
 // [[arrow::export]]
@@ -442,7 +472,7 @@ cpp11::list dataset___ScanTask__get_batches(
     batch = ValueOrStop(b);
     out.push_back(batch);
   }
-  return arrow::r::to_r_list(out, cpp11::to_r6<arrow::RecordBatch>);
+  return arrow::r::to_r_list(out);
 }
 
 // [[arrow::export]]

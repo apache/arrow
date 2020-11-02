@@ -23,22 +23,32 @@
 #include <arrow/util/value_parsing.h>
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<arrow::csv::ReadOptions>(const std::shared_ptr<arrow::csv::ReadOptions>& codec) {
+template <>
+inline std::string r6_class_name<arrow::csv::ReadOptions>(
+    const std::shared_ptr<arrow::csv::ReadOptions>& codec) {
   return "CsvReadOptions";
 }
-template <> inline std::string r6_class_name<arrow::csv::ParseOptions>(const std::shared_ptr<arrow::csv::ParseOptions>& codec) {
+template <>
+inline std::string r6_class_name<arrow::csv::ParseOptions>(
+    const std::shared_ptr<arrow::csv::ParseOptions>& codec) {
   return "CsvParseOptions";
 }
-template <> inline std::string r6_class_name<arrow::csv::ConvertOptions>(const std::shared_ptr<arrow::csv::ConvertOptions>& codec) {
+template <>
+inline std::string r6_class_name<arrow::csv::ConvertOptions>(
+    const std::shared_ptr<arrow::csv::ConvertOptions>& codec) {
   return "CsvConvertOptions";
 }
-template <> inline std::string r6_class_name<arrow::csv::TableReader>(const std::shared_ptr<arrow::csv::TableReader>& codec) {
+template <>
+inline std::string r6_class_name<arrow::csv::TableReader>(
+    const std::shared_ptr<arrow::csv::TableReader>& codec) {
   return "CsvTableReader";
 }
-template <> inline std::string r6_class_name<arrow::TimestampParser>(const std::shared_ptr<arrow::TimestampParser>& codec) {
+template <>
+inline std::string r6_class_name<arrow::TimestampParser>(
+    const std::shared_ptr<arrow::TimestampParser>& codec) {
   return "TimestampParser";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 R6 csv___ReadOptions__initialize(cpp11::list options) {
@@ -156,8 +166,8 @@ R6 csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  return ValueOrStop(arrow::csv::TableReader::Make(
-      gc_memory_pool(), input, *read_options, *parse_options, *convert_options));
+  return ValueOrStop(arrow::csv::TableReader::Make(gc_memory_pool(), input, *read_options,
+                                                   *parse_options, *convert_options));
 }
 
 // [[arrow::export]]
@@ -182,8 +192,6 @@ R6 TimestampParser__MakeStrptime(std::string format) {
 }
 
 // [[arrow::export]]
-R6 TimestampParser__MakeISO8601() {
-  return arrow::TimestampParser::MakeISO8601();
-}
+R6 TimestampParser__MakeISO8601() { return arrow::TimestampParser::MakeISO8601(); }
 
 #endif

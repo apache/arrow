@@ -24,10 +24,12 @@
 #include <arrow/table.h>
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<arrow::compute::CastOptions>(const std::shared_ptr<arrow::compute::CastOptions>& codec) {
+template <>
+inline std::string r6_class_name<arrow::compute::CastOptions>(
+    const std::shared_ptr<arrow::compute::CastOptions>& codec) {
   return "CastOptions";
 }
-}
+}  // namespace cpp11
 
 arrow::compute::ExecContext* gc_context() {
   static arrow::compute::ExecContext context(gc_memory_pool());

@@ -49,8 +49,6 @@ bool Field__nullable(const std::shared_ptr<arrow::Field>& field) {
 }
 
 // [[arrow::export]]
-R6 Field__type(const std::shared_ptr<arrow::Field>& field) {
-  return field->type();
-}
+R6 Field__type(const std::shared_ptr<arrow::Field>& field) { return field->type(); }
 
 #endif

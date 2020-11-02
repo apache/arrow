@@ -274,6 +274,9 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x,
   return to_r_vector<cpp11::writable::list>(x, as_sexp);
 }
 
+template <typename T>
+cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x);
+
 inline cpp11::writable::integers short_row_names(int n) { return {NA_INTEGER, -n}; }
 
 template <typename T>
@@ -294,7 +297,7 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
-std::string r6_class_name(const std::shared_ptr<T>& x) ;
+std::string r6_class_name(const std::shared_ptr<T>& x);
 
 template <typename T>
 SEXP to_r6(const std::shared_ptr<T>& x) {
@@ -314,24 +317,33 @@ SEXP to_r6(const std::shared_ptr<T>& x) {
   UNPROTECT(3);
   return r6;
 }
+}  // namespace cpp11
+
+namespace arrow {
+namespace r {
+
+template <typename T>
+cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
+  auto as_sexp = [&](const std::shared_ptr<T>& t) { return cpp11::to_r6<T>(t); };
+  return to_r_vector<cpp11::writable::list>(x, as_sexp);
 }
 
+}  // namespace r
+}  // namespace arrow
+
 class R6 {
-public:
+ public:
+  template <typename T>
+  R6(const std::shared_ptr<T>& x) : data_(cpp11::to_r6<T>(x)) {}
 
   template <typename T>
-  R6(const std::shared_ptr<T>& x) : data_(cpp11::to_r6<T>(x)){}
+  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::shared_ptr<T>(x.release()))) {}
 
-  template <typename T>
-  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::shared_ptr<T>(x.release()))){}
+  R6(SEXP data) : data_(data) {}
 
-  R6(SEXP data) : data_(data){}
+  operator SEXP() const { return data_; }
 
-  operator SEXP() const {
-    return data_;
-  }
-
-private:
+ private:
   SEXP data_;
 };
 

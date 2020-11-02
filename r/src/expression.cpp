@@ -23,18 +23,20 @@
 namespace ds = ::arrow::dataset;
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<ds::Expression>(const std::shared_ptr<ds::Expression>& x) {
+template <>
+inline std::string r6_class_name<ds::Expression>(
+    const std::shared_ptr<ds::Expression>& x) {
   return "Expression";
 }
-template <> inline std::string r6_class_name<ds::ComparisonExpression>(const std::shared_ptr<ds::ComparisonExpression>& x) {
+template <>
+inline std::string r6_class_name<ds::ComparisonExpression>(
+    const std::shared_ptr<ds::ComparisonExpression>& x) {
   return "Expression";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
-R6 dataset___expr__field_ref(std::string name) {
-  return ds::field_ref(std::move(name));
-}
+R6 dataset___expr__field_ref(std::string name) { return ds::field_ref(std::move(name)); }
 
 // [[arrow::export]]
 R6 dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs,

@@ -24,22 +24,23 @@
 
 namespace cpp11 {
 
-template <> std::string r6_class_name<arrow::Array>(const std::shared_ptr<arrow::Array>& array) {
+template <>
+std::string r6_class_name<arrow::Array>(const std::shared_ptr<arrow::Array>& array) {
   auto type = array->type_id();
   switch (type) {
-  case arrow::Type::DICTIONARY:
-    return "DictionaryArray";
-  case arrow::Type::STRUCT:
-    return "StructArray";
-  case arrow::Type::LIST:
-    return "ListArray";
-  case arrow::Type::LARGE_LIST:
-    return "LargeListArray";
-  case arrow::Type::FIXED_SIZE_LIST:
-    return "FixedSizeListArray";
+    case arrow::Type::DICTIONARY:
+      return "DictionaryArray";
+    case arrow::Type::STRUCT:
+      return "StructArray";
+    case arrow::Type::LIST:
+      return "ListArray";
+    case arrow::Type::LARGE_LIST:
+      return "LargeListArray";
+    case arrow::Type::FIXED_SIZE_LIST:
+      return "FixedSizeListArray";
 
-  default:
-    return "Array";
+    default:
+      return "Array";
   }
 }
 
@@ -114,9 +115,7 @@ int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); 
 int Array__null_count(const std::shared_ptr<arrow::Array>& x) { return x->null_count(); }
 
 // [[arrow::export]]
-R6 Array__type(const std::shared_ptr<arrow::Array>& x) {
-  return x->type();
-}
+R6 Array__type(const std::shared_ptr<arrow::Array>& x) { return x->type(); }
 
 // [[arrow::export]]
 std::string Array__ToString(const std::shared_ptr<arrow::Array>& x) {
@@ -141,9 +140,7 @@ bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs,
 }
 
 // [[arrow::export]]
-R6 Array__data(const std::shared_ptr<arrow::Array>& array) {
-  return array->data();
-}
+R6 Array__data(const std::shared_ptr<arrow::Array>& array) { return array->data(); }
 
 // [[arrow::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
@@ -195,7 +192,7 @@ R6 StructArray__GetFieldByName(const std::shared_ptr<arrow::StructArray>& array,
 
 // [[arrow::export]]
 cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array) {
-  return arrow::r::to_r_list(ValueOrStop(array->Flatten()), cpp11::to_r6<arrow::Array>);
+  return arrow::r::to_r_list(ValueOrStop(array->Flatten()));
 }
 
 // [[arrow::export]]

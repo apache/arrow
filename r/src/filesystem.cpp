@@ -25,28 +25,40 @@
 namespace fs = ::arrow::fs;
 
 namespace cpp11 {
-template <> std::string r6_class_name<fs::FileSelector>(const std::shared_ptr<fs::FileSelector>& x) {
+template <>
+std::string r6_class_name<fs::FileSelector>(const std::shared_ptr<fs::FileSelector>& x) {
   return "FileSelector";
 }
-template <> std::string r6_class_name<fs::FileInfo>(const std::shared_ptr<fs::FileInfo>& x) {
+template <>
+std::string r6_class_name<fs::FileInfo>(const std::shared_ptr<fs::FileInfo>& x) {
   return "FileInfo";
 }
-template <> std::string r6_class_name<arrow::io::InputStream>(const std::shared_ptr<arrow::io::InputStream>& x) {
+template <>
+std::string r6_class_name<arrow::io::InputStream>(
+    const std::shared_ptr<arrow::io::InputStream>& x) {
   return "InputStream";
 }
-template <> std::string r6_class_name<arrow::io::OutputStream>(const std::shared_ptr<arrow::io::OutputStream>& x) {
+template <>
+std::string r6_class_name<arrow::io::OutputStream>(
+    const std::shared_ptr<arrow::io::OutputStream>& x) {
   return "OutputStream";
 }
-template <> std::string r6_class_name<arrow::io::RandomAccessFile>(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+template <>
+std::string r6_class_name<arrow::io::RandomAccessFile>(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   return "RandomAccessFile";
 }
-template <> std::string r6_class_name<fs::LocalFileSystem>(const std::shared_ptr<fs::LocalFileSystem>& x) {
+template <>
+std::string r6_class_name<fs::LocalFileSystem>(
+    const std::shared_ptr<fs::LocalFileSystem>& x) {
   return "LocalFileSystem";
 }
-template <> std::string r6_class_name<fs::SubTreeFileSystem>(const std::shared_ptr<fs::SubTreeFileSystem>& x) {
+template <>
+std::string r6_class_name<fs::SubTreeFileSystem>(
+    const std::shared_ptr<fs::SubTreeFileSystem>& x) {
   return "SubTreeFileSystem";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {
@@ -148,7 +160,7 @@ cpp11::list fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
   auto results = ValueOrStop(file_system->GetFileInfo(paths));
-  return arrow::r::to_r_list(shared_ptr_vector(results), cpp11::to_r6<fs::FileInfo>);
+  return arrow::r::to_r_list(shared_ptr_vector(results));
 }
 
 // [[arrow::export]]
@@ -157,7 +169,7 @@ cpp11::list fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSelector>& selector) {
   auto results = ValueOrStop(file_system->GetFileInfo(*selector));
 
-  return arrow::r::to_r_list(shared_ptr_vector(results), cpp11::to_r6<fs::FileInfo>);
+  return arrow::r::to_r_list(shared_ptr_vector(results));
 }
 
 // [[arrow::export]]
@@ -233,9 +245,7 @@ std::string fs___FileSystem__type_name(
 }
 
 // [[arrow::export]]
-R6 fs___LocalFileSystem__create() {
-  return std::make_shared<fs::LocalFileSystem>();
-}
+R6 fs___LocalFileSystem__create() { return std::make_shared<fs::LocalFileSystem>(); }
 
 // [[arrow::export]]
 R6 fs___SubTreeFileSystem__create(const std::string& base_path,

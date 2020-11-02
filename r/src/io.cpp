@@ -22,22 +22,32 @@
 #include <arrow/io/memory.h>
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<arrow::io::MemoryMappedFile>(const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
+template <>
+inline std::string r6_class_name<arrow::io::MemoryMappedFile>(
+    const std::shared_ptr<arrow::io::MemoryMappedFile>& x) {
   return "MemoryMappedFile";
 }
-template <> inline std::string r6_class_name<arrow::io::ReadableFile>(const std::shared_ptr<arrow::io::ReadableFile>& x) {
+template <>
+inline std::string r6_class_name<arrow::io::ReadableFile>(
+    const std::shared_ptr<arrow::io::ReadableFile>& x) {
   return "ReadableFile";
 }
-template <> inline std::string r6_class_name<arrow::io::BufferReader>(const std::shared_ptr<arrow::io::BufferReader>& x) {
+template <>
+inline std::string r6_class_name<arrow::io::BufferReader>(
+    const std::shared_ptr<arrow::io::BufferReader>& x) {
   return "BufferReader";
 }
-template <> inline std::string r6_class_name<arrow::io::FileOutputStream>(const std::shared_ptr<arrow::io::FileOutputStream>& x) {
+template <>
+inline std::string r6_class_name<arrow::io::FileOutputStream>(
+    const std::shared_ptr<arrow::io::FileOutputStream>& x) {
   return "FileOutputStream";
 }
-template <> inline std::string r6_class_name<arrow::io::BufferOutputStream>(const std::shared_ptr<arrow::io::BufferOutputStream>& x) {
+template <>
+inline std::string r6_class_name<arrow::io::BufferOutputStream>(
+    const std::shared_ptr<arrow::io::BufferOutputStream>& x) {
   return "BufferOutputStream";
 }
-}
+}  // namespace cpp11
 
 // ------ arrow::io::Readable
 

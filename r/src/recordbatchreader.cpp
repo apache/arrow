@@ -22,13 +22,17 @@
 #include <arrow/table.h>
 
 namespace cpp11 {
-template <> std::string r6_class_name<arrow::ipc::RecordBatchStreamReader>(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& x) {
+template <>
+std::string r6_class_name<arrow::ipc::RecordBatchStreamReader>(
+    const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& x) {
   return "RecordBatchStreamReader";
 }
-template <> std::string r6_class_name<arrow::ipc::RecordBatchFileReader>(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& x) {
+template <>
+std::string r6_class_name<arrow::ipc::RecordBatchFileReader>(
+    const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& x) {
   return "RecordBatchFileReader";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 R6 RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
@@ -63,7 +67,7 @@ cpp11::list ipc___RecordBatchStreamReader__batches(
     res.push_back(batch);
   }
 
-  return arrow::r::to_r_list(res, cpp11::to_r6<arrow::RecordBatch>);
+  return arrow::r::to_r_list(res);
 }
 
 // -------- RecordBatchFileReader
@@ -131,7 +135,7 @@ cpp11::list ipc___RecordBatchFileReader__batches(
     res[i] = ValueOrStop(reader->ReadRecordBatch(i));
   }
 
-  return arrow::r::to_r_list(res, cpp11::to_r6<arrow::RecordBatch>);
+  return arrow::r::to_r_list(res);
 }
 
 #endif

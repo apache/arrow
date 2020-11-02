@@ -58,7 +58,7 @@ cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batc
   for (int i = 0; i < nc; i++) {
     res[i] = batch->column(i);
   }
-  return arrow::r::to_r_list(res, cpp11::to_r6<arrow::Array>);
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]

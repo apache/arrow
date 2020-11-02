@@ -21,10 +21,12 @@
 #include <arrow/ipc/writer.h>
 
 namespace cpp11 {
-template <> inline std::string r6_class_name<arrow::ipc::RecordBatchWriter>(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& x) {
+template <>
+inline std::string r6_class_name<arrow::ipc::RecordBatchWriter>(
+    const std::shared_ptr<arrow::ipc::RecordBatchWriter>& x) {
   return "RecordBatchWriter";
 }
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(

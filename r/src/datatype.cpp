@@ -21,7 +21,8 @@
 #include <arrow/type.h>
 
 namespace cpp11 {
-template <> std::string r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>& type) {
+template <>
+std::string r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>& type) {
   using arrow::Type;
 
   switch (type->id()) {
@@ -191,14 +192,10 @@ R6 Timestamp__initialize(arrow::TimeUnit::type unit, const std::string& timezone
 }
 
 // [[arrow::export]]
-R6 Time32__initialize(arrow::TimeUnit::type unit) {
-  return arrow::time32(unit);
-}
+R6 Time32__initialize(arrow::TimeUnit::type unit) { return arrow::time32(unit); }
 
 // [[arrow::export]]
-R6 Time64__initialize(arrow::TimeUnit::type unit) {
-  return arrow::time64(unit);
-}
+R6 Time64__initialize(arrow::TimeUnit::type unit) { return arrow::time64(unit); }
 
 // [[arrow::export]]
 R6 list__(SEXP x) {
@@ -276,7 +273,7 @@ int DataType__num_fields(const std::shared_ptr<arrow::DataType>& type) {
 
 // [[arrow::export]]
 cpp11::list DataType__fields(const std::shared_ptr<arrow::DataType>& type) {
-  return arrow::r::to_r_list(type->fields(), cpp11::to_r6<arrow::Field>);
+  return arrow::r::to_r_list(type->fields());
 }
 
 // [[arrow::export]]
