@@ -72,22 +72,23 @@ impl<'a> BitChunks<'a> {
         if bit_len == 0 {
             0
         } else {
-            let byte_len = ceil(bit_len, 8);
+            let bit_offset = self.offset;
+            // number of bytes to read
+            // might be one more than sizeof(u64) if the offset is in the middle of a byte
+            let byte_len = ceil(bit_len + bit_offset, 8);
+            // pointer to remainder bytes after all complete chunks
+            let base = unsafe {
+                self.raw_data
+                    .add(self.chunk_len * std::mem::size_of::<u64>())
+            };
 
-            let mut bits = 0;
-            for i in 0..byte_len {
-                let byte = unsafe {
-                    std::ptr::read(
-                        self.raw_data
-                            .add(self.chunk_len * std::mem::size_of::<u64>() + i),
-                    )
-                };
-                bits |= (byte as u64) << (i * 8);
+            let mut bits = unsafe { std::ptr::read(base) } as u64 >> bit_offset;
+            for i in 1..byte_len {
+                let byte = unsafe { std::ptr::read(base.add(i)) };
+                bits |= (byte as u64) << (i * 8 - bit_offset);
             }
 
-            let offset = self.offset as u64;
-
-            (bits >> offset) & ((1 << bit_len) - 1)
+            bits & ((1 << bit_len) - 1)
         }
     }
 
@@ -192,7 +193,6 @@ mod tests {
 
         let result = bitchunks.into_iter().collect::<Vec<_>>();
 
-        //assert_eq!(vec![0b00010000, 0b00100000, 0b01000000, 0b10000000, 0b00000000, 0b00000001, 0b00000010, 0b11110100], result);
         assert_eq!(
             vec![0b1111010000000010000000010000000010000000010000000010000000010000],
             result
@@ -214,10 +214,37 @@ mod tests {
 
         let result = bitchunks.into_iter().collect::<Vec<_>>();
 
-        //assert_eq!(vec![0b00010000, 0b00100000, 0b01000000, 0b10000000, 0b00000000, 0b00000001, 0b00000010, 0b11110100], result);
         assert_eq!(
             vec![0b1111010000000010000000010000000010000000010000000010000000010000],
             result
+        );
+    }
+
+    #[test]
+    fn test_iter_unaligned_remainder_bits_across_bytes() {
+        let input: &[u8] = &[0b00000000, 0b11111111];
+        let buffer: Buffer = Buffer::from(input);
+
+        let bitchunks = buffer.bit_chunks(6, 7);
+
+        assert_eq!(7, bitchunks.remainder_len());
+        assert_eq!(0b1111100, bitchunks.remainder_bits());
+    }
+
+    #[test]
+    fn test_iter_unaligned_remainder_bits_large() {
+        let input: &[u8] = &[
+            0b11111111, 0b00000000, 0b11111111, 0b00000000, 0b11111111, 0b00000000,
+            0b11111111, 0b00000000, 0b11111111,
+        ];
+        let buffer: Buffer = Buffer::from(input);
+
+        let bitchunks = buffer.bit_chunks(2, 63);
+
+        assert_eq!(63, bitchunks.remainder_len());
+        assert_eq!(
+            0b01000000_00111111_11000000_00111111_11000000_00111111_11000000_00111111,
+            bitchunks.remainder_bits()
         );
     }
 }
