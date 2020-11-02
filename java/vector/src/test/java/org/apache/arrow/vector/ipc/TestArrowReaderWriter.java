@@ -812,7 +812,7 @@ public class TestArrowReaderWriter {
 
   @Test
   public void testChannelReadFully() throws IOException {
-    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
     buf.putInt(200);
     buf.rewind();
 
@@ -833,7 +833,7 @@ public class TestArrowReaderWriter {
 
   @Test
   public void testChannelReadFullyEos() throws IOException {
-    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+    final ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
     buf.putInt(10);
     buf.rewind();
 
