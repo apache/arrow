@@ -98,7 +98,7 @@ class CastFunction : public ScalarFunction {
 
   bool CanCastTo(const DataType& out_type) const;
 
-  Result<const ScalarKernel*> DispatchExact(
+  Result<const Kernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const override;
 
  private:

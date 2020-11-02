@@ -73,6 +73,7 @@ void BM_CastDispatchBaseline(benchmark::State& state) {  // NOLINT non-const ref
   ASSERT_OK_AND_ASSIGN(auto cast_function, GetCastFunction(double_type));
   ASSERT_OK_AND_ASSIGN(auto cast_kernel,
                        cast_function->DispatchExact({int_scalars[0]->type}));
+  const auto& exec = static_cast<const ScalarKernel*>(cast_kernel)->exec;
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
@@ -84,7 +85,7 @@ void BM_CastDispatchBaseline(benchmark::State& state) {  // NOLINT non-const ref
   for (auto _ : state) {
     Datum timestamp_scalar = MakeNullScalar(double_type);
     for (Datum int_scalar : int_scalars) {
-      cast_kernel->exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar);
+      exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar);
       ABORT_NOT_OK(kernel_context.status());
     }
     benchmark::DoNotOptimize(timestamp_scalar);

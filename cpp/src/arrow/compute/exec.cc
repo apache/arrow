@@ -100,14 +100,6 @@ void ComputeDataPreallocate(const DataType& type,
   }
 }
 
-Status GetValueDescriptors(const std::vector<Datum>& args,
-                           std::vector<ValueDescr>* descrs) {
-  for (const auto& arg : args) {
-    descrs->emplace_back(arg.descr());
-  }
-  return Status::OK();
-}
-
 }  // namespace
 
 namespace detail {
@@ -432,15 +424,15 @@ class NullPropagator {
 std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
                                              const std::shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Array>> arrays;
-  for (const auto& val : values) {
-    auto boxed = val.make_array();
-    if (boxed->length() == 0) {
+  arrays.reserve(values.size());
+  for (const Datum& val : values) {
+    if (val.length() == 0) {
       // Skip empty chunks
       continue;
     }
-    arrays.emplace_back(std::move(boxed));
+    arrays.emplace_back(val.make_array());
   }
-  return std::make_shared<ChunkedArray>(arrays, type);
+  return std::make_shared<ChunkedArray>(std::move(arrays), type);
 }
 
 bool HaveChunkedArray(const std::vector<Datum>& values) {
@@ -452,19 +444,16 @@ bool HaveChunkedArray(const std::vector<Datum>& values) {
   return false;
 }
 
-template <typename FunctionType>
-class FunctionExecutorImpl : public FunctionExecutor {
+template <typename KernelType>
+class KernelExecutorImpl : public KernelExecutor {
  public:
-  FunctionExecutorImpl(ExecContext* exec_ctx, const FunctionType* func,
-                       const FunctionOptions* options)
-      : exec_ctx_(exec_ctx), kernel_ctx_(exec_ctx), func_(func), options_(options) {}
+  KernelExecutorImpl(ExecContext* exec_ctx, KernelInitArgs args)
+      : kernel_ctx_(exec_ctx),
+        kernel_(static_cast<const KernelType*>(args.kernel)),
+        input_descrs_(args.inputs),
+        options_(args.options) {}
 
- protected:
-  using KernelType = typename FunctionType::KernelType;
-
-  void Reset() {}
-
-  Status InitState() {
+  Status Init() {
     // Some kernels require initialization of an opaque state object
     if (kernel_->init) {
       KernelInitArgs init_args{kernel_, input_descrs_, options_};
@@ -472,28 +461,20 @@ class FunctionExecutorImpl : public FunctionExecutor {
       ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
       kernel_ctx_.SetState(state_.get());
     }
-    return Status::OK();
-  }
-
-  // This is overridden by the VectorExecutor
-  virtual Status SetupArgIteration(const std::vector<Datum>& args) {
-    ARROW_ASSIGN_OR_RAISE(batch_iterator_,
-                          ExecBatchIterator::Make(args, exec_ctx_->exec_chunksize()));
-    return Status::OK();
-  }
-
-  Status BindArgs(const std::vector<Datum>& args) {
-    RETURN_NOT_OK(GetValueDescriptors(args, &input_descrs_));
-    ARROW_ASSIGN_OR_RAISE(kernel_, func_->DispatchExact(input_descrs_));
-
-    // Initialize kernel state, since type resolution may depend on this state
-    RETURN_NOT_OK(this->InitState());
 
     // Resolve the output descriptor for this kernel
     ARROW_ASSIGN_OR_RAISE(output_descr_, kernel_->signature->out_type().Resolve(
                                              &kernel_ctx_, input_descrs_));
 
-    return SetupArgIteration(args);
+    return Status::OK();
+  }
+
+ protected:
+  // This is overridden by the VectorExecutor
+  virtual Status SetupArgIteration(const std::vector<Datum>& args) {
+    ARROW_ASSIGN_OR_RAISE(
+        batch_iterator_, ExecBatchIterator::Make(args, exec_context()->exec_chunksize()));
+    return Status::OK();
   }
 
   Result<std::shared_ptr<ArrayData>> PrepareOutput(int64_t length) {
@@ -517,15 +498,15 @@ class FunctionExecutorImpl : public FunctionExecutor {
 
   ValueDescr output_descr() const override { return output_descr_; }
 
+  ExecContext* exec_context() { return kernel_ctx_.exec_context(); }
+
   // Not all of these members are used for every executor type
 
-  ExecContext* exec_ctx_;
   KernelContext kernel_ctx_;
-  const FunctionType* func_;
   const KernelType* kernel_;
   std::unique_ptr<ExecBatchIterator> batch_iterator_;
   std::unique_ptr<KernelState> state_;
-  std::vector<ValueDescr> input_descrs_;
+  const std::vector<ValueDescr>& input_descrs_;
   ValueDescr output_descr_;
   const FunctionOptions* options_;
 
@@ -540,11 +521,9 @@ class FunctionExecutorImpl : public FunctionExecutor {
   std::vector<BufferPreallocation> data_preallocated_;
 };
 
-class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
+class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
  public:
-  using FunctionType = ScalarFunction;
-  static constexpr Function::Kind function_kind = Function::SCALAR;
-  using BASE = FunctionExecutorImpl<ScalarFunction>;
+  using BASE = KernelExecutorImpl<ScalarKernel>;
   using BASE::BASE;
 
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
@@ -583,7 +562,8 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
       } else {
         // XXX: In the case where no outputs are omitted, is returning a 0-length
         // array always the correct move?
-        return MakeArrayOfNull(output_descr_.type, /*length=*/0, exec_ctx_->memory_pool())
+        return MakeArrayOfNull(output_descr_.type, /*length=*/0,
+                               exec_context()->memory_pool())
             .ValueOrDie();
       }
     }
@@ -623,8 +603,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
   }
 
   Status PrepareExecute(const std::vector<Datum>& args) {
-    this->Reset();
-    RETURN_NOT_OK(this->BindArgs(args));
+    RETURN_NOT_OK(this->SetupArgIteration(args));
 
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // If the executor is configured to produce a single large Array output for
@@ -698,7 +677,7 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     // Some kernels are also unable to write into sliced outputs, so we respect the
     // kernel's attributes.
     preallocate_contiguous_ =
-        (exec_ctx_->preallocate_contiguous() && kernel_->can_write_into_slices &&
+        (exec_context()->preallocate_contiguous() && kernel_->can_write_into_slices &&
          validity_preallocated_ && !is_nested(output_descr_.type->id()) &&
          data_preallocated_.size() == static_cast<size_t>(output_num_buffers_ - 1) &&
          std::all_of(data_preallocated_.begin(), data_preallocated_.end(),
@@ -740,11 +719,9 @@ Status PackBatchNoChunks(const std::vector<Datum>& args, ExecBatch* out) {
   return Status::OK();
 }
 
-class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
+class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
  public:
-  using FunctionType = VectorFunction;
-  static constexpr Function::Kind function_kind = Function::VECTOR;
-  using BASE = FunctionExecutorImpl<VectorFunction>;
+  using BASE = KernelExecutorImpl<VectorKernel>;
   using BASE::BASE;
 
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
@@ -826,15 +803,14 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
 
   Status SetupArgIteration(const std::vector<Datum>& args) override {
     if (kernel_->can_execute_chunkwise) {
-      ARROW_ASSIGN_OR_RAISE(batch_iterator_,
-                            ExecBatchIterator::Make(args, exec_ctx_->exec_chunksize()));
+      ARROW_ASSIGN_OR_RAISE(batch_iterator_, ExecBatchIterator::Make(
+                                                 args, exec_context()->exec_chunksize()));
     }
     return Status::OK();
   }
 
   Status PrepareExecute(const std::vector<Datum>& args) {
-    this->Reset();
-    RETURN_NOT_OK(this->BindArgs(args));
+    RETURN_NOT_OK(this->SetupArgIteration(args));
     output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
 
     // Decide if we need to preallocate memory for this kernel
@@ -850,15 +826,13 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
   std::vector<Datum> results_;
 };
 
-class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
+class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
  public:
-  using FunctionType = ScalarAggregateFunction;
-  static constexpr Function::Kind function_kind = Function::SCALAR_AGGREGATE;
-  using BASE = FunctionExecutorImpl<ScalarAggregateFunction>;
+  using BASE = KernelExecutorImpl<ScalarAggregateKernel>;
   using BASE::BASE;
 
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
-    RETURN_NOT_OK(BindArgs(args));
+    RETURN_NOT_OK(this->SetupArgIteration(args));
 
     ExecBatch batch;
     while (batch_iterator_->Next(&batch)) {
@@ -893,7 +867,7 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
       return kernel_ctx_.status();
     }
 
-    KernelContext batch_ctx(exec_ctx_);
+    KernelContext batch_ctx(exec_context());
     batch_ctx.SetState(batch_state.get());
 
     kernel_->consume(&batch_ctx, batch);
@@ -907,12 +881,12 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
 
 template <typename ExecutorType,
           typename FunctionType = typename ExecutorType::FunctionType>
-Result<std::unique_ptr<FunctionExecutor>> MakeExecutor(ExecContext* ctx,
-                                                       const Function* func,
-                                                       const FunctionOptions* options) {
+Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
+                                                     const Function* func,
+                                                     const FunctionOptions* options) {
   DCHECK_EQ(ExecutorType::function_kind, func->kind());
   auto typed_func = checked_cast<const FunctionType*>(func);
-  return std::unique_ptr<FunctionExecutor>(new ExecutorType(ctx, typed_func, options));
+  return std::unique_ptr<KernelExecutor>(new ExecutorType(ctx, typed_func, options));
 }
 
 }  // namespace
@@ -939,19 +913,26 @@ Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* out
   return propagator.Execute();
 }
 
-Result<std::unique_ptr<FunctionExecutor>> FunctionExecutor::Make(
-    ExecContext* ctx, const Function* func, const FunctionOptions* options) {
-  switch (func->kind()) {
-    case Function::SCALAR:
-      return MakeExecutor<ScalarExecutor>(ctx, func, options);
-    case Function::VECTOR:
-      return MakeExecutor<VectorExecutor>(ctx, func, options);
-    case Function::SCALAR_AGGREGATE:
-      return MakeExecutor<ScalarAggExecutor>(ctx, func, options);
-    default:
-      DCHECK(false);
-      return nullptr;
-  }
+Result<std::unique_ptr<KernelExecutor>> KernelExecutor::MakeScalar(ExecContext* ctx,
+                                                                   KernelInitArgs args) {
+  std::unique_ptr<detail::ScalarExecutor> out(new detail::ScalarExecutor(ctx, args));
+  RETURN_NOT_OK(out->Init());
+  return std::move(out);
+}
+
+Result<std::unique_ptr<KernelExecutor>> KernelExecutor::MakeVector(ExecContext* ctx,
+                                                                   KernelInitArgs args) {
+  std::unique_ptr<detail::VectorExecutor> out(new detail::VectorExecutor(ctx, args));
+  RETURN_NOT_OK(out->Init());
+  return std::move(out);
+}
+
+Result<std::unique_ptr<KernelExecutor>> KernelExecutor::MakeScalarAggregate(
+    ExecContext* ctx, KernelInitArgs args) {
+  std::unique_ptr<detail::ScalarAggExecutor> out(
+      new detail::ScalarAggExecutor(ctx, args));
+  RETURN_NOT_OK(out->Init());
+  return std::move(out);
 }
 
 }  // namespace detail

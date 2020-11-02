@@ -155,6 +155,13 @@ class ARROW_EXPORT Function {
   /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;
 
+  /// \brief Return a kernel that can execute the function given the exact
+  /// argument types (without implicit type casts or scalar->array promotions).
+  ///
+  /// NB: This function is overridden in CastFunction.
+  virtual Result<const Kernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const = 0;
+
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken
   /// care of.
@@ -241,12 +248,8 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
 
-  /// \brief Return a kernel that can execute the function given the exact
-  /// argument types (without implicit type casts or scalar->array promotions).
-  ///
-  /// NB: This function is overridden in CastFunction.
-  virtual Result<const ScalarKernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const;
+  Result<const Kernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const override;
 };
 
 /// \brief A function that executes general array operations that may yield
@@ -272,9 +275,8 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// kernel's signature does not match the function's arity.
   Status AddKernel(VectorKernel kernel);
 
-  /// \brief Return a kernel that can execute the function given the exact
-  /// argument types (without implicit type casts or scalar->array promotions)
-  Result<const VectorKernel*> DispatchExact(const std::vector<ValueDescr>& values) const;
+  Result<const Kernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const override;
 };
 
 class ARROW_EXPORT ScalarAggregateFunction
@@ -291,10 +293,8 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarAggregateKernel kernel);
 
-  /// \brief Return a kernel that can execute the function given the exact
-  /// argument types (without implicit type casts or scalar->array promotions)
-  Result<const ScalarAggregateKernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const;
+  Result<const Kernel*> DispatchExact(
+      const std::vector<ValueDescr>& values) const override;
 };
 
 /// \brief A function that dispatches to other functions. Must implement
@@ -308,6 +308,10 @@ class ARROW_EXPORT MetaFunction : public Function {
 
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
                         ExecContext* ctx) const override;
+
+  Result<const Kernel*> DispatchExact(const std::vector<ValueDescr>&) const override {
+    return Status::NotImplemented("DispatchExact for a MetaFunction's Kernels");
+  }
 
  protected:
   virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
