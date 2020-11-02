@@ -246,6 +246,11 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
                               {"array"},
                               "MinMaxOptions"};
 
+const FunctionDoc any_doc{
+    "Test whether any element in a boolean array evaluates to true.",
+    ("Null values are ignored."),
+    {"array"}};
+
 }  // namespace
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
@@ -320,7 +325,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 =======
 
   // any
-  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary());
+  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), &any_doc);
   auto sig =
       KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
   aggregate::AddAggKernel(std::move(sig), aggregate::AnyInit, func.get());
