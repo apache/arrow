@@ -18,9 +18,9 @@
 package org.apache.arrow.flight.client;
 
 import java.net.HttpCookie;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -37,29 +37,30 @@ import org.apache.arrow.util.VisibleForTesting;
  */
 public class ClientCookieMiddleware implements FlightClientMiddleware {
   private static final String SET_COOKIE_HEADER = "Set-Cookie";
-  private static final String SET_COOKIE2_HEADER = "Set-Cookie2";
   private static final String COOKIE_HEADER = "Cookie";
+  private final Factory factory;
 
-  // Use a map to track the most recent version of a cookie from the server.
-  // Note that cookie names are case-sensitive (but header names aren't).
-  private Map<String, HttpCookie> cookies = new HashMap<>();
-
-  public ClientCookieMiddleware() {
+  public ClientCookieMiddleware(Factory factory) {
+    this.factory = factory;
   }
 
   /**
    * Factory used within FlightClient.
    */
   public static class Factory implements FlightClientMiddleware.Factory {
+    // Use a map to track the most recent version of a cookie from the server.
+    // Note that cookie names are case-sensitive (but header names aren't).
+    private ConcurrentMap<String, HttpCookie> cookies = new ConcurrentHashMap<>();
+
     @Override
     public ClientCookieMiddleware onCallStarted(CallInfo info) {
-      return new ClientCookieMiddleware();
+      return new ClientCookieMiddleware(this);
     }
   }
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    final String cookieValue = calculateCookieString();
+    final String cookieValue = getValidCookiesAsString();
     if (!cookieValue.isEmpty()) {
       outgoingHeaders.insert(COOKIE_HEADER, cookieValue);
     }
@@ -74,10 +75,14 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
     // to signal that the client should stop using the cookie immediately.
     final Consumer<String> handleSetCookieHeader = (headerValue) -> {
       final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
-      parsedCookies.forEach(parsedCookie -> cookies.put(parsedCookie.getName(), parsedCookie));
+      parsedCookies.forEach(parsedCookie -> factory.cookies.put(parsedCookie.getName(), parsedCookie));
     };
-    incomingHeaders.getAll(SET_COOKIE_HEADER).forEach(handleSetCookieHeader);
-    incomingHeaders.getAll(SET_COOKIE2_HEADER).forEach(handleSetCookieHeader);
+    final Iterable<String> setCookieHeaders = incomingHeaders.getAll(SET_COOKIE_HEADER);
+    if (setCookieHeaders != null) {
+      for (String cookieHeader : setCookieHeaders) {
+        handleSetCookieHeader.accept(cookieHeader);
+      }
+    }
   }
 
   @Override
@@ -85,14 +90,17 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
 
   }
 
+  /**
+   * Discards expired cookies and returns the valid cookies as a String delimited by ';'.
+   */
   @VisibleForTesting
-  String calculateCookieString() {
+  String getValidCookiesAsString() {
     // Discard expired cookies.
-    cookies.entrySet().removeIf(cookieEntry -> cookieEntry.getValue().hasExpired());
+    factory.cookies.entrySet().removeIf(cookieEntry -> cookieEntry.getValue().hasExpired());
 
     // Cookie header value format:
-    // <cookie-name1>=<cookie-value1>[; <cookie-name2>=<cookie-value2; ...]
-    return cookies.entrySet().stream()
+    // [<cookie-name1>=<cookie-value1>; <cookie-name2>=<cookie-value2; ...]
+    return factory.cookies.entrySet().stream()
         .map(cookie -> cookie.getValue().toString())
         .collect(Collectors.joining("; "));
   }
