@@ -154,10 +154,12 @@ test_that("[[<- assignment", {
     fct = factor(letters[1:10])
   )
   tab <- Table$create(tbl)
+
+  # can remove a column
   tab[["chr"]] <- NULL
   expect_data_frame(tab, tbl[-4])
 
-  # can remove a column
+  # can add a named column
   tab[["new"]] <- letters[10:1]
   expect_vector(tab[["new"]], letters[10:1])
 
@@ -173,6 +175,11 @@ test_that("[[<- assignment", {
   # can replace a column
   tab[["int"]] <- 10:1
   expect_vector(tab[["int"]], 10:1)
+
+  # can use $
+  tab$new <- NULL
+  expect_null(as.vector(tab$new))
+  expect_identical(dim(tab), c(10L, 5L))
 })
 
 test_that("Table$Slice", {

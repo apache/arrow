@@ -263,8 +263,7 @@ names.Table <- function(x) x$ColumnNames()
 #' @export
 `[[.Table` <- `[[.RecordBatch`
 
-#' @export
-`[[<-.Table` <- function(x, i, value) {
+column_setter <- function(x, i, value) {
   if (is.null(value)) {
     if (is.character(i)) {
       i <- match(i, names(x)) - 1L
@@ -294,6 +293,12 @@ names.Table <- function(x) x$ColumnNames()
   }
   x
 }
+
+#' @export
+`[[<-.Table` <- column_setter
+
+#' @export
+`$<-.Table` <- column_setter
 
 #' @export
 `$.Table` <- `$.RecordBatch`
