@@ -448,6 +448,9 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 /// WARNING: ARROW_ASSIGN_OR_RAISE expands into multiple statements;
 /// it cannot be used in a single statement (e.g. as the body of an if
 /// statement without {})!
+///
+/// WARNING: ARROW_ASSIGN_OR_RAISE `std::move`s its right operand. If you have
+/// an lvalue Result which you *don't* want to move out of cast appropriately.
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);

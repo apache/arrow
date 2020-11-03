@@ -158,7 +158,7 @@ ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncCont
   impl_->options = options;
 }
 
-ReadRangeCache::~ReadRangeCache() {}
+ReadRangeCache::~ReadRangeCache() = default;
 
 Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
   ranges = internal::CoalesceReadRanges(std::move(ranges), impl_->options.hole_size_limit,

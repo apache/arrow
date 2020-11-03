@@ -123,28 +123,18 @@ class ARROW_EXPORT Executor {
   Result<Future<ValueType>> Submit(TaskHints hints, Function&& func, Args&&... args) {
     auto bound_func =
         std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
-    using BoundFuncType = decltype(bound_func);
 
     struct Task {
-      BoundFuncType bound_func;
+      decltype(bound_func) bound_func;
       Future<ValueType> future;
 
-      void operator()() { future.ExecuteAndMarkFinished(std::move(bound_func)); }
+      void operator()() {
+        ::arrow::detail::ExecuteAndMarkFinished(&future, std::move(bound_func));
+      }
     };
     auto future = Future<ValueType>::Make();
     ARROW_RETURN_NOT_OK(SpawnReal(std::move(hints), Task{std::move(bound_func), future}));
     return future;
-  }
-
-  // Like Submit(), but also returns a (failed) Future when submission fails
-  template <
-      typename Function, typename... Args,
-      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
-      typename ValueType = typename RT::ValueType>
-  Future<ValueType> SubmitAsFuture(Function&& func, Args&&... args) {
-    return Future<ValueType>::DeferNotOk(
-        Submit(std::forward<Function>(func), std::forward<Args>(args)...));
   }
 
   // Return the level of parallelism (the number of tasks that may be executed
