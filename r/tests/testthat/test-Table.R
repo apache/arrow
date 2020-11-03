@@ -180,6 +180,9 @@ test_that("[[<- assignment", {
   tab$new <- NULL
   expect_null(as.vector(tab$new))
   expect_identical(dim(tab), c(10L, 5L))
+
+  tab$int <- 1:10
+  expect_vector(tab$int, 1:10)
 })
 
 test_that("Table$Slice", {
