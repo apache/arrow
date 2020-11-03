@@ -1270,14 +1270,6 @@ pub struct FixedSizeBinaryBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
 }
 
-pub trait BinaryArrayBuilder: ArrayBuilder {}
-
-impl BinaryArrayBuilder for BinaryBuilder {}
-impl BinaryArrayBuilder for StringBuilder {}
-impl BinaryArrayBuilder for LargeStringBuilder {}
-impl BinaryArrayBuilder for LargeBinaryBuilder {}
-impl BinaryArrayBuilder for FixedSizeBinaryBuilder {}
-
 impl ArrayBuilder for BinaryBuilder {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
