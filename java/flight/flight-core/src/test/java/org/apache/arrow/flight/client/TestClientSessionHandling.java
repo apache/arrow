@@ -22,18 +22,18 @@ import static org.junit.Assert.assertEquals;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightRuntimeException;
-import org.junit.Rule;
+import org.apache.arrow.flight.FlightStatusCode;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 /**
  * Tests for ClientSessionWriter and ClientSessionMiddleware.
  */
 public class TestClientSessionHandling {
-  @Rule
-  public ExpectedException thrown = ExpectedException.none();
-
   private static final String SESSION_HEADER_KEY = "SET-SESSION";
+
+  private void testFailed() throws Exception {
+    throw new Exception("Test failed, expected exception.");
+  }
 
   @Test
   public void testSimpleOnHeadersReceived() {
@@ -82,7 +82,7 @@ public class TestClientSessionHandling {
   }
 
   @Test
-  public void testReceivingDifferentSessionId() {
+  public void testReceivingDifferentSessionId() throws Exception {
     // Setup
     final ClientSessionWriter writer = new ClientSessionWriter();
     final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);
@@ -104,7 +104,12 @@ public class TestClientSessionHandling {
     middleware.onBeforeSendingHeaders(outgoingHeaders);
     assertEquals(sessionId, outgoingHeaders.get(SESSION_HEADER_KEY));
 
-    thrown.expect(FlightRuntimeException.class);
-    middleware.onHeadersReceived(receivedHeadersWithFalseId);
+    try {
+      middleware.onHeadersReceived(receivedHeadersWithFalseId);
+      testFailed();
+    } catch (FlightRuntimeException ex) {
+      assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());
+    }
+
   }
 }

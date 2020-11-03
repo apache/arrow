@@ -27,7 +27,7 @@ public interface ServerSessionHandler {
    */
   ServerSessionHandler NO_OP = new ServerSessionHandler() {
     @Override
-    public String getSessionID() {
+    public String getSessionId() {
           return null;
       }
 
@@ -44,7 +44,7 @@ public interface ServerSessionHandler {
    * @return the current session ID.
    * @throws FlightRuntimeException with CallStatus {@code UNAUTHENTICATED} if session ID has expired.
    */
-  String getSessionID();
+  String getSessionId();
 
   /**
    * Validates an incoming session ID. Returns true if sessionId is valid; returns false otherwise.

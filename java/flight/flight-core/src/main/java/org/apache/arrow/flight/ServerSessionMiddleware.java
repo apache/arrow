@@ -36,15 +36,16 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     public ServerSessionMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
                                                  RequestContext context) {
       if (incomingHeaders.containsKey(FlightConstants.SESSION_HEADER)) {
-        // Client is re-using pre-existing session ID.
+        // Client is re-using existing session ID.
         // ServerSessionHandler validates client session ID before proceeding.
-        final String sessionId = incomingHeaders.get(FlightConstants.SESSION_HEADER);
-        if (!sessionHandler.isValid(sessionId)) {
+        final String existingSessionId = incomingHeaders.get(FlightConstants.SESSION_HEADER);
+        if (!sessionHandler.isValid(existingSessionId)) {
           throw CallStatus.UNAUTHENTICATED.toRuntimeException();
         }
       } else {
+        // No existing session ID provided, establishing a new session.
         // Insert SET-SESSION header if ServerSessionHandler returns a non-null session ID.
-        final String sessionId = sessionHandler.getSessionID();
+        final String sessionId = sessionHandler.getSessionId();
         if (sessionId != null) {
           incomingHeaders.insert(FlightConstants.SESSION_HEADER, sessionId);
         }
@@ -62,7 +63,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    String sessionId = sessionHandler.getSessionID();
+    String sessionId = sessionHandler.getSessionId();
     if (sessionId != null) {
       outgoingHeaders.insert(FlightConstants.SESSION_HEADER, sessionId);
     }
