@@ -27,6 +27,6 @@ pytest
 pytest-faulthandler
 pytest-lazy-fixture
 pytz
-s3fs
+s3fs>=0.4
 setuptools
 setuptools_scm
