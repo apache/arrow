@@ -101,6 +101,9 @@ Table <- R6Class("Table", inherit = ArrowObject,
       assert_that(length(name) == 1)
       Table__GetColumnByName(self, name)
     },
+    RemoveColumn = function(i) Table__RemoveColumn(self, i),
+    AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
+    SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     field = function(i) Table__field(self, i),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -259,6 +262,38 @@ names.Table <- function(x) x$ColumnNames()
 
 #' @export
 `[[.Table` <- `[[.RecordBatch`
+
+#' @export
+`[[<-.Table` <- function(x, i, value) {
+  if (is.null(value)) {
+    if (is.character(i)) {
+      i <- match(i, names(x)) - 1L
+    }
+    x <- x$RemoveColumn(i)
+  } else {
+    if (!is.character(i)) {
+      # get or create a/the column name
+      if (i <= ncol(x)) {
+        i <- names(x)[[i]]
+      } else {
+        i <- as.character(i)
+      }
+    }
+
+    # construct the field
+    value <- chunked_array(value)
+    new_field <- field(i, value$type)
+
+    if (i %in% names(x)) {
+      i <- match(i, names(x)) - 1L
+      x <- x$SetColumn(i, new_field, value)
+    } else {
+      i <- ncol(x)
+      x <- x$AddColumn(i, new_field, value)
+    }
+  }
+  x
+}
 
 #' @export
 `$.Table` <- `$.RecordBatch`
