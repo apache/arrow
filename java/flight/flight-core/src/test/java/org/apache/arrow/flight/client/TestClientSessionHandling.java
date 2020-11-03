@@ -26,6 +26,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+/**
+ * Tests for ClientSessionWriter and ClientSessionMiddleware.
+ */
 public class TestClientSessionHandling {
   @Rule
   public ExpectedException thrown = ExpectedException.none();

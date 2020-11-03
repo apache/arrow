@@ -17,5 +17,34 @@
 
 package org.apache.arrow.flight;
 
+import org.junit.Test;
+
+/**
+ * Tests for ServerSessionHandler and ServerSessionMiddleware.
+ */
 public class TestServerSessionHandling {
+  @Test
+  public void testNoOpSessionHandler() {
+    // TODO
+  }
+
+  @Test
+  public void testInitialSessionId() {
+    // TODO
+  }
+
+  @Test
+  public void testClientReuseValidSessionId() {
+    // TODO
+  }
+
+  @Test
+  public void testClientProvideFalseSessionId() {
+    // TODO
+  }
+
+  @Test
+  public void testSessionHeaderToClient() {
+    // TODO
+  }
 }
