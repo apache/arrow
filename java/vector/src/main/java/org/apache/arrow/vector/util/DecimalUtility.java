@@ -135,7 +135,7 @@ public class DecimalUtility {
    */
   public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index, int byteWidth) {
     if (byteWidth != 16 && byteWidth != 32) {
-      throw new UnsupportedOperationException("DeciimalUtility.writeLongToArrowBuf() currently supports " +
+      throw new UnsupportedOperationException("DecimalUtility.writeLongToArrowBuf() currently supports " +
           "128-bit or 256-bit width data");
     }
     final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
