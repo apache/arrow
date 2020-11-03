@@ -22,8 +22,11 @@ use std::fmt::Debug;
 pub struct BitChunks<'a> {
     buffer: &'a Buffer,
     raw_data: *const u8,
-    offset: usize,
+    /// offset inside a byte, guaranteed to be between 0 and 7 (inclusive)
+    bit_offset: usize,
+    /// number of complete u64 chunks
     chunk_len: usize,
+    /// number of remaining bits, guaranteed to be between 0 and 63 (inclusive)
     remainder_len: usize,
 }
 
@@ -32,11 +35,11 @@ impl<'a> BitChunks<'a> {
         assert!(ceil(offset + len, 8) <= buffer.len() * 8);
 
         let byte_offset = offset / 8;
-        let offset = offset % 8;
+        let bit_offset = offset % 8;
 
         let raw_data = unsafe { buffer.raw_data().add(byte_offset) };
 
-        let chunk_bits = 64;
+        let chunk_bits = 8 * std::mem::size_of::<u64>();
 
         let chunk_len = len / chunk_bits;
         let remainder_len = len & (chunk_bits - 1);
@@ -44,7 +47,7 @@ impl<'a> BitChunks<'a> {
         BitChunks::<'a> {
             buffer: &buffer,
             raw_data,
-            offset,
+            bit_offset,
             chunk_len,
             remainder_len,
         }
@@ -55,24 +58,26 @@ impl<'a> BitChunks<'a> {
 pub struct BitChunkIterator<'a> {
     buffer: &'a Buffer,
     raw_data: *const u8,
-    offset: usize,
+    bit_offset: usize,
     chunk_len: usize,
     index: usize,
 }
 
 impl<'a> BitChunks<'a> {
+    /// Returns the number of remaining bits, guaranteed to be between 0 and 63 (inclusive)
     #[inline]
     pub const fn remainder_len(&self) -> usize {
         self.remainder_len
     }
 
+    /// Returns the bitmask of remaining bits
     #[inline]
     pub fn remainder_bits(&self) -> u64 {
         let bit_len = self.remainder_len;
         if bit_len == 0 {
             0
         } else {
-            let bit_offset = self.offset;
+            let bit_offset = self.bit_offset;
             // number of bytes to read
             // might be one more than sizeof(u64) if the offset is in the middle of a byte
             let byte_len = ceil(bit_len + bit_offset, 8);
@@ -92,12 +97,13 @@ impl<'a> BitChunks<'a> {
         }
     }
 
+    /// Returns an iterator over chunks of 64 bits represented as an u64
     #[inline]
     pub const fn iter(&self) -> BitChunkIterator<'a> {
         BitChunkIterator::<'a> {
             buffer: self.buffer,
             raw_data: self.raw_data,
-            offset: self.offset,
+            bit_offset: self.bit_offset,
             chunk_len: self.chunk_len,
             index: 0,
         }
@@ -128,7 +134,7 @@ impl Iterator for BitChunkIterator<'_> {
             std::ptr::read_unaligned((self.raw_data as *const u64).add(self.index))
         };
 
-        let combined = if self.offset == 0 {
+        let combined = if self.bit_offset == 0 {
             current
         } else {
             // cast to *const u64 should be fine since we are using read_unaligned
@@ -138,8 +144,8 @@ impl Iterator for BitChunkIterator<'_> {
                     (self.raw_data as *const u64).add(self.index + 1),
                 )
             };
-            current >> self.offset
-                | (next & ((1 << self.offset) - 1)) << (64 - self.offset)
+            current >> self.bit_offset
+                | (next & ((1 << self.bit_offset) - 1)) << (64 - self.bit_offset)
         };
 
         self.index += 1;
@@ -222,13 +228,15 @@ mod tests {
 
     #[test]
     fn test_iter_unaligned_remainder_bits_across_bytes() {
-        let input: &[u8] = &[0b00000000, 0b11111111];
+        let input: &[u8] = &[0b00111111, 0b11111100];
         let buffer: Buffer = Buffer::from(input);
 
+        // remainder contains bits from both bytes
+        // result should be the highest 2 bits from first byte followed by lowest 5 bits of second bytes
         let bitchunks = buffer.bit_chunks(6, 7);
 
         assert_eq!(7, bitchunks.remainder_len());
-        assert_eq!(0b1111100, bitchunks.remainder_bits());
+        assert_eq!(0b1110000, bitchunks.remainder_bits());
     }
 
     #[test]
@@ -243,7 +251,7 @@ mod tests {
 
         assert_eq!(63, bitchunks.remainder_len());
         assert_eq!(
-            0b01000000_00111111_11000000_00111111_11000000_00111111_11000000_00111111,
+            0b1000000_00111111_11000000_00111111_11000000_00111111_11000000_00111111,
             bitchunks.remainder_bits()
         );
     }
