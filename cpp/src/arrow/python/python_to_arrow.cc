@@ -262,6 +262,8 @@ class PyValue {
           break;
         case TimeUnit::NANO:
           if (internal::IsPandasTimestamp(obj)) {
+            // pd.Timestamp value attribute contains the offset from unix epoch
+            // so no adjustment for timezone is need.
             OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
             RETURN_IF_PYERROR();
             RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
@@ -272,11 +274,13 @@ class PyValue {
               return internal::InvalidValue(obj,
                                             "out of bounds for nanosecond resolution");
             }
-          }
-          // Adjust with offset and check for overflow
-          if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
-                                                    &value)) {
-            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+
+            // Adjust with offset and check for overflow
+            if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
+                                                      &value)) {
+              return internal::InvalidValue(obj,
+                                            "out of bounds for nanosecond resolution");
+            }
           }
           break;
         default:

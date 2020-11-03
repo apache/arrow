@@ -2000,6 +2000,18 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
         pd.Timestamp(9223371273709551616, unit='ns')
     ]
 
+    ty = pa.timestamp('ns', tz='US/Eastern')
+    value = 1604119893000000000
+    arr = pa.array([value], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timestamp)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timestamp(value, unit='ns').tz_localize(
+            "UTC").tz_convert('US/Eastern')
+    ]
+
 
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
