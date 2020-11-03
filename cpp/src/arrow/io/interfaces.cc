@@ -128,13 +128,9 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& 
   TaskHints hints;
   hints.io_size = nbytes;
   hints.external_id = ctx.external_id;
-  auto maybe_fut = ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
+  return DeferNotOk(ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
     return self->ReadAt(position, nbytes);
-  });
-  if (!maybe_fut.ok()) {
-    return Future<std::shared_ptr<Buffer>>::MakeFinished(maybe_fut.status());
-  }
-  return *std::move(maybe_fut);
+  }));
 }
 
 // Default WillNeed() implementation: no-op

@@ -233,6 +233,17 @@ TEST(FutureSyncTest, Int) {
     ASSERT_EQ(*res, 42);
   }
   {
+    // MakeFinished(int)
+    auto fut = Future<int>::MakeFinished(42);
+    AssertSuccessful(fut);
+    auto res = fut.result();
+    ASSERT_OK(res);
+    ASSERT_EQ(*res, 42);
+    res = std::move(fut.result());
+    ASSERT_OK(res);
+    ASSERT_EQ(*res, 42);
+  }
+  {
     // MarkFinished(Result<int>)
     auto fut = Future<int>::Make();
     AssertNotFinished(fut);
@@ -246,6 +257,12 @@ TEST(FutureSyncTest, Int) {
     auto fut = Future<int>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut);
+    ASSERT_RAISES(IOError, fut.result());
+  }
+  {
+    // MakeFinished(Status)
+    auto fut = Future<int>::MakeFinished(Status::IOError("xxx"));
     AssertFailed(fut);
     ASSERT_RAISES(IOError, fut.result());
   }
