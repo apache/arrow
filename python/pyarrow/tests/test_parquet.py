@@ -2238,7 +2238,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset_xfail
+@parametrize_legacy_dataset
 def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
     fs, path = s3_example_s3fs
     _partition_test_for_filesystem(
