@@ -136,6 +136,8 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       CMAKE_ARGS: "-DPYTHON_EXECUTABLE=/usr/local/bin/python3"
+      # Pin Xcode to 11.7 instead of the default of 12.0.1
+      DEVELOPER_DIR: /Applications/Xcode_11.7.app/Contents/Developer
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

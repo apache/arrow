@@ -207,6 +207,8 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      # Pin Xcode to 11.7 instead of the default of 12.0.1
+      DEVELOPER_DIR: /Applications/Xcode_11.7.app/Contents/Developer
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
