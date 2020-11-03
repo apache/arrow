@@ -1265,34 +1265,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
 
     /// Creates a [GenericBinaryArray] from a vector of Optional (null) byte slices
     pub fn from_opt_vec(v: Vec<Option<&[u8]>>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut null_buf = make_null_buffer(v.len());
-        let mut length_so_far: OffsetSize = OffsetSize::zero();
-        offsets.push(length_so_far);
-
-        {
-            let null_slice = null_buf.data_mut();
-
-            for (i, s) in v.iter().enumerate() {
-                if let Some(s) = s {
-                    bit_util::set_bit(null_slice, i);
-                    length_so_far =
-                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
-                    values.extend_from_slice(s);
-                }
-                // always add an element in offsets
-                offsets.push(length_so_far);
-            }
-        }
-
-        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .null_bit_buffer(null_buf.freeze())
-            .build();
-        GenericBinaryArray::<OffsetSize>::from(array_data)
+        v.into_iter().collect()
     }
 
     fn from_list(v: GenericListArray<OffsetSize>) -> Self {
@@ -1320,6 +1293,13 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
 
         let data = builder.build();
         Self::from(data)
+    }
+}
+
+impl<'a, T: BinaryOffsetSizeTrait> GenericBinaryArray<T> {
+    /// constructs a new iterator
+    pub fn iter(&'a self) -> GenericBinaryIter<'a, T> {
+        GenericBinaryIter::<'a, T>::new(&self)
     }
 }
 
@@ -1391,11 +1371,62 @@ impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayDataRef>
     }
 }
 
+impl<Ptr, OffsetSize: BinaryOffsetSizeTrait> FromIterator<Option<Ptr>>
+    for GenericBinaryArray<OffsetSize>
+where
+    Ptr: AsRef<[u8]>,
+{
+    fn from_iter<I: IntoIterator<Item = Option<Ptr>>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let mut offsets = Vec::with_capacity(data_len + 1);
+        let mut values = Vec::new();
+        let mut null_buf = make_null_buffer(data_len);
+        let mut length_so_far: OffsetSize = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        {
+            let null_slice = null_buf.data_mut();
+
+            for (i, s) in iter.enumerate() {
+                if let Some(s) = s {
+                    let s = s.as_ref();
+                    bit_util::set_bit(null_slice, i);
+                    length_so_far =
+                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                    values.extend_from_slice(s);
+                }
+                // always add an element in offsets
+                offsets.push(length_so_far);
+            }
+        }
+
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+            .len(data_len)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        Self::from(array_data)
+    }
+}
+
 /// An array where each element is a byte whose maximum length is represented by a i32.
 pub type BinaryArray = GenericBinaryArray<i32>;
 
 /// An array where each element is a byte whose maximum length is represented by a i64.
 pub type LargeBinaryArray = GenericBinaryArray<i64>;
+
+impl<'a, T: BinaryOffsetSizeTrait> IntoIterator for &'a GenericBinaryArray<T> {
+    type Item = Option<&'a [u8]>;
+    type IntoIter = GenericBinaryIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        GenericBinaryIter::<'a, T>::new(self)
+    }
+}
 
 impl From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {

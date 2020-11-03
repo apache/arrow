@@ -17,7 +17,10 @@
 
 use crate::datatypes::ArrowPrimitiveType;
 
-use super::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
+use super::{
+    array::BinaryOffsetSizeTrait, Array, GenericBinaryArray, GenericStringArray,
+    PrimitiveArray, StringOffsetSizeTrait,
+};
 
 /// an iterator that returns Some(T) or None, that can be used on any non-boolean PrimitiveArray
 #[derive(Debug)]
@@ -111,11 +114,60 @@ impl<'a, T: StringOffsetSizeTrait> std::iter::ExactSizeIterator
 {
 }
 
+/// an iterator that returns `Some(&[u8])` or `None`, for binary arrays
+#[derive(Debug)]
+pub struct GenericBinaryIter<'a, T>
+where
+    T: BinaryOffsetSizeTrait,
+{
+    array: &'a GenericBinaryArray<T>,
+    i: usize,
+    len: usize,
+}
+
+impl<'a, T: BinaryOffsetSizeTrait> GenericBinaryIter<'a, T> {
+    /// create a new iterator
+    pub fn new(array: &'a GenericBinaryArray<T>) -> Self {
+        GenericBinaryIter::<T> {
+            array,
+            i: 0,
+            len: array.len(),
+        }
+    }
+}
+
+impl<'a, T: BinaryOffsetSizeTrait> std::iter::Iterator for GenericBinaryIter<'a, T> {
+    type Item = Option<&'a [u8]>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.i;
+        if i >= self.len {
+            None
+        } else if self.array.is_null(i) {
+            self.i += 1;
+            Some(None)
+        } else {
+            self.i += 1;
+            Some(Some(self.array.value(i)))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+/// all arrays have known size.
+impl<'a, T: BinaryOffsetSizeTrait> std::iter::ExactSizeIterator
+    for GenericBinaryIter<'a, T>
+{
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use crate::array::{ArrayRef, Int32Array, StringArray};
+    use crate::array::{ArrayRef, BinaryArray, Int32Array, StringArray};
 
     #[test]
     fn test_primitive_array_iter_round_trip() {
@@ -155,5 +207,21 @@ mod tests {
         let expected =
             StringArray::from(vec![Some("ab"), None, Some("aaab"), None, Some("aaaaab")]);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_binary_array_iter_round_trip() {
+        let array = BinaryArray::from(vec![
+            Some(b"a" as &[u8]),
+            None,
+            Some(b"aaa"),
+            None,
+            Some(b"aaaaa"),
+        ]);
+
+        // to and from iter
+        let result: BinaryArray = array.iter().collect();
+
+        assert_eq!(result, array);
     }
 }
