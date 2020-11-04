@@ -18,21 +18,20 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.apache.arrow.flight.grpc.MetadataAdapter;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import io.grpc.Metadata;
 
 public class TestCallOptions {
 
@@ -70,93 +69,67 @@ public class TestCallOptions {
 
   @Test
   public void singleProperty() {
-    final String keyVal = "key";
-    final String propVal = "prop";
-    final Map<String, Object> properties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
-    });
-
-    Assert.assertTrue(properties.containsKey(keyVal));
-    Assert.assertEquals(propVal, properties.get(keyVal));
-  }
-
-  @Test
-  public void nullProperty() {
-    final String keyVal = "key";
-    final String propVal = null;
-    final Map<String, Object> properties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
-    });
-
-    Assert.assertTrue(properties.containsKey(keyVal));
-    Assert.assertNull(properties.get(keyVal));
+    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    headers.insert("key", "value");
+    testHeaders(headers);
   }
 
   @Test
   public void multipleProperties() {
-    final Map<String, Serializable> properties = new HashMap<>();
-    properties.put("key", "value");
-    properties.put("key2", "value2");
-    final Map<String, Object> receivedProperties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
-    });
-
-    Assert.assertEquals(properties, receivedProperties);
+    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    headers.insert("key", "value");
+    headers.insert("key2", "value2");
+    testHeaders(headers);
   }
 
   @Test
-  public void separatorCharProperties() {
-    final Map<String, Serializable> properties = new HashMap<>();
-    properties.put("key", "val=ue");
-    properties.put("key2", "val;ue2");
-    properties.put("ke=y3", "value");
-    properties.put("ke;y4", "value2");
-    final Map<String, Object> receivedProperties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
-    });
-
-    Assert.assertEquals(properties, receivedProperties);
+  public void binaryProperties() {
+    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    headers.insert("key-bin", "value".getBytes());
+    headers.insert("key3-bin", "ëfßæ".getBytes());
+    testHeaders(headers);
   }
 
   @Test
-  public void specialCharProperties() {
-    final Map<String, Serializable> properties = new HashMap<>();
-    properties.put("key", "ëfßæ");
-    properties.put("keÿñœy2", "value2");
-    final Map<String, Object> receivedProperties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
-    });
-
-    Assert.assertEquals(properties, receivedProperties);
+  public void mixedProperties() {
+    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    headers.insert("key", "value");
+    headers.insert("key3-bin", "ëfßæ".getBytes());
+    testHeaders(headers);
   }
 
-  @Test
-  public void objectProperty() {
-    // Use ArrayList instead of List as it's Serializable.
-    final ArrayList<Integer> propList = new ArrayList<>();
-    propList.add(2);
-    propList.add(5);
+  private void testHeaders(MetadataAdapter headers) {
+    final ServerHeaderHandler propertyHandler = (incomingHeaders) -> {
+      for (String key : headers.keys()) {
+        if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+          Assert.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
+        } else {
+          Assert.assertEquals(headers.get(key), incomingHeaders.get(key));
+        }
+      }
+    };
 
-    final Map<String, Serializable> properties = new HashMap<>();
-    properties.put("key", propList);
-    final Map<String, Object> receivedProperties = test((client) -> {
-      client.doAction(new Action("fast"), new PropertyCallOption(properties)).hasNext();
-    });
-
-    Assert.assertEquals(properties, receivedProperties);
-  }
-
-  Map<String, Object> test(Consumer<FlightClient> testFn) {
-    final Map<String, Object> properties = new HashMap<>();
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
             FlightTestUtil.getStartedServer((location) ->
-                FlightServer.builder(a, location, producer).propertyHandler(properties::putAll).build());
+                FlightServer.builder(a, location, producer).headerHandler(propertyHandler).build());
+        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
+      client.doAction(new Action("fast"), new HeaderCallOption(headers)).hasNext();
+    } catch (InterruptedException | IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  void test(Consumer<FlightClient> testFn) {
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s =
+            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
-      return properties;
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }

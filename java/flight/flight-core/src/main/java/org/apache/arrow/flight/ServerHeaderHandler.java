@@ -17,15 +17,14 @@
 
 package org.apache.arrow.flight;
 
-import java.util.Map;
 import java.util.function.Consumer;
 
 /**
  * Interface for server side property handling.
  */
-public interface ServerPropertyHandler extends Consumer<Map<String, Object>> {
+public interface ServerHeaderHandler extends Consumer<CallHeaders> {
   /**
    * A property handler that does nothing.
    */
-  ServerPropertyHandler NO_OP = (s) -> { };
+  ServerHeaderHandler NO_OP = (s) -> { };
 }
