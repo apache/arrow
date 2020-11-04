@@ -30,7 +30,7 @@ import io.grpc.Context;
  */
 public class RequestContextAdapter implements RequestContext {
   public static final Context.Key<RequestContext> REQUEST_CONTEXT_KEY =
-          Context.key("arrow-flight-request-context");
+          Context.keyWithDefault("arrow-flight-request-context", new RequestContextAdapter());
   private final HashMap<String, String> map = new HashMap<>();
 
   @Override
