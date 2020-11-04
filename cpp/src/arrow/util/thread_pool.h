@@ -109,23 +109,15 @@ class ARROW_EXPORT Executor {
   template <
       typename Function, typename... Args,
       typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
-      typename ValueType = typename RT::ValueType>
-  Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
-    return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
-  }
-
-  template <
-      typename Function, typename... Args,
-      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
-      typename ValueType = typename RT::ValueType>
+      typename ValueType =
+          typename detail::ExecutorResultTraits<FunctionRetType>::ValueType>
   Result<Future<ValueType>> Submit(TaskHints hints, Function&& func, Args&&... args) {
     auto bound_func =
         std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
+    using BoundFuncType = decltype(bound_func);
 
     struct Task {
-      decltype(bound_func) bound_func;
+      BoundFuncType bound_func;
       Future<ValueType> future;
 
       void operator()() {
@@ -135,6 +127,13 @@ class ARROW_EXPORT Executor {
     auto future = Future<ValueType>::Make();
     ARROW_RETURN_NOT_OK(SpawnReal(std::move(hints), Task{std::move(bound_func), future}));
     return future;
+  }
+
+  template <typename Function, typename... Args>
+  auto Submit(Function&& func, Args&&... args)
+      -> decltype(Submit(TaskHints{}, std::forward<Function>(func),
+                         std::forward<Args>(args)...)) {
+    return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
   }
 
   // Return the level of parallelism (the number of tasks that may be executed
