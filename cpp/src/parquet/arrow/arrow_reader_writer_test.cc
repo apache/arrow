@@ -3199,6 +3199,27 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
   TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
 }
 
+TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
+  // ARROW-10493
+  auto string_array =
+      ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"a\", \"b\", \"c\", \"d\"]");
+
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       ::arrow::StructArray::Make(
+                           {string_array}, {::arrow::field("string", string_array->type(),
+                                                           /*nullable=*/true)}));
+  auto expected = Table::Make(::arrow::schema({::arrow::field(
+                                  "struct", struct_array->type(), /*nullable=*/true)}),
+                              {struct_array});
+
+  auto write_props =
+      WriterProperties::Builder().write_batch_size(string_array->length() / 2)->build();
+
+  std::shared_ptr<Table> actual;
+  DoRoundtrip(expected, /*row_group_size=*/string_array->length(), &actual, write_props);
+  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
+}
+
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<DataType>>> {};

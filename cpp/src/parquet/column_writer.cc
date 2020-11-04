@@ -1230,8 +1230,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
     DCHECK_EQ(array->num_fields(), 0);
-    return arrow::MakeArray(std::make_shared<ArrayData>(
-        array->type(), array->length(), std::move(buffers), new_null_count));
+    return arrow::MakeArray(std::make_shared<ArrayData>(array->type(), array->length(),
+                                                        std::move(buffers),
+                                                        new_null_count, array->offset()));
   }
 
   void WriteLevelsSpaced(int64_t num_levels, const int16_t* def_levels,
