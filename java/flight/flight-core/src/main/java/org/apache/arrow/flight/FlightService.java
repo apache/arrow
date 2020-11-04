@@ -68,9 +68,14 @@ class FlightService extends FlightServiceImplBase {
 
   private CallContext makeContext(ServerCallStreamObserver<?> responseObserver) {
     // Try to get the peer identity from middleware first (using the auth2 interfaces).
-    String peerIdentity = RequestContextAdapter.REQUEST_CONTEXT_KEY.get().get(Auth2Constants.PEER_IDENTITY_KEY);
+    final RequestContext context = RequestContextAdapter.REQUEST_CONTEXT_KEY.get();
+    String peerIdentity = null;
+    if (context != null) {
+      peerIdentity = context.get(Auth2Constants.PEER_IDENTITY_KEY);
+    }
+
     if (Strings.isNullOrEmpty(peerIdentity)) {
-      // Try the legacy auth interface.
+      // Try the legacy auth interface, which defaults to empty string.
       peerIdentity = AuthConstants.PEER_IDENTITY_KEY.get();
     }
 
