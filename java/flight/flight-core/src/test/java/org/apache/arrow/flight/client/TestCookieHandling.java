@@ -51,8 +51,8 @@ public class TestCookieHandling {
   private FlightServer server;
   private FlightClient client;
 
-  private ClientCookieMiddleware.Factory factory = new ClientCookieMiddleware.Factory();
-  private ClientCookieMiddleware cookieMiddleware = new ClientCookieMiddleware(factory);
+  private ClientCookieMiddlewareTestFactory testFactory = new ClientCookieMiddlewareTestFactory();
+  private ClientCookieMiddleware cookieMiddleware = new ClientCookieMiddleware(testFactory);
 
   @Before
   public void setup() throws Exception {
@@ -62,7 +62,7 @@ public class TestCookieHandling {
 
   @After
   public void cleanup() throws Exception {
-    cookieMiddleware = new ClientCookieMiddleware(factory);
+    cookieMiddleware = new ClientCookieMiddleware(testFactory);
     AutoCloseables.close(client, server, allocator);
     client = null;
     server = null;
@@ -175,11 +175,11 @@ public class TestCookieHandling {
   @Test
   public void cookieStaysAfterMultipleRequestsEndToEnd() {
     client.handshake();
-    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
     client.handshake();
-    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
     client.listFlights(Criteria.ALL);
-    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
   }
 
   /**
@@ -215,11 +215,20 @@ public class TestCookieHandling {
       @Override
       public SetCookieHeaderInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders,
                                                    RequestContext context) {
-        if (null != incomingHeaders.get(COOKIE_HEADER)) {
-          receivedCookieHeader = true;
-        }
+        receivedCookieHeader = null != incomingHeaders.get(COOKIE_HEADER);
         return new SetCookieHeaderInjector(this);
       }
+    }
+  }
+
+  public static class ClientCookieMiddlewareTestFactory extends ClientCookieMiddleware.Factory {
+
+    private ClientCookieMiddleware clientCookieMiddleware;
+
+    @Override
+    public ClientCookieMiddleware onCallStarted(CallInfo info) {
+      this.clientCookieMiddleware = new ClientCookieMiddleware(this);
+      return this.clientCookieMiddleware;
     }
   }
 
@@ -237,7 +246,7 @@ public class TestCookieHandling {
             .build());
 
     this.client = FlightClient.builder(allocator, server.getLocation())
-            .intercept(factory)
+            .intercept(testFactory)
             .build();
   }
 }
