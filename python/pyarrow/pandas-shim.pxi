@@ -18,6 +18,10 @@
 # pandas lazy-loading API shim that reduces API call and import overhead
 
 import warnings
+import threading
+
+
+LOCK = threading.Lock()
 
 
 cdef class _PandasAPIShim(object):
@@ -44,8 +48,9 @@ cdef class _PandasAPIShim(object):
 
     cdef _import_pandas(self, bint raise_):
         try:
-            import pandas as pd
-            import pyarrow.pandas_compat as pdcompat
+            with LOCK:
+                import pandas as pd
+                import pyarrow.pandas_compat as pdcompat
         except ImportError:
             self._have_pandas = False
             if raise_:
