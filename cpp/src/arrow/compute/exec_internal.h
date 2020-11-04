@@ -102,22 +102,22 @@ class DatumAccumulator : public ExecListener {
 /// inputs will be split into non-chunked ExecBatch values for execution
 Status CheckAllValues(const std::vector<Datum>& values);
 
-class ARROW_EXPORT FunctionExecutor {
+class ARROW_EXPORT KernelExecutor {
  public:
-  virtual ~FunctionExecutor() = default;
+  virtual ~KernelExecutor() = default;
+
+  virtual Status Init(KernelContext*, KernelInitArgs) = 0;
 
   /// XXX: Better configurability for listener
   /// Not thread-safe
   virtual Status Execute(const std::vector<Datum>& args, ExecListener* listener) = 0;
 
-  virtual ValueDescr output_descr() const = 0;
-
   virtual Datum WrapResults(const std::vector<Datum>& args,
                             const std::vector<Datum>& outputs) = 0;
 
-  static Result<std::unique_ptr<FunctionExecutor>> Make(ExecContext* ctx,
-                                                        const Function* func,
-                                                        const FunctionOptions* options);
+  static std::unique_ptr<KernelExecutor> MakeScalar();
+  static std::unique_ptr<KernelExecutor> MakeVector();
+  static std::unique_ptr<KernelExecutor> MakeScalarAggregate();
 };
 
 /// \brief Populate validity bitmap with the intersection of the nullity of the

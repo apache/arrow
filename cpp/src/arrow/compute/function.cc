@@ -117,8 +117,31 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
   RETURN_NOT_OK(detail::CheckAllValues(args));
-  ARROW_ASSIGN_OR_RAISE(auto executor,
-                        detail::FunctionExecutor::Make(ctx, this, options));
+  std::vector<ValueDescr> inputs(args.size());
+  for (size_t i = 0; i != args.size(); ++i) {
+    inputs[i] = args[i].descr();
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchExact(inputs));
+  std::unique_ptr<KernelState> state;
+
+  KernelContext kernel_ctx{ctx};
+  if (kernel->init) {
+    state = kernel->init(&kernel_ctx, {kernel, inputs, options});
+    RETURN_NOT_OK(kernel_ctx.status());
+    kernel_ctx.SetState(state.get());
+  }
+
+  std::unique_ptr<detail::KernelExecutor> executor;
+  if (kind() == Function::SCALAR) {
+    executor = detail::KernelExecutor::MakeScalar();
+  } else if (kind() == Function::VECTOR) {
+    executor = detail::KernelExecutor::MakeVector();
+  } else {
+    executor = detail::KernelExecutor::MakeScalarAggregate();
+  }
+  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
+
   auto listener = std::make_shared<detail::DatumAccumulator>();
   RETURN_NOT_OK(executor->Execute(args, listener.get()));
   return executor->WrapResults(args, listener->values());
@@ -157,7 +180,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
   return Status::OK();
 }
 
-Result<const ScalarKernel*> ScalarFunction::DispatchExact(
+Result<const Kernel*> ScalarFunction::DispatchExact(
     const std::vector<ValueDescr>& values) const {
   return DispatchExactImpl(*this, kernels_, values);
 }
@@ -184,7 +207,7 @@ Status VectorFunction::AddKernel(VectorKernel kernel) {
   return Status::OK();
 }
 
-Result<const VectorKernel*> VectorFunction::DispatchExact(
+Result<const Kernel*> VectorFunction::DispatchExact(
     const std::vector<ValueDescr>& values) const {
   return DispatchExactImpl(*this, kernels_, values);
 }
@@ -198,7 +221,7 @@ Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
   return Status::OK();
 }
 
-Result<const ScalarAggregateKernel*> ScalarAggregateFunction::DispatchExact(
+Result<const Kernel*> ScalarAggregateFunction::DispatchExact(
     const std::vector<ValueDescr>& values) const {
   return DispatchExactImpl(*this, kernels_, values);
 }

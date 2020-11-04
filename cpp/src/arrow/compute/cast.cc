@@ -163,7 +163,7 @@ bool CastFunction::CanCastTo(const DataType& out_type) const {
   return impl_->in_types.find(static_cast<int>(out_type.id())) != impl_->in_types.end();
 }
 
-Result<const ScalarKernel*> CastFunction::DispatchExact(
+Result<const Kernel*> CastFunction::DispatchExact(
     const std::vector<ValueDescr>& values) const {
   const int passed_num_args = static_cast<int>(values.size());
 
