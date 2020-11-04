@@ -189,7 +189,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     ///
     /// assert!(builder.capacity() >= 20);
     /// ```
-    fn reserve(&mut self, n: usize) -> Result<()>;
+    fn reserve(&mut self, n: usize) -> ();
 
     /// Appends a value of type `T` into the builder,
     /// growing the internal buffer as needed.
@@ -292,32 +292,31 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         } else {
             (self.len + i) * mem::size_of::<T::Native>()
         };
-        self.buffer.resize(new_buffer_len)?;
+        self.buffer.resize(new_buffer_len);
         self.len += i;
         Ok(())
     }
 
     #[inline]
-    fn reserve(&mut self, n: usize) -> Result<()> {
+    fn reserve(&mut self, n: usize) {
         let new_capacity = self.len + n;
         if T::DATA_TYPE == DataType::Boolean {
             if new_capacity > self.capacity() {
                 let new_byte_capacity = bit_util::ceil(new_capacity, 8);
                 let existing_capacity = self.buffer.capacity();
-                let new_capacity = self.buffer.reserve(new_byte_capacity)?;
+                let new_capacity = self.buffer.reserve(new_byte_capacity);
                 self.buffer
                     .set_null_bits(existing_capacity, new_capacity - existing_capacity);
             }
         } else {
             let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
-            self.buffer.reserve(byte_capacity)?;
+            self.buffer.reserve(byte_capacity);
         }
-        Ok(())
     }
 
     #[inline]
     fn append(&mut self, v: T::Native) -> Result<()> {
-        self.reserve(1)?;
+        self.reserve(1);
         if T::DATA_TYPE == DataType::Boolean {
             if v != T::default_value() {
                 unsafe {
@@ -333,7 +332,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     #[inline]
     fn append_n(&mut self, n: usize, v: T::Native) -> Result<()> {
-        self.reserve(n)?;
+        self.reserve(n);
         if T::DATA_TYPE == DataType::Boolean {
             if n != 0 && v != T::default_value() {
                 unsafe {
@@ -356,7 +355,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn append_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len();
-        self.reserve(array_slots)?;
+        self.reserve(array_slots);
 
         if T::DATA_TYPE == DataType::Boolean {
             for v in slice {
@@ -384,7 +383,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             debug_assert!(new_buffer_len >= self.buffer.len());
             let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
             self.len = 0;
-            buf.resize(new_buffer_len).unwrap();
+            buf.resize(new_buffer_len);
             buf.freeze()
         } else {
             let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
@@ -506,8 +505,8 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
             total_len += array.len();
         }
         // reserve memory
-        self.values_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.values_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
 
         let mul = T::get_bit_width() / 8;
         for array in data {
@@ -713,8 +712,8 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.offsets_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.offsets_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
         // values_builder is allocated by the relevant builder, and is not allocated here
 
         // determine the latest offset on the builder
@@ -925,8 +924,8 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.offsets_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.offsets_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
         // values_builder is allocated by the relevant builder, and is not allocated here
 
         // determine the latest offset on the builder
@@ -1134,7 +1133,7 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.bitmap_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len);
 
         // determine the latest offset on the builder
         for array in data {
@@ -1941,7 +1940,7 @@ impl ArrayBuilder for StructBuilder {
             }
             total_len += array.len();
         }
-        self.bitmap_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len);
 
         for array in data {
             let len = array.len();
@@ -2524,16 +2523,16 @@ mod tests {
     fn test_reserve() {
         let mut b = UInt8BufferBuilder::new(2);
         assert_eq!(64, b.capacity());
-        b.reserve(64).unwrap();
+        b.reserve(64);
         assert_eq!(64, b.capacity());
-        b.reserve(65).unwrap();
+        b.reserve(65);
         assert_eq!(128, b.capacity());
 
         let mut b = Int32BufferBuilder::new(2);
         assert_eq!(16, b.capacity());
-        b.reserve(16).unwrap();
+        b.reserve(16);
         assert_eq!(16, b.capacity());
-        b.reserve(17).unwrap();
+        b.reserve(17);
         assert_eq!(32, b.capacity());
     }
 

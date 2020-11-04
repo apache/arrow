@@ -1039,7 +1039,7 @@ impl ArrayReader for StructArrayReader {
         // calculate struct def level data
         let buffer_size = children_array_len * size_of::<i16>();
         let mut def_level_data_buffer = MutableBuffer::new(buffer_size);
-        def_level_data_buffer.resize(buffer_size)?;
+        def_level_data_buffer.resize(buffer_size);
 
         let def_level_data = def_level_data_buffer.typed_data_mut();
 
