@@ -45,6 +45,10 @@ public class TestFlightService {
 
   @Test
   public void testFlightServiceWithNoAuthHandlerOrInterceptors() {
+    // This test is for ARROW-10491. There was a bug where FlightService would try to access the RequestContext,
+    // but the RequestContext was getting set to null because no interceptors were active to initialize it
+    // when using FlightService directly rather than starting up a FlightServer.
+
     // Arrange
     final FlightProducer producer = new NoOpFlightProducer() {
       @Override
