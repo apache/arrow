@@ -24,7 +24,7 @@ import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * Session ID from the server.
+ * Caches session from the server.
  */
 public class ClientSessionWriter implements Consumer<CallHeaders> {
   private volatile String session;

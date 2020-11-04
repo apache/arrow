@@ -127,7 +127,7 @@ public class TestServerSessionHandling {
   }
 
   @Test
-  public void testClientReuseValidSessionId() {
+  public void testClientReuseValidSession() {
     // Setup
     ServerSessionMiddleware.Factory factory =
         new ServerSessionMiddleware.Factory(new SimpleServerSessionHandler());

@@ -38,9 +38,9 @@ public interface ServerSessionHandler {
   };
 
   /**
-   * Creates and return the session ID.
+   * Creates and return the session.
    *
-   * @return the session ID for the current session.
+   * @return the session for the current session.
    */
   String beginSession(CallHeaders headers);
 

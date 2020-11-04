@@ -59,7 +59,7 @@ public class TestClientSessionHandling {
   }
 
   @Test
-  public void testSessionIdPersistence() {
+  public void testSessionPersistence() {
     // Setup
     final ClientSessionWriter writer = new ClientSessionWriter();
     final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);

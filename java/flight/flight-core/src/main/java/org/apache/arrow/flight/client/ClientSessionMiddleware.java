@@ -24,7 +24,7 @@ import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightConstants;
 
 /**
- * Client middleware to re-use the existing session ID provided by the server.
+ * Client middleware to re-use the existing session provided by the server.
  */
 public class ClientSessionMiddleware implements FlightClientMiddleware {
   /**
