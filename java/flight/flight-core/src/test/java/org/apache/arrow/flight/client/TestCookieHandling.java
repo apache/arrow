@@ -34,6 +34,7 @@ import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -60,8 +61,12 @@ public class TestCookieHandling {
   }
 
   @After
-  public void cleanup() {
+  public void cleanup() throws Exception {
     cookieMiddleware = new ClientCookieMiddleware(factory);
+    AutoCloseables.close(client, server, allocator);
+    client = null;
+    server = null;
+    allocator = null;
   }
 
   @Test
@@ -170,11 +175,11 @@ public class TestCookieHandling {
   @Test
   public void cookieStaysAfterMultipleRequestsEndToEnd() {
     client.handshake();
-    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
+    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
+    client.handshake();
+    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
     client.listFlights(Criteria.ALL);
-    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
-    client.listFlights(Criteria.ALL);
-    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
+    Assert.assertEquals("k=v", factory.getClientCookieMiddleware().getValidCookiesAsString());
   }
 
   /**

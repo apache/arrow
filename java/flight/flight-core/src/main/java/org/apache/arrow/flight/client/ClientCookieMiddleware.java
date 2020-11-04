@@ -48,13 +48,19 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
    * Factory used within FlightClient.
    */
   public static class Factory implements FlightClientMiddleware.Factory {
+    public ClientCookieMiddleware getClientCookieMiddleware() {
+      return clientCookieMiddleware;
+    }
+
+    private ClientCookieMiddleware clientCookieMiddleware;
     // Use a map to track the most recent version of a cookie from the server.
     // Note that cookie names are case-sensitive (but header names aren't).
     private ConcurrentMap<String, HttpCookie> cookies = new ConcurrentHashMap<>();
 
     @Override
     public ClientCookieMiddleware onCallStarted(CallInfo info) {
-      return new ClientCookieMiddleware(this);
+      this.clientCookieMiddleware = new ClientCookieMiddleware(this);
+      return this.clientCookieMiddleware;
     }
   }
 
@@ -79,9 +85,7 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
     };
     final Iterable<String> setCookieHeaders = incomingHeaders.getAll(SET_COOKIE_HEADER);
     if (setCookieHeaders != null) {
-      for (String cookieHeader : setCookieHeaders) {
-        handleSetCookieHeader.accept(cookieHeader);
-      }
+      setCookieHeaders.forEach(handleSetCookieHeader);
     }
   }
 
