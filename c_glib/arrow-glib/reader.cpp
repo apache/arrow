@@ -1184,7 +1184,7 @@ garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
 {
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
   auto arrow_schema = garrow_schema_get_raw(schema);
-  for (const auto field : arrow_schema->fields()) {
+  for (const auto &field : arrow_schema->fields()) {
     priv->convert_options.column_types[field->name()] = field->type();
   }
 }
@@ -1206,7 +1206,7 @@ garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options)
                                             g_str_equal,
                                             g_free,
                                             g_object_unref);
-  for (const auto iter : priv->convert_options.column_types) {
+  for (const auto &iter : priv->convert_options.column_types) {
     auto arrow_name = iter.first;
     auto arrow_data_type = iter.second;
     g_hash_table_insert(types,
