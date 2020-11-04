@@ -404,11 +404,12 @@ cmake_find_package <- function(pkg, version = NULL, env_vars) {
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   cmake_cmd <- paste0(
-    env_vars, " && $CMAKE",
+    env_vars,
+    " && cd ", td,
+    " && $CMAKE",
     " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
-    " -S", td,
-    " -B", td
+    " ."
   )
   system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }
