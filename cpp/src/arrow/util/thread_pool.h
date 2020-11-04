@@ -129,10 +129,12 @@ class ARROW_EXPORT Executor {
     return future;
   }
 
-  template <typename Function, typename... Args>
-  auto Submit(Function&& func, Args&&... args)
-      -> decltype(Submit(TaskHints{}, std::forward<Function>(func),
-                         std::forward<Args>(args)...)) {
+  template <
+      typename Function, typename... Args,
+      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
+      typename ValueType =
+          typename detail::ExecutorResultTraits<FunctionRetType>::ValueType>
+  Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
     return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
   }
 
