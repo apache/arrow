@@ -56,10 +56,8 @@ public class ClientSessionMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-    final String sessionId = incomingHeaders.get(FlightConstants.SESSION_HEADER);
-    if (sessionId != null) {
-      sessionWriter.setSessionId(sessionId);
-    }
+    final String sessionId = incomingHeaders.get(FlightConstants.SET_SESSION_HEADER);
+    sessionWriter.setSession(sessionId);
   }
 
   @Override

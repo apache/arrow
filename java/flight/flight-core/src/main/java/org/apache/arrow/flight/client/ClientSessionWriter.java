@@ -20,7 +20,6 @@ package org.apache.arrow.flight.client;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.util.VisibleForTesting;
 
@@ -28,45 +27,33 @@ import org.apache.arrow.util.VisibleForTesting;
  * Session ID from the server.
  */
 public class ClientSessionWriter implements Consumer<CallHeaders> {
-  private volatile String sessionId;
+  private volatile String session;
 
   /**
-   * Retrieves the current stored session ID.
+   * Retrieves the current stored session.
    *
-   * @return the current session ID.
+   * @return the current session.
    */
   @VisibleForTesting
-  public String getSessionId() {
-    return this.sessionId;
+  public String getSession() {
+    return this.session;
   }
 
   /**
-   * Sets the session ID.
+   * Sets the session.
    *
-   * The session ID is not available when the ClientSessionWriter is instantiated.
-   * The setting of session ID is deferred until one is provided by the server.
-   *
-   * @param sessionId the session ID from the server.
-   * @throws org.apache.arrow.flight.FlightRuntimeException if session ID provided does not match the
-   *         the existing session ID stored in this ClientSessionWriter.
+   * @param session the session from the server.
    */
-  public void setSessionId(String sessionId) {
+  public void setSession(String session) {
     synchronized (this) {
-      if (this.sessionId != null) {
-        if (!sessionId.equals(this.sessionId)) {
-          throw CallStatus.UNAUTHENTICATED.toRuntimeException();
-        }
-      } else {
-        this.sessionId = sessionId;
-      }
-
+      this.session = session;
     }
   }
 
   @Override
   public void accept(CallHeaders outgoingHeaders) {
-    if (sessionId != null) {
-      outgoingHeaders.insert(FlightConstants.SESSION_HEADER, sessionId);
+    if (session != null) {
+      outgoingHeaders.insert(FlightConstants.SESSION_HEADER, session);
     }
   }
 }

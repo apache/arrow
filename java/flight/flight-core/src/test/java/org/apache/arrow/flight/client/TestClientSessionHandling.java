@@ -21,19 +21,14 @@ import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.ErrorFlightMetadata;
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.FlightStatusCode;
 import org.junit.Test;
 
 /**
  * Tests for ClientSessionWriter and ClientSessionMiddleware.
  */
 public class TestClientSessionHandling {
-  private static final String SESSION_HEADER_KEY = "SET-SESSION";
-
-  private void testFailed() throws Exception {
-    throw new Exception("Test failed, expected exception.");
-  }
+  private static final String SET_SESSION_HEADER_KEY = "set-session";
+  private static final String SESSION_HEADER_KEY = "session";
 
   @Test
   public void testSimpleOnHeadersReceived() {
@@ -41,12 +36,12 @@ public class TestClientSessionHandling {
     final ClientSessionWriter writer = new ClientSessionWriter();
     final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);
     final CallHeaders headers = new ErrorFlightMetadata();
-    final String sessionId = "test-session-id";
-    headers.insert(SESSION_HEADER_KEY, sessionId);
+    final String session = "test-session";
+    headers.insert(SET_SESSION_HEADER_KEY, session);
 
     // Test
     middleware.onHeadersReceived(headers);
-    assertEquals(sessionId, writer.getSessionId());
+    assertEquals(session, writer.getSession());
   }
 
   @Test
@@ -56,7 +51,7 @@ public class TestClientSessionHandling {
     final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);
     final CallHeaders headers = new ErrorFlightMetadata();
     final String sessionId = "test-session-id";
-    writer.setSessionId(sessionId);
+    writer.setSession(sessionId);
 
     // Test
     middleware.onBeforeSendingHeaders(headers);
@@ -70,46 +65,14 @@ public class TestClientSessionHandling {
     final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);
     final CallHeaders receivedHeaders = new ErrorFlightMetadata();
     final String sessionId = "test-session-id";
-    receivedHeaders.insert(SESSION_HEADER_KEY, sessionId);
+    receivedHeaders.insert(SET_SESSION_HEADER_KEY, sessionId);
     final CallHeaders outgoingHeaders = new ErrorFlightMetadata();
 
     // Test
     middleware.onHeadersReceived(receivedHeaders);
-    assertEquals(sessionId, writer.getSessionId());
+    assertEquals(sessionId, writer.getSession());
 
     middleware.onBeforeSendingHeaders(outgoingHeaders);
     assertEquals(sessionId, outgoingHeaders.get(SESSION_HEADER_KEY));
-  }
-
-  @Test
-  public void testReceivingDifferentSessionId() throws Exception {
-    // Setup
-    final ClientSessionWriter writer = new ClientSessionWriter();
-    final ClientSessionMiddleware middleware = new ClientSessionMiddleware(writer);
-
-    final CallHeaders receivedHeaders = new ErrorFlightMetadata();
-    final String sessionId = "test-session-id";
-    receivedHeaders.insert(SESSION_HEADER_KEY, sessionId);
-
-    final CallHeaders outgoingHeaders = new ErrorFlightMetadata();
-
-    final CallHeaders receivedHeadersWithFalseId = new ErrorFlightMetadata();
-    final String falseSessionId = "test-session-id-false";
-    receivedHeadersWithFalseId.insert(SESSION_HEADER_KEY, falseSessionId);
-
-    // Test
-    middleware.onHeadersReceived(receivedHeaders);
-    assertEquals(sessionId, writer.getSessionId());
-
-    middleware.onBeforeSendingHeaders(outgoingHeaders);
-    assertEquals(sessionId, outgoingHeaders.get(SESSION_HEADER_KEY));
-
-    try {
-      middleware.onHeadersReceived(receivedHeadersWithFalseId);
-      testFailed();
-    } catch (FlightRuntimeException ex) {
-      assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());
-    }
-
   }
 }

@@ -20,38 +20,71 @@ package org.apache.arrow.flight;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.arrow.flight.grpc.RequestContextAdapter;
 import org.junit.Test;
 
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Tests for ServerSessionHandler and ServerSessionMiddleware.
  */
 public class TestServerSessionHandling {
-  private static final String SESSION_HEADER_KEY = "SET-SESSION";
-  private static final String TEST_SESSION_ID = "test-session-id";
+  private static final String SESSION_HEADER_KEY = "session";
+  private static final String SET_SESSION_HEADER_KEY = "set-session";
+  private static final String TEST_SESSION = "name=test-session;id=session-id;max-age=100";
+  private static final List<String> VALID_PROPERTY_KEYS = ImmutableList.of(
+          "name",
+          "id",
+          "max-age"
+  );
 
   private class SimpleServerSessionHandler implements ServerSessionHandler {
-    private String sessionId;
+    private String session;
 
-    public SimpleServerSessionHandler() {
-      this.sessionId = null;
+    SimpleServerSessionHandler() {
+      this.session = null;
     }
 
     @Override
-    public String getSessionId() {
-      if (sessionId == null) {
-        this.sessionId = TEST_SESSION_ID;
+    public String beginSession(CallHeaders headers) {
+      session = TEST_SESSION;
+      return session;
+    }
+
+    @Override
+    public String getSession(CallHeaders headers) {
+      // No session has been set yet
+      if (session == null) {
+        return null;
       }
-      return sessionId;
-    }
 
-    @Override
-    public boolean isValid(String sessionId) {
-      // The sessionId never expires in this simple test implementation.
-      // Production implementations should provide expiration validation.
-      return sessionId.equals(this.sessionId);
+      // Expected session header but none is found
+      if (!headers.containsKey(SESSION_HEADER_KEY)) {
+        throw CallStatus.NOT_FOUND.toRuntimeException();
+      }
+
+      // Validate that session header does not contain invalid properties
+      final Map<String, String> propertiesMap = new HashMap<>();
+      final String[] inSessionProperties = headers.get(SESSION_HEADER_KEY).split(";");
+      for (String pair : inSessionProperties) {
+        final String[] keyVal = pair.split("=");
+        if (!VALID_PROPERTY_KEYS.contains(keyVal[0])) {
+          throw CallStatus.INVALID_ARGUMENT.toRuntimeException();
+        }
+        propertiesMap.put(keyVal[0], keyVal[1]);
+      }
+
+      // Validate that session has not expired
+      final int maxAge = Integer.parseInt(propertiesMap.get("max-age"));
+      if (maxAge == 0) {
+        throw CallStatus.UNAUTHENTICATED.toRuntimeException();
+      }
+
+      return session;
     }
   }
 
@@ -67,33 +100,6 @@ public class TestServerSessionHandling {
   }
 
   @Test
-  public void testNoOpSessionHandlerInitial() {
-    // Setup
-    ServerSessionMiddleware.Factory factory =
-        new ServerSessionMiddleware.Factory(ServerSessionHandler.NO_OP);
-    CallHeaders headers = new ErrorFlightMetadata();
-    onCallStarted(factory, headers);
-
-    // Test
-    assertFalse(headers.containsKey(SESSION_HEADER_KEY));
-  }
-
-  @Test
-  public void testNoOpSessionHandlerHeaderToClient() {
-    // Setup
-    ServerSessionMiddleware.Factory factory =
-        new ServerSessionMiddleware.Factory(ServerSessionHandler.NO_OP);
-    CallHeaders headers = new ErrorFlightMetadata();
-    ServerSessionMiddleware middleware = onCallStarted(factory, headers);
-    CallHeaders headersToClient = new ErrorFlightMetadata();
-    middleware.onBeforeSendingHeaders(headersToClient);
-
-    // Test
-    assertFalse(headers.containsKey(SESSION_HEADER_KEY));
-    assertFalse(headersToClient.containsKey(SESSION_HEADER_KEY));
-  }
-
-  @Test
   public void testInitialSessionId() {
     // Setup
     ServerSessionMiddleware.Factory factory =
@@ -102,7 +108,7 @@ public class TestServerSessionHandling {
     onCallStarted(factory, headers);
 
     // Test
-    assertEquals(TEST_SESSION_ID, headers.get(SESSION_HEADER_KEY));
+    assertEquals(TEST_SESSION, headers.get(SET_SESSION_HEADER_KEY));
   }
 
   @Test
@@ -116,8 +122,8 @@ public class TestServerSessionHandling {
     middleware.onBeforeSendingHeaders(headersToClient);
 
     // Test
-    assertEquals(TEST_SESSION_ID, headers.get(SESSION_HEADER_KEY));
-    assertEquals(TEST_SESSION_ID, headersToClient.get(SESSION_HEADER_KEY));
+    assertEquals(TEST_SESSION, headers.get(SET_SESSION_HEADER_KEY));
+    assertEquals(TEST_SESSION, headersToClient.get(SET_SESSION_HEADER_KEY));
   }
 
   @Test
@@ -129,28 +135,71 @@ public class TestServerSessionHandling {
     onCallStarted(factory, initialHeaders);
 
     CallHeaders nextCallHeaders = new ErrorFlightMetadata();
-    nextCallHeaders.insert(SESSION_HEADER_KEY, TEST_SESSION_ID);
+    nextCallHeaders.insert(SESSION_HEADER_KEY, TEST_SESSION);
     onCallStarted(factory, nextCallHeaders);
 
     // Test
-    assertEquals(1, Iterators.size(initialHeaders.getAll(SESSION_HEADER_KEY).iterator()));
-    assertEquals(TEST_SESSION_ID, initialHeaders.get(SESSION_HEADER_KEY));
-    assertEquals(1, Iterators.size(nextCallHeaders.getAll(SESSION_HEADER_KEY).iterator()));
-    assertEquals(TEST_SESSION_ID, nextCallHeaders.get(SESSION_HEADER_KEY));
+    assertFalse(initialHeaders.containsKey(SESSION_HEADER_KEY));
+    assertEquals(TEST_SESSION, initialHeaders.get(SET_SESSION_HEADER_KEY));
 
+    assertFalse(nextCallHeaders.containsKey(SET_SESSION_HEADER_KEY));
+    assertEquals(TEST_SESSION, nextCallHeaders.get(SESSION_HEADER_KEY));
   }
 
   @Test
-  public void testClientProvideFalseSessionId() throws Exception {
+  public void testClientDoesNotProvideSessionHeader() throws Exception {
     // Setup
     ServerSessionMiddleware.Factory factory =
-        new ServerSessionMiddleware.Factory(new SimpleServerSessionHandler());
-    CallHeaders headers = new ErrorFlightMetadata();
-    headers.insert(SESSION_HEADER_KEY, "invalid-session-id-from-client");
+            new ServerSessionMiddleware.Factory(new SimpleServerSessionHandler());
+    CallHeaders initialHeaders = new ErrorFlightMetadata();
+    onCallStarted(factory, initialHeaders);
+
+    CallHeaders nextCallHeaders = new ErrorFlightMetadata();
 
     // Test
     try {
-      onCallStarted(factory, headers);
+      onCallStarted(factory, nextCallHeaders);
+      testFailed();
+    } catch (FlightRuntimeException ex) {
+      assertEquals(FlightStatusCode.NOT_FOUND, ex.status().code());
+    }
+  }
+
+  @Test
+  public void testClientProvidesSessionWithInvalidProperty() throws Exception {
+    // Setup
+    ServerSessionMiddleware.Factory factory =
+            new ServerSessionMiddleware.Factory(new SimpleServerSessionHandler());
+    CallHeaders initialHeaders = new ErrorFlightMetadata();
+    onCallStarted(factory, initialHeaders);
+
+    CallHeaders nextCallHeaders = new ErrorFlightMetadata();
+    nextCallHeaders.insert(SESSION_HEADER_KEY,
+            "name=test-session;id=session-id;max-age=5;invalid-property=invalid-content");
+
+    // Test
+    try {
+      onCallStarted(factory, nextCallHeaders);
+      testFailed();
+    } catch (FlightRuntimeException ex) {
+      assertEquals(FlightStatusCode.INVALID_ARGUMENT, ex.status().code());
+    }
+  }
+
+  @Test
+  public void testClientProvidesExpiredSession() throws Exception {
+    // Setup
+    ServerSessionMiddleware.Factory factory =
+            new ServerSessionMiddleware.Factory(new SimpleServerSessionHandler());
+    CallHeaders initialHeaders = new ErrorFlightMetadata();
+    onCallStarted(factory, initialHeaders);
+
+    CallHeaders nextCallHeaders = new ErrorFlightMetadata();
+    nextCallHeaders.insert(SESSION_HEADER_KEY, "name=test-session;id=session-id;max-age=0");
+
+    // Test
+    try {
+      onCallStarted(factory, nextCallHeaders);
       testFailed();
     } catch (FlightRuntimeException ex) {
       assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());

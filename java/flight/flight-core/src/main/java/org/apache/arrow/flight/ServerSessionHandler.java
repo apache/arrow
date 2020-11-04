@@ -18,7 +18,7 @@
 package org.apache.arrow.flight;
 
 /**
- * ServerSessionHandler interface to retrieve the current session ID.
+ * ServerSessionHandler interface to retrieve the current session.
  */
 public interface ServerSessionHandler {
   /**
@@ -27,30 +27,32 @@ public interface ServerSessionHandler {
    */
   ServerSessionHandler NO_OP = new ServerSessionHandler() {
     @Override
-    public String getSessionId() {
-          return null;
-      }
+    public String beginSession(CallHeaders headers) {
+      return null;
+    }
 
     @Override
-    public boolean isValid(String sessionId) {
-          return false;
-      }
+    public String getSession(CallHeaders headers) {
+      return null;
+    }
   };
 
   /**
-   * Retrieves the current session ID. Generates a new session ID if there is no pre-existing
-   * session ID.
+   * Creates and return the session ID.
    *
-   * @return the current session ID.
-   * @throws FlightRuntimeException with CallStatus {@code UNAUTHENTICATED} if session ID has expired.
+   * @return the session ID for the current session.
    */
-  String getSessionId();
+  String beginSession(CallHeaders headers);
 
   /**
-   * Validates an incoming session ID. Returns true if sessionId is valid; returns false otherwise.
+   * Retrieves the current session for the corresponding client.
    *
-   * @param sessionId the incoming session ID to validate.
-   * @return true if incoming session ID is valid; false otherwise.
+   * @param headers CallHeaders to inspect.
+   * @return the corresponding session.
+   * @throws FlightRuntimeException
+   *     with CallStatus {@code UNAUTHENTICATED} if the session has expired.
+   *     with CallStatus {@code INVALID_ARGUMENT} if the session header contains unrecognised properties.
+   *     with CallStatus {@code NOT_FOUND} if the session header is not found.
    */
-  boolean isValid(String sessionId);
+  String getSession(CallHeaders headers);
 }

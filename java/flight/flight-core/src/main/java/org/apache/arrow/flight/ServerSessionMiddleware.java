@@ -18,7 +18,7 @@
 package org.apache.arrow.flight;
 
 /**
- * Middleware to add a SET-SESSION header.
+ * Middleware to add an optional set-session/session header.
  */
 public class ServerSessionMiddleware implements FlightServerMiddleware {
 
@@ -35,38 +35,29 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     @Override
     public ServerSessionMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
                                                  RequestContext context) {
-      if (incomingHeaders.containsKey(FlightConstants.SESSION_HEADER)) {
-        // Client is re-using existing session ID.
-        // ServerSessionHandler validates client session ID before proceeding.
-        final String existingSessionId = incomingHeaders.get(FlightConstants.SESSION_HEADER);
-        if (!sessionHandler.isValid(existingSessionId)) {
-          throw CallStatus.UNAUTHENTICATED.toRuntimeException();
-        }
-      } else {
-        // No existing session ID provided, establishing a new session.
-        // Insert SET-SESSION header if ServerSessionHandler returns a non-null session ID.
-        final String sessionId = sessionHandler.getSessionId();
-        if (sessionId != null) {
-          incomingHeaders.insert(FlightConstants.SESSION_HEADER, sessionId);
-        }
+
+      String session = sessionHandler.getSession(incomingHeaders);
+
+      if (session == null) {
+        // No existing session provided, establishing a new session.
+        // Insert SET-SESSION header if ServerSessionHandler returns a non-null session.
+        session = sessionHandler.beginSession(incomingHeaders);
+        incomingHeaders.insert(FlightConstants.SET_SESSION_HEADER, session);
       }
 
-      return new ServerSessionMiddleware(sessionHandler);
+      return new ServerSessionMiddleware(session);
     }
   }
 
-  private ServerSessionHandler sessionHandler;
+  private String session;
 
-  private ServerSessionMiddleware(ServerSessionHandler sessionHandler) {
-    this.sessionHandler = sessionHandler;
+  private ServerSessionMiddleware(String session) {
+    this.session = session;
   }
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    String sessionId = sessionHandler.getSessionId();
-    if (sessionId != null) {
-      outgoingHeaders.insert(FlightConstants.SESSION_HEADER, sessionId);
-    }
+    outgoingHeaders.insert(FlightConstants.SET_SESSION_HEADER, session);
   }
 
   @Override

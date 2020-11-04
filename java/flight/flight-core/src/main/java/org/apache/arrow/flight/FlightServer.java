@@ -199,7 +199,7 @@ public class FlightServer implements AutoCloseable {
       }
 
       if (sessionHandler != ServerSessionHandler.NO_OP) {
-        this.middleware(FlightServerMiddleware.Key.of(FlightConstants.SESSION_HEADER),
+        this.middleware(FlightServerMiddleware.Key.of(FlightConstants.SET_SESSION_HEADER),
                 new ServerSessionMiddleware.Factory(sessionHandler));
       }
 
