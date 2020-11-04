@@ -17,9 +17,6 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
-import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
-
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -27,7 +24,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -40,8 +36,6 @@ import org.apache.arrow.adapter.jdbc.consumer.ArrayConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BigIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BinaryConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
-import org.apache.arrow.adapter.jdbc.consumer.BlobConsumer;
-import org.apache.arrow.adapter.jdbc.consumer.ClobConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DateConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DecimalConsumer;
@@ -76,8 +70,6 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.types.DateUnit;
-import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -116,10 +108,7 @@ public class JdbcToArrowUtils {
 
   /**
    * Create Arrow {@link Schema} object for the given JDBC {@link java.sql.ResultSetMetaData}.
-   * <p>
-   * The {@link JdbcToArrowUtils#getArrowTypeForJdbcField(JdbcFieldInfo, Calendar)} method is used to construct a
-   * {@link org.apache.arrow.vector.types.pojo.ArrowType} for each field in the {@link java.sql.ResultSetMetaData}.
-   * </p>
+   *
    * <p>
    * If {@link JdbcToArrowConfig#shouldIncludeMetadata()} returns <code>true</code>, the following fields
    * will be added to the {@link FieldType#getMetadata()}:
@@ -164,7 +153,7 @@ public class JdbcToArrowUtils {
         metadata = null;
       }
 
-      final ArrowType arrowType = getArrowTypeForJdbcField(new JdbcFieldInfo(rsmd, i), config.getCalendar());
+      final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(rsmd, i));
       if (arrowType != null) {
         final FieldType fieldType = new FieldType(true, arrowType, /* dictionary encoding */ null, metadata);
 
@@ -175,8 +164,7 @@ public class JdbcToArrowUtils {
             throw new IllegalArgumentException("Configuration does not provide a mapping for array column " + i);
           }
           children = new ArrayList<Field>();
-          final ArrowType childType =
-              getArrowTypeForJdbcField(arrayFieldInfo, config.getCalendar());
+          final ArrowType childType = config.getJdbcToArrowTypeConverter().apply(arrayFieldInfo);
           children.add(new Field("child", FieldType.nullable(childType), null));
         }
 
@@ -185,107 +173,6 @@ public class JdbcToArrowUtils {
     }
 
     return new Schema(fields, null);
-  }
-
-  /**
-   * Creates an {@link org.apache.arrow.vector.types.pojo.ArrowType}
-   * from the {@link JdbcFieldInfo} and {@link java.util.Calendar}.
-   *
-   * <p>This method currently performs following type mapping for JDBC SQL data types to corresponding Arrow data types.
-   *
-   * <ul>
-   *   <li>CHAR --> ArrowType.Utf8</li>
-   *   <li>NCHAR --> ArrowType.Utf8</li>
-   *   <li>VARCHAR --> ArrowType.Utf8</li>
-   *   <li>NVARCHAR --> ArrowType.Utf8</li>
-   *   <li>LONGVARCHAR --> ArrowType.Utf8</li>
-   *   <li>LONGNVARCHAR --> ArrowType.Utf8</li>
-   *   <li>NUMERIC --> ArrowType.Decimal(precision, scale)</li>
-   *   <li>DECIMAL --> ArrowType.Decimal(precision, scale)</li>
-   *   <li>BIT --> ArrowType.Bool</li>
-   *   <li>TINYINT --> ArrowType.Int(8, signed)</li>
-   *   <li>SMALLINT --> ArrowType.Int(16, signed)</li>
-   *   <li>INTEGER --> ArrowType.Int(32, signed)</li>
-   *   <li>BIGINT --> ArrowType.Int(64, signed)</li>
-   *   <li>REAL --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)</li>
-   *   <li>FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)</li>
-   *   <li>DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)</li>
-   *   <li>BINARY --> ArrowType.Binary</li>
-   *   <li>VARBINARY --> ArrowType.Binary</li>
-   *   <li>LONGVARBINARY --> ArrowType.Binary</li>
-   *   <li>DATE --> ArrowType.Date(DateUnit.DAY)</li>
-   *   <li>TIME --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
-   *   <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
-   *   <li>CLOB --> ArrowType.Utf8</li>
-   *   <li>BLOB --> ArrowType.Binary</li>
-   *   <li>NULL --> ArrowType.Null</li>
-   * </ul>
-   *
-   * @param fieldInfo The field information to construct the <code>ArrowType</code> from.
-   * @param calendar The calendar to use when constructing the <code>ArrowType.Timestamp</code>
-   *                 for {@link java.sql.Types#TIMESTAMP} types.
-   * @return The corresponding <code>ArrowType</code>.
-   * @throws NullPointerException if either <code>fieldInfo</code> or <code>calendar</code> are <code>null</code>.
-   */
-  public static ArrowType getArrowTypeForJdbcField(JdbcFieldInfo fieldInfo, Calendar calendar) {
-    Preconditions.checkNotNull(fieldInfo, "JdbcFieldInfo object cannot be null");
-
-    final String timezone;
-    if (calendar != null) {
-      timezone = calendar.getTimeZone().getID();
-    } else {
-      timezone = null;
-    }
-
-    switch (fieldInfo.getJdbcType()) {
-      case Types.BOOLEAN:
-      case Types.BIT:
-        return new ArrowType.Bool();
-      case Types.TINYINT:
-        return new ArrowType.Int(8, true);
-      case Types.SMALLINT:
-        return new ArrowType.Int(16, true);
-      case Types.INTEGER:
-        return new ArrowType.Int(32, true);
-      case Types.BIGINT:
-        return new ArrowType.Int(64, true);
-      case Types.NUMERIC:
-      case Types.DECIMAL:
-        int precision = fieldInfo.getPrecision();
-        int scale = fieldInfo.getScale();
-        return new ArrowType.Decimal(precision, scale, 128);
-      case Types.REAL:
-      case Types.FLOAT:
-        return new ArrowType.FloatingPoint(SINGLE);
-      case Types.DOUBLE:
-        return new ArrowType.FloatingPoint(DOUBLE);
-      case Types.CHAR:
-      case Types.NCHAR:
-      case Types.VARCHAR:
-      case Types.NVARCHAR:
-      case Types.LONGVARCHAR:
-      case Types.LONGNVARCHAR:
-      case Types.CLOB:
-        return new ArrowType.Utf8();
-      case Types.DATE:
-        return new ArrowType.Date(DateUnit.DAY);
-      case Types.TIME:
-        return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
-      case Types.TIMESTAMP:
-        return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
-      case Types.BINARY:
-      case Types.VARBINARY:
-      case Types.LONGVARBINARY:
-      case Types.BLOB:
-        return new ArrowType.Binary();
-      case Types.ARRAY:
-        return new ArrowType.List();
-      case Types.NULL:
-        return new ArrowType.Null();
-      default:
-        // no-op, shouldn't get here
-        return null;
-    }
   }
 
   /* Uses the configuration to determine what the array sub-type JdbcFieldInfo is.
@@ -331,6 +218,12 @@ public class JdbcToArrowUtils {
     jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
   }
 
+  static boolean isColumnNullable(ResultSet resultSet, int index) throws SQLException {
+    int nullableValue = resultSet.getMetaData().isNullable(index);
+    return nullableValue == ResultSetMetaData.columnNullable ||
+        nullableValue == ResultSetMetaData.columnNullableUnknown;
+  }
+
   /**
    * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
    * the given Arrow Vector objects.
@@ -348,8 +241,8 @@ public class JdbcToArrowUtils {
 
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {
-      consumers[i - 1] = getConsumer(rs, i, rs.getMetaData().getColumnType(i),
-          root.getVector(rsmd.getColumnName(i)), config);
+      FieldVector vector = root.getVector(rsmd.getColumnName(i));
+      consumers[i - 1] = getConsumer(vector.getField().getType(), i, isColumnNullable(rs, i), vector, config);
     }
 
     CompositeJdbcConsumer compositeConsumer = null;
@@ -381,68 +274,59 @@ public class JdbcToArrowUtils {
     }
   }
 
-  static JdbcConsumer getConsumer(ResultSet resultSet, int columnIndex, int jdbcColType,
-      FieldVector vector, JdbcToArrowConfig config) throws SQLException {
+  static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
+      FieldVector vector, JdbcToArrowConfig config) {
     final Calendar calendar = config.getCalendar();
-    int nullableValue = resultSet.getMetaData().isNullable(columnIndex);
-    boolean nullable = nullableValue == ResultSetMetaData.columnNullable ||
-            nullableValue == ResultSetMetaData.columnNullableUnknown;
-    switch (jdbcColType) {
-      case Types.BOOLEAN:
-      case Types.BIT:
+
+    switch (arrowType.getTypeID()) {
+      case Bool:
         return BitConsumer.createConsumer((BitVector) vector, columnIndex, nullable);
-      case Types.TINYINT:
-        return TinyIntConsumer.createConsumer((TinyIntVector) vector, columnIndex, nullable);
-      case Types.SMALLINT:
-        return SmallIntConsumer.createConsumer((SmallIntVector) vector, columnIndex, nullable);
-      case Types.INTEGER:
-        return IntConsumer.createConsumer((IntVector) vector, columnIndex, nullable);
-      case Types.BIGINT:
-        return BigIntConsumer.createConsumer((BigIntVector) vector, columnIndex, nullable);
-      case Types.NUMERIC:
-      case Types.DECIMAL:
+      case Int:
+        switch (((ArrowType.Int) arrowType).getBitWidth()) {
+          case 8:
+            return TinyIntConsumer.createConsumer((TinyIntVector) vector, columnIndex, nullable);
+          case 16:
+            return SmallIntConsumer.createConsumer((SmallIntVector) vector, columnIndex, nullable);
+          case 32:
+            return IntConsumer.createConsumer((IntVector) vector, columnIndex, nullable);
+          case 64:
+            return BigIntConsumer.createConsumer((BigIntVector) vector, columnIndex, nullable);
+          default:
+            return null;
+        }
+      case Decimal:
         return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable);
-      case Types.REAL:
-      case Types.FLOAT:
-        return FloatConsumer.createConsumer((Float4Vector) vector, columnIndex, nullable);
-      case Types.DOUBLE:
-        return DoubleConsumer.createConsumer((Float8Vector) vector, columnIndex, nullable);
-      case Types.CHAR:
-      case Types.NCHAR:
-      case Types.VARCHAR:
-      case Types.NVARCHAR:
-      case Types.LONGVARCHAR:
-      case Types.LONGNVARCHAR:
+      case FloatingPoint:
+        switch (((ArrowType.FloatingPoint) arrowType).getPrecision()) {
+          case SINGLE:
+            return FloatConsumer.createConsumer((Float4Vector) vector, columnIndex, nullable);
+          case DOUBLE:
+            return DoubleConsumer.createConsumer((Float8Vector) vector, columnIndex, nullable);
+          default:
+            return null;
+        }
+      case Utf8:
+      case LargeUtf8:
         return VarCharConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
-      case Types.DATE:
+      case Binary:
+      case LargeBinary:
+        return BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
+      case Date:
         return DateConsumer.createConsumer((DateDayVector) vector, columnIndex, nullable, calendar);
-      case Types.TIME:
+      case Time:
         return TimeConsumer.createConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
-      case Types.TIMESTAMP:
+      case Timestamp:
         if (config.getCalendar() == null) {
           return TimestampConsumer.createConsumer((TimeStampMilliVector) vector, columnIndex, nullable);
         } else {
           return TimestampTZConsumer.createConsumer((TimeStampMilliTZVector) vector, columnIndex, nullable, calendar);
         }
-      case Types.BINARY:
-      case Types.VARBINARY:
-      case Types.LONGVARBINARY:
-        return BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
-      case Types.ARRAY:
-        final JdbcFieldInfo fieldInfo = getJdbcFieldInfoForArraySubType(resultSet.getMetaData(), columnIndex, config);
-        if (fieldInfo == null) {
-          throw new IllegalArgumentException("Column " + columnIndex + " is an array of unknown type.");
-        }
-        JdbcConsumer delegate = getConsumer(resultSet, JDBC_ARRAY_VALUE_COLUMN,
-            fieldInfo.getJdbcType(), ((ListVector) vector).getDataVector(), config);
+      case List:
+        FieldVector childVector = ((ListVector) vector).getDataVector();
+        JdbcConsumer delegate = getConsumer(childVector.getField().getType(), JDBC_ARRAY_VALUE_COLUMN,
+            childVector.getField().isNullable(), childVector, config);
         return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
-      case Types.CLOB:
-        return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
-      case Types.BLOB:
-        BinaryConsumer blobDelegate =
-                BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
-        return BlobConsumer.createConsumer(blobDelegate, columnIndex, nullable);
-      case Types.NULL:
+      case Null:
         return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
