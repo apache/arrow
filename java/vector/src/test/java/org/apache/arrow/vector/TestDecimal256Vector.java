@@ -210,11 +210,12 @@ public class TestDecimal256Vector {
   }
 
   /**
-   * Test {@link Decimal256Vector#setBigEndian(int, byte[])} which takes BE layout input and stores in LE layout.
+   * Test {@link Decimal256Vector#setBigEndian(int, byte[])} which takes BE layout input and stores in native-endian
+   * (NE) layout.
    * Cases to cover: input byte array in different lengths in range [1-16] and negative values.
    */
   @Test
-  public void decimalBE2LE() {
+  public void decimalBE2NE() {
     try (Decimal256Vector decimalVector = TestUtils.newVector(Decimal256Vector.class, "decimal",
         new ArrowType.Decimal(23, 2, 256), allocator)) {
       decimalVector.allocateNew();

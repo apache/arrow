@@ -30,6 +30,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -310,7 +311,7 @@ public class TestComplexWriter {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       DecimalHolder holder = new DecimalHolder();
-      holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      holder.buffer = allocator.buffer(DecimalVector.TYPE_WIDTH);
       ArrowType arrowType = new ArrowType.Decimal(10, 0, 128);
       for (int i = 0; i < COUNT; i++) {
         listWriter.startList();
@@ -318,13 +319,13 @@ public class TestComplexWriter {
           if (j % 4 == 0) {
             listWriter.writeDecimal(new BigDecimal(j));
           } else if (j % 4 == 1) {
-            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, 16);
+            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
             holder.start = 0;
             holder.scale = 0;
             holder.precision = 10;
             listWriter.write(holder);
           } else if (j % 4 == 2) {
-            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, 16);
+            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
             listWriter.writeDecimal(0, holder.buffer, arrowType);
           } else {
             byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();

@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -526,7 +527,7 @@ public class TestComplexCopier {
       to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
 
       DecimalHolder holder = new DecimalHolder();
-      holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
+      holder.buffer = allocator.buffer(DecimalVector.TYPE_WIDTH);
       ArrowType arrowType = new ArrowType.Decimal(3, 0, 128);
 
       // populate from vector
@@ -535,13 +536,13 @@ public class TestComplexCopier {
         writer.startList();
         writer.decimal().writeDecimal(BigDecimal.valueOf(i));
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 2), holder.buffer, 0, /*byteWidth=*/16);
+        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 2), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
         holder.start = 0;
         holder.scale = 0;
         holder.precision = 3;
         writer.decimal().write(holder);
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0, /*byteWidth=*/16);
+        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
         writer.decimal().writeDecimal(0, holder.buffer, arrowType);
 
         writer.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
