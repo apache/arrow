@@ -159,18 +159,22 @@ test_that("[[<- assignment", {
   tab[["chr"]] <- NULL
   expect_data_frame(tab, tbl[-4])
 
+  # can remove a column by index
+  tab[[4]] <- NULL
+  expect_data_frame(tab, tbl[1:3])
+
   # can add a named column
   tab[["new"]] <- letters[10:1]
-  expect_vector(tab[["new"]], letters[10:1])
+  expect_data_frame(tab, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
 
-  # can add a column
+  # can replace a column by index
   tab[[2]] <- as.numeric(10:1)
   expect_vector(tab[[2]], as.numeric(10:1))
 
   # can add a column by index
-  tab[[6]] <- as.numeric(10:1)
-  expect_vector(tab[[6]], as.numeric(10:1))
-  expect_vector(tab[["6"]], as.numeric(10:1))
+  tab[[5]] <- as.numeric(10:1)
+  expect_vector(tab[[5]], as.numeric(10:1))
+  expect_vector(tab[["5"]], as.numeric(10:1))
 
   # can replace a column
   tab[["int"]] <- 10:1
@@ -179,10 +183,34 @@ test_that("[[<- assignment", {
   # can use $
   tab$new <- NULL
   expect_null(as.vector(tab$new))
-  expect_identical(dim(tab), c(10L, 5L))
+  expect_identical(dim(tab), c(10L, 4L))
 
   tab$int <- 1:10
   expect_vector(tab$int, 1:10)
+
+  # recycling
+  tab[["atom"]] <- 1L
+  expect_vector(tab[["atom"]], rep(1L, 10))
+
+  expect_error(
+    tab[["atom"]] <- 1:6,
+    paste0(
+      "Invalid: Added column's length must match table's length. ",
+      "Expected length 10 but got length 6"
+    )
+  )
+
+  # assign Arrow array and chunked_array
+  array <- Array$create(c(10:1))
+  tab$array <- array
+  expect_vector(tab$array, 10:1)
+
+  tab$chunked <- chunked_array(1:10)
+  expect_vector(tab$chunked, 1:10)
+
+  # nonsense indexes
+  expect_error(tab[[NA]] <- letters[10:1], "missing value where TRUE/FALSE needed")
+  expect_error(tab[[NULL]] <- letters[10:1], "argument is of length zero")
 })
 
 test_that("Table$Slice", {

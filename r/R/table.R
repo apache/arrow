@@ -267,28 +267,38 @@ names.Table <- function(x) x$ColumnNames()
 `[[<-.Table` <- function(x, i, value) {
   if (is.null(value)) {
     if (is.character(i)) {
-      i <- match(i, names(x)) - 1L
+      i <- match(i, names(x))
     }
-    x <- x$RemoveColumn(i)
+    x <- x$RemoveColumn(i - 1L)
   } else {
     if (!is.character(i)) {
       # get or create a/the column name
-      if (i <= ncol(x)) {
-        i <- names(x)[[i]]
+      if (i <= x$num_columns) {
+        i <- names(x)[i]
       } else {
         i <- as.character(i)
       }
     }
 
+    # auto-magic recycling
+    n_value <- NROW(value)
+    x_num_rows <- x$num_rows
+    if (n_value < x_num_rows && n_value > 0L &&
+        (x_num_rows%%n_value == 0L) && NCOL(value) <= 1L) {
+      value <- rep(value, length.out = x_num_rows)
+    }
+
     # construct the field
-    value <- chunked_array(value)
+    if (!inherits(value, "ChunkedArray")) {
+      value <- chunked_array(value)
+    }
     new_field <- field(i, value$type)
 
     if (i %in% names(x)) {
       i <- match(i, names(x)) - 1L
       x <- x$SetColumn(i, new_field, value)
     } else {
-      i <- ncol(x)
+      i <- x$num_columns
       x <- x$AddColumn(i, new_field, value)
     }
   }
@@ -298,6 +308,9 @@ names.Table <- function(x) x$ColumnNames()
 #' @export
 `$<-.Table` <- function(x, i, value) {
   assert_that(is.string(i))
+  # We need to check if `i` is in names in case it is an active binding (e.g.
+  # `metadata`, in which case we use assign to change the active binding instead
+  # of the column in the table)
   if (i %in% ls(x)) {
     assign(i, value, x)
   } else {
