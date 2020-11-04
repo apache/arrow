@@ -23,7 +23,7 @@ package org.apache.arrow.flight;
 public interface FlightConstants {
 
   String SERVICE = "arrow.flight.protocol.FlightService";
-  String SET_SESSION_HEADER = "set-session";
-  String SESSION_HEADER = "session";
+  String SET_SESSION_HEADER = "Set-Session";
+  String SESSION_HEADER = "Session";
 
 }

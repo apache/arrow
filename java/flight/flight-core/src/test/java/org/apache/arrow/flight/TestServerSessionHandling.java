@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableList;
  * Tests for ServerSessionHandler and ServerSessionMiddleware.
  */
 public class TestServerSessionHandling {
-  private static final String SESSION_HEADER_KEY = "session";
-  private static final String SET_SESSION_HEADER_KEY = "set-session";
+  private static final String SESSION_HEADER_KEY = "Session";
+  private static final String SET_SESSION_HEADER_KEY = "Set-Session";
   private static final String TEST_SESSION = "name=test-session;id=session-id;max-age=100";
   private static final List<String> VALID_PROPERTY_KEYS = ImmutableList.of(
           "name",

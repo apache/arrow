@@ -27,8 +27,8 @@ import org.junit.Test;
  * Tests for ClientSessionWriter and ClientSessionMiddleware.
  */
 public class TestClientSessionHandling {
-  private static final String SET_SESSION_HEADER_KEY = "set-session";
-  private static final String SESSION_HEADER_KEY = "session";
+  private static final String SET_SESSION_HEADER_KEY = "Set-Session";
+  private static final String SESSION_HEADER_KEY = "Session";
 
   @Test
   public void testSimpleOnHeadersReceived() {
