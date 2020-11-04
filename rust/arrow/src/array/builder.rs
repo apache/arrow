@@ -3409,11 +3409,6 @@ mod tests {
         builder.append(22345678).unwrap();
         let array = builder.finish();
 
-        println!("{:?}", array.keys().data());
-        println!(
-            "{:?}",
-            UInt8Array::from(vec![Some(0), None, Some(1)]).data()
-        );
         assert_eq!(
             array.keys(),
             &UInt8Array::from(vec![Some(0), None, Some(1)])

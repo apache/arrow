@@ -2132,11 +2132,11 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// assert_eq!(array.keys(), &Int8Array::from(vec![0, 0, 1, 2]));
 /// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
-    /// data of this dictionary. Note that this is _not_ compatible with the C Data interface,
+    /// Data of this dictionary. Note that this is _not_ compatible with the C Data interface,
     /// as, in the current implementation, `values` below are the first child of this struct.
     data: ArrayDataRef,
 
-    /// data of the keys of this dictionary. These are constructed from the buffer and null bitmap
+    /// The keys of this dictionary. These are constructed from the buffer and null bitmap
     /// of `data`.
     /// Also, note that these do not correspond to the true values of this array. Rather, they map
     /// to the real values.
@@ -2230,7 +2230,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
                 T::DATA_TYPE,
                 data.len(),
                 Some(data.null_count()),
-                data.null_buffer().map(|b| b.clone()),
+                data.null_buffer().cloned(),
                 data.offset(),
                 data.buffers().to_vec(),
                 vec![],
@@ -2309,16 +2309,16 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
         &self.data
     }
 
-    /// Returns the total number of bytes of memory occupied by the buffers owned by this [DictionaryArray].
     fn get_buffer_memory_size(&self) -> usize {
-        // Since both `keys` and `values` derive (are references from) `data`, we only account for `data`.
-        self.data.get_array_memory_size()
+        // Since both `keys` and `values` derive (are references from) `data`, we only need to account for `data`.
+        self.data.get_buffer_memory_size()
     }
 
-    /// Returns the total number of bytes of memory occupied physically by this [DictionaryArray].
     fn get_array_memory_size(&self) -> usize {
-        // Since both `keys` and `values` derive (are references from) `data`, we only account for `data`.
-        self.data.get_array_memory_size() + mem::size_of_val(self)
+        self.data.get_array_memory_size()
+            + self.keys.get_array_memory_size()
+            + self.values.get_array_memory_size()
+            + mem::size_of_val(self)
     }
 }
 
