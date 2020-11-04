@@ -152,9 +152,15 @@ where
             let data_chunks = data.chunks_exact(64);
             let remainder = data_chunks.remainder();
 
-            let bit_chunks = buffer.bit_chunks(array.offset(), array.len());
+            let buffer_slice = buffer.bit_slice().view(array.offset(), array.len());
+            let buffer_chunks = buffer_slice.chunks::<u64>();
+
+            let buffer_remainder_bits: u64 = buffer_chunks.remainder_bits();
+
+            let buffer_chunk_iter = buffer_chunks.interpret();
+
             &data_chunks
-                .zip(bit_chunks.iter())
+                .zip(buffer_chunk_iter)
                 .for_each(|(chunk, mask)| {
                     chunk.iter().enumerate().for_each(|(i, value)| {
                         if (mask & (1 << i)) != 0 {
@@ -163,10 +169,8 @@ where
                     });
                 });
 
-            let remainder_bits = bit_chunks.remainder_bits();
-
             remainder.iter().enumerate().for_each(|(i, value)| {
-                if remainder_bits & (1 << i) != 0 {
+                if buffer_remainder_bits & (1 << i) != 0 {
                     sum = sum + *value;
                 }
             });
@@ -216,24 +220,27 @@ where
             let data_chunks = data.chunks_exact(64);
             let remainder = data_chunks.remainder();
 
-            let bit_chunks = buffer.bit_chunks(array.offset(), array.len());
+            let bit_slice = buffer.bit_slice().view(array.offset(), array.len());
+            let bit_chunks = bit_slice.chunks::<u64>();
             let remainder_bits = bit_chunks.remainder_bits();
 
-            data_chunks.zip(bit_chunks).for_each(|(chunk, mut mask)| {
-                // split chunks further into slices corresponding to the vector length
-                // the compiler is able to unroll this inner loop and remove bounds checks
-                // since the outer chunk size (64) is always a multiple of the number of lanes
-                chunk.chunks_exact(T::lanes()).for_each(|chunk| {
-                    let zero = T::init(T::default_value());
-                    let vecmask = T::mask_from_u64(mask);
-                    let chunk = T::load(&chunk);
-                    let blended = T::mask_select(vecmask, chunk, zero);
+            data_chunks
+                .zip(bit_chunks.interpret())
+                .for_each(|(chunk, mut mask)| {
+                    // split chunks further into slices corresponding to the vector length
+                    // the compiler is able to unroll this inner loop and remove bounds checks
+                    // since the outer chunk size (64) is always a multiple of the number of lanes
+                    chunk.chunks_exact(T::lanes()).for_each(|chunk| {
+                        let zero = T::init(T::default_value());
+                        let vecmask = T::mask_from_u64(mask);
+                        let chunk = T::load(&chunk);
+                        let blended = T::mask_select(vecmask, chunk, zero);
 
-                    vector_sum = vector_sum + blended;
+                        vector_sum = vector_sum + blended;
 
-                    mask = mask >> T::lanes();
+                        mask = mask >> T::lanes();
+                    });
                 });
-            });
 
             remainder.iter().enumerate().for_each(|(i, value)| {
                 if remainder_bits & (1 << i) != 0 {

@@ -302,10 +302,10 @@ mod tests {
         buffer::Buffer,
         datatypes::{Field, ToByteSlice},
         memory,
-        util::bit_util,
     };
 
     use super::*;
+    use crate::util::bit_ops::BufferBitSliceMut;
 
     #[test]
     fn test_list_array() {
@@ -552,11 +552,14 @@ mod tests {
             Buffer::from(&[0, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
         // 01011001 00000001
         let mut null_bits: [u8; 2] = [0; 2];
-        bit_util::set_bit(&mut null_bits, 0);
-        bit_util::set_bit(&mut null_bits, 3);
-        bit_util::set_bit(&mut null_bits, 4);
-        bit_util::set_bit(&mut null_bits, 6);
-        bit_util::set_bit(&mut null_bits, 8);
+        {
+            let mut null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
+            null_bit_slice.set_bit(0, true);
+            null_bit_slice.set_bit(3, true);
+            null_bit_slice.set_bit(4, true);
+            null_bit_slice.set_bit(6, true);
+            null_bit_slice.set_bit(8, true);
+        }
 
         // Construct a list array from the above two
         let list_data_type =
@@ -582,8 +585,9 @@ mod tests {
         assert_eq!(1, sliced_array.offset());
         assert_eq!(3, sliced_array.null_count());
 
+        let null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
         for i in 0..sliced_array.len() {
-            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+            if null_bit_slice.get_bit(sliced_array.offset() + i) {
                 assert!(sliced_array.is_valid(i));
             } else {
                 assert!(sliced_array.is_null(i));
@@ -617,11 +621,14 @@ mod tests {
             Buffer::from(&[0i64, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
         // 01011001 00000001
         let mut null_bits: [u8; 2] = [0; 2];
-        bit_util::set_bit(&mut null_bits, 0);
-        bit_util::set_bit(&mut null_bits, 3);
-        bit_util::set_bit(&mut null_bits, 4);
-        bit_util::set_bit(&mut null_bits, 6);
-        bit_util::set_bit(&mut null_bits, 8);
+        {
+            let mut null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
+            null_bit_slice.set_bit(0, true);
+            null_bit_slice.set_bit(3, true);
+            null_bit_slice.set_bit(4, true);
+            null_bit_slice.set_bit(6, true);
+            null_bit_slice.set_bit(8, true);
+        }
 
         // Construct a list array from the above two
         let list_data_type =
@@ -647,8 +654,9 @@ mod tests {
         assert_eq!(1, sliced_array.offset());
         assert_eq!(3, sliced_array.null_count());
 
+        let null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
         for i in 0..sliced_array.len() {
-            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+            if null_bit_slice.get_bit(sliced_array.offset() + i) {
                 assert!(sliced_array.is_valid(i));
             } else {
                 assert!(sliced_array.is_null(i));
@@ -678,13 +686,16 @@ mod tests {
             ))
             .build();
 
-        // Set null buts for the nested array:
+        // Set null bits for the nested array:
         //  [[0, 1], null, null, [6, 7], [8, 9]]
         // 01011001 00000001
         let mut null_bits: [u8; 1] = [0; 1];
-        bit_util::set_bit(&mut null_bits, 0);
-        bit_util::set_bit(&mut null_bits, 3);
-        bit_util::set_bit(&mut null_bits, 4);
+        {
+            let mut null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
+            null_bit_slice.set_bit(0, true);
+            null_bit_slice.set_bit(3, true);
+            null_bit_slice.set_bit(4, true);
+        }
 
         // Construct a fixed size list array from the above two
         let list_data_type = DataType::FixedSizeList(
@@ -711,8 +722,9 @@ mod tests {
         assert_eq!(1, sliced_array.offset());
         assert_eq!(2, sliced_array.null_count());
 
+        let null_bit_slice = BufferBitSliceMut::new(&mut null_bits);
         for i in 0..sliced_array.len() {
-            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+            if null_bit_slice.get_bit(sliced_array.offset() + i) {
                 assert!(sliced_array.is_valid(i));
             } else {
                 assert!(sliced_array.is_null(i));

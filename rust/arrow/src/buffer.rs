@@ -33,9 +33,10 @@ use std::sync::Arc;
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
-use crate::util::bit_chunk_iterator::BitChunks;
-use crate::util::bit_util;
-use crate::util::bit_util::ceil;
+use crate::util::bit_ops::*;
+use crate::util::utils;
+use crate::util::utils::ceil;
+
 #[cfg(feature = "simd")]
 use std::borrow::BorrowMut;
 
@@ -258,19 +259,52 @@ impl Buffer {
     /// Returns a slice of this buffer starting at a certain bit offset.
     /// If the offset is byte-aligned the returned buffer is a shallow clone,
     /// otherwise a new buffer is allocated and filled with a copy of the bits in the range.
-    pub fn bit_slice(&self, offset: usize, len: usize) -> Self {
-        if offset % 8 == 0 && len % 8 == 0 {
-            return self.slice(offset / 8);
+    #[inline]
+    pub fn bit_view(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
+        if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
+            self.slice(offset_in_bits / 8)
+        } else {
+            self.bit_slice()
+                .view(offset_in_bits, len_in_bits)
+                .as_buffer()
         }
-
-        bitwise_unary_op_helper(&self, offset, len, |a| a)
     }
 
-    pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self, offset, len)
+    /// Gives bit slice of the underlying buffer
+    /// This method can be used to get bit views for bit operations on the immutable view over the buffer.
+    #[inline]
+    pub fn bit_slice(&self) -> BufferBitSlice {
+        BufferBitSlice::new(self.data.data())
+    }
+
+    /// Count one bits in this buffer
+    #[inline]
+    pub fn count_ones(&self) -> usize {
+        self.bit_slice().count_ones()
+    }
+
+    /// Count zero bits in this buffer
+    #[inline]
+    pub fn count_zeros(&self) -> usize {
+        self.bit_slice().count_zeros()
+    }
+
+    ///
+    /// Get bit value at the given index in this bit view
+    #[inline]
+    pub fn get_bit(&self, index: usize) -> bool {
+        self.bit_slice().get_bit(index)
+    }
+
+    ///
+    /// Get bits in this view as vector of booleans
+    #[inline]
+    pub fn typed_bits(&mut self) -> Vec<bool> {
+        self.bit_slice().typed_bits()
     }
 
     /// Returns an empty buffer.
+    #[inline]
     pub fn empty() -> Self {
         unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
     }
@@ -283,7 +317,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         // allocate aligned memory buffer
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
-        let capacity = bit_util::round_upto_multiple_of_64(len);
+        let capacity = utils::round_upto_multiple_of_64(len);
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
@@ -322,7 +356,7 @@ where
         .borrow_mut()
         .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
         .for_each(|(res, (left, right))| {
-            unsafe { bit_util::bitwise_bin_op_simd(&left, &right, res, &simd_op) };
+            unsafe { utils::bitwise_bin_op_simd(&left, &right, res, &simd_op) };
         });
 
     result_chunks
@@ -401,20 +435,27 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
-    let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().view(left_offset_in_bits, len_in_bits);
+    let left_chunks = left_slice.chunks::<u64>();
+
+    let right_slice = right.bit_slice().view(right_offset_in_bits, len_in_bits);
+    let right_chunks = right_slice.chunks::<u64>();
+
+    let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
+    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    let rem = &rem.to_ne_bytes()[0..remainder_bytes];
+
+    let left_chunk_iter = left_chunks.interpret();
+    let right_chunk_iter = right_chunks.interpret();
+
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
     result_chunks
-        .zip(left_chunks.iter().zip(right_chunks.iter()))
+        .zip(left_chunk_iter.zip(right_chunk_iter))
         .for_each(|(res, (left, right))| {
             *res = op(left, right);
         });
 
-    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
-    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
-    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
-    let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
     result.freeze()
@@ -435,19 +476,21 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_chunks = left.bit_chunks(offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().view(offset_in_bits, len_in_bits);
+    let left_chunks = left_slice.chunks::<u64>();
+
+    let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
+    let rem = op(left_chunks.remainder_bits());
+    let rem = &rem.to_ne_bytes()[0..remainder_bytes];
+
+    let left_chunk_iter = left_chunks.interpret();
+
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
-    result_chunks
-        .zip(left_chunks.iter())
-        .for_each(|(res, left)| {
-            *res = op(left);
-        });
+    result_chunks.zip(left_chunk_iter).for_each(|(res, left)| {
+        *res = op(left);
+    });
 
-    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
-    let rem = op(left_chunks.remainder_bits());
-    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
-    let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
     result.freeze()
@@ -605,7 +648,7 @@ pub struct MutableBuffer {
 impl MutableBuffer {
     /// Allocate a new mutable buffer with initial capacity to be `capacity`.
     pub fn new(capacity: usize) -> Self {
-        let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
+        let new_capacity = utils::round_upto_multiple_of_64(capacity);
         let ptr = memory::allocate_aligned(new_capacity);
         Self {
             data: ptr,
@@ -616,7 +659,7 @@ impl MutableBuffer {
 
     /// creates a new [MutableBuffer] where every bit is initialized to `0`
     pub fn new_null(len: usize) -> Self {
-        let num_bytes = bit_util::ceil(len, 8);
+        let num_bytes = utils::ceil(len, 8);
         MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
     }
 
@@ -654,7 +697,7 @@ impl MutableBuffer {
     /// Returns the new capacity for this buffer.
     pub fn reserve(&mut self, capacity: usize) -> usize {
         if capacity > self.capacity {
-            let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
+            let new_capacity = utils::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
             let new_data =
                 unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
@@ -675,7 +718,7 @@ impl MutableBuffer {
         if new_len > self.len {
             self.reserve(new_len);
         } else {
-            let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
+            let new_capacity = utils::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
                 let new_data =
                     unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
@@ -729,6 +772,8 @@ impl MutableBuffer {
 
     /// Returns a raw pointer for this buffer.
     ///
+    /// # Safety
+    ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     #[inline]
@@ -736,6 +781,13 @@ impl MutableBuffer {
         self.data
     }
 
+    /// Returns a mutable raw pointer for this buffer.
+    ///
+    /// # Safety
+    ///
+    /// Note that this should be used cautiously, and the returned pointer should not be
+    /// stored anywhere, to avoid dangling pointers. Moreover, arguments and return type using this
+    /// method should be either immutable, or mutable.
     #[inline]
     pub fn raw_data_mut(&mut self) -> *mut u8 {
         self.data
@@ -779,6 +831,51 @@ impl MutableBuffer {
         }
         self.len += bytes.len();
     }
+
+    /// Gives immutable bit slice of the underlying buffer
+    /// This method can be used to get bit views for bit operations on the immutable view over the buffer.
+    #[inline]
+    pub fn bit_slice(&self) -> BufferBitSlice {
+        BufferBitSlice::new(self.data())
+    }
+
+    /// Gives mutable bit slice of the underlying buffer
+    /// This method can be used to get bit views for bit operations on the mutable view over the buffer.
+    #[inline]
+    pub fn bit_slice_mut(&mut self) -> BufferBitSliceMut {
+        BufferBitSliceMut::new(self.data_mut())
+    }
+
+    /// Count one bits in this buffer
+    #[inline]
+    pub fn count_ones(&self) -> usize {
+        self.bit_slice().count_ones()
+    }
+
+    /// Count zero bits in this buffer
+    #[inline]
+    pub fn count_zeros(&self) -> usize {
+        self.bit_slice().count_zeros()
+    }
+
+    /// Unsets bit at the given position in the underlying mutable buffer
+    #[inline]
+    pub fn set_bit(&mut self, i: usize) {
+        self.bit_slice_mut().set_bit(i, true)
+    }
+
+    /// Unsets bit at the given position in the underlying mutable buffer
+    #[inline]
+    pub fn unset_bit(&mut self, i: usize) {
+        self.bit_slice_mut().set_bit(i, false)
+    }
+
+    ///
+    /// Get bits in this view as vector of booleans
+    #[inline]
+    pub fn typed_bits(&mut self) -> Vec<bool> {
+        self.bit_slice().typed_bits()
+    }
 }
 
 impl Drop for MutableBuffer {
@@ -806,7 +903,7 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-    use crate::util::bit_util;
+
     use std::ptr::null_mut;
     use std::thread;
 
@@ -908,11 +1005,11 @@ mod tests {
     fn test_with_bitset() {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_ones());
 
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         let buf = mut_buf.freeze();
-        assert_eq!(512, bit_util::count_set_bits(buf.data()));
+        assert_eq!(512, buf.count_ones());
     }
 
     #[test]
@@ -920,12 +1017,12 @@ mod tests {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_ones());
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
-        assert_eq!(256, bit_util::count_set_bits(buf.data()));
+        assert_eq!(256, buf.count_ones());
     }
 
     #[test]

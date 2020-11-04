@@ -25,7 +25,7 @@ use super::{
     Array, ArrayData, ArrayDataRef, FixedSizeListArray, GenericBinaryIter,
     GenericListArray, LargeListArray, ListArray, OffsetSizeTrait,
 };
-use crate::util::bit_util;
+
 use crate::{buffer::Buffer, datatypes::ToByteSlice};
 use crate::{buffer::MutableBuffer, datatypes::DataType};
 
@@ -231,12 +231,10 @@ where
         offsets.push(length_so_far);
 
         {
-            let null_slice = null_buf.data_mut();
-
             for (i, s) in iter.enumerate() {
                 if let Some(s) = s {
                     let s = s.as_ref();
-                    bit_util::set_bit(null_slice, i);
+                    null_buf.set_bit(i);
                     length_so_far =
                         length_so_far + OffsetSize::from_usize(s.len()).unwrap();
                     values.extend_from_slice(s);

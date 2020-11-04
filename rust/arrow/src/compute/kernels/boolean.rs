@@ -31,7 +31,7 @@ use crate::buffer::{
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util::ceil;
+use crate::util::utils::ceil;
 
 /// Helper function to implement binary kernels
 fn binary_boolean_kernel<F>(
@@ -140,7 +140,7 @@ pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
                 .with_bitset(len_bytes, true)
                 .freeze()
         }
-        Some(buffer) => buffer.bit_slice(input.offset(), len),
+        Some(buffer) => buffer.bit_view(input.offset(), len),
     };
 
     let data =

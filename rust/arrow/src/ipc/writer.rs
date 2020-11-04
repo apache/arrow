@@ -30,7 +30,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::RecordBatch;
-use crate::util::bit_util;
+use crate::util::utils;
 
 use ipc::CONTINUATION_MARKER;
 
@@ -533,7 +533,7 @@ fn write_array_data(
         let null_buffer = match array_data.null_buffer() {
             None => {
                 // create a buffer and fill it with valid bits
-                let num_bytes = bit_util::ceil(num_rows, 8);
+                let num_bytes = utils::ceil(num_rows, 8);
                 let buffer = MutableBuffer::new(num_bytes);
                 let buffer = buffer.with_bitset(num_bytes, true);
                 buffer.freeze()

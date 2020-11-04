@@ -30,7 +30,7 @@ use super::raw_pointer::RawPtrBox;
 use super::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::memory;
-use crate::util::bit_util;
+use crate::util::utils;
 
 /// Number of seconds in a day
 const SECONDS_IN_DAY: i64 = 86_400;
@@ -296,7 +296,7 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
         let (_, data_len) = iter.size_hint();
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
-        let num_bytes = bit_util::ceil(data_len, 8);
+        let num_bytes = utils::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
         let mut val_buf = MutableBuffer::new(
             data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
@@ -304,10 +304,9 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
 
         let null = vec![0; mem::size_of::<<T as ArrowPrimitiveType>::Native>()];
 
-        let null_slice = null_buf.data_mut();
         iter.enumerate().for_each(|(i, item)| {
             if let Some(a) = item.borrow() {
-                bit_util::set_bit(null_slice, i);
+                null_buf.set_bit(i);
                 val_buf.extend_from_slice(a.to_byte_slice());
             } else {
                 val_buf.extend_from_slice(&null);
@@ -401,10 +400,9 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
 
         {
             let null = vec![0; mem::size_of::<i64>()];
-            let null_slice = null_buf.data_mut();
             for (i, v) in data.iter().enumerate() {
                 if let Some(n) = v {
-                    bit_util::set_bit(null_slice, i);
+                    null_buf.set_bit(i);
                     val_buf.extend_from_slice(&n.to_byte_slice());
                 } else {
                     val_buf.extend_from_slice(&null);
@@ -427,10 +425,9 @@ impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {
         let mut mut_buf = MutableBuffer::new_null(data.len());
         {
-            let mut_slice = mut_buf.data_mut();
             for (i, b) in data.iter().enumerate() {
                 if *b {
-                    bit_util::set_bit(mut_slice, i);
+                    mut_buf.set_bit(i);
                 }
             }
         }
@@ -445,19 +442,16 @@ impl From<Vec<bool>> for BooleanArray {
 impl From<Vec<Option<bool>>> for BooleanArray {
     fn from(data: Vec<Option<bool>>) -> Self {
         let data_len = data.len();
-        let num_byte = bit_util::ceil(data_len, 8);
+        let num_byte = utils::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new_null(data.len());
         let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
 
         {
-            let null_slice = null_buf.data_mut();
-            let val_slice = val_buf.data_mut();
-
             for (i, v) in data.iter().enumerate() {
                 if let Some(b) = v {
-                    bit_util::set_bit(null_slice, i);
+                    null_buf.set_bit(i);
                     if *b {
-                        bit_util::set_bit(val_slice, i);
+                        val_buf.set_bit(i);
                     }
                 }
             }

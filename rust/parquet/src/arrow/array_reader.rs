@@ -53,7 +53,7 @@ use arrow::datatypes::{
     UInt16Type as ArrowUInt16Type, UInt32Type as ArrowUInt32Type,
     UInt64Type as ArrowUInt64Type, UInt8Type as ArrowUInt8Type,
 };
-use arrow::util::bit_util;
+use arrow::util::utils;
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, Converter, FixedLenBinaryConverter,
@@ -904,13 +904,12 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         }
         offsets.push(cur_offset);
 
-        let num_bytes = bit_util::ceil(offsets.len(), 8);
+        let num_bytes = utils::ceil(offsets.len(), 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-        let null_slice = null_buf.data_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
             if rep_levels[i] == 0 && def_levels[i] != 0 {
-                bit_util::set_bit(null_slice, list_index);
+                null_buf.set_bit(list_index);
             }
             if rep_levels[i] == 0 {
                 list_index += 1;

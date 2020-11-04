@@ -31,7 +31,7 @@ use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
+use crate::util::utils;
 
 /// Helper function to perform boolean lambda function on values from two arrays, this
 /// version does not attempt to use SIMD.
@@ -570,27 +570,26 @@ where
         ));
     }
 
-    let num_bytes = bit_util::ceil(left_len, 8);
+    let num_bytes = utils::ceil(left_len, 8);
 
     let not_both_null_bit_buffer =
         match combine_option_bitmap(left.data_ref(), right.data_ref(), left_len)? {
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let _not_both_null_bitmap = not_both_null_bit_buffer.data();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
 
     // if both array slots are valid, check if list contains primitive
     for i in 0..left_len {
-        if bit_util::get_bit(not_both_null_bitmap, i) {
+        if not_both_null_bit_buffer.get_bit(i) {
             let list = right.value(i);
             let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
             for j in 0..list.len() {
                 if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                    bit_util::set_bit(bool_slice, i);
+                    bool_buf.set_bit(i);
                     continue;
                 }
             }
@@ -625,21 +624,19 @@ where
         ));
     }
 
-    let num_bytes = bit_util::ceil(left_len, 8);
+    let num_bytes = utils::ceil(left_len, 8);
 
     let not_both_null_bit_buffer =
         match combine_option_bitmap(left.data_ref(), right.data_ref(), left_len)? {
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-    let bool_slice = bool_buf.data_mut();
 
     for i in 0..left_len {
         // contains(null, null) = false
-        if bit_util::get_bit(not_both_null_bitmap, i) {
+        if not_both_null_bit_buffer.get_bit(i) {
             let list = right.value(i);
             let list = list
                 .as_any()
@@ -648,7 +645,7 @@ where
 
             for j in 0..list.len() {
                 if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                    bit_util::set_bit(bool_slice, i);
+                    bool_buf.set_bit(i);
                     continue;
                 }
             }

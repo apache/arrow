@@ -31,6 +31,7 @@ use std::sync::Arc;
 
 use num::{One, Zero};
 
+use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
@@ -42,7 +43,6 @@ use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
-use crate::{array::*, util::bit_util};
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
@@ -113,8 +113,8 @@ where
     if let Some(b) = &null_bit_buffer {
         // some value is null
         for i in 0..left.len() {
-            values.push(unsafe {
-                if bit_util::get_bit_raw(b.raw_data(), i) {
+            values.push({
+                if b.get_bit(i) {
                     let right_value = right.value(i);
                     if right_value.is_zero() {
                         return Err(ArrowError::DivideByZero);

@@ -23,7 +23,7 @@ use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::take_value_indices_from_list;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
+use crate::util::utils;
 use crate::{array::*, buffer::buffer_bin_and};
 
 use num::{ToPrimitive, Zero};
@@ -212,10 +212,8 @@ where
 
     let array = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
-    let num_bytes = bit_util::ceil(data_len, 8);
+    let num_bytes = utils::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-
-    let null_slice = null_buf.data_mut();
 
     // This iteration is implemented with a while loop, rather than a
     // map()/collect(), since the while loop performs better in the benchmarks.
@@ -227,7 +225,7 @@ where
         })?;
 
         if array.is_null(index) {
-            bit_util::unset_bit(null_slice, i);
+            null_buf.unset_bit(i);
         }
 
         new_values.push(array.value(index));
@@ -265,12 +263,9 @@ where
 
     let array = values.as_any().downcast_ref::<BooleanArray>().unwrap();
 
-    let num_byte = bit_util::ceil(data_len, 8);
+    let num_byte = utils::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, true);
     let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
-
-    let null_slice = null_buf.data_mut();
-    let val_slice = val_buf.data_mut();
 
     (0..data_len).try_for_each::<_, Result<()>>(|i| {
         let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -278,9 +273,9 @@ where
         })?;
 
         if array.is_null(index) {
-            bit_util::unset_bit(null_slice, i);
+            null_buf.unset_bit(i);
         } else if array.value(index) {
-            bit_util::set_bit(val_slice, i);
+            val_buf.set_bit(i);
         }
 
         Ok(())
@@ -320,9 +315,8 @@ where
         .downcast_ref::<GenericStringArray<OffsetSize>>()
         .unwrap();
 
-    let num_bytes = bit_util::ceil(data_len, 8);
+    let num_bytes = utils::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-    let null_slice = null_buf.data_mut();
 
     let mut offsets = Vec::with_capacity(data_len + 1);
     let mut values = Vec::with_capacity(data_len);
@@ -341,7 +335,7 @@ where
             values.extend_from_slice(s.as_bytes());
         } else {
             // set null bit
-            bit_util::unset_bit(null_slice, i);
+            null_buf.unset_bit(i);
         }
         offsets.push(length_so_far);
     }
@@ -388,17 +382,14 @@ where
 
     let taken = take_impl::<OffsetType>(&list.values(), &list_indices, None)?;
     // determine null count and null buffer, which are a function of `values` and `indices`
-    let mut null_count = 0;
-    let num_bytes = bit_util::ceil(indices.len(), 8);
+    let num_bytes = utils::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     {
-        let null_slice = null_buf.data_mut();
         offsets[..].windows(2).enumerate().for_each(
             |(i, window): (usize, &[OffsetType::Native])| {
                 if window[0] == window[1] {
                     // offsets are equal, slot is null
-                    bit_util::unset_bit(null_slice, i);
-                    null_count += 1;
+                    null_buf.unset_bit(i);
                 }
             },
         );
@@ -407,7 +398,7 @@ where
     // create a new list with taken data and computed null information
     let list_data = ArrayDataBuilder::new(list.data_type().clone())
         .len(indices.len())
-        .null_count(null_count)
+        .null_count(null_buf.count_zeros())
         .null_bit_buffer(null_buf.freeze())
         .offset(0)
         .add_child_data(taken.data())
@@ -452,6 +443,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::bit_ops::*;
 
     fn test_take_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
@@ -951,9 +943,10 @@ mod tests {
             let expected_offsets = Buffer::from(&expected_offsets.to_byte_slice());
             // construct list array from the two
             let mut null_bits: [u8; 1] = [0; 1];
-            bit_util::set_bit(&mut null_bits, 2);
-            bit_util::set_bit(&mut null_bits, 3);
-            bit_util::set_bit(&mut null_bits, 4);
+            let mut null_bit_view = BufferBitSliceMut::new(&mut null_bits);
+            null_bit_view.set_bit(2, true);
+            null_bit_view.set_bit(3, true);
+            null_bit_view.set_bit(4, true);
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
                 .null_count(2)

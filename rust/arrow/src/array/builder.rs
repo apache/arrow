@@ -31,7 +31,8 @@ use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
+use crate::util::bit_ops::BufferBitSliceMut;
+use crate::util::utils;
 
 ///  Converts a `MutableBuffer` to a `BufferBuilder<T>`.
 ///
@@ -188,7 +189,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     ///
     /// assert!(builder.capacity() >= 20);
     /// ```
-    fn reserve(&mut self, n: usize) -> ();
+    fn reserve(&mut self, n: usize);
 
     /// Appends a value of type `T` into the builder,
     /// growing the internal buffer as needed.
@@ -255,8 +256,8 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn new(capacity: usize) -> Self {
         let buffer = if T::DATA_TYPE == DataType::Boolean {
-            let byte_capacity = bit_util::ceil(capacity, 8);
-            let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+            let byte_capacity = utils::ceil(capacity, 8);
+            let actual_capacity = utils::round_upto_multiple_of_64(byte_capacity);
             let mut buffer = MutableBuffer::new(actual_capacity);
             buffer.set_null_bits(0, actual_capacity);
             buffer
@@ -287,7 +288,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = if T::DATA_TYPE == DataType::Boolean {
-            bit_util::ceil(self.len + i, 8)
+            utils::ceil(self.len + i, 8)
         } else {
             (self.len + i) * mem::size_of::<T::Native>()
         };
@@ -301,7 +302,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         let new_capacity = self.len + n;
         if T::DATA_TYPE == DataType::Boolean {
             if new_capacity > self.capacity() {
-                let new_byte_capacity = bit_util::ceil(new_capacity, 8);
+                let new_byte_capacity = utils::ceil(new_capacity, 8);
                 let existing_capacity = self.buffer.capacity();
                 let new_capacity = self.buffer.reserve(new_byte_capacity);
                 self.buffer
@@ -318,9 +319,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.reserve(1);
         if T::DATA_TYPE == DataType::Boolean {
             if v != T::default_value() {
-                unsafe {
-                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
-                }
+                self.buffer.set_bit(self.len);
             }
             self.len += 1;
         } else {
@@ -340,7 +339,9 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
                         self.buffer.capacity(),
                     )
                 };
-                (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
+                (self.len..self.len + n).for_each(|i| {
+                    BufferBitSliceMut::new(data).set_bit(i, true);
+                });
             }
             self.len += n;
         } else {
@@ -362,9 +363,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
                     // For performance the `len` of the buffer is not
                     // updated on each append but is updated in the
                     // `freeze` method instead.
-                    unsafe {
-                        bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
-                    }
+                    self.buffer.set_bit(self.len);
                 }
                 self.len += 1;
             }
@@ -378,7 +377,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     fn finish(&mut self) -> Buffer {
         if T::DATA_TYPE == DataType::Boolean {
             // `append` does not update the buffer's `len` so do it before `freeze` is called.
-            let new_buffer_len = bit_util::ceil(self.len, 8);
+            let new_buffer_len = utils::ceil(self.len, 8);
             debug_assert!(new_buffer_len >= self.buffer.len());
             let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
             self.len = 0;
@@ -602,7 +601,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = len - null_bit_buffer.count_ones();
         let mut builder = ArrayData::builder(T::DATA_TYPE)
             .len(len)
             .add_buffer(self.values_builder.finish());
@@ -619,7 +618,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     pub fn finish_dict(&mut self, values: ArrayRef) -> DictionaryArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = len - null_bit_buffer.count_ones();
         let data_type = DataType::Dictionary(
             Box::new(T::DATA_TYPE),
             Box::new(values.data_type().clone()),
@@ -831,7 +830,7 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_ones();
         self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::List(Box::new(Field::new(
             "item",
@@ -1043,7 +1042,7 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_ones();
         self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
             "item",
@@ -1234,7 +1233,7 @@ where
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_ones();
         let data = ArrayData::builder(DataType::FixedSizeList(
             Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
@@ -2134,7 +2133,7 @@ impl StructBuilder {
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = self.len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = self.len - null_bit_buffer.count_ones();
         let mut builder = ArrayData::builder(DataType::Struct(self.fields.clone()))
             .len(self.len)
             .child_data(child_data);

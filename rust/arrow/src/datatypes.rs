@@ -40,7 +40,7 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
+use crate::util::bit_ops::BufferBitSlice;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -386,7 +386,11 @@ impl ArrowPrimitiveType for BooleanType {
     /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
     /// size of the array.
     unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        bit_util::get_bit_raw(raw_ptr as *const u8, i)
+        let data = std::slice::from_raw_parts(
+            raw_ptr as *const u8,
+            std::mem::size_of::<isize>(),
+        );
+        BufferBitSlice::new(data).get_bit(i)
     }
 }
 

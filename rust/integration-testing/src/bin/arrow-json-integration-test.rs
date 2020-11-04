@@ -35,7 +35,7 @@ use arrow::{
     buffer::Buffer,
     buffer::MutableBuffer,
     datatypes::ToByteSlice,
-    util::{bit_util, integration_util::*},
+    util::{integration_util::*, utils},
 };
 
 fn main() -> Result<()> {
@@ -588,7 +588,7 @@ fn dictionary_array_from_json(
 
 /// A helper to create a null buffer from a Vec<bool>
 fn create_null_buf(json_col: &ArrowJsonColumn) -> Buffer {
-    let num_bytes = bit_util::ceil(json_col.count, 8);
+    let num_bytes = utils::ceil(json_col.count, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
     json_col
         .validity
@@ -597,9 +597,8 @@ fn create_null_buf(json_col: &ArrowJsonColumn) -> Buffer {
         .iter()
         .enumerate()
         .for_each(|(i, v)| {
-            let null_slice = null_buf.data_mut();
             if *v != 0 {
-                bit_util::set_bit(null_slice, i);
+                null_buf.set_bit(i);
             }
         });
     null_buf.freeze()
