@@ -107,7 +107,7 @@ public class TestFlightGrpcUtils {
 
     //Defines flight client and calls service method. Since we use a NoOpFlightProducer we expect the service
     //to throw a RunTimeException
-    final FlightClient flightClient = FlightGrpcUtils.createFlightClient(allocator, managedChannel);
+    final FlightClient flightClient = FlightGrpcUtils.createFlightClientWithSharedChannel(allocator, managedChannel);
 
     // Should be a no-op.
     flightClient.close();
@@ -124,7 +124,8 @@ public class TestFlightGrpcUtils {
         .directExecutor()
         .build();
 
-    final FlightGrpcUtils.ProxyManagedChannel proxyChannel = new FlightGrpcUtils.ProxyManagedChannel(managedChannel);
+    final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
+        new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
     Assert.assertFalse(proxyChannel.isShutdown());
     Assert.assertFalse(proxyChannel.isTerminated());
     proxyChannel.shutdown();
@@ -152,7 +153,8 @@ public class TestFlightGrpcUtils {
         .directExecutor()
         .build();
 
-    final FlightGrpcUtils.ProxyManagedChannel proxyChannel = new FlightGrpcUtils.ProxyManagedChannel(managedChannel);
+    final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
+        new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
     Assert.assertFalse(proxyChannel.isShutdown());
     Assert.assertFalse(proxyChannel.isTerminated());
     managedChannel.shutdownNow();

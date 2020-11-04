@@ -40,11 +40,11 @@ public class FlightGrpcUtils {
    * Proxy class for ManagedChannel that makes closure a no-op.
    */
   @VisibleForTesting
-  static class ProxyManagedChannel extends ManagedChannel {
+  static class NonClosingProxyManagedChannel extends ManagedChannel {
     private final ManagedChannel channel;
     private boolean isShutdown;
 
-    ProxyManagedChannel(ManagedChannel channel) {
+    NonClosingProxyManagedChannel(ManagedChannel channel) {
       this.channel = channel;
       this.isShutdown = channel.isShutdown();
     }
@@ -143,10 +143,19 @@ public class FlightGrpcUtils {
   /**
    * Creates a Flight client.
    * @param incomingAllocator  Memory allocator
-   * @param channel provides a connection to a gRPC server. Will not be closed on closure of the returned FlightClient.
-   * @return FlightClient
+   * @param channel provides a connection to a gRPC server.
    */
   public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
-    return new FlightClient(incomingAllocator, new ProxyManagedChannel(channel), Collections.emptyList());
+    return new FlightClient(incomingAllocator, channel, Collections.emptyList());
+  }
+
+  /**
+   * Creates a Flight client.
+   * @param incomingAllocator  Memory allocator
+   * @param channel provides a connection to a gRPC server. Will not be closed on closure of the returned FlightClient.
+   */
+  public static FlightClient createFlightClientWithSharedChannel(
+      BufferAllocator incomingAllocator, ManagedChannel channel) {
+    return new FlightClient(incomingAllocator, new NonClosingProxyManagedChannel(channel), Collections.emptyList());
   }
 }
