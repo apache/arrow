@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-pub mod bit_chunk_iterator;
+pub mod bit_slice_iterator;
 pub mod bit_util;
 pub mod buffered_iterator;
 pub mod display;

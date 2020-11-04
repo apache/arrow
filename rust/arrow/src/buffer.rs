@@ -33,9 +33,10 @@ use std::sync::Arc;
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
-use crate::util::bit_chunk_iterator::BitChunks;
+use crate::util::bit_slice_iterator::*;
 use crate::util::bit_util;
 use crate::util::bit_util::ceil;
+
 #[cfg(feature = "simd")]
 use std::borrow::BorrowMut;
 
@@ -258,16 +259,20 @@ impl Buffer {
     /// Returns a slice of this buffer starting at a certain bit offset.
     /// If the offset is byte-aligned the returned buffer is a shallow clone,
     /// otherwise a new buffer is allocated and filled with a copy of the bits in the range.
-    pub fn bit_slice(&self, offset: usize, len: usize) -> Self {
-        if offset % 8 == 0 && len % 8 == 0 {
-            return self.slice(offset / 8);
+    pub fn bit_view(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
+        if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
+            self.slice(offset_in_bits / 8)
+        } else {
+            self.bit_slice()
+                .view(offset_in_bits, len_in_bits)
+                .as_buffer()
         }
-
-        bitwise_unary_op_helper(&self, offset, len, |a| a)
     }
 
-    pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self, offset, len)
+    /// Gives bit slice of the underlying buffer
+    /// This method can be used to get bit views for bit operations on the immutable view over the buffer.
+    pub fn bit_slice(&self) -> BufferBitSlice {
+        BufferBitSlice::new(self.data.data())
     }
 
     /// Returns an empty buffer.
@@ -401,20 +406,27 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
-    let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().view(left_offset_in_bits, len_in_bits);
+    let left_chunks = left_slice.chunks::<u64>();
+
+    let right_slice = right.bit_slice().view(right_offset_in_bits, len_in_bits);
+    let right_chunks = right_slice.chunks::<u64>();
+
+    let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
+    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    let rem = &rem.to_ne_bytes()[0..remainder_bytes];
+
+    let left_chunk_iter = left_chunks.interpret();
+    let right_chunk_iter = right_chunks.interpret();
+
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
     result_chunks
-        .zip(left_chunks.iter().zip(right_chunks.iter()))
+        .zip(left_chunk_iter.zip(right_chunk_iter))
         .for_each(|(res, (left, right))| {
             *res = op(left, right);
         });
 
-    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
-    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
-    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
-    let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
     result.freeze()
@@ -435,19 +447,21 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_chunks = left.bit_chunks(offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().view(offset_in_bits, len_in_bits);
+    let left_chunks = left_slice.chunks::<u64>();
+
+    let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
+    let rem = op(left_chunks.remainder_bits());
+    let rem = &rem.to_ne_bytes()[0..remainder_bytes];
+
+    let left_chunk_iter = left_chunks.interpret();
+
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
-    result_chunks
-        .zip(left_chunks.iter())
-        .for_each(|(res, left)| {
-            *res = op(left);
-        });
+    result_chunks.zip(left_chunk_iter).for_each(|(res, left)| {
+        *res = op(left);
+    });
 
-    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
-    let rem = op(left_chunks.remainder_bits());
-    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
-    let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result.extend_from_slice(rem);
 
     result.freeze()

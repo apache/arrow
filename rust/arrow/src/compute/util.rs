@@ -45,10 +45,10 @@ pub(super) fn combine_option_bitmap(
     match left {
         None => match right {
             None => Ok(None),
-            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
+            Some(r) => Ok(Some(r.bit_view(right_offset_in_bits, len_in_bits))),
         },
         Some(l) => match right {
-            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
+            None => Ok(Some(l.bit_view(left_offset_in_bits, len_in_bits))),
 
             Some(r) => Ok(Some(buffer_bin_and(
                 &l,
@@ -78,10 +78,10 @@ pub(super) fn compare_option_bitmap(
     match left {
         None => match right {
             None => Ok(None),
-            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
+            Some(r) => Ok(Some(r.bit_view(right_offset_in_bits, len_in_bits))),
         },
         Some(l) => match right {
-            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
+            None => Ok(Some(l.bit_view(left_offset_in_bits, len_in_bits))),
 
             Some(r) => Ok(Some(buffer_bin_or(
                 &l,

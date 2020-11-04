@@ -140,7 +140,7 @@ pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
                 .with_bitset(len_bytes, true)
                 .freeze()
         }
-        Some(buffer) => buffer.bit_slice(input.offset(), len),
+        Some(buffer) => buffer.bit_view(input.offset(), len),
     };
 
     let data =
