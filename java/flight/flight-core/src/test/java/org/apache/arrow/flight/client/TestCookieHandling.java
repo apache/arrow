@@ -17,10 +17,27 @@
 
 package org.apache.arrow.flight.client;
 
+import java.io.IOException;
+
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.ErrorFlightMetadata;
+import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightServerMiddleware;
+import org.apache.arrow.flight.FlightTestUtil;
+import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.RequestContext;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -29,13 +46,27 @@ import org.junit.Test;
  */
 public class TestCookieHandling {
   private static final String SET_COOKIE_HEADER = "Set-Cookie";
-  private static final String SET_COOKIE2_HEADER = "Set-Cookie2";
+  private static final String COOKIE_HEADER = "Cookie";
+  private BufferAllocator allocator;
+  private FlightServer server;
+  private FlightClient client;
 
-  private ClientCookieMiddleware cookieMiddleware = new ClientCookieMiddleware();
+  private ClientCookieMiddlewareTestFactory testFactory = new ClientCookieMiddlewareTestFactory();
+  private ClientCookieMiddleware cookieMiddleware = new ClientCookieMiddleware(testFactory);
+
+  @Before
+  public void setup() throws Exception {
+    allocator = new RootAllocator(Long.MAX_VALUE);
+    startServerAndClient();
+  }
 
   @After
-  public void cleanup() {
-    cookieMiddleware = new ClientCookieMiddleware();
+  public void cleanup() throws Exception {
+    cookieMiddleware = new ClientCookieMiddleware(testFactory);
+    AutoCloseables.close(client, server, allocator);
+    client = null;
+    server = null;
+    allocator = null;
   }
 
   @Test
@@ -43,7 +74,7 @@ public class TestCookieHandling {
     CallHeaders headersToSend = new ErrorFlightMetadata();
     headersToSend.insert(SET_COOKIE_HEADER, "k=v");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
   }
 
   @Test
@@ -51,15 +82,15 @@ public class TestCookieHandling {
     CallHeaders headersToSend = new ErrorFlightMetadata();
     headersToSend.insert(SET_COOKIE_HEADER, "k=v");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
   }
 
   @Test
@@ -68,11 +99,11 @@ public class TestCookieHandling {
     headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=2");
     cookieMiddleware.onHeadersReceived(headersToSend);
     // Note: using max-age changes cookie version from 0->1, which quotes values.
-    Assert.assertEquals("k=\"v\"", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=\"v\"", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=\"v\"", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=\"v\"", cookieMiddleware.getValidCookiesAsString());
 
     try {
       Thread.sleep(5000);
@@ -80,7 +111,7 @@ public class TestCookieHandling {
     }
 
     // Verify that the k cookie was discarded because it expired.
-    Assert.assertTrue(cookieMiddleware.calculateCookieString().isEmpty());
+    Assert.assertTrue(cookieMiddleware.getValidCookiesAsString().isEmpty());
   }
 
   @Test
@@ -89,14 +120,14 @@ public class TestCookieHandling {
     headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=2");
     cookieMiddleware.onHeadersReceived(headersToSend);
     // Note: using max-age changes cookie version from 0->1, which quotes values.
-    Assert.assertEquals("k=\"v\"", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=\"v\"", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
     headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=-2");
     cookieMiddleware.onHeadersReceived(headersToSend);
 
     // Verify that the k cookie was discarded because the server told the client it is expired.
-    Assert.assertTrue(cookieMiddleware.calculateCookieString().isEmpty());
+    Assert.assertTrue(cookieMiddleware.getValidCookiesAsString().isEmpty());
   }
 
   @Ignore
@@ -106,7 +137,7 @@ public class TestCookieHandling {
     headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=2");
     cookieMiddleware.onHeadersReceived(headersToSend);
     // Note: using max-age changes cookie version from 0->1, which quotes values.
-    Assert.assertEquals("k=\"v\"", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=\"v\"", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
 
@@ -116,7 +147,7 @@ public class TestCookieHandling {
     cookieMiddleware.onHeadersReceived(headersToSend);
 
     // Verify that the k cookie was discarded because the server told the client it is expired.
-    Assert.assertTrue(cookieMiddleware.calculateCookieString().isEmpty());
+    Assert.assertTrue(cookieMiddleware.getValidCookiesAsString().isEmpty());
   }
 
   @Test
@@ -124,12 +155,12 @@ public class TestCookieHandling {
     CallHeaders headersToSend = new ErrorFlightMetadata();
     headersToSend.insert(SET_COOKIE_HEADER, "k=v");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v", cookieMiddleware.getValidCookiesAsString());
 
     headersToSend = new ErrorFlightMetadata();
     headersToSend.insert(SET_COOKIE_HEADER, "k=v2");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("k=v2", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("k=v2", cookieMiddleware.getValidCookiesAsString());
   }
 
   @Test
@@ -138,27 +169,84 @@ public class TestCookieHandling {
     headersToSend.insert(SET_COOKIE_HEADER, "firstKey=firstVal");
     headersToSend.insert(SET_COOKIE_HEADER, "secondKey=secondVal");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("firstKey=firstVal; secondKey=secondVal", cookieMiddleware.calculateCookieString());
+    Assert.assertEquals("firstKey=firstVal; secondKey=secondVal", cookieMiddleware.getValidCookiesAsString());
   }
 
   @Test
-  public void basicCookiesWithSetCookie2() {
-    CallHeaders headersToSend = new ErrorFlightMetadata();
-    headersToSend.insert(SET_COOKIE2_HEADER, "firstKey=firstVal");
-    cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("firstKey=firstVal", cookieMiddleware.calculateCookieString());
+  public void cookieStaysAfterMultipleRequestsEndToEnd() {
+    client.handshake();
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
+    client.handshake();
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
+    client.listFlights(Criteria.ALL);
+    Assert.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
   }
 
-  @Ignore
-  @Test
-  public void multipleCookiesWithSetCookie2() {
-    // There seems to be a JDK bug with HttpCookie.parse() with multiple cookies
-    // in a Set-Cookie2 header. This is odd, because that method explictly returns a list
-    // of cookies because of Set-Cookie2.
-    // Set-Cookie2 itself is deprecated.
-    CallHeaders headersToSend = new ErrorFlightMetadata();
-    headersToSend.insert(SET_COOKIE2_HEADER, "firstKey=firstVal, secondKey=secondVal");
-    cookieMiddleware.onHeadersReceived(headersToSend);
-    Assert.assertEquals("firstKey=firstVal; secondKey=secondVal", cookieMiddleware.calculateCookieString());
+  /**
+   * A server middleware component that injects SET_COOKIE_HEADER into the outgoing headers.
+   */
+  static class SetCookieHeaderInjector implements FlightServerMiddleware {
+    private final Factory factory;
+
+    public SetCookieHeaderInjector(Factory factory) {
+      this.factory = factory;
+    }
+
+    @Override
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      if (!factory.receivedCookieHeader) {
+        outgoingHeaders.insert(SET_COOKIE_HEADER, "k=v");
+      }
+    }
+
+    @Override
+    public void onCallCompleted(CallStatus status) {
+
+    }
+
+    @Override
+    public void onCallErrored(Throwable err) {
+
+    }
+
+    static class Factory implements FlightServerMiddleware.Factory<SetCookieHeaderInjector> {
+      private boolean receivedCookieHeader = false;
+
+      @Override
+      public SetCookieHeaderInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders,
+                                                   RequestContext context) {
+        receivedCookieHeader = null != incomingHeaders.get(COOKIE_HEADER);
+        return new SetCookieHeaderInjector(this);
+      }
+    }
+  }
+
+  public static class ClientCookieMiddlewareTestFactory extends ClientCookieMiddleware.Factory {
+
+    private ClientCookieMiddleware clientCookieMiddleware;
+
+    @Override
+    public ClientCookieMiddleware onCallStarted(CallInfo info) {
+      this.clientCookieMiddleware = new ClientCookieMiddleware(this);
+      return this.clientCookieMiddleware;
+    }
+  }
+
+  private void startServerAndClient() throws IOException {
+    final FlightProducer flightProducer = new NoOpFlightProducer() {
+      public void listFlights(CallContext context, Criteria criteria,
+                              StreamListener<FlightInfo> listener) {
+        listener.onCompleted();
+      }
+    };
+
+    this.server = FlightTestUtil.getStartedServer((location) -> FlightServer
+            .builder(allocator, location, flightProducer)
+            .middleware(FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
+            .build());
+
+    this.client = FlightClient.builder(allocator, server.getLocation())
+            .intercept(testFactory)
+            .build();
   }
 }
