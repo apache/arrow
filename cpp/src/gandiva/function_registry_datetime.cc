@@ -16,7 +16,6 @@
 // under the License.
 
 #include "gandiva/function_registry_datetime.h"
-
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -56,12 +55,6 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castVARCHAR", {}, DataTypeVector{timestamp(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_timestamp_int64",
                      NativeFunction::kNeedsContext),
-
-      NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8()}, date64(),
-                     kResultNullInternal, "gdv_fn_to_date_utf8_utf8",
-                     NativeFunction::kNeedsContext |
-                         NativeFunction::kNeedsFunctionHolder |
-                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8(), int32()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
