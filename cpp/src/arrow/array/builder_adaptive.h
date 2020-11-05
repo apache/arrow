@@ -35,7 +35,10 @@ namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  explicit AdaptiveIntBuilderBase(MemoryPool* pool);
+  AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool);
+
+  explicit AdaptiveIntBuilderBase(MemoryPool* pool)
+      : AdaptiveIntBuilderBase(sizeof(uint8_t), pool) {}
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
@@ -88,7 +91,9 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_ = NULLPTR;
-  uint8_t int_size_ = sizeof(uint8_t);
+
+  const uint8_t start_int_size_;
+  uint8_t int_size_;
 
   static constexpr int32_t pending_size_ = 1024;
   uint8_t pending_valid_[pending_size_];
@@ -101,7 +106,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
 class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveUIntBuilder(MemoryPool* pool = default_memory_pool());
+  explicit AdaptiveUIntBuilder(uint8_t start_int_size,
+                               MemoryPool* pool = default_memory_pool());
+
+  explicit AdaptiveUIntBuilder(MemoryPool* pool = default_memory_pool())
+      : AdaptiveUIntBuilder(sizeof(uint8_t), pool) {}
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;
@@ -135,7 +144,11 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool());
+  explicit AdaptiveIntBuilder(uint8_t start_int_size,
+                              MemoryPool* pool = default_memory_pool());
+
+  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool())
+      : AdaptiveIntBuilder(sizeof(uint8_t), pool) {}
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;

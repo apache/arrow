@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/string.h"
 
 #include "parquet/column_scanner.h"
 #include "parquet/exception.h"
@@ -121,7 +122,9 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         stream << "  Statistics Not Set";
       }
       stream << std::endl
-             << "  Compression: " << Codec::GetCodecAsString(column_chunk->compression())
+             << "  Compression: "
+             << arrow::internal::AsciiToUpper(
+                    Codec::GetCodecAsString(column_chunk->compression()))
              << ", Encodings:";
       for (auto encoding : column_chunk->encodings()) {
         stream << " " << EncodingToString(encoding);
@@ -256,7 +259,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         stream << "\"False\",";
       }
       stream << "\n           \"Compression\": \""
-             << Codec::GetCodecAsString(column_chunk->compression())
+             << arrow::internal::AsciiToUpper(
+                    Codec::GetCodecAsString(column_chunk->compression()))
              << "\", \"Encodings\": \"";
       for (auto encoding : column_chunk->encodings()) {
         stream << EncodingToString(encoding) << " ";

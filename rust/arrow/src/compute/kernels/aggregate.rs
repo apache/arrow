@@ -19,15 +19,49 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, PrimitiveArray};
+use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::ArrowNumericType;
+
+/// Helper macro to perform min/max of strings
+fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
+    array: &GenericStringArray<T>,
+    cmp: F,
+) -> Option<&str> {
+    let null_count = array.null_count();
+
+    if null_count == array.len() {
+        return None;
+    }
+    let mut n = "";
+    let mut has_value = false;
+    let data = array.data();
+
+    if null_count == 0 {
+        for i in 0..data.len() {
+            let item = array.value(i);
+            if !has_value || cmp(&n, item) {
+                has_value = true;
+                n = item;
+            }
+        }
+    } else {
+        for i in 0..data.len() {
+            let item = array.value(i);
+            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
+                has_value = true;
+                n = item;
+            }
+        }
+    }
+    Some(n)
+}
 
 /// Returns the minimum value in the array, according to the natural order.
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
 {
-    min_max_helper(array, |a, b| a < b)
+    min_max_helper(array, |a, b| a > b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -35,37 +69,63 @@ pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
 {
-    min_max_helper(array, |a, b| a > b)
+    min_max_helper(array, |a, b| a < b)
+}
+
+/// Returns the maximum value in the string array, according to the natural order.
+pub fn max_string<T: StringOffsetSizeTrait>(
+    array: &GenericStringArray<T>,
+) -> Option<&str> {
+    min_max_string(array, |a, b| a < b)
+}
+
+/// Returns the minimum value in the string array, according to the natural order.
+pub fn min_string<T: StringOffsetSizeTrait>(
+    array: &GenericStringArray<T>,
+) -> Option<&str> {
+    min_max_string(array, |a, b| a > b)
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> bool,
+    F: Fn(&T::Native, &T::Native) -> bool,
 {
-    let mut n: Option<T::Native> = None;
+    let null_count = array.null_count();
+
+    if null_count == array.len() {
+        return None;
+    }
+
+    let mut n: T::Native = T::default_value();
+    let mut has_value = false;
     let data = array.data();
-    for i in 0..data.len() {
-        if data.is_null(i) {
-            continue;
+    let m = array.value_slice(0, data.len());
+
+    if null_count == 0 {
+        // optimized path for arrays without null values
+        for item in m {
+            if !has_value || cmp(&n, item) {
+                has_value = true;
+                n = *item
+            }
         }
-        let m = array.value(i);
-        match n {
-            None => n = Some(m),
-            Some(nn) => {
-                if cmp(m, nn) {
-                    n = Some(m)
-                }
+    } else {
+        for (i, item) in m.iter().enumerate() {
+            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
+                has_value = true;
+                n = *item
             }
         }
     }
-    n
+    Some(n)
 }
 
 /// Returns the sum of values in the array.
 ///
 /// Returns `None` if the array is empty or only contains null values.
+#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")))]
 pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -74,27 +134,129 @@ where
     let null_count = array.null_count();
 
     if null_count == array.len() {
-        None
-    } else if null_count == 0 {
-        // optimized path for arrays without null values
-        let mut n: T::Native = T::default_value();
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
-        for item in m.iter().take(data.len()) {
-            n = n + *item;
-        }
-        Some(n)
-    } else {
-        let mut n: T::Native = T::default_value();
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
-        for (i, item) in m.iter().enumerate() {
-            if data.is_valid(i) {
-                n = n + *item;
-            }
-        }
-        Some(n)
+        return None;
     }
+
+    let data: &[T::Native] = array.value_slice(0, array.len());
+
+    match array.data().null_buffer() {
+        None => {
+            let sum = data.iter().fold(T::default_value(), |accumulator, value| {
+                accumulator + *value
+            });
+
+            Some(sum)
+        }
+        Some(buffer) => {
+            let mut sum = T::default_value();
+            let data_chunks = data.chunks_exact(64);
+            let remainder = data_chunks.remainder();
+
+            let bit_chunks = buffer.bit_chunks(array.offset(), array.len());
+            &data_chunks
+                .zip(bit_chunks.iter())
+                .for_each(|(chunk, mask)| {
+                    chunk.iter().enumerate().for_each(|(i, value)| {
+                        if (mask & (1 << i)) != 0 {
+                            sum = sum + *value;
+                        }
+                    });
+                });
+
+            let remainder_bits = bit_chunks.remainder_bits();
+
+            remainder.iter().enumerate().for_each(|(i, value)| {
+                if remainder_bits & (1 << i) != 0 {
+                    sum = sum + *value;
+                }
+            });
+
+            Some(sum)
+        }
+    }
+}
+
+/// Returns the sum of values in the array.
+///
+/// Returns `None` if the array is empty or only contains null values.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+where
+    T::Native: Add<Output = T::Native>,
+{
+    let null_count = array.null_count();
+
+    if null_count == array.len() {
+        return None;
+    }
+
+    let data: &[T::Native] = array.value_slice(0, array.len());
+
+    let mut vector_sum = T::init(T::default_value());
+    let mut remainder_sum = T::default_value();
+
+    match array.data().null_buffer() {
+        None => {
+            let data_chunks = data.chunks_exact(64);
+            let remainder = data_chunks.remainder();
+
+            data_chunks.for_each(|chunk| {
+                chunk.chunks_exact(T::lanes()).for_each(|chunk| {
+                    let chunk = T::load(&chunk);
+                    vector_sum = vector_sum + chunk;
+                });
+            });
+
+            remainder.iter().for_each(|value| {
+                remainder_sum = remainder_sum + *value;
+            });
+        }
+        Some(buffer) => {
+            // process data in chunks of 64 elements since we also get 64 bits of validity information at a time
+            let data_chunks = data.chunks_exact(64);
+            let remainder = data_chunks.remainder();
+
+            let bit_chunks = buffer.bit_chunks(array.offset(), array.len());
+            let remainder_bits = bit_chunks.remainder_bits();
+
+            data_chunks.zip(bit_chunks).for_each(|(chunk, mut mask)| {
+                // split chunks further into slices corresponding to the vector length
+                // the compiler is able to unroll this inner loop and remove bounds checks
+                // since the outer chunk size (64) is always a multiple of the number of lanes
+                chunk.chunks_exact(T::lanes()).for_each(|chunk| {
+                    let zero = T::init(T::default_value());
+                    let vecmask = T::mask_from_u64(mask);
+                    let chunk = T::load(&chunk);
+                    let blended = T::mask_select(vecmask, chunk, zero);
+
+                    vector_sum = vector_sum + blended;
+
+                    mask = mask >> T::lanes();
+                });
+            });
+
+            remainder.iter().enumerate().for_each(|(i, value)| {
+                if remainder_bits & (1 << i) != 0 {
+                    remainder_sum = remainder_sum + *value;
+                }
+            });
+        }
+    }
+
+    // calculate horizontal sum of accumulator by writing to a temporary
+    // this is probably faster than extracting individual lanes
+    // the compiler is free to optimize this to something faster
+    let tmp = &mut [T::default_value(); 64];
+    T::write(vector_sum, &mut tmp[0..T::lanes()]);
+
+    let mut total_sum = T::default_value();
+    tmp[0..T::lanes()]
+        .iter()
+        .for_each(|lane| total_sum = total_sum + *lane);
+
+    total_sum = total_sum + remainder_sum;
+
+    Some(total_sum)
 }
 
 #[cfg(test)]
@@ -111,7 +273,7 @@ mod tests {
     #[test]
     fn test_primitive_array_float_sum() {
         let a = Float64Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]);
-        assert_eq!(16.5, sum(&a).unwrap());
+        assert!(16.5 - sum(&a).unwrap() < f64::EPSILON);
     }
 
     #[test]
@@ -138,5 +300,33 @@ mod tests {
         let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
+    }
+
+    #[test]
+    fn test_buffer_min_max_1() {
+        let a = Int32Array::from(vec![None, None, Some(5), Some(2)]);
+        assert_eq!(Some(2), min(&a));
+        assert_eq!(Some(5), max(&a));
+    }
+
+    #[test]
+    fn test_string_min_max_with_nulls() {
+        let a = StringArray::from(vec![Some("b"), None, None, Some("a"), Some("c")]);
+        assert_eq!("a", min_string(&a).unwrap());
+        assert_eq!("c", max_string(&a).unwrap());
+    }
+
+    #[test]
+    fn test_string_min_max_all_nulls() {
+        let a = StringArray::from(vec![None, None]);
+        assert_eq!(None, min_string(&a));
+        assert_eq!(None, max_string(&a));
+    }
+
+    #[test]
+    fn test_string_min_max_1() {
+        let a = StringArray::from(vec![None, None, Some("b"), Some("a")]);
+        assert_eq!(Some("a"), min_string(&a));
+        assert_eq!(Some("b"), max_string(&a));
     }
 }

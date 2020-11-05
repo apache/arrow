@@ -29,6 +29,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/filesystem/localfs.h"
@@ -36,6 +37,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
@@ -48,6 +50,7 @@ namespace dataset {
 
 using fs::internal::GetAbstractPathExtension;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
@@ -196,6 +199,11 @@ class DummyFileFormat : public FileFormat {
 
   std::string type_name() const override { return "dummy"; }
 
+  bool Equals(const FileFormat& other) const override {
+    return type_name() == other.type_name() &&
+           schema_->Equals(checked_cast<const DummyFileFormat&>(other).schema_);
+  }
+
   Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
@@ -208,6 +216,14 @@ class DummyFileFormat : public FileFormat {
                                     FileFragment* fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
+
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const override {
+    return Status::NotImplemented("writing fragment of DummyFileFormat");
+  }
+
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return nullptr; }
 
  protected:
   std::shared_ptr<Schema> schema_;
@@ -222,6 +238,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   explicit JSONRecordBatchFileFormat(SchemaResolver resolver)
       : resolver_(std::move(resolver)) {}
+
+  bool Equals(const FileFormat& other) const override { return this == &other; }
 
   std::string type_name() const override { return "json_record_batch"; }
 
@@ -247,6 +265,14 @@ class JSONRecordBatchFileFormat : public FileFormat {
     return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
                                            std::move(context));
   }
+
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const override {
+    return Status::NotImplemented("writing fragment of JSONRecordBatchFileFormat");
+  }
+
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return nullptr; }
 
  protected:
   SchemaResolver resolver_;
@@ -300,8 +326,10 @@ struct MakeFileSystemDatasetMixin {
       partitions.resize(n_fragments, scalar(true));
     }
 
+    auto s = schema({});
+
     MakeFileSystem(infos);
-    auto format = std::make_shared<DummyFileFormat>();
+    auto format = std::make_shared<DummyFileFormat>(s);
 
     std::vector<std::shared_ptr<FileFragment>> fragments;
     for (size_t i = 0; i < n_fragments; i++) {
@@ -315,8 +343,8 @@ struct MakeFileSystemDatasetMixin {
       fragments.push_back(std::move(fragment));
     }
 
-    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(schema({}), root_partition,
-                                                           format, std::move(fragments)));
+    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format, fs_,
+                                                           std::move(fragments)));
   }
 
   void MakeDatasetFromPathlist(const std::string& pathlist,
@@ -481,6 +509,280 @@ struct ArithmeticDatasetFixture {
 
     return MakeGeneratedRecordBatch(schema(), std::move(generator));
   }
+};
+
+class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
+ public:
+  using PathAndContent = std::unordered_map<std::string, std::string>;
+
+  void MakeSourceDataset() {
+    PathAndContent source_files;
+
+    source_files["/dataset/year=2018/month=01/dat0.json"] = R"([
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"}
+      ])";
+    source_files["/dataset/year=2018/month=01/dat1.json"] = R"([
+        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "QC", "model": "S", "sales": 978, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "QC", "model": "X", "sales": 1.0, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"}
+      ])";
+    source_files["/dataset/year=2019/month=01/dat0.json"] = R"([
+        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"},
+        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
+        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "CA", "model": "Y", "sales": 21, "country": "US"}
+      ])";
+    source_files["/dataset/year=2019/month=01/dat1.json"] = R"([
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+      ])";
+    source_files["/dataset/.pesky"] = "garbage content";
+
+    auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    for (const auto& f : source_files) {
+      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /* recursive */ true));
+    }
+    fs_ = mock_fs;
+
+    /// schema for the whole dataset (both source and destination)
+    source_schema_ = schema({
+        field("region", utf8()),
+        field("model", utf8()),
+        field("sales", float64()),
+        field("year", int32()),
+        field("month", int32()),
+        field("country", utf8()),
+    });
+
+    /// Dummy file format for source dataset. Note that it isn't partitioned on country
+    auto source_format = std::make_shared<JSONRecordBatchFileFormat>(
+        SchemaFromColumnNames(source_schema_, {"region", "model", "sales", "country"}));
+
+    fs::FileSelector s;
+    s.base_dir = "/dataset";
+    s.recursive = true;
+
+    FileSystemFactoryOptions options;
+    options.selector_ignore_prefixes = {"."};
+    options.partitioning = std::make_shared<HivePartitioning>(
+        SchemaFromColumnNames(source_schema_, {"year", "month"}));
+    ASSERT_OK_AND_ASSIGN(auto factory,
+                         FileSystemDatasetFactory::Make(fs_, s, source_format, options));
+    ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
+
+    scan_options_ = ScanOptions::Make(source_schema_);
+  }
+
+  void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
+    write_options_.file_write_options = file_write_options;
+    write_options_.filesystem = fs_;
+    write_options_.base_dir = "new_root/";
+    write_options_.basename_template = "dat_{i}";
+  }
+
+  void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
+    write_options_.partitioning = desired_partitioning;
+    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+    ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
+
+    // re-discover the written dataset
+    fs::FileSelector s;
+    s.recursive = true;
+    s.base_dir = "/new_root";
+
+    FileSystemFactoryOptions factory_options;
+    factory_options.partitioning = desired_partitioning;
+    ASSERT_OK_AND_ASSIGN(
+        auto factory, FileSystemDatasetFactory::Make(fs_, s, format_, factory_options));
+    ASSERT_OK_AND_ASSIGN(written_, factory->Finish());
+  }
+
+  void TestWriteWithIdenticalPartitioningSchema() {
+    DoWrite(std::make_shared<DirectoryPartitioning>(
+        SchemaFromColumnNames(source_schema_, {"year", "month"})));
+
+    expected_files_["/new_root/2018/1/dat_0"] = R"([
+        {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
+        {"region": "NY", "model": "S", "sales": 304.125, "country": "US"},
+        {"region": "NY", "model": "Y", "sales": 27.5, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 512, "country": "CA"},
+        {"region": "QC", "model": "S", "sales": 978, "country": "CA"},
+        {"region": "NY", "model": "X", "sales": 136.25, "country": "US"},
+        {"region": "QC", "model": "X", "sales": 1.0, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 69, "country": "CA"}
+      ])";
+    expected_files_["/new_root/2019/1/dat_1"] = R"([
+        {"region": "CA", "model": "3", "sales": 273.5, "country": "US"},
+        {"region": "CA", "model": "S", "sales": 13, "country": "US"},
+        {"region": "CA", "model": "X", "sales": 54, "country": "US"},
+        {"region": "QC", "model": "S", "sales": 10, "country": "CA"},
+        {"region": "CA", "model": "Y", "sales": 21, "country": "US"},
+        {"region": "QC", "model": "3", "sales": 152.25, "country": "CA"},
+        {"region": "QC", "model": "X", "sales": 42, "country": "CA"},
+        {"region": "QC", "model": "Y", "sales": 37, "country": "CA"}
+      ])";
+    expected_physical_schema_ =
+        SchemaFromColumnNames(source_schema_, {"region", "model", "sales", "country"});
+
+    AssertWrittenAsExpected();
+  }
+
+  void TestWriteWithUnrelatedPartitioningSchema() {
+    DoWrite(std::make_shared<DirectoryPartitioning>(
+        SchemaFromColumnNames(source_schema_, {"country", "region"})));
+
+    // XXX first thing a user will be annoyed by: we don't support left
+    // padding the month field with 0.
+    expected_files_["/new_root/US/NY/dat_0"] = R"([
+        {"year": 2018, "month": 1, "model": "3", "sales": 742.0},
+        {"year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"year": 2018, "month": 1, "model": "Y", "sales": 27.5},
+        {"year": 2018, "month": 1, "model": "X", "sales": 136.25}
+  ])";
+    expected_files_["/new_root/CA/QC/dat_1"] = R"([
+        {"year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"year": 2018, "month": 1, "model": "S", "sales": 978},
+        {"year": 2018, "month": 1, "model": "X", "sales": 1.0},
+        {"year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"year": 2019, "month": 1, "model": "S", "sales": 10},
+        {"year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"year": 2019, "month": 1, "model": "X", "sales": 42},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 37}
+  ])";
+    expected_files_["/new_root/US/CA/dat_2"] = R"([
+        {"year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"year": 2019, "month": 1, "model": "S", "sales": 13},
+        {"year": 2019, "month": 1, "model": "X", "sales": 54},
+        {"year": 2019, "month": 1, "model": "Y", "sales": 21}
+  ])";
+    expected_physical_schema_ =
+        SchemaFromColumnNames(source_schema_, {"model", "sales", "year", "month"});
+
+    AssertWrittenAsExpected();
+  }
+
+  void TestWriteWithSupersetPartitioningSchema() {
+    DoWrite(std::make_shared<DirectoryPartitioning>(
+        SchemaFromColumnNames(source_schema_, {"year", "month", "country", "region"})));
+
+    // XXX first thing a user will be annoyed by: we don't support left
+    // padding the month field with 0.
+    expected_files_["/new_root/2018/1/US/NY/dat_0"] = R"([
+        {"model": "3", "sales": 742.0},
+        {"model": "S", "sales": 304.125},
+        {"model": "Y", "sales": 27.5},
+        {"model": "X", "sales": 136.25}
+  ])";
+    expected_files_["/new_root/2018/1/CA/QC/dat_1"] = R"([
+        {"model": "3", "sales": 512},
+        {"model": "S", "sales": 978},
+        {"model": "X", "sales": 1.0},
+        {"model": "Y", "sales": 69}
+  ])";
+    expected_files_["/new_root/2019/1/US/CA/dat_2"] = R"([
+        {"model": "3", "sales": 273.5},
+        {"model": "S", "sales": 13},
+        {"model": "X", "sales": 54},
+        {"model": "Y", "sales": 21}
+  ])";
+    expected_files_["/new_root/2019/1/CA/QC/dat_3"] = R"([
+        {"model": "S", "sales": 10},
+        {"model": "3", "sales": 152.25},
+        {"model": "X", "sales": 42},
+        {"model": "Y", "sales": 37}
+  ])";
+    expected_physical_schema_ = SchemaFromColumnNames(source_schema_, {"model", "sales"});
+
+    AssertWrittenAsExpected();
+  }
+
+  void TestWriteWithEmptyPartitioningSchema() {
+    DoWrite(std::make_shared<DirectoryPartitioning>(
+        SchemaFromColumnNames(source_schema_, {})));
+
+    expected_files_["/new_root/dat_0"] = R"([
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "S", "sales": 304.125},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "Y", "sales": 27.5},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "3", "sales": 512},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "S", "sales": 978},
+        {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "X", "sales": 136.25},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "X", "sales": 1.0},
+        {"country": "CA", "region": "QC", "year": 2018, "month": 1, "model": "Y", "sales": 69},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "3", "sales": 273.5},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "S", "sales": 13},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "S", "sales": 10},
+        {"country": "US", "region": "CA", "year": 2019, "month": 1, "model": "Y", "sales": 21},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "3", "sales": 152.25},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "X", "sales": 42},
+        {"country": "CA", "region": "QC", "year": 2019, "month": 1, "model": "Y", "sales": 37}
+  ])";
+    expected_physical_schema_ = source_schema_;
+
+    AssertWrittenAsExpected();
+  }
+
+  void AssertWrittenAsExpected() {
+    std::unordered_set<std::string> expected_paths, actual_paths;
+    for (const auto& file_contents : expected_files_) {
+      expected_paths.insert(file_contents.first);
+    }
+    for (auto path : checked_pointer_cast<FileSystemDataset>(written_)->files()) {
+      actual_paths.insert(std::move(path));
+    }
+    EXPECT_THAT(actual_paths, testing::UnorderedElementsAreArray(expected_paths));
+
+    for (auto maybe_fragment : written_->GetFragments()) {
+      ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
+
+      ASSERT_OK_AND_ASSIGN(auto actual_physical_schema, fragment->ReadPhysicalSchema());
+      AssertSchemaEqual(*expected_physical_schema_, *actual_physical_schema,
+                        check_metadata_);
+
+      const auto& path = checked_pointer_cast<FileFragment>(fragment)->source().path();
+
+      auto file_contents = expected_files_.find(path);
+      if (file_contents == expected_files_.end()) {
+        // file wasn't expected to be written at all; nothing to compare with
+        continue;
+      }
+
+      ASSERT_OK_AND_ASSIGN(auto scanner, ScannerBuilder(actual_physical_schema, fragment,
+                                                        std::make_shared<ScanContext>())
+                                             .Finish());
+      ASSERT_OK_AND_ASSIGN(auto actual_table, scanner->ToTable());
+      ASSERT_OK_AND_ASSIGN(actual_table, actual_table->CombineChunks());
+      std::shared_ptr<Array> actual_struct;
+
+      for (auto maybe_batch :
+           IteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
+      }
+
+      auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
+                                           {file_contents->second});
+
+      AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
+    }
+  }
+
+  bool check_metadata_ = true;
+  std::shared_ptr<Schema> source_schema_;
+  std::shared_ptr<FileFormat> format_;
+  PathAndContent expected_files_;
+  std::shared_ptr<Schema> expected_physical_schema_;
+  std::shared_ptr<Dataset> written_;
+  FileSystemDatasetWriteOptions write_options_;
+  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanContext> scan_context_ = std::make_shared<ScanContext>();
 };
 
 }  // namespace dataset

@@ -22,14 +22,23 @@
 #include <utility>
 #include <vector>
 
-// boost/process/detail/windows/handle_workaround.hpp doesn't work
-// without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-// provide __kernel_entry without winternl.h.
+// This boost/asio/io_context.hpp include is needless for no MinGW
+// build.
 //
-// See also:
-// https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
+// This is for including boost/asio/detail/socket_types.hpp before any
+// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
+// work if windows.h is already included. boost/process.h ->
+// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
+// includes windows.h. boost/process/args.hpp is included before
+// boost/process/async.h that includes
+// boost/asio/detail/socket_types.hpp implicitly is included.
+#include <boost/asio/io_context.hpp>
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
+// cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #ifdef _WIN32
@@ -43,6 +52,7 @@
 #endif
 
 #include <aws/core/Aws.h>
+#include <aws/core/Version.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
@@ -51,6 +61,7 @@
 #include <aws/s3/model/CreateBucketRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3_internal.h"
@@ -61,12 +72,15 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace fs {
 
+using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::UriEscape;
 
@@ -101,27 +115,65 @@ namespace bp = boost::process;
   ARROW_AWS_ASSIGN_OR_FAIL_IMPL(             \
       ARROW_AWS_ASSIGN_OR_FAIL_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
 
-class S3TestMixin : public ::testing::Test {
+class AwsTestMixin : public ::testing::Test {
+ public:
+  // We set this environment variable to speed up tests by ensuring
+  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+  // EC2 metadata endpoint
+  AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
+
+  void SetUp() override {
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+    auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
+    aws_options_.loggingOptions.logLevel = aws_log_level;
+    aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
+      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(aws_log_level);
+    };
+    Aws::InitAPI(aws_options_);
+#endif
+  }
+
+  void TearDown() override {
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+    Aws::ShutdownAPI(aws_options_);
+#endif
+  }
+
+ private:
+  EnvVarGuard ec2_metadata_disabled_guard_;
+#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+  Aws::SDKOptions aws_options_;
+#endif
+};
+
+class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
+    AwsTestMixin::SetUp();
+
     ASSERT_OK(minio_.Start());
 
-    client_config_.endpointOverride = ToAwsString(minio_.connect_string());
-    client_config_.scheme = Aws::Http::Scheme::HTTP;
-    client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    client_config_.reset(new Aws::Client::ClientConfiguration());
+    client_config_->endpointOverride = ToAwsString(minio_.connect_string());
+    client_config_->scheme = Aws::Http::Scheme::HTTP;
+    client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
     credentials_ = {ToAwsString(minio_.access_key()), ToAwsString(minio_.secret_key())};
     bool use_virtual_addressing = false;
     client_.reset(
-        new Aws::S3::S3Client(credentials_, client_config_,
+        new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
   }
 
-  void TearDown() override { ASSERT_OK(minio_.Stop()); }
+  void TearDown() override {
+    ASSERT_OK(minio_.Stop());
+
+    AwsTestMixin::TearDown();
+  }
 
  protected:
   MinioTestServer minio_;
-  Aws::Client::ClientConfiguration client_config_;
+  std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
 };
@@ -152,12 +204,14 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
 ////////////////////////////////////////////////////////////////////////////
 // S3Options tests
 
-TEST(S3Options, FromUri) {
+class S3OptionsTest : public AwsTestMixin {};
+
+TEST_F(S3OptionsTest, FromUri) {
   std::string path;
   S3Options options;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "");
@@ -172,17 +226,23 @@ TEST(S3Options, FromUri) {
   ASSERT_EQ(creds.GetAWSSecretKey(), "secret");
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_NE(options.region, "");  // Some region was chosen
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "mybucket");
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/foo/bar/", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_NE(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "mybucket/foo/bar");
 
+  // Region resolution with a well-known bucket
+  ASSERT_OK_AND_ASSIGN(
+      options, S3Options::FromUri("s3://aws-earth-mo-atmospheric-ukv-prd/", &path));
+  ASSERT_EQ(options.region, "eu-west-2");
+
+  // Explicit region override
   ASSERT_OK_AND_ASSIGN(
       options,
       S3Options::FromUri(
@@ -195,7 +255,99 @@ TEST(S3Options, FromUri) {
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
+
+  // Invalid option
+  ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
 }
+
+TEST_F(S3OptionsTest, FromAccessKey) {
+  S3Options options;
+
+  // session token is optional and should default to empty string
+  options = S3Options::FromAccessKey("access", "secret");
+  ASSERT_EQ(options.GetAccessKey(), "access");
+  ASSERT_EQ(options.GetSecretKey(), "secret");
+  ASSERT_EQ(options.GetSessionToken(), "");
+
+  options = S3Options::FromAccessKey("access", "secret", "token");
+  ASSERT_EQ(options.GetAccessKey(), "access");
+  ASSERT_EQ(options.GetSecretKey(), "secret");
+  ASSERT_EQ(options.GetSessionToken(), "token");
+}
+
+TEST_F(S3OptionsTest, FromAssumeRole) {
+  S3Options options;
+
+  // arn should be only required argument
+  options = S3Options::FromAssumeRole("my_role_arn");
+  options = S3Options::FromAssumeRole("my_role_arn", "session");
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id");
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42);
+
+  // test w/ custom STSClient (will not use DefaultAWSCredentialsProviderChain)
+  Aws::Auth::AWSCredentials test_creds = Aws::Auth::AWSCredentials("access", "secret");
+  std::shared_ptr<Aws::STS::STSClient> sts_client =
+      std::make_shared<Aws::STS::STSClient>(Aws::STS::STSClient(test_creds));
+  options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42, sts_client);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Region resolution test
+
+class S3RegionResolutionTest : public AwsTestMixin {};
+
+TEST_F(S3RegionResolutionTest, PublicBucket) {
+  ASSERT_OK_AND_EQ("us-east-2", ResolveBucketRegion("ursa-labs-taxi-data"));
+
+  // Taken from a registry of open S3-hosted datasets
+  // at https://github.com/awslabs/open-data-registry
+  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+  // Same again, cached
+  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+}
+
+TEST_F(S3RegionResolutionTest, RestrictedBucket) {
+  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+  // Same again, cached
+  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+}
+
+TEST_F(S3RegionResolutionTest, NonExistentBucket) {
+  auto maybe_region = ResolveBucketRegion("ursa-labs-non-existent-bucket");
+  ASSERT_RAISES(IOError, maybe_region);
+  ASSERT_THAT(maybe_region.status().message(),
+              ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// S3FileSystem region test
+
+class S3FileSystemRegionTest : public AwsTestMixin {};
+
+TEST_F(S3FileSystemRegionTest, Default) {
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://"));
+  auto s3fs = checked_pointer_cast<S3FileSystem>(fs);
+  ASSERT_EQ(s3fs->region(), "us-east-1");
+}
+
+// Skipped on Windows, as the AWS SDK ignores runtime environment changes:
+// https://github.com/aws/aws-sdk-cpp/issues/1476
+
+#ifndef _WIN32
+TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
+  // Region override with environment variable (AWS SDK >= 1.8)
+  EnvVarGuard region_guard("AWS_DEFAULT_REGION", "eu-north-1");
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://"));
+  auto s3fs = checked_pointer_cast<S3FileSystem>(fs);
+
+  if (Aws::Version::GetVersionMajor() > 1 || Aws::Version::GetVersionMinor() >= 8) {
+    ASSERT_EQ(s3fs->region(), "eu-north-1");
+  } else {
+    ASSERT_EQ(s3fs->region(), "us-east-1");
+  }
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////////
 // Basic test for the Minio test server.
@@ -306,6 +458,16 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Close());
     AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+
+    // Open file and then lose filesystem reference
+    ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
+    std::weak_ptr<S3FileSystem> weak_fs(fs_);
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5"));
+    fs_.reset();
+    ASSERT_FALSE(weak_fs.expired());
+    ASSERT_OK(stream->Write("some data"));
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(weak_fs.expired());
   }
 
   void TestOpenOutputStreamAbort() {
@@ -628,11 +790,23 @@ TEST_F(TestS3FS, OpenInputStream) {
   AssertBufferEqual(*buf, "sub data");
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(100));
   AssertBufferEqual(*buf, "");
+  ASSERT_OK(stream->Close());
 
   // "Directories"
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/emptydir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/somedir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket"));
+
+  // Open file and then lose filesystem reference
+  ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
+  std::weak_ptr<S3FileSystem> weak_fs(fs_);
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
+  fs_.reset();
+  ASSERT_FALSE(weak_fs.expired());
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(10));
+  AssertBufferEqual(*buf, "some data");
+  ASSERT_OK(stream->Close());
+  ASSERT_TRUE(weak_fs.expired());
 }
 
 TEST_F(TestS3FS, OpenInputFile) {

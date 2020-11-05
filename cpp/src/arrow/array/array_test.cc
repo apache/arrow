@@ -234,6 +234,9 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
   slice = array->Slice(4);
   ASSERT_EQ(4, slice->null_count());
 
+  auto slice2 = slice->Slice(0);
+  ASSERT_EQ(4, slice2->null_count());
+
   slice = array->Slice(0);
   ASSERT_EQ(5, slice->null_count());
 
@@ -1501,7 +1504,7 @@ void CheckFloatingNanEquality() {
 
   // NaN != non-NaN
   ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &a);
+  ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
   ASSERT_FALSE(a->Equals(b, EqualOptions().nans_equal(true)));
@@ -1520,6 +1523,73 @@ void CheckFloatingNanEquality() {
   ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
 }
 
+template <typename TYPE>
+void CheckFloatingInfinityEquality() {
+  std::shared_ptr<Array> a, b;
+  std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
+
+  const auto infinity = std::numeric_limits<typename TYPE::c_type>::infinity();
+
+  for (auto nans_equal : {false, true}) {
+    // Infinity in a null entry
+    ArrayFromVector<TYPE>(type, {true, false}, {0.5, infinity}, &a);
+    ArrayFromVector<TYPE>(type, {true, false}, {0.5, -infinity}, &b);
+    ASSERT_TRUE(a->Equals(b));
+    ASSERT_TRUE(b->Equals(a));
+    ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
+
+    // Infinity in a valid entry
+    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &a);
+    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &b);
+    ASSERT_TRUE(a->Equals(b));
+    ASSERT_TRUE(b->Equals(a));
+    ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    // Infinity in tested range
+    ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
+    // Infinity not in tested range
+    ASSERT_TRUE(a->RangeEquals(b, 0, 1, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
+
+    // Infinity != non-infinity
+    ArrayFromVector<TYPE>(type, {false, true}, {0.5, -infinity}, &a);
+    ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
+    ASSERT_FALSE(a->Equals(b));
+    ASSERT_FALSE(b->Equals(a));
+    ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_FALSE(b->ApproxEquals(a));
+    ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    // Infinity != Negative infinity
+    ArrayFromVector<TYPE>(type, {true, true}, {0.5, -infinity}, &a);
+    ArrayFromVector<TYPE>(type, {true, true}, {0.5, infinity}, &b);
+    ASSERT_FALSE(a->Equals(b));
+    ASSERT_FALSE(b->Equals(a));
+    ASSERT_FALSE(a->ApproxEquals(b));
+    ASSERT_FALSE(b->ApproxEquals(a));
+    ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
+    // Infinity in tested range
+    ASSERT_FALSE(a->RangeEquals(b, 0, 2, 0));
+    ASSERT_FALSE(b->RangeEquals(a, 0, 2, 0));
+    ASSERT_FALSE(a->RangeEquals(b, 1, 2, 1));
+    ASSERT_FALSE(b->RangeEquals(a, 1, 2, 1));
+    // Infinity not in tested range
+    ASSERT_TRUE(a->RangeEquals(b, 0, 1, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
+  }
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -1533,6 +1603,11 @@ TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
 TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
   CheckFloatingNanEquality<FloatType>();
   CheckFloatingNanEquality<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingInfinityEquality) {
+  CheckFloatingInfinityEquality<FloatType>();
+  CheckFloatingInfinityEquality<DoubleType>();
 }
 
 // ----------------------------------------------------------------------
@@ -2029,6 +2104,19 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   }
 }
 
+TEST(TestAdaptiveIntBuilderWithStartIntSize, TestReset) {
+  auto builder = std::make_shared<AdaptiveIntBuilder>(
+      static_cast<uint8_t>(sizeof(int16_t)), default_memory_pool());
+  AssertTypeEqual(*int16(), *builder->type());
+
+  ASSERT_OK(
+      builder->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::max()) + 1));
+  AssertTypeEqual(*int32(), *builder->type());
+
+  builder->Reset();
+  AssertTypeEqual(*int16(), *builder->type());
+}
+
 class TestAdaptiveUIntBuilder : public TestBuilder {
  public:
   void SetUp() {
@@ -2232,6 +2320,19 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   for (unsigned index = 0; index < size; ++index) {
     ASSERT_FALSE(result_->IsValid(index));
   }
+}
+
+TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
+  auto builder = std::make_shared<AdaptiveUIntBuilder>(
+      static_cast<uint8_t>(sizeof(uint16_t)), default_memory_pool());
+  AssertTypeEqual(uint16(), builder->type());
+
+  ASSERT_OK(
+      builder->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
+  AssertTypeEqual(uint32(), builder->type());
+
+  builder->Reset();
+  AssertTypeEqual(uint16(), builder->type());
 }
 
 // ----------------------------------------------------------------------

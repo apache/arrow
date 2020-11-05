@@ -17,21 +17,23 @@
 
 package org.apache.arrow.vector.util;
 
-import org.apache.arrow.memory.ArrowBuf;
+import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
+
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
-import org.apache.arrow.vector.BufferLayout;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.validate.ValidateVectorVisitor;
+import org.apache.arrow.vector.validate.ValidateVectorBufferVisitor;
+import org.apache.arrow.vector.validate.ValidateVectorDataVisitor;
+import org.apache.arrow.vector.validate.ValidateVectorTypeVisitor;
 
 /**
  * Utility methods for {@link ValueVector}.
  */
 public class ValueVectorUtility {
+
+  private ValueVectorUtility() {
+  }
 
   /**
    * Get the toString() representation of vector suitable for debugging.
@@ -92,44 +94,57 @@ public class ValueVectorUtility {
   }
 
   /**
-   * Validate field vector.
+   * Utility to validate vector in O(1) time.
    */
-  public static void validate(FieldVector vector) {
+  public static void validate(ValueVector vector) {
     Preconditions.checkNotNull(vector);
 
-    ArrowType arrowType = vector.getField().getType();
-    int typeBufferCount = TypeLayout.getTypeBufferCount(arrowType);
-    TypeLayout typeLayout = TypeLayout.getTypeLayout(arrowType);
+    ValidateVectorTypeVisitor typeVisitor = new ValidateVectorTypeVisitor();
+    vector.accept(typeVisitor, null);
 
-    if (vector.getValueCount() < 0) {
-      throw new IllegalArgumentException("vector valueCount is negative");
-    }
-
-    if (vector.getFieldBuffers().size() != typeBufferCount) {
-      throw new IllegalArgumentException(String.format("Expected %s buffers in vector of type %s, got %s",
-          typeBufferCount, vector.getField().getType().toString(), vector.getBufferSize()));
-    }
-
-    for (int i = 0; i < typeBufferCount; i++) {
-      ArrowBuf buffer = vector.getFieldBuffers().get(i);
-      BufferLayout bufferLayout = typeLayout.getBufferLayouts().get(i);
-      if (buffer == null) {
-        continue;
-      }
-      int minBufferSize = vector.getValueCount() * bufferLayout.getTypeBitWidth();
-
-      if (buffer.capacity() < minBufferSize / 8) {
-        throw new IllegalArgumentException(String.format("Buffer #%s too small in vector of type %s" +
-                "and valueCount %s : expected at least %s byte(s), got %s",
-            i, vector.getField().getType().toString(),
-            vector.getValueCount(), minBufferSize, buffer.capacity()));
-      }
-    }
-
-    ValidateVectorVisitor visitor = new ValidateVectorVisitor();
-    vector.accept(visitor, null);
+    ValidateVectorBufferVisitor bufferVisitor = new ValidateVectorBufferVisitor();
+    vector.accept(bufferVisitor, null);
   }
 
+  /**
+   * Utility to validate vector in O(n) time, where n is the value count.
+   */
+  public static void validateFull(ValueVector vector) {
+    validate(vector);
+
+    ValidateVectorDataVisitor dataVisitor = new ValidateVectorDataVisitor();
+    vector.accept(dataVisitor, null);
+  }
+
+  /**
+   * Utility to validate vector schema root in O(1) time.
+   */
+  public static void validate(VectorSchemaRoot root) {
+    Preconditions.checkNotNull(root);
+    int valueCount = root.getRowCount();
+    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
+    for (ValueVector childVec : root.getFieldVectors()) {
+      validateOrThrow(valueCount == childVec.getValueCount(),
+          "Child vector and vector schema root have different value counts. " +
+              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
+      validate(childVec);
+    }
+  }
+
+  /**
+   * Utility to validate vector in O(n) time, where n is the value count.
+   */
+  public static void validateFull(VectorSchemaRoot root) {
+    Preconditions.checkNotNull(root);
+    int valueCount = root.getRowCount();
+    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
+    for (ValueVector childVec : root.getFieldVectors()) {
+      validateOrThrow(valueCount == childVec.getValueCount(),
+          "Child vector and vector schema root have different value counts. " +
+              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
+      validateFull(childVec);
+    }
+  }
 
   /**
    * Pre allocate memory for BaseFixedWidthVector.
@@ -154,5 +169,4 @@ public class ValueVectorUtility {
       }
     }
   }
-
 }

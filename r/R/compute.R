@@ -58,18 +58,22 @@ min.Array <- function(..., na.rm = FALSE) {
 }
 
 #' @export
+min.ChunkedArray <- min.Array
+
+#' @export
 max.Array <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
+#' @export
+max.ChunkedArray <- max.Array
+
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
   a <- collect_arrays_from_dots(list(...))
-  if (!na.rm && a$null_count > 0) {
-    if (FUN %in% c("mean", "sum")) {
-      # Arrow sum/mean function always drops NAs so handle that here
-      # https://issues.apache.org/jira/browse/ARROW-9054
-      return(Scalar$create(NA_real_))
-    }
+  if (!na.rm && a$null_count > 0 && (FUN %in% c("mean", "sum"))) {
+    # Arrow sum/mean function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
+    return(Scalar$create(NA_real_))
   }
 
   Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
@@ -92,6 +96,46 @@ collect_arrays_from_dots <- function(dots) {
     }
   }))
   ChunkedArray$create(!!!arrays)
+}
+
+#' @export
+unique.Array <- function(x, incomparables = FALSE, ...) {
+  Array$create(call_function("unique", x))
+}
+
+#' @export
+unique.ChunkedArray <- unique.Array
+
+#' `match` for Arrow objects
+#'
+#' `base::match()` is not a generic, so we can't just define Arrow methods for
+#' it. This function exposes the analogous function in the Arrow C++ library.
+#'
+#' @param x `Array` or `ChunkedArray`
+#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param ... additional arguments, ignored
+#' @return An `int32`-type `Array` of the same length as `x` with the
+#' (0-based) indexes into `table`.
+#' @export
+match_arrow <- function(x, table, ...) UseMethod("match_arrow")
+
+#' @export
+match_arrow.default <- function(x, table, ...) match(x, table, ...)
+
+#' @export
+match_arrow.Array <- function(x, table, ...) {
+  if (!inherits(table, c("Array", "ChunkedArray"))) {
+    table <- Array$create(table)
+  }
+  Array$create(call_function("index_in_meta_binary", x, table))
+}
+
+#' @export
+match_arrow.ChunkedArray <- function(x, table, ...) {
+  if (!inherits(table, c("Array", "ChunkedArray"))) {
+    table <- Array$create(table)
+  }
+  shared_ptr(ChunkedArray, call_function("index_in_meta_binary", x, table))
 }
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)

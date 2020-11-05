@@ -40,22 +40,75 @@ jobs:
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
+        # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
+        # glog and CMAKE_UNITY_BUILD=ON.
+        #
+        # Disable ARROW_S3 because it often causes "No output has
+        # been received in the last 10m0s, this potentially indicates
+        # a stalled build or something wrong with the build itself."
+        # on Travis CI.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_ORC=OFF
+          -e ARROW_S3=OFF
+          -e ARROW_USE_GLOG=OFF
+          -e CMAKE_UNITY_BUILD=ON
+          "
+        # We need to use smaller build when cache doesn't exist
+        # because Travis CI has "No output has been received in the
+        # last 10m0s" limitation. If we build many modules, we reach
+        # the limitation.
+        DOCKER_RUN_ARGS_NO_CACHE: >-
+          "
+          -e ARROW_BUILD_TESTS=OFF
+          -e ARROW_GANDIVA=OFF
+          -e ARROW_PARQUET=OFF
+          "
         UBUNTU: "20.04"
+
     - name: "C++ on s390x"
       os: linux
       arch: s390x
       env:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
-        ARROW_FLIGHT: "ON"
-        ARROW_PARQUET: "OFF"
         DOCKER_IMAGE_ID: ubuntu-cpp
-        PARQUET_BUILD_EXAMPLES: "OFF"
-        PARQUET_BUILD_EXECUTABLES: "OFF"
-        Protobuf_SOURCE: "BUNDLED"
+        # Can't use CMAKE_UNITIFY_BUILD=ON because of compiler crash.
+        # Can't enable ARROW_S3 because compiler is killed while compiling
+        # aws-sdk-cpp.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_FLIGHT=ON
+          -e ARROW_ORC=OFF
+          -e ARROW_PARQUET=OFF
+          -e ARROW_S3=OFF
+          -e PARQUET_BUILD_EXAMPLES=OFF
+          -e PARQUET_BUILD_EXECUTABLES=OFF
+          -e Protobuf_SOURCE=BUNDLED
+          -e cares_SOURCE=BUNDLED
+          -e gRPC_SOURCE=BUNDLED
+          "
         UBUNTU: "20.04"
-        cares_SOURCE: "BUNDLED"
-        gRPC_SOURCE: "BUNDLED"
+
+    - name: "Go on s390x"
+      os: linux
+      arch: s390x
+      env:
+        ARCH: s390x
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
+
+    - name: "Java on s390x"
+      os: linux
+      arch: s390x
+      env:
+        ARCH: s390x
+        ARROW_CI_MODULES: "JAVA"
+        DOCKER_IMAGE_ID: debian-java
+        JDK: 11
+
   allow_failures:
     - arch: s390x
 
@@ -88,14 +141,12 @@ script:
   - |
     ulimit -c unlimited || :
   - |
+    if [ $(ls $TRAVIS_BUILD_DIR/.docker | wc -l) -eq 0 ]; then
+      DOCKER_RUN_ARGS="${DOCKER_RUN_ARGS} ${DOCKER_RUN_ARGS_NO_CACHE}"
+    fi
+  - |
     archery docker run \
-      -e ARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
-      -e ARROW_PARQUET=${ARROW_PARQUET:-ON} \
-      -e PARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-ON} \
-      -e PARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-ON} \
-      -e Protobuf_SOURCE=${Protobuf_SOURCE:-} \
-      -e cares_SOURCE=${cares_SOURCE:-} \
-      -e gRPC_SOURCE=${gRPC_SOURCE:-} \
+      ${DOCKER_RUN_ARGS} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
 

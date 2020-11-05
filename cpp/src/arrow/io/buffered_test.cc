@@ -42,10 +42,13 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
+
+using ::arrow::internal::TemporaryDir;
 
 static std::string GenerateRandomData(size_t nbytes) {
   // MSVC doesn't accept uint8_t for std::independent_bits_engine<>
@@ -61,7 +64,11 @@ template <typename FileType>
 class FileTestFixture : public ::testing::Test {
  public:
   void SetUp() {
-    path_ = "arrow-test-io-buffered-stream.txt";
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("buffered-test-"));
+    path_ = temp_dir_->path()
+                .Join("arrow-test-io-buffered-stream.txt")
+                .ValueOrDie()
+                .ToString();
     EnsureFileDeleted();
   }
 
@@ -79,6 +86,7 @@ class FileTestFixture : public ::testing::Test {
   int fd_;
   std::shared_ptr<FileType> buffered_;
   std::string path_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
 };
 
 // ----------------------------------------------------------------------

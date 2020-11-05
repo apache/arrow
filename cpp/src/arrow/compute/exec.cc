@@ -885,7 +885,7 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
     kernel_->consume(&batch_ctx, batch);
     ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
 
-    kernel_->merge(&kernel_ctx_, *batch_state, state_.get());
+    kernel_->merge(&kernel_ctx_, std::move(*batch_state), state_.get());
     ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     return Status::OK();
   }
@@ -952,9 +952,6 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         ctx->func_registry()->GetFunction(func_name));
-  if (options == nullptr) {
-    options = func->default_options();
-  }
   return func->Execute(args, options, ctx);
 }
 

@@ -19,6 +19,9 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+
+import java.util.stream.IntStream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -207,6 +210,31 @@ public class TestFixedWidthInPlaceVectorSorter {
         sorter.choosePivot(low, high);
         assertEquals(22, vec.get(0));
       }
+    }
+  }
+
+  @Test
+  public void testSortInt2() {
+    try (IntVector vector = new IntVector("vector", allocator)) {
+      ValueVectorDataPopulator.setVector(vector,
+          0, 1, 2, 3, 4, 5, 30, 31, 32, 33,
+          34, 35, 60, 61, 62, 63, 64, 65, 6, 7,
+          8, 9, 10, 11, 36, 37, 38, 39, 40, 41,
+          66, 67, 68, 69, 70, 71);
+
+      FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vector);
+
+      sorter.sortInPlace(vector, comparator);
+
+      int[] actual = new int[vector.getValueCount()];
+      IntStream.range(0, vector.getValueCount()).forEach(
+          i -> actual[i] = vector.get(i));
+
+      assertArrayEquals(
+          new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+              11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+              40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71}, actual);
     }
   }
 }

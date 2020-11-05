@@ -31,23 +31,26 @@ use std::sync::Arc;
 
 use num::{One, Zero};
 
-use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
-use crate::compute::util::apply_bin_op_to_option_bitmap;
+use crate::compute::util::combine_option_bitmap;
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
+use crate::{array::*, util::bit_util};
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
 /// `null`.
+///
+/// # Errors
+///
+/// This function errors if the arrays have different lengths
 pub fn math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -55,7 +58,7 @@ pub fn math_op<T, F>(
 ) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> Result<T::Native>,
+    F: Fn(T::Native, T::Native) -> T::Native,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -63,35 +66,84 @@ where
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let mut values = Vec::with_capacity(left.len());
-    if let Some(b) = &null_bit_buffer {
-        for i in 0..left.len() {
-            unsafe {
-                if bit_util::get_bit_raw(b.raw_data(), i) {
-                    values.push(op(left.value(i), right.value(i))?);
-                } else {
-                    values.push(T::default_value())
-                }
-            }
-        }
-    } else {
-        for i in 0..left.len() {
-            values.push(op(left.value(i), right.value(i))?);
-        }
-    }
+    let values = (0..left.len())
+        .map(|i| op(left.value(i), right.value(i)))
+        .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(
         T::get_data_type(),
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
+        vec![Buffer::from(values.to_byte_slice())],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
+/// Helper function to divide two arrays.
+///
+/// # Errors
+///
+/// This function errors if:
+/// * the arrays have different lengths
+/// * a division by zero is found
+fn math_divide<T>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Div<Output = T::Native> + Zero,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform math operation on arrays of different length".to_string(),
+        ));
+    }
+
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
+
+    let mut values = Vec::with_capacity(left.len());
+    if let Some(b) = &null_bit_buffer {
+        // some value is null
+        for i in 0..left.len() {
+            values.push(unsafe {
+                if bit_util::get_bit_raw(b.raw_data(), i) {
+                    let right_value = right.value(i);
+                    if right_value.is_zero() {
+                        return Err(ArrowError::DivideByZero);
+                    } else {
+                        left.value(i) / right_value
+                    }
+                } else {
+                    T::default_value()
+                }
+            });
+        }
+    } else {
+        // no value is null
+        for i in 0..left.len() {
+            let right_value = right.value(i);
+            values.push(if right_value.is_zero() {
+                return Err(ArrowError::DivideByZero);
+            } else {
+                left.value(i) / right_value
+            });
+        }
+    };
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
         vec![Buffer::from(values.to_byte_slice())],
         vec![],
     );
@@ -119,11 +171,8 @@ where
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let lanes = T::lanes();
     let buffer_size = left.len() * mem::size_of::<T::Native>();
@@ -148,7 +197,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -174,12 +223,9 @@ where
     }
 
     // Create the combined `Bitmap`
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
-    let bitmap = null_bit_buffer.map(Bitmap::from);
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
+    let bitmap = null_bit_buffer.clone().map(Bitmap::from);
 
     let lanes = T::lanes();
     let buffer_size = left.len() * mem::size_of::<T::Native>();
@@ -192,8 +238,6 @@ where
         if T::mask_any(is_zero) {
             return Err(ArrowError::DivideByZero);
         }
-        let right_no_invalid_zeros =
-            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_result = T::bin_op(simd_left, right_no_invalid_zeros, |a, b| a / b);
 
@@ -206,14 +250,12 @@ where
         T::write(simd_result, result_slice);
     }
 
-    let null_bit_buffer = bitmap.map(|b| b.bits);
-
     let data = ArrayData::new(
         T::get_data_type(),
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -238,7 +280,7 @@ where
     return simd_math_op(&left, &right, |a, b| a + b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a + b))
+    math_op(left, right, |a, b| a + b)
 }
 
 /// Perform `left - right` operation on two arrays. If either left or right value is null
@@ -259,7 +301,7 @@ where
     return simd_math_op(&left, &right, |a, b| a - b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a - b))
+    math_op(left, right, |a, b| a - b)
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
@@ -280,7 +322,7 @@ where
     return simd_math_op(&left, &right, |a, b| a * b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a * b))
+    math_op(left, right, |a, b| a * b)
 }
 
 /// Perform `left / right` operation on two arrays. If either left or right value is null
@@ -303,13 +345,7 @@ where
     return simd_divide(&left, &right);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| {
-        if b.is_zero() {
-            Err(ArrowError::DivideByZero)
-        } else {
-            Ok(a / b)
-        }
-    })
+    math_divide(&left, &right)
 }
 
 #[cfg(test)]
@@ -322,6 +358,27 @@ mod tests {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let b = Int32Array::from(vec![6, 7, 8, 9, 8]);
         let c = add(&a, &b).unwrap();
+        assert_eq!(11, c.value(0));
+        assert_eq!(13, c.value(1));
+        assert_eq!(15, c.value(2));
+        assert_eq!(17, c.value(3));
+        assert_eq!(17, c.value(4));
+    }
+
+    #[test]
+    fn test_primitive_array_add_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 5, 6, 7, 8, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 6, 7, 8, 9, 8, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        assert_eq!(5, a.value(0));
+        assert_eq!(6, b.value(0));
+
+        let c = add(&a, &b).unwrap();
+        assert_eq!(5, c.len());
         assert_eq!(11, c.value(0));
         assert_eq!(13, c.value(1));
         assert_eq!(15, c.value(2));
@@ -379,10 +436,81 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_divide_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 15, 15, 8, 1, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 5, 6, 8, 9, 1, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(5, c.len());
+        assert_eq!(3, c.value(0));
+        assert_eq!(2, c.value(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_divide_with_nulls() {
         let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9), None]);
         let b = Int32Array::from(vec![Some(5), Some(6), Some(8), Some(9), None, None]);
         let c = divide(&a, &b).unwrap();
+        assert_eq!(3, c.value(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(true, c.is_null(4));
+        assert_eq!(true, c.is_null(5));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_with_nulls_sliced() {
+        let a = Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(15),
+            None,
+            Some(8),
+            Some(1),
+            Some(9),
+            None,
+            None,
+        ]);
+        let b = Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(5),
+            Some(6),
+            Some(8),
+            Some(9),
+            None,
+            None,
+            None,
+        ]);
+
+        let a = a.slice(8, 6);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let b = b.slice(8, 6);
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(6, c.len());
         assert_eq!(3, c.value(0));
         assert_eq!(true, c.is_null(1));
         assert_eq!(1, c.value(2));
@@ -404,9 +532,9 @@ mod tests {
         let a = Float64Array::from(vec![15.0, 15.0, 8.0]);
         let b = Float64Array::from(vec![5.0, 6.0, 8.0]);
         let c = divide(&a, &b).unwrap();
-        assert_eq!(3.0, c.value(0));
-        assert_eq!(2.5, c.value(1));
-        assert_eq!(1.0, c.value(2));
+        assert!(3.0 - c.value(0) < f64::EPSILON);
+        assert!(2.5 - c.value(1) < f64::EPSILON);
+        assert!(1.0 - c.value(2) < f64::EPSILON);
     }
 
     #[test]

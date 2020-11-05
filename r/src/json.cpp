@@ -20,24 +20,22 @@
 
 #include <arrow/json/reader.h>
 
-using Rcpp::CharacterVector;
-using Rcpp::List_;
-
 // [[arrow::export]]
-std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(List_ options) {
+std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads,
+                                                                         int block_size) {
   auto res =
       std::make_shared<arrow::json::ReadOptions>(arrow::json::ReadOptions::Defaults());
-  res->use_threads = options["use_threads"];
-  res->block_size = options["block_size"];
+  res->use_threads = use_threads;
+  res->block_size = block_size;
   return res;
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(
-    List_ options) {
+    bool newlines_in_values) {
   auto res =
       std::make_shared<arrow::json::ParseOptions>(arrow::json::ParseOptions::Defaults());
-  res->newlines_in_values = options["newlines_in_values"];
+  res->newlines_in_values = newlines_in_values;
   return res;
 }
 

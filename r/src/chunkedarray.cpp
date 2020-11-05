@@ -17,9 +17,6 @@
 
 #include "./arrow_types.h"
 
-using Rcpp::List;
-using Rcpp::wrap;
-
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/chunked_array.h>
@@ -47,8 +44,9 @@ std::shared_ptr<arrow::Array> ChunkedArray__chunk(
 }
 
 // [[arrow::export]]
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return wrap(chunked_array->chunks());
+cpp11::list ChunkedArray__chunks(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return cpp11::as_sexp(chunked_array->chunks());
 }
 
 // [[arrow::export]]
@@ -59,14 +57,15 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   return chunked_array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset,
+    R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   arrow::r::validate_slice_length(length, chunked_array->length() - offset);
   return chunked_array->Slice(offset, length);

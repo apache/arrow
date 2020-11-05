@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -54,7 +55,6 @@ import io.grpc.stub.StreamObserver;
  * An adaptor between protobuf streams and flight data streams.
  */
 public class FlightStream implements AutoCloseable {
-
   // Use AutoCloseable sentinel objects to simplify logic in #close
   private final AutoCloseable DONE = () -> {
   };
@@ -68,7 +68,13 @@ public class FlightStream implements AutoCloseable {
   private final SettableFuture<FlightDescriptor> descriptor = SettableFuture.create();
   private final int pendingTarget;
   private final Requestor requestor;
+  // The completion flags.
+  // This flag is only updated as the user iterates through the data, i.e. it tracks whether the user has read all the
+  // data and closed the stream
   final CompletableFuture<Void> completed;
+  // This flag is immediately updated when gRPC signals that the server has ended the call. This is used to make sure
+  // we don't block forever trying to write to a server that has rejected a call.
+  final CompletableFuture<Void> cancelled;
 
   private volatile int pending = 1;
   private volatile VectorSchemaRoot fulfilledRoot;
@@ -84,16 +90,19 @@ public class FlightStream implements AutoCloseable {
    *
    * @param allocator  The allocator to use for creating/reallocating buffers for Vectors.
    * @param pendingTarget Target number of messages to receive.
-   * @param cancellable Only provided for streams from server to client, used to cancel mid-stream requests.
+   * @param cancellable Used to cancel mid-stream requests.
    * @param requestor A callback to determine how many pending items there are.
    */
   public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
+    Objects.requireNonNull(allocator);
+    Objects.requireNonNull(requestor);
     this.allocator = allocator;
     this.pendingTarget = pendingTarget;
     this.cancellable = cancellable;
     this.requestor = requestor;
     this.dictionaries = new DictionaryProvider.MapDictionaryProvider();
     this.completed = new CompletableFuture<>();
+    this.cancelled = new CompletableFuture<>();
   }
 
   /**
@@ -158,29 +167,52 @@ public class FlightStream implements AutoCloseable {
   /**
    * Closes the stream (freeing any existing resources).
    *
-   * <p>If the stream isn't complete and is cancellable, this method will cancel the stream first.</p>
+   * <p>If the stream isn't complete and is cancellable, this method will cancel and drain the stream first.
    */
   public void close() throws Exception {
     final List<AutoCloseable> closeables = new ArrayList<>();
-    // cancellation can throw, but we still want to clean up resources, so make it an AutoCloseable too
-    closeables.add(() -> {
-      if (!completed.isDone() && cancellable != null) {
-        cancel("Stream closed before end.", /* no exception to report */ null);
+    Throwable suppressor = null;
+    if (cancellable != null) {
+      // Client-side stream. Cancel the call, to help ensure gRPC doesn't deliver a message after close() ends.
+      // On the server side, we can't rely on draining the stream , because this gRPC bug means the completion callback
+      // may never run https://github.com/grpc/grpc-java/issues/5882
+      try {
+        synchronized (cancellable) {
+          if (!cancelled.isDone()) {
+            // Only cancel if the call is not done on the gRPC side
+            cancellable.cancel("Stream closed before end", /* no exception to report */null);
+          }
+        }
+        // Drain the stream without the lock (as next() implicitly needs the lock)
+        while (next()) { }
+      } catch (FlightRuntimeException e) {
+        suppressor = e;
       }
-    });
-    if (fulfilledRoot != null) {
-      closeables.add(fulfilledRoot);
     }
-    closeables.add(applicationMetadata);
-    closeables.addAll(queue);
-    if (dictionaries != null) {
-      dictionaries.getDictionaryIds().forEach(id -> closeables.add(dictionaries.lookup(id).getVector()));
+    // Perform these operations under a lock. This way the observer can't enqueue new messages while we're in the
+    // middle of cleanup. This should only be a concern for server-side streams since client-side streams are drained
+    // by the lambda above.
+    synchronized (completed) {
+      try {
+        if (fulfilledRoot != null) {
+          closeables.add(fulfilledRoot);
+        }
+        closeables.add(applicationMetadata);
+        closeables.addAll(queue);
+        if (dictionaries != null) {
+          dictionaries.getDictionaryIds().forEach(id -> closeables.add(dictionaries.lookup(id).getVector()));
+        }
+        if (suppressor != null) {
+          AutoCloseables.close(suppressor, closeables);
+        } else {
+          AutoCloseables.close(closeables);
+        }
+      } finally {
+        // The value of this CompletableFuture is meaningless, only whether it's completed (or has an exception)
+        // No-op if already complete
+        completed.complete(null);
+      }
     }
-
-    AutoCloseables.close(closeables);
-    // Other code ignores the value of this CompletableFuture, only whether it's completed (or has an exception)
-    // No-op if already complete; do this after the check in the AutoCloseable lambda above
-    completed.complete(null);
   }
 
   /**
@@ -337,8 +369,22 @@ public class FlightStream implements AutoCloseable {
       super();
     }
 
+    /** Helper to add an item to the queue under the appropriate lock. */
+    private void enqueue(AutoCloseable message) {
+      synchronized (completed) {
+        if (completed.isDone()) {
+          // The stream is already closed (RPC ended), discard the message
+          AutoCloseables.closeNoChecked(message);
+        } else {
+          queue.add(message);
+        }
+      }
+    }
+
     @Override
     public void onNext(ArrowMessage msg) {
+      // Operations here have to be under a lock so that we don't add a message to the queue while in the middle of
+      // close().
       requestOutstanding();
       switch (msg.getMessageType()) {
         case NONE: {
@@ -347,7 +393,7 @@ public class FlightStream implements AutoCloseable {
             descriptor.set(new FlightDescriptor(msg.getDescriptor()));
           }
           if (msg.getApplicationMetadata() != null) {
-            queue.add(msg);
+            enqueue(msg);
           }
           break;
         }
@@ -367,29 +413,31 @@ public class FlightStream implements AutoCloseable {
           try {
             MetadataV4UnionChecker.checkRead(schema, metadataVersion);
           } catch (IOException e) {
-            queue.add(DONE_EX);
             ex = e;
+            enqueue(DONE_EX);
             break;
           }
 
-          fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
-          loader = new VectorLoader(fulfilledRoot);
-          if (msg.getDescriptor() != null) {
-            descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+          synchronized (completed) {
+            if (!completed.isDone()) {
+              fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
+              loader = new VectorLoader(fulfilledRoot);
+              if (msg.getDescriptor() != null) {
+                descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+              }
+              root.set(fulfilledRoot);
+            }
           }
-          root.set(fulfilledRoot);
           break;
         }
         case RECORD_BATCH:
-          queue.add(msg);
-          break;
         case DICTIONARY_BATCH:
-          queue.add(msg);
+          enqueue(msg);
           break;
         case TENSOR:
         default:
-          queue.add(DONE_EX);
           ex = new UnsupportedOperationException("Unable to handle message of type: " + msg.getMessageType());
+          enqueue(DONE_EX);
       }
     }
 
@@ -397,12 +445,14 @@ public class FlightStream implements AutoCloseable {
     public void onError(Throwable t) {
       ex = StatusUtils.fromThrowable(t);
       queue.add(DONE_EX);
+      cancelled.complete(null);
       root.setException(ex);
     }
 
     @Override
     public void onCompleted() {
       // Depends on gRPC calling onNext and onCompleted non-concurrently
+      cancelled.complete(null);
       queue.add(DONE);
     }
   }
@@ -410,17 +460,16 @@ public class FlightStream implements AutoCloseable {
   /**
    * Cancels sending the stream to a client.
    *
-   * @throws UnsupportedOperationException on a stream being uploaded from the client.
+   * <p>Callers should drain the stream (with {@link #next()}) to ensure all messages sent before cancellation are
+   * received and to wait for the underlying transport to acknowledge cancellation.
    */
   public void cancel(String message, Throwable exception) {
-    completed.completeExceptionally(
-        CallStatus.CANCELLED.withDescription(message).withCause(exception).toRuntimeException());
-    if (cancellable != null) {
-      cancellable.cancel(message, exception);
-    } else {
+    if (cancellable == null) {
       throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. " +
           "Instead, server should reject incoming messages.");
     }
+    cancellable.cancel(message, exception);
+    // Do not mark the stream as completed, as gRPC may still be delivering messages.
   }
 
   StreamObserver<ArrowMessage> asObserver() {

@@ -49,7 +49,7 @@
 //! ```
 //! extern crate arrow;
 //!
-//! use arrow::array::Int16Array;
+//! use arrow::array::{Int16Array, PrimitiveArrayOps};
 //!
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
@@ -87,6 +87,7 @@ mod builder;
 mod cast;
 mod data;
 mod equal;
+mod iterator;
 mod null;
 mod ord;
 mod union;
@@ -115,7 +116,7 @@ pub use self::array::StructArray;
 pub use self::null::NullArray;
 pub use self::union::UnionArray;
 
-pub(crate) use self::array::make_array;
+pub use self::array::make_array;
 
 pub type BooleanArray = PrimitiveArray<BooleanType>;
 pub type Int8Array = PrimitiveArray<Int8Type>;
@@ -155,9 +156,12 @@ pub type DurationMillisecondArray = PrimitiveArray<DurationMillisecondType>;
 pub type DurationMicrosecondArray = PrimitiveArray<DurationMicrosecondType>;
 pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 
-pub use self::array::LargeListArrayOps;
-pub use self::array::ListArrayOps;
+pub use self::array::GenericBinaryArray;
+pub use self::array::GenericListArray;
+pub use self::array::GenericStringArray;
+pub use self::array::OffsetSizeTrait;
 pub use self::array::PrimitiveArrayOps;
+pub use self::array::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 
@@ -237,6 +241,10 @@ pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
 
+// --------------------- Array Iterator ---------------------
+
+pub use self::iterator::*;
+
 // --------------------- Array Equality ---------------------
 
 pub use self::equal::ArrayEqual;
@@ -249,5 +257,6 @@ pub use self::ord::{as_ordarray, OrdArray};
 // --------------------- Array downcast helper functions ---------------------
 
 pub use self::cast::{
-    as_boolean_array, as_null_array, as_primitive_array, as_string_array,
+    as_boolean_array, as_dictionary_array, as_null_array, as_primitive_array,
+    as_string_array,
 };

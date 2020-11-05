@@ -33,10 +33,10 @@ export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
     public static from<T extends DateUnit.MILLISECOND>(...args: FromArgs<DateMillisecond>): V<DateMillisecond>;
     public static from<T extends Date_, TNull = any>(input: Iterable<Date | TNull>): V<T>;
     public static from<T extends Date_, TNull = any>(input: AsyncIterable<Date | TNull>): Promise<V<T>>;
-    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptions<T, TNull>): Chunked<T>;
-    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Chunked<T>>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptions<T, Date | TNull>): Chunked<T>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptionsAsync<T, Date | TNull>): Promise<Chunked<T>>;
     /** @nocollapse */
-    public static from<T extends Date_, TNull = any>(...args: FromArgs<T> | [Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>]) {
+    public static from<T extends Date_, TNull = any>(...args: FromArgs<T> | [Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<T, Date | TNull> | VectorBuilderOptionsAsync<T, Date | TNull>]) {
         if (args.length === 2) {
             return vectorFromValuesWithType(() => args[1] === DateUnit.DAY ? new DateDay() : new DateMillisecond() as T, args[0]);
         }

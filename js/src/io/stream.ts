@@ -110,14 +110,9 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
 }
 
 /** @ignore */
-interface ByteStreamSourceIterator<T> extends IterableIterator<T> {
-    next(value?: { cmd: 'peek' | 'read', size?: number | null }): IteratorResult<T>;
-}
-
+type ByteStreamSourceIterator<T> = Generator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
 /** @ignore */
-interface AsyncByteStreamSourceIterator<T> extends AsyncIterableIterator<T> {
-    next(value?: { cmd: 'peek' | 'read', size?: number | null }): Promise<IteratorResult<T>>;
-}
+type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
 
 /** @ignore */
 class ByteStreamSource<T> {

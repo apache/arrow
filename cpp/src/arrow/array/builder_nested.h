@@ -100,7 +100,7 @@ class BaseListBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     UnsafeAppendToBitmap(length, false);
     const int64_t num_values = value_builder_->length();
     for (int64_t i = 0; i < length; ++i) {
@@ -131,6 +131,16 @@ class BaseListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status ValidateOverflow(int64_t new_elements) const {
+    auto new_length = value_builder_->length() + new_elements;
+    if (ARROW_PREDICT_FALSE(new_length > maximum_elements())) {
+      return Status::CapacityError("List array cannot contain more than ",
+                                   maximum_elements(), " elements, have ", new_elements);
+    } else {
+      return Status::OK();
+    }
+  }
+
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
   // Cannot make this a static attribute because of linking issues
@@ -147,17 +157,8 @@ class BaseListBuilder : public ArrayBuilder {
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Field> value_field_;
 
-  Status CheckNextOffset() const {
-    const int64_t num_values = value_builder_->length();
-    ARROW_RETURN_IF(
-        num_values > maximum_elements(),
-        Status::CapacityError("List array cannot contain more than ", maximum_elements(),
-                              " child elements,", " have ", num_values));
-    return Status::OK();
-  }
-
   Status AppendNextOffset() {
-    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     const int64_t num_values = value_builder_->length();
     return offsets_builder_.Append(static_cast<offset_type>(num_values));
   }
@@ -227,6 +228,9 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
 
+  MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& item_builder,
+             const std::shared_ptr<DataType>& type);
+
   Status Resize(int64_t capacity) override;
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -274,6 +278,10 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override {
     return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+  }
+
+  Status ValidateOverflow(int64_t new_elements) {
+    return list_builder_->ValidateOverflow(new_elements);
   }
 
  protected:
@@ -343,10 +351,17 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// automatically.
   Status AppendNulls(int64_t length) final;
 
+  Status ValidateOverflow(int64_t new_elements);
+
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
   std::shared_ptr<DataType> type() const override {
     return fixed_size_list(value_field_->WithType(value_builder_->type()), list_size_);
+  }
+
+  // Cannot make this a static attribute because of linking issues
+  static constexpr int64_t maximum_elements() {
+    return std::numeric_limits<FixedSizeListType::offset_type>::max() - 1;
   }
 
  protected:

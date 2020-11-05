@@ -27,7 +27,7 @@ import pyarrow._orc as _orc
 def _is_map(typ):
     return (types.is_list(typ) and
             types.is_struct(typ.value_type) and
-            typ.value_type.num_children == 2 and
+            typ.value_type.num_fields == 2 and
             typ.value_type[0].name == 'key' and
             typ.value_type[1].name == 'value')
 

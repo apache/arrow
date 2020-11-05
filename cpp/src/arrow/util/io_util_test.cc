@@ -1,4 +1,5 @@
 // Licensed to the Apache Software Foundation (ASF) under one
+// std::unique_ptr<TemporaryDir> temp_dir;
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -332,7 +333,10 @@ TEST(PlatformFilename, Parent) {
 }
 
 TEST(CreateDirDeleteDir, Basics) {
-  const std::string BASE = "xxx-io-util-test-dir";
+  std::unique_ptr<TemporaryDir> temp_dir;
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("deletedirtest-"));
+  const std::string BASE =
+      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToString();
   bool created, deleted;
   PlatformFilename parent, child;
 
@@ -378,7 +382,10 @@ TEST(CreateDirDeleteDir, Basics) {
 }
 
 TEST(DeleteDirContents, Basics) {
-  const std::string BASE = "xxx-io-util-test-dir2";
+  std::unique_ptr<TemporaryDir> temp_dir;
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("deletedirtest-"));
+  const std::string BASE =
+      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToString();
   bool created, deleted;
   PlatformFilename parent, child1, child2;
 

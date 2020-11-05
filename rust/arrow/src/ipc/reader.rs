@@ -31,9 +31,9 @@ use crate::datatypes::{DataType, Field, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
-use DataType::*;
 
-const CONTINUATION_MARKER: u32 = 0xffff_ffff;
+use ipc::CONTINUATION_MARKER;
+use DataType::*;
 
 /// Read a buffer based on offset and length
 fn read_buffer(buf: &ipc::Buffer, a_data: &[u8]) -> Buffer {
@@ -414,7 +414,7 @@ pub fn read_record_batch(
     batch: ipc::RecordBatch,
     schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
-) -> Result<Option<RecordBatch>> {
+) -> Result<RecordBatch> {
     let buffers = batch.buffers().ok_or_else(|| {
         ArrowError::IoError("Unable to get buffers from IPC RecordBatch".to_string())
     })?;
@@ -442,7 +442,7 @@ pub fn read_record_batch(
         arrays.push(triple.0);
     }
 
-    RecordBatch::try_new(schema, arrays).map(|batch| Some(batch))
+    RecordBatch::try_new(schema, arrays)
 }
 
 // Linear search for the first dictionary field with a dictionary id.
@@ -482,6 +482,9 @@ pub struct FileReader<R: Read + Seek> {
     ///
     /// Dictionaries may be appended to in the streaming format.
     dictionaries_by_field: Vec<Option<ArrayRef>>,
+
+    /// Metadata version
+    metadata_version: ipc::MetadataVersion,
 }
 
 impl<R: Read + Seek> FileReader<R> {
@@ -506,12 +509,11 @@ impl<R: Read + Seek> FileReader<R> {
                 "Arrow file does not contain correct footer".to_string(),
             ));
         }
-
-        // what does the footer contain?
+        // read footer length
         let mut footer_size: [u8; 4] = [0; 4];
         reader.seek(SeekFrom::End(-10))?;
         reader.read_exact(&mut footer_size)?;
-        let footer_len = u32::from_le_bytes(footer_size);
+        let footer_len = i32::from_le_bytes(footer_size);
 
         // read footer
         let mut footer_data = vec![0; footer_len as usize];
@@ -534,6 +536,7 @@ impl<R: Read + Seek> FileReader<R> {
         let mut dictionaries_by_field = vec![None; schema.fields().len()];
         for block in footer.dictionaries().unwrap() {
             // read length from end of offset
+            // TODO: ARROW-9848: dictionary metadata has not been tested
             let meta_len = block.metaDataLength() - 4;
 
             let mut block_data = vec![0; meta_len as usize];
@@ -554,15 +557,21 @@ impl<R: Read + Seek> FileReader<R> {
                     reader.read_exact(&mut buf)?;
 
                     if batch.isDelta() {
-                        panic!("delta dictionary batches not supported");
+                        return Err(ArrowError::IoError(
+                            "delta dictionary batches not supported".to_string(),
+                        ));
                     }
 
                     let id = batch.id();
 
                     // As the dictionary batch does not contain the type of the
                     // values array, we need to retieve this from the schema.
-                    let first_field = find_dictionary_field(&ipc_schema, id)
-                        .expect("dictionary id not found in shchema");
+                    let first_field =
+                        find_dictionary_field(&ipc_schema, id).ok_or_else(|| {
+                            ArrowError::InvalidArgumentError(
+                                "dictionary id not found in schema".to_string(),
+                            )
+                        })?;
 
                     // Get an array representing this dictionary's values.
                     let dictionary_values: ArrayRef =
@@ -583,13 +592,16 @@ impl<R: Read + Seek> FileReader<R> {
                                     batch.data().unwrap(),
                                     Arc::new(schema),
                                     &dictionaries_by_field,
-                                )?
-                                .unwrap();
+                                )?;
                                 Some(record_batch.column(0).clone())
                             }
                             _ => None,
                         }
-                        .expect("dictionary id not found in schema");
+                        .ok_or_else(|| {
+                            ArrowError::InvalidArgumentError(
+                                "dictionary id not found in schema".to_string(),
+                            )
+                        })?;
 
                     // for all fields with this dictionary id, update the dictionaries vector
                     // in the reader. Note that a dictionary batch may be shared between many fields.
@@ -606,7 +618,11 @@ impl<R: Read + Seek> FileReader<R> {
                         }
                     }
                 }
-                _ => panic!("Expecting DictionaryBatch in dictionary blocks."),
+                _ => {
+                    return Err(ArrowError::IoError(
+                        "Expecting DictionaryBatch in dictionary blocks.".to_string(),
+                    ))
+                }
             };
         }
 
@@ -617,6 +633,7 @@ impl<R: Read + Seek> FileReader<R> {
             current_block: 0,
             total_blocks,
             dictionaries_by_field,
+            metadata_version: footer.version(),
         })
     }
 
@@ -644,63 +661,85 @@ impl<R: Read + Seek> FileReader<R> {
             Ok(())
         }
     }
+
+    fn maybe_next(&mut self) -> Result<Option<RecordBatch>> {
+        let block = self.blocks[self.current_block];
+        self.current_block += 1;
+
+        // read length
+        self.reader.seek(SeekFrom::Start(block.offset() as u64))?;
+        let mut meta_buf = [0; 4];
+        self.reader.read_exact(&mut meta_buf)?;
+        if meta_buf == CONTINUATION_MARKER {
+            // continuation marker encountered, read message next
+            self.reader.read_exact(&mut meta_buf)?;
+        }
+        let meta_len = i32::from_le_bytes(meta_buf);
+
+        let mut block_data = vec![0; meta_len as usize];
+        self.reader.read_exact(&mut block_data)?;
+
+        let message = ipc::get_root_as_message(&block_data[..]);
+
+        // some old test data's footer metadata is not set, so we account for that
+        if self.metadata_version != ipc::MetadataVersion::V1
+            && message.version() != self.metadata_version
+        {
+            return Err(ArrowError::IoError(
+                "Could not read IPC message as metadata versions mismatch".to_string(),
+            ));
+        }
+
+        match message.header_type() {
+            ipc::MessageHeader::Schema => Err(ArrowError::IoError(
+                "Not expecting a schema when messages are read".to_string(),
+            )),
+            ipc::MessageHeader::RecordBatch => {
+                let batch = message.header_as_record_batch().ok_or_else(|| {
+                    ArrowError::IoError(
+                        "Unable to read IPC message as record batch".to_string(),
+                    )
+                })?;
+                // read the block that makes up the record batch into a buffer
+                let mut buf = vec![0; block.bodyLength() as usize];
+                self.reader.seek(SeekFrom::Start(
+                    block.offset() as u64 + block.metaDataLength() as u64,
+                ))?;
+                self.reader.read_exact(&mut buf)?;
+
+                read_record_batch(
+                    &buf,
+                    batch,
+                    self.schema(),
+                    &self.dictionaries_by_field,
+                ).map(Some)
+            }
+            ipc::MessageHeader::NONE => {
+                Ok(None)
+            }
+            t => Err(ArrowError::IoError(format!(
+                "Reading types other than record batches not yet supported, unable to read {:?}", t
+            ))),
+        }
+    }
+}
+
+impl<R: Read + Seek> Iterator for FileReader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // get current block
+        if self.current_block < self.total_blocks {
+            self.maybe_next().transpose()
+        } else {
+            None
+        }
+    }
 }
 
 impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        // get current block
-        if self.current_block < self.total_blocks {
-            let block = self.blocks[self.current_block];
-            self.current_block += 1;
-
-            // read length from end of offset
-            let meta_len = block.metaDataLength() - 4;
-
-            let mut block_data = vec![0; meta_len as usize];
-            self.reader
-                .seek(SeekFrom::Start(block.offset() as u64 + 4))?;
-            self.reader.read_exact(&mut block_data)?;
-
-            let message = ipc::get_root_as_message(&block_data[..]);
-
-            match message.header_type() {
-                ipc::MessageHeader::Schema => Err(ArrowError::IoError(
-                    "Not expecting a schema when messages are read".to_string(),
-                )),
-                ipc::MessageHeader::RecordBatch => {
-                    let batch = message.header_as_record_batch().ok_or_else(|| {
-                        ArrowError::IoError(
-                            "Unable to read IPC message as record batch".to_string(),
-                        )
-                    })?;
-                    // read the block that makes up the record batch into a buffer
-                    let mut buf = vec![0; block.bodyLength() as usize];
-                    self.reader.seek(SeekFrom::Start(
-                        block.offset() as u64 + block.metaDataLength() as u64,
-                    ))?;
-                    self.reader.read_exact(&mut buf)?;
-
-                    read_record_batch(
-                        &buf,
-                        batch,
-                        self.schema(),
-                        &self.dictionaries_by_field,
-                    )
-                }
-                ipc::MessageHeader::NONE => {
-                    Ok(None)
-                }
-                t => Err(ArrowError::IoError(format!(
-                    "Reading types other than record batches not yet supported, unable to read {:?}", t
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
     }
 }
 
@@ -733,16 +772,12 @@ impl<R: Read> StreamReader<R> {
         let mut meta_size: [u8; 4] = [0; 4];
         reader.read_exact(&mut meta_size)?;
         let meta_len = {
-            let meta_len = u32::from_le_bytes(meta_size);
-
             // If a continuation marker is encountered, skip over it and read
             // the size from the next four bytes.
-            if meta_len == CONTINUATION_MARKER {
+            if meta_size == CONTINUATION_MARKER {
                 reader.read_exact(&mut meta_size)?;
-                u32::from_le_bytes(meta_size)
-            } else {
-                meta_len
             }
+            i32::from_le_bytes(meta_size)
         };
 
         let mut meta_buffer = vec![0; meta_len as usize];
@@ -776,14 +811,8 @@ impl<R: Read> StreamReader<R> {
     pub fn is_finished(&self) -> bool {
         self.finished
     }
-}
 
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+    fn maybe_next(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -806,16 +835,12 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
         }
 
         let meta_len = {
-            let meta_len = u32::from_le_bytes(meta_size);
-
             // If a continuation marker is encountered, skip over it and read
             // the size from the next four bytes.
-            if meta_len == CONTINUATION_MARKER {
+            if meta_size == CONTINUATION_MARKER {
                 self.reader.read_exact(&mut meta_size)?;
-                u32::from_le_bytes(meta_size)
-            } else {
-                meta_len
             }
+            i32::from_le_bytes(meta_size)
         };
 
         if meta_len == 0 {
@@ -844,7 +869,7 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
-                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
+                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field).map(Some)
             }
             ipc::MessageHeader::NONE => {
                 Ok(None)
@@ -853,6 +878,20 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
                 format!("Reading types other than record batches not yet supported, unable to read {:?} ", t)
             )),
         }
+    }
+}
+
+impl<R: Read> Iterator for StreamReader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.maybe_next().transpose()
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -920,7 +959,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next_batch().unwrap().is_none());
+            assert!(reader.next().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });
@@ -950,8 +989,10 @@ mod tests {
 
         // read stream back
         let file = File::open("target/debug/testdata/float.stream").unwrap();
-        let mut reader = StreamReader::try_new(file).unwrap();
-        while let Some(batch) = reader.next_batch().unwrap() {
+        let reader = StreamReader::try_new(file).unwrap();
+
+        reader.for_each(|batch| {
+            let batch = batch.unwrap();
             assert!(
                 batch
                     .column(0)
@@ -970,7 +1011,7 @@ mod tests {
                     .value(0)
                     != 0.0
             );
-        }
+        })
     }
 
     /// Read gzipped JSON file

@@ -2316,7 +2316,7 @@ where
     /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
     /// use std::convert::TryFrom;
     ///
-    /// let dictionary_values = StringArray::try_from(vec![None, Some("abc"), Some("def")]).unwrap();
+    /// let dictionary_values = StringArray::from(vec![None, Some("abc"), Some("def")]);
     ///
     /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<Int16Type>::new(3), &dictionary_values).unwrap();
     /// builder.append("def").unwrap();
@@ -2449,7 +2449,6 @@ mod tests {
 
     use crate::array::Array;
     use crate::bitmap::Bitmap;
-    use std::convert::TryFrom;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -2532,8 +2531,8 @@ mod tests {
     #[test]
     fn test_append_slice() {
         let mut b = UInt8BufferBuilder::new(0);
-        b.append_slice("Hello, ".as_bytes()).unwrap();
-        b.append_slice("World!".as_bytes()).unwrap();
+        b.append_slice(b"Hello, ").unwrap();
+        b.append_slice(b"World!").unwrap();
         let buffer = b.finish();
         assert_eq!(13, buffer.len());
 
@@ -3100,9 +3099,7 @@ mod tests {
         builder.append_byte(b'd').unwrap();
         builder.append(true).unwrap();
 
-        let array = builder.finish();
-
-        let binary_array = BinaryArray::from(array);
+        let binary_array = builder.finish();
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
@@ -3131,9 +3128,7 @@ mod tests {
         builder.append_byte(b'd').unwrap();
         builder.append(true).unwrap();
 
-        let array = builder.finish();
-
-        let binary_array = LargeBinaryArray::from(array);
+        let binary_array = builder.finish();
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
@@ -3152,9 +3147,7 @@ mod tests {
         builder.append(true).unwrap();
         builder.append_value("world").unwrap();
 
-        let array = builder.finish();
-
-        let string_array = StringArray::from(array);
+        let string_array = builder.finish();
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -3211,9 +3204,7 @@ mod tests {
         builder.append(true).unwrap();
         builder.append_value("world").unwrap();
 
-        let array = builder.finish();
-
-        let string_array = StringArray::from(array);
+        let string_array = builder.finish();
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -3275,7 +3266,7 @@ mod tests {
             .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
-            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .add_buffer(Buffer::from(b"joemark"))
             .build();
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
@@ -3465,8 +3456,7 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_existing_dictionary() {
-        let dictionary =
-            StringArray::try_from(vec![None, Some("def"), Some("abc")]).unwrap();
+        let dictionary = StringArray::from(vec![None, Some("def"), Some("abc")]);
 
         let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
         let mut builder =
@@ -3496,7 +3486,8 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_reserved_null_value() {
-        let dictionary = StringArray::try_from(vec![None]).unwrap();
+        let dictionary: Vec<Option<&str>> = vec![None];
+        let dictionary = StringArray::from(dictionary);
 
         let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
         let mut builder =
@@ -3511,7 +3502,7 @@ mod tests {
         assert_eq!(array.is_null(1), true);
         assert_eq!(array.is_valid(1), false);
 
-        let keys: Int16Array = array.data().into();
+        let keys = array.keys_array();
 
         assert_eq!(keys.value(0), 1);
         assert_eq!(keys.is_null(1), true);
@@ -3807,14 +3798,14 @@ mod tests {
         builder.append(true)?;
         builder.append(false)?;
 
-        let string_array = StringArray::try_from(vec![
+        let string_array = StringArray::from(vec![
             Some("alpha"),
             Some("beta"),
             None,
             Some("gamma"),
             Some("delta"),
             None,
-        ])?;
+        ]);
         let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         let list_data = ArrayData::new(
             DataType::List(Box::new(DataType::Utf8)),
@@ -3833,7 +3824,7 @@ mod tests {
         ])?;
         let finished = builder.finish();
 
-        let expected_string_array = StringArray::try_from(vec![
+        let expected_string_array = StringArray::from(vec![
             Some("Hello"),
             Some("Arrow"),
             // list_array
@@ -3849,7 +3840,7 @@ mod tests {
             Some("delta"),
             None,
             // slice(0, 0) returns nothing
-        ])?;
+        ]);
         let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(DataType::Utf8)),

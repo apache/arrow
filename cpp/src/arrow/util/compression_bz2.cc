@@ -262,7 +262,9 @@ class BZ2Codec : public Codec {
     return ptr;
   }
 
-  const char* name() const override { return "bz2"; }
+  Compression::type compression_type() const override { return Compression::BZ2; }
+
+  int compression_level() const override { return compression_level_; }
 
  private:
   int compression_level_;

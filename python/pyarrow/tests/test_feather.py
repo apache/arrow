@@ -123,24 +123,27 @@ def _assert_error_on_write(df, exc, path=None, version=2):
     pytest.raises(exc, f)
 
 
-@pytest.mark.pandas
 def test_dataset(version):
     num_values = (100, 100)
     num_files = 5
     paths = [random_path() for i in range(num_files)]
-    df = pd.DataFrame(np.random.randn(*num_values),
-                      columns=['col_' + str(i)
-                               for i in range(num_values[1])])
+    data = {
+        "col_" + str(i): np.random.randn(num_values[0])
+        for i in range(num_values[1])
+    }
+    table = pa.table(data)
 
     TEST_FILES.extend(paths)
     for index, path in enumerate(paths):
-        rows = (index * (num_values[0] // num_files),
-                (index + 1) * (num_values[0] // num_files))
+        rows = (
+            index * (num_values[0] // num_files),
+            (index + 1) * (num_values[0] // num_files),
+        )
 
-        write_feather(df.iloc[rows[0]:rows[1]], path, version=version)
+        write_feather(table[rows[0]: rows[1]], path, version=version)
 
-    data = FeatherDataset(paths).read_pandas()
-    assert_frame_equal(data, df)
+    data = FeatherDataset(paths).read_table()
+    assert data.equals(table)
 
 
 @pytest.mark.pandas
@@ -165,21 +168,17 @@ def test_read_table(version):
     TEST_FILES.append(path)
 
     values = np.random.randint(0, 100, size=num_values)
+    columns = ['col_' + str(i) for i in range(100)]
+    table = pa.Table.from_arrays(values, columns)
 
-    df = pd.DataFrame(values, columns=['col_' + str(i)
-                                       for i in range(100)])
-    write_feather(df, path, version=version)
-
-    data = pd.DataFrame(values,
-                        columns=['col_' + str(i) for i in range(100)])
-    table = pa.Table.from_pandas(data)
+    write_feather(table, path, version=version)
 
     result = read_table(path)
-    assert_frame_equal(table.to_pandas(), result.to_pandas())
+    assert result.equals(table)
 
     # Test without memory mapping
     result = read_table(path, memory_map=False)
-    assert_frame_equal(table.to_pandas(), result.to_pandas())
+    assert result.equals(table)
 
     result = read_feather(path, memory_map=False)
     assert_frame_equal(table.to_pandas(), result)
@@ -206,18 +205,15 @@ def test_float_nulls(version):
         expected_cols.append(values)
 
     table = pa.table(arrays, names=dtypes)
-    write_feather(table, path, version=version)
+    _check_arrow_roundtrip(table)
 
-    ex_frame = pd.DataFrame(dict(zip(dtypes, expected_cols)),
-                            columns=dtypes)
-
-    result = read_feather(path)
-    assert_frame_equal(result, ex_frame)
+    df = table.to_pandas()
+    _check_pandas_roundtrip(df, version=version)
 
 
 @pytest.mark.pandas
 def test_integer_no_nulls(version):
-    data = {}
+    data, arr = {}, []
 
     numpy_dtypes = ['i1', 'i2', 'i4', 'i8',
                     'u1', 'u2', 'u4', 'u8']
@@ -226,9 +222,13 @@ def test_integer_no_nulls(version):
     for dtype in numpy_dtypes:
         values = np.random.randint(0, 100, size=num_values)
         data[dtype] = values.astype(dtype)
+        arr.append(values.astype(dtype))
 
     df = pd.DataFrame(data)
     _check_pandas_roundtrip(df, version=version)
+
+    table = pa.table(arr, names=numpy_dtypes)
+    _check_arrow_roundtrip(table)
 
 
 @pytest.mark.pandas
@@ -268,13 +268,10 @@ def test_integer_with_nulls(version):
         expected_cols.append(expected)
 
     table = pa.table(arrays, names=int_dtypes)
-    write_feather(table, path, version=version)
+    _check_arrow_roundtrip(table)
 
-    ex_frame = pd.DataFrame(dict(zip(int_dtypes, expected_cols)),
-                            columns=int_dtypes)
-
-    result = read_feather(path)
-    assert_frame_equal(result, ex_frame)
+    df = table.to_pandas()
+    _check_pandas_roundtrip(df, version=version)
 
 
 @pytest.mark.pandas
@@ -300,41 +297,32 @@ def test_boolean_nulls(version):
     values = np.random.randint(0, 10, size=num_values) < 5
 
     table = pa.table([pa.array(values, mask=mask)], names=['bools'])
-    write_feather(table, path, version=version)
+    _check_arrow_roundtrip(table)
 
-    expected = values.astype(object)
-    expected[mask] = None
-
-    ex_frame = pd.DataFrame({'bools': expected})
-
-    result = read_feather(path)
-    assert_frame_equal(result, ex_frame)
+    df = table.to_pandas()
+    _check_pandas_roundtrip(df, version=version)
 
 
-@pytest.mark.pandas
 def test_buffer_bounds_error(version):
     # ARROW-1676
     path = random_path()
     TEST_FILES.append(path)
 
     for i in range(16, 256):
-        values = pa.array([None] + list(range(i)), type=pa.float64())
-
-        write_feather(pa.table([values], names=['arr']), path,
-                      version=version)
-        result = read_feather(path)
-        expected = pd.DataFrame({'arr': values.to_pandas()})
-        assert_frame_equal(result, expected)
-
-        _check_pandas_roundtrip(expected, version=version)
+        table = pa.Table.from_arrays(
+            [pa.array([None] + list(range(i)), type=pa.float64())],
+            names=["arr"]
+        )
+        _check_arrow_roundtrip(table)
 
 
-@pytest.mark.pandas
 def test_boolean_object_nulls(version):
     repeats = 100
-    arr = np.array([False, None, True] * repeats, dtype=object)
-    df = pd.DataFrame({'bools': arr})
-    _check_pandas_roundtrip(df, version=version)
+    table = pa.Table.from_arrays(
+        [np.array([False, None, True] * repeats, dtype=object)],
+        names=["arr"]
+    )
+    _check_arrow_roundtrip(table)
 
 
 @pytest.mark.pandas
@@ -511,7 +499,6 @@ def test_read_columns(version):
                             columns=['boo', 'woo'])
 
 
-@pytest.mark.pandas
 def test_overwritten_file(version):
     path = random_path()
     TEST_FILES.append(path)
@@ -520,10 +507,12 @@ def test_overwritten_file(version):
     np.random.seed(0)
 
     values = np.random.randint(0, 10, size=num_values)
-    write_feather(pd.DataFrame({'ints': values}), path, version=version)
 
-    df = pd.DataFrame({'ints': values[0: num_values//2]})
-    _check_pandas_roundtrip(df, path=path, version=version)
+    table = pa.table({'ints': values})
+    write_feather(table, path)
+
+    table = pa.table({'more_ints': values[0:num_values//2]})
+    _check_arrow_roundtrip(table, path=path)
 
 
 @pytest.mark.pandas
@@ -710,9 +699,8 @@ def test_chunked_binary_error_message():
 def test_feather_without_pandas(tempdir, version):
     # ARROW-8345
     table = pa.table([pa.array([1, 2, 3])], names=['f0'])
-    write_feather(table, str(tempdir / "data.feather"), version=version)
-    result = read_table(str(tempdir / "data.feather"))
-    assert result.equals(table)
+    path = str(tempdir / "data.feather")
+    _check_arrow_roundtrip(table, path)
 
 
 @pytest.mark.pandas
@@ -739,9 +727,11 @@ def test_read_column_duplicated_selection(tempdir, version):
     path = str(tempdir / "data.feather")
     write_feather(table, path, version=version)
 
+    expected = pa.table([[1, 2, 3], [4, 5, 6], [1, 2, 3]],
+                        names=['a', 'b', 'a'])
     for col_selection in [['a', 'b', 'a'], [0, 1, 0]]:
         result = read_table(path, columns=col_selection)
-        assert result.column_names == ['a', 'b', 'a']
+        assert result.equals(expected)
 
 
 def test_read_column_duplicated_in_file(tempdir):

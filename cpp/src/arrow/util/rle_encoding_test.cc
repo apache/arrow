@@ -30,6 +30,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding.h"
 
 namespace arrow {
@@ -418,14 +419,13 @@ TEST(BitRle, Random) {
   std::vector<int> values(ngroups + max_group_size);
 
   // prng setup
-  std::random_device rd;
+  const auto seed = ::arrow::internal::GetRandomSeed();
+  std::default_random_engine gen(
+      static_cast<std::default_random_engine::result_type>(seed));
   std::uniform_int_distribution<int> dist(1, 20);
 
   for (int iter = 0; iter < niters; ++iter) {
     // generate a seed with device entropy
-    uint32_t seed = rd();
-    std::mt19937 gen(seed);
-
     bool parity = 0;
     values.resize(0);
 

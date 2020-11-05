@@ -26,8 +26,10 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 
 #ifndef LZ4F_HEADER_SIZE_MAX
 #define LZ4F_HEADER_SIZE_MAX 19
@@ -296,10 +298,10 @@ class Lz4FrameCodec : public Codec {
     return ptr;
   }
 
-  const char* name() const override { return "lz4"; }
+  Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
 
  protected:
-  LZ4F_preferences_t prefs_;
+  const LZ4F_preferences_t prefs_;
 };
 
 // ----------------------------------------------------------------------
@@ -346,7 +348,108 @@ class Lz4Codec : public Codec {
         "Try using LZ4 frame format instead.");
   }
 
-  const char* name() const override { return "lz4_raw"; }
+  Compression::type compression_type() const override { return Compression::LZ4; }
+};
+
+// ----------------------------------------------------------------------
+// Lz4 Hadoop "raw" codec implementation
+
+class Lz4HadoopCodec : public Lz4Codec {
+ public:
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    const int64_t decompressed_size =
+        TryDecompressHadoop(input_len, input, output_buffer_len, output_buffer);
+    if (decompressed_size != kNotHadoop) {
+      return decompressed_size;
+    }
+    // Fall back on raw LZ4 codec (for files produces by earlier versions of Parquet C++)
+    return Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer);
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    return kPrefixLength + Lz4Codec::MaxCompressedLen(input_len, nullptr);
+  }
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    if (output_buffer_len < kPrefixLength) {
+      return Status::Invalid("Output buffer too small for Lz4HadoopCodec compression");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        int64_t output_len,
+        Lz4Codec::Compress(input_len, input, output_buffer_len - kPrefixLength,
+                           output_buffer + kPrefixLength));
+
+    // Prepend decompressed size in bytes and compressed size in bytes
+    // to be compatible with Hadoop Lz4Codec
+    const uint32_t decompressed_size =
+        BitUtil::ToBigEndian(static_cast<uint32_t>(input_len));
+    const uint32_t compressed_size =
+        BitUtil::ToBigEndian(static_cast<uint32_t>(output_len));
+    SafeStore(output_buffer, decompressed_size);
+    SafeStore(output_buffer + sizeof(uint32_t), compressed_size);
+
+    return kPrefixLength + output_len;
+  }
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
+    return Status::NotImplemented(
+        "Streaming compression unsupported with LZ4 Hadoop raw format. "
+        "Try using LZ4 frame format instead.");
+  }
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
+    return Status::NotImplemented(
+        "Streaming decompression unsupported with LZ4 Hadoop raw format. "
+        "Try using LZ4 frame format instead.");
+  }
+
+  Compression::type compression_type() const override { return Compression::LZ4_HADOOP; }
+
+ protected:
+  // Offset starting at which page data can be read/written
+  static const int64_t kPrefixLength = sizeof(uint32_t) * 2;
+
+  static const int64_t kNotHadoop = -1;
+
+  int64_t TryDecompressHadoop(int64_t input_len, const uint8_t* input,
+                              int64_t output_buffer_len, uint8_t* output_buffer) {
+    // Parquet files written with the Hadoop Lz4Codec contain at the beginning
+    // of the input buffer two uint32_t's representing (in this order) expected
+    // decompressed size in bytes and expected compressed size in bytes.
+    //
+    // The Hadoop Lz4Codec source code can be found here:
+    // https://github.com/apache/hadoop/blob/trunk/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-nativetask/src/main/native/src/codec/Lz4Codec.cc
+    if (input_len < kPrefixLength) {
+      return kNotHadoop;
+    }
+
+    const uint32_t expected_decompressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input));
+    const uint32_t expected_compressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
+    const int64_t lz4_compressed_buffer_size = input_len - kPrefixLength;
+
+    // We use a heuristic to determine if the parquet file being read
+    // was compressed using the Hadoop Lz4Codec.
+    if (lz4_compressed_buffer_size == expected_compressed_size) {
+      // Parquet file was likely compressed with Hadoop Lz4Codec.
+      auto maybe_decompressed_size =
+          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + kPrefixLength,
+                               output_buffer_len, output_buffer);
+
+      if (maybe_decompressed_size.ok() &&
+          *maybe_decompressed_size == expected_decompressed_size) {
+        return *maybe_decompressed_size;
+      }
+    }
+
+    // Parquet file was compressed without Hadoop Lz4Codec (or data is corrupt)
+    return kNotHadoop;
+  }
 };
 
 }  // namespace
@@ -355,6 +458,10 @@ namespace internal {
 
 std::unique_ptr<Codec> MakeLz4FrameCodec() {
   return std::unique_ptr<Codec>(new Lz4FrameCodec());
+}
+
+std::unique_ptr<Codec> MakeLz4HadoopRawCodec() {
+  return std::unique_ptr<Codec>(new Lz4HadoopCodec());
 }
 
 std::unique_ptr<Codec> MakeLz4RawCodec() {

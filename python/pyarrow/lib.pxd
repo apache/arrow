@@ -483,7 +483,7 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         shared_ptr[CRecordBatchWriter] writer
 
 
-cdef class _CRecordBatchReader(_Weakrefable):
+cdef class RecordBatchReader(_Weakrefable):
     cdef:
         shared_ptr[CRecordBatchReader] reader
 

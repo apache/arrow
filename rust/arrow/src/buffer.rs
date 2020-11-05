@@ -31,11 +31,14 @@ use std::ptr::NonNull;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
-use crate::array::{BufferBuilderTrait, UInt8BufferBuilder};
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
+use crate::util::bit_chunk_iterator::BitChunks;
 use crate::util::bit_util;
+use crate::util::bit_util::ceil;
+#[cfg(feature = "simd")]
+use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
@@ -253,6 +256,21 @@ impl Buffer {
         )
     }
 
+    /// Returns a slice of this buffer starting at a certain bit offset.
+    /// If the offset is byte-aligned the returned buffer is a shallow clone,
+    /// otherwise a new buffer is allocated and filled with a copy of the bits in the range.
+    pub fn bit_slice(&self, offset: usize, len: usize) -> Self {
+        if offset % 8 == 0 && len % 8 == 0 {
+            return self.slice(offset / 8);
+        }
+
+        bitwise_unary_op_helper(&self, offset, len, |a| a)
+    }
+
+    pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
+        BitChunks::new(&self, offset, len)
+    }
+
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
@@ -279,30 +297,269 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
-            Buffer::from_raw_parts(buffer, len, capacity)
+            Buffer::build_with_arguments(buffer, len, capacity, true)
         }
     }
 }
 
-///  Helper function for SIMD `BitAnd` and `BitOr` implementations
+/// Apply a bitwise operation `simd_op` / `scalar_op` to two inputs using simd instructions and return the result as a Buffer.
+/// The `simd_op` functions gets applied on chunks of 64 bytes (512 bits) at a time
+/// and the `scalar_op` gets applied to remaining bytes.
+/// Contrary to the non-simd version `bitwise_bin_op_helper`, the offset and length is specified in bytes
+/// and this version does not support operations starting at arbitrary bit offsets.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-fn bitwise_bin_op_simd_helper<F>(left: &Buffer, right: &Buffer, op: F) -> Buffer
+fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
+    left: &Buffer,
+    left_offset: usize,
+    right: &Buffer,
+    right_offset: usize,
+    len: usize,
+    simd_op: F_SIMD,
+    scalar_op: F_SCALAR,
+) -> Buffer
 where
-    F: Fn(u8x64, u8x64) -> u8x64,
+    F_SIMD: Fn(u8x64, u8x64) -> u8x64,
+    F_SCALAR: Fn(u8, u8) -> u8,
 {
-    let mut result = MutableBuffer::new(left.len()).with_bitset(left.len(), false);
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
-    for i in (0..left.len()).step_by(lanes) {
-        let left_data = unsafe { from_raw_parts(left.raw_data().add(i), lanes) };
-        let right_data = unsafe { from_raw_parts(right.raw_data().add(i), lanes) };
-        let result_slice: &mut [u8] = unsafe {
-            from_raw_parts_mut((result.data_mut().as_mut_ptr() as *mut u8).add(i), lanes)
-        };
-        unsafe {
-            bit_util::bitwise_bin_op_simd(&left_data, &right_data, result_slice, &op)
-        };
-    }
+
+    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
+    let mut right_chunks = right.data()[right_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+        .for_each(|(res, (left, right))| {
+            unsafe { bit_util::bitwise_bin_op_simd(&left, &right, res, &simd_op) };
+        });
+
+    result_chunks
+        .into_remainder()
+        .iter_mut()
+        .zip(
+            left_chunks
+                .remainder()
+                .iter()
+                .zip(right_chunks.remainder().iter()),
+        )
+        .for_each(|(res, (left, right))| {
+            *res = scalar_op(*left, *right);
+        });
+
     result.freeze()
+}
+
+/// Apply a bitwise operation `simd_op` / `scalar_op` to one input using simd instructions and return the result as a Buffer.
+/// The `simd_op` functions gets applied on chunks of 64 bytes (512 bits) at a time
+/// and the `scalar_op` gets applied to remaining bytes.
+/// Contrary to the non-simd version `bitwise_unary_op_helper`, the offset and length is specified in bytes
+/// and this version does not support operations starting at arbitrary bit offsets.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
+    left: &Buffer,
+    left_offset: usize,
+    len: usize,
+    simd_op: F_SIMD,
+    scalar_op: F_SCALAR,
+) -> Buffer
+where
+    F_SIMD: Fn(u8x64) -> u8x64,
+    F_SCALAR: Fn(u8) -> u8,
+{
+    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+    let lanes = u8x64::lanes();
+
+    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(left_chunks.borrow_mut())
+        .for_each(|(res, left)| unsafe {
+            let data_simd = u8x64::from_slice_unaligned_unchecked(left);
+            let simd_result = simd_op(data_simd);
+            simd_result.write_to_slice_unaligned_unchecked(res);
+        });
+
+    result_chunks
+        .into_remainder()
+        .iter_mut()
+        .zip(left_chunks.remainder().iter())
+        .for_each(|(res, left)| {
+            *res = scalar_op(*left);
+        });
+
+    result.freeze()
+}
+
+/// Apply a bitwise operation `op` to two inputs and return the result as a Buffer.
+/// The inputs are treated as bitmaps, meaning that offsets and length are specified in number of bits.
+fn bitwise_bin_op_helper<F>(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+    op: F,
+) -> Buffer
+where
+    F: Fn(u64, u64) -> u64,
+{
+    // reserve capacity and set length so we can get a typed view of u64 chunks
+    let mut result =
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
+
+    let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
+    let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
+    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
+
+    result_chunks
+        .zip(left_chunks.iter().zip(right_chunks.iter()))
+        .for_each(|(res, (left, right))| {
+            *res = op(left, right);
+        });
+
+    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
+    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    let rem = &rem.to_le_bytes()[0..remainder_bytes];
+    result
+        .write_all(rem)
+        .expect("not enough capacity in buffer");
+
+    result.freeze()
+}
+
+/// Apply a bitwise operation `op` to one input and return the result as a Buffer.
+/// The input is treated as a bitmap, meaning that offset and length are specified in number of bits.
+fn bitwise_unary_op_helper<F>(
+    left: &Buffer,
+    offset_in_bits: usize,
+    len_in_bits: usize,
+    op: F,
+) -> Buffer
+where
+    F: Fn(u64) -> u64,
+{
+    // reserve capacity and set length so we can get a typed view of u64 chunks
+    let mut result =
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
+
+    let left_chunks = left.bit_chunks(offset_in_bits, len_in_bits);
+    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
+
+    result_chunks
+        .zip(left_chunks.iter())
+        .for_each(|(res, left)| {
+            *res = op(left);
+        });
+
+    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
+    let rem = op(left_chunks.remainder_bits());
+    let rem = &rem.to_le_bytes()[0..remainder_bytes];
+    result
+        .write_all(rem)
+        .expect("not enough capacity in buffer");
+
+    result.freeze()
+}
+
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    // SIMD implementation if available and byte-aligned
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
+        return bitwise_bin_op_simd_helper(
+            &left,
+            left_offset_in_bits / 8,
+            &right,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
+            |a, b| a & b,
+            |a, b| a & b,
+        );
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a & b,
+        )
+    }
+}
+
+pub(super) fn buffer_bin_or(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    // SIMD implementation if available and byte-aligned
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
+        return bitwise_bin_op_simd_helper(
+            &left,
+            left_offset_in_bits / 8,
+            &right,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
+            |a, b| a | b,
+            |a, b| a | b,
+        );
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a | b,
+        )
+    }
+}
+
+pub(super) fn buffer_unary_not(
+    left: &Buffer,
+    offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    // SIMD implementation if available and byte-aligned
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
+        return bitwise_unary_op_simd_helper(
+            &left,
+            offset_in_bits / 8,
+            len_in_bits / 8,
+            |a| !a,
+            |a| !a,
+        );
+    }
+    // Default implementation
+    #[allow(unreachable_code)]
+    {
+        bitwise_unary_op_helper(&left, offset_in_bits, len_in_bits, |a| !a)
+    }
 }
 
 impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
@@ -315,27 +572,8 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a & b));
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder
-                        .append(
-                            self.data().get_unchecked(i) & rhs.data().get_unchecked(i),
-                        )
-                        .unwrap();
-                }
-            }
-            Ok(builder.finish())
-        }
+        let len_in_bits = self.len() * 8;
+        Ok(buffer_bin_and(&self, 0, &rhs, 0, len_in_bits))
     }
 }
 
@@ -349,27 +587,9 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            return Ok(bitwise_bin_op_simd_helper(&self, &rhs, |a, b| a | b));
-        }
+        let len_in_bits = self.len() * 8;
 
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder
-                        .append(
-                            self.data().get_unchecked(i) | rhs.data().get_unchecked(i),
-                        )
-                        .unwrap();
-                }
-            }
-            Ok(builder.finish())
-        }
+        Ok(buffer_bin_or(&self, 0, &rhs, 0, len_in_bits))
     }
 }
 
@@ -377,38 +597,8 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        // SIMD implementation if available
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-        {
-            let mut result =
-                MutableBuffer::new(self.len()).with_bitset(self.len(), false);
-            let lanes = u8x64::lanes();
-            for i in (0..self.len()).step_by(lanes) {
-                unsafe {
-                    let data = from_raw_parts(self.raw_data().add(i), lanes);
-                    let data_simd = u8x64::from_slice_unaligned_unchecked(data);
-                    let simd_result = !data_simd;
-                    let result_slice: &mut [u8] = from_raw_parts_mut(
-                        (result.data_mut().as_mut_ptr() as *mut u8).add(i),
-                        lanes,
-                    );
-                    simd_result.write_to_slice_unaligned_unchecked(result_slice);
-                }
-            }
-            return result.freeze();
-        }
-
-        // Default implementation
-        #[allow(unreachable_code)]
-        {
-            let mut builder = UInt8BufferBuilder::new(self.len());
-            for i in 0..self.len() {
-                unsafe {
-                    builder.append(!self.data().get_unchecked(i)).unwrap();
-                }
-            }
-            builder.finish()
-        }
+        let len_in_bits = self.len() * 8;
+        buffer_unary_not(&self, 0, len_in_bits)
     }
 }
 
@@ -545,10 +735,12 @@ impl MutableBuffer {
     ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
+    #[inline]
     pub fn raw_data(&self) -> *const u8 {
         self.data
     }
 
+    #[inline]
     pub fn raw_data_mut(&mut self) -> *mut u8 {
         self.data
     }
@@ -694,7 +886,7 @@ mod tests {
     #[test]
     fn test_copy() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
-        let buf2 = buf.clone();
+        let buf2 = buf;
         assert_eq!(5, buf2.len());
         assert_eq!(64, buf2.capacity());
         assert!(!buf2.raw_data().is_null());
@@ -795,19 +987,19 @@ mod tests {
     #[test]
     fn test_mutable_write() {
         let mut buf = MutableBuffer::new(100);
-        buf.write("hello".as_bytes()).expect("Ok");
+        buf.write_all(b"hello").expect("Ok");
         assert_eq!(5, buf.len());
-        assert_eq!("hello".as_bytes(), buf.data());
+        assert_eq!(b"hello", buf.data());
 
-        buf.write(" world".as_bytes()).expect("Ok");
+        buf.write_all(b" world").expect("Ok");
         assert_eq!(11, buf.len());
-        assert_eq!("hello world".as_bytes(), buf.data());
+        assert_eq!(b"hello world", buf.data());
 
         buf.clear();
         assert_eq!(0, buf.len());
-        buf.write("hello arrow".as_bytes()).expect("Ok");
+        buf.write_all(b"hello arrow").expect("Ok");
         assert_eq!(11, buf.len());
-        assert_eq!("hello arrow".as_bytes(), buf.data());
+        assert_eq!(b"hello arrow", buf.data());
     }
 
     #[test]
@@ -816,7 +1008,7 @@ mod tests {
         let mut buf = MutableBuffer::new(1);
         assert_eq!(64, buf.capacity());
         for _ in 0..10 {
-            buf.write(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+            buf.write_all(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
         }
     }
 
@@ -865,16 +1057,16 @@ mod tests {
     #[test]
     fn test_mutable_freeze() {
         let mut buf = MutableBuffer::new(1);
-        buf.write("aaaa bbbb cccc dddd".as_bytes())
+        buf.write_all(b"aaaa bbbb cccc dddd")
             .expect("write should be OK");
         assert_eq!(19, buf.len());
         assert_eq!(64, buf.capacity());
-        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", buf.data());
 
         let immutable_buf = buf.freeze();
         assert_eq!(19, immutable_buf.len());
         assert_eq!(64, immutable_buf.capacity());
-        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), immutable_buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.data());
     }
 
     #[test]
@@ -882,11 +1074,11 @@ mod tests {
         let mut buf = MutableBuffer::new(1);
         let mut buf2 = MutableBuffer::new(1);
 
-        buf.write(&[0xaa])?;
-        buf2.write(&[0xaa, 0xbb])?;
+        buf.write_all(&[0xaa])?;
+        buf2.write_all(&[0xaa, 0xbb])?;
         assert!(buf != buf2);
 
-        buf.write(&[0xbb])?;
+        buf.write_all(&[0xbb])?;
         assert_eq!(buf, buf2);
 
         buf2.reserve(65)?;
@@ -903,7 +1095,7 @@ mod tests {
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
-            buffer.clone()
+            buffer
         })
         .join();
 
@@ -920,6 +1112,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_as_typed_data() {
         check_as_typed_data!(&[1i8, 3i8, 6i8], i8);
         check_as_typed_data!(&[1u8, 3u8, 6u8], u8);

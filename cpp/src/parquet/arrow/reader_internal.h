@@ -104,13 +104,6 @@ Status TransferColumnData(::parquet::internal::RecordReader* reader,
                           const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
                           std::shared_ptr<::arrow::ChunkedArray>* out);
 
-Status ReconstructNestedList(const std::shared_ptr<::arrow::Array>& arr,
-                             std::shared_ptr<::arrow::Field> field, int16_t max_def_level,
-                             int16_t max_rep_level, const int16_t* def_levels,
-                             const int16_t* rep_levels, int64_t total_levels,
-                             ::arrow::MemoryPool* pool,
-                             std::shared_ptr<::arrow::Array>* out);
-
 struct ReaderContext {
   ParquetFileReader* reader;
   ::arrow::MemoryPool* pool;
@@ -125,9 +118,6 @@ struct ReaderContext {
     return true;
   }
 };
-
-Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
-                 std::unique_ptr<ColumnReaderImpl>* out);
 
 }  // namespace arrow
 }  // namespace parquet

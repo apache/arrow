@@ -28,7 +28,7 @@ Interface
 .. autosummary::
    :toctree: ../generated/
 
-   FileStats
+   FileInfo
    FileSelector
    FileSystem
 
@@ -41,3 +41,13 @@ Concrete Subclasses
    LocalFileSystem
    S3FileSystem
    HadoopFileSystem
+   SubTreeFileSystem
+
+To define filesystems with behavior implemented in Python:
+
+.. autosummary::
+   :toctree: ../generated/
+
+   PyFileSystem
+   FileSystemHandler
+   FSSpecHandler

@@ -18,9 +18,9 @@
 Filesystem Interface (legacy)
 =============================
 
-.. note::
-   This section documents the deprecated filesystem layer.  It is highly
-   recommended to use the :ref:`new filesystem layer <filesystem>` instead.
+.. warning::
+   This section documents the deprecated filesystem layer.  You should
+   use the :ref:`new filesystem layer <filesystem>` instead.
 
 .. _hdfs:
 

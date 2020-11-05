@@ -26,18 +26,15 @@
 #include <sstream>
 
 #include <boost/filesystem.hpp>
-// boost/process/detail/windows/handle_workaround.hpp doesn't work
-// without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-// provide __kernel_entry without winternl.h.
-//
-// See also:
-// https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-#define BOOST_USE_WINDOWS_H 1
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
+// cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
 
 #include <gtest/gtest.h>
 
 #include "arrow/ipc/test_common.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
@@ -154,6 +151,11 @@ Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader
   } else if (ticket.ticket == "ticket-dicts-1") {
     BatchVector batches;
     RETURN_NOT_OK(ExampleDictBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else if (ticket.ticket == "ticket-large-batch-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleLargeBatches(&batches));
     *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
     return Status::OK();
   } else {
@@ -504,6 +506,15 @@ std::shared_ptr<Schema> ExampleDictSchema() {
   return batch->schema();
 }
 
+std::shared_ptr<Schema> ExampleLargeSchema() {
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  for (int i = 0; i < 128; i++) {
+    const auto field_name = "f" + std::to_string(i);
+    fields.push_back(arrow::field(field_name, arrow::float64()));
+  }
+  return arrow::schema(fields);
+}
+
 std::vector<FlightInfo> ExampleFlightInfo() {
   Location location1;
   Location location2;
@@ -579,6 +590,20 @@ Status ExampleNestedBatches(BatchVector* out) {
     RETURN_NOT_OK(ipc::test::MakeListRecordBatch(&batch));
     out->push_back(batch);
   }
+  return Status::OK();
+}
+
+Status ExampleLargeBatches(BatchVector* out) {
+  const auto array_length = 32768;
+  std::shared_ptr<RecordBatch> batch;
+  std::vector<std::shared_ptr<arrow::Array>> arrays;
+  const auto arr = arrow::ConstantArrayGenerator::Float64(array_length, 1.0);
+  for (int i = 0; i < 128; i++) {
+    arrays.push_back(arr);
+  }
+  auto schema = ExampleLargeSchema();
+  out->push_back(RecordBatch::Make(schema, array_length, arrays));
+  out->push_back(RecordBatch::Make(schema, array_length, arrays));
   return Status::OK();
 }
 

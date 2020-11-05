@@ -29,6 +29,7 @@ API Reference
    api/scalar
    api/builder
    api/table
+   api/c_abi
    api/compute
    api/tensor
    api/utilities

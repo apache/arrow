@@ -62,6 +62,7 @@ import io.grpc.stub.StreamObserver;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 
 /**
  * Client for Flight services.
@@ -321,7 +322,7 @@ public class FlightClient implements AutoCloseable {
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
       final ClientStreamListener writer = new PutObserver(
-          descriptor, observer, stream.completed::isDone,
+          descriptor, observer, stream.cancelled::isDone,
           () -> {
             try {
               stream.completed.get();
@@ -533,6 +534,7 @@ public class FlightClient implements AutoCloseable {
     private InputStream clientKey = null;
     private String overrideHostname = null;
     private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
+    private boolean verifyServer = true;
 
     private Builder() {
     }
@@ -592,6 +594,11 @@ public class FlightClient implements AutoCloseable {
       return this;
     }
 
+    public Builder verifyServer(boolean verifyServer) {
+      this.verifyServer = verifyServer;
+      return this;
+    }
+
     /**
      * Create the client from this builder.
      */
@@ -637,19 +644,29 @@ public class FlightClient implements AutoCloseable {
       if (this.forceTls || LocationSchemes.GRPC_TLS.equals(location.getUri().getScheme())) {
         builder.useTransportSecurity();
 
-        if (this.trustedCertificates != null || this.clientCertificate != null || this.clientKey != null) {
-          final SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+        final boolean hasTrustedCerts = this.trustedCertificates != null;
+        final boolean hasKeyCertPair = this.clientCertificate != null && this.clientKey != null;
+        if (!this.verifyServer && (hasTrustedCerts || hasKeyCertPair)) {
+          throw new IllegalArgumentException("FlightClient has been configured to disable server verification, " +
+              "but certificate options have been specified.");
+        }
+
+        final SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+
+        if (!this.verifyServer) {
+          sslContextBuilder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+        } else if (this.trustedCertificates != null || this.clientCertificate != null || this.clientKey != null) {
           if (this.trustedCertificates != null) {
             sslContextBuilder.trustManager(this.trustedCertificates);
           }
           if (this.clientCertificate != null && this.clientKey != null) {
             sslContextBuilder.keyManager(this.clientCertificate, this.clientKey);
           }
-          try {
-            builder.sslContext(sslContextBuilder.build());
-          } catch (SSLException e) {
-            throw new RuntimeException(e);
-          }
+        }
+        try {
+          builder.sslContext(sslContextBuilder.build());
+        } catch (SSLException e) {
+          throw new RuntimeException(e);
         }
 
         if (this.overrideHostname != null) {

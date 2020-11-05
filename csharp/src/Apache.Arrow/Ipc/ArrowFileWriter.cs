@@ -61,6 +61,19 @@ namespace Apache.Arrow.Ipc
             RecordBatchBlocks = new List<Block>();
         }
 
+        public override void WriteRecordBatch(RecordBatch recordBatch)
+        {
+            // TODO: Compare record batch schema
+
+            if (!HasWrittenHeader)
+            {
+                WriteHeader();
+                HasWrittenHeader = true;
+            }
+
+            WriteRecordBatchInternal(recordBatch);
+        }
+
         public override async Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             // TODO: Compare record batch schema
@@ -104,11 +117,26 @@ namespace Apache.Arrow.Ipc
             _currentRecordBatchOffset = -1;
         }
 
+        private protected override void WriteEndInternal()
+        {
+            base.WriteEndInternal();
+
+            WriteFooter(Schema);
+        }
+
         private protected override async ValueTask WriteEndInternalAsync(CancellationToken cancellationToken)
         {
             await base.WriteEndInternalAsync(cancellationToken);
 
             await WriteFooterAsync(Schema, cancellationToken);
+        }
+
+        private void WriteHeader()
+        {
+            // Write magic number and empty padding up to the 8-byte boundary
+
+            WriteMagic();
+            WritePadding(CalculatePadding(ArrowFileConstants.Magic.Length));
         }
 
         private async Task WriteHeaderAsync(CancellationToken cancellationToken)
@@ -118,6 +146,64 @@ namespace Apache.Arrow.Ipc
             await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(CalculatePadding(ArrowFileConstants.Magic.Length))
                 .ConfigureAwait(false);
+        }
+
+        private void WriteFooter(Schema schema)
+        {
+            Builder.Clear();
+
+            long offset = BaseStream.Position;
+
+            // Serialize the schema
+
+            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+
+            // Serialize all record batches
+
+            Flatbuf.Footer.StartRecordBatchesVector(Builder, RecordBatchBlocks.Count);
+
+            foreach (Block recordBatch in RecordBatchBlocks)
+            {
+                Flatbuf.Block.CreateBlock(
+                    Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
+            }
+
+            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
+
+            // Serialize all dictionaries
+            // NOTE: Currently unsupported.
+
+            Flatbuf.Footer.StartDictionariesVector(Builder, 0);
+
+            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
+
+            // Serialize and write the footer flatbuffer
+
+            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+                schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
+
+            Builder.Finish(footerOffset.Value);
+
+            WriteFlatBuffer();
+
+            // Write footer length
+
+            Buffers.RentReturn(4, (buffer) =>
+            {
+                int footerLength;
+                checked
+                {
+                    footerLength = (int)(BaseStream.Position - offset);
+                }
+
+                BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
+
+                BaseStream.Write(buffer);
+            });
+
+            // Write magic
+
+            WriteMagic();
         }
 
         private async Task WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
@@ -180,6 +266,11 @@ namespace Apache.Arrow.Ipc
             // Write magic
 
             await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private void WriteMagic()
+        {
+            BaseStream.Write(ArrowFileConstants.Magic);
         }
 
         private ValueTask WriteMagicAsync(CancellationToken cancellationToken)

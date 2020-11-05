@@ -493,7 +493,7 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
 type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
 
 /** @ignore */
-function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughIterable<T, TNull> {
+function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
@@ -508,14 +508,14 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
         if (builder.finish().length > 0 || numChunks === 0) {
             yield builder.toVector();
         }
-    };
+    } as ThroughIterable<T, TNull>;
 }
 
 /** @ignore */
 type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
 
 /** @ignore */
-function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughAsyncIterable<T, TNull> {
+function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
@@ -530,5 +530,5 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
         if (builder.finish().length > 0 || numChunks === 0) {
             yield builder.toVector();
         }
-    };
+    } as ThroughAsyncIterable<T, TNull>;
 }

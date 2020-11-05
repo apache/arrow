@@ -71,9 +71,7 @@ where
         }
     }
 
-    let metadata = parse_key_value_metadata(key_value_metadata)
-        .map(|m| m.clone())
-        .unwrap_or(HashMap::default());
+    let metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
 
     base_nodes
         .into_iter()
@@ -88,7 +86,7 @@ pub fn arrow_to_parquet_schema(schema: &Schema) -> Result<SchemaDescriptor> {
     let fields: Result<Vec<TypePtr>> = schema
         .fields()
         .iter()
-        .map(|field| arrow_to_parquet_type(field).map(|f| Rc::new(f)))
+        .map(|field| arrow_to_parquet_type(field).map(Rc::new))
         .collect();
     let group = Type::group_type_builder("arrow_schema")
         .with_fields(&mut fields?)
@@ -255,7 +253,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::Struct(fields) => {
             // recursively convert children to types/nodes
             let fields: Result<Vec<TypePtr>> = fields
-                .into_iter()
+                .iter()
                 .map(|f| arrow_to_parquet_type(f).map(Rc::new))
                 .collect();
             Type::group_type_builder(name)
@@ -431,9 +429,9 @@ impl ParquetTypeConverter<'_> {
                 ref type_length, ..
             } => *type_length,
             _ => {
-                return Err(ArrowError(format!(
-                    "Expected a physical type, not a group type"
-                )))
+                return Err(ArrowError(
+                    "Expected a physical type, not a group type".to_string(),
+                ))
             }
         };
 
@@ -515,7 +513,7 @@ impl ParquetTypeConverter<'_> {
                 let item_type = match list_item.as_ref() {
                     Type::PrimitiveType { .. } => {
                         if item_converter.is_repeated() {
-                            item_converter.to_primitive_type_inner().map(|dt| Some(dt))
+                            item_converter.to_primitive_type_inner().map(Some)
                         } else {
                             Err(ArrowError(
                                 "Primitive element type of list must be repeated."

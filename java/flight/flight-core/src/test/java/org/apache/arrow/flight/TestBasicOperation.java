@@ -20,10 +20,12 @@ package org.apache.arrow.flight;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -33,6 +35,8 @@ import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -244,6 +248,50 @@ public class TestBasicOperation {
     });
   }
 
+  /** Ensure the client is configured to accept large messages. */
+  @Test
+  public void getStreamLargeBatch() throws Exception {
+    test(c -> {
+      try (final FlightStream stream = c.getStream(new Ticket(Producer.TICKET_LARGE_BATCH))) {
+        Assert.assertEquals(128, stream.getRoot().getFieldVectors().size());
+        Assert.assertTrue(stream.next());
+        Assert.assertEquals(65536, stream.getRoot().getRowCount());
+        Assert.assertTrue(stream.next());
+        Assert.assertEquals(65536, stream.getRoot().getRowCount());
+        Assert.assertFalse(stream.next());
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
+
+  /** Ensure the server is configured to accept large messages. */
+  @Test
+  public void startPutLargeBatch() throws Exception {
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      final List<FieldVector> vectors = new ArrayList<>();
+      for (int col = 0; col < 128; col++) {
+        final BigIntVector vector = new BigIntVector("f" + col, allocator);
+        for (int row = 0; row < 65536; row++) {
+          vector.setSafe(row, row);
+        }
+        vectors.add(vector);
+      }
+      test(c -> {
+        try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+          root.setRowCount(65536);
+          final ClientStreamListener stream = c.startPut(FlightDescriptor.path(""), root, new SyncPutListener());
+          stream.putNext();
+          stream.putNext();
+          stream.completed();
+          stream.getResult();
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+    }
+  }
+
   private void test(Consumer<FlightClient> consumer) throws Exception {
     test((c, a) -> {
       consumer.accept(c);
@@ -273,6 +321,7 @@ public class TestBasicOperation {
    * An example FlightProducer for test purposes.
    */
   public static class Producer implements FlightProducer, AutoCloseable {
+    static final byte[] TICKET_LARGE_BATCH = "large-batch".getBytes(StandardCharsets.UTF_8);
 
     private final BufferAllocator allocator;
 
@@ -313,8 +362,11 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket,
-        ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+      if (Arrays.equals(TICKET_LARGE_BATCH, ticket.getBytes())) {
+        getLargeBatch(listener);
+        return;
+      }
       final int size = 10;
 
       IntVector iv = new IntVector("c1", allocator);
@@ -341,6 +393,24 @@ public class TestBasicOperation {
       listener.putNext();
       root.clear();
       listener.completed();
+    }
+
+    private void getLargeBatch(ServerStreamListener listener) {
+      final List<FieldVector> vectors = new ArrayList<>();
+      for (int col = 0; col < 128; col++) {
+        final BigIntVector vector = new BigIntVector("f" + col, allocator);
+        for (int row = 0; row < 65536; row++) {
+          vector.setSafe(row, row);
+        }
+        vectors.add(vector);
+      }
+      try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+        root.setRowCount(65536);
+        listener.start(root);
+        listener.putNext();
+        listener.putNext();
+        listener.completed();
+      }
     }
 
     @Override

@@ -17,13 +17,9 @@
 
 #include "./arrow_types.h"
 
-using Rcpp::RawVector_;
-
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
-
-RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 
 // ------ arrow::io::Readable
 
@@ -178,8 +174,8 @@ int64_t io___BufferOutputStream__Tell(
 
 // [[arrow::export]]
 void io___BufferOutputStream__Write(
-    const std::shared_ptr<arrow::io::BufferOutputStream>& stream, RawVector_ bytes) {
-  StopIfNotOk(stream->Write(bytes.begin(), bytes.size()));
+    const std::shared_ptr<arrow::io::BufferOutputStream>& stream, cpp11::raws bytes) {
+  StopIfNotOk(stream->Write(RAW(bytes), bytes.size()));
 }
 
 #endif

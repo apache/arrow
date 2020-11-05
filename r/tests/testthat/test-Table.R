@@ -80,14 +80,14 @@ test_that("Table $column and $field", {
   expect_error(tab$column(NA), "'i' cannot be NA")
   expect_error(tab$column(-1), "subscript out of bounds")
   expect_error(tab$column(1000), "subscript out of bounds")
-  expect_error(tab$column(1:2), class = "Rcpp::not_compatible")
-  expect_error(tab$column("one"), class = "Rcpp::not_compatible")
+  expect_error(tab$column(1:2))
+  expect_error(tab$column("one"))
 
   expect_error(tab$field(NA), "'i' cannot be NA")
   expect_error(tab$field(-1), "subscript out of bounds")
   expect_error(tab$field(1000), "subscript out of bounds")
-  expect_error(tab$field(1:2), class = "Rcpp::not_compatible")
-  expect_error(tab$field("one"), class = "Rcpp::not_compatible")
+  expect_error(tab$field(1:2))
+  expect_error(tab$field("one"))
 })
 
 test_that("[, [[, $ for Table", {
@@ -130,16 +130,16 @@ test_that("[, [[, $ for Table", {
   expect_null(tab[["asdf"]])
   # List-like column slicing
   expect_data_frame(tab[2:4], tbl[2:4])
-  expect_data_frame(tab[c(1, 0)], tbl[c(1, 0)])
+  expect_data_frame(tab[c(2, 1)], tbl[c(2, 1)])
+  expect_data_frame(tab[-3], tbl[-3])
 
-  expect_error(tab[[c(4, 3)]], class = "Rcpp::not_compatible")
+  expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
-  expect_error(tab[-3], "Selections can't have negative value") # From tidyselect
-  expect_error(tab[-3:3], "Selections can't have negative value") # From tidyselect
-  expect_error(tab[1000]) # This is caught in vctrs, assert more specifically when it stabilizes
-  expect_error(tab[1:1000]) # same as ^
+  expect_error(tab[-3:3], "Invalid column index")
+  expect_error(tab[1000],  "Invalid column index")
+  expect_error(tab[1:1000], "Invalid column index")
 
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])
@@ -153,14 +153,14 @@ test_that("Table$Slice", {
   expect_data_frame(tab3, tbl[6:7,])
 
   # Input validation
-  expect_error(tab$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice("ten"))
   expect_error(tab$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(tab$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(tab$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(10, "ten"))
   expect_error(tab$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(tab$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(tab$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(tab$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(c(10, 10)))
+  expect_error(tab$Slice(10, c(10, 10)))
   expect_error(tab$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(tab$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(tab3$Slice(10, 10), "Slice 'offset' greater than array length")
@@ -348,4 +348,13 @@ test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   tab <- Table$create(b1, b2, b3, b4)
 
   expect_identical(as.data.frame(tab), res)
+})
+
+test_that("Table$SelectColumns()", {
+  tab <- Table$create(x = 1:10, y = 1:10)
+
+  expect_equal(tab$SelectColumns(0L), Table$create(x = 1:10))
+
+  expect_error(tab$SelectColumns(2:4))
+  expect_error(tab$SelectColumns(""))
 })

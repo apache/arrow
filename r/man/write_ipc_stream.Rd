@@ -12,7 +12,8 @@ write_ipc_stream(x, sink, ...)
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path or \link{OutputStream}}
+\item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
+system (\code{SubTreeFileSystem})}
 
 \item{...}{extra parameters passed to \code{write_feather()}.}
 }

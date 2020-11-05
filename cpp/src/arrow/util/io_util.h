@@ -31,6 +31,7 @@
 #endif
 
 #include "arrow/io/interfaces.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/windows_fixup.h"
@@ -346,11 +347,21 @@ class ARROW_EXPORT SignalHandler {
 /// \brief Return the current handler for the given signal number.
 ARROW_EXPORT
 Result<SignalHandler> GetSignalHandler(int signum);
+
 /// \brief Set a new handler for the given signal number.
 ///
 /// The old signal handler is returned.
 ARROW_EXPORT
 Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler);
+
+/// \brief Get an unpredictable random seed
+///
+/// This function may be slightly costly, so should only be used to initialize
+/// a PRNG, not to generate a large amount of random numbers.
+/// It is better to use this function rather than std::random_device, unless
+/// absolutely necessary (e.g. to generate a cryptographic secret).
+ARROW_EXPORT
+int64_t GetRandomSeed();
 
 }  // namespace internal
 }  // namespace arrow

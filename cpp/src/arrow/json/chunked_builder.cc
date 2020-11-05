@@ -246,9 +246,7 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
     value_builder_->Insert(block_index, value_field_, std::make_shared<NullArray>(0));
 
     ARROW_ASSIGN_OR_RAISE(null_bitmap_chunks_[block_index],
-                          AllocateBitmap(length, pool_));
-    std::memset(null_bitmap_chunks_[block_index]->mutable_data(), 0,
-                null_bitmap_chunks_[block_index]->size());
+                          AllocateEmptyBitmap(length, pool_));
 
     int64_t offsets_length = (length + 1) * sizeof(int32_t);
     ARROW_ASSIGN_OR_RAISE(offset_chunks_[block_index],

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard1.3;netcoreapp2.1</TargetFrameworks>
@@ -37,5 +37,6 @@
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
     <Compile Remove="Extensions\StreamExtensions.netstandard.cs" />
+    <Compile Remove="Extensions\TupleExtensions.netstandard.cs" />
   </ItemGroup>
 </Project>

@@ -165,7 +165,7 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
 /// Deserialize an IPC message into a schema
 pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
     let ipc = ipc::get_root_as_message(bytes);
-    ipc.header_as_schema().map(|schema| fb_to_schema(schema))
+    ipc.header_as_schema().map(fb_to_schema)
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
@@ -345,7 +345,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         Null => FBFieldType {
             type_type: ipc::Type::Null,
             type_: ipc::NullBuilder::new(fbb).finish().as_union_value(),
-            children: None,
+            children: Some(fbb.create_vector(&empty_fields[..])),
         },
         Boolean => FBFieldType {
             type_type: ipc::Type::Bool,

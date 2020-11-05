@@ -31,10 +31,11 @@ set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 add_subdirectory(../../../../java/adapter/orc ./java)
 
-set(ARROW_BUILD_STATIC OFF)
-
 add_arrow_lib(arrow_orc_jni
               BUILD_SHARED
+              ON
+              BUILD_STATIC
+              OFF
               SOURCES
               jni_wrapper.cpp
               OUTPUTS

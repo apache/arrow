@@ -31,15 +31,19 @@ namespace util {
 class ARROW_EXPORT Mutex {
  public:
   Mutex();
+  Mutex(Mutex&&) = default;
+  Mutex& operator=(Mutex&&) = default;
 
   /// A Guard is falsy if a lock could not be acquired.
-  class Guard {
+  class ARROW_EXPORT Guard {
    public:
     Guard() : locked_(NULLPTR, [](Mutex* mutex) {}) {}
     Guard(Guard&&) = default;
     Guard& operator=(Guard&&) = default;
 
     explicit operator bool() const { return bool(locked_); }
+
+    void Unlock() { locked_.reset(); }
 
    private:
     explicit Guard(Mutex* locked);

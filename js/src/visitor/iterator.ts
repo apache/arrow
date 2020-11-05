@@ -91,7 +91,7 @@ export class IteratorVisitor extends Visitor {}
 function nullableIterator<T extends DataType>(vector: VectorType<T>): IterableIterator<T['TValue'] | null> {
     const getFn = getVisitor.getVisitFn(vector);
     return iterateBits<T['TValue'] | null>(
-        vector.nullBitmap, vector.offset, vector.length, vector,
+        vector.data.nullBitmap, vector.data.offset, vector.length, vector,
         (vec: VectorType<T>, idx: number, nullByte: number, nullBit: number) =>
             ((nullByte & 1 << nullBit) !== 0) ? getFn(vec, idx) : null
     );
@@ -114,7 +114,7 @@ function vectorIterator<T extends DataType>(vector: VectorType<T>): IterableIter
         (typeId === Type.Time && (type as Time).bitWidth !== 64) ||
         (typeId === Type.Float && (type as Float).precision > 0 /* Precision.HALF */)
     )) {
-        return vector.values.subarray(0, length)[Symbol.iterator]();
+        return vector.data.values.subarray(0, length)[Symbol.iterator]();
     }
 
     // Otherwise, iterate manually

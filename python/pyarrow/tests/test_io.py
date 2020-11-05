@@ -573,7 +573,7 @@ def test_compress_decompress(compression):
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
                  .astype(np.uint8)
-                 .tostring())
+                 .tobytes())
     test_buf = pa.py_buffer(test_data)
 
     compressed_buf = pa.compress(test_buf, codec=compression)
@@ -975,6 +975,22 @@ def test_native_file_modes(tmpdir):
         assert f.readable()
         assert f.writable()
         assert f.seekable()
+
+
+def test_native_file_permissions(tmpdir):
+    # ARROW-10124: permissions of created files should follow umask
+    cur_umask = os.umask(0o002)
+    os.umask(cur_umask)
+
+    path = os.path.join(str(tmpdir), guid())
+    with pa.OSFile(path, mode='w'):
+        pass
+    assert os.stat(path).st_mode & 0o777 == 0o666 & ~cur_umask
+
+    path = os.path.join(str(tmpdir), guid())
+    with pa.memory_map(path, 'w'):
+        pass
+    assert os.stat(path).st_mode & 0o777 == 0o666 & ~cur_umask
 
 
 def test_native_file_raises_ValueError_after_close(tmpdir):

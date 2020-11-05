@@ -38,7 +38,7 @@ Status ConvertToFile() {
 
   ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(&input));
   ARROW_ASSIGN_OR_RAISE(
-      auto writer, NewFileWriter(&sink, reader->schema(), IpcWriteOptions::Defaults()));
+      auto writer, MakeFileWriter(&sink, reader->schema(), IpcWriteOptions::Defaults()));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
     ARROW_ASSIGN_OR_RAISE(batch, reader->Next());

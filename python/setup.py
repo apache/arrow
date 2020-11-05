@@ -20,24 +20,22 @@
 import contextlib
 import glob
 import os
-import os.path as osp
+import os.path
+from os.path import join as pjoin
 import re
 import shlex
 import shutil
 import sys
 
-from Cython.Distutils import build_ext as _build_ext
-import Cython
-
-
 import pkg_resources
 from setuptools import setup, Extension, Distribution
-
-from os.path import join as pjoin
 
 from distutils.command.clean import clean as _clean
 from distutils.util import strtobool
 from distutils import sysconfig
+
+from Cython.Distutils import build_ext as _build_ext
+import Cython
 
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
@@ -123,7 +121,9 @@ class build_ext(_build_ext):
                       'bundle generated Cython C++ code '
                       '(used for code coverage)'),
                      ('bundle-arrow-cpp', None,
-                      'bundle the Arrow C++ libraries')] +
+                      'bundle the Arrow C++ libraries'),
+                     ('bundle-arrow-cpp-headers', None,
+                      'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -177,6 +177,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
         self.bundle_boost = strtobool(
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
+        self.bundle_arrow_cpp_headers = strtobool(
+            os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -201,7 +203,7 @@ class build_ext(_build_ext):
                              "be 'release' or 'debug'")
 
         # The directory containing this setup.py
-        source = osp.dirname(osp.abspath(__file__))
+        source = os.path.dirname(os.path.abspath(__file__))
 
         # The staging directory for the module being built
         build_cmd = self.get_finalized_command('build')
@@ -227,6 +229,7 @@ class build_ext(_build_ext):
 
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+                '-DPython3_EXECUTABLE=%s' % sys.executable,
                 static_lib_option,
             ]
 
@@ -304,11 +307,12 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
-            print('Bundling includes: ' + pjoin(build_prefix, 'include'))
-            if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
-                shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(build_prefix, 'include'),
-                        pjoin(build_lib, 'pyarrow'))
+            if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
+                print('Bundling includes: ' + pjoin(build_prefix, 'include'))
+                if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
+                    shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+                shutil.move(pjoin(build_prefix, 'include'),
+                            pjoin(build_lib, 'pyarrow'))
 
             # Move the built C-extension to the place expected by the Python
             # build
@@ -519,7 +523,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '2.0.0-SNAPSHOT'
+default_version = '2.0.0'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):

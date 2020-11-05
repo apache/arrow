@@ -191,6 +191,16 @@ Result<std::shared_ptr<io::OutputStream>> PyFileSystem::OpenAppendStream(
   return stream;
 }
 
+Result<std::string> PyFileSystem::NormalizePath(std::string path) {
+  std::string normalized;
+  auto st = SafeCallIntoPython([&]() -> Status {
+    vtable_.normalize_path(handler_.obj(), path, &normalized);
+    return CheckPyError();
+  });
+  RETURN_NOT_OK(st);
+  return normalized;
+}
+
 }  // namespace fs
 }  // namespace py
 }  // namespace arrow

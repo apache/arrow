@@ -40,14 +40,15 @@ if [ -f "$LOCAL_FORMULA" ]; then
   $BREW deps -n "$LOCAL_FORMULA" 2>/dev/null
   BREW_DEPS=$($BREW deps -n "$LOCAL_FORMULA" 2>/dev/null)
   $BREW install --force-bottle $BREW_DEPS 2>&1 | perl -pe 's/Warning/Note/gi'
-  $BREW install --build-from-source --HEAD "$LOCAL_FORMULA" 2>&1 | perl -pe 's/Warning/Note/gi'
+  $BREW install -v --build-from-source --HEAD "$LOCAL_FORMULA" 2>&1 | perl -pe 's/Warning/Note/gi'
 else
   $BREW install --force-bottle $BREW_DEPS $PKG_BREW_NAME 2>&1 | perl -pe 's/Warning/Note/gi'
 fi
 
 # Hardcode this for my custom autobrew build
 rm -f $BREWDIR/lib/*.dylib
-PKG_LIBS="-L$BREWDIR/lib -lparquet -larrow_dataset -larrow -lthrift -llz4 -lsnappy"
+AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lpthread -lcurl"
+PKG_LIBS="-L$BREWDIR/lib -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lthrift -llz4 -lsnappy -lzstd $AWS_LIBS"
 
 # Prevent CRAN builder from linking against old libs in /usr/local/lib
 for FILE in $BREWDIR/Cellar/*/*/lib/*.a; do
@@ -57,6 +58,8 @@ for FILE in $BREWDIR/Cellar/*/*/lib/*.a; do
   echo "created $BREWDIR/lib/libbrew$LIBNAME.a"
   PKG_LIBS=`echo $PKG_LIBS | sed "s/-l$LIBNAME/-lbrew$LIBNAME/g"`
 done
+
+PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include -DARROW_R_WITH_S3"
 
 unset HOMEBREW_NO_ANALYTICS
 unset HOMEBREW_NO_AUTO_UPDATE

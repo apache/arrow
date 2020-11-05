@@ -41,6 +41,11 @@ def test_arrays(array):
     assert isinstance(array, pa.lib.Array)
 
 
+@h.given(past.arrays(past.primitive_types, nullable=False))
+def test_array_nullability(array):
+    assert array.null_count == 0
+
+
 @h.given(past.all_chunked_arrays)
 def test_chunked_arrays(chunked_array):
     assert isinstance(chunked_array, pa.lib.ChunkedArray)

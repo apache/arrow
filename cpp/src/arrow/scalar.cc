@@ -40,7 +40,9 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
+bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
+  return ScalarEquals(*this, other, options);
+}
 
 struct ScalarHashImpl {
   static std::hash<std::string> string_hash;
@@ -325,7 +327,7 @@ struct ScalarParseImpl {
     return MakeScalar(std::move(type_), std::forward<Arg>(arg)).Value(&out_);
   }
 
-  Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
+  Status FinishWithBuffer() { return Finish(Buffer::FromString(std::string(s_))); }
 
   Result<std::shared_ptr<Scalar>> Finish() && {
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
@@ -364,8 +366,9 @@ std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& 
   if (!from.is_valid) {
     return Buffer::FromString("null");
   }
-  return formatter(
-      from.value, [&](util::string_view v) { return Buffer::FromString(v.to_string()); });
+  return formatter(from.value, [&](util::string_view v) {
+    return Buffer::FromString(std::string(v));
+  });
 }
 
 // error fallback

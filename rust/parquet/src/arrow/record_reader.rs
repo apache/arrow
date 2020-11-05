@@ -333,7 +333,7 @@ impl<T: DataType> RecordReader<T> {
     /// Should be called after consuming data, e.g. `consume_rep_levels`,
     /// `consume_rep_levels`, `consume_record_data` and `consume_bitmap_buffer`.
     pub fn reset(&mut self) {
-        self.values_written = self.values_written - self.num_values;
+        self.values_written -= self.num_values;
         self.num_records = 0;
         self.num_values = 0;
         self.values_seen = 0;
@@ -343,7 +343,7 @@ impl<T: DataType> RecordReader<T> {
     /// Returns bitmap data.
     pub fn consume_bitmap(&mut self) -> Result<Option<Bitmap>> {
         self.consume_bitmap_buffer()
-            .map(|buffer| buffer.map(|b| Bitmap::from(b)))
+            .map(|buffer| buffer.map(Bitmap::from))
     }
 
     /// Try to read one batch of data.
@@ -592,7 +592,7 @@ mod tests {
         //   leaf: 9
         {
             let values = [8, 9];
-            let mut pb = DataPageBuilderImpl::new(desc.clone(), 2, true);
+            let mut pb = DataPageBuilderImpl::new(desc, 2, true);
             pb.add_values::<Int32Type>(Encoding::PLAIN, &values);
             let page = pb.consume();
 
@@ -678,7 +678,7 @@ mod tests {
             let values = [8];
             //empty, non-empty
             let def_levels = [0i16, 2i16];
-            let mut pb = DataPageBuilderImpl::new(desc.clone(), 2, true);
+            let mut pb = DataPageBuilderImpl::new(desc, 2, true);
             pb.add_def_levels(2, &def_levels);
             pb.add_values::<Int32Type>(Encoding::PLAIN, &values);
             let page = pb.consume();
@@ -786,7 +786,7 @@ mod tests {
             let values = [8, 9];
             let def_levels = [2i16, 2i16];
             let rep_levels = [0i16, 2i16];
-            let mut pb = DataPageBuilderImpl::new(desc.clone(), 2, true);
+            let mut pb = DataPageBuilderImpl::new(desc, 2, true);
             pb.add_rep_levels(2, &rep_levels);
             pb.add_def_levels(2, &def_levels);
             pb.add_values::<Int32Type>(Encoding::PLAIN, &values);
@@ -855,7 +855,7 @@ mod tests {
                 rep_levels[idx * 5] = 0i16;
             }
 
-            let mut pb = DataPageBuilderImpl::new(desc.clone(), 5000, true);
+            let mut pb = DataPageBuilderImpl::new(desc, 5000, true);
             pb.add_rep_levels(1, &rep_levels);
             pb.add_def_levels(1, &def_levels);
             pb.add_values::<Int32Type>(Encoding::PLAIN, &values);

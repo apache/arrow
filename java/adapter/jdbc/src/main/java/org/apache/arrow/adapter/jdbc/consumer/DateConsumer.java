@@ -20,8 +20,6 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 
@@ -30,21 +28,9 @@ import org.apache.arrow.vector.DateMilliVector;
 
 /**
  * Consumer which consume date type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.DateMilliVector}.
+ * Write the data to {@link org.apache.arrow.vector.DateDayVector}.
  */
 public class DateConsumer {
-
-  public static final int MAX_DAY;
-
-  static {
-    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-    try {
-      java.util.Date date = dateFormat.parse("9999-12-31");
-      MAX_DAY = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
-    } catch (ParseException e) {
-      throw new IllegalArgumentException("Failed to parse max day", e);
-    }
-  }
 
   /**
    * Creates a consumer for {@link DateMilliVector}.
@@ -85,13 +71,9 @@ public class DateConsumer {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
-        if (day < 0 || day > MAX_DAY) {
-          throw new IllegalArgumentException("Day overflow: " + day);
-        }
         // for fixed width vectors, we have allocated enough memory proactively,
         // so there is no need to call the setSafe method here.
-        vector.set(currentIndex, day);
+        vector.set(currentIndex, Math.toIntExact(TimeUnit.MILLISECONDS.toDays(date.getTime())));
       }
       currentIndex++;
     }
@@ -123,13 +105,9 @@ public class DateConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
-      int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
-      if (day < 0 || day > MAX_DAY) {
-        throw new IllegalArgumentException("Day overflow: " + day);
-      }
       // for fixed width vectors, we have allocated enough memory proactively,
       // so there is no need to call the setSafe method here.
-      vector.set(currentIndex, day);
+      vector.set(currentIndex, Math.toIntExact(TimeUnit.MILLISECONDS.toDays(date.getTime())));
       currentIndex++;
     }
   }

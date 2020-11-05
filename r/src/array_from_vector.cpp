@@ -170,16 +170,13 @@ struct VectorToArrayConverter {
     R_xlen_t n = XLENGTH(x);
     RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
-      if (s == NA_STRING) {
+      SEXP si = STRING_ELT(x, i);
+      if (si == NA_STRING) {
         RETURN_NOT_OK(binary_builder->AppendNull());
         continue;
-      } else {
-        // Make sure we're ingesting UTF-8
-        s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
       }
-
-      RETURN_NOT_OK(binary_builder->Append(CHAR(s), LENGTH(s)));
+      std::string s = cpp11::r_string(si);
+      RETURN_NOT_OK(binary_builder->Append(s.c_str(), s.size()));
     }
 
     return Status::OK();
@@ -339,7 +336,7 @@ struct VectorToArrayConverter {
 };
 
 template <typename Type>
-std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
+std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
                                            const std::shared_ptr<arrow::DataType>& type) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   auto n = factor.size();
@@ -393,7 +390,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
   return ValueOrStop(DictionaryArray::FromArrays(type, array_indices, dict));
 }
 
-std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
+std::shared_ptr<Array> MakeFactorArray(cpp11::integers factor,
                                        const std::shared_ptr<arrow::DataType>& type) {
   const auto& dict_type = checked_cast<const arrow::DictionaryType&>(*type);
   switch (dict_type.index_type()->id()) {
@@ -406,9 +403,11 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
     case Type::INT64:
       return MakeFactorArrayImpl<arrow::Int64Type>(factor, type);
     default:
-      Rcpp::stop(tfm::format("Cannot convert to dictionary with index_type %s",
-                             dict_type.index_type()->ToString()));
+      break;
   }
+
+  cpp11::stop("Cannot convert to dictionary with index_type '%s'",
+              dict_type.index_type()->ToString().c_str());
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
@@ -586,9 +585,8 @@ struct Unbox<Type, enable_if_integer<Type>> {
         break;
     }
 
-    return Status::Invalid(
-        tfm::format("Cannot convert R vector of type %s to integer Arrow array",
-                    Rcpp::type2name(obj)));
+    return Status::Invalid("Cannot convert R vector of type <", Rf_type2char(TYPEOF(obj)),
+                           "> to integer Arrow array");
   }
 
   template <typename T>
@@ -1064,42 +1062,40 @@ class FixedSizeBinaryVectorConverter : public VectorConverter {
   FixedSizeBinaryBuilder* typed_builder_;
 };
 
-template <typename Builder>
+template <typename StringBuilder>
 class StringVectorConverter : public VectorConverter {
  public:
   ~StringVectorConverter() {}
 
   Status Init(ArrayBuilder* builder) {
-    typed_builder_ = checked_cast<Builder*>(builder);
+    typed_builder_ = checked_cast<StringBuilder*>(builder);
     return Status::OK();
   }
 
   Status Ingest(SEXP obj) {
     ARROW_RETURN_IF(TYPEOF(obj) != STRSXP,
                     Status::RError("Expecting a character vector"));
-    R_xlen_t n = XLENGTH(obj);
 
-    // Reserve enough space before appending
-    int64_t size = 0;
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP string_i = STRING_ELT(obj, i);
-      if (string_i != NA_STRING) {
-        size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
-      }
+    cpp11::strings s(arrow::r::utf8_strings(obj));
+    RETURN_NOT_OK(typed_builder_->Reserve(s.size()));
+
+    // we know all the R strings are utf8 already, so we can get
+    // a definite size and then use UnsafeAppend*()
+    int64_t total_length = 0;
+    for (cpp11::r_string si : s) {
+      total_length += cpp11::is_na(si) ? 0 : si.size();
     }
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
+    RETURN_NOT_OK(typed_builder_->ReserveData(total_length));
 
     // append
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP string_i = STRING_ELT(obj, i);
-      if (string_i == NA_STRING) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
+    for (cpp11::r_string si : s) {
+      if (si == NA_STRING) {
+        typed_builder_->UnsafeAppendNull();
       } else {
-        // Make sure we're ingesting UTF-8
-        string_i = Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8);
-        RETURN_NOT_OK(typed_builder_->Append(CHAR(string_i), XLENGTH(string_i)));
+        typed_builder_->UnsafeAppend(CHAR(si), si.size());
       }
     }
+
     return Status::OK();
   }
 
@@ -1108,7 +1104,7 @@ class StringVectorConverter : public VectorConverter {
   }
 
  private:
-  Builder* typed_builder_;
+  StringBuilder* typed_builder_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
@@ -1191,17 +1187,16 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP factor) {
 
 template <int VectorType>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector(SEXP x) {
-  Rcpp::stop("Unknown vector type: ", VectorType);
+  cpp11::stop("Unknown vector type: ", VectorType);
 }
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<ENVSXP>(SEXP x) {
   if (Rf_inherits(x, "Array")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(x);
-    return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
+    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type();
   }
 
-  Rcpp::stop("Unrecognized vector instance for type ENVSXP");
+  cpp11::stop("Unrecognized vector instance for type ENVSXP");
 }
 
 template <>
@@ -1250,32 +1245,30 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<STRSXP>(SEXP x) {
-  // See how big the character vector is
-  R_xlen_t n = XLENGTH(x);
-  int64_t size = 0;
-  for (R_xlen_t i = 0; i < n; i++) {
-    SEXP string_i = STRING_ELT(x, i);
-    if (string_i != NA_STRING) {
-      size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
-    }
-    if (size > arrow::kBinaryMemoryLimit) {
-      // Exceeds 2GB capacity of utf8 type, so use large
-      return large_utf8();
-    }
-  }
+  return cpp11::unwind_protect([&] {
+    R_xlen_t n = XLENGTH(x);
 
-  return utf8();
+    int64_t size = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+      size += arrow::r::unsafe::r_string_size(STRING_ELT(x, i));
+      if (size > arrow::kBinaryMemoryLimit) {
+        // Exceeds 2GB capacity of utf8 type, so use large
+        return large_utf8();
+      }
+    }
+
+    return utf8();
+  });
 }
 
-static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP x) {
-  R_xlen_t n = XLENGTH(x);
-  SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(
+    cpp11::list x) {
+  R_xlen_t n = x.size();
+  cpp11::strings names(x.attr(R_NamesSymbol));
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (R_xlen_t i = 0; i < n; i++) {
-    // Make sure we're ingesting UTF-8
-    const auto* field_name =
-        CHAR(Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8));
-    fields[i] = arrow::field(field_name, InferArrowType(VECTOR_ELT(x, i)));
+    fields[i] = arrow::field(names[i], InferArrowType(x[i]));
   }
   return arrow::struct_(std::move(fields));
 }
@@ -1290,7 +1283,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       SEXP byte_width = Rf_getAttrib(x, symbols::byte_width);
       if (Rf_isNull(byte_width) || TYPEOF(byte_width) != INTSXP ||
           XLENGTH(byte_width) != 1) {
-        Rcpp::stop("malformed arrow_fixed_size_binary object");
+        cpp11::stop("malformed arrow_fixed_size_binary object");
       }
       return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
     }
@@ -1306,7 +1299,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
     if (Rf_isNull(ptype)) {
       if (XLENGTH(x) == 0) {
-        Rcpp::stop(
+        cpp11::stop(
             "Requires at least one element to infer the values' type of a list vector");
       }
 
@@ -1337,7 +1330,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
       break;
   }
 
-  Rcpp::stop("Cannot infer type from vector");
+  cpp11::stop("Cannot infer type from vector");
 }
 
 // in some situations we can just use the memory of the R object in an RBuffer
@@ -1360,15 +1353,15 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
 
 // this is only used on some special cases when the arrow Array can just use the memory of
 // the R object, via an RBuffer, hence be zero copy
-template <int RTYPE, typename Type>
+template <int RTYPE, typename RVector, typename Type>
 std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage> vec(x);
+  RVector vec(x);
   auto n = vec.size();
-  auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
+  auto p_vec_start = reinterpret_cast<value_type*>(DATAPTR(vec));
   auto p_vec_end = p_vec_start + n;
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-                                               std::make_shared<RBuffer<RTYPE>>(vec)};
+                                               std::make_shared<RBuffer<RVector>>(vec)};
 
   int null_count = 0;
 
@@ -1410,16 +1403,16 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   auto type = TYPEOF(x);
 
   if (type == INTSXP) {
-    return MakeSimpleArray<INTSXP, Int32Type>(x);
+    return MakeSimpleArray<INTSXP, cpp11::integers, Int32Type>(x);
   } else if (type == REALSXP && Rf_inherits(x, "integer64")) {
-    return MakeSimpleArray<REALSXP, Int64Type>(x);
+    return MakeSimpleArray<REALSXP, cpp11::doubles, Int64Type>(x);
   } else if (type == REALSXP) {
-    return MakeSimpleArray<REALSXP, DoubleType>(x);
+    return MakeSimpleArray<REALSXP, cpp11::doubles, DoubleType>(x);
   } else if (type == RAWSXP) {
-    return MakeSimpleArray<RAWSXP, UInt8Type>(x);
+    return MakeSimpleArray<RAWSXP, cpp11::raws, UInt8Type>(x);
   }
 
-  Rcpp::stop("Unreachable: you might need to fix can_reuse_memory()");
+  cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
 bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
@@ -1450,25 +1443,28 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   // the columns themselves are not checked against the
   // types of the fields, because Array__from_vector will error
   // when not compatible.
-  SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
-  SEXP name_i;
-  for (int i = 0; i < num_fields; i++) {
-    name_i = Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8);
-    if (type->field(i)->name() != CHAR(name_i)) {
-      return Status::RError("Field name in position ", i, " (", type->field(i)->name(),
-                            ") does not match the name of the column of the data frame (",
-                            CHAR(name_i), ")");
-    }
-  }
+  cpp11::strings names = Rf_getAttrib(obj, R_NamesSymbol);
 
-  return Status::OK();
+  return cpp11::unwind_protect([&] {
+    for (int i = 0; i < num_fields; i++) {
+      const char* name_i = arrow::r::unsafe::utf8_string(names[i]);
+      auto field_name = type->field(i)->name();
+      if (field_name != name_i) {
+        return Status::RError(
+            "Field name in position ", i, " (", field_name,
+            ") does not match the name of the column of the data frame (", name_i, ")");
+      }
+    }
+
+    return Status::OK();
+  });
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred) {
   // short circuit if `x` is already an Array
   if (Rf_inherits(x, "Array")) {
-    return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
+    return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x);
   }
 
   // special case when we can just use the data from the R vector
@@ -1487,7 +1483,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
       return arrow::r::MakeFactorArray(x, type);
     }
 
-    Rcpp::stop("Object incompatible with dictionary type");
+    cpp11::stop("Object incompatible with dictionary type");
   }
 
   if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
@@ -1543,14 +1539,14 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   if (type_inferred) {
     type = arrow::r::InferArrowType(x);
   } else {
-    type = arrow::r::extract<arrow::DataType>(s_type);
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
 
   return arrow::r::Array__from_vector(x, type, type_inferred);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
                                                              SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
@@ -1562,11 +1558,11 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
   std::shared_ptr<arrow::DataType> type;
   if (type_inferred) {
     if (n == 0) {
-      Rcpp::stop("type must be specified for empty list");
+      cpp11::stop("type must be specified for empty list");
     }
     type = arrow::r::InferArrowType(VECTOR_ELT(chunks, 0));
   } else {
-    type = arrow::r::extract<arrow::DataType>(s_type);
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
 
   if (n == 0) {
@@ -1580,11 +1576,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
     // because we might have inferred the type from the first element of the list
     //
     // this only really matters for dictionary arrays
-    vec.push_back(
-        arrow::r::Array__from_vector(VECTOR_ELT(chunks, 0), type, type_inferred));
+    vec.push_back(arrow::r::Array__from_vector(chunks[0], type, type_inferred));
 
     for (R_xlen_t i = 1; i < n; i++) {
-      vec.push_back(arrow::r::Array__from_vector(VECTOR_ELT(chunks, i), type, false));
+      vec.push_back(arrow::r::Array__from_vector(chunks[i], type, false));
     }
   }
 

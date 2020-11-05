@@ -16,52 +16,51 @@
 # under the License.
 
 if(ARROW_UTF8PROC_USE_SHARED)
-  set(UTF8PROC_LIB_NAMES)
+  set(utf8proc_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(APPEND UTF8PROC_LIB_NAMES
+    list(APPEND utf8proc_LIB_NAMES
                 "${CMAKE_IMPORT_LIBRARY_PREFIX}utf8proc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   endif()
-  list(APPEND UTF8PROC_LIB_NAMES
+  list(APPEND utf8proc_LIB_NAMES
               "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  if(MSVC AND NOT DEFINED UTF8PROC_MSVC_STATIC_LIB_SUFFIX)
-    set(UTF8PROC_MSVC_STATIC_LIB_SUFFIX "_static")
+  if(MSVC AND NOT DEFINED utf8proc_MSVC_STATIC_LIB_SUFFIX)
+    set(utf8proc_MSVC_STATIC_LIB_SUFFIX "_static")
   endif()
-  set(UTF8PROC_STATIC_LIB_SUFFIX
-      "${UTF8PROC_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(UTF8PROC_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${UTF8PROC_STATIC_LIB_SUFFIX})
-  set(UTF8PROC_LIB_NAMES "${UTF8PROC_STATIC_LIB_NAME}" "lib${UTF8PROC_STATIC_LIB_NAME}")
+  set(utf8proc_STATIC_LIB_SUFFIX
+      "${utf8proc_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(utf8proc_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${utf8proc_STATIC_LIB_SUFFIX}")
 endif()
 
 if(utf8proc_ROOT)
   find_library(
-    UTF8PROC_LIB
-    NAMES ${UTF8PROC_LIB_NAMES}
+    utf8proc_LIB
+    NAMES ${utf8proc_LIB_NAMES}
     PATHS ${utf8proc_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
-  find_path(UTF8PROC_INCLUDE_DIR
+  find_path(utf8proc_INCLUDE_DIR
             NAMES utf8proc.h
             PATHS ${utf8proc_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
   find_library(
-    UTF8PROC_LIB
-    NAMES ${UTF8PROC_LIB_NAMES}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_path(UTF8PROC_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+    utf8proc_LIB
+    NAMES ${utf8proc_LIB_NAMES}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_path(utf8proc_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(utf8proc REQUIRED_VARS UTF8PROC_LIB UTF8PROC_INCLUDE_DIR)
+find_package_handle_standard_args(utf8proc REQUIRED_VARS utf8proc_LIB utf8proc_INCLUDE_DIR)
 
 # CMake 3.2 does uppercase the FOUND variable
 if(UTF8PROC_FOUND OR utf8proc_FOUND)
   set(utf8proc_FOUND TRUE)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
   set_target_properties(utf8proc::utf8proc
-                        PROPERTIES IMPORTED_LOCATION "${UTF8PROC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${UTF8PROC_INCLUDE_DIR}")
+                        PROPERTIES IMPORTED_LOCATION "${utf8proc_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
     set_target_properties(utf8proc::utf8proc
                           PROPERTIES INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC")

@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array/util.h"
+#include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -40,6 +41,31 @@ std::string ExtensionType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name() << ">";
   return ss.str();
+}
+
+std::shared_ptr<Array> ExtensionType::WrapArray(const std::shared_ptr<DataType>& type,
+                                                const std::shared_ptr<Array>& storage) {
+  DCHECK_EQ(type->id(), Type::EXTENSION);
+  const auto& ext_type = checked_cast<const ExtensionType&>(*type);
+  DCHECK_EQ(storage->type_id(), ext_type.storage_type()->id());
+  auto data = storage->data()->Copy();
+  data->type = type;
+  return ext_type.MakeArray(std::move(data));
+}
+
+std::shared_ptr<ChunkedArray> ExtensionType::WrapArray(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<ChunkedArray>& storage) {
+  DCHECK_EQ(type->id(), Type::EXTENSION);
+  const auto& ext_type = checked_cast<const ExtensionType&>(*type);
+  DCHECK_EQ(storage->type()->id(), ext_type.storage_type()->id());
+
+  ArrayVector out_chunks(storage->num_chunks());
+  for (int i = 0; i < storage->num_chunks(); i++) {
+    auto data = storage->chunk(i)->data()->Copy();
+    data->type = type;
+    out_chunks[i] = ext_type.MakeArray(std::move(data));
+  }
+  return std::make_shared<ChunkedArray>(std::move(out_chunks));
 }
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }

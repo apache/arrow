@@ -35,8 +35,20 @@
 #'   ', tf, useBytes=TRUE)
 #'   df <- read_json_arrow(tf)
 #' }
-read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  tab <- JsonTableReader$create(file, ...)$Read()$select(!!enquo(col_select))
+read_json_arrow <- function(file,
+                            col_select = NULL,
+                            as_data_frame = TRUE,
+                            ...) {
+  if (!inherits(file, "InputStream")) {
+    file <- make_readable_file(file)
+    on.exit(file$close())
+  }
+  tab <- JsonTableReader$create(file, ...)$Read()
+
+  col_select <- enquo(col_select)
+  if (!quo_is_null(col_select)) {
+    tab <- tab[vars_select(names(tab), !!col_select)]
+  }
 
   if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)
@@ -59,8 +71,7 @@ JsonTableReader$create <- function(file,
                                    read_options = JsonReadOptions$create(),
                                    parse_options = JsonParseOptions$create(),
                                    ...) {
-
-  file <- make_readable_file(file)
+  assert_is(file, "InputStream")
   shared_ptr(
     JsonTableReader,
     json___TableReader__Make(file, read_options, parse_options)
@@ -74,12 +85,7 @@ JsonTableReader$create <- function(file,
 #' @export
 JsonReadOptions <- R6Class("JsonReadOptions", inherit = ArrowObject)
 JsonReadOptions$create <- function(use_threads = option_use_threads(), block_size = 1048576L) {
-  shared_ptr(JsonReadOptions, json___ReadOptions__initialize(
-    list(
-      use_threads = use_threads,
-      block_size = block_size
-    )
-  ))
+  shared_ptr(JsonReadOptions, json___ReadOptions__initialize(use_threads, block_size))
 }
 
 #' @rdname CsvReadOptions
@@ -89,9 +95,5 @@ JsonReadOptions$create <- function(use_threads = option_use_threads(), block_siz
 #' @export
 JsonParseOptions <- R6Class("JsonParseOptions", inherit = ArrowObject)
 JsonParseOptions$create <- function(newlines_in_values = FALSE) {
-  shared_ptr(JsonParseOptions, json___ParseOptions__initialize(
-    list(
-      newlines_in_values = newlines_in_values
-    )
-  ))
+  shared_ptr(JsonParseOptions, json___ParseOptions__initialize(newlines_in_values))
 }

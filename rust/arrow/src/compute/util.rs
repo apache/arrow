@@ -18,8 +18,9 @@
 //! Common utilities for computation kernels.
 
 use crate::array::*;
+#[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
-use crate::buffer::Buffer;
+use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
 #[cfg(feature = "simd")]
 use crate::datatypes::*;
 use crate::error::Result;
@@ -28,25 +29,68 @@ use num::One;
 #[cfg(feature = "simd")]
 use std::cmp::min;
 
-/// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.
+/// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
-pub(super) fn apply_bin_op_to_option_bitmap<F>(
-    left: &Option<Bitmap>,
-    right: &Option<Bitmap>,
-    op: F,
-) -> Result<Option<Buffer>>
-where
-    F: Fn(&Buffer, &Buffer) -> Result<Buffer>,
-{
-    match *left {
-        None => match *right {
+pub(super) fn combine_option_bitmap(
+    left_data: &ArrayDataRef,
+    right_data: &ArrayDataRef,
+    len_in_bits: usize,
+) -> Result<Option<Buffer>> {
+    let left_offset_in_bits = left_data.offset();
+    let right_offset_in_bits = right_data.offset();
+
+    let left = left_data.null_buffer();
+    let right = right_data.null_buffer();
+
+    match left {
+        None => match right {
             None => Ok(None),
-            Some(ref r) => Ok(Some(r.bits.clone())),
+            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
         },
-        Some(ref l) => match *right {
-            None => Ok(Some(l.bits.clone())),
-            Some(ref r) => Ok(Some(op(&l.bits, &r.bits)?)),
+        Some(l) => match right {
+            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
+
+            Some(r) => Ok(Some(buffer_bin_and(
+                &l,
+                left_offset_in_bits,
+                &r,
+                right_offset_in_bits,
+                len_in_bits,
+            ))),
+        },
+    }
+}
+
+/// Compares the null bitmaps of two arrays using a bitwise `or` operation.
+///
+/// This function is useful when implementing operations on higher level arrays.
+pub(super) fn compare_option_bitmap(
+    left_data: &ArrayDataRef,
+    right_data: &ArrayDataRef,
+    len_in_bits: usize,
+) -> Result<Option<Buffer>> {
+    let left_offset_in_bits = left_data.offset();
+    let right_offset_in_bits = right_data.offset();
+
+    let left = left_data.null_buffer();
+    let right = right_data.null_buffer();
+
+    match left {
+        None => match right {
+            None => Ok(None),
+            Some(r) => Ok(Some(r.bit_slice(right_offset_in_bits, len_in_bits))),
+        },
+        Some(l) => match right {
+            None => Ok(Some(l.bit_slice(left_offset_in_bits, len_in_bits))),
+
+            Some(r) => Ok(Some(buffer_bin_or(
+                &l,
+                left_offset_in_bits,
+                &r,
+                right_offset_in_bits,
+                len_in_bits,
+            ))),
         },
     }
 }
@@ -166,38 +210,78 @@ mod tests {
     use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
 
+    fn make_data_with_null_bit_buffer(
+        len: usize,
+        offset: usize,
+        null_bit_buffer: Option<Buffer>,
+    ) -> Arc<ArrayData> {
+        // empty vec for buffers and children is not really correct, but for these tests we only care about the null bitmap
+        Arc::new(ArrayData::new(
+            DataType::UInt8,
+            len,
+            None,
+            null_bit_buffer,
+            offset,
+            vec![],
+            vec![],
+        ))
+    }
+
     #[test]
-    fn test_apply_bin_op_to_option_bitmap() {
+    fn test_combine_option_bitmap() {
+        let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
+        let some_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
         assert_eq!(
             None,
-            apply_bin_op_to_option_bitmap(&None, &None, |a, b| a & b).unwrap()
-        );
-        assert_eq!(
-            Some(Buffer::from([0b01101010])),
-            apply_bin_op_to_option_bitmap(
-                &Some(Bitmap::from(Buffer::from([0b01101010]))),
-                &None,
-                |a, b| a & b,
-            )
-            .unwrap()
-        );
-        assert_eq!(
-            Some(Buffer::from([0b01001110])),
-            apply_bin_op_to_option_bitmap(
-                &None,
-                &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b,
-            )
-            .unwrap()
+            combine_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
         );
         assert_eq!(
             Some(Buffer::from([0b01001010])),
-            apply_bin_op_to_option_bitmap(
-                &Some(Bitmap::from(Buffer::from([0b01101010]))),
-                &Some(Bitmap::from(Buffer::from([0b01001110]))),
-                |a, b| a & b,
-            )
-            .unwrap()
+            combine_option_bitmap(&some_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            combine_option_bitmap(&none_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            combine_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b0])),
+            combine_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_compare_option_bitmap() {
+        let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
+        let some_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
+        assert_eq!(
+            None,
+            compare_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&none_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b11111111])),
+            compare_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
         );
     }
 
@@ -206,10 +290,10 @@ mod tests {
         let value_data = Int32Array::from((0..10).collect::<Vec<i32>>()).data();
         let value_offsets = Buffer::from(&[0, 2, 5, 10].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         let array = Arc::new(ListArray::from(list_data)) as ArrayRef;
         let index = UInt32Array::from(vec![2, 0]);

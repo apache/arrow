@@ -35,7 +35,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowException, ArrowInvalid
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
-from pyarrow.ipc import _ReadPandasOption, _get_legacy_format_default
+from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
 
 
@@ -51,7 +51,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     detail = FlightStatusDetail.UnwrapStatus(status)
     if detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             detail_msg = detail.get().extra_info()
             if detail.get().code() == CFlightStatusInternal:
                 raise FlightInternalError(message, detail_msg)
@@ -72,7 +72,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     size_detail = FlightWriteSizeStatusDetail.UnwrapStatus(status)
     if size_detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             raise FlightWriteSizeExceededError(
                 message,
                 size_detail.get().limit(), size_detail.get().actual())
@@ -812,7 +812,7 @@ cdef class FlightStreamChunk(_Weakrefable):
             self.chunk.data != NULL, self.chunk.app_metadata != NULL)
 
 
-cdef class _MetadataRecordBatchReader(_Weakrefable):
+cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     """A reader for Flight streams."""
 
     # Needs to be separate class so the "real" class can subclass the
@@ -869,8 +869,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable):
         return chunk
 
 
-cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
-                                     _ReadPandasOption):
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
     """The virtual base class for readers for Flight streams."""
 
 
@@ -1012,6 +1011,10 @@ cdef class FlightClient(_Weakrefable):
         batch that (when serialized) exceeds this limit will raise an
         exception; the client can retry the write with a smaller
         batch.
+    disable_server_verification : boolean optional, default False
+        A flag that indicates that, if the client is connecting
+        with TLS, that it skips server verification. If this is
+        enabled, all other TLS settings are overridden.
     generic_options : list optional, default None
         A list of generic (string, int or string) option tuples passed
         to the underlying transport. Effect is implementation
@@ -1022,12 +1025,13 @@ cdef class FlightClient(_Weakrefable):
 
     def __init__(self, location, *, tls_root_certs=None, cert_chain=None,
                  private_key=None, override_hostname=None, middleware=None,
-                 write_size_limit_bytes=None, generic_options=None):
+                 write_size_limit_bytes=None,
+                 disable_server_verification=None, generic_options=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, tuple):
             host, port = location
-            if tls_root_certs:
+            if tls_root_certs or disable_server_verification is not None:
                 location = Location.for_grpc_tls(host, port)
             else:
                 location = Location.for_grpc_tcp(host, port)
@@ -1036,11 +1040,12 @@ cdef class FlightClient(_Weakrefable):
                             'Location instance')
         self.init(location, tls_root_certs, cert_chain, private_key,
                   override_hostname, middleware, write_size_limit_bytes,
-                  generic_options)
+                  disable_server_verification, generic_options)
 
     cdef init(self, Location location, tls_root_certs, cert_chain,
               private_key, override_hostname, middleware,
-              write_size_limit_bytes, generic_options):
+              write_size_limit_bytes, disable_server_verification,
+              generic_options):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
@@ -1057,6 +1062,8 @@ cdef class FlightClient(_Weakrefable):
             c_options.private_key = tobytes(private_key)
         if override_hostname:
             c_options.override_hostname = tobytes(override_hostname)
+        if disable_server_verification is not None:
+            c_options.disable_server_verification = disable_server_verification
         if middleware:
             for factory in middleware:
                 c_options.middleware.push_back(
@@ -1107,13 +1114,17 @@ cdef class FlightClient(_Weakrefable):
 
     @classmethod
     def connect(cls, location, tls_root_certs=None, cert_chain=None,
-                private_key=None, override_hostname=None):
+                private_key=None, override_hostname=None,
+                disable_server_verification=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
-        return FlightClient(location, tls_root_certs=tls_root_certs,
-                            cert_chain=cert_chain, private_key=private_key,
-                            override_hostname=override_hostname)
+        return FlightClient(
+            location, tls_root_certs=tls_root_certs,
+            cert_chain=cert_chain, private_key=private_key,
+            override_hostname=override_hostname,
+            disable_server_verification=disable_server_verification
+        )
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -1365,7 +1376,7 @@ cdef class RecordBatchStream(FlightDataStream):
         data_source : RecordBatchReader or Table
         options : pyarrow.ipc.IpcWriteOptions, optional
         """
-        if (not isinstance(data_source, _CRecordBatchReader) and
+        if (not isinstance(data_source, RecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
@@ -1375,8 +1386,8 @@ cdef class RecordBatchStream(FlightDataStream):
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             shared_ptr[CRecordBatchReader] reader
-        if isinstance(self.data_source, _CRecordBatchReader):
-            reader = (<_CRecordBatchReader> self.data_source).reader
+        if isinstance(self.data_source, RecordBatchReader):
+            reader = (<RecordBatchReader> self.data_source).reader
         elif isinstance(self.data_source, lib.Table):
             table = (<Table> self.data_source).table
             reader.reset(new TableBatchReader(deref(table)))
@@ -1435,7 +1446,8 @@ cdef class ServerCallContext(_Weakrefable):
 
     def peer(self):
         """Get the address of the peer."""
-        return frombytes(self.context.peer())
+        # Set safe=True as gRPC on Windows sometimes gives garbage bytes
+        return frombytes(self.context.peer(), safe=True)
 
     def get_middleware(self, key):
         """
@@ -1616,7 +1628,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     else:
         result, metadata = result, None
 
-    if isinstance(result, (Table, _CRecordBatchReader)):
+    if isinstance(result, (Table, RecordBatchReader)):
         if metadata:
             raise ValueError("Can only return metadata alongside a "
                              "RecordBatch.")
@@ -2516,6 +2528,9 @@ def connect(location, **kwargs):
         batch that (when serialized) exceeds this limit will raise an
         exception; the client can retry the write with a smaller
         batch.
+    disable_server_verification : boolean or None
+        Disable verifying the server when using TLS.
+        Insecure, use with caution.
     generic_options : list or None
         A list of generic (string, int or string) options to pass to
         the underlying transport.

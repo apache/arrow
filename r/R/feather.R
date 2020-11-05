@@ -24,7 +24,8 @@
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path or [OutputStream]
+#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' system (`SubTreeFileSystem`)
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -105,11 +106,10 @@ write_feather <- function(x,
   }
   assert_is(x, "Table")
 
-  if (is.string(sink)) {
-    sink <- FileOutputStream$create(sink)
+  if (!inherits(sink, "OutputStream")) {
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
-  assert_is(sink, "OutputStream")
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
   invisible(x_out)
 }
@@ -142,16 +142,15 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (!inherits(file, "InputStream")) {
+  if (!inherits(file, "RandomAccessFile")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file, ...)
 
-  all_columns <- ipc___feather___Reader__column_names(reader)
   col_select <- enquo(col_select)
   columns <- if (!quo_is_null(col_select)) {
-    vars_select(all_columns, !!col_select)
+    vars_select(names(reader), !!col_select)
   }
 
   out <- reader$Read(columns)
@@ -198,9 +197,13 @@ FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
   ),
   active = list(
     # versions are officially 2 for V1 and 3 for V2 :shrug:
-    version = function() ipc___feather___Reader__version(self) - 1L
+    version = function() ipc___feather___Reader__version(self) - 1L,
+    column_names = function() ipc___feather___Reader__column_names(self)
   )
 )
+
+#' @export
+names.FeatherReader <- function(x) x$column_names
 
 FeatherReader$create <- function(file, mmap = TRUE, ...) {
   assert_is(file, "RandomAccessFile")

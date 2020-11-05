@@ -203,11 +203,11 @@ TEST(TestBufferReader, Peek) {
   ASSERT_OK_AND_ASSIGN(view, reader.Peek(4));
 
   ASSERT_EQ(4, view.size());
-  ASSERT_EQ(data.substr(0, 4), view.to_string());
+  ASSERT_EQ(data.substr(0, 4), std::string(view));
 
   ASSERT_OK_AND_ASSIGN(view, reader.Peek(20));
   ASSERT_EQ(data.size(), view.size());
-  ASSERT_EQ(data, view.to_string());
+  ASSERT_EQ(data, std::string(view));
 }
 
 TEST(TestBufferReader, ReadAsync) {

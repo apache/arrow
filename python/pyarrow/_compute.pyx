@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
@@ -26,18 +28,27 @@ import numpy as np
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ scalar Function in a ScalarFunction object.
+    """
     cdef ScalarFunction func = ScalarFunction.__new__(ScalarFunction)
     func.init(sp_func)
     return func
 
 
 cdef wrap_vector_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ vector Function in a VectorFunction object.
+    """
     cdef VectorFunction func = VectorFunction.__new__(VectorFunction)
     func.init(sp_func)
     return func
 
 
 cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ aggregate Function in a ScalarAggregateFunction object.
+    """
     cdef ScalarAggregateFunction func = (
         ScalarAggregateFunction.__new__(ScalarAggregateFunction)
     )
@@ -46,6 +57,9 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
 
 
 cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ meta Function in a MetaFunction object.
+    """
     cdef MetaFunction func = (
         MetaFunction.__new__(MetaFunction)
     )
@@ -54,6 +68,11 @@ cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
 
 
 cdef wrap_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ Function in a Function object.
+
+    This dispatches to specialized wrappers depending on the function kind.
+    """
     if sp_func.get() == NULL:
         raise ValueError('Function was NULL')
 
@@ -97,6 +116,11 @@ cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
 
 
 cdef class Kernel(_Weakrefable):
+    """
+    A kernel object.
+
+    Kernels handle the execution of a Function for a certain signature.
+    """
 
     def __init__(self):
         raise TypeError("Do not call {}'s constructor directly"
@@ -140,6 +164,30 @@ cdef class ScalarAggregateKernel(Kernel):
 
 
 cdef class Function(_Weakrefable):
+    """
+    A compute function.
+
+    A function implements a certain logical computation over a range of
+    possible input signatures.  Each signature accepts a range of input
+    types and is implemented by a given Kernel.
+
+    Functions can be of different kinds:
+
+    * "scalar" functions apply an item-wise computation over all items
+      of their inputs.  Each item in the output only depends on the values
+      of the inputs at the same position.  Examples: addition, comparisons,
+      string predicates...
+
+    * "vector" functions apply a collection-wise computation, such that
+      each item in the output may depend on the values of several items
+      in each input.  Examples: dictionary encoding, sorting, extracting
+      unique values...
+
+    * "aggregate" functions reduce the dimensionality of the inputs by
+      applying a reduction function.  Examples: sum, minmax, mode...
+
+    * "meta" functions dispatch to other functions.
+    """
     cdef:
         shared_ptr[CFunction] sp_func
         CFunction* base_func
@@ -153,13 +201,40 @@ cdef class Function(_Weakrefable):
         self.base_func = sp_func.get()
 
     def __repr__(self):
-        return """arrow.compute.Function
-kind: {}
-num_kernels: {}
-""".format(self.kind, self.num_kernels)
+        return ("arrow.compute.Function<name={}, kind={}, "
+                "arity={}, num_kernels={}>"
+                ).format(self.name, self.kind, self.arity, self.num_kernels)
+
+    def __reduce__(self):
+        # Reduction uses the global registry
+        return get_function, (self.name,)
+
+    @property
+    def name(self):
+        """
+        The function name.
+        """
+        return frombytes(self.base_func.name())
+
+    @property
+    def arity(self):
+        """
+        The function arity.
+
+        If Ellipsis (i.e. `...`) is returned, the function takes a variable
+        number of arguments.
+        """
+        cdef CArity arity = self.base_func.arity()
+        if arity.is_varargs:
+            return ...
+        else:
+            return arity.num_args
 
     @property
     def kind(self):
+        """
+        The function kind.
+        """
         cdef FunctionKind c_kind = self.base_func.kind()
         if c_kind == FunctionKind_SCALAR:
             return 'scalar'
@@ -167,15 +242,23 @@ num_kernels: {}
             return 'vector'
         elif c_kind == FunctionKind_SCALAR_AGGREGATE:
             return 'scalar_aggregate'
+        elif c_kind == FunctionKind_META:
+            return 'meta'
         else:
             raise NotImplementedError("Unknown Function::Kind")
 
     @property
     def num_kernels(self):
+        """
+        The number of kernels implementing this function.
+        """
         return self.base_func.num_kernels()
 
     def call(self, args, FunctionOptions options=None,
              MemoryPool memory_pool=None):
+        """
+        Call the function on the given arguments.
+        """
         cdef:
             const CFunctionOptions* c_options = NULL
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -204,7 +287,11 @@ cdef class ScalarFunction(Function):
         Function.init(self, sp_func)
         self.func = <const CScalarFunction*> sp_func.get()
 
-    def list_kernels(self):
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
         cdef vector[const CScalarKernel*] kernels = self.func.kernels()
         return [wrap_scalar_kernel(k) for k in kernels]
 
@@ -217,7 +304,11 @@ cdef class VectorFunction(Function):
         Function.init(self, sp_func)
         self.func = <const CVectorFunction*> sp_func.get()
 
-    def list_kernels(self):
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
         cdef vector[const CVectorKernel*] kernels = self.func.kernels()
         return [wrap_vector_kernel(k) for k in kernels]
 
@@ -230,7 +321,11 @@ cdef class ScalarAggregateFunction(Function):
         Function.init(self, sp_func)
         self.func = <const CScalarAggregateFunction*> sp_func.get()
 
-    def list_kernels(self):
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
         cdef vector[const CScalarAggregateKernel*] kernels = (
             self.func.kernels()
         )
@@ -245,6 +340,15 @@ cdef class MetaFunction(Function):
         Function.init(self, sp_func)
         self.func = <const CMetaFunction*> sp_func.get()
 
+    # Since num_kernels is exposed, also expose a kernels property
+
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
+        return []
+
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
@@ -253,17 +357,32 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
 
         if isinstance(val, Array):
             out.push_back(CDatum((<Array> val).sp_array))
+            continue
         elif isinstance(val, ChunkedArray):
             out.push_back(CDatum((<ChunkedArray> val).sp_chunked_array))
+            continue
         elif isinstance(val, Scalar):
             out.push_back(CDatum((<Scalar> val).unwrap()))
+            continue
         elif isinstance(val, RecordBatch):
             out.push_back(CDatum((<RecordBatch> val).sp_batch))
+            continue
         elif isinstance(val, Table):
             out.push_back(CDatum((<Table> val).sp_table))
+            continue
         else:
-            raise TypeError("Got unexpected argument type {} "
-                            "for compute function".format(type(val)))
+            # Is it a Python scalar?
+            try:
+                scal = lib.scalar(val)
+            except Exception:
+                # Raise dedicated error below
+                pass
+            else:
+                out.push_back(CDatum((<Scalar> scal).unwrap()))
+                continue
+
+        raise TypeError("Got unexpected argument type {} "
+                        "for compute function".format(type(val)))
 
 
 cdef class FunctionRegistry(_Weakrefable):
@@ -274,10 +393,16 @@ cdef class FunctionRegistry(_Weakrefable):
         self.registry = GetFunctionRegistry()
 
     def list_functions(self):
+        """
+        Return all function names in the registry.
+        """
         cdef vector[c_string] names = self.registry.GetFunctionNames()
         return [frombytes(name) for name in names]
 
     def get_function(self, name):
+        """
+        Look up a function by name in the registry.
+        """
         cdef:
             c_string c_name = tobytes(name)
             shared_ptr[CFunction] func
@@ -293,7 +418,30 @@ def function_registry():
     return _global_func_registry
 
 
+def get_function(name):
+    """
+    Get a function by name.
+
+    The function is looked up in the global registry
+    (as returned by `function_registry()`).
+    """
+    return _global_func_registry.get_function(name)
+
+
+def list_functions():
+    """
+    Return all function names in the global registry.
+    """
+    return _global_func_registry.list_functions()
+
+
 def call_function(name, args, options=None, memory_pool=None):
+    """
+    Call a named function.
+
+    The function is looked up in the global registry
+    (as returned by `function_registry()`).
+    """
     func = _global_func_registry.get_function(name)
     return func.call(args, options=options, memory_pool=memory_pool)
 
@@ -308,7 +456,7 @@ cdef class CastOptions(FunctionOptions):
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, DataType target_type=None, allow_int_overflow=None,
+    def __init__(self, DataType target_type=None, *, allow_int_overflow=None,
                  allow_time_truncate=None, allow_time_overflow=None,
                  allow_float_truncate=None, allow_invalid_utf8=None):
         if allow_int_overflow is not None:
@@ -429,9 +577,8 @@ cdef class FilterOptions(FunctionOptions):
             )
         else:
             raise ValueError(
-                '"{}" is not a valid null_selection_behavior'.format(
-                    null_selection_behavior)
-            )
+                '"{}" is not a valid null_selection_behavior'
+                .format(null_selection_behavior))
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         return &self.filter_options
@@ -441,8 +588,98 @@ cdef class TakeOptions(FunctionOptions):
     cdef:
         CTakeOptions take_options
 
-    def __init__(self, boundscheck=True):
+    def __init__(self, *, boundscheck=True):
         self.take_options.boundscheck = boundscheck
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         return &self.take_options
+
+
+cdef class PartitionNthOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CPartitionNthOptions] partition_nth_options
+
+    def __cinit__(self, int64_t pivot):
+        self.partition_nth_options.reset(new CPartitionNthOptions(pivot))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.partition_nth_options.get()
+
+
+cdef class MinMaxOptions(FunctionOptions):
+    cdef:
+        CMinMaxOptions min_max_options
+
+    def __init__(self, null_handling='skip'):
+        if null_handling == 'skip':
+            self.min_max_options.null_handling = CMinMaxMode_SKIP
+        elif null_handling == 'emit_null':
+            self.min_max_options.null_handling = CMinMaxMode_EMIT_NULL
+        else:
+            raise ValueError(
+                '"{}" is not a valid null_handling'
+                .format(null_handling))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.min_max_options
+
+
+cdef class SetLookupOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSetLookupOptions] set_lookup_options
+        unique_ptr[CDatum] valset
+
+    def __cinit__(self, *, value_set, c_bool skip_null):
+        if isinstance(value_set, Array):
+            self.valset.reset(new CDatum((<Array> value_set).sp_array))
+        elif isinstance(value_set, ChunkedArray):
+            self.valset.reset(
+                new CDatum((<ChunkedArray> value_set).sp_chunked_array)
+            )
+        elif isinstance(value_set, Scalar):
+            self.valset.reset(new CDatum((<Scalar> value_set).unwrap()))
+        else:
+            raise ValueError('"{}" is not a valid value_set'.format(value_set))
+
+        self.set_lookup_options.reset(
+            new CSetLookupOptions(deref(self.valset), skip_null)
+        )
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.set_lookup_options.get()
+
+
+cdef class StrptimeOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CStrptimeOptions] strptime_options
+        TimeUnit time_unit
+
+    def __cinit__(self, format, unit):
+        if unit == 's':
+            self.time_unit = TimeUnit_SECOND
+        elif unit == 'ms':
+            self.time_unit = TimeUnit_MILLI
+        elif unit == 'us':
+            self.time_unit = TimeUnit_MICRO
+        elif unit == 'ns':
+            self.time_unit = TimeUnit_NANO
+        else:
+            raise ValueError('"{}" is not a valid time unit'.format(unit))
+
+        self.strptime_options.reset(
+            new CStrptimeOptions(tobytes(format), self.time_unit)
+        )
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.strptime_options.get()
+
+
+cdef class VarianceOptions(FunctionOptions):
+    cdef:
+        CVarianceOptions variance_options
+
+    def __cinit__(self, *, ddof=0):
+        self.variance_options.ddof = ddof
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.variance_options

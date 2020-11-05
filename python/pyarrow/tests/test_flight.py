@@ -952,6 +952,8 @@ def test_http_basic_unauth():
             list(client.do_action(action))
 
 
+@pytest.mark.skipif(os.name == 'nt',
+                    reason="ARROW-10013: gRPC on Windows corrupts peer()")
 def test_http_basic_auth():
     """Test a Python implementation of HTTP basic authentication."""
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
@@ -1036,6 +1038,22 @@ def test_tls_do_get():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         client = FlightClient(('localhost', s.port),
                               tls_root_certs=certs["root_cert"])
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)
+
+
+@pytest.mark.requires_testing_data
+def test_tls_disable_server_verification():
+    """Try a simple do_get call over TLS with server verification disabled."""
+    table = simple_ints_table()
+    certs = example_tls_certs()
+
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
+        try:
+            client = FlightClient(('localhost', s.port),
+                                  disable_server_verification=True)
+        except NotImplementedError:
+            pytest.skip('disable_server_verification feature is not available')
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 

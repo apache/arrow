@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -61,7 +62,8 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   using util::EqualityComparable<Scalar>::operator==;
   using util::EqualityComparable<Scalar>::Equals;
-  bool Equals(const Scalar& other) const;
+  bool Equals(const Scalar& other,
+              const EqualOptions& options = EqualOptions::Defaults()) const;
 
   struct ARROW_EXPORT Hash {
     size_t operator()(const Scalar& scalar) const { return hash(scalar); }
@@ -212,7 +214,7 @@ struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
   using BaseBinaryScalar::BaseBinaryScalar;
-  using TypeClass = BinaryScalar;
+  using TypeClass = BinaryType;
 
   BinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : BaseBinaryScalar(std::move(value), std::move(type)) {}
@@ -237,7 +239,7 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {
   using BaseBinaryScalar::BaseBinaryScalar;
-  using TypeClass = LargeBinaryScalar;
+  using TypeClass = LargeBinaryType;
 
   LargeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : BaseBinaryScalar(std::move(value), std::move(type)) {}
@@ -426,8 +428,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
-  DictionaryScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  DictionaryScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
+      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
 };
@@ -436,16 +438,6 @@ struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
 };
-
-/// @}
-
-/// \defgroup scalar-factories Scalar factory functions
-///
-/// @{
-
-/// \brief Scalar factory for null scalars
-ARROW_EXPORT
-std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
 
 /// @}
 
@@ -488,9 +480,13 @@ struct MakeScalarImpl {
   std::shared_ptr<Scalar> out_;
 };
 
-/// \addtogroup scalar-factories
+/// \defgroup scalar-factories Scalar factory functions
 ///
 /// @{
+
+/// \brief Scalar factory for null scalars
+ARROW_EXPORT
+std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
 
 /// \brief Scalar factory for non-null scalars
 template <typename Value>

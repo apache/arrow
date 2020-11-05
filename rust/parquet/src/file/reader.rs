@@ -99,6 +99,7 @@ pub trait RowGroupReader {
 
 /// Length should return the amount of bytes that implementor contains.
 /// It's mainly used to read the metadata, which is at the end of the source.
+#[allow(clippy::len_without_is_empty)]
 pub trait Length {
     /// Returns the amount of bytes of the inner source.
     fn len(&self) -> u64;
@@ -206,11 +207,11 @@ impl<R: ParquetReader> SerializedFileReader<R> {
 
         // TODO: row group filtering
         let mut prot = TCompactInputProtocol::new(metadata_buf);
-        let mut t_file_metadata: TFileMetaData =
+        let t_file_metadata: TFileMetaData =
             TFileMetaData::read_from_in_protocol(&mut prot).map_err(|e| {
                 ParquetError::General(format!("Could not parse metadata: {}", e))
             })?;
-        let schema = types::from_thrift(&mut t_file_metadata.schema)?;
+        let schema = types::from_thrift(&t_file_metadata.schema)?;
         let schema_descr = Rc::new(SchemaDescriptor::new(schema.clone()));
         let mut row_groups = Vec::new();
         for rg in t_file_metadata.row_groups {
@@ -358,10 +359,11 @@ impl<'a, R: 'static + ParquetReader> RowGroupReader for SerializedRowGroupReader
     // TODO: fix PARQUET-816
     fn get_column_page_reader(&self, i: usize) -> Result<Box<PageReader>> {
         let col = self.metadata.column(i);
-        let mut col_start = col.data_page_offset();
-        if col.has_dictionary_page() {
-            col_start = col.dictionary_page_offset().unwrap();
-        }
+        let col_start = if col.has_dictionary_page() {
+            col.dictionary_page_offset().unwrap()
+        } else {
+            col.data_page_offset()
+        };
         let col_length = col.compressed_size();
         let file_chunk =
             FileSource::new(self.buf.get_ref(), col_start as u64, col_length as usize);
@@ -821,7 +823,7 @@ mod tests {
     #[test]
     fn test_file_reader_into_iter() -> Result<()> {
         let path = get_test_path("alltypes_plain.parquet");
-        let vec = vec![path.clone(), path.clone()]
+        let vec = vec![path.clone(), path]
             .iter()
             .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
             .flat_map(|r| r.into_iter())
@@ -1086,8 +1088,7 @@ mod tests {
 
         let row_group_indices = Box::new(0..1);
         let mut page_iterator =
-            FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
-                .unwrap();
+            FilePageIterator::with_row_groups(0, row_group_indices, file_reader).unwrap();
 
         // read first page
         let page = page_iterator.next();

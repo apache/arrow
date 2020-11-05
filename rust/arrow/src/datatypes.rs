@@ -23,6 +23,7 @@
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
 use std::collections::HashMap;
+use std::default::Default;
 use std::fmt;
 use std::mem::size_of;
 #[cfg(feature = "simd")]
@@ -39,6 +40,7 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -132,8 +134,16 @@ pub enum DataType {
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
     Union(Vec<Field>),
-    /// A dictionary array where each element is a single value indexed by an integer key.
-    /// This is mostly used to represent strings or a limited set of primitive types as integers.
+    /// A dictionary encoded array (`key_type`, `value_type`), where
+    /// each array element is an index of `key_type` into an
+    /// associated dictionary of `value_type`.
+    ///
+    /// Dictionary arrays are used to store columns of `value_type`
+    /// that contain many repeated values using less memory, but with
+    /// a higher CPU overhead for some operations.
+    ///
+    /// This type mostly used to represent low cardinality string
+    /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
 }
 
@@ -184,7 +194,7 @@ pub struct Field {
 }
 
 pub trait ArrowNativeType:
-    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + 'static
+    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + Default + 'static
 {
     fn into_json_value(self) -> Option<Value>;
 
@@ -208,12 +218,25 @@ pub trait ArrowPrimitiveType: 'static {
     fn get_data_type() -> DataType;
 
     /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize;
+    fn get_bit_width() -> usize {
+        size_of::<Self::Native>() * 8
+    }
 
     /// Returns a default value of this primitive type.
     ///
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
-    fn default_value() -> Self::Native;
+    fn default_value() -> Self::Native {
+        Default::default()
+    }
+
+    /// Returns a value offset from the given pointer by the given index. The default
+    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
+    /// # Safety
+    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
+    /// must be less than the size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        *(raw_ptr.add(i))
+    }
 }
 
 impl ArrowNativeType for bool {
@@ -346,8 +369,32 @@ impl ArrowNativeType for f64 {
     }
 }
 
+// BooleanType is special: its bit-width is not the size of the primitive type, and its `index`
+// operation assumes bit-packing.
+#[derive(Debug)]
+pub struct BooleanType {}
+
+impl ArrowPrimitiveType for BooleanType {
+    type Native = bool;
+
+    fn get_data_type() -> DataType {
+        DataType::Boolean
+    }
+
+    fn get_bit_width() -> usize {
+        1
+    }
+
+    /// # Safety
+    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
+    /// size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        bit_util::get_bit_raw(raw_ptr as *const u8, i)
+    }
+}
+
 macro_rules! make_type {
-    ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
+    ($name:ident, $native_ty:ty, $data_ty:expr) => {
         #[derive(Debug)]
         pub struct $name {}
 
@@ -357,134 +404,87 @@ macro_rules! make_type {
             fn get_data_type() -> DataType {
                 $data_ty
             }
-
-            fn get_bit_width() -> usize {
-                $bit_width
-            }
-
-            fn default_value() -> Self::Native {
-                $default_val
-            }
         }
     };
 }
 
-make_type!(BooleanType, bool, DataType::Boolean, 1, false);
-make_type!(Int8Type, i8, DataType::Int8, 8, 0i8);
-make_type!(Int16Type, i16, DataType::Int16, 16, 0i16);
-make_type!(Int32Type, i32, DataType::Int32, 32, 0i32);
-make_type!(Int64Type, i64, DataType::Int64, 64, 0i64);
-make_type!(UInt8Type, u8, DataType::UInt8, 8, 0u8);
-make_type!(UInt16Type, u16, DataType::UInt16, 16, 0u16);
-make_type!(UInt32Type, u32, DataType::UInt32, 32, 0u32);
-make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
-make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
-make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
+make_type!(Int8Type, i8, DataType::Int8);
+make_type!(Int16Type, i16, DataType::Int16);
+make_type!(Int32Type, i32, DataType::Int32);
+make_type!(Int64Type, i64, DataType::Int64);
+make_type!(UInt8Type, u8, DataType::UInt8);
+make_type!(UInt16Type, u16, DataType::UInt16);
+make_type!(UInt32Type, u32, DataType::UInt32);
+make_type!(UInt64Type, u64, DataType::UInt64);
+make_type!(Float32Type, f32, DataType::Float32);
+make_type!(Float64Type, f64, DataType::Float64);
 make_type!(
     TimestampSecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Second, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Second, None)
 );
 make_type!(
     TimestampMillisecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Millisecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Millisecond, None)
 );
 make_type!(
     TimestampMicrosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Microsecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Microsecond, None)
 );
 make_type!(
     TimestampNanosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Nanosecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Nanosecond, None)
 );
-make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
-make_type!(
-    Date64Type,
-    i64,
-    DataType::Date64(DateUnit::Millisecond),
-    64,
-    0i64
-);
-make_type!(
-    Time32SecondType,
-    i32,
-    DataType::Time32(TimeUnit::Second),
-    32,
-    0i32
-);
+make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day));
+make_type!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+make_type!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
 make_type!(
     Time32MillisecondType,
     i32,
-    DataType::Time32(TimeUnit::Millisecond),
-    32,
-    0i32
+    DataType::Time32(TimeUnit::Millisecond)
 );
 make_type!(
     Time64MicrosecondType,
     i64,
-    DataType::Time64(TimeUnit::Microsecond),
-    64,
-    0i64
+    DataType::Time64(TimeUnit::Microsecond)
 );
 make_type!(
     Time64NanosecondType,
     i64,
-    DataType::Time64(TimeUnit::Nanosecond),
-    64,
-    0i64
+    DataType::Time64(TimeUnit::Nanosecond)
 );
 make_type!(
     IntervalYearMonthType,
     i32,
-    DataType::Interval(IntervalUnit::YearMonth),
-    32,
-    0i32
+    DataType::Interval(IntervalUnit::YearMonth)
 );
 make_type!(
     IntervalDayTimeType,
     i64,
-    DataType::Interval(IntervalUnit::DayTime),
-    64,
-    0i64
+    DataType::Interval(IntervalUnit::DayTime)
 );
 make_type!(
     DurationSecondType,
     i64,
-    DataType::Duration(TimeUnit::Second),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Second)
 );
 make_type!(
     DurationMillisecondType,
     i64,
-    DataType::Duration(TimeUnit::Millisecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Millisecond)
 );
 make_type!(
     DurationMicrosecondType,
     i64,
-    DataType::Duration(TimeUnit::Microsecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Microsecond)
 );
 make_type!(
     DurationNanosecondType,
     i64,
-    DataType::Duration(TimeUnit::Nanosecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Nanosecond)
 );
 
 /// A subtype of primitive type that represents legal dictionary keys.
@@ -536,6 +536,9 @@ where
 
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
+
+    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`
+    fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
@@ -597,22 +600,109 @@ macro_rules! make_numeric_type {
 
             type SimdMask = $simd_mask_ty;
 
+            #[inline]
             fn lanes() -> usize {
                 Self::Simd::lanes()
             }
 
+            #[inline]
             fn init(value: Self::Native) -> Self::Simd {
                 Self::Simd::splat(value)
             }
 
+            #[inline]
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
             }
 
+            #[inline]
             fn mask_init(value: bool) -> Self::SimdMask {
                 Self::SimdMask::splat(value)
             }
 
+            #[inline]
+            fn mask_from_u64(mask: u64) -> Self::SimdMask {
+                match Self::lanes() {
+                    8 => {
+                        let vecidx = i64x8::new(128, 64, 32, 16, 8, 4, 2, 1);
+
+                        let vecmask = i64x8::splat((mask & 0xFF) as i64);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        unsafe { std::mem::transmute(vecmask) }
+                    }
+                    16 => {
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        unsafe { std::mem::transmute(vecmask) }
+                    }
+                    32 => {
+                        let tmp = &mut [0_i16; 32];
+
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i16x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[0..16]);
+
+                        let vecmask = i32x16::splat(((mask >> 16) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i16x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[16..32]);
+
+                        unsafe { std::mem::transmute(i16x32::from_slice_unaligned(tmp)) }
+                    }
+                    64 => {
+                        let tmp = &mut [0_i8; 64];
+
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[0..16]);
+
+                        let vecmask = i32x16::splat(((mask >> 16) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[16..32]);
+
+                        let vecmask = i32x16::splat(((mask >> 32) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[32..48]);
+
+                        let vecmask = i32x16::splat(((mask >> 48) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[48..64]);
+
+                        unsafe { std::mem::transmute(i8x64::from_slice_unaligned(tmp)) }
+                    }
+                    _ => panic!("Invalid number of vector lanes"),
+                }
+            }
+
+            #[inline]
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
             }
@@ -624,11 +714,13 @@ macro_rules! make_numeric_type {
                 action(mask.bitmask().to_byte_slice());
             }
 
+            #[inline]
             fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
                 unsafe { mask.replace_unchecked(idx, value) }
             }
 
             /// Selects elements of `a` and `b` using `mask`
+            #[inline]
             fn mask_select(
                 mask: Self::SimdMask,
                 a: Self::Simd,
@@ -637,10 +729,12 @@ macro_rules! make_numeric_type {
                 mask.select(a, b)
             }
 
+            #[inline]
             fn mask_any(mask: Self::SimdMask) -> bool {
                 mask.any()
             }
 
+            #[inline]
             fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
                 left: Self::Simd,
                 right: Self::Simd,
@@ -649,30 +743,37 @@ macro_rules! make_numeric_type {
                 op(left, right)
             }
 
+            #[inline]
             fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.eq(right)
             }
 
+            #[inline]
             fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.ne(right)
             }
 
+            #[inline]
             fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.lt(right)
             }
 
+            #[inline]
             fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.le(right)
             }
 
+            #[inline]
             fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.gt(right)
             }
 
+            #[inline]
             fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.ge(right)
             }
 
+            #[inline]
             fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
@@ -1621,7 +1722,6 @@ pub type SchemaRef = Arc<Schema>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
     use serde_json::Number;
     use serde_json::Value::{Bool, Number as VNumber};
     use std::f32::NAN;
@@ -2461,7 +2561,7 @@ mod tests {
 
     #[test]
     fn test_schema_merge() -> Result<()> {
-        let merged = Schema::try_merge(&vec![
+        let merged = Schema::try_merge(&[
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
@@ -2520,7 +2620,7 @@ mod tests {
 
         // support merge union fields
         assert_eq!(
-            Schema::try_merge(&vec![
+            Schema::try_merge(&[
                 Schema::new(vec![Field::new(
                     "c1",
                     DataType::Union(vec![
@@ -2550,17 +2650,17 @@ mod tests {
         );
 
         // incompatible field should throw error
-        assert!(Schema::try_merge(&vec![
+        assert!(Schema::try_merge(&[
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
             ]),
-            Schema::new(vec![Field::new("last_name", DataType::Int64, false),]),
+            Schema::new(vec![Field::new("last_name", DataType::Int64, false),])
         ])
         .is_err());
 
         // incompatible metadata should throw error
-        assert!(Schema::try_merge(&vec![
+        assert!(Schema::try_merge(&[
             Schema::new_with_metadata(
                 vec![Field::new("first_name", DataType::Utf8, false)],
                 [("foo".to_string(), "bar".to_string()),]
@@ -2574,10 +2674,93 @@ mod tests {
                     .iter()
                     .cloned()
                     .collect::<HashMap<String, String>>()
-            ),
+            )
         ])
         .is_err());
 
         Ok(())
+    }
+}
+
+#[cfg(all(
+    test,
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "simd"
+))]
+mod arrow_numeric_type_tests {
+    use crate::datatypes::{
+        ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,
+        UInt16Type,
+    };
+    use packed_simd::*;
+    use FromCast;
+
+    #[test]
+    fn test_mask_f64() {
+        let mask = Float64Type::mask_from_u64(0b10101010);
+
+        let expected =
+            m64x8::from_cast(i64x8::from_slice_unaligned(&[-1, 0, -1, 0, -1, 0, -1, 0]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_u64() {
+        let mask = Int64Type::mask_from_u64(0b01010101);
+
+        let expected =
+            m64x8::from_cast(i64x8::from_slice_unaligned(&[0, -1, 0, -1, 0, -1, 0, -1]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_f32() {
+        let mask = Float32Type::mask_from_u64(0b10101010_10101010);
+
+        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_i32() {
+        let mask = Int32Type::mask_from_u64(0b01010101_01010101);
+
+        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_u16() {
+        let mask = UInt16Type::mask_from_u64(0b01010101_01010101_10101010_10101010);
+
+        let expected = m16x32::from_cast(i16x32::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_i8() {
+        let mask = Int8Type::mask_from_u64(
+            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010,
+        );
+
+        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
+            -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
     }
 }

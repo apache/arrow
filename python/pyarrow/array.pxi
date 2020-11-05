@@ -15,13 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import warnings
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
-    cdef int64_t c_size
-    cdef PyConversionOptions options
+    cdef:
+        int64_t c_size
+        PyConversionOptions options
+        shared_ptr[CChunkedArray] chunked
 
     if type is not None:
         options.type = type.sp_type
@@ -29,18 +32,18 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     if size is not None:
         options.size = size
 
-    options.pool = pool
     options.from_pandas = from_pandas
-
-    cdef shared_ptr[CChunkedArray] out
+    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     with nogil:
-        check_status(ConvertPySequence(sequence, mask, options, &out))
+        chunked = GetResultValue(
+            ConvertPySequence(sequence, mask, options, pool)
+        )
 
-    if out.get().num_chunks() == 1:
-        return pyarrow_wrap_array(out.get().chunk(0))
+    if chunked.get().num_chunks() == 1:
+        return pyarrow_wrap_array(chunked.get().chunk(0))
     else:
-        return pyarrow_wrap_chunked_array(out)
+        return pyarrow_wrap_chunked_array(chunked)
 
 
 cdef inline _is_array_like(obj):
@@ -156,28 +159,52 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     Notes
     -----
     Localized timestamps will currently be returned as UTC (pandas's native
-    representation).  Timezone-naive data will be implicitly interpreted as
+    representation). Timezone-naive data will be implicitly interpreted as
     UTC.
+
+    Converting to dictionary array will promote to a wider integer type for
+    indices if the number of distinct values cannot be represented, even if
+    the index type was explicitly set. This means that if there are more than
+    127 values the returned dictionary array's index type will be at least
+    pa.int16() even if pa.int8() was passed to the function. Note that an
+    explicit index type will not be demoted even if it is wider than required.
 
     Examples
     --------
     >>> import pandas as pd
     >>> import pyarrow as pa
     >>> pa.array(pd.Series([1, 2]))
-    <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
+    <pyarrow.lib.Int64Array object at 0x7f674e4c0e10>
     [
       1,
       2
     ]
 
+    >>> pa.array(["a", "b", "a"], type=pa.dictionary(pa.int8(), pa.string()))
+    <pyarrow.lib.DictionaryArray object at 0x7feb288d9040>
+    -- dictionary:
+    [
+      "a",
+      "b"
+    ]
+    -- indices:
+    [
+      0,
+      1,
+      0
+    ]
+
     >>> import numpy as np
-    >>> pa.array(pd.Series([1, 2]), np.array([0, 1],
-    ... dtype=bool))
-    <pyarrow.array.Int64Array object at 0x7f9019e11208>
+    >>> pa.array(pd.Series([1, 2]), mask=np.array([0, 1], dtype=bool))
+    <pyarrow.lib.Int64Array object at 0x7f9019e11208>
     [
       1,
       null
     ]
+
+    >>> arr = pa.array(range(1024), type=pa.dictionary(pa.int8(), pa.int64()))
+    >>> arr.type.index_type
+    DataType(int16)
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -458,7 +485,7 @@ def infer_type(values, mask=None, from_pandas=False):
     if mask is not None and not isinstance(mask, np.ndarray):
         mask = np.array(mask, dtype=bool)
 
-    check_status(InferArrowType(values, mask, use_pandas_sentinels, &out))
+    out = GetResultValue(InferArrowType(values, mask, use_pandas_sentinels))
     return pyarrow_wrap_data_type(out)
 
 
@@ -730,6 +757,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
     return result
 
 
@@ -762,7 +790,7 @@ cdef class Array(_PandasConvertible):
         cdef c_string result
         with nogil:
             result = self.ap.Diff(deref(other.ap))
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def cast(self, object target_type, safe=True):
         """
@@ -964,7 +992,7 @@ cdef class Array(_PandasConvertible):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def format(self, **kwargs):
         import warnings
@@ -1054,6 +1082,7 @@ cdef class Array(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.ap.Slice(offset)
         else:
@@ -1287,7 +1316,9 @@ cdef _array_like_to_pandas(obj, options):
     result = pandas_api.series(arr, dtype=dtype, name=name)
 
     if (isinstance(original_type, TimestampType) and
-            original_type.tz is not None):
+            original_type.tz is not None and
+            # can be object dtype for non-ns and timestamp_as_object=True
+            result.dtype.kind == "M"):
         from pyarrow.pandas_compat import make_tz_aware
         result = make_tz_aware(result, original_type.tz)
 
@@ -2301,6 +2332,9 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
     for array in arrays:
+        if not isinstance(array, Array):
+            raise TypeError("Iterable should contain Array objects, "
+                            "got {0} instead".format(type(array)))
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:

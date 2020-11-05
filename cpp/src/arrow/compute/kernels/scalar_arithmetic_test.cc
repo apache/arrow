@@ -24,11 +24,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string.h"
 
@@ -39,9 +41,23 @@
 namespace arrow {
 namespace compute {
 
-template <typename ArrowType>
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
+}
+
+template <typename T>
 class TestBinaryArithmetic : public TestBase {
  protected:
+  using ArrowType = T;
   using CType = typename ArrowType::c_type;
 
   static std::shared_ptr<DataType> type_singleton() {
@@ -53,21 +69,52 @@ class TestBinaryArithmetic : public TestBase {
 
   void SetUp() { options_.check_overflow = false; }
 
+  std::shared_ptr<Scalar> MakeNullScalar() {
+    return arrow::MakeNullScalar(type_singleton());
+  }
+
+  std::shared_ptr<Scalar> MakeScalar(CType value) {
+    return *arrow::MakeScalar(type_singleton(), value);
+  }
+
   // (Scalar, Scalar)
   void AssertBinop(BinaryFunction func, CType lhs, CType rhs, CType expected) {
-    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(type_singleton(), lhs));
-    ASSERT_OK_AND_ASSIGN(auto right, MakeScalar(type_singleton(), rhs));
-    ASSERT_OK_AND_ASSIGN(auto exp, MakeScalar(type_singleton(), expected));
+    auto left = MakeScalar(lhs);
+    auto right = MakeScalar(rhs);
+    auto exp = MakeScalar(expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-    AssertScalarsEqual(*exp, *actual.scalar(), true);
+    AssertScalarsEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Array)
   void AssertBinop(BinaryFunction func, CType lhs, const std::string& rhs,
                    const std::string& expected) {
-    ASSERT_OK_AND_ASSIGN(auto left, MakeScalar(type_singleton(), lhs));
+    auto left = MakeScalar(lhs);
+    AssertBinop(func, left, rhs, expected);
+  }
+
+  // (Scalar, Array)
+  void AssertBinop(BinaryFunction func, const std::shared_ptr<Scalar>& left,
+                   const std::string& rhs, const std::string& expected) {
     auto right = ArrayFromJSON(type_singleton(), rhs);
+    auto exp = ArrayFromJSON(type_singleton(), expected);
+
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
+  }
+
+  // (Array, Scalar)
+  void AssertBinop(BinaryFunction func, const std::string& lhs, CType rhs,
+                   const std::string& expected) {
+    auto right = MakeScalar(rhs);
+    AssertBinop(func, lhs, right, expected);
+  }
+
+  // (Array, Scalar)
+  void AssertBinop(BinaryFunction func, const std::string& lhs,
+                   const std::shared_ptr<Scalar>& right, const std::string& expected) {
+    auto left = ArrayFromJSON(type_singleton(), lhs);
     auto exp = ArrayFromJSON(type_singleton(), expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
@@ -80,8 +127,26 @@ class TestBinaryArithmetic : public TestBase {
     auto left = ArrayFromJSON(type_singleton(), lhs);
     auto right = ArrayFromJSON(type_singleton(), rhs);
 
+    AssertBinop(func, left, right, expected);
+  }
+
+  // (Array, Array)
+  void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
+                   const std::shared_ptr<Array>& right,
+                   const std::string& expected_json) {
+    const auto expected = ArrayFromJSON(type_singleton(), expected_json);
     ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
+
+    // Also check (Scalar, Scalar) operations
+    const int64_t length = expected->length();
+    for (int64_t i = 0; i < length; ++i) {
+      const auto expected_scalar = *expected->GetScalar(i);
+      ASSERT_OK_AND_ASSIGN(
+          actual, func(*left->GetScalar(i), *right->GetScalar(i), options_, nullptr));
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
+                         equal_options_);
+    }
   }
 
   void AssertBinopRaises(BinaryFunction func, const std::string& lhs,
@@ -93,16 +158,25 @@ class TestBinaryArithmetic : public TestBase {
                                     func(left, right, options_, nullptr));
   }
 
-  void ValidateAndAssertApproxEqual(std::shared_ptr<Array> actual,
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::string& expected) {
-    auto exp = ArrayFromJSON(type_singleton(), expected);
+    ValidateAndAssertApproxEqual(actual, ArrayFromJSON(type_singleton(), expected));
+  }
+
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
+                                    const std::shared_ptr<Array>& expected) {
     ASSERT_OK(actual->ValidateFull());
-    AssertArraysApproxEqual(*exp, *actual);
+    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
   void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
 
+  void SetNansEqual(bool value = true) {
+    this->equal_options_ = equal_options_.nans_equal(value);
+  }
+
   ArithmeticOptions options_ = ArithmeticOptions();
+  EqualOptions equal_options_ = EqualOptions::Defaults();
 };
 
 template <typename... Elements>
@@ -150,19 +224,25 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Add) {
     this->SetOverflowCheck(check_overflow);
 
     this->AssertBinop(Add, "[]", "[]", "[]");
-    this->AssertBinop(Add, "[null]", "[null]", "[null]");
     this->AssertBinop(Add, "[3, 2, 6]", "[1, 0, 2]", "[4, 2, 8]");
+    // Nulls on left side
+    this->AssertBinop(Add, "[null, 1, null]", "[3, 4, 5]", "[null, 5, null]");
+    this->AssertBinop(Add, "[3, 4, 5]", "[null, 1, null]", "[null, 5, null]");
+    // Nulls on both sides
+    this->AssertBinop(Add, "[null, 1, 2]", "[3, 4, null]", "[null, 5, null]");
+    // All nulls
+    this->AssertBinop(Add, "[null]", "[null]", "[null]");
 
-    this->AssertBinop(Add, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
-                      "[1, 3, 5, 7, 9, 11, 13]");
-
-    this->AssertBinop(Add, "[10, 12, 4, 50, 50, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]",
-                      "[12, 12, 10, 51, 55, 35, 15]");
-    this->AssertBinop(Add, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
-                      "[null, 5, 5, null, 2, 8]");
-    this->AssertBinop(Add, 10, "[null, 1, 3, null, 2, 5]",
-                      "[null, 11, 13, null, 12, 15]");
-    this->AssertBinop(Add, 17, 42, 59);
+    // Scalar on the left
+    this->AssertBinop(Add, 3, "[1, 2]", "[4, 5]");
+    this->AssertBinop(Add, 3, "[null, 2]", "[null, 5]");
+    this->AssertBinop(Add, this->MakeNullScalar(), "[1, 2]", "[null, null]");
+    this->AssertBinop(Add, this->MakeNullScalar(), "[null, 2]", "[null, null]");
+    // Scalar on the right
+    this->AssertBinop(Add, "[1, 2]", 3, "[4, 5]");
+    this->AssertBinop(Add, "[null, 2]", 3, "[null, 5]");
+    this->AssertBinop(Add, "[1, 2]", this->MakeNullScalar(), "[null, null]");
+    this->AssertBinop(Add, "[null, 2]", this->MakeNullScalar(), "[null, null]");
   }
 }
 
@@ -171,13 +251,25 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Sub) {
     this->SetOverflowCheck(check_overflow);
 
     this->AssertBinop(Subtract, "[]", "[]", "[]");
-    this->AssertBinop(Subtract, "[null]", "[null]", "[null]");
     this->AssertBinop(Subtract, "[3, 2, 6]", "[1, 0, 2]", "[2, 2, 4]");
-    this->AssertBinop(Subtract, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
-                      "[1, 1, 1, 1, 1, 1, 1]");
-    this->AssertBinop(Subtract, 10, "[null, 1, 3, null, 2, 5]",
-                      "[null, 9, 7, null, 8, 5]");
-    this->AssertBinop(Subtract, 20, 9, 11);
+    // Nulls on left side
+    this->AssertBinop(Subtract, "[null, 4, null]", "[2, 1, 0]", "[null, 3, null]");
+    this->AssertBinop(Subtract, "[5, 4, 3]", "[null, 1, null]", "[null, 3, null]");
+    // Nulls on both sides
+    this->AssertBinop(Subtract, "[null, 4, 3]", "[2, 1, null]", "[null, 3, null]");
+    // All nulls
+    this->AssertBinop(Subtract, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(Subtract, 3, "[1, 2]", "[2, 1]");
+    this->AssertBinop(Subtract, 3, "[null, 2]", "[null, 1]");
+    this->AssertBinop(Subtract, this->MakeNullScalar(), "[1, 2]", "[null, null]");
+    this->AssertBinop(Subtract, this->MakeNullScalar(), "[null, 2]", "[null, null]");
+    // Scalar on the right
+    this->AssertBinop(Subtract, "[4, 5]", 3, "[1, 2]");
+    this->AssertBinop(Subtract, "[null, 5]", 3, "[null, 2]");
+    this->AssertBinop(Subtract, "[1, 2]", this->MakeNullScalar(), "[null, null]");
+    this->AssertBinop(Subtract, "[null, 2]", this->MakeNullScalar(), "[null, null]");
   }
 }
 
@@ -208,17 +300,25 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Mul) {
     this->SetOverflowCheck(check_overflow);
 
     this->AssertBinop(Multiply, "[]", "[]", "[]");
-    this->AssertBinop(Multiply, "[null]", "[null]", "[null]");
     this->AssertBinop(Multiply, "[3, 2, 6]", "[1, 0, 2]", "[3, 0, 12]");
-    this->AssertBinop(Multiply, "[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
-                      "[0, 2, 6, 12, 20, 30, 42]");
-    this->AssertBinop(Multiply, "[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
-                      "[42, 30, 20, 12, 6, 2, 0]");
-    this->AssertBinop(Multiply, "[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
-                      "[null, 4, 6, null, 0, 15]");
-    this->AssertBinop(Multiply, 3, "[null, 1, 3, null, 2, 5]",
-                      "[null, 3, 9, null, 6, 15]");
-    this->AssertBinop(Multiply, 6, 7, 42);
+    // Nulls on left side
+    this->AssertBinop(Multiply, "[null, 2, null]", "[4, 5, 6]", "[null, 10, null]");
+    this->AssertBinop(Multiply, "[4, 5, 6]", "[null, 2, null]", "[null, 10, null]");
+    // Nulls on both sides
+    this->AssertBinop(Multiply, "[null, 2, 3]", "[4, 5, null]", "[null, 10, null]");
+    // All nulls
+    this->AssertBinop(Multiply, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(Multiply, 3, "[4, 5]", "[12, 15]");
+    this->AssertBinop(Multiply, 3, "[null, 5]", "[null, 15]");
+    this->AssertBinop(Multiply, this->MakeNullScalar(), "[1, 2]", "[null, null]");
+    this->AssertBinop(Multiply, this->MakeNullScalar(), "[null, 2]", "[null, null]");
+    // Scalar on the right
+    this->AssertBinop(Multiply, "[4, 5]", 3, "[12, 15]");
+    this->AssertBinop(Multiply, "[null, 5]", 3, "[null, 15]");
+    this->AssertBinop(Multiply, "[1, 2]", this->MakeNullScalar(), "[null, null]");
+    this->AssertBinop(Multiply, "[null, 2]", this->MakeNullScalar(), "[null, null]");
   }
 }
 
@@ -273,6 +373,13 @@ TYPED_TEST(TestBinaryArithmeticSigned, AddOverflowRaises) {
 
   this->AssertBinopRaises(Add, MakeArray(max), MakeArray(1), "overflow");
   this->AssertBinopRaises(Add, MakeArray(min), MakeArray(-1), "overflow");
+
+  // Overflow should not be checked on underlying value slots when output would be null
+  auto left = ArrayFromJSON(this->type_singleton(), MakeArray(1, max, min));
+  auto right = ArrayFromJSON(this->type_singleton(), MakeArray(1, 1, -1));
+  left = TweakValidityBit(left, 1, false);
+  right = TweakValidityBit(right, 2, false);
+  this->AssertBinop(Add, left, right, "[2, null, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, SubOverflowRaises) {
@@ -290,6 +397,13 @@ TYPED_TEST(TestBinaryArithmeticSigned, SubOverflowRaises) {
 
   this->AssertBinopRaises(Subtract, MakeArray(max), MakeArray(-1), "overflow");
   this->AssertBinopRaises(Subtract, MakeArray(min), MakeArray(1), "overflow");
+
+  // Overflow should not be checked on underlying value slots when output would be null
+  auto left = ArrayFromJSON(this->type_singleton(), MakeArray(2, max, min));
+  auto right = ArrayFromJSON(this->type_singleton(), MakeArray(1, -1, 1));
+  left = TweakValidityBit(left, 1, false);
+  right = TweakValidityBit(right, 2, false);
+  this->AssertBinop(Subtract, left, right, "[1, null, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, MulOverflowRaises) {
@@ -311,6 +425,13 @@ TYPED_TEST(TestBinaryArithmeticSigned, MulOverflowRaises) {
   this->AssertBinopRaises(Multiply, MakeArray(min / 2), MakeArray(3), "overflow");
   this->AssertBinopRaises(Multiply, MakeArray(min), MakeArray(-1), "overflow");
   this->AssertBinopRaises(Multiply, MakeArray(min / 2), MakeArray(-2), "overflow");
+
+  // Overflow should not be checked on underlying value slots when output would be null
+  auto left = ArrayFromJSON(this->type_singleton(), MakeArray(2, max, min / 2));
+  auto right = ArrayFromJSON(this->type_singleton(), MakeArray(1, 2, 3));
+  left = TweakValidityBit(left, 1, false);
+  right = TweakValidityBit(right, 2, false);
+  this->AssertBinop(Multiply, left, right, "[2, null, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticUnsigned, OverflowWraps) {
@@ -352,47 +473,168 @@ TYPED_TEST(TestBinaryArithmeticSigned, Mul) {
   this->AssertBinop(Multiply, -5, -5, 25);
 }
 
+// NOTE: cannot test Inf / -Inf (ARROW-9495)
+
 TYPED_TEST(TestBinaryArithmeticFloating, Add) {
   this->AssertBinop(Add, "[]", "[]", "[]");
 
-  this->AssertBinop(Add, "[3.4, 2.6, 6.3]", "[1, 0, 2]", "[4.4, 2.6, 8.3]");
+  this->AssertBinop(Add, "[1.5, 0.5]", "[2.0, -3]", "[3.5, -2.5]");
+  // Nulls on the left
+  this->AssertBinop(Add, "[null, 0.5]", "[2.0, -3]", "[null, -2.5]");
+  // Nulls on the right
+  this->AssertBinop(Add, "[1.5, 0.5]", "[null, -3]", "[null, -2.5]");
+  // Nulls on both sides
+  this->AssertBinop(Add, "[null, 1.5, 0.5]", "[2.0, -3, null]", "[null, -1.5, null]");
 
-  this->AssertBinop(Add, "[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0, 1, 2, 3, 4, 5, 6]",
-                    "[1.1, 3.4, 5.5, 7.3, 9.1, 11.8, 13.3]");
+  // Scalar on the left
+  this->AssertBinop(Add, -1.5f, "[0.0, 2.0]", "[-1.5, 0.5]");
+  this->AssertBinop(Add, -1.5f, "[null, 2.0]", "[null, 0.5]");
+  this->AssertBinop(Add, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
+  this->AssertBinop(Add, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
+  // Scalar on the right
+  this->AssertBinop(Add, "[0.0, 2.0]", -1.5f, "[-1.5, 0.5]");
+  this->AssertBinop(Add, "[null, 2.0]", -1.5f, "[null, 0.5]");
+  this->AssertBinop(Add, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
+  this->AssertBinop(Add, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
+}
 
-  this->AssertBinop(Add, "[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
-                    "[13, 11, 9, 7, 5, 3, 1]");
+TYPED_TEST(TestBinaryArithmeticFloating, Div) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertBinop(Divide, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Divide, "[3.4, 0.64, 1.28]", "[1, 2, 4]", "[3.4, 0.32, 0.32]");
+    // Array with nulls
+    this->AssertBinop(Divide, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
+                      "[null, 0.25, 1.65, null, 20]");
+    // Scalar divides by array
+    this->AssertBinop(Divide, 10.0F, "[null, 1, 2.5, null, 2, 5]",
+                      "[null, 10, 4, null, 5, 2]");
+    // Array divides by scalar
+    this->AssertBinop(Divide, "[null, 1, 2.5, null, 2, 5]", 10.0F,
+                      "[null, 0.1, 0.25, null, 0.2, 0.5]");
+    // Array with infinity
+    this->AssertBinop(Divide, "[3.4, Inf, -Inf]", "[1, 2, 3]", "[3.4, Inf, -Inf]");
+    // Array with NaN
+    this->SetNansEqual(true);
+    this->AssertBinop(Divide, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 1.0]");
+    // Scalar divides by scalar
+    this->AssertBinop(Divide, 21.0F, 3.0F, 7.0F);
+  }
+}
 
-  this->AssertBinop(Add, "[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]",
-                    "[12.4, 12, 10.2, 51, 55.3, 35, 15]");
+TYPED_TEST(TestBinaryArithmeticIntegral, Div) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
 
-  this->AssertBinop(Add, "[null, 1, 3.3, null, 2, 5.3]", "[1, 4, 2, 5, 0, 3]",
-                    "[null, 5, 5.3, null, 2, 8.3]");
+    // Empty arrays
+    this->AssertBinop(Divide, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Divide, "[3, 2, 6]", "[1, 1, 2]", "[3, 2, 3]");
+    // Array with nulls
+    this->AssertBinop(Divide, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                      "[null, 2, 15, null, 2]");
+    // Scalar divides by array
+    this->AssertBinop(Divide, 33, "[null, 1, 3, null, 2]", "[null, 33, 11, null, 16]");
+    // Array divides by scalar
+    this->AssertBinop(Divide, "[null, 10, 30, null, 2]", 3, "[null, 3, 10, null, 0]");
+    // Scalar divides by scalar
+    this->AssertBinop(Divide, 16, 7, 2);
+  }
+}
 
-  this->AssertBinop(Add, 1.1F, "[null, 1, 3.3, null, 2, 5.3]",
-                    "[null, 2.1, 4.4, null, 3.1, 6.4]");
+TYPED_TEST(TestBinaryArithmeticSigned, Div) {
+  // Ordinary arrays
+  this->AssertBinop(Divide, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, -3]");
+  // Array with nulls
+  this->AssertBinop(Divide, "[null, 10, 30, null, -20]", "[1, 4, 2, 5, 10]",
+                    "[null, 2, 15, null, -2]");
+  // Scalar divides by array
+  this->AssertBinop(Divide, 33, "[null, -1, -3, null, 2]", "[null, -33, -11, null, 16]");
+  // Array divides by scalar
+  this->AssertBinop(Divide, "[null, 10, 30, null, 2]", 3, "[null, 3, 10, null, 0]");
+  // Scalar divides by scalar
+  this->AssertBinop(Divide, -16, -8, 2);
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, DivideByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Divide, "[3, 2, 6]", "[1, 1, 0]", "divide by zero");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, DivideByZero) {
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0.0]", "divide by zero");
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, 0.0]", "[1.0, 1.0, 0.0]", "divide by zero");
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, -6.0]", "[1.0, 1.0, 0.0]",
+                          "divide by zero");
+
+  this->SetOverflowCheck(false);
+  this->SetNansEqual(true);
+  this->AssertBinop(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, Inf]");
+  this->AssertBinop(Divide, "[3.0, 2.0, 0.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, NaN]");
+  this->AssertBinop(Divide, "[3.0, 2.0, -6.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, -Inf]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::lowest();
+
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Divide, MakeArray(min), MakeArray(-1), "overflow");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Sub) {
   this->AssertBinop(Subtract, "[]", "[]", "[]");
 
-  this->AssertBinop(Subtract, "[3.4, 2.6, 6.3]", "[1, 0, 2]", "[2.4, 2.6, 4.3]");
+  this->AssertBinop(Subtract, "[1.5, 0.5]", "[2.0, -3]", "[-0.5, 3.5]");
+  // Nulls on the left
+  this->AssertBinop(Subtract, "[null, 0.5]", "[2.0, -3]", "[null, 3.5]");
+  // Nulls on the right
+  this->AssertBinop(Subtract, "[1.5, 0.5]", "[null, -3]", "[null, 3.5]");
+  // Nulls on both sides
+  this->AssertBinop(Subtract, "[null, 1.5, 0.5]", "[2.0, -3, null]", "[null, 4.5, null]");
 
-  this->AssertBinop(Subtract, "[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]",
-                    "[0.1, 1.2, 2.3, 3.4, 4.5, 5.6, 6.7]",
-                    "[1.0, 1.2, 1.2, 0.9, 0.6, 1.2, 0.6]");
+  // Scalar on the left
+  this->AssertBinop(Subtract, -1.5f, "[0.0, 2.0]", "[-1.5, -3.5]");
+  this->AssertBinop(Subtract, -1.5f, "[null, 2.0]", "[null, -3.5]");
+  this->AssertBinop(Subtract, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
+  this->AssertBinop(Subtract, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
+  // Scalar on the right
+  this->AssertBinop(Subtract, "[0.0, 2.0]", -1.5f, "[1.5, 3.5]");
+  this->AssertBinop(Subtract, "[null, 2.0]", -1.5f, "[null, 3.5]");
+  this->AssertBinop(Subtract, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
+  this->AssertBinop(Subtract, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
+}
 
-  this->AssertBinop(Subtract, "[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
-                    "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
+TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
+  this->AssertBinop(Multiply, "[]", "[]", "[]");
 
-  this->AssertBinop(Subtract, "[10.4, 12, 4.2, 50, 50.3, 32, 11]",
-                    "[2, 0, 6, 1, 5, 3, 4]", "[8.4, 12, -1.8, 49, 45.3, 29, 7]");
+  this->AssertBinop(Multiply, "[1.5, 0.5]", "[2.0, -3]", "[3.0, -1.5]");
+  // Nulls on the left
+  this->AssertBinop(Multiply, "[null, 0.5]", "[2.0, -3]", "[null, -1.5]");
+  // Nulls on the right
+  this->AssertBinop(Multiply, "[1.5, 0.5]", "[null, -3]", "[null, -1.5]");
+  // Nulls on both sides
+  this->AssertBinop(Multiply, "[null, 1.5, 0.5]", "[2.0, -3, null]",
+                    "[null, -4.5, null]");
 
-  this->AssertBinop(Subtract, "[null, 1, 3.3, null, 2, 5.3]", "[1, 4, 2, 5, 0, 3]",
-                    "[null, -3, 1.3, null, 2, 2.3]");
-
-  this->AssertBinop(Subtract, 0.1F, "[null, 1, 3.3, null, 2, 5.3]",
-                    "[null, -0.9, -3.2, null, -1.9, -5.2]");
+  // Scalar on the left
+  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[0.0, -3.0]");
+  this->AssertBinop(Multiply, -1.5f, "[null, 2.0]", "[null, -3.0]");
+  this->AssertBinop(Multiply, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
+  this->AssertBinop(Multiply, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
+  // Scalar on the right
+  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[0.0, -3.0]");
+  this->AssertBinop(Multiply, "[null, 2.0]", -1.5f, "[null, -3.0]");
+  this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
+  this->AssertBinop(Multiply, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
 
 }  // namespace compute

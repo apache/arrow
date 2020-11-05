@@ -32,7 +32,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/status.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -43,6 +45,8 @@
 
 namespace parquet {
 namespace test {
+
+using arrow::internal::TemporaryDir;
 
 using parquet::ConvertedType;
 using parquet::Repetition;
@@ -63,6 +67,15 @@ inline std::string data_file(const char* file) {
   std::stringstream ss;
   ss << dir_string << "/" << file;
   return ss.str();
+}
+
+// A temporary directory that contains the encrypted files generated in the tests.
+extern std::unique_ptr<TemporaryDir> temp_dir;
+
+inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
+  arrow::Result<std::unique_ptr<TemporaryDir>> dir;
+  ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
+  return dir;
 }
 
 }  // namespace test

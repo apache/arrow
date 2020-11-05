@@ -27,6 +27,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.csv
 import pyarrow.fs as fs
+from pyarrow.tests.util import change_cwd
 
 try:
     import pandas as pd
@@ -41,16 +42,6 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
-
-
-@contextlib.contextmanager
-def change_cwd(path):
-    curdir = os.getcwd()
-    os.chdir(str(path))
-    try:
-        yield
-    finally:
-        os.chdir(curdir)
 
 
 def _generate_data(n):
@@ -127,18 +118,18 @@ def mockfs():
 
 @pytest.fixture
 def open_logging_fs(monkeypatch):
-    from pyarrow.fs import PyFileSystem, LocalFileSystem, _normalize_path
+    from pyarrow.fs import PyFileSystem, LocalFileSystem
     from .test_fs import ProxyHandler
 
     localfs = LocalFileSystem()
 
     def normalized(paths):
-        return {_normalize_path(localfs, str(p)) for p in paths}
+        return {localfs.normalize_path(str(p)) for p in paths}
 
     opened = set()
 
     def open_input_file(self, path):
-        path = _normalize_path(localfs, str(path))
+        path = localfs.normalize_path(str(path))
         opened.add(path)
         return self._fs.open_input_file(path)
 
@@ -178,9 +169,9 @@ def multisourcefs(request):
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
 
-    # create one with schema partitioning by week and color
+    # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([df_b.date.dt.week, df_b.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
         folder = 'schema/{}/{}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
@@ -236,7 +227,7 @@ def test_filesystem_dataset(mockfs):
 
     dataset_from_fragments = ds.FileSystemDataset(
         fragments, schema=schema, format=file_format,
-        root_partition=root_partition,
+        filesystem=mockfs, root_partition=root_partition,
     )
     dataset_from_paths = ds.FileSystemDataset.from_paths(
         paths, schema=schema, format=file_format, filesystem=mockfs,
@@ -256,19 +247,21 @@ def test_filesystem_dataset(mockfs):
             assert isinstance(fragment.format, ds.ParquetFileFormat)
             assert isinstance(fragment, ds.ParquetFileFragment)
             assert fragment.row_groups is None
+            assert fragment.num_row_groups == 1
 
             row_group_fragments = list(fragment.split_by_row_group())
-            assert len(row_group_fragments) == 1
+            assert fragment.num_row_groups == len(row_group_fragments) == 1
             assert isinstance(row_group_fragments[0], ds.ParquetFileFragment)
             assert row_group_fragments[0].path == path
             assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
+            assert row_group_fragments[0].num_row_groups == 1
 
         fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
         assert len(fragments) == 2
 
     # the root_partition keyword has a default
     dataset = ds.FileSystemDataset(
-        fragments, schema=schema, format=file_format
+        fragments, schema=schema, format=file_format, filesystem=mockfs
     )
     assert dataset.partition_expression.equals(ds.scalar(True))
 
@@ -285,8 +278,8 @@ def test_filesystem_dataset(mockfs):
         ds.FileSystemDataset(fragments, file_format, schema)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(fragments, schema=schema, format=file_format,
-                             root_partition=1)
+        ds.FileSystemDataset(fragments, schema=schema,
+                             format=file_format, root_partition=1)
     # missing required argument in from_paths
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset.from_paths(fragments, format=file_format)
@@ -605,14 +598,17 @@ def test_make_fragment(multisourcefs):
 
     for path in dataset.files:
         fragment = parquet_format.make_fragment(path, multisourcefs)
+        assert fragment.row_groups is None
+        assert fragment.num_row_groups == 1
+
         row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
                                                           row_groups=[0])
         for f in [fragment, row_group_fragment]:
             assert isinstance(f, ds.ParquetFileFragment)
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
-        assert fragment.row_groups is None
         assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
+        assert row_group_fragment.num_row_groups == 1
 
 
 def test_make_csv_fragment_from_buffer():
@@ -813,13 +809,14 @@ def test_fragments_parquet_row_groups(tempdir):
 
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
-    assert len(row_group_fragments) == 2
+    assert len(row_group_fragments) == fragment.num_row_groups == 2
     result = row_group_fragments[0].to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
     assert len(result) == 2
     assert result.equals(table.slice(0, 2))
 
     assert row_group_fragments[0].row_groups is not None
+    assert row_group_fragments[0].num_row_groups == 1
     assert row_group_fragments[0].row_groups[0].statistics == {
         'f1': {'min': 0, 'max': 1},
         'f2': {'min': 1, 'max': 1},
@@ -830,6 +827,44 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(row_group_fragments) == 1
     result = row_group_fragments[0].to_table(filter=ds.field('f1') < 1)
     assert len(result) == 1
+
+
+@pytest.mark.parquet
+def test_fragments_parquet_num_row_groups(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': range(8)})
+    pq.write_table(table, tempdir / "test.parquet", row_group_size=2)
+    dataset = ds.dataset(tempdir / "test.parquet", format="parquet")
+    original_fragment = list(dataset.get_fragments())[0]
+
+    # create fragment with subset of row groups
+    fragment = original_fragment.format.make_fragment(
+        original_fragment.path, original_fragment.filesystem,
+        row_groups=[1, 3])
+    assert fragment.num_row_groups == 2
+    # ensure that parsing metadata preserves correct number of row groups
+    fragment.ensure_complete_metadata()
+    assert fragment.num_row_groups == 2
+    assert len(fragment.row_groups) == 2
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_row_groups_dictionary(tempdir):
+    import pandas as pd
+
+    df = pd.DataFrame(dict(col1=['a', 'b'], col2=[1, 2]))
+    df['col1'] = df['col1'].astype("category")
+
+    import pyarrow.parquet as pq
+    pq.write_table(pa.table(df), tempdir / "test_filter_dictionary.parquet")
+
+    import pyarrow.dataset as ds
+    dataset = ds.dataset(tempdir / 'test_filter_dictionary.parquet')
+    result = dataset.to_table(filter=ds.field("col1") == "a")
+
+    assert (df.iloc[0] == result.to_pandas()).all().all()
 
 
 @pytest.mark.pandas
@@ -1058,6 +1093,81 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         new_fragment.to_table()
 
 
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_ids(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with row group ids
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    # the row_groups list is initialized, but don't have statistics
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [0, 3], "f2": [1, 1]}
+
+    # if the original fragment has statistics -> preserve them
+    fragment.ensure_complete_metadata()
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is not None
+
+    # empty list of ids
+    subfrag = fragment.subset(row_group_ids=[])
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_filter(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with filter
+    subfrag = fragment.subset(ds.field("f1") >= 1)
+    assert subfrag.num_row_groups == 3
+    # ensure statistics are preserved in subset (need to be read for filter)
+    assert len(subfrag.row_groups) == 3
+    assert subfrag.row_groups[0].statistics is not None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [1, 2, 3], "f2": [1, 1, 1]}
+
+    # filter that results in empty selection
+    subfrag = fragment.subset(ds.field("f1") > 5)
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+    # passing schema to ensure filter on partition expression works
+    subfrag = fragment.subset(ds.field("part") == "a", schema=dataset.schema)
+    assert subfrag.num_row_groups == 4
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_invalid(tempdir):
+    _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # passing none or both of filter / row_group_ids
+    with pytest.raises(ValueError):
+        fragment.subset(ds.field("f1") >= 1, row_group_ids=[1, 2])
+
+    with pytest.raises(ValueError):
+        fragment.subset()
+
+
 def test_partitioning_factory(mockfs):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
@@ -1086,32 +1196,22 @@ def test_partitioning_factory(mockfs):
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
 
 
-def test_partitioning_factory_dictionary(mockfs):
+@pytest.mark.parametrize('infer_dictionary', [False, True])
+def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
 
-    max_size_to_inferred_type = {
-        0: pa.string(),
-        1: pa.string(),
-        2: pa.dictionary(pa.int32(), pa.string()),
-        64: pa.dictionary(pa.int32(), pa.string()),
-        None: pa.dictionary(pa.int32(), pa.string()),
-    }
+    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+        ['group', 'key'], infer_dictionary=infer_dictionary)
 
-    for max_size, expected_type in max_size_to_inferred_type.items():
-        options.partitioning_factory = ds.DirectoryPartitioning.discover(
-            ['group', 'key'],
-            max_partition_dictionary_size=max_size)
+    factory = ds.FileSystemDatasetFactory(
+        mockfs, paths_or_selector, format, options)
 
-        factory = ds.FileSystemDatasetFactory(
-            mockfs, paths_or_selector, format, options)
-
-        inferred_schema = factory.inspect()
+    inferred_schema = factory.inspect()
+    if infer_dictionary:
+        expected_type = pa.dictionary(pa.int32(), pa.string())
         assert inferred_schema.field('key').type == expected_type
-
-        if expected_type == pa.string():
-            continue
 
         table = factory.finish().to_table().combine_chunks()
         actual = table.column('key').chunk(0)
@@ -1123,6 +1223,8 @@ def test_partitioning_factory_dictionary(mockfs):
         actual = table.column('key').chunk(0)
         expected = expected.slice(0, 5)
         assert actual.equals(expected)
+    else:
+        assert inferred_schema.field('key').type == pa.string()
 
 
 def test_partitioning_function():
@@ -1498,33 +1600,34 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
 
+    if partitioning == "directory":
+        partitioning = ds.DirectoryPartitioning.discover(
+            ["part1", "part2"], infer_dictionary=True)
+        fmt = "{0}/{1}"
+    else:
+        partitioning = ds.HivePartitioning.discover(infer_dictionary=True)
+        fmt = "part1={0}/part2={1}"
+
     basepath = tempdir / "dataset"
     basepath.mkdir()
 
     part_keys1, part_keys2 = partition_keys
     for part1 in part_keys1:
         for part2 in part_keys2:
-            if partitioning == 'directory':
-                fmt = "{0}/{1}"
-            else:
-                fmt = "part1={0}/part2={1}"
             path = basepath / fmt.format(part1, part2)
             path.mkdir(parents=True)
             pq.write_table(table, path / "test.parquet")
 
-    if partitioning == "directory":
-        part = ds.DirectoryPartitioning.discover(
-            ["part1", "part2"], max_partition_dictionary_size=None)
-    else:
-        part = ds.HivePartitioning.discover(max_partition_dictionary_size=None)
+    dataset = ds.dataset(str(basepath), partitioning=partitioning)
 
-    dataset = ds.dataset(str(basepath), partitioning=part)
-
-    dict_type = pa.dictionary(pa.int32(), pa.string())
-    part_type1 = dict_type if isinstance(part_keys1[0], str) else pa.int32()
-    part_type2 = dict_type if isinstance(part_keys2[0], str) else pa.int32()
+    def dict_type(key):
+        value_type = pa.string() if isinstance(key, str) else pa.int32()
+        return pa.dictionary(pa.int32(), value_type)
     expected_schema = table.schema.append(
-        pa.field("part1", part_type1)).append(pa.field("part2", part_type2))
+        pa.field("part1", dict_type(part_keys1[0]))
+    ).append(
+        pa.field("part2", dict_type(part_keys2[0]))
+    )
     assert dataset.schema.equals(expected_schema)
 
 
@@ -2061,6 +2164,11 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     with assert_opens([]):
         fragments[0].split_by_row_group(ds.field("f1") > 15)
 
+    # ensuring metadata of splitted fragment should also not open any file
+    with assert_opens([]):
+        rg_fragments = fragments[0].split_by_row_group()
+        rg_fragments[0].ensure_complete_metadata()
+
     # FIXME(bkietz) on Windows this results in FileNotFoundErrors.
     # but actually scanning does open files
     # with assert_opens([f.path for f in fragments]):
@@ -2123,3 +2231,272 @@ def test_dataset_project_only_partition_columns(tempdir):
     part_only = dataset.to_table(columns=['part'], use_threads=False)
 
     assert all_cols.column('part').equals(part_only.column('part'))
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_project_null_column(tempdir):
+    import pandas as pd
+    df = pd.DataFrame({"col": np.array([None, None, None], dtype='object')})
+
+    f = tempdir / "test_dataset_project_null_column.parquet"
+    df.to_parquet(f, engine="pyarrow")
+
+    dataset = ds.dataset(f, format="parquet",
+                         schema=pa.schema([("col", pa.int64())]))
+    expected = pa.table({'col': pa.array([None, None, None], pa.int64())})
+    assert dataset.to_table().equals(expected)
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+                             base_dir_path=None, partitioning=None):
+    base_dir_path = base_dir_path or base_dir
+
+    ds.write_dataset(dataset, base_dir, format="feather",
+                     partitioning=partitioning, use_threads=False)
+
+    # check that all files are present
+    file_paths = list(base_dir_path.rglob("*"))
+    assert set(file_paths) == set(expected_files)
+
+    # check that reading back in as dataset gives the same result
+    dataset2 = ds.dataset(
+        base_dir_path, format="feather", partitioning=partitioning)
+    assert dataset2.to_table().equals(dataset.to_table())
+
+
+@pytest.mark.parquet
+def test_write_dataset(tempdir):
+    # manually create a written dataset and read as dataset object
+    directory = tempdir / 'single-file'
+    directory.mkdir()
+    _ = _create_single_file(directory)
+    dataset = ds.dataset(directory)
+
+    # full string path
+    target = tempdir / 'single-file-target'
+    expected_files = [target / "part-0.feather"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+    # pathlib path object
+    target = tempdir / 'single-file-target2'
+    expected_files = [target / "part-0.feather"]
+    _check_dataset_roundtrip(dataset, target, expected_files, target)
+
+    # TODO
+    # # relative path
+    # target = tempdir / 'single-file-target3'
+    # expected_files = [target / "part-0.ipc"]
+    # _check_dataset_roundtrip(
+    #     dataset, './single-file-target3', expected_files, target)
+
+    # Directory of files
+    directory = tempdir / 'single-directory'
+    directory.mkdir()
+    _ = _create_directory_of_files(directory)
+    dataset = ds.dataset(directory)
+
+    target = tempdir / 'single-directory-target'
+    expected_files = [target / "part-0.feather"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_partitioned(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.dataset(directory, partitioning=partitioning)
+
+    # hive partitioning
+    target = tempdir / 'partitioned-hive-target'
+    expected_paths = [
+        target / "part=a", target / "part=a" / "part-0.feather",
+        target / "part=b", target / "part=b" / "part-1.feather"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+    # directory partitioning
+    target = tempdir / 'partitioned-dir-target'
+    expected_paths = [
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-1.feather"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]))
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    dataset = ds.dataset(directory, partitioning="hive")
+
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+
+    target1 = tempdir / 'partitioned1'
+    ds.write_dataset(
+        dataset, target1, format="feather", partitioning=partitioning,
+        use_threads=True
+    )
+    target2 = tempdir / 'partitioned2'
+    ds.write_dataset(
+        dataset, target2, format="feather", partitioning=partitioning,
+        use_threads=False
+    )
+
+    # check that reading in gives same result
+    result1 = ds.dataset(target1, format="feather", partitioning=partitioning)
+    result2 = ds.dataset(target2, format="feather", partitioning=partitioning)
+    assert result1.to_table().equals(result2.to_table())
+
+
+def test_write_table(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir,
+                     basename_template='dat_{i}.arrow', format="feather")
+    # check that all files are present
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [base_dir / "dat_0.arrow"]
+    assert set(file_paths) == set(expected_paths)
+    # check Table roundtrip
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # with partitioning
+    base_dir = tempdir / 'partitioned'
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    ds.write_dataset(table, base_dir, format="feather",
+                     basename_template='dat_{i}.arrow',
+                     partitioning=partitioning)
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [
+        base_dir / "part=a", base_dir / "part=a" / "dat_0.arrow",
+        base_dir / "part=b", base_dir / "part=b" / "dat_1.arrow"
+    ]
+    assert set(file_paths) == set(expected_paths)
+    result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
+    assert result.to_table().equals(table)
+
+
+def test_write_table_multiple_fragments(tempdir):
+    table = pa.table([
+        pa.array(range(10)), pa.array(np.random.randn(10)),
+        pa.array(np.repeat(['a', 'b'], 5))
+    ], names=["f1", "f2", "part"])
+    table = pa.concat_tables([table]*2)
+
+    # Table with multiple batches written as single Fragment by default
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Same for single-element list of Table
+    base_dir = tempdir / 'single-list'
+    ds.write_dataset([table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of batches to write multiple fragments
+    base_dir = tempdir / 'multiple'
+    ds.write_dataset(table.to_batches(), base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "part-0.feather"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of tables to write multiple fragments
+    base_dir = tempdir / 'multiple-table'
+    ds.write_dataset([table, table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "part-0.feather"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(
+        pa.concat_tables([table]*2)
+    )
+
+
+@pytest.mark.parquet
+def test_write_dataset_parquet(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    # using default "parquet" format string
+
+    base_dir = tempdir / 'parquet_dataset'
+    ds.write_dataset(table, base_dir, format="parquet")
+    # check that all files are present
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [base_dir / "part-0.parquet"]
+    assert set(file_paths) == set(expected_paths)
+    # check Table roundtrip
+    result = ds.dataset(base_dir, format="parquet").to_table()
+    assert result.equals(table)
+
+    # using custom options
+    for version in ["1.0", "2.0"]:
+        format = ds.ParquetFileFormat()
+        opts = format.make_write_options(version=version)
+        base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
+        ds.write_dataset(table, base_dir, format=format, file_options=opts)
+        meta = pq.read_metadata(base_dir / "part-0.parquet")
+        assert meta.format_version == version
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_arrow_schema_metadata(tempdir):
+    # ensure we serialize ARROW schema in the parquet metadata, to have a
+    # correct roundtrip (e.g. preserve non-UTC timezone)
+    import pyarrow.parquet as pq
+
+    table = pa.table({"a": [pd.Timestamp("2012-01-01", tz="Europe/Brussels")]})
+    assert table["a"].type.tz == "Europe/Brussels"
+
+    ds.write_dataset(table, tempdir, format="parquet")
+    result = pq.read_table(tempdir / "part-0.parquet")
+    assert result["a"].type.tz == "Europe/Brussels"
+
+
+def test_write_dataset_schema_metadata(tempdir):
+    # ensure that schema metadata gets written
+    from pyarrow import feather
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="feather")
+
+    schema = feather.read_table(tempdir / "part-0.feather").schema
+    assert schema.metadata == {b'key': b'value'}
+
+
+@pytest.mark.parquet
+def test_write_dataset_schema_metadata_parquet(tempdir):
+    # ensure that schema metadata gets written
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="parquet")
+
+    schema = pq.read_table(tempdir / "part-0.parquet").schema
+    assert schema.metadata == {b'key': b'value'}

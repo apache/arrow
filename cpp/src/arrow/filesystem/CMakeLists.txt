@@ -31,6 +31,26 @@ add_arrow_test(filesystem-test
 
 if(ARROW_S3)
   add_arrow_test(s3fs_test EXTRA_LABELS filesystem)
+  if(TARGET arrow-s3fs-test)
+    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+    get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
+    # We need to initialize AWS C++ SDK for direct use (not via
+    # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
+    # C++ SDK. Because AWS C++ SDK has internal static variables that
+    # aren't shared in libarrow and arrow-s3fs-test. It means that
+    # arrow::fs::InitializeS3() doesn't initialize AWS C++ SDK that is
+    # directly used in arrow-s3fs-test.
+    #
+    # But it seems that internal static variables in AWS C++ SDK are
+    # shared on macOS even if we link static AWS C++ SDK to both
+    # libarrow and arrow-s3fs-test. So we don't need to initialize AWS
+    # C++ SDK in arrow-s3fs-test on macOS.
+    if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY" AND NOT APPLE)
+      list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_NOT_SHARED")
+    endif()
+    target_compile_definitions(arrow-s3fs-test PRIVATE
+                               ${ARROW_S3FS_TEST_COMPILE_DEFINITIONS})
+  endif()
 
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
@@ -41,6 +61,8 @@ if(ARROW_S3)
 
   if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
     add_arrow_benchmark(s3fs_benchmark PREFIX "arrow-filesystem")
+    target_compile_definitions(arrow-filesystem-s3fs-benchmark PRIVATE
+                               ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
     else()

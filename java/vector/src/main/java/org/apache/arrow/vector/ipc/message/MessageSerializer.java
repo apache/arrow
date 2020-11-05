@@ -34,6 +34,7 @@ import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -425,11 +426,16 @@ public class MessageSerializer {
       ArrowBuf vectorBuffer = body.slice(bufferFB.offset(), bufferFB.length());
       buffers.add(vectorBuffer);
     }
+
+    ArrowBodyCompression bodyCompression = recordBatchFB.compression() == null ?
+        NoCompressionCodec.DEFAULT_BODY_COMPRESSION
+        : new ArrowBodyCompression(recordBatchFB.compression().codec(), recordBatchFB.compression().method());
+
     if ((int) recordBatchFB.length() != recordBatchFB.length()) {
       throw new IOException("Cannot currently deserialize record batches with more than INT_MAX records.");
     }
     ArrowRecordBatch arrowRecordBatch =
-        new ArrowRecordBatch(checkedCastToInt(recordBatchFB.length()), nodes, buffers);
+        new ArrowRecordBatch(checkedCastToInt(recordBatchFB.length()), nodes, buffers, bodyCompression);
     body.getReferenceManager().release();
     return arrowRecordBatch;
   }

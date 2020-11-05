@@ -253,6 +253,12 @@ template <typename ArrowType>
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       ::arrow::random_bytes(kBufferSize, seed + static_cast<uint32_t>(i), buffer);
+      if (ArrowType::is_utf8) {
+        // Trivially force data to be valid UTF8 by making it all ASCII
+        for (auto& byte : buffer) {
+          byte &= 0x7f;
+        }
+      }
       RETURN_NOT_OK(builder.Append(buffer, kBufferSize));
     }
   }

@@ -39,9 +39,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
-#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
-#include "arrow/tensor.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -49,6 +47,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
@@ -57,8 +56,12 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::GetByteWidth;
+using internal::TemporaryDir;
 
 namespace ipc {
+
+using internal::FieldPosition;
+
 namespace test {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -223,11 +226,10 @@ class TestSchemaMetadata : public ::testing::Test {
   void SetUp() {}
 
   void CheckSchemaRoundtrip(const Schema& schema) {
-    DictionaryMemo in_memo, out_memo;
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
-                         SerializeSchema(schema, &out_memo, default_memory_pool()));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, SerializeSchema(schema));
 
     io::BufferReader reader(buffer);
+    DictionaryMemo in_memo;
     ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
     AssertSchemaEqual(schema, *actual_schema);
   }
@@ -334,6 +336,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
@@ -342,6 +345,8 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeUnion,
     &MakeDictionary,
     &MakeNestedDictionary,
+    &MakeMap,
+    &MakeMapOfDictionary,
     &MakeDates,
     &MakeTimestamps,
     &MakeTimes,
@@ -370,17 +375,22 @@ class ExtensionTypesMixin {
 
 class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  public:
-  void SetUp() { options_ = IpcWriteOptions::Defaults(); }
+  void SetUp() {
+    options_ = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-test-"));
+  }
 
-  void DoSchemaRoundTrip(const Schema& schema, DictionaryMemo* out_memo,
-                         std::shared_ptr<Schema>* result) {
+  std::string TempFile(util::string_view file) {
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
+  }
+
+  void DoSchemaRoundTrip(const Schema& schema, std::shared_ptr<Schema>* result) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> serialized_schema,
-                         SerializeSchema(schema, out_memo, options_.memory_pool));
+                         SerializeSchema(schema, options_.memory_pool));
 
     DictionaryMemo in_memo;
     io::BufferReader buf_reader(serialized_schema);
     ASSERT_OK_AND_ASSIGN(*result, ReadSchema(&buf_reader, &in_memo));
-    ASSERT_EQ(out_memo->num_fields(), in_memo.num_fields());
   }
 
   Result<std::shared_ptr<RecordBatch>> DoStandardRoundTrip(
@@ -405,7 +415,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     options.allow_64bit = true;
 
     ARROW_ASSIGN_OR_RAISE(auto file_writer,
-                          NewFileWriter(mmap_.get(), batch.schema(), options));
+                          MakeFileWriter(mmap_, batch.schema(), options));
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
@@ -434,16 +444,15 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
                       int64_t buffer_size = 1 << 20) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
-    ASSERT_OK_AND_ASSIGN(mmap_,
-                         io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str()));
-
-    DictionaryMemo dictionary_memo;
+    ASSERT_OK_AND_ASSIGN(
+        mmap_, io::MemoryMapFixture::InitMemoryMap(buffer_size, TempFile(ss.str())));
 
     std::shared_ptr<Schema> schema_result;
-    DoSchemaRoundTrip(*batch.schema(), &dictionary_memo, &schema_result);
+    DoSchemaRoundTrip(*batch.schema(), &schema_result);
     ASSERT_TRUE(batch.schema()->Equals(*schema_result));
 
-    ASSERT_OK(CollectDictionaries(batch, &dictionary_memo));
+    DictionaryMemo dictionary_memo;
+    ASSERT_OK(::arrow::ipc::internal::CollectDictionaries(batch, &dictionary_memo));
 
     ASSERT_OK_AND_ASSIGN(
         auto result, DoStandardRoundTrip(batch, options, &dictionary_memo, read_options));
@@ -467,6 +476,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
   IpcWriteOptions options_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
@@ -609,7 +619,7 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
       continue;
     }
     IpcWriteOptions write_options = IpcWriteOptions::Defaults();
-    write_options.compression = codec;
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
     CheckRoundtrip(*batch, write_options);
 
     // Check non-parallel read and write
@@ -626,9 +636,9 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     if (!util::Codec::IsAvailable(codec)) {
       continue;
     }
-    IpcWriteOptions options = IpcWriteOptions::Defaults();
-    options.compression = codec;
-    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options));
+    IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
+    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, write_options));
   }
 }
 
@@ -642,10 +652,9 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
   auto batch = RecordBatch::Make(schema, array->length(), {array});
   auto sliced_batch = batch->Slice(0, 5);
 
-  std::stringstream ss;
-  ss << "test-truncate-offsets";
   ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
+      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20,
+                                                 TempFile("test-truncate-offsets")));
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
@@ -730,10 +739,9 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
   auto arr = rg.String(length, 0, 10, 0.1);
   auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), length, {arr});
 
-  std::stringstream ss;
-  ss << "test-roundtrip-buffer-sizes";
   ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
+      mmap_, io::MemoryMapFixture::InitMemoryMap(
+                 /*buffer_size=*/1 << 20, TempFile("test-roundtrip-buffer-sizes")));
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
@@ -785,7 +793,15 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
 
 class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
+  void SetUp() {
+    pool_ = default_memory_pool();
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-recursion-limits-test-"));
+  }
+
+  std::string TempFile(util::string_view file) {
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
+  }
+
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   Status WriteToMmap(int recursion_level, bool override_level, int32_t* metadata_length,
@@ -811,8 +827,8 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    ARROW_ASSIGN_OR_RAISE(mmap_,
-                          io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str()));
+    ARROW_ASSIGN_OR_RAISE(
+        mmap_, io::MemoryMapFixture::InitMemoryMap(memory_map_size, TempFile(ss.str())));
 
     auto options = IpcWriteOptions::Defaults();
     if (override_level) {
@@ -824,6 +840,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
   MemoryPool* pool_;
 };
 
@@ -895,13 +912,16 @@ TEST_F(RecursionLimits, StressLimit) {
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
 struct FileWriterHelper {
+  static constexpr bool kIsFileFormat = true;
+
   Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options,
               const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr) {
     num_batches_written_ = 0;
 
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
-    ARROW_ASSIGN_OR_RAISE(writer_, NewFileWriter(sink_.get(), schema, options, metadata));
+    ARROW_ASSIGN_OR_RAISE(writer_,
+                          MakeFileWriter(sink_.get(), schema, options, metadata));
     return Status::OK();
   }
 
@@ -918,11 +938,11 @@ struct FileWriterHelper {
     return sink_->Tell().Value(&footer_offset_);
   }
 
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
+  virtual Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches,
+                             ReadStats* out_stats = nullptr) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    std::shared_ptr<RecordBatchFileReader> reader;
-    ARROW_ASSIGN_OR_RAISE(
-        reader, RecordBatchFileReader::Open(buf_reader.get(), footer_offset_, options));
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
+                                           buf_reader.get(), footer_offset_, options));
 
     EXPECT_EQ(num_batches_written_, reader->num_record_batches());
     for (int i = 0; i < num_batches_written_; ++i) {
@@ -930,7 +950,9 @@ struct FileWriterHelper {
                             reader->ReadRecordBatch(i));
       out_batches->push_back(chunk);
     }
-
+    if (out_stats) {
+      *out_stats = reader->stats();
+    }
     return Status::OK();
   }
 
@@ -963,10 +985,12 @@ struct FileWriterHelper {
 };
 
 struct StreamWriterHelper {
+  static constexpr bool kIsFileFormat = false;
+
   Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options) {
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
-    ARROW_ASSIGN_OR_RAISE(writer_, NewStreamWriter(sink_.get(), schema, options));
+    ARROW_ASSIGN_OR_RAISE(writer_, MakeStreamWriter(sink_.get(), schema, options));
     return Status::OK();
   }
 
@@ -980,11 +1004,15 @@ struct StreamWriterHelper {
     return sink_->Close();
   }
 
-  virtual Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) {
+  virtual Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches,
+                             ReadStats* out_stats = nullptr) {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    std::shared_ptr<RecordBatchReader> reader;
-    ARROW_ASSIGN_OR_RAISE(reader, RecordBatchStreamReader::Open(buf_reader, options))
-    return reader->ReadAll(out_batches);
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchStreamReader::Open(buf_reader, options))
+    RETURN_NOT_OK(reader->ReadAll(out_batches));
+    if (out_stats) {
+      *out_stats = reader->stats();
+    }
+    return Status::OK();
   }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
@@ -1006,7 +1034,11 @@ struct StreamWriterHelper {
 };
 
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
-  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches) override {
+  Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches,
+                     ReadStats* out_stats = nullptr) override {
+    if (out_stats) {
+      return Status::NotImplemented("StreamDecoder does not support stats()");
+    }
     auto listener = std::make_shared<CollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
@@ -1333,8 +1365,9 @@ class DictionaryBatchHelper {
 
     // write schema
     IpcPayload payload;
-    RETURN_NOT_OK(GetSchemaPayload(schema_, IpcWriteOptions::Defaults(),
-                                   &dictionary_memo_, &payload));
+    DictionaryFieldMapper mapper(schema_);
+    RETURN_NOT_OK(
+        GetSchemaPayload(schema_, IpcWriteOptions::Defaults(), mapper, &payload));
     return payload_writer_->WritePayload(payload);
   }
 
@@ -1369,7 +1402,6 @@ class DictionaryBatchHelper {
 
   std::unique_ptr<internal::IpcPayloadWriter> payload_writer_;
   const Schema& schema_;
-  DictionaryMemo dictionary_memo_;
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
 };
@@ -1587,7 +1619,7 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 
   ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
 
-  ASSERT_OK_AND_ASSIGN(auto writer, NewStreamWriter(stream.get(), schema));
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeStreamWriter(stream, schema));
   ASSERT_OK(writer->Close());
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
@@ -1644,7 +1676,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   ASSERT_OK(MakeDictionaryFlat(&batch));
 
   ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
-  ASSERT_OK_AND_ASSIGN(auto writer, NewStreamWriter(out.get(), batch->schema()));
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeStreamWriter(out, batch->schema()));
   ASSERT_OK(writer->WriteRecordBatch(*batch));
   ASSERT_OK(writer->Close());
 
@@ -1677,450 +1709,6 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   AssertFailsWith(truncated_stream, ex_message);
 }
 
-class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
- public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
-
-  void CheckTensorRoundTrip(const Tensor& tensor) {
-    int32_t metadata_length;
-    int64_t body_length;
-    const int elem_size = GetByteWidth(*tensor.type());
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    ASSERT_OK(WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
-
-    const int64_t expected_body_length = elem_size * tensor.size();
-    ASSERT_EQ(expected_body_length, body_length);
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    std::shared_ptr<Tensor> result;
-    ASSERT_OK_AND_ASSIGN(result, ReadTensor(mmap_.get()));
-
-    ASSERT_EQ(result->data()->size(), expected_body_length);
-    ASSERT_TRUE(tensor.Equals(*result));
-  }
-};
-
-TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
-  std::string path = "test-write-tensor";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  std::vector<int64_t> shape = {4, 6};
-  std::vector<int64_t> strides = {48, 8};
-  std::vector<std::string> dim_names = {"foo", "bar"};
-  int64_t size = 24;
-
-  std::vector<int64_t> values;
-  randint(size, 0, 100, &values);
-
-  auto data = Buffer::Wrap(values);
-
-  Tensor t0(int64(), data, shape, strides, dim_names);
-  Tensor t_no_dims(int64(), data, {}, {}, {});
-  Tensor t_zero_length_dim(int64(), data, {0}, {8}, {"foo"});
-
-  CheckTensorRoundTrip(t0);
-  CheckTensorRoundTrip(t_no_dims);
-  CheckTensorRoundTrip(t_zero_length_dim);
-
-  int64_t serialized_size;
-  ASSERT_OK(GetTensorSize(t0, &serialized_size));
-  ASSERT_TRUE(serialized_size > static_cast<int64_t>(size * sizeof(int64_t)));
-
-  // ARROW-2840: Check that padding/alignment minded
-  std::vector<int64_t> shape_2 = {1, 1};
-  std::vector<int64_t> strides_2 = {8, 8};
-  Tensor t0_not_multiple_64(int64(), data, shape_2, strides_2, dim_names);
-  CheckTensorRoundTrip(t0_not_multiple_64);
-}
-
-TEST_F(TestTensorRoundTrip, NonContiguous) {
-  std::string path = "test-write-tensor-strided";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  std::vector<int64_t> values;
-  randint(24, 0, 100, &values);
-
-  auto data = Buffer::Wrap(values);
-  Tensor tensor(int64(), data, {4, 3}, {48, 16});
-
-  CheckTensorRoundTrip(tensor);
-}
-
-template <typename IndexValueType>
-class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
- public:
-  void SetUp() { IpcTestFixture::SetUp(); }
-  void TearDown() { IpcTestFixture::TearDown(); }
-
-  void CheckSparseCOOTensorRoundTrip(const SparseCOOTensor& sparse_tensor) {
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
-    const int index_elem_size = sizeof(typename IndexValueType::c_type);
-
-    int32_t metadata_length;
-    int64_t body_length;
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    ASSERT_OK(
-        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
-
-    const auto& sparse_index =
-        checked_cast<const SparseCOOIndex&>(*sparse_tensor.sparse_index());
-    const int64_t indices_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
-    const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
-    const int64_t expected_body_length = indices_length + data_length;
-    ASSERT_EQ(expected_body_length, body_length);
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    std::shared_ptr<SparseTensor> result;
-    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
-    ASSERT_EQ(SparseTensorFormat::COO, result->format_id());
-
-    const auto& resulted_sparse_index =
-        checked_cast<const SparseCOOIndex&>(*result->sparse_index());
-    ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
-    ASSERT_EQ(resulted_sparse_index.is_canonical(), sparse_index.is_canonical());
-    ASSERT_EQ(result->data()->size(), data_length);
-    ASSERT_TRUE(result->Equals(sparse_tensor));
-  }
-
-  template <typename SparseIndexType>
-  void CheckSparseCSXMatrixRoundTrip(
-      const SparseTensorImpl<SparseIndexType>& sparse_tensor) {
-    static_assert(std::is_same<SparseIndexType, SparseCSRIndex>::value ||
-                      std::is_same<SparseIndexType, SparseCSCIndex>::value,
-                  "SparseIndexType must be either SparseCSRIndex or SparseCSCIndex");
-
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
-    const int index_elem_size = sizeof(typename IndexValueType::c_type);
-
-    int32_t metadata_length;
-    int64_t body_length;
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    ASSERT_OK(
-        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
-
-    const auto& sparse_index =
-        checked_cast<const SparseIndexType&>(*sparse_tensor.sparse_index());
-    const int64_t indptr_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indptr()->size());
-    const int64_t indices_length =
-        BitUtil::RoundUpToMultipleOf8(index_elem_size * sparse_index.indices()->size());
-    const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
-    const int64_t expected_body_length = indptr_length + indices_length + data_length;
-    ASSERT_EQ(expected_body_length, body_length);
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    std::shared_ptr<SparseTensor> result;
-    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
-
-    constexpr auto expected_format_id =
-        std::is_same<SparseIndexType, SparseCSRIndex>::value ? SparseTensorFormat::CSR
-                                                             : SparseTensorFormat::CSC;
-    ASSERT_EQ(expected_format_id, result->format_id());
-
-    const auto& resulted_sparse_index =
-        checked_cast<const SparseIndexType&>(*result->sparse_index());
-    ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
-    ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
-    ASSERT_EQ(result->data()->size(), data_length);
-    ASSERT_TRUE(result->Equals(sparse_tensor));
-  }
-
-  void CheckSparseCSFTensorRoundTrip(const SparseCSFTensor& sparse_tensor) {
-    const int elem_size = GetByteWidth(*sparse_tensor.type());
-    const int index_elem_size = sizeof(typename IndexValueType::c_type);
-
-    int32_t metadata_length;
-    int64_t body_length;
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    ASSERT_OK(
-        WriteSparseTensor(sparse_tensor, mmap_.get(), &metadata_length, &body_length));
-
-    const auto& sparse_index =
-        checked_cast<const SparseCSFIndex&>(*sparse_tensor.sparse_index());
-
-    const int64_t ndim = sparse_index.axis_order().size();
-    int64_t indptr_length = 0;
-    int64_t indices_length = 0;
-
-    for (int64_t i = 0; i < ndim - 1; ++i) {
-      indptr_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
-                                                     sparse_index.indptr()[i]->size());
-    }
-    for (int64_t i = 0; i < ndim; ++i) {
-      indices_length += BitUtil::RoundUpToMultipleOf8(index_elem_size *
-                                                      sparse_index.indices()[i]->size());
-    }
-    const int64_t data_length =
-        BitUtil::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());
-    const int64_t expected_body_length = indptr_length + indices_length + data_length;
-    ASSERT_EQ(expected_body_length, body_length);
-
-    ASSERT_OK(mmap_->Seek(0));
-
-    std::shared_ptr<SparseTensor> result;
-    ASSERT_OK_AND_ASSIGN(result, ReadSparseTensor(mmap_.get()));
-    ASSERT_EQ(SparseTensorFormat::CSF, result->format_id());
-
-    const auto& resulted_sparse_index =
-        checked_cast<const SparseCSFIndex&>(*result->sparse_index());
-
-    int64_t out_indptr_length = 0;
-    int64_t out_indices_length = 0;
-    for (int i = 0; i < ndim - 1; ++i) {
-      out_indptr_length += BitUtil::RoundUpToMultipleOf8(
-          index_elem_size * resulted_sparse_index.indptr()[i]->size());
-    }
-    for (int i = 0; i < ndim; ++i) {
-      out_indices_length += BitUtil::RoundUpToMultipleOf8(
-          index_elem_size * resulted_sparse_index.indices()[i]->size());
-    }
-
-    ASSERT_EQ(out_indptr_length, indptr_length);
-    ASSERT_EQ(out_indices_length, indices_length);
-    ASSERT_EQ(result->data()->size(), data_length);
-    ASSERT_TRUE(resulted_sparse_index.Equals(sparse_index));
-    ASSERT_TRUE(result->Equals(sparse_tensor));
-  }
-
- protected:
-  std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
-      const std::vector<int64_t>& coords_shape,
-      const std::vector<int64_t>& coords_strides,
-      std::vector<typename IndexValueType::c_type>& coords_values) const {
-    auto coords_data = Buffer::Wrap(coords_values);
-    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
-        coords_data, coords_shape, coords_strides);
-    return std::make_shared<SparseCOOIndex>(coords);
-  }
-
-  template <typename ValueType>
-  Result<std::shared_ptr<SparseCOOTensor>> MakeSparseCOOTensor(
-      const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
-      const std::vector<int64_t>& shape,
-      const std::vector<std::string>& dim_names = {}) const {
-    auto data = Buffer::Wrap(sparse_values);
-    return SparseCOOTensor::Make(si, CTypeTraits<ValueType>::type_singleton(), data,
-                                 shape, dim_names);
-  }
-};
-
-TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip);
-
-TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
-  using IndexValueType = TypeParam;
-  using c_index_value_type = typename IndexValueType::c_type;
-
-  std::string path = "test-write-sparse-coo-tensor";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(this->mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  // Dense representation:
-  // [
-  //   [
-  //     1 0 2 0
-  //     0 3 0 4
-  //     5 0 6 0
-  //   ],
-  //   [
-  //      0 11  0 12
-  //     13  0 14  0
-  //      0 15  0 16
-  //   ]
-  // ]
-  //
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-
-  // canonical
-  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
-                                                   0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
-                                                   1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
-  const int sizeof_index_value = sizeof(c_index_value_type);
-  std::shared_ptr<SparseCOOIndex> si;
-  ASSERT_OK_AND_ASSIGN(
-      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                               {sizeof_index_value * 3, sizeof_index_value},
-                               Buffer::Wrap(coords_values)));
-  ASSERT_TRUE(si->is_canonical());
-
-  std::vector<int64_t> shape = {2, 3, 4};
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  std::shared_ptr<SparseCOOTensor> st;
-  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
-
-  this->CheckSparseCOOTensorRoundTrip(*st);
-
-  // non-canonical
-  ASSERT_OK_AND_ASSIGN(
-      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                               {sizeof_index_value * 3, sizeof_index_value},
-                               Buffer::Wrap(coords_values), false));
-  ASSERT_FALSE(si->is_canonical());
-  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
-
-  this->CheckSparseCOOTensorRoundTrip(*st);
-}
-
-TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
-  using IndexValueType = TypeParam;
-  using c_index_value_type = typename IndexValueType::c_type;
-
-  std::string path = "test-write-sparse-coo-tensor";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(this->mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  // Dense representation:
-  // [
-  //   [
-  //     1 0 2 0
-  //     0 3 0 4
-  //     5 0 6 0
-  //   ],
-  //   [
-  //      0 11  0 12
-  //     13  0 14  0
-  //      0 15  0 16
-  //   ]
-  // ]
-  //
-  // Sparse representation:
-  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
-  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
-  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
-  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
-
-  // canonical
-  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
-                                                   0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
-                                                   0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
-  const int sizeof_index_value = sizeof(c_index_value_type);
-  std::shared_ptr<SparseCOOIndex> si;
-  ASSERT_OK_AND_ASSIGN(
-      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                               {sizeof_index_value, sizeof_index_value * 12},
-                               Buffer::Wrap(coords_values)));
-  ASSERT_TRUE(si->is_canonical());
-
-  std::vector<int64_t> shape = {2, 3, 4};
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-
-  std::shared_ptr<SparseCOOTensor> st;
-  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
-
-  this->CheckSparseCOOTensorRoundTrip(*st);
-
-  // non-canonical
-  ASSERT_OK_AND_ASSIGN(
-      si, SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                               {sizeof_index_value, sizeof_index_value * 12},
-                               Buffer::Wrap(coords_values), false));
-  ASSERT_FALSE(si->is_canonical());
-  ASSERT_OK_AND_ASSIGN(st, this->MakeSparseCOOTensor(si, values, shape, dim_names));
-
-  this->CheckSparseCOOTensorRoundTrip(*st);
-}
-
-TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
-  using IndexValueType = TypeParam;
-
-  std::string path = "test-write-sparse-csr-matrix";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(this->mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  std::vector<int64_t> shape = {4, 6};
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-
-  auto data = Buffer::Wrap(values);
-  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  std::shared_ptr<SparseCSRMatrix> st;
-  ASSERT_OK_AND_ASSIGN(
-      st, SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()));
-
-  this->CheckSparseCSXMatrixRoundTrip(*st);
-}
-
-TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSCIndex) {
-  using IndexValueType = TypeParam;
-
-  std::string path = "test-write-sparse-csc-matrix";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(this->mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  std::vector<int64_t> shape = {4, 6};
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-
-  auto data = Buffer::Wrap(values);
-  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  std::shared_ptr<SparseCSCMatrix> st;
-  ASSERT_OK_AND_ASSIGN(
-      st, SparseCSCMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()));
-
-  this->CheckSparseCSXMatrixRoundTrip(*st);
-}
-
-TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSFIndex) {
-  using IndexValueType = TypeParam;
-
-  std::string path = "test-write-sparse-csf-tensor";
-  constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK_AND_ASSIGN(this->mmap_,
-                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
-
-  std::vector<int64_t> shape = {4, 6};
-  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-
-  auto data = Buffer::Wrap(values);
-  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  std::shared_ptr<SparseCSFTensor> st;
-  ASSERT_OK_AND_ASSIGN(
-      st, SparseCSFTensor::Make(t, TypeTraits<IndexValueType>::type_singleton()));
-
-  this->CheckSparseCSFTensorRoundTrip(*st);
-}
-REGISTER_TYPED_TEST_SUITE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,
-                            WithSparseCOOIndexColumnMajor, WithSparseCSRIndex,
-                            WithSparseCSCIndex, WithSparseCSFIndex);
-
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseTensorRoundTrip, Int8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseTensorRoundTrip, UInt8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestSparseTensorRoundTrip, Int16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
-
 TEST(TestRecordBatchStreamReader, MalformedInput) {
   const std::string empty_str = "";
   const std::string garbage_str = "12345678";
@@ -2144,42 +1732,327 @@ TEST(TestStreamDecoder, NextRequiredSize) {
   ASSERT_EQ(next_required_size - 1, decoder.next_required_size());
 }
 
+template <typename WriterHelperType>
+class TestDictionaryReplacement : public ::testing::Test {
+ public:
+  using WriterHelper = WriterHelperType;
+
+  void TestSameDictPointer() {
+    auto type = dictionary(int8(), utf8());
+    auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[0, 2, null, 1]"), values);
+    auto batch2 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, 0]"), values);
+    CheckRoundtrip({batch1, batch2});
+
+    EXPECT_EQ(read_stats_.num_messages, 4);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 1);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 0);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+  }
+
+  void TestSameDictValues() {
+    auto type = dictionary(int8(), utf8());
+    // Create two separate dictionaries, but with the same contents
+    auto batch1 = MakeBatch(ArrayFromJSON(type, R"(["foo", "foo", "bar", null])"));
+    auto batch2 = MakeBatch(ArrayFromJSON(type, R"(["foo", "bar", "foo"])"));
+    CheckRoundtrip({batch1, batch2});
+
+    EXPECT_EQ(read_stats_.num_messages, 4);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 1);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 0);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+  }
+
+  void TestSameDictValuesNested() {
+    CheckRoundtrip(SameValuesNestedDictBatches());
+
+    EXPECT_EQ(read_stats_.num_messages, 5);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 2);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 0);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+  }
+
+  void TestDifferentDictValues() {
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(DifferentOrderDictBatches(), 1);
+      CheckWritingFails(DifferentValuesDictBatches(), 1);
+      return;
+    }
+    CheckRoundtrip(DifferentOrderDictBatches());
+
+    EXPECT_EQ(read_stats_.num_messages, 5);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 2);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+
+    CheckRoundtrip(DifferentValuesDictBatches());
+
+    EXPECT_EQ(read_stats_.num_messages, 5);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 2);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+  }
+
+  void TestDifferentDictValuesNested() {
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(DifferentValuesNestedDictBatches1(), 1);
+      CheckWritingFails(DifferentValuesNestedDictBatches2(), 1);
+      return;
+    }
+    CheckRoundtrip(DifferentValuesNestedDictBatches1());
+
+    EXPECT_EQ(read_stats_.num_messages, 7);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    // Both inner and outer dict were replaced
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 4);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 2);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+
+    CheckRoundtrip(DifferentValuesNestedDictBatches2());
+
+    EXPECT_EQ(read_stats_.num_messages, 6);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 2);
+    // Only inner dict was replaced
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 3);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+  }
+
+  Status RoundTrip(const BatchVector& in_batches, BatchVector* out_batches) {
+    WriterHelper writer_helper;
+    RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), write_options_));
+    for (const auto& batch : in_batches) {
+      RETURN_NOT_OK(writer_helper.WriteBatch(batch));
+    }
+    RETURN_NOT_OK(writer_helper.Finish());
+    RETURN_NOT_OK(writer_helper.ReadBatches(read_options_, out_batches, &read_stats_));
+    for (const auto& batch : *out_batches) {
+      RETURN_NOT_OK(batch->ValidateFull());
+    }
+    return Status::OK();
+  }
+
+  void CheckRoundtrip(const BatchVector& in_batches) {
+    BatchVector out_batches;
+    ASSERT_OK(RoundTrip(in_batches, &out_batches));
+    ASSERT_EQ(in_batches.size(), out_batches.size());
+    for (size_t i = 0; i < in_batches.size(); ++i) {
+      AssertBatchesEqual(*in_batches[i], *out_batches[i]);
+    }
+  }
+
+  void CheckWritingFails(const BatchVector& in_batches, size_t fails_at_batch_num) {
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(in_batches[0]->schema(), write_options_));
+    for (size_t i = 0; i < fails_at_batch_num; ++i) {
+      ASSERT_OK(writer_helper.WriteBatch(in_batches[i]));
+    }
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(in_batches[fails_at_batch_num]));
+  }
+
+  BatchVector DifferentOrderDictBatches() {
+    // Create two separate dictionaries with different order
+    auto type = dictionary(int8(), utf8());
+    auto batch1 = MakeBatch(ArrayFromJSON(type, R"(["foo", "foo", "bar", null])"));
+    auto batch2 = MakeBatch(ArrayFromJSON(type, R"(["bar", "bar", "foo"])"));
+    return {batch1, batch2};
+  }
+
+  BatchVector DifferentValuesDictBatches() {
+    // Create two separate dictionaries with different values
+    auto type = dictionary(int8(), utf8());
+    auto batch1 = MakeBatch(ArrayFromJSON(type, R"(["foo", "foo", "bar", null])"));
+    auto batch2 = MakeBatch(ArrayFromJSON(type, R"(["bar", "quux", "quux"])"));
+    return {batch1, batch2};
+  }
+
+  BatchVector SameValuesNestedDictBatches() {
+    auto value_type = list(dictionary(int8(), utf8()));
+    auto type = dictionary(int8(), value_type);
+    auto batch1_values = ArrayFromJSON(value_type, R"([[], ["a"], ["b"], ["a", "a"]])");
+    auto batch2_values = ArrayFromJSON(value_type, R"([[], ["a"], ["b"], ["a", "a"]])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 3, 0, 3]"), batch1_values);
+    auto batch2 = MakeBatch(type, ArrayFromJSON(int8(), "[2, null, 2]"), batch2_values);
+    return {batch1, batch2};
+  }
+
+  BatchVector DifferentValuesNestedDictBatches1() {
+    // Inner dictionary values differ
+    auto value_type = list(dictionary(int8(), utf8()));
+    auto type = dictionary(int8(), value_type);
+    auto batch1_values = ArrayFromJSON(value_type, R"([[], ["a"], ["b"], ["a", "a"]])");
+    auto batch2_values = ArrayFromJSON(value_type, R"([[], ["a"], ["c"], ["a", "a"]])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 3, 0, 3]"), batch1_values);
+    auto batch2 = MakeBatch(type, ArrayFromJSON(int8(), "[2, null, 2]"), batch2_values);
+    return {batch1, batch2};
+  }
+
+  BatchVector DifferentValuesNestedDictBatches2() {
+    // Outer dictionary values differ
+    auto value_type = list(dictionary(int8(), utf8()));
+    auto type = dictionary(int8(), value_type);
+    auto batch1_values = ArrayFromJSON(value_type, R"([[], ["a"], ["b"], ["a", "a"]])");
+    auto batch2_values = ArrayFromJSON(value_type, R"([["a"], ["b"], ["a", "a"]])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 3, 0, 3]"), batch1_values);
+    auto batch2 = MakeBatch(type, ArrayFromJSON(int8(), "[2, null, 2]"), batch2_values);
+    return {batch1, batch2};
+  }
+
+  // Make one-column batch
+  std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> column) {
+    return RecordBatch::Make(schema({field("f", column->type())}), column->length(),
+                             {column});
+  }
+
+  // Make one-column batch with a dictionary array
+  std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<DataType> type,
+                                         std::shared_ptr<Array> indices,
+                                         std::shared_ptr<Array> dictionary) {
+    auto array = *DictionaryArray::FromArrays(std::move(type), std::move(indices),
+                                              std::move(dictionary));
+    return MakeBatch(std::move(array));
+  }
+
+ protected:
+  IpcWriteOptions write_options_ = IpcWriteOptions::Defaults();
+  IpcReadOptions read_options_ = IpcReadOptions::Defaults();
+  ReadStats read_stats_;
+};
+
+TYPED_TEST_SUITE_P(TestDictionaryReplacement);
+
+TYPED_TEST_P(TestDictionaryReplacement, SameDictPointer) { this->TestSameDictPointer(); }
+
+TYPED_TEST_P(TestDictionaryReplacement, SameDictValues) { this->TestSameDictValues(); }
+
+TYPED_TEST_P(TestDictionaryReplacement, SameDictValuesNested) {
+  this->TestSameDictValuesNested();
+}
+
+TYPED_TEST_P(TestDictionaryReplacement, DifferentDictValues) {
+  this->TestDifferentDictValues();
+}
+
+TYPED_TEST_P(TestDictionaryReplacement, DifferentDictValuesNested) {
+  this->TestDifferentDictValuesNested();
+}
+
+REGISTER_TYPED_TEST_SUITE_P(TestDictionaryReplacement, SameDictPointer, SameDictValues,
+                            SameDictValuesNested, DifferentDictValues,
+                            DifferentDictValuesNested);
+
+using DictionaryReplacementTestTypes =
+    ::testing::Types<StreamWriterHelper, FileWriterHelper>;
+
+INSTANTIATE_TYPED_TEST_SUITE_P(TestDictionaryReplacement, TestDictionaryReplacement,
+                               DictionaryReplacementTestTypes);
+
 // ----------------------------------------------------------------------
-// DictionaryMemo miscellanea
+// Miscellanea
 
-TEST(TestDictionaryMemo, ReusedDictionaries) {
+TEST(FieldPosition, Basics) {
+  FieldPosition pos;
+  ASSERT_EQ(pos.path(), std::vector<int>{});
+  {
+    auto child = pos.child(6);
+    ASSERT_EQ(child.path(), std::vector<int>{6});
+    auto grand_child = child.child(42);
+    ASSERT_EQ(grand_child.path(), (std::vector<int>{6, 42}));
+  }
+  {
+    auto child = pos.child(12);
+    ASSERT_EQ(child.path(), std::vector<int>{12});
+  }
+}
+
+TEST(DictionaryFieldMapper, Basics) {
+  DictionaryFieldMapper mapper;
+
+  ASSERT_EQ(mapper.num_fields(), 0);
+
+  ASSERT_OK(mapper.AddField(42, {0, 1}));
+  ASSERT_OK(mapper.AddField(43, {0, 2}));
+  ASSERT_OK(mapper.AddField(44, {0, 1, 3}));
+  ASSERT_EQ(mapper.num_fields(), 3);
+
+  ASSERT_OK_AND_EQ(42, mapper.GetFieldId({0, 1}));
+  ASSERT_OK_AND_EQ(43, mapper.GetFieldId({0, 2}));
+  ASSERT_OK_AND_EQ(44, mapper.GetFieldId({0, 1, 3}));
+  ASSERT_RAISES(KeyError, mapper.GetFieldId({}));
+  ASSERT_RAISES(KeyError, mapper.GetFieldId({0}));
+  ASSERT_RAISES(KeyError, mapper.GetFieldId({0, 1, 2}));
+  ASSERT_RAISES(KeyError, mapper.GetFieldId({1}));
+
+  ASSERT_OK(mapper.AddField(41, {}));
+  ASSERT_EQ(mapper.num_fields(), 4);
+  ASSERT_OK_AND_EQ(41, mapper.GetFieldId({}));
+  ASSERT_OK_AND_EQ(42, mapper.GetFieldId({0, 1}));
+
+  // Duplicated dictionary ids are allowed
+  ASSERT_OK(mapper.AddField(42, {4, 5, 6}));
+  ASSERT_EQ(mapper.num_fields(), 5);
+  ASSERT_OK_AND_EQ(42, mapper.GetFieldId({0, 1}));
+  ASSERT_OK_AND_EQ(42, mapper.GetFieldId({4, 5, 6}));
+
+  // Duplicated fields paths are not
+  ASSERT_RAISES(KeyError, mapper.AddField(46, {0, 1}));
+}
+
+TEST(DictionaryFieldMapper, FromSchema) {
+  auto f0 = field("f0", int8());
+  auto f1 =
+      field("f1", struct_({field("a", null()), field("b", dictionary(int8(), utf8()))}));
+  auto f2 = field("f2", dictionary(int32(), list(dictionary(int8(), utf8()))));
+
+  Schema schema({f0, f1, f2});
+  DictionaryFieldMapper mapper(schema);
+
+  ASSERT_EQ(mapper.num_fields(), 3);
+  std::unordered_set<int64_t> ids;
+  for (const auto& path : std::vector<std::vector<int>>{{1, 1}, {2}, {2, 0}}) {
+    ASSERT_OK_AND_ASSIGN(const int64_t id, mapper.GetFieldId(path));
+    ids.insert(id);
+  }
+  ASSERT_EQ(ids.size(), 3);  // All ids are distinct
+}
+
+static void AssertMemoDictionaryType(const DictionaryMemo& memo, int64_t id,
+                                     const std::shared_ptr<DataType>& expected) {
+  ASSERT_OK_AND_ASSIGN(const auto actual, memo.GetDictionaryType(id));
+  AssertTypeEqual(*expected, *actual);
+}
+
+TEST(DictionaryMemo, AddDictionaryType) {
   DictionaryMemo memo;
+  std::shared_ptr<DataType> type;
 
-  std::shared_ptr<Field> field1 = field("a", dictionary(int8(), utf8()));
-  std::shared_ptr<Field> field2 = field("b", dictionary(int16(), utf8()));
+  ASSERT_RAISES(KeyError, memo.GetDictionaryType(42));
 
-  // Two fields referencing the same dictionary_id
-  int64_t dictionary_id = 0;
-  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  ASSERT_OK(memo.AddDictionaryType(42, utf8()));
+  ASSERT_OK(memo.AddDictionaryType(43, large_binary()));
+  AssertMemoDictionaryType(memo, 42, utf8());
+  AssertMemoDictionaryType(memo, 43, large_binary());
 
-  ASSERT_OK(memo.AddField(dictionary_id, field1));
-  ASSERT_OK(memo.AddField(dictionary_id, field2));
+  // Re-adding same type with different id
+  ASSERT_OK(memo.AddDictionaryType(44, utf8()));
+  AssertMemoDictionaryType(memo, 42, utf8());
+  AssertMemoDictionaryType(memo, 44, utf8());
 
-  std::shared_ptr<DataType> value_type;
-  ASSERT_OK(memo.GetDictionaryType(dictionary_id, &value_type));
-  ASSERT_TRUE(value_type->Equals(*utf8()));
+  // Re-adding same type with same id
+  ASSERT_OK(memo.AddDictionaryType(42, utf8()));
+  AssertMemoDictionaryType(memo, 42, utf8());
+  AssertMemoDictionaryType(memo, 44, utf8());
 
-  ASSERT_FALSE(memo.HasDictionary(dictionary_id));
-  ASSERT_OK(memo.AddDictionary(dictionary_id, dict));
-  ASSERT_TRUE(memo.HasDictionary(dictionary_id));
-
-  ASSERT_EQ(2, memo.num_fields());
-  ASSERT_EQ(1, memo.num_dictionaries());
-
-  ASSERT_TRUE(memo.HasDictionary(*field1));
-  ASSERT_TRUE(memo.HasDictionary(*field2));
-
-  int64_t returned_id = -1;
-  ASSERT_OK(memo.GetId(field1.get(), &returned_id));
-  ASSERT_EQ(0, returned_id);
-  returned_id = -1;
-  ASSERT_OK(memo.GetId(field2.get(), &returned_id));
-  ASSERT_EQ(0, returned_id);
+  // Trying to add different type with same id
+  ASSERT_RAISES(KeyError, memo.AddDictionaryType(42, large_utf8()));
+  AssertMemoDictionaryType(memo, 42, utf8());
+  AssertMemoDictionaryType(memo, 43, large_binary());
+  AssertMemoDictionaryType(memo, 44, utf8());
 }
 
 }  // namespace test

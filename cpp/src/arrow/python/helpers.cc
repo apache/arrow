@@ -128,6 +128,14 @@ Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
   return PyUnicode_AsStdString(string_ref.obj(), out);
 }
 
+Result<bool> IsModuleImported(const std::string& module_name) {
+  // PyImport_GetModuleDict returns with a borrowed reference
+  OwnedRef key(PyUnicode_FromString(module_name.c_str()));
+  auto is_imported = PyDict_Contains(PyImport_GetModuleDict(), key.obj());
+  RETURN_IF_PYERROR();
+  return is_imported;
+}
+
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
@@ -258,30 +266,44 @@ bool PyFloat_IsNaN(PyObject* obj) {
 namespace {
 
 static std::once_flag pandas_static_initialized;
-static PyTypeObject* pandas_NaTType = nullptr;
+
 static PyObject* pandas_NA = nullptr;
+static PyObject* pandas_NaT = nullptr;
+static PyObject* pandas_Timedelta = nullptr;
+static PyObject* pandas_Timestamp = nullptr;
+static PyTypeObject* pandas_NaTType = nullptr;
 
 void GetPandasStaticSymbols() {
   OwnedRef pandas;
+
+  // import pandas
   Status s = ImportModule("pandas", &pandas);
   if (!s.ok()) {
     return;
   }
 
   OwnedRef ref;
-  s = ImportFromModule(pandas.obj(), "NaT", &ref);
-  if (!s.ok()) {
-    return;
+
+  // set NaT sentinel and its type
+  if (ImportFromModule(pandas.obj(), "NaT", &ref).ok()) {
+    pandas_NaT = ref.obj();
+    // PyObject_Type returns a new reference but we trust that pandas.NaT will
+    // outlive our use of this PyObject*
+    pandas_NaTType = Py_TYPE(ref.obj());
   }
-  PyObject* nat_type = PyObject_Type(ref.obj());
-  pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
 
-  // PyObject_Type returns a new reference but we trust that pandas.NaT will
-  // outlive our use of this PyObject*
-  Py_DECREF(nat_type);
+  // retain a reference to Timedelta
+  if (ImportFromModule(pandas.obj(), "Timedelta", &ref).ok()) {
+    pandas_Timedelta = ref.obj();
+  }
 
+  // retain a reference to Timestamp
+  if (ImportFromModule(pandas.obj(), "Timestamp", &ref).ok()) {
+    pandas_Timestamp = ref.obj();
+  }
+
+  // if pandas.NA exists, retain a reference to it
   if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
-    // If pandas.NA exists, retain a reference to it
     pandas_NA = ref.obj();
   }
 }
@@ -307,6 +329,14 @@ bool PandasObjectIsNull(PyObject* obj) {
   return false;
 }
 
+bool IsPandasTimedelta(PyObject* obj) {
+  return pandas_Timedelta && PyObject_IsInstance(obj, pandas_Timedelta);
+}
+
+bool IsPandasTimestamp(PyObject* obj) {
+  return pandas_Timestamp && PyObject_IsInstance(obj, pandas_Timestamp);
+}
+
 Status InvalidValue(PyObject* obj, const std::string& why) {
   std::string obj_as_str;
   RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
@@ -328,6 +358,8 @@ Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
     if (overflow) {
       return Status::Invalid("PyLong is too large to fit int64");
     }
+  } else if (PyArray_IsScalar(obj, Byte)) {
+    *out = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UByte)) {
     *out = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {

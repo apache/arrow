@@ -88,6 +88,8 @@ test_that("Setup (putting data in the dir)", {
 
 test_that("Simple interface for datasets", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -129,15 +131,29 @@ test_that("dim method returns the correct number of rows and columns",{
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
-  expect_warning(dim_fil <- dim(filter(ds, chr == 'A')))
-  expect_identical(dim_fil, c(NA, 7L))
-
-  dim_sel <- dim(select(ds, chr, fct))
-  expect_identical(dim_sel, c(20L, 2L))
-
-  expect_warning(dim_sel_fil <- dim(select(ds, chr, fct) %>% filter(chr == 'A')))
-  expect_identical(dim_sel_fil, c(NA, 2L))
-
+  expect_warning(
+    expect_identical(
+      ds %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 7L)
+    )
+  )
+  expect_equal(
+    ds %>%
+      select(chr, fct, int) %>%
+      dim(),
+    c(20L, 3L)
+  )
+  expect_warning(
+    expect_identical(
+      ds %>%
+        select(chr, fct, int) %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 3L)
+    )
+  )
 })
 
 test_that("dataset from URI", {
@@ -161,7 +177,7 @@ test_that("dataset from URI", {
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
-  expect_equivalent(ds$schema$GetFieldByName("chr")$type, dictionary())
+  expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
 })
 
 test_that("Hive partitioning", {
@@ -209,11 +225,13 @@ test_that("Partitioning inference", {
 
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  expect_is(ds$format, "IpcFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
-    dim(ds),
-    "Number of rows unknown; returning NA"
+    expect_identical(dim(ds), c(NA, 7L))
   )
+
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -235,10 +253,11 @@ test_that("IPC/Feather format data", {
 
 test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  expect_is(ds$format, "CsvFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
-    dim(ds),
-    "Number of rows unknown; returning NA"
+    expect_identical(dim(ds), c(NA, 7L))
   )
   expect_equivalent(
     ds %>%
@@ -352,7 +371,23 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
+  expect_error(c(ds1, 42), "string")
+})
+
+test_that("InMemoryDataset", {
+  ds <- InMemoryDataset$create(rbind(df1, df2))
+  expect_is(ds, "InMemoryDataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
 })
 
 test_that("map_batches", {
@@ -390,6 +425,16 @@ test_that("filter() with %in%", {
       filter(int %in% c(6, 4, 3, 103, 107), part == 1) %>%
       collect(),
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
+  )
+
+# ARROW-9606: bug in %in% filter on partition column with >1 partition columns
+  ds <- open_dataset(hive_dir)
+  expect_equivalent(
+    ds %>%
+      filter(group %in% 2) %>%
+      select(names(df2)) %>%
+      collect(),
+    df2
   )
 })
 
@@ -476,6 +521,72 @@ test_that("count()", {
     df %>%
       filter(int > 6, int < 108) %>%
       count(chr)
+  )
+})
+
+test_that("head/tail", {
+  ds <- open_dataset(dataset_dir)
+  expect_equal(as.data.frame(head(ds)), head(df1))
+  expect_equal(
+    as.data.frame(head(ds, 12)),
+    rbind(df1, df2[1:2,])
+  )
+  expect_equal(
+    ds %>%
+      filter(int > 6) %>%
+      head() %>%
+      as.data.frame(),
+    rbind(df1[7:10,], df2[1:2,])
+  )
+
+  expect_equal(as.data.frame(tail(ds)), tail(df2))
+  expect_equal(
+    as.data.frame(tail(ds, 12)),
+    rbind(df1[9:10,], df2)
+  )
+  expect_equal(
+    ds %>%
+      filter(int < 105) %>%
+      tail() %>%
+      as.data.frame(),
+    rbind(df1[9:10,], df2[1:4,])
+  )
+})
+
+test_that("Dataset [ (take by index)", {
+  ds <- open_dataset(dataset_dir)
+  # Taking only from one file
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9), 3:4]),
+    df1[c(4, 5, 9), 3:4]
+  )
+  # Taking from more than one
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+    rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
+  )
+  # Taking out of order
+  expect_equal(
+    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+    rbind(
+      df1[4, ],
+      df2[3, ],
+      df1[9, ],
+      df2[2, ],
+      df1[5, ]
+    )
+  )
+
+  # Take from a query
+  ds2 <- ds %>%
+    filter(int > 6) %>%
+    select(int, lgl)
+  expect_equal(
+    as.data.frame(ds2[c(2, 5), ]),
+    rbind(
+      df1[8, c("int", "lgl")],
+      df2[1, c("int", "lgl")]
+    )
   )
 })
 
@@ -625,4 +736,298 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_equivalent(map(ds$children, ~.$files), files)
 
   expect_scan_result(ds, schm)
+})
+
+test_that("Writing a dataset: CSV->IPC", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+
+  # Check whether "int" is present in the files or just in the dirs
+  first <- read_feather(
+    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    as_data_frame = FALSE
+  )
+  # It shouldn't be there
+  expect_false("int" %in% names(first))
+})
+
+test_that("Writing a dataset: Parquet->IPC", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, group) %>%
+      filter(integer > 6 & group == 1) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: CSV->Parquet", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet->Parquet (default)", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, group) %>%
+      filter(integer > 6 & group == 1) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: dplyr methods", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  # Specify partition vars by group_by
+  ds %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  # select to specify schema
+  dst_dir2 <- tempfile()
+  ds %>%
+    group_by(int) %>%
+    select(chr, dbl) %>%
+    write_dataset(dst_dir2, format = "feather")
+  new_ds <- open_dataset(dst_dir2, format = "feather")
+
+  expect_equivalent(
+    collect(new_ds) %>% arrange(int),
+    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
+  )
+
+  # filter to restrict written rows
+  dst_dir3 <- tempfile()
+  ds %>%
+    filter(int == 4) %>%
+    write_dataset(dst_dir3, format = "feather")
+  new_ds <- open_dataset(dst_dir3, format = "feather")
+
+  expect_equivalent(
+    new_ds %>% select(names(df1)) %>% collect(),
+    df1 %>% filter(int == 4)
+  )
+})
+
+test_that("Dataset writing: non-hive", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(as.character(c(1:10, 101:110))))
+})
+
+test_that("Dataset writing: no partitioning", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
+  expect_true(dir.exists(dst_dir))
+  expect_true(length(dir(dst_dir)) > 0)
+})
+
+test_that("Dataset writing: from data.frame", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- rbind(df1, df2)
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: from RecordBatch", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Ipc format options & compression", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+
+  codec <- NULL
+  if (codec_is_available("zstd")) {
+    codec <- Codec$create("zstd")
+  }
+
+  write_dataset(ds, dst_dir, format = "feather", codec = codec)
+  expect_true(dir.exists(dst_dir))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet format options", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  dst_dir_no_truncated_timestamps <- make_temp_dir()
+
+  # Use trace() to confirm that options are passed in
+  trace(
+    "parquet___ArrowWriterProperties___create",
+    tracer = quote(warning("allow_truncated_timestamps == ", allow_truncated_timestamps)),
+    print = FALSE,
+    where = write_dataset
+  )
+  expect_warning(
+    write_dataset(ds, dst_dir_no_truncated_timestamps, format = "parquet", partitioning = "int"),
+    "allow_truncated_timestamps == FALSE"
+  )
+  expect_warning(
+    write_dataset(ds, dst_dir, format = "parquet", partitioning = "int", allow_truncated_timestamps = TRUE),
+    "allow_truncated_timestamps == TRUE"
+  )
+  untrace("parquet___ArrowWriterProperties___create", where = write_dataset)
+
+  # Now confirm we can read back what we sent
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: unsupported features/input validation", {
+  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
+
+  ds <- open_dataset(hive_dir)
+  expect_error(
+    select(ds, integer = int) %>% write_dataset(ds),
+    "Renaming columns when writing a dataset is not yet supported"
+  )
+  expect_error(
+    write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
+    'Invalid field name: "NOTACOLUMN"'
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = "something_without_i")
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = NULL)
+  )
 })

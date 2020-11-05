@@ -165,6 +165,8 @@ inline uint8_t ParseDecimalDigit(char c) { return static_cast<uint8_t>(c - '0');
       return false;                               \
     }                                             \
     result = static_cast<C_TYPE>(result + digit); \
+  } else {                                        \
+    break;                                        \
   }
 
 #define PARSE_UNSIGNED_ITERATION_LAST(C_TYPE)                                     \
@@ -194,71 +196,76 @@ inline uint8_t ParseDecimalDigit(char c) { return static_cast<uint8_t>(c - '0');
 inline bool ParseUnsigned(const char* s, size_t length, uint8_t* out) {
   uint8_t result = 0;
 
-  PARSE_UNSIGNED_ITERATION(uint8_t);
-  PARSE_UNSIGNED_ITERATION(uint8_t);
-  PARSE_UNSIGNED_ITERATION_LAST(uint8_t);
+  do {
+    PARSE_UNSIGNED_ITERATION(uint8_t);
+    PARSE_UNSIGNED_ITERATION(uint8_t);
+    PARSE_UNSIGNED_ITERATION_LAST(uint8_t);
+  } while (false);
   *out = result;
   return true;
 }
 
 inline bool ParseUnsigned(const char* s, size_t length, uint16_t* out) {
   uint16_t result = 0;
-
-  PARSE_UNSIGNED_ITERATION(uint16_t);
-  PARSE_UNSIGNED_ITERATION(uint16_t);
-  PARSE_UNSIGNED_ITERATION(uint16_t);
-  PARSE_UNSIGNED_ITERATION(uint16_t);
-  PARSE_UNSIGNED_ITERATION_LAST(uint16_t);
+  do {
+    PARSE_UNSIGNED_ITERATION(uint16_t);
+    PARSE_UNSIGNED_ITERATION(uint16_t);
+    PARSE_UNSIGNED_ITERATION(uint16_t);
+    PARSE_UNSIGNED_ITERATION(uint16_t);
+    PARSE_UNSIGNED_ITERATION_LAST(uint16_t);
+  } while (false);
   *out = result;
   return true;
 }
 
 inline bool ParseUnsigned(const char* s, size_t length, uint32_t* out) {
   uint32_t result = 0;
+  do {
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
 
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
+    PARSE_UNSIGNED_ITERATION(uint32_t);
 
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-  PARSE_UNSIGNED_ITERATION(uint32_t);
-
-  PARSE_UNSIGNED_ITERATION_LAST(uint32_t);
+    PARSE_UNSIGNED_ITERATION_LAST(uint32_t);
+  } while (false);
   *out = result;
   return true;
 }
 
 inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
   uint64_t result = 0;
+  do {
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
 
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
 
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
 
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
+    PARSE_UNSIGNED_ITERATION(uint64_t);
 
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-  PARSE_UNSIGNED_ITERATION(uint64_t);
-
-  PARSE_UNSIGNED_ITERATION_LAST(uint64_t);
+    PARSE_UNSIGNED_ITERATION_LAST(uint64_t);
+  } while (false);
   *out = result;
   return true;
 }

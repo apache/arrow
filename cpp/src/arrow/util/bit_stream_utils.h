@@ -27,6 +27,7 @@
 #include "arrow/util/bpacking.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace BitUtil {
@@ -292,7 +293,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   const uint8_t* buffer = buffer_;
 
   uint64_t needed_bits = num_bits * batch_size;
-  uint64_t remaining_bits = (max_bytes - byte_offset) * 8 - bit_offset;
+  constexpr uint64_t kBitsPerByte = 8;
+  uint64_t remaining_bits = (max_bytes - byte_offset) * kBitsPerByte - bit_offset;
   if (remaining_bits < needed_bits) {
     batch_size = static_cast<int>(remaining_bits) / num_bits;
   }

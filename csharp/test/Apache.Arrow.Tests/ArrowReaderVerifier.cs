@@ -16,7 +16,6 @@
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -47,7 +46,7 @@ namespace Apache.Arrow.Tests
 
         public static void CompareBatches(RecordBatch expectedBatch, RecordBatch actualBatch)
         {
-            Assert.True(SchemaComparer.Equals(expectedBatch.Schema, actualBatch.Schema));
+            SchemaComparer.Compare(expectedBatch.Schema, actualBatch.Schema);
             Assert.Equal(expectedBatch.Length, actualBatch.Length);
             Assert.Equal(expectedBatch.ColumnCount, actualBatch.ColumnCount);
 
@@ -57,78 +56,6 @@ namespace Apache.Arrow.Tests
                 IArrowArray actualArray = actualBatch.Arrays.ElementAt(i);
 
                 actualArray.Accept(new ArrayComparer(expectedArray));
-            }
-        }
-
-        private class ArrayTypeComparer :
-            IArrowTypeVisitor<TimestampType>,
-            IArrowTypeVisitor<Date32Type>,
-            IArrowTypeVisitor<Date64Type>,
-            IArrowTypeVisitor<Time32Type>,
-            IArrowTypeVisitor<Time64Type>,
-            IArrowTypeVisitor<FixedSizeBinaryType>
-        {
-            private readonly IArrowType _expectedType;
-
-            public ArrayTypeComparer(IArrowType expectedType)
-            {
-                Debug.Assert(expectedType != null);
-                _expectedType = expectedType;
-            }
-
-            public void Visit(TimestampType actualType)
-            {
-                Assert.IsAssignableFrom<TimestampType>(_expectedType);
-
-                var expectedType = (TimestampType) _expectedType;
-                
-                Assert.Equal(expectedType.Timezone, actualType.Timezone);
-                Assert.Equal(expectedType.Unit, actualType.Unit);
-            }
-
-            public void Visit(Date32Type actualType)
-            {
-                Assert.IsAssignableFrom<Date32Type>(_expectedType);
-                var expectedType = (Date32Type)_expectedType;
-
-                Assert.Equal(expectedType.Unit, actualType.Unit);
-            }
-
-            public void Visit(Date64Type actualType)
-            {
-                Assert.IsAssignableFrom<Date64Type>(_expectedType);
-                var expectedType = (Date64Type)_expectedType;
-
-                Assert.Equal(expectedType.Unit, actualType.Unit);
-            }
-
-            public void Visit(Time32Type actualType)
-            {
-                Assert.IsAssignableFrom<Time32Type>(_expectedType);
-                var expectedType = (Time32Type)_expectedType;
-
-                Assert.Equal(expectedType.Unit, actualType.Unit);
-            }
-
-            public void Visit(Time64Type actualType)
-            {
-                Assert.IsAssignableFrom<Time64Type>(_expectedType);
-                var expectedType = (Time64Type)_expectedType;
-
-                Assert.Equal(expectedType.Unit, actualType.Unit);
-            }
-
-            public void Visit(FixedSizeBinaryType actualType)
-            {
-                Assert.IsAssignableFrom<FixedSizeBinaryType>(_expectedType);
-                var expectedType = (FixedSizeBinaryType)_expectedType;
-
-                Assert.Equal(expectedType.ByteWidth, actualType.ByteWidth);
-            }
-
-            public void Visit(IArrowType actualType)
-            {
-                Assert.IsAssignableFrom(actualType.GetType(), _expectedType);
             }
         }
 
@@ -149,7 +76,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
-            IArrowArrayVisitor<BinaryArray>
+            IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<StructArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -179,18 +107,36 @@ namespace Apache.Arrow.Tests
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
 
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
+
+            public void Visit(StructArray array)
+            {
+                Assert.IsAssignableFrom<StructArray>(_expectedArray);
+                StructArray expectedArray = (StructArray)_expectedArray;
+
+                Assert.Equal(expectedArray.Length, array.Length);
+                Assert.Equal(expectedArray.NullCount, array.NullCount);
+                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i]));
+                }
+            }
+
             public void Visit(FixedSizeBinaryType array) => throw new NotImplementedException();
             public void Visit(IArrowArray array) => throw new NotImplementedException();
 
             private void CompareBinaryArrays<T>(BinaryArray actualArray)
-                where T: IArrowArray
+                where T : IArrowArray
             {
                 Assert.IsAssignableFrom<T>(_expectedArray);
                 Assert.IsAssignableFrom<T>(actualArray);
 
                 var expectedArray = (BinaryArray)_expectedArray;
 
-                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
 
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
@@ -207,7 +153,7 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<PrimitiveArray<T>>(_expectedArray);
                 PrimitiveArray<T> expectedArray = (PrimitiveArray<T>)_expectedArray;
 
-                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
 
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
@@ -222,7 +168,7 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<BooleanArray>(_expectedArray);
                 BooleanArray expectedArray = (BooleanArray)_expectedArray;
 
-                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
 
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
@@ -239,7 +185,7 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<ListArray>(_expectedArray);
                 ListArray expectedArray = (ListArray)_expectedArray;
 
-                _arrayTypeComparer.Visit(actualArray.Data.DataType);
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
 
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);

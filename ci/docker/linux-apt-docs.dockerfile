@@ -38,8 +38,11 @@ RUN apt-get update -y && \
         gobject-introspection \
         gtk-doc-tools \
         libcurl4-openssl-dev \
+        libfontconfig1-dev \
+        libfribidi-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
+        libharfbuzz-dev \
         libtool \
         libxml2-dev \
         ninja-build \
@@ -62,22 +65,30 @@ RUN /arrow/ci/scripts/util_download_apache.sh \
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
-ARG node=11
+ARG node=14
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Sphinx is pinned because of ARROW-9693
 RUN pip install \
         meson \
         breathe \
         ipython \
-        sphinx \
+        sphinx==3.1.2 \
         sphinx_rtd_theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
-RUN gem install bundler && \
+RUN gem install --no-document bundler && \
     bundle install --gemfile /arrow/c_glib/Gemfile
+
+# Ensure parallel R package installation, set CRAN repo mirror,
+# and use pre-built binaries where possible
+COPY ci/etc/rprofile /arrow/ci/etc/
+RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

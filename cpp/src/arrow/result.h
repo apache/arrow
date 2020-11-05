@@ -425,9 +425,9 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 };
 
 #define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
-  auto result_name = (rexpr);                               \
+  auto&& result_name = (rexpr);                             \
   ARROW_RETURN_NOT_OK((result_name).status());              \
-  lhs = std::move(result_name).MoveValueUnsafe();
+  lhs = std::move(result_name).ValueUnsafe();
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 

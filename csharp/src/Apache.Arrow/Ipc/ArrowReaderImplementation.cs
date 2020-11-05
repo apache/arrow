@@ -138,7 +138,6 @@ namespace Apache.Arrow.Ipc
             return arrays;
         }
 
-
         private ArrayData LoadPrimitiveField(
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
@@ -147,10 +146,10 @@ namespace Apache.Arrow.Ipc
         {
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
-            ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
-
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
 
             int fieldLength = (int)fieldNode.Length;
             int fieldNullCount = (int)fieldNode.NullCount;
@@ -165,12 +164,23 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
+            ArrowBuffer[] arrowBuff;
+            if (field.DataType.TypeId == ArrowTypeId.Struct)
+            {
+                arrowBuff = new[] { nullArrowBuffer };
+            }
+            else
+            {
+                ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
+                recordBatchEnumerator.MoveNextBuffer();
+
+                arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
+            }
+
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
-
 
         private ArrayData LoadVariableField(
             ref RecordBatchEnumerator recordBatchEnumerator,
@@ -180,9 +190,15 @@ namespace Apache.Arrow.Ipc
         {
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
             ArrowBuffer offsetArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
             ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
             recordBatchEnumerator.MoveNextBuffer();
 
@@ -212,14 +228,14 @@ namespace Apache.Arrow.Ipc
         {
             if (!(field.DataType is NestedType type)) return null;
 
-            int childrenCount = type.Children.Count;
+            int childrenCount = type.Fields.Count;
             var children = new ArrayData[childrenCount];
             for (int index = 0; index < childrenCount; index++)
             {
                 recordBatchEnumerator.MoveNextNode();
                 Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
-                Field childField = type.Children[index];
+                Field childField = type.Fields[index];
                 ArrayData child = childField.DataType.IsFixedPrimitive()
                     ? LoadPrimitiveField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData)
                     : LoadVariableField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData);

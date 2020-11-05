@@ -24,7 +24,6 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/int_util.h"
 #include "arrow/util/string_view.h"
 
 #include "parquet/platform.h"
@@ -464,15 +463,6 @@ struct Encoding {
 /// \brief Return true if Parquet supports indicated compression type
 PARQUET_EXPORT
 bool IsCodecSupported(Compression::type codec);
-
-namespace internal {
-
-// ARROW-9424: Separate functions for reading and writing so we can disable LZ4
-// on writing
-std::unique_ptr<Codec> GetReadCodec(Compression::type codec);
-std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level);
-
-}  // namespace internal
 
 PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
