@@ -41,7 +41,11 @@ can be installed from the Ursa Labs repository:
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
-There currently are no daily `conda` builds.
+or for conda users via:
+
+```
+conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+```
 
 You can also install the R package from a git checkout:
 

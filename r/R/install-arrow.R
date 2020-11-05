@@ -56,7 +56,11 @@ install_arrow <- function(nightly = FALSE,
 
   if (sysname %in% c("windows", "darwin", "linux")) {
     if (conda && !nightly) {
-      system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
+      if (nightly) {
+        system("conda install -y -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow")
+      } else {
+        system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
+      }
     } else {
       Sys.setenv(
         LIBARROW_DOWNLOAD = "true",
