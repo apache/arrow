@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import org.apache.arrow.flight.grpc.MetadataAdapter;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
@@ -69,14 +68,14 @@ public class TestCallOptions {
 
   @Test
   public void singleProperty() {
-    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    final FlightCallHeaders headers = new FlightCallHeaders();
     headers.insert("key", "value");
     testHeaders(headers);
   }
 
   @Test
   public void multipleProperties() {
-    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    final FlightCallHeaders headers = new FlightCallHeaders();
     headers.insert("key", "value");
     headers.insert("key2", "value2");
     testHeaders(headers);
@@ -84,7 +83,7 @@ public class TestCallOptions {
 
   @Test
   public void binaryProperties() {
-    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    final FlightCallHeaders headers = new FlightCallHeaders();
     headers.insert("key-bin", "value".getBytes());
     headers.insert("key3-bin", "ëfßæ".getBytes());
     testHeaders(headers);
@@ -92,14 +91,22 @@ public class TestCallOptions {
 
   @Test
   public void mixedProperties() {
-    final MetadataAdapter headers = new MetadataAdapter(new Metadata());
+    final FlightCallHeaders headers = new FlightCallHeaders();
     headers.insert("key", "value");
     headers.insert("key3-bin", "ëfßæ".getBytes());
     testHeaders(headers);
   }
 
-  private void testHeaders(MetadataAdapter headers) {
-    final ServerHeaderHandler propertyHandler = (incomingHeaders) -> {
+  private void testHeaders(CallHeaders headers) {
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        HeaderProducer producer = new HeaderProducer();
+        FlightServer s =
+            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
+      client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext();
+
+      final CallHeaders incomingHeaders = producer.headers();
       for (String key : headers.keys()) {
         if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
           Assert.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
@@ -107,16 +114,6 @@ public class TestCallOptions {
           Assert.assertEquals(headers.get(key), incomingHeaders.get(key));
         }
       }
-    };
-
-    try (
-        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) ->
-                FlightServer.builder(a, location, producer).headerHandler(propertyHandler).build());
-        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-      client.doAction(new Action("fast"), new HeaderCallOption(headers)).hasNext();
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -125,7 +122,7 @@ public class TestCallOptions {
   void test(Consumer<FlightClient> testFn) {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        Producer producer = new Producer(a);
+        Producer producer = new Producer();
         FlightServer s =
             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
@@ -135,12 +132,27 @@ public class TestCallOptions {
     }
   }
 
+  static class HeaderProducer extends NoOpFlightProducer implements AutoCloseable {
+    CallHeaders headers;
+
+    @Override
+    public void close() {
+    }
+
+    public CallHeaders headers() {
+      return headers;
+    }
+
+    @Override
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+      this.headers = context.getMiddleware(FlightConstants.HEADER_KEY).headers();
+      listener.onCompleted();
+    }
+  }
+
   static class Producer extends NoOpFlightProducer implements AutoCloseable {
 
-    private final BufferAllocator allocator;
-
-    Producer(BufferAllocator allocator) {
-      this.allocator = allocator;
+    Producer() {
     }
 
     @Override

@@ -168,7 +168,6 @@ public class FlightServer implements AutoCloseable {
     private final Map<String, Object> builderOptions;
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
-    private ServerHeaderHandler headerHandler = ServerHeaderHandler.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
@@ -198,11 +197,7 @@ public class FlightServer implements AutoCloseable {
             new ServerCallHeaderAuthMiddleware.Factory(headerAuthenticator));
       }
 
-      // Add the property handler middleware if applicable.
-      if (headerHandler != ServerHeaderHandler.NO_OP) {
-        this.middleware(FlightServerMiddleware.Key.of(FlightConstants.PROPERTY_HEADER),
-            new ServerHeaderMiddleware.Factory(headerHandler));
-      }
+      this.middleware(FlightConstants.HEADER_KEY, new ServerHeaderMiddleware.Factory());
 
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
@@ -356,14 +351,6 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder headerAuthenticator(CallHeaderAuthenticator headerAuthenticator) {
       this.headerAuthenticator = headerAuthenticator;
-      return this;
-    }
-
-    /**
-     * Set the header handler.
-     */
-    public Builder headerHandler(ServerHeaderHandler headerHandler) {
-      this.headerHandler = headerHandler;
       return this;
     }
 

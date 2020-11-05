@@ -18,32 +18,37 @@
 package org.apache.arrow.flight;
 
 /**
- * Middleware that's used to extract and pass properties to the server during requests.
+ * Middleware that's used to extract and pass headers to the server during requests.
  */
 public class ServerHeaderMiddleware implements FlightServerMiddleware {
   /**
-   * Factory for accessing ServerCallPropertyMiddleware.
+   * Factory for accessing ServerHeaderMiddleware.
    */
   public static class Factory implements FlightServerMiddleware.Factory<ServerHeaderMiddleware> {
-    private final ServerHeaderHandler propertyHandler;
-
     /**
-     * Construct a factory with the given header handler.
-     * @param headerHandler The header handler that will be used to pass properties.
+     * Construct a factory for receiving call headers.
      */
-    public Factory(ServerHeaderHandler headerHandler) {
-      this.propertyHandler = headerHandler;
+    public Factory() {
     }
 
     @Override
     public ServerHeaderMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                 RequestContext context) {
-      propertyHandler.accept(incomingHeaders);
-      return new ServerHeaderMiddleware();
+      return new ServerHeaderMiddleware(incomingHeaders);
     }
   }
 
-  private ServerHeaderMiddleware() {
+  private final CallHeaders headers;
+
+  private ServerHeaderMiddleware(CallHeaders incomingHeaders) {
+    this.headers = incomingHeaders;
+  }
+
+  /**
+   * Retrieve the headers for this call.
+   */
+  public CallHeaders headers() {
+    return headers;
   }
 
   @Override
