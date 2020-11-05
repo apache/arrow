@@ -126,7 +126,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 set(UNKNOWN_COMPILER_MESSAGE
-    "Unknown compiler: ${CMAKE_CXX_COMPILER_VERSION} ${CMAKE_CXX_COMPILER_VERSION}")
+    "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # compiler flags that are common across debug/release builds
 if(WIN32)
