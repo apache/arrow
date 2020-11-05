@@ -29,6 +29,22 @@
 
 namespace arrow {
 
+Status ArrayBuilder::CheckArrayType(const std::shared_ptr<DataType>& expected_type,
+                                    const Array& array, const char* message) {
+  if (!expected_type->Equals(*array.type())) {
+    return Status::TypeError(message);
+  }
+  return Status::OK();
+}
+
+Status ArrayBuilder::CheckArrayType(Type::type expected_type, const Array& array,
+                                    const char* message) {
+  if (array.type_id() != expected_type) {
+    return Status::TypeError(message);
+  }
+  return Status::OK();
+}
+
 Status ArrayBuilder::TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {
   if (buffer) {
     if (bytes_filled < buffer->size()) {
@@ -81,6 +97,12 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   RETURN_NOT_OK(FinishInternal(&internal_data));
   *out = MakeArray(internal_data);
   return Status::OK();
+}
+
+Result<std::shared_ptr<Array>> ArrayBuilder::Finish() {
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(Finish(&out));
+  return out;
 }
 
 void ArrayBuilder::Reset() {

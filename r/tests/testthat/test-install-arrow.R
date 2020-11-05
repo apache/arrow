@@ -19,11 +19,16 @@ context("install_arrow()")
 
 r_only({
   test_that("arrow_repos", {
-    old <- options(repos=c(CRAN = "@CRAN@")) # Restore default
-    on.exit(options(old))
     cran <- "https://cloud.r-project.org/"
-    bt <- "https://dl.bintray.com/ursalabs/arrow-r"
+    bt <- "https://dl.bintray.com/ursalabs/fake_repo"
     other <- "https://cran.fiocruz.br/"
+
+    old <- options(
+      repos=c(CRAN = "@CRAN@"),  # Restore defaul
+      arrow.dev_repo = bt
+    )
+    on.exit(options(old))
+
     expect_identical(arrow_repos(), cran)
     expect_identical(arrow_repos(c(cran, bt)), cran)
     expect_identical(arrow_repos(c(bt, other)), other)

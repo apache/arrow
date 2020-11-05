@@ -34,7 +34,7 @@ class Array;
 
 namespace random {
 
-using SeedType = std::random_device::result_type;
+using SeedType = int32_t;
 constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
 
 class ARROW_TESTING_EXPORT RandomArrayGenerator {
@@ -42,7 +42,15 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   explicit RandomArrayGenerator(SeedType seed)
       : seed_distribution_(static_cast<SeedType>(1), kSeedMax), seed_rng_(seed) {}
 
-  /// \brief Generates a random BooleanArray
+  /// \brief Generate a null bitmap
+  ///
+  /// \param[in] size the size of the bitmap to generate
+  /// \param[in] null_probability the probability of a bit being zero
+  ///
+  /// \return a generated Buffer
+  std::shared_ptr<Buffer> NullBitmap(int64_t size, double null_probability = 0);
+
+  /// \brief Generate a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] true_probability the probability of a value being 1 / bit-set
@@ -52,7 +60,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Boolean(int64_t size, double true_probability,
                                  double null_probability = 0);
 
-  /// \brief Generates a random UInt8Array
+  /// \brief Generate a random UInt8Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -63,7 +71,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> UInt8(int64_t size, uint8_t min, uint8_t max,
                                double null_probability = 0);
 
-  /// \brief Generates a random Int8Array
+  /// \brief Generate a random Int8Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -74,7 +82,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Int8(int64_t size, int8_t min, int8_t max,
                               double null_probability = 0);
 
-  /// \brief Generates a random UInt16Array
+  /// \brief Generate a random UInt16Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -85,7 +93,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> UInt16(int64_t size, uint16_t min, uint16_t max,
                                 double null_probability = 0);
 
-  /// \brief Generates a random Int16Array
+  /// \brief Generate a random Int16Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -96,7 +104,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Int16(int64_t size, int16_t min, int16_t max,
                                double null_probability = 0);
 
-  /// \brief Generates a random UInt32Array
+  /// \brief Generate a random UInt32Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -107,7 +115,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> UInt32(int64_t size, uint32_t min, uint32_t max,
                                 double null_probability = 0);
 
-  /// \brief Generates a random Int32Array
+  /// \brief Generate a random Int32Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -118,7 +126,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Int32(int64_t size, int32_t min, int32_t max,
                                double null_probability = 0);
 
-  /// \brief Generates a random UInt64Array
+  /// \brief Generate a random UInt64Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -129,7 +137,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> UInt64(int64_t size, uint64_t min, uint64_t max,
                                 double null_probability = 0);
 
-  /// \brief Generates a random Int64Array
+  /// \brief Generate a random Int64Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -140,7 +148,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Int64(int64_t size, int64_t min, int64_t max,
                                double null_probability = 0);
 
-  /// \brief Generates a random HalfFloatArray
+  /// \brief Generate a random HalfFloatArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the distribution
@@ -151,7 +159,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
                                  double null_probability = 0);
 
-  /// \brief Generates a random FloatArray
+  /// \brief Generate a random FloatArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -162,7 +170,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Float32(int64_t size, float min, float max,
                                  double null_probability = 0);
 
-  /// \brief Generates a random DoubleArray
+  /// \brief Generate a random DoubleArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
@@ -215,9 +223,20 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
     }
   }
 
-  std::shared_ptr<Array> Offsets(int64_t size, int32_t first_offset, int32_t last_offset);
+  /// \brief Generate an array of offsets (for use in e.g. ListArray::FromArrays)
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] first_offset the first offset value (usually 0)
+  /// \param[in] last_offset the last offset value (usually the size of the child array)
+  /// \param[in] null_probability the probability of an offset being null
+  /// \param[in] force_empty_nulls if true, null offsets must have 0 "length"
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Offsets(int64_t size, int32_t first_offset, int32_t last_offset,
+                                 double null_probability = 0,
+                                 bool force_empty_nulls = false);
 
-  /// \brief Generates a random StringArray
+  /// \brief Generate a random StringArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min_length the lower bound of the string length
@@ -230,7 +249,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> String(int64_t size, int32_t min_length, int32_t max_length,
                                 double null_probability = 0);
 
-  /// \brief Generates a random LargeStringArray
+  /// \brief Generate a random LargeStringArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min_length the lower bound of the string length
@@ -243,7 +262,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> LargeString(int64_t size, int32_t min_length, int32_t max_length,
                                      double null_probability = 0);
 
-  /// \brief Generates a random StringArray with repeated values
+  /// \brief Generate a random StringArray with repeated values
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] unique the number of unique string values used
@@ -264,7 +283,18 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
 
-  /// \brief Randomly generate an Array of the specified type, size, and null_probability.
+  /// \brief Generate a random ListArray
+  ///
+  /// \param[in] values The underlying values array
+  /// \param[in] size The size of the generated list array
+  /// \param[in] null_probability the probability of a list value being null
+  /// \param[in] force_empty_nulls if true, null list entries must have 0 length
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
+                              bool force_empty_nulls = false);
+
+  /// \brief Generate a random Array of the specified type, size, and null_probability.
   ///
   /// Generation parameters other than size and null_probability are determined based on
   /// the type of Array to be generated.

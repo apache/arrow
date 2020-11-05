@@ -16,16 +16,22 @@
 // under the License.
 
 #include "arrow/compute/kernels/common.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
 
-#ifndef __has_builtin
-#define __has_builtin(x) 0
-#endif
-
 namespace arrow {
+
+using internal::AddWithOverflow;
+using internal::DivideWithOverflow;
+using internal::MultiplyWithOverflow;
+using internal::SubtractWithOverflow;
+
 namespace compute {
 namespace internal {
+
+using applicator::ScalarBinaryEqualTypes;
+using applicator::ScalarBinaryNotNullEqualTypes;
+
 namespace {
 
 template <typename T>
@@ -72,35 +78,19 @@ struct Add {
 };
 
 struct AddChecked {
-#if __has_builtin(__builtin_add_overflow)
-  template <typename T>
-  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
-    T result;
-    if (ARROW_PREDICT_FALSE(__builtin_add_overflow(left, right, &result))) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return result;
   }
-#else
-  template <typename T>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (ARROW_PREDICT_FALSE(arrow::internal::HasPositiveAdditionOverflow(left, right))) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-    return left + right;
-  }
 
-  template <typename T>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (ARROW_PREDICT_FALSE(arrow::internal::HasSignedAdditionOverflow(left, right))) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-    return left + right;
-  }
-#endif
-
-  template <typename T>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left + right;
   }
 };
@@ -123,36 +113,19 @@ struct Subtract {
 };
 
 struct SubtractChecked {
-#if __has_builtin(__builtin_sub_overflow)
-  template <typename T>
-  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
-    T result;
-    if (ARROW_PREDICT_FALSE(__builtin_sub_overflow(left, right, &result))) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
     return result;
   }
-#else
-  template <typename T>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (ARROW_PREDICT_FALSE(
-            arrow::internal::HasPositiveSubtractionOverflow(left, right))) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-    return left - right;
-  }
 
-  template <typename T>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    if (ARROW_PREDICT_FALSE(arrow::internal::HasSignedSubtractionOverflow(left, right))) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-    return left - right;
-  }
-#endif
-
-  template <typename T>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 };
@@ -197,59 +170,94 @@ struct Multiply {
 };
 
 struct MultiplyChecked {
-  template <typename T>
-  static enable_if_integer<T> Call(KernelContext* ctx, T left, T right) {
-    T result;
-#if __has_builtin(__builtin_mul_overflow)
-    if (ARROW_PREDICT_FALSE(__builtin_mul_overflow(left, right, &result))) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
-#else
-    result = Multiply::Call(ctx, left, right);
-    if (left != 0 && ARROW_PREDICT_FALSE(result / left != right)) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-#endif
     return result;
   }
 
-  template <typename T>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left * right;
   }
 };
 
-using applicator::ScalarBinaryEqualTypes;
+struct Divide {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    return left / right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+      } else {
+        result = 0;
+      }
+    }
+    return result;
+  }
+};
+
+struct DivideChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+      } else {
+        ctx->SetStatus(Status::Invalid("overflow"));
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      ctx->SetStatus(Status::Invalid("divide by zero"));
+      return 0;
+    }
+    return left / right;
+  }
+};
 
 // Generate a kernel given an arithmetic functor
-//
-// To avoid undefined behaviour of signed integer overflow treat the signed
-// input argument values as unsigned then cast them to signed making them wrap
-// around.
-template <typename Op>
+template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
-      return ScalarBinaryEqualTypes<Int8Type, Int8Type, Op>::Exec;
+      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
     case Type::UINT8:
-      return ScalarBinaryEqualTypes<UInt8Type, UInt8Type, Op>::Exec;
+      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
     case Type::INT16:
-      return ScalarBinaryEqualTypes<Int16Type, Int16Type, Op>::Exec;
+      return KernelGenerator<Int16Type, Int16Type, Op>::Exec;
     case Type::UINT16:
-      return ScalarBinaryEqualTypes<UInt16Type, UInt16Type, Op>::Exec;
+      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
     case Type::INT32:
-      return ScalarBinaryEqualTypes<Int32Type, Int32Type, Op>::Exec;
+      return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
     case Type::UINT32:
-      return ScalarBinaryEqualTypes<UInt32Type, UInt32Type, Op>::Exec;
+      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
     case Type::INT64:
     case Type::TIMESTAMP:
-      return ScalarBinaryEqualTypes<Int64Type, Int64Type, Op>::Exec;
+      return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
     case Type::UINT64:
-      return ScalarBinaryEqualTypes<UInt64Type, UInt64Type, Op>::Exec;
+      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     case Type::FLOAT:
-      return ScalarBinaryEqualTypes<FloatType, FloatType, Op>::Exec;
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
     case Type::DOUBLE:
-      return ScalarBinaryEqualTypes<DoubleType, DoubleType, Op>::Exec;
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -260,7 +268,19 @@ template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
   for (const auto& ty : NumericTypes()) {
-    auto exec = NumericEqualTypesBinary<Op>(ty);
+    auto exec = NumericEqualTypesBinary<ScalarBinaryEqualTypes, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
+  }
+  return func;
+}
+
+// Like MakeArithmeticFunction, but for arithmetic ops that need to run
+// only on non-null output.
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary());
+  for (const auto& ty : NumericTypes()) {
+    auto exec = NumericEqualTypesBinary<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   return func;
@@ -274,7 +294,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
-  auto add_checked = MakeArithmeticFunction<AddChecked>("add_checked");
+  auto add_checked = MakeArithmeticFunctionNotNull<AddChecked>("add_checked");
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
@@ -284,14 +304,16 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : AllTimeUnits()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec = NumericEqualTypesBinary<Subtract>(Type::TIMESTAMP);
+    auto exec =
+        NumericEqualTypesBinary<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
-  auto subtract_checked = MakeArithmeticFunction<SubtractChecked>("subtract_checked");
+  auto subtract_checked =
+      MakeArithmeticFunctionNotNull<SubtractChecked>("subtract_checked");
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
@@ -299,8 +321,17 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
-  auto multiply_checked = MakeArithmeticFunction<MultiplyChecked>("multiply_checked");
+  auto multiply_checked =
+      MakeArithmeticFunctionNotNull<MultiplyChecked>("multiply_checked");
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
+
+  // ----------------------------------------------------------------------
+  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide");
+  DCHECK_OK(registry->AddFunction(std::move(divide)));
+
+  // ----------------------------------------------------------------------
+  auto divide_checked = MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked");
+  DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 }
 
 }  // namespace internal

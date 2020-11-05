@@ -22,16 +22,19 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace dataset {
@@ -47,7 +50,7 @@ class ArrowIpcWriterMixin : public ::testing::Test {
   std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
 
-    EXPECT_OK_AND_ASSIGN(auto writer, ipc::NewFileWriter(sink.get(), reader->schema()));
+    EXPECT_OK_AND_ASSIGN(auto writer, ipc::MakeFileWriter(sink, reader->schema()));
 
     std::vector<std::shared_ptr<RecordBatch>> batches;
     ARROW_EXPECT_OK(reader->ReadAll(&batches));
@@ -63,7 +66,7 @@ class ArrowIpcWriterMixin : public ::testing::Test {
 
   std::shared_ptr<Buffer> Write(const Table& table) {
     EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
-    EXPECT_OK_AND_ASSIGN(auto writer, ipc::NewFileWriter(sink.get(), table.schema()));
+    EXPECT_OK_AND_ASSIGN(auto writer, ipc::MakeFileWriter(sink, table.schema()));
 
     ARROW_EXPECT_OK(writer->WriteTable(table));
 
@@ -87,10 +90,10 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
                                     kBatchRepetitions);
   }
 
-  Result<WritableFileSource> GetFileSink() {
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
                           AllocateResizableBuffer(0));
-    return WritableFileSource(std::move(buffer));
+    return std::make_shared<io::BufferOutputStream>(buffer);
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -121,7 +124,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
 
@@ -138,7 +141,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     AssertSchemaEqual(*batch->schema(), *schema_);
     row_count += batch->num_rows();
   }
@@ -149,63 +152,76 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
 
   opts_ = ScanOptions::Make(reader->schema());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  EXPECT_OK_AND_ASSIGN(auto write_task,
-                       format_->WriteFragment(sink, fragment, opts_, ctx_));
+  auto options = format_->DefaultWriteOptions();
+  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
 
-  ASSERT_OK(write_task->Execute());
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
 
-  AssertBufferEqual(*sink.buffer(), *source->buffer());
+  AssertBufferEqual(*written, *source->buffer());
 }
 
-class TestIpcFileSystemDataset : public TestIpcFileFormat,
-                                 public MakeFileSystemDatasetMixin {};
+TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
 
-TEST_F(TestIpcFileSystemDataset, Write) {
-  std::string paths = R"(
-    old_root/i32=0/str=aaa/dat
-    old_root/i32=0/str=bbb/dat
-    old_root/i32=0/str=ccc/dat
-    old_root/i32=1/str=aaa/dat
-    old_root/i32=1/str=bbb/dat
-    old_root/i32=1/str=ccc/dat
-  )";
+  opts_ = ScanOptions::Make(reader->schema());
 
-  ExpressionVector partitions{
-      ("i32"_ == 0 and "str"_ == "aaa").Copy(), ("i32"_ == 0 and "str"_ == "bbb").Copy(),
-      ("i32"_ == 0 and "str"_ == "ccc").Copy(), ("i32"_ == 1 and "str"_ == "aaa").Copy(),
-      ("i32"_ == 1 and "str"_ == "bbb").Copy(), ("i32"_ == 1 and "str"_ == "ccc").Copy(),
-  };
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  MakeDatasetFromPathlist(paths, scalar(true), partitions);
-
-  auto schema = arrow::schema({field("i32", int32()), field("str", utf8())});
-  opts_ = ScanOptions::Make(schema);
-
-  auto partitioning_factory = DirectoryPartitioning::MakeFactory({"str", "i32"});
-  ASSERT_OK_AND_ASSIGN(
-      auto plan, partitioning_factory->MakeWritePlan(schema, dataset_->GetFragments()));
-
-  plan.format = format_;
-  plan.filesystem = fs_;
-  plan.partition_base_dir = "new_root/";
-
-  ASSERT_OK_AND_ASSIGN(auto written, FileSystemDataset::Write(plan, opts_, ctx_));
-
-  auto parent_directories = written->files();
-  for (auto& path : parent_directories) {
-    EXPECT_EQ(fs::internal::GetAbstractPathExtension(path), "ipc");
-    path = fs::internal::GetAbstractPathParent(path).first;
+  auto ipc_options =
+      checked_pointer_cast<IpcFileWriteOptions>(format_->DefaultWriteOptions());
+  if (util::Codec::IsAvailable(Compression::ZSTD)) {
+    EXPECT_OK_AND_ASSIGN(ipc_options->options->codec,
+                         util::Codec::Create(Compression::ZSTD));
   }
+  ipc_options->metadata = key_value_metadata({{"hello", "world"}});
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       format_->MakeWriter(sink, reader->schema(), ipc_options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
 
-  EXPECT_THAT(parent_directories,
-              testing::ElementsAre("new_root/aaa/0", "new_root/aaa/1", "new_root/bbb/0",
-                                   "new_root/bbb/1", "new_root/ccc/0", "new_root/ccc/1"));
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto ipc_reader, ipc::RecordBatchFileReader::Open(
+                                            std::make_shared<io::BufferReader>(written)));
+
+  EXPECT_EQ(ipc_reader->metadata()->sorted_pairs(),
+            ipc_options->metadata->sorted_pairs());
+}
+
+class TestIpcFileSystemDataset : public testing::Test,
+                                 public WriteFileSystemDatasetMixin {
+ public:
+  void SetUp() override {
+    MakeSourceDataset();
+    auto ipc_format = std::make_shared<IpcFileFormat>();
+    format_ = ipc_format;
+    SetWriteOptions(ipc_format->DefaultWriteOptions());
+  }
+};
+
+TEST_F(TestIpcFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
+  TestWriteWithIdenticalPartitioningSchema();
+}
+
+TEST_F(TestIpcFileSystemDataset, WriteWithUnrelatedPartitioningSchema) {
+  TestWriteWithUnrelatedPartitioningSchema();
+}
+
+TEST_F(TestIpcFileSystemDataset, WriteWithSupersetPartitioningSchema) {
+  TestWriteWithSupersetPartitioningSchema();
+}
+
+TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
+  TestWriteWithEmptyPartitioningSchema();
 }
 
 TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
@@ -241,7 +257,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
@@ -288,7 +304,7 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);

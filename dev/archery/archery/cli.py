@@ -937,19 +937,33 @@ def release_changelog_regenerate(obj):
 
 
 @release.command('cherry-pick')
+@click.argument('version')
+@click.option('--dry-run/--execute', default=True,
+              help="Display the git commands instead of executing them.")
+@click.option('--recreate/--continue', default=True,
+              help="Recreate the maintenance branch or only apply unapplied "
+                   "patches.")
 @click.pass_obj
-def release_cherry_pick(obj):
-    """Cherry pick commits."""
-    from .release import PatchRelease
+def release_cherry_pick(obj, version, dry_run, recreate):
+    """
+    Cherry pick commits.
+    """
+    from .release import Release, MinorRelease, PatchRelease
 
-    release = obj['release']
-    if not isinstance(release, PatchRelease):
-        raise click.UsageError('Cherry-pick command only supported for patch '
-                               'releases')
+    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
+    if not isinstance(release, (MinorRelease, PatchRelease)):
+        raise click.UsageError('Cherry-pick command only supported for minor '
+                               'and patch releases')
 
-    commands = release.generate_update_branch_commands()
-    for cmd in commands:
-        click.echo(cmd)
+    if not dry_run:
+        release.cherry_pick_commits(recreate_branch=recreate)
+        click.echo('Executed the following commands:\n')
+
+    click.echo(
+        'git checkout {} -b {}'.format(release.previous.tag, release.branch)
+    )
+    for commit in release.commits_to_pick():
+        click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
 if __name__ == "__main__":

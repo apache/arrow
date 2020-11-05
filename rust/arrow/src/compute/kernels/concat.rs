@@ -53,7 +53,7 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
 
     match array_data_list[0].data_type() {
         DataType::Utf8 => {
-            let mut builder = StringArray::builder(0);
+            let mut builder = StringBuilder::new(0);
             builder.append_data(array_data_list)?;
             Ok(ArrayBuilder::finish(&mut builder))
         }
@@ -114,6 +114,7 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
         DataType::Duration(TimeUnit::Nanosecond) => {
             concat_primitive::<DurationNanosecondType>(array_data_list)
         }
+        DataType::List(nested_type) => concat_list(array_data_list, *nested_type.clone()),
         t => Err(ArrowError::ComputeError(format!(
             "Concat not supported for data type {:?}",
             t
@@ -131,31 +132,62 @@ where
     Ok(ArrayBuilder::finish(&mut builder))
 }
 
+#[inline]
+fn concat_primitive_list<T>(array_data_list: &[ArrayDataRef]) -> Result<ArrayRef>
+where
+    T: ArrowNumericType,
+{
+    let mut builder = ListBuilder::new(PrimitiveArray::<T>::builder(0));
+    builder.append_data(array_data_list)?;
+    Ok(ArrayBuilder::finish(&mut builder))
+}
+
+#[inline]
+fn concat_list(
+    array_data_list: &[ArrayDataRef],
+    data_type: DataType,
+) -> Result<ArrayRef> {
+    match data_type {
+        DataType::Int8 => concat_primitive_list::<Int8Type>(array_data_list),
+        DataType::Int16 => concat_primitive_list::<Int16Type>(array_data_list),
+        DataType::Int32 => concat_primitive_list::<Int32Type>(array_data_list),
+        DataType::Int64 => concat_primitive_list::<Int64Type>(array_data_list),
+        DataType::UInt8 => concat_primitive_list::<UInt8Type>(array_data_list),
+        DataType::UInt16 => concat_primitive_list::<UInt16Type>(array_data_list),
+        DataType::UInt32 => concat_primitive_list::<UInt32Type>(array_data_list),
+        DataType::UInt64 => concat_primitive_list::<UInt64Type>(array_data_list),
+        t => Err(ArrowError::ComputeError(format!(
+            "Concat not supported for list with data type {:?}",
+            t
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
     use std::sync::Arc;
 
     #[test]
     fn test_concat_empty_vec() -> Result<()> {
-        let re = concat(&vec![]);
+        let re = concat(&[]);
         assert!(re.is_err());
         Ok(())
     }
 
     #[test]
     fn test_concat_incompatible_datatypes() -> Result<()> {
-        let re = concat(&vec![
+        let re = concat(&[
             Arc::new(PrimitiveArray::<Int64Type>::from(vec![
                 Some(-1),
                 Some(2),
                 None,
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![Some("hello"), Some("bar"), Some("world")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                Some("hello"),
+                Some("bar"),
+                Some("world"),
+            ])) as ArrayRef,
         ]);
         assert!(re.is_err());
         Ok(())
@@ -163,32 +195,28 @@ mod tests {
 
     #[test]
     fn test_concat_string_arrays() -> Result<()> {
-        let arr = concat(&vec![
-            Arc::new(
-                StringArray::try_from(vec![Some("hello"), Some("world")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
+        let arr = concat(&[
+            Arc::new(StringArray::from(vec![Some("hello"), Some("world")])) as ArrayRef,
             Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3),
-            Arc::new(
-                StringArray::try_from(vec![Some("foo"), Some("bar"), None, Some("baz")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
-        ])?;
-
-        let expected_output = Arc::new(
-            StringArray::try_from(vec![
-                Some("hello"),
-                Some("world"),
-                Some("2"),
-                Some("3"),
-                Some("4"),
+            Arc::new(StringArray::from(vec![
                 Some("foo"),
                 Some("bar"),
                 None,
                 Some("baz"),
-            ])
-            .expect("Unable to create string array"),
-        ) as ArrayRef;
+            ])) as ArrayRef,
+        ])?;
+
+        let expected_output = Arc::new(StringArray::from(vec![
+            Some("hello"),
+            Some("world"),
+            Some("2"),
+            Some("3"),
+            Some("4"),
+            Some("foo"),
+            Some("bar"),
+            None,
+            Some("baz"),
+        ])) as ArrayRef;
 
         assert!(
             arr.equals(&(*expected_output)),
@@ -202,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_concat_primitive_arrays() -> Result<()> {
-        let arr = concat(&vec![
+        let arr = concat(&[
             Arc::new(PrimitiveArray::<Int64Type>::from(vec![
                 Some(-1),
                 Some(-1),
@@ -250,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_concat_boolean_primitive_arrays() -> Result<()> {
-        let arr = concat(&vec![
+        let arr = concat(&[
             Arc::new(PrimitiveArray::<BooleanType>::from(vec![
                 Some(true),
                 Some(true),
@@ -285,6 +313,77 @@ mod tests {
             "expect {:#?} to be: {:#?}",
             arr,
             &expected_output
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_primitive_list_arrays() -> Result<()> {
+        fn populate_list1(
+            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
+        ) -> Result<()> {
+            b.values().append_value(-1)?;
+            b.values().append_value(-1)?;
+            b.values().append_value(2)?;
+            b.values().append_null()?;
+            b.values().append_null()?;
+            b.append(true)?;
+            b.append(true)?;
+            b.append(false)?;
+            b.values().append_value(10)?;
+            b.append(true)?;
+            Ok(())
+        }
+
+        fn populate_list2(
+            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
+        ) -> Result<()> {
+            b.append(false)?;
+            b.values().append_value(100)?;
+            b.values().append_null()?;
+            b.values().append_value(101)?;
+            b.append(true)?;
+            b.values().append_value(102)?;
+            b.append(true)?;
+            Ok(())
+        }
+
+        fn populate_list3(
+            b: &mut ListBuilder<PrimitiveBuilder<Int64Type>>,
+        ) -> Result<()> {
+            b.values().append_value(1000)?;
+            b.values().append_value(1001)?;
+            b.append(true)?;
+            Ok(())
+        }
+
+        let mut builder_in1 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+        let mut builder_in2 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+        let mut builder_in3 = ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+        populate_list1(&mut builder_in1)?;
+        populate_list2(&mut builder_in2)?;
+        populate_list3(&mut builder_in3)?;
+
+        let mut builder_expected =
+            ListBuilder::new(PrimitiveArray::<Int64Type>::builder(0));
+        populate_list1(&mut builder_expected)?;
+        populate_list2(&mut builder_expected)?;
+        populate_list3(&mut builder_expected)?;
+
+        let array_result = concat(&[
+            Arc::new(builder_in1.finish()),
+            Arc::new(builder_in2.finish()),
+            Arc::new(builder_in3.finish()),
+        ])?;
+
+        let array_expected = builder_expected.finish();
+
+        assert!(
+            array_result.equals(&array_expected),
+            "expect {:#?} to be: {:#?}",
+            array_result,
+            &array_expected
         );
 
         Ok(())

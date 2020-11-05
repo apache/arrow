@@ -82,6 +82,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT:-OFF} \
       -DARROW_PLASMA=${ARROW_PLASMA:-OFF} \
       -DARROW_PYTHON=${ARROW_PYTHON:-OFF} \
+      -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
       -DARROW_S3=${ARROW_S3:-OFF} \
       -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
       -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
@@ -100,6 +101,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
       -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
       -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
+      -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
       -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
       -DBOOST_SOURCE=${BOOST_SOURCE:-} \
       -DBrotli_SOURCE=${Brotli_SOURCE:-} \
@@ -125,7 +127,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DSnappy_SOURCE=${Snappy_SOURCE:-} \
       -DThrift_SOURCE=${Thrift_SOURCE:-} \
       -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
-      -DZSTD_SOURCE=${ZSTD_SOURCE:-} \
+      -Dzstd_SOURCE=${zstd_SOURCE:-} \
       ${CMAKE_ARGS} \
       ${source_dir}
 

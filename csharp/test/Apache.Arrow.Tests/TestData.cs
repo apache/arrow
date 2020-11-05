@@ -47,6 +47,7 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(Date64Type.Default, i));
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
+                builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
                 //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 //builder.Field(CreateField(new DecimalType(19, 2)));
                 //builder.Field(CreateField(HalfFloatType.Default));
@@ -104,7 +105,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
-            IArrowTypeVisitor<ListType>
+            IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<StructType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -199,6 +201,34 @@ namespace Apache.Arrow.Tests
 
                 Array = builder.Build();
 
+            }
+
+            public void Visit(StructType type)
+            {
+                StringArray.Builder stringBuilder = new StringArray.Builder();
+                for (int i = 0; i < Length; i++)
+                {
+                    stringBuilder.Append(i.ToString());
+                }
+                StringArray stringArray = stringBuilder.Build();
+                Int32Array.Builder intBuilder = new Int32Array.Builder();
+                for (int i = 0; i < Length; i++)
+                {
+                    intBuilder.Append(i);
+                }
+                Int32Array intArray = intBuilder.Build();
+
+                List<Array> arrays = new List<Array>();
+                arrays.Add(stringArray);
+                arrays.Add(intArray);
+
+                ArrowBuffer.BitmapBuilder nullBitmap = new ArrowBuffer.BitmapBuilder();
+                for (int i = 0; i < Length; i++)
+                {
+                    nullBitmap.Append(true);
+                }
+                
+                Array = new StructArray(type, Length, arrays, nullBitmap.Build());
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

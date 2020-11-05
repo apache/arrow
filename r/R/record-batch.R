@@ -48,9 +48,7 @@
 #' - `$names()`: Get all column names (called by `names(batch)`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
-#' - `$select(spec)`: Return a new record batch with a selection of columns.
-#'    This supports the usual `character`, `numeric`, and `logical` selection
-#'    methods as well as "tidy select" expressions.
+#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -84,21 +82,12 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_that(is.string(name))
       shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
     },
-    select = function(spec) {
-      spec <- enquo(spec)
-      if (quo_is_null(spec)) {
-        self
-      } else {
-        all_vars <- self$names()
-        vars <- vars_select(all_vars, !!spec)
-        indices <- match(vars, all_vars)
-        shared_ptr(RecordBatch, RecordBatch__select(self, indices))
-      }
+    SelectColumns = function(indices) {
+      shared_ptr(RecordBatch, RecordBatch__SelectColumns(self, indices))
     },
     RemoveColumn = function(i){
       shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
     },
-
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         shared_ptr(RecordBatch, RecordBatch__Slice1(self, offset))
@@ -218,7 +207,16 @@ names.RecordBatch <- function(x) x$names()
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
-    x <- x$select(j)
+    if (is_integerish(j)) {
+      if (all(j < 0)) {
+        # in R, negative j means "everything but j"
+        j <- setdiff(seq_len(x$num_columns), -1 * j)
+      }
+      x <- x$SelectColumns(as.integer(j) - 1L)
+    } else if (is.character(j)) {
+      x <- x$SelectColumns(match(j, names(x)) - 1L)
+    }
+
     if (drop && ncol(x) == 1L) {
       x <- x$column(0)
     }
@@ -278,7 +276,14 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
     if (!is.null(r_metadata$attributes)) {
-      attributes(x) <- r_metadata$attributes
+      attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
+      if (inherits(x, "POSIXlt")) {
+        # We store POSIXlt as a StructArray, which is translated back to R
+        # as a data.frame, but while data frames have a row.names = c(NA, nrow(x))
+        # attribute, POSIXlt does not, so since this is now no longer an object
+        # of class data.frame, remove the extraneous attribute
+        attr(x, "row.names") <- NULL
+      }
     }
 
     columns_metadata <- r_metadata$columns

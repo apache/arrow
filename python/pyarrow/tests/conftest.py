@@ -28,7 +28,7 @@ from pyarrow.util import find_free_port
 
 # setup hypothesis profiles
 h.settings.register_profile('ci', max_examples=1000)
-h.settings.register_profile('dev', max_examples=10)
+h.settings.register_profile('dev', max_examples=50)
 h.settings.register_profile('debug', max_examples=10,
                             verbosity=h.Verbosity.verbose)
 

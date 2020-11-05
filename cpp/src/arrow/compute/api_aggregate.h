@@ -66,7 +66,7 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
     /// Skip null values
     SKIP = 0,
     /// Any nulls will result in null output
-    OUTPUT_NULL
+    EMIT_NULL
   };
 
   explicit MinMaxOptions(enum Mode null_handling = SKIP) : null_handling(null_handling) {}
@@ -74,6 +74,18 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   static MinMaxOptions Defaults() { return MinMaxOptions{}; }
 
   enum Mode null_handling = SKIP;
+};
+
+/// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
+///
+/// The divisor used in calculations is N - ddof, where N is the number of elements.
+/// By default, ddof is zero, and population variance or stddev is returned.
+struct ARROW_EXPORT VarianceOptions : public FunctionOptions {
+  explicit VarianceOptions(int ddof = 0) : ddof(ddof) {}
+
+  static VarianceOptions Defaults() { return VarianceOptions{}; }
+
+  int ddof = 0;
 };
 
 /// @}
@@ -116,7 +128,7 @@ Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \brief Calculate the min / max of a numeric array
 ///
 /// This function returns both the min and max as a struct scalar, with type
-/// struct<min: T, max: T>, where T is ht einput type
+/// struct<min: T, max: T>, where T is the input type
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] options see MinMaxOptions for more information
@@ -130,22 +142,48 @@ Result<Datum> MinMax(const Datum& value,
                      const MinMaxOptions& options = MinMaxOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the min / max of a numeric array.
+/// \brief Calculate the modal (most common) value of a numeric array
 ///
-/// This function returns both the min and max as a collection. The resulting
-/// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
+/// This function returns both mode and count as a struct scalar, with type
+/// struct<mode: T, count: int64>, where T is the input type.
+/// If there is more than one such value, the smallest one is returned.
 ///
-/// \param[in] array input array
-/// \param[in] options see MinMaxOptions for more information
+/// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] ctx the function execution context, optional
-/// \return resulting datum containing a {min, max} collection
+/// \return resulting datum as a struct<mode: T, count: int64> scalar
 ///
-/// \since 1.0.0
+/// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> MinMax(const Array& array,
-                     const MinMaxOptions& options = MinMaxOptions::Defaults(),
+Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the standard deviation of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see VarianceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed standard deviation as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Stddev(const Datum& value,
+                     const VarianceOptions& options = VarianceOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the variance of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see VarianceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed variance as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Variance(const Datum& value,
+                       const VarianceOptions& options = VarianceOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

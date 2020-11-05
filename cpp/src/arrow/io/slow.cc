@@ -28,6 +28,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -64,8 +65,8 @@ void LatencyGenerator::Sleep() {
 }
 
 std::shared_ptr<LatencyGenerator> LatencyGenerator::Make(double average_latency) {
-  auto seed = static_cast<int32_t>(std::random_device()());
-  return std::make_shared<LatencyGeneratorImpl>(average_latency, seed);
+  return std::make_shared<LatencyGeneratorImpl>(
+      average_latency, static_cast<int32_t>(::arrow::internal::GetRandomSeed()));
 }
 
 std::shared_ptr<LatencyGenerator> LatencyGenerator::Make(double average_latency,

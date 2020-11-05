@@ -60,45 +60,45 @@ impl Page {
     /// Returns [`PageType`](crate::basic::PageType) for this page.
     pub fn page_type(&self) -> PageType {
         match self {
-            &Page::DataPage { .. } => PageType::DATA_PAGE,
-            &Page::DataPageV2 { .. } => PageType::DATA_PAGE_V2,
-            &Page::DictionaryPage { .. } => PageType::DICTIONARY_PAGE,
+            Page::DataPage { .. } => PageType::DATA_PAGE,
+            Page::DataPageV2 { .. } => PageType::DATA_PAGE_V2,
+            Page::DictionaryPage { .. } => PageType::DICTIONARY_PAGE,
         }
     }
 
     /// Returns internal byte buffer reference for this page.
     pub fn buffer(&self) -> &ByteBufferPtr {
         match self {
-            &Page::DataPage { ref buf, .. } => &buf,
-            &Page::DataPageV2 { ref buf, .. } => &buf,
-            &Page::DictionaryPage { ref buf, .. } => &buf,
+            Page::DataPage { ref buf, .. } => &buf,
+            Page::DataPageV2 { ref buf, .. } => &buf,
+            Page::DictionaryPage { ref buf, .. } => &buf,
         }
     }
 
     /// Returns number of values in this page.
     pub fn num_values(&self) -> u32 {
         match self {
-            &Page::DataPage { num_values, .. } => num_values,
-            &Page::DataPageV2 { num_values, .. } => num_values,
-            &Page::DictionaryPage { num_values, .. } => num_values,
+            Page::DataPage { num_values, .. } => *num_values,
+            Page::DataPageV2 { num_values, .. } => *num_values,
+            Page::DictionaryPage { num_values, .. } => *num_values,
         }
     }
 
     /// Returns this page [`Encoding`](crate::basic::Encoding).
     pub fn encoding(&self) -> Encoding {
         match self {
-            &Page::DataPage { encoding, .. } => encoding,
-            &Page::DataPageV2 { encoding, .. } => encoding,
-            &Page::DictionaryPage { encoding, .. } => encoding,
+            Page::DataPage { encoding, .. } => *encoding,
+            Page::DataPageV2 { encoding, .. } => *encoding,
+            Page::DictionaryPage { encoding, .. } => *encoding,
         }
     }
 
     /// Returns optional [`Statistics`](crate::file::metadata::Statistics).
     pub fn statistics(&self) -> Option<&Statistics> {
         match self {
-            &Page::DataPage { ref statistics, .. } => statistics.as_ref(),
-            &Page::DataPageV2 { ref statistics, .. } => statistics.as_ref(),
-            &Page::DictionaryPage { .. } => None,
+            Page::DataPage { ref statistics, .. } => statistics.as_ref(),
+            Page::DataPageV2 { ref statistics, .. } => statistics.as_ref(),
+            Page::DictionaryPage { .. } => None,
         }
     }
 }

@@ -27,7 +27,7 @@ DataFusion can be used as a library by adding the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-datafusion = "2.0.0-SNAPSHOT"
+datafusion = "2.0.0"
 ```
 
 ## Using DataFusion as a binary
@@ -42,20 +42,28 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] SQL Query Planner
 - [x] Query Optimizer
 - [x] Projection push down
-- [ ] Predicate push down
+- [x] Predicate push down
 - [x] Type coercion
 - [x] Parallel query execution
 
 ## SQL Support
 
 - [x] Projection
-- [x] Selection
+- [x] Filter (WHERE)
 - [x] Limit
 - [x] Aggregate
-- [x] UDFs
+- [x] UDFs (user-defined functions)
+- [x] UDAFs (user-defined aggregate functions)
 - [x] Common math functions
-- [ ] Common string functions
-- [ ] Common date/time functions
+- String functions
+  - [x] Length
+  - [x] Concatenate
+- Common date/time functions
+  - [ ] Basic date functions
+  - [ ] Basic time functions
+  - [x] Basic timestamp functions
+- nested functions
+  - [x] Array of columns
 - [x] Sorting
 - [ ] Nested types
 - [ ] Lists
@@ -79,4 +87,87 @@ This library currently supports the following SQL constructs:
 * most mathematical unary and binary expressions such as `+`, `/`, `sqrt`, `tan`, `>=`.
 * `WHERE` to filter
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
-* `ORDER BY` together with an expression and optional `DESC`
+* `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
+
+## Supported Data Types
+
+DataFusion uses Arrow, and thus the Arrow type system, for query
+execution. The SQL types from
+[sqlparser-rs](https://github.com/ballista-compute/sqlparser-rs/blob/main/src/ast/data_type.rs#L57)
+are mapped to Arrow types according to the following table
+
+
+| SQL Data Type   | Arrow DataType                   |
+| --------------- | -------------------------------- |
+| `CHAR`          | `Utf8`                           |
+| `VARCHAR`       | `Utf8`                           |
+| `UUID`          | *Not yet supported*              |
+| `CLOB`          | *Not yet supported*              |
+| `BINARY`        | *Not yet supported*              |
+| `VARBINARY`     | *Not yet supported*              |
+| `DECIMAL`       | `Float64`                        |
+| `FLOAT`         | `Float32`                        |
+| `SMALLINT`      | `Int16`                          |
+| `INT`           | `Int32`                          |
+| `BIGINT`        | `Int64`                          |
+| `REAL`          | `Float64`                        |
+| `DOUBLE`        | `Float64`                        |
+| `BOOLEAN`       | `Boolean`                        |
+| `DATE`          | `Date64(DateUnit::Day)`          |
+| `TIME`          | `Time64(TimeUnit::Millisecond)`  |
+| `TIMESTAMP`     | `Date64(DateUnit::Millisecond)`  |
+| `INTERVAL`      | *Not yet supported*              |
+| `REGCLASS`      | *Not yet supported*              |
+| `TEXT`          | *Not yet supported*              |
+| `BYTEA`         | *Not yet supported*              |
+| `CUSTOM`        | *Not yet supported*              |
+| `ARRAY`         | *Not yet supported*              |
+
+# Developer's guide
+
+This section describes how you can get started at developing DataFusion.
+
+### Bootstrap environment
+
+DataFusion is written in Rust and it uses a standard rust toolkit:
+
+* `cargo build`
+* `cargo fmt` to format the code
+* `cargo test` to test
+* etc.
+
+## How to add a new scalar function
+
+Below is a checklist of what you need to do to add a new scalar function to DataFusion:
+
+* Add the actual implementation of the function:
+  * [here](src/physical_plan/string_expressions.rs) for string functions
+  * [here](src/physical_plan/math_expressions.rs) for math functions
+  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
+  * create a new module [here](src/physical_plan) for other functions
+* In [src/physical_plan/functions](src/physical_plan/functions.rs), add:
+  * a new variant to `BuiltinScalarFunction`
+  * a new entry to `FromStr` with the name of the function as called by SQL
+  * a new line in `return_type` with the expected return type of the function, given an incoming type
+  * a new line in `signature` with the signature of the function (number and types of its arguments)
+  * a new line in `create_physical_expr` mapping the built-in to the implementation
+  * tests to the function.
+* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+
+## How to add a new aggregate function
+
+Below is a checklist of what you need to do to add a new aggregate function to DataFusion:
+
+* Add the actual implementation of an `Accumulator` and `AggregateExpr`:
+  * [here](src/physical_plan/string_expressions.rs) for string functions
+  * [here](src/physical_plan/math_expressions.rs) for math functions
+  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
+  * create a new module [here](src/physical_plan) for other functions
+* In [src/physical_plan/aggregates](src/physical_plan/aggregates.rs), add:
+  * a new variant to `BuiltinAggregateFunction`
+  * a new entry to `FromStr` with the name of the function as called by SQL
+  * a new line in `return_type` with the expected return type of the function, given an incoming type
+  * a new line in `signature` with the signature of the function (number and types of its arguments)
+  * a new line in `create_aggregate_expr` mapping the built-in to the implementation
+  * tests to the function.
+* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.

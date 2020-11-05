@@ -23,8 +23,8 @@ jobs:
 
   - script: |
       source activate base
-      conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
-    displayName: 'Add conda-forge-ci-setup=2'
+      conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=3 conda-build
+    displayName: 'Add conda-forge-ci-setup=3'
 
   - script: |
       git clone --no-checkout {{ arrow.remote }} arrow

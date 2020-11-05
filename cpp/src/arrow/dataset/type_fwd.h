@@ -48,14 +48,23 @@ using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 class FileSource;
 class FileFormat;
 class FileFragment;
+class FileWriter;
+class FileWriteOptions;
 class FileSystemDataset;
+struct FileSystemDatasetWriteOptions;
+
+class InMemoryDataset;
 
 class CsvFileFormat;
 
 class IpcFileFormat;
+class IpcFileWriter;
+class IpcFileWriteOptions;
 
 class ParquetFileFormat;
 class ParquetFileFragment;
+class ParquetFileWriter;
+class ParquetFileWriteOptions;
 
 class Expression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
@@ -82,9 +91,6 @@ using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
-
-class WriteTask;
-class WritePlan;
 
 }  // namespace dataset
 }  // namespace arrow

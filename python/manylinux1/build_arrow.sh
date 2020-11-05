@@ -103,11 +103,11 @@ cmake \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_DATASET=${BUILD_ARROW_DATASET} \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
+    -DARROW_DEPENDENCY_USE_SHARED=OFF \
     -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
     -DARROW_GANDIVA_JAVA=OFF \
     -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-    -DARROW_GRPC_USE_SHARED=OFF \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_ORC=OFF \
@@ -125,7 +125,6 @@ cmake \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
-    -DARROW_ZSTD_USE_SHARED=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DCMAKE_INSTALL_LIBDIR=lib \

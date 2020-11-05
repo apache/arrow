@@ -116,7 +116,7 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 MacOS 10.15 Python 3.7
+    name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
@@ -150,8 +150,9 @@ jobs:
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
           brew install coreutils python
-          pip3 install -r python/requirements-build.txt \
-                       -r python/requirements-test.txt
+          python3 -mpip install \
+            -r python/requirements-build.txt \
+            -r python/requirements-test.txt
       - name: Build
         shell: bash
         run: |

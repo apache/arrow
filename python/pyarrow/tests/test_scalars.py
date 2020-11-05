@@ -531,27 +531,28 @@ def test_map():
 
 
 def test_dictionary():
-    indices = [2, 1, 2, 0]
-    dictionary = ['foo', 'bar', 'baz']
+    indices = pa.array([2, None, 1, 2, 0, None])
+    dictionary = pa.array(['foo', 'bar', 'baz'])
 
     arr = pa.DictionaryArray.from_arrays(indices, dictionary)
-    expected = ['baz', 'bar', 'baz', 'foo']
+    expected = ['baz', None, 'bar', 'baz', 'foo', None]
+    assert arr.to_pylist() == expected
 
     for j, (i, v) in enumerate(zip(indices, expected)):
         s = arr[j]
 
         assert s.as_py() == v
         assert s.value.as_py() == v
-        assert s.index.as_py() == i
-        assert s.dictionary.to_pylist() == dictionary
+        assert s.index.equals(i)
+        assert s.dictionary.equals(dictionary)
 
         with pytest.warns(FutureWarning):
-            assert s.index_value.as_py() == i
+            assert s.index_value.equals(i)
         with pytest.warns(FutureWarning):
             assert s.dictionary_value.as_py() == v
 
-    with pytest.raises(pa.ArrowNotImplementedError):
-        pickle.loads(pickle.dumps(s))
+        restored = pickle.loads(pickle.dumps(s))
+        assert restored.equals(s)
 
 
 def test_union():

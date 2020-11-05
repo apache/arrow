@@ -56,8 +56,9 @@ struct PandasOptions {
   /// Coerce all date and timestamp to datetime64[ns]
   bool coerce_temporal_nanoseconds = false;
 
-  /// XXX(wesm): Hack for ARROW-7723 to opt out of DATETIME_NANO_TZ conversion
-  /// path
+  /// Used to maintain backwards compatibility for
+  /// timezone bugs (see ARROW-9528).  Should be removed
+  /// after Arrow 2.0 release.
   bool ignore_timezone = false;
 
   /// \brief If true, do not create duplicate PyObject versions of equal
@@ -88,6 +89,9 @@ struct PandasOptions {
   /// original context for this feature. Only currently implemented for Table
   /// conversions
   bool self_destruct = false;
+
+  // Used internally for nested arrays.
+  bool decode_dictionaries = false;
 
   // Columns that should be casted to categorical
   std::unordered_set<std::string> categorical_columns;

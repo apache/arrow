@@ -66,6 +66,7 @@ class PerfDataStream : public FlightDataStream {
         total_records_(total_records),
         records_sent_(0),
         schema_(schema),
+        mapper_(*schema),
         arrays_(arrays) {
     batch_ = RecordBatch::Make(schema, batch_length_, arrays_);
   }
@@ -73,8 +74,7 @@ class PerfDataStream : public FlightDataStream {
   std::shared_ptr<Schema> schema() override { return schema_; }
 
   Status GetSchemaPayload(FlightPayload* payload) override {
-    return ipc::GetSchemaPayload(*schema_, ipc_options_, &dictionary_memo_,
-                                 &payload->ipc_message);
+    return ipc::GetSchemaPayload(*schema_, ipc_options_, mapper_, &payload->ipc_message);
   }
 
   Status Next(FlightPayload* payload) override {
@@ -112,7 +112,7 @@ class PerfDataStream : public FlightDataStream {
   const int64_t total_records_;
   int64_t records_sent_;
   std::shared_ptr<Schema> schema_;
-  ipc::DictionaryMemo dictionary_memo_;
+  ipc::DictionaryFieldMapper mapper_;
   ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> batch_;
   ArrayVector arrays_;

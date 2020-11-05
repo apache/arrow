@@ -41,5 +41,19 @@ Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecConte
   return CallFunction("min_max", {value}, &options, ctx);
 }
 
+Result<Datum> Mode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("mode", {value}, ctx);
+}
+
+Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,
+                     ExecContext* ctx) {
+  return CallFunction("stddev", {value}, &options, ctx);
+}
+
+Result<Datum> Variance(const Datum& value, const VarianceOptions& options,
+                       ExecContext* ctx) {
+  return CallFunction("variance", {value}, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

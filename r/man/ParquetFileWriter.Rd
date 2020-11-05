@@ -14,9 +14,18 @@ The \code{ParquetFileWriter$create()} factory method instantiates the object and
 takes the following arguments:
 \itemize{
 \item \code{schema} A \link{Schema}
-\item \code{sink} An \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path
+\item \code{sink} An \link[=OutputStream]{arrow::io::OutputStream}
 \item \code{properties} An instance of \link{ParquetWriterProperties}
 \item \code{arrow_properties} An instance of \code{ParquetArrowWriterProperties}
+}
+}
+
+\section{Methods}{
+
+\itemize{
+\item \code{WriteTable} Write a \link{Table} to \code{sink}
+\item \code{Close} Close the writer. Note: does not close the \code{sink}.
+\link[=OutputStream]{arrow::io::OutputStream} has its own \code{close()} method.
 }
 }
 

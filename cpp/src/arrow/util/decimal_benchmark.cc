@@ -21,24 +21,55 @@
 #include <vector>
 
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace Decimal {
 
-static void FromString(benchmark::State& state) {  // NOLINT non-const reference
-  std::vector<std::string> values = {"0",
-                                     "1.23",
-                                     "12.345e6",
-                                     "-12.345e-6",
-                                     "123456789.123456789",
-                                     "1231234567890.451234567890"};
+static const std::vector<std::string>& GetValuesAsString() {
+  static const std::vector<std::string> kValues = {"0",
+                                                   "1.23",
+                                                   "12.345e6",
+                                                   "-12.345e-6",
+                                                   "123456789.123456789",
+                                                   "1231234567890.451234567890"};
+  return kValues;
+}
 
+struct DecimalValueAndScale {
+  Decimal128 decimal;
+  int32_t scale;
+};
+
+static std::vector<DecimalValueAndScale> GetDecimalValuesAndScales() {
+  const std::vector<std::string>& value_strs = GetValuesAsString();
+  std::vector<DecimalValueAndScale> result(value_strs.size());
+  for (size_t i = 0; i < value_strs.size(); ++i) {
+    int32_t precision;
+    ARROW_CHECK_OK(Decimal128::FromString(value_strs[i], &result[i].decimal,
+                                          &result[i].scale, &precision));
+  }
+  return result;
+}
+
+static void FromString(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<std::string>& values = GetValuesAsString();
   for (auto _ : state) {
     for (const auto& value : values) {
       Decimal128 dec;
       int32_t scale, precision;
       benchmark::DoNotOptimize(Decimal128::FromString(value, &dec, &scale, &precision));
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+static void ToString(benchmark::State& state) {  // NOLINT non-const reference
+  static const std::vector<DecimalValueAndScale> values = GetDecimalValuesAndScales();
+  for (auto _ : state) {
+    for (const DecimalValueAndScale& item : values) {
+      benchmark::DoNotOptimize(item.decimal.ToString(item.scale));
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
@@ -158,6 +189,7 @@ static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const referenc
 }
 
 BENCHMARK(FromString);
+BENCHMARK(ToString);
 BENCHMARK(BinaryMathOp);
 BENCHMARK(BinaryMathOpAggregate);
 BENCHMARK(BinaryCompareOp);

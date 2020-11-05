@@ -43,7 +43,7 @@ VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
 
 # generate code
-if [ "$ARROW_R_DEV" = "true" ]; then
+if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
@@ -98,6 +98,8 @@ else
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
+        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       else
         echo "*** Downloading ${PKG_BREW_NAME}"
         if [ -f "autobrew" ]; then
@@ -112,9 +114,8 @@ else
         if [ $? -ne 0 ]; then
           echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
         fi
+        # autobrew sets `PKG_LIBS` and `PKG_CFLAGS`
       fi
-      PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-      PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
     elif [ "$UNAME" = "Linux" ]; then
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
@@ -178,6 +179,10 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   grep 'set(ARROW_S3 "ON")' $LIB_DIR/cmake/arrow/ArrowOptions.cmake >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    if [ "$BUNDLED_LIBS" != "" ]; then
+      # We're depending on openssl/curl from the system, so they're not in the bundled deps
+      PKG_LIBS="$PKG_LIBS -lssl -lcrypto -lcurl"
+    fi
   fi
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"

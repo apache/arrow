@@ -14,6 +14,7 @@ Build-Depends:
   libboost-regex-dev,
   libboost-system-dev,
   libbrotli-dev,
+  libcurl4-openssl-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
   liblz4-dev,

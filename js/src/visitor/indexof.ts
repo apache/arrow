@@ -95,7 +95,7 @@ function nullIndexOf(vector: VectorType<Null>, searchElement?: null) {
 
 /** @ignore */
 function indexOfNull<T extends DataType>(vector: VectorType<T>, fromIndex?: number): number {
-    const { nullBitmap } = vector;
+    const { nullBitmap } = vector.data;
     if (!nullBitmap || vector.nullCount <= 0) {
         return -1;
     }

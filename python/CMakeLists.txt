@@ -97,6 +97,11 @@ include(BuildUtils)
 # Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
 set(BUILD_WARNING_LEVEL "PRODUCTION")
 
+# This must be synchronized with the definition in
+# cpp/cmake_modules/DefineOptions.cmake.
+set(ARROW_ARMV8_ARCH
+    "armv8-a"
+    CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
 include(SetupCxxFlags)
 
 # Add common flags

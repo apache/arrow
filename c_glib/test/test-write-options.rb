@@ -73,27 +73,15 @@ class TestWriteOptions < Test::Unit::TestCase
     end
   end
 
-  sub_test_case("compression") do
+  sub_test_case("codec") do
     def test_default
-      assert_equal(Arrow::CompressionType::UNCOMPRESSED,
-                   @options.compression)
+      assert_nil(@options.codec)
     end
 
     def test_accessor
-      @options.compression = :zstd
-      assert_equal(Arrow::CompressionType::ZSTD,
-                   @options.compression)
-    end
-  end
-
-  sub_test_case("compression-level") do
-    def test_default
-      assert_equal(-(2 ** 31), @options.compression_level)
-    end
-
-    def test_accessor
-      @options.compression_level = 8
-      assert_equal(8, @options.compression_level)
+      @options.codec = Arrow::Codec.new(:zstd)
+      assert_equal("zstd",
+                   @options.codec.name)
     end
   end
 

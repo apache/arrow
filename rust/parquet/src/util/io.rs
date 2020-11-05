@@ -202,10 +202,10 @@ mod tests {
     fn test_io_read_pos() {
         let mut src = FileSource::new(&get_test_file("alltypes_plain.parquet"), 0, 4);
 
-        src.read(&mut vec![0; 1]).unwrap();
+        let _ = src.read(&mut [0; 1]).unwrap();
         assert_eq!(src.pos(), 1);
 
-        src.read(&mut vec![0; 4]).unwrap();
+        let _ = src.read(&mut [0; 4]).unwrap();
         assert_eq!(src.pos(), 4);
     }
 
@@ -214,11 +214,11 @@ mod tests {
         let mut src = FileSource::new(&get_test_file("alltypes_plain.parquet"), 0, 4);
 
         // Read all bytes from source
-        src.read(&mut vec![0; 128]).unwrap();
+        let _ = src.read(&mut [0; 128]).unwrap();
         assert_eq!(src.pos(), 4);
 
         // Try reading again, should return 0 bytes.
-        let bytes_read = src.read(&mut vec![0; 128]).unwrap();
+        let bytes_read = src.read(&mut [0; 128]).unwrap();
         assert_eq!(bytes_read, 0);
         assert_eq!(src.pos(), 4);
     }
@@ -246,7 +246,7 @@ mod tests {
         let mut sink = FileSink::new(&file);
         assert_eq!(sink.pos(), 3);
 
-        sink.write(&[b'd', b'e', b'f', b'g']).unwrap();
+        sink.write_all(&[b'd', b'e', b'f', b'g']).unwrap();
         assert_eq!(sink.pos(), 7);
 
         sink.flush().unwrap();
@@ -256,7 +256,7 @@ mod tests {
         let mut res = vec![0u8; 7];
         let mut chunk =
             FileSource::new(&file, 0, file.metadata().unwrap().len() as usize);
-        chunk.read(&mut res[..]).unwrap();
+        chunk.read_exact(&mut res[..]).unwrap();
         assert_eq!(res, vec![b'a', b'b', b'c', b'd', b'e', b'f', b'g']);
     }
 

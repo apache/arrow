@@ -159,7 +159,7 @@ impl TreeBuilder {
                     if Reader::is_element_type(&repeated_field) {
                         // Support for backward compatible lists
                         let reader = self.reader_tree(
-                            repeated_field.clone(),
+                            repeated_field,
                             &mut path,
                             curr_def_level,
                             curr_rep_level,
@@ -507,8 +507,8 @@ impl Reader {
             Reader::PrimitiveReader(ref field, _) => field.name(),
             Reader::OptionReader(_, ref reader) => reader.field_name(),
             Reader::GroupReader(ref opt, ..) => match opt {
-                &Some(ref field) => field.name(),
-                &None => panic!("Field is None for group reader"),
+                Some(ref field) => field.name(),
+                None => panic!("Field is None for group reader"),
             },
             Reader::RepeatedReader(ref field, ..) => field.name(),
             Reader::KeyValueReader(ref field, ..) => field.name(),
@@ -521,8 +521,8 @@ impl Reader {
             Reader::PrimitiveReader(ref field, _) => field.get_basic_info().repetition(),
             Reader::OptionReader(_, ref reader) => reader.repetition(),
             Reader::GroupReader(ref opt, ..) => match opt {
-                &Some(ref field) => field.get_basic_info().repetition(),
-                &None => panic!("Field is None for group reader"),
+                Some(ref field) => field.get_basic_info().repetition(),
+                None => panic!("Field is None for group reader"),
             },
             Reader::RepeatedReader(ref field, ..) => field.get_basic_info().repetition(),
             Reader::KeyValueReader(ref field, ..) => field.get_basic_info().repetition(),
@@ -658,7 +658,7 @@ impl<'a> RowIter<'a> {
             file_reader,
             tree_builder,
             num_row_groups,
-            row_iter: row_iter,
+            row_iter,
             current_row_group: 0,
         }
     }

@@ -23,8 +23,6 @@
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
-using Rcpp::List_;
-
 // [[arrow::export]]
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
     bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {
@@ -86,13 +84,15 @@ std::shared_ptr<arrow::Table> Table__cast(
 template <typename T>
 std::shared_ptr<T> MaybeUnbox(const char* class_name, SEXP x) {
   if (Rf_inherits(x, "ArrowObject") && Rf_inherits(x, class_name)) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> obj(x);
-    return static_cast<std::shared_ptr<T>>(obj);
+    return cpp11::as_cpp<std::shared_ptr<T>>(x);
   }
   return nullptr;
 }
 
-arrow::Datum to_datum(SEXP x) {
+namespace cpp11 {
+
+template <>
+arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
   if (auto array = MaybeUnbox<arrow::Array>("Array", x)) {
     return array;
   }
@@ -115,40 +115,44 @@ arrow::Datum to_datum(SEXP x) {
 
   // This assumes that R objects have already been converted to Arrow objects;
   // that seems right but should we do the wrapping here too/instead?
-  Rcpp::stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
+  cpp11::stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
+  return arrow::Datum();
 }
+}  // namespace cpp11
 
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return Rcpp::wrap(datum.scalar());
+      return cpp11::as_sexp(datum.scalar());
 
     case arrow::Datum::ARRAY:
-      return Rcpp::wrap(datum.make_array());
+      return cpp11::as_sexp(datum.make_array());
 
     case arrow::Datum::CHUNKED_ARRAY:
-      return Rcpp::wrap(datum.chunked_array());
+      return cpp11::as_sexp(datum.chunked_array());
 
     case arrow::Datum::RECORD_BATCH:
-      return Rcpp::wrap(datum.record_batch());
+      return cpp11::as_sexp(datum.record_batch());
 
     case arrow::Datum::TABLE:
-      return Rcpp::wrap(datum.table());
+      return cpp11::as_sexp(datum.table());
 
     default:
       break;
   }
 
   auto str = datum.ToString();
-  Rcpp::stop("from_datum: Not implemented for Datum %s", str.c_str());
+  cpp11::stop("from_datum: Not implemented for Datum %s", str.c_str());
+  return R_NilValue;
 }
 
 std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
-    std::string func_name, List_ options) {
+    std::string func_name, cpp11::list options) {
   if (func_name == "filter") {
     using Options = arrow::compute::FilterOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    if (!Rf_isNull(options["keep_na"]) && options["keep_na"]) {
+    SEXP keep_na = options["keep_na"];
+    if (!Rf_isNull(keep_na) && cpp11::as_cpp<bool>(keep_na)) {
       out->null_selection_behavior = Options::EMIT_NULL;
     }
     return out;
@@ -163,7 +167,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "min_max") {
     using Options = arrow::compute::MinMaxOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    out->null_handling = options["na.rm"] ? Options::SKIP : Options::OUTPUT_NULL;
+    out->null_handling =
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIP : Options::EMIT_NULL;
     return out;
   }
 
@@ -171,12 +176,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 }
 
 // [[arrow::export]]
-SEXP compute__CallFunction(std::string func_name, List_ args, List_ options) {
+SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list options) {
   auto opts = make_compute_options(func_name, options);
-  std::vector<arrow::Datum> datum_args;
-  for (auto arg : args) {
-    datum_args.push_back(to_datum(arg));
-  }
+  auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(arrow::compute::CallFunction(func_name, datum_args, opts.get()));
   return from_datum(out);
 }

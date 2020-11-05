@@ -31,8 +31,8 @@ The generic Compute API
 Functions and function registry
 -------------------------------
 
-Functions represent logical compute operations over inputs of possibly
-varying types.  Internally, a function is implemented by one or several
+Functions represent compute operations over inputs of possibly varying 
+types.  Internally, a function is implemented by one or several
 "kernels", depending on the concrete input types (for example, a function
 adding values from two inputs can have different kernels depending on
 whether the inputs are integral or floating-point).
@@ -83,7 +83,7 @@ Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
    MinMaxOptions options;
-   options.null_handling = MinMaxOptions::OUTPUT_NULL;
+   options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
    arrow::Datum min_max_datum;
@@ -100,6 +100,8 @@ exact semantics of the function::
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+
+.. _compute-function-list:
 
 Available functions
 ===================
@@ -138,15 +140,22 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (2)    |                                            |
+| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| sum                      | Unary      | Numeric            | Scalar Numeric (3)    |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| variance                 | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 
 Notes:
 
 * \(1) Output is a ``{"min": input type, "max": input type}`` Struct
 
-* \(2) Output is Int64, UInt64 or Float64, depending on the input type
+* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
 
+* \(3) Output is Int64, UInt64 or Float64, depending on the input type
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -185,6 +194,10 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 | add                      | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | add_checked              | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| divide                   | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| divide_checked           | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | multiply                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+

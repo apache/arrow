@@ -97,6 +97,24 @@ class ARROW_EXPORT RecordBatchWriter {
 /// \param[in] options options for serialization
 /// \return Result<std::shared_ptr<RecordBatchWriter>>
 ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
+/// Create a new IPC stream writer from stream sink and schema. User is
+/// responsible for closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
+ARROW_DEPRECATED("Use MakeStreamWriter")
+ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options = IpcWriteOptions::Defaults());
@@ -108,6 +126,26 @@ Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
 /// \param[in] options options for serialization, optional
 /// \param[in] metadata custom metadata for File Footer, optional
 /// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// Create a new IPC file writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+ARROW_DEPRECATED("Use MakeFileWriter")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
@@ -166,12 +204,10 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
 /// \brief Serialize schema as encapsulated IPC message
 ///
 /// \param[in] schema the schema to write
-/// \param[in] dictionary_memo a DictionaryMemo for recording dictionary ids
 /// \param[in] pool a MemoryPool to allocate memory from
 /// \return the serialized schema
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
-                                                DictionaryMemo* dictionary_memo,
                                                 MemoryPool* pool = default_memory_pool());
 
 /// \brief Write multiple record batches to OutputStream, including schema
@@ -280,12 +316,12 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in] options options for serialization
-/// \param[in,out] dictionary_memo class to populate with assigned dictionary ids
+/// \param[in] mapper object mapping dictionary fields to dictionary ids
 /// \param[out] out the returned vector of IpcPayloads
 /// \return Status
 ARROW_EXPORT
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
-                        DictionaryMemo* dictionary_memo, IpcPayload* out);
+                        const DictionaryFieldMapper& mapper, IpcPayload* out);
 
 /// \brief Compute IpcPayload for a dictionary
 /// \param[in] id the dictionary id
@@ -377,6 +413,9 @@ Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
+///
+/// The format is implicitly the IPC stream format (allowing dictionary
+/// replacement and deltas).
 ///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written

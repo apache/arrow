@@ -29,10 +29,10 @@ def print_unpack_bit_func(bit):
     bracket = "{"
 
     print(
-        f"inline const uint32_t* unpack{bit}_32(const uint32_t* in, uint32_t* out) {bracket}")
+        f"inline static const uint32_t* unpack{bit}_32_avx512(const uint32_t* in, uint32_t* out) {bracket}")
     print("  uint32_t mask = 0x%x;" % mask)
     print("  __m512i reg_shifts, reg_inls, reg_masks;")
-    print("  __m512i results[2];")
+    print("  __m512i results;")
 
     print("")
     for i in range(32):
@@ -41,7 +41,7 @@ def print_unpack_bit_func(bit):
             inls.append(f"in[{in_index}]")
             in_index += 1
             shift = 0
-        elif shift + bit > 32:  # croos the boundary
+        elif shift + bit > 32:  # cross the boundary
             inls.append(
                 f"in[{in_index}] >> {shift} | in[{in_index + 1}] << {32 - shift}")
             in_index += 1
@@ -72,7 +72,9 @@ def print_unpack_bit_func(bit):
     print(f"                              {inls[3]}, {inls[2]},")
     print(f"                              {inls[1]}, {inls[0]});")
     print(
-        "  results[0] = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+        "  results = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm512_storeu_si512(out, results);")
+    print("  out += 16;")
     print("")
     print("  // shift the second 16 outs")
     print(
@@ -92,10 +94,10 @@ def print_unpack_bit_func(bit):
     print(f"                              {inls[19]}, {inls[18]},")
     print(f"                              {inls[17]}, {inls[16]});")
     print(
-        "  results[1] = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+        "  results = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm512_storeu_si512(out, results);")
+    print("  out += 16;")
     print("")
-    print("  memcpy(out, &results, 32 * sizeof(*out));")
-    print("  out += 32;")
     print(f"  in += {bit};")
     print("")
     print("  return in;")
@@ -104,7 +106,7 @@ def print_unpack_bit_func(bit):
 
 def print_unpack_bit0_func():
     print(
-        "inline const uint32_t* nullunpacker32(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {")
     print("  memset(out, 0x0, 32 * sizeof(*out));")
     print("  out += 32;")
     print("")
@@ -114,7 +116,7 @@ def print_unpack_bit0_func():
 
 def print_unpack_bit32_func():
     print(
-        "inline const uint32_t* unpack32_32(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {")
     print("  memcpy(out, in, 32 * sizeof(*out));")
     print("  in += 32;")
     print("  out += 32;")
@@ -154,7 +156,14 @@ def main():
     print("")
     print("#pragma once")
     print("")
+    print("#include <stdint.h>")
+    print("#include <string.h>")
+    print("")
+    print("#ifdef _MSC_VER")
+    print("#include <intrin.h>")
+    print("#else")
     print("#include <immintrin.h>")
+    print("#endif")
     print("")
     print("namespace arrow {")
     print("namespace internal {")

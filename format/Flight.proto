@@ -19,6 +19,8 @@
 syntax = "proto3";
 
 option java_package = "org.apache.arrow.flight.impl";
+option go_package = "github.com/apache/arrow/go/flight;flight";
+
 package arrow.flight.protocol;
 
 /*

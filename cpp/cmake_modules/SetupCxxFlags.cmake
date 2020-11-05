@@ -46,9 +46,13 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
-    set(ARROW_AVX2_FLAG "-mavx2")
+    set(ARROW_AVX2_FLAG "-march=haswell")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
+    set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
+    set(ARROW_AVX512_FLAG
+        "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
@@ -59,14 +63,15 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     check_cxx_compiler_flag(${ARROW_AVX512_FLAG} CXX_SUPPORTS_AVX512)
   endif()
   # Runtime SIMD level it can get from compiler
-  if(CXX_SUPPORTS_SSE4_2)
+  if(CXX_SUPPORTS_SSE4_2
+     AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SSE4_2|AVX2|AVX512|MAX)$")
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
-  if(CXX_SUPPORTS_AVX2)
-    add_definitions(-DARROW_HAVE_RUNTIME_AVX2)
+  if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
-  if(CXX_SUPPORTS_AVX512)
-    add_definitions(-DARROW_HAVE_RUNTIME_AVX512)
+  if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
 elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   # power compiler flags, gcc/clang only
@@ -281,6 +286,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
      OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.2")
+    # Disabling semantic interposition allows faster calling conventions
+    # when calling global functions internally, and can also help inlining.
+    # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
   endif()
 
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
@@ -531,12 +543,6 @@ elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
 else()
   message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif()
-
-if("${CMAKE_CXX_FLAGS}" MATCHES "-DNDEBUG")
-  set(ARROW_DEFINITION_FLAGS "-DNDEBUG")
-else()
-  set(ARROW_DEFINITION_FLAGS "")
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

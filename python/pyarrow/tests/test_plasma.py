@@ -307,6 +307,8 @@ class TestPlasmaClient:
             [result] = self.plasma_client.get([object_id], timeout_ms=0)
             assert result == pa.plasma.ObjectNotAvailable
 
+    @pytest.mark.filterwarnings(
+        "ignore:'pyarrow.deserialize':DeprecationWarning")
     def test_put_and_get_raw_buffer(self):
         temp_id = random_object_id()
         use_meta = b"RAW"
@@ -338,6 +340,8 @@ class TestPlasmaClient:
             result = deserialize_or_output(result)
             assert result == pa.plasma.ObjectNotAvailable
 
+    @pytest.mark.filterwarnings(
+        "ignore:'serialization_context':DeprecationWarning")
     def test_put_and_get_serialization_context(self):
 
         class CustomType:
@@ -349,7 +353,7 @@ class TestPlasmaClient:
         with pytest.raises(pa.ArrowSerializationError):
             self.plasma_client.put(val)
 
-        serialization_context = pa.SerializationContext()
+        serialization_context = pa.lib.SerializationContext()
         serialization_context.register_type(CustomType, 20*"\x00")
 
         object_id = self.plasma_client.put(

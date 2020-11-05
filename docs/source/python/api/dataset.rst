@@ -34,6 +34,7 @@ Factory functions
    :toctree: ../generated/
 
    dataset
+   parquet_dataset
    partitioning
    field
    scalar

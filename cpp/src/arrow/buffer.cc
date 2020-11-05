@@ -25,7 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
@@ -206,7 +206,7 @@ class PoolBuffer : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
-    if (new_size < 0) {
+    if (ARROW_PREDICT_FALSE(new_size < 0)) {
       return Status::Invalid("Negative buffer resize: ", new_size);
     }
     if (mutable_data_ && shrink_to_fit && new_size <= size_) {
@@ -277,13 +277,18 @@ Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t s
 }
 
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {
-  return AllocateBuffer(BitUtil::BytesForBits(length), pool);
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
+  // Zero out any trailing bits
+  if (buf->size() > 0) {
+    buf->mutable_data()[buf->size() - 1] = 0;
+  }
+  return std::move(buf);
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBitmap(length, pool));
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
-  return buf;
+  return std::move(buf);
 }
 
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {

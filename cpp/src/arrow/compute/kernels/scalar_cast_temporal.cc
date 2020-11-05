@@ -267,9 +267,9 @@ struct CastFunctor<Date32Type, Date64Type> {
 // String to Timestamp
 
 struct ParseTimestamp {
-  template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, ARG0 val) const {
-    OUT result = 0;
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
+    OutValue result = 0;
     if (ARROW_PREDICT_FALSE(!ParseValue(type, val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }

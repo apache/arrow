@@ -54,7 +54,7 @@ if(POLICY CMP0063)
   cmake_policy(SET CMP0063 NEW)
 endif()
 
-set(ARROW_VERSION "2.0.0-SNAPSHOT")
+set(ARROW_VERSION "2.0.0")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -100,7 +100,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_mo
 include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
-include(FindPkgConfig)
+include(FindPackageHandleStandardArgs)
 
 include(GNUInstallDirs)
 
@@ -146,6 +146,13 @@ if(APPLE)
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
   endif()
+endif()
+
+if(WIN32 AND NOT MINGW)
+  # This is used to handle builds using e.g. clang in an MSVC setting.
+  set(MSVC_TOOLCHAIN TRUE)
+else()
+  set(MSVC_TOOLCHAIN FALSE)
 endif()
 
 find_package(ClangTools)
@@ -315,6 +322,7 @@ if(ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
    OR ARROW_FUZZING)
   set(ARROW_JSON ON)
+  set(ARROW_TESTING ON)
 endif()
 
 if(ARROW_CUDA
@@ -343,7 +351,7 @@ if(ARROW_PYTHON)
   set(ARROW_JSON ON)
 endif()
 
-if(MSVC)
+if(MSVC_TOOLCHAIN)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
   # Plasma using glog is not fully tested on windows.
@@ -408,6 +416,10 @@ endif()
 
 if(ARROW_TEST_MEMCHECK)
   add_definitions(-DARROW_VALGRIND)
+endif()
+
+if(ARROW_USE_UBSAN)
+  add_definitions(-DARROW_UBSAN)
 endif()
 
 #
@@ -650,6 +662,7 @@ if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
   list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
 if(ARROW_WITH_BROTLI)
@@ -657,46 +670,75 @@ if(ARROW_WITH_BROTLI)
   set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
   list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  if(Brotli_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
+  endif()
 endif()
 
 if(ARROW_WITH_BZ2)
   list(APPEND ARROW_STATIC_LINK_LIBS BZip2::BZip2)
+  if(BZip2_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
+  endif()
 endif()
 
 if(ARROW_WITH_LZ4)
   list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
+  if(Lz4_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
+  endif()
 endif()
 
 if(ARROW_WITH_SNAPPY)
   list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
+  if(Snappy_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Snappy::snappy)
+  endif()
 endif()
 
 if(ARROW_WITH_ZLIB)
   list(APPEND ARROW_STATIC_LINK_LIBS ZLIB::ZLIB)
+  if(ZLIB_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
+  endif()
 endif()
 
 if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_ZSTD_LIBZSTD})
+  if(zstd_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
+  endif()
 endif()
 
 if(ARROW_ORC)
   list(APPEND ARROW_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
+  if(ORC_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
+                ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
 endif()
 
 if(ARROW_USE_GLOG)
   list(APPEND ARROW_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
+  if(GLOG_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
+  endif()
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
 if(ARROW_S3)
   list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
 endif()
 
 if(ARROW_WITH_UTF8PROC)
   list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
   list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
+  if(utf8proc_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
+  endif()
 endif()
 
 add_custom_target(arrow_dependencies)
@@ -712,7 +754,7 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
   if(ARROW_ORC)
-    if(NOT MSVC)
+    if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
     endif()
@@ -726,7 +768,7 @@ if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION
   list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
-if(NOT MSVC)
+if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
@@ -825,6 +867,7 @@ endif()
 
 list(APPEND ARROW_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
+list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
 #
 # Subdirectories

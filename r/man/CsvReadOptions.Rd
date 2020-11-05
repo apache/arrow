@@ -4,13 +4,14 @@
 \name{CsvReadOptions}
 \alias{CsvReadOptions}
 \alias{CsvParseOptions}
+\alias{TimestampParser}
 \alias{CsvConvertOptions}
 \alias{JsonReadOptions}
 \alias{JsonParseOptions}
 \title{File reader options}
 \description{
 \code{CsvReadOptions}, \code{CsvParseOptions}, \code{CsvConvertOptions},
-\code{JsonReadOptions}, and \code{JsonParseOptions} are containers for various
+\code{JsonReadOptions}, \code{JsonParseOptions}, and \code{TimestampParser} are containers for various
 file reading options. See their usage in \code{\link[=read_csv_arrow]{read_csv_arrow()}} and
 \code{\link[=read_json_arrow]{read_json_arrow()}}, respectively.
 }
@@ -62,13 +63,38 @@ Analogous to the \code{na.strings} argument to
 \item \code{strings_can_be_null} Logical: can string / binary columns have
 null values? Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.
 (default \code{FALSE})
+\item \code{true_values} character vector of recognized spellings for \code{TRUE} values
+\item \code{false_values} character vector of recognized spellings for \code{FALSE} values
+\item \code{col_types} A \code{Schema} or \code{NULL} to infer types
+\item \code{auto_dict_encode} Logical: Whether to try to automatically
+dictionary-encode string / binary data (think \code{stringsAsFactors}). Default \code{FALSE}.
+This setting is ignored for non-inferred columns (those in \code{col_types}).
+\item \code{auto_dict_max_cardinality} If \code{auto_dict_encode}, string/binary columns
+are dictionary-encoded up to this number of unique values (default 50),
+after which it switches to regular encoding.
+\item \code{include_columns} If non-empty, indicates the names of columns from the
+CSV file that should be actually read and converted (in the vector's order).
+\item \code{include_missing_columns} Logical: if \code{include_columns} is provided, should
+columns named in it but not found in the data be included as a column of
+type \code{null()}? The default (\code{FALSE}) means that the reader will instead
+raise an error.
+\item \code{timestamp_parsers} User-defined timestamp parsers. If more than one
+parser is specified, the CSV conversion logic will try parsing values
+starting from the beginning of this vector. Possible values are
+(a) \code{NULL}, the default, which uses the ISO-8601 parser;
+(b) a character vector of \link[base:strptime]{strptime} parse strings; or
+(c) a list of \link{TimestampParser} objects.
 }
+
+\code{TimestampParser$create()} takes an optional \code{format} string argument.
+See \code{\link[base:strptime]{strptime()}} for example syntax.
+The default is to use an ISO-8601 format parser.
 }
 
-\section{Methods}{
+\section{Active bindings}{
 
-
-These classes have no implemented methods. They are containers for the
-options.
+\itemize{
+\item \code{column_names}: from \code{CsvReadOptions}
+}
 }
 

@@ -332,7 +332,7 @@ garrow_record_batch_file_reader_finalize(GObject *object)
 {
   auto priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
 
-  priv->record_batch_file_reader = nullptr;
+  priv->record_batch_file_reader.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_record_batch_file_reader_parent_class)->finalize(object);
 }
@@ -372,6 +372,9 @@ garrow_record_batch_file_reader_get_property(GObject *object,
 static void
 garrow_record_batch_file_reader_init(GArrowRecordBatchFileReader *object)
 {
+  auto priv = GARROW_RECORD_BATCH_FILE_READER_GET_PRIVATE(object);
+  new(&priv->record_batch_file_reader)
+    std::shared_ptr<arrow::ipc::RecordBatchFileReader>;
 }
 
 static void

@@ -117,45 +117,6 @@ class ARROW_DS_EXPORT FileSource {
   Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
-/// \brief The path and filesystem where an actual file is located or a buffer which can
-/// be written to like a file
-class ARROW_DS_EXPORT WritableFileSource {
- public:
-  WritableFileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
-                     Compression::type compression = Compression::UNCOMPRESSED)
-      : path_(std::move(path)),
-        filesystem_(std::move(filesystem)),
-        compression_(compression) {}
-
-  explicit WritableFileSource(std::shared_ptr<ResizableBuffer> buffer,
-                              Compression::type compression = Compression::UNCOMPRESSED)
-      : buffer_(std::move(buffer)), compression_(compression) {}
-
-  /// \brief Return the type of raw compression on the file, if any
-  Compression::type compression() const { return compression_; }
-
-  /// \brief Return the file path, if any. Only valid when file source wraps a path.
-  const std::string& path() const {
-    static std::string buffer_path = "<Buffer>";
-    return filesystem_ ? path_ : buffer_path;
-  }
-
-  /// \brief Return the filesystem, if any. Otherwise returns nullptr
-  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
-
-  /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
-  const std::shared_ptr<ResizableBuffer>& buffer() const { return buffer_; }
-
-  /// \brief Get an OutputStream which wraps this file source
-  Result<std::shared_ptr<arrow::io::OutputStream>> Open() const;
-
- private:
-  std::string path_;
-  std::shared_ptr<fs::FileSystem> filesystem_;
-  std::shared_ptr<ResizableBuffer> buffer_;
-  Compression::type compression_ = Compression::UNCOMPRESSED;
-};
-
 /// \brief Base class for file format implementation
 class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileFormat> {
  public:
@@ -166,6 +127,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Return true if fragments of this format can benefit from parallel scanning.
   virtual bool splittable() const { return false; }
+
+  virtual bool Equals(const FileFormat& other) const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
   virtual Result<bool> IsSupported(const FileSource& source) const = 0;
@@ -190,12 +153,11 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
 
-  /// \brief Write a fragment. If the parent directory of destination does not exist, it
-  /// will be created.
-  virtual Result<std::shared_ptr<WriteTask>> WriteFragment(
-      WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-      std::shared_ptr<ScanOptions> options,
-      std::shared_ptr<ScanContext> scan_context);  // FIXME(bkietz) make this pure virtual
+  virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const = 0;
+
+  virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() = 0;
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -237,25 +199,22 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] schema the schema of the dataset
   /// \param[in] root_partition the partition expression of the dataset
   /// \param[in] format the format of each FileFragment.
-  /// \param[in] fragments list of fragments to create the dataset from
+  /// \param[in] filesystem the filesystem of each FileFragment, or nullptr if the
+  ///            fragments wrap buffers.
+  /// \param[in] fragments list of fragments to create the dataset from.
   ///
-  /// Note that all fragment must be of `FileFragment` type. The type are
-  /// erased to simplify callers.
+  /// Note that fragments wrapping files resident in differing filesystems are not
+  /// permitted; to work with multiple filesystems use a UnionDataset.
   ///
   /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
-  /// \brief Write to a new format and filesystem location, preserving partitioning.
-  ///
-  /// \param[in] plan the WritePlan to execute.
-  /// \param[in] scan_options options in which to scan fragments
-  /// \param[in] scan_context context in which to scan fragments before writing.
-  static Result<std::shared_ptr<FileSystemDataset>> Write(
-      const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
-      std::shared_ptr<ScanContext> scan_context);
+  /// \brief Write a dataset.
+  static Status Write(const FileSystemDatasetWriteOptions& write_options,
+                      std::shared_ptr<Scanner> scanner);
 
   /// \brief Return the type name of the dataset.
   std::string type_name() const override { return "filesystem"; }
@@ -270,6 +229,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \brief Return the format.
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
+  /// \brief Return the filesystem. May be nullptr if the fragments wrap buffers.
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
+
   std::string ToString() const;
 
  protected:
@@ -278,74 +240,71 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   FileSystemDataset(std::shared_ptr<Schema> schema,
                     std::shared_ptr<Expression> root_partition,
                     std::shared_ptr<FileFormat> format,
+                    std::shared_ptr<fs::FileSystem> filesystem,
                     std::vector<std::shared_ptr<FileFragment>> fragments);
 
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
 };
 
-/// \brief Write a fragment to a single OutputStream.
-class ARROW_DS_EXPORT WriteTask {
+class ARROW_DS_EXPORT FileWriteOptions {
  public:
-  virtual Status Execute() = 0;
+  virtual ~FileWriteOptions() = default;
 
-  virtual ~WriteTask() = default;
-
-  const WritableFileSource& destination() const;
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
+  std::string type_name() const { return format_->type_name(); }
+
  protected:
-  WriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format)
-      : destination_(std::move(destination)), format_(std::move(format)) {}
+  explicit FileWriteOptions(std::shared_ptr<FileFormat> format)
+      : format_(std::move(format)) {}
 
-  Status CreateDestinationParentDir() const;
-
-  WritableFileSource destination_;
   std::shared_ptr<FileFormat> format_;
 };
 
-/// \brief A declarative plan for writing fragments to a partitioned directory structure.
-class ARROW_DS_EXPORT WritePlan {
+class ARROW_DS_EXPORT FileWriter {
  public:
-  /// The partitioning with which paths were generated
+  virtual ~FileWriter() = default;
+
+  virtual Status Write(const std::shared_ptr<RecordBatch>& batch) = 0;
+
+  Status Write(RecordBatchReader* batches);
+
+  virtual Status Finish() = 0;
+
+  const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
+  const std::shared_ptr<FileWriteOptions>& options() const { return options_; }
+
+ protected:
+  FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options)
+      : schema_(std::move(schema)), options_(std::move(options)) {}
+
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<FileWriteOptions> options_;
+};
+
+struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
+  /// Options for individual fragment writing.
+  std::shared_ptr<FileWriteOptions> file_write_options;
+
+  /// FileSystem into which a dataset will be written.
+  std::shared_ptr<fs::FileSystem> filesystem;
+
+  /// Root directory into which the dataset will be written.
+  std::string base_dir;
+
+  /// Partitioning used to generate fragment paths.
   std::shared_ptr<Partitioning> partitioning;
 
-  /// The schema of the Dataset which will be written
-  std::shared_ptr<Schema> schema;
+  /// Template string used to generate fragment basenames.
+  /// {i} will be replaced by an auto incremented integer.
+  std::string basename_template;
 
-  /// The format into which fragments will be written
-  std::shared_ptr<FileFormat> format;
-
-  /// The FileSystem and base directory for partitioned writing
-  std::shared_ptr<fs::FileSystem> filesystem;
-  std::string partition_base_dir;
-
-  class FragmentOrPartitionExpression {
-   public:
-    enum Kind { EXPRESSION, FRAGMENT };
-
-    explicit FragmentOrPartitionExpression(std::shared_ptr<Expression> partition_expr)
-        : kind_(EXPRESSION), partition_expr_(std::move(partition_expr)) {}
-
-    explicit FragmentOrPartitionExpression(std::shared_ptr<Fragment> fragment)
-        : kind_(FRAGMENT), fragment_(std::move(fragment)) {}
-
-    Kind kind() const { return kind_; }
-
-    const std::shared_ptr<Expression>& partition_expr() const { return partition_expr_; }
-    const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
-
-   private:
-    Kind kind_;
-    std::shared_ptr<Expression> partition_expr_;
-    std::shared_ptr<Fragment> fragment_;
-  };
-
-  /// If fragment_or_partition_expressions[i] is a Fragment, that Fragment will be
-  /// written to paths[i]. If it is an Expression, a directory representing that partition
-  /// expression will be created at paths[i] instead.
-  std::vector<FragmentOrPartitionExpression> fragment_or_partition_expressions;
-  std::vector<std::string> paths;
+  const std::shared_ptr<FileFormat>& format() const {
+    return file_write_options->format();
+  }
 };
 
 }  // namespace dataset

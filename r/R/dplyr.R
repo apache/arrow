@@ -79,19 +79,66 @@ names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 #' @export
 dim.arrow_dplyr_query <- function(x) {
+  cols <- length(names(x))
+
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
+  } else if (query_on_dataset(x)) {
+    warning("Number of rows unknown; returning NA", call. = FALSE)
+    # TODO: https://issues.apache.org/jira/browse/ARROW-9697
+    rows <- NA_integer_
   } else {
-    warning(
-      "For arrow dplyr queries that call filter(), ",
-      "dim() returns NA for the number of rows.\n",
-      "Call collect() to pull data into R to access the number of rows.",
+    # Evaluate the filter expression to a BooleanArray and count
+    rows <- as.integer(sum(eval_array_expression(x$filtered_rows), na.rm = TRUE))
+  }
+  c(rows, cols)
+}
+
+#' @export
+as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
+  collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+}
+
+#' @export
+head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    head.Dataset(x, n, ...)
+  } else {
+    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
+    if (inherits(out, "arrow_dplyr_query")) {
+      out$.data <- head(out$.data, n)
+    } else {
+      out <- head(out, n)
+    }
+    out
+  }
+}
+
+#' @export
+tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    tail.Dataset(x, n, ...)
+  } else {
+    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
+    if (inherits(out, "arrow_dplyr_query")) {
+      out$.data <- tail(out$.data, n)
+    } else {
+      out <- tail(out, n)
+    }
+    out
+  }
+}
+
+#' @export
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  if (query_on_dataset(x)) {
+    `[.Dataset`(x, i, j, ..., drop = FALSE)
+  } else {
+    stop(
+      "[ method not implemented for queries. Call 'collect(x, as_data_frame = FALSE)' first",
       call. = FALSE
     )
-    rows <- NA_integer_
   }
-  cols <- length(names(x))
-  c(rows, cols)
 }
 
 # The following S3 methods are registered on load if dplyr is present
@@ -233,7 +280,7 @@ set_filters <- function(.data, expressions) {
   .data
 }
 
-collect.arrow_dplyr_query <- function(x, ...) {
+collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
@@ -243,7 +290,9 @@ collect.arrow_dplyr_query <- function(x, ...) {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
     df <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
   }
-  df <- as.data.frame(df)
+  if (as_data_frame) {
+    df <- as.data.frame(df)
+  }
   restore_dplyr_features(df, x)
 }
 collect.Table <- as.data.frame.Table
@@ -261,15 +310,24 @@ ensure_group_vars <- function(x) {
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
-  # After pulling data into a data.frame, make sure these features are carried over
+  # After calling collect(), make sure these features are carried over
 
-  # In case variables were renamed, apply those names
-  if (ncol(df)) {
-    names(df) <- names(query)
-  }
-  # Preserve groupings, if present
-  if (length(query$group_by_vars)) {
-    df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+  grouped <- length(query$group_by_vars) > 0
+  renamed <- !identical(names(df), names(query))
+  if (is.data.frame(df)) {
+    # In case variables were renamed, apply those names
+    if (renamed && ncol(df)) {
+      names(df) <- names(query)
+    }
+    # Preserve groupings, if present
+    if (grouped) {
+      df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+    }
+  } else if (grouped || renamed) {
+    # This is a Table, via collect(as_data_frame = FALSE)
+    df <- arrow_dplyr_query(df)
+    names(df$selected_columns) <- names(query)
+    df$group_by_vars <- query$group_by_vars
   }
   df
 }

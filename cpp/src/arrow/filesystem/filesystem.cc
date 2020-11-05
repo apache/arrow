@@ -18,6 +18,8 @@
 #include <sstream>
 #include <utility>
 
+#include "arrow/util/config.h"
+
 #include "arrow/filesystem/filesystem.h"
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
@@ -35,6 +37,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parallel.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -437,6 +440,69 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
     const std::string& path) {
   latencies_->Sleep();
   return base_fs_->OpenAppendStream(path);
+}
+
+Status CopyFiles(const std::vector<FileLocator>& sources,
+                 const std::vector<FileLocator>& destinations, int64_t chunk_size,
+                 bool use_threads) {
+  if (sources.size() != destinations.size()) {
+    return Status::Invalid("Trying to copy ", sources.size(), " files into ",
+                           destinations.size(), " paths.");
+  }
+
+  return ::arrow::internal::OptionalParallelFor(
+      use_threads, static_cast<int>(sources.size()), [&](int i) {
+        if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
+          return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto source,
+                              sources[i].filesystem->OpenInputStream(sources[i].path));
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto destination,
+            destinations[i].filesystem->OpenOutputStream(destinations[i].path));
+        return internal::CopyStream(source, destination, chunk_size);
+      });
+}
+
+Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
+                 const FileSelector& source_sel,
+                 const std::shared_ptr<FileSystem>& destination_fs,
+                 const std::string& destination_base_dir, int64_t chunk_size,
+                 bool use_threads) {
+  ARROW_ASSIGN_OR_RAISE(auto source_infos, source_fs->GetFileInfo(source_sel));
+  if (source_infos.empty()) {
+    return Status::OK();
+  }
+
+  std::vector<FileLocator> sources, destinations;
+  std::vector<std::string> dirs;
+
+  for (const FileInfo& source_info : source_infos) {
+    auto relative = internal::RemoveAncestor(source_sel.base_dir, source_info.path());
+    if (!relative.has_value()) {
+      return Status::Invalid("GetFileInfo() yielded path '", source_info.path(),
+                             "', which is outside base dir '", source_sel.base_dir, "'");
+    }
+
+    auto destination_path =
+        internal::ConcatAbstractPath(destination_base_dir, relative->to_string());
+
+    if (source_info.IsDirectory()) {
+      dirs.push_back(destination_path);
+    } else if (source_info.IsFile()) {
+      sources.push_back({source_fs, source_info.path()});
+      destinations.push_back({destination_fs, destination_path});
+    }
+  }
+
+  dirs = internal::MinimalCreateDirSet(std::move(dirs));
+  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+      use_threads, static_cast<int>(dirs.size()),
+      [&](int i) { return destination_fs->CreateDir(dirs[i]); }));
+
+  return CopyFiles(sources, destinations, chunk_size, use_threads);
 }
 
 namespace {

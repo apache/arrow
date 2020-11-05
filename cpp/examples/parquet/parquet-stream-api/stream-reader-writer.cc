@@ -48,7 +48,8 @@ class UserTimestamp {
   bool operator==(const UserTimestamp& x) const { return ts_ == x.ts_; }
 
   void dump(std::ostream& os) const {
-    std::time_t t{std::chrono::duration_cast<std::chrono::seconds>(ts_).count()};
+    const auto t = static_cast<std::time_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(ts_).count());
     os << std::put_time(std::gmtime(&t), "%Y%m%d-%H%M%S");
   }
 

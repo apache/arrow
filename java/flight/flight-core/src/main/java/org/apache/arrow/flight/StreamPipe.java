@@ -22,6 +22,7 @@ import java.util.function.Function;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.grpc.StatusUtils;
+import org.apache.arrow.util.AutoCloseables;
 
 import io.grpc.stub.StreamObserver;
 
@@ -33,9 +34,10 @@ import io.grpc.stub.StreamObserver;
  */
 class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 
-  private StreamObserver<TO> delegate;
-  private Function<FROM, TO> mapFunction;
+  private final StreamObserver<TO> delegate;
+  private final Function<FROM, TO> mapFunction;
   private final Consumer<Throwable> errorHandler;
+  private AutoCloseable resource;
   private boolean closed = false;
 
   /**
@@ -58,6 +60,12 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
     this.delegate = delegate;
     this.mapFunction = func;
     this.errorHandler = errorHandler;
+    this.resource = null;
+  }
+
+  /** Set an AutoCloseable resource to be cleaned up when the gRPC observer is to be completed. */
+  void setAutoCloseable(AutoCloseable ac) {
+    resource = ac;
   }
 
   @Override
@@ -71,9 +79,15 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
       errorHandler.accept(t);
       return;
     }
-    // Set closed to true in case onError throws, so that we don't try to close again
-    closed = true;
-    delegate.onError(StatusUtils.toGrpcException(t));
+    try {
+      AutoCloseables.close(resource);
+    } catch (Exception e) {
+      errorHandler.accept(e);
+    } finally {
+      // Set closed to true in case onError throws, so that we don't try to close again
+      closed = true;
+      delegate.onError(StatusUtils.toGrpcException(t));
+    }
   }
 
   @Override
@@ -82,9 +96,15 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
       errorHandler.accept(new IllegalStateException("Tried to complete already-completed call"));
       return;
     }
-    // Set closed to true in case onCompleted throws, so that we don't try to close again
-    closed = true;
-    delegate.onCompleted();
+    try {
+      AutoCloseables.close(resource);
+    } catch (Exception e) {
+      errorHandler.accept(e);
+    } finally {
+      // Set closed to true in case onCompleted throws, so that we don't try to close again
+      closed = true;
+      delegate.onCompleted();
+    }
   }
 
   /**

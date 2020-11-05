@@ -103,9 +103,7 @@ class SmallString {
   uint8_t length_;
   char data_[N];
 
-#ifndef NDEBUG
   void CheckSize(size_t n) { assert(n <= N); }
-#endif
 };
 
 template <uint8_t N>

@@ -17,10 +17,10 @@
 
 const del = require('del');
 const path = require('path');
+const mkdirp = require('mkdirp');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
-const mkdirp = promisify(require('mkdirp'));
 const rimraf = promisify(require('rimraf'));
 const child_process = require(`child_process`);
 const { memoizeTask } = require('./memoize-task');

@@ -24,7 +24,12 @@
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
-#include "arrow/vendored/utf8cpp/checked.h"
+#include "arrow/vendored/utfcpp/checked.h"
+
+// Can be defined by utfcpp
+#ifdef NOEXCEPT
+#undef NOEXCEPT
+#endif
 
 namespace arrow {
 namespace util {

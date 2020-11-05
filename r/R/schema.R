@@ -84,10 +84,7 @@ Schema <- R6Class("Schema",
   ),
   active = list(
     names = function() {
-      out <- Schema__field_names(self)
-      # Hack: Rcpp should set the encoding
-      Encoding(out) <- "UTF-8"
-      out
+      Schema__field_names(self)
     },
     num_fields = function() Schema__num_fields(self),
     fields = function() map(Schema__fields(self), shared_ptr, class = Field),
@@ -152,6 +149,30 @@ length.Schema <- function(x) x$num_fields
 }
 
 #' @export
+`[.Schema` <- function(x, i, ...) {
+  if (is.logical(i)) {
+    i <- rep_len(i, length(x)) # For R recycling behavior
+    i <- which(i)
+  }
+  if (is.numeric(i)) {
+    if (all(i < 0)) {
+      # in R, negative i means "everything but i"
+      i <- setdiff(seq_len(length(x)), -1 * i)
+    }
+  }
+  fields <- map(i, ~x[[.]])
+  invalid <- map_lgl(fields, is.null)
+  if (any(invalid)) {
+    stop(
+      "Invalid field name", ifelse(sum(invalid) > 1, "s: ", ": "),
+      oxford_paste(i[invalid]),
+      call. = FALSE
+    )
+  }
+  shared_ptr(Schema, schema_(fields))
+}
+
+#' @export
 `$.Schema` <- function(x, name, ...) {
   assert_that(is.string(name))
   if (name %in% ls(x)) {
@@ -160,6 +181,9 @@ length.Schema <- function(x) x$num_fields
     x$GetFieldByName(name)
   }
 }
+
+#' @export
+as.list.Schema <- function(x, ...) x$fields
 
 #' read a Schema from a stream
 #'

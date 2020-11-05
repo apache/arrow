@@ -31,6 +31,12 @@ import (
 )
 
 func TestCatStream(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-cat-stream-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, tc := range []struct {
 		name string
 		want string
@@ -174,7 +180,7 @@ record 3...
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile("", "go-arrow-")
+				f, err := ioutil.TempFile(tempDir, "go-arrow-cat-stream-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -202,7 +208,6 @@ record 3...
 
 				return f.Name()
 			}()
-			defer os.Remove(fname)
 
 			f, err := os.Open(fname)
 			if err != nil {
@@ -224,6 +229,12 @@ record 3...
 }
 
 func TestCatFile(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-cat-file-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, tc := range []struct {
 		name   string
 		want   string
@@ -515,7 +526,7 @@ record 3/3...
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile("", "go-arrow-")
+				f, err := ioutil.TempFile(tempDir, "go-arrow-cat-file-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -556,7 +567,6 @@ record 3/3...
 
 				return f.Name()
 			}()
-			defer os.Remove(fname)
 
 			w := new(bytes.Buffer)
 			err := processFile(w, fname)

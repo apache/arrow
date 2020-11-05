@@ -25,5 +25,10 @@ namespace Apache.Arrow
         {
             return stream.Read(buffer.Span);
         }
+
+        public static void Write(this Stream stream, ReadOnlyMemory<byte> buffer)
+        {
+            stream.Write(buffer.Span);
+        }
     }
 }

@@ -58,14 +58,18 @@ RUN mkdir \
         /arrow/rust/benchmarks/src \
         /arrow/rust/datafusion/src \
         /arrow/rust/integration-testing/src  \
-        /arrow/rust/parquet/src && \
+        /arrow/rust/parquet/src \
+        /arrow/rust/parquet_derive/src \
+        /arrow/rust/parquet_derive_test/src && \
     touch \
         /arrow/rust/arrow-flight/src/lib.rs \
         /arrow/rust/arrow/src/lib.rs \
         /arrow/rust/benchmarks/src/lib.rs \
         /arrow/rust/datafusion/src/lib.rs \
         /arrow/rust/integration-testing/src/lib.rs  \
-        /arrow/rust/parquet/src/lib.rs
+        /arrow/rust/parquet/src/lib.rs  \
+        /arrow/rust/parquet_derive/src/lib.rs  \
+        /arrow/rust/parquet_derive_test/src/lib.rs
 
 # Compile dependencies for the whole workspace
 RUN cd /arrow/rust && cargo build --workspace --lib --all-features

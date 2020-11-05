@@ -22,12 +22,15 @@
 use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{ScanResult, TableProvider};
+use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::memory::MemoryExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::memory::MemoryExec;
+use crate::physical_plan::ExecutionPlan;
+
+use tokio::task::{self, JoinHandle};
 
 /// In-memory table
 pub struct MemTable {
@@ -55,17 +58,27 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub fn load(t: &dyn TableProvider) -> Result<Self> {
+    pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
-        let partitions = t.scan(&None, 1024 * 1024)?;
+        let exec = t.scan(&None, batch_size)?;
+        let partition_count = exec.output_partitioning().partition_count();
 
-        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
-        for it in &partitions {
-            let mut partition = vec![];
-            while let Ok(Some(batch)) = it.lock().unwrap().next_batch() {
-                partition.push(batch);
-            }
-            data.push(partition);
+        let mut tasks = Vec::with_capacity(partition_count);
+        for partition in 0..partition_count {
+            let exec = exec.clone();
+            let task: JoinHandle<Result<Vec<RecordBatch>>> = task::spawn(async move {
+                let it = exec.execute(partition).await?;
+                it.into_iter()
+                    .collect::<ArrowResult<Vec<RecordBatch>>>()
+                    .map_err(ExecutionError::from)
+            });
+            tasks.push(task)
+        }
+
+        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partition_count);
+        for task in tasks {
+            let result = task.await.expect("MemTable::load could not join task")?;
+            data.push(result);
         }
 
         MemTable::new(schema.clone(), data)
@@ -81,7 +94,7 @@ impl TableProvider for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
-    ) -> Result<Vec<ScanResult>> {
+    ) -> Result<Arc<dyn ExecutionPlan>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
             None => {
@@ -109,17 +122,11 @@ impl TableProvider for MemTable {
 
         let projected_schema = Arc::new(Schema::new(projected_columns?));
 
-        let exec = MemoryExec::try_new(
+        Ok(Arc::new(MemoryExec::try_new(
             &self.batches.clone(),
             projected_schema,
             projection.clone(),
-        )?;
-        let partitions = exec.partitions()?;
-        let iterators = partitions
-            .iter()
-            .map(|p| p.execute())
-            .collect::<Result<Vec<_>>>()?;
-        Ok(iterators)
+        )?))
     }
 }
 
@@ -129,8 +136,8 @@ mod tests {
     use arrow::array::Int32Array;
     use arrow::datatypes::{DataType, Field, Schema};
 
-    #[test]
-    fn test_with_projection() {
+    #[tokio::test]
+    async fn test_with_projection() -> Result<()> {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -144,22 +151,24 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        )
-        .unwrap();
+        )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]])?;
 
         // scan with projection
-        let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
-        let batch2 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
+        let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
+        let mut it = exec.execute(0).await?;
+        let batch2 = it.next().unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
         assert_eq!(2, batch2.num_columns());
+
+        Ok(())
     }
 
-    #[test]
-    fn test_without_projection() {
+    #[tokio::test]
+    async fn test_without_projection() -> Result<()> {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -173,19 +182,21 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        )
-        .unwrap();
+        )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]])?;
 
-        let partitions = provider.scan(&None, 1024).unwrap();
-        let batch1 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
+        let exec = provider.scan(&None, 1024)?;
+        let mut it = exec.execute(0).await?;
+        let batch1 = it.next().unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
+
+        Ok(())
     }
 
     #[test]
-    fn test_invalid_projection() {
+    fn test_invalid_projection() -> Result<()> {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -199,10 +210,9 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        )
-        .unwrap();
+        )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
+        let provider = MemTable::new(schema, vec![vec![batch]])?;
 
         let projection: Vec<usize> = vec![0, 4];
 
@@ -212,10 +222,12 @@ mod tests {
             }
             _ => assert!(false, "Scan should failed on invalid projection"),
         };
+
+        Ok(())
     }
 
     #[test]
-    fn test_schema_validation() {
+    fn test_schema_validation() -> Result<()> {
         let schema1 = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -235,8 +247,7 @@ mod tests {
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
             ],
-        )
-        .unwrap();
+        )?;
 
         match MemTable::new(schema2, vec![vec![batch]]) {
             Err(ExecutionError::General(e)) => assert_eq!(
@@ -248,5 +259,7 @@ mod tests {
                 "MemTable::new should have failed due to schema mismatch"
             ),
         }
+
+        Ok(())
     }
 }

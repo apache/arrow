@@ -143,10 +143,8 @@ class ARROW_EXPORT Executor {
       typename RT = typename detail::ExecutorResultTraits<FunctionRetType>,
       typename ValueType = typename RT::ValueType>
   Future<ValueType> SubmitAsFuture(Function&& func, Args&&... args) {
-    ARROW_ASSIGN_OR_RETURN_FUTURE(
-        auto future, ValueType,
+    return Future<ValueType>::DeferNotOk(
         Submit(std::forward<Function>(func), std::forward<Args>(args)...));
-    return future;
   }
 
   // Return the level of parallelism (the number of tasks that may be executed

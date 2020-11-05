@@ -79,7 +79,7 @@ cdef class ChunkedArray(_PandasConvertible):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def format(self, **kwargs):
         import warnings
@@ -158,15 +158,12 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
-        elif isinstance(key, int):
-            return self.getitem(key)
-        else:
-            raise TypeError("key must either be a slice or integer")
 
-    cdef getitem(self, int64_t i):
+        return self.getitem(_normalize_index(key, self.chunked_array.length()))
+
+    cdef getitem(self, int64_t index):
         cdef int j
 
-        index = _normalize_index(i, self.chunked_array.length())
         for j in range(self.num_chunks):
             if index < self.chunked_array.chunk(j).get().length():
                 return self.chunk(j)[index]
@@ -226,24 +223,35 @@ cdef class ChunkedArray(_PandasConvertible):
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)
 
-    def __array__(self, dtype=None):
+    def to_numpy(self):
+        """
+        Return a NumPy copy of this array (experimental).
+
+        Returns
+        -------
+        array : numpy.ndarray
+        """
         cdef:
             PyObject* out
             PandasOptions c_options
             object values
 
         if self.type.id == _Type_EXTENSION:
-            return (
-                chunked_array(
-                    [self.chunk(i).storage for i in range(self.num_chunks)]
-                ).__array__(dtype)
+            storage_array = chunked_array(
+                [chunk.storage for chunk in self.iterchunks()],
+                type=self.type.storage_type
             )
+            return storage_array.to_numpy()
 
         with nogil:
-            check_status(libarrow.ConvertChunkedArrayToPandas(
-                c_options,
-                self.sp_chunked_array,
-                self, &out))
+            check_status(
+                ConvertChunkedArrayToPandas(
+                    c_options,
+                    self.sp_chunked_array,
+                    self,
+                    &out
+                )
+            )
 
         # wrap_array_output uses pandas to convert to Categorical, here
         # always convert to numpy array
@@ -252,6 +260,10 @@ cdef class ChunkedArray(_PandasConvertible):
         if isinstance(values, dict):
             values = np.take(values['dictionary'], values['indices'])
 
+        return values
+
+    def __array__(self, dtype=None):
+        values = self.to_numpy()
         if dtype is None:
             return values
         return values.astype(dtype)
@@ -339,6 +351,7 @@ cdef class ChunkedArray(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.chunked_array.Slice(offset)
         else:
@@ -416,7 +429,6 @@ def chunked_array(arrays, type=None):
         Must all be the same data type. Can be empty only if type also passed.
     type : DataType or string coercible to DataType
 
-
     Returns
     -------
     ChunkedArray
@@ -425,31 +437,35 @@ def chunked_array(arrays, type=None):
         Array arr
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CChunkedArray] sp_chunked_array
-        shared_ptr[CDataType] sp_data_type
+
+    type = ensure_type(type, allow_none=True)
 
     if isinstance(arrays, Array):
         arrays = [arrays]
 
     for x in arrays:
-        if isinstance(x, Array):
-            arr = x
-            if type is not None:
-                assert x.type == type
+        arr = x if isinstance(x, Array) else array(x, type=type)
+
+        if type is None:
+            # it allows more flexible chunked array construction from to coerce
+            # subsequent arrays to the firstly inferred array type
+            # it also spares the inference overhead after the first chunk
+            type = arr.type
         else:
-            arr = array(x, type=type)
+            if arr.type != type:
+                raise TypeError(
+                    "All array chunks must have type {}".format(type)
+                )
 
         c_arrays.push_back(arr.sp_array)
 
-    if type:
-        type = ensure_type(type)
-        sp_data_type = pyarrow_unwrap_data_type(type)
-        sp_chunked_array.reset(new CChunkedArray(c_arrays, sp_data_type))
-    else:
-        if c_arrays.size() == 0:
-            raise ValueError("When passing an empty collection of arrays "
-                             "you must also pass the data type")
-        sp_chunked_array.reset(new CChunkedArray(c_arrays))
+    if c_arrays.size() == 0 and type is None:
+        raise ValueError("When passing an empty collection of arrays "
+                         "you must also pass the data type")
 
+    sp_chunked_array.reset(
+        new CChunkedArray(c_arrays, pyarrow_unwrap_data_type(type))
+    )
     with nogil:
         check_status(sp_chunked_array.get().Validate())
 
@@ -755,6 +771,7 @@ cdef class RecordBatch(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.batch.Slice(offset)
         else:
@@ -1124,6 +1141,7 @@ cdef class Table(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.table.Slice(offset)
         else:

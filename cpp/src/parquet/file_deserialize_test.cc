@@ -249,8 +249,10 @@ TEST_F(TestPageSerde, Compression) {
   codec_types.push_back(Compression::GZIP);
 #endif
 
-  // TODO: Add LZ4 compression type after PARQUET-1878 is complete.
-  // Testing for deserializing LZ4 is hard without writing enabled, so it is not included.
+#ifdef ARROW_WITH_LZ4
+  codec_types.push_back(Compression::LZ4);
+  codec_types.push_back(Compression::LZ4_HADOOP);
+#endif
 
 #ifdef ARROW_WITH_ZSTD
   codec_types.push_back(Compression::ZSTD);
@@ -259,7 +261,7 @@ TEST_F(TestPageSerde, Compression) {
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
 
-  int num_pages = 10;
+  const int num_pages = 10;
 
   std::vector<std::vector<uint8_t>> faux_data;
   faux_data.resize(num_pages);

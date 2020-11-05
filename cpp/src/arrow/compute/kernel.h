@@ -664,7 +664,7 @@ struct VectorKernel : public ArrayKernel {
 using ScalarAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;
 
 using ScalarAggregateMerge =
-    std::function<void(KernelContext*, const KernelState&, KernelState*)>;
+    std::function<void(KernelContext*, KernelState&&, KernelState*)>;
 
 // Finalize returns Datum to permit multiple return values
 using ScalarAggregateFinalize = std::function<void(KernelContext*, Datum*)>;

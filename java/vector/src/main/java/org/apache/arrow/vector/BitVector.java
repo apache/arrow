@@ -119,14 +119,9 @@ public final class BitVector extends BaseFixedWidthVector {
     lastValueCapacity = valueCount;
   }
 
-  /**
-   * Get the current value capacity for the vector.
-   *
-   * @return number of elements that vector can hold.
-   */
   @Override
-  public int getValueCapacity() {
-    return capAtMaxInt(validityBuffer.capacity() * 8);
+  protected int getValueBufferValueCapacity() {
+    return capAtMaxInt(valueBuffer.capacity() * 8);
   }
 
   /**
@@ -171,6 +166,7 @@ public final class BitVector extends BaseFixedWidthVector {
             validityBuffer, target.validityBuffer);
     target.valueBuffer = splitAndTransferBuffer(startIndex, length, target,
             valueBuffer, target.valueBuffer);
+    target.refreshValueCapacity();
 
     target.setValueCount(length);
   }

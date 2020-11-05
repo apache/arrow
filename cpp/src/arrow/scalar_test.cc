@@ -567,7 +567,7 @@ TYPED_TEST(TestNumericScalar, Cast) {
     }
 
     ASSERT_OK_AND_ASSIGN(auto cast_from_string,
-                         StringScalar(repr.to_string()).CastTo(type));
+                         StringScalar(std::string(repr)).CastTo(type));
     ASSERT_EQ(*cast_from_string, *scalar);
 
     if (is_integer_type<TypeParam>::value) {
@@ -627,6 +627,8 @@ TEST(TestDictionaryScalar, Basics) {
     gamma.dictionary = dict;
 
     auto scalar_null = MakeNullScalar(ty);
+    checked_cast<DictionaryScalar&>(*scalar_null).value.dictionary = dict;
+
     auto scalar_alpha = DictionaryScalar(alpha, ty);
     auto scalar_gamma = DictionaryScalar(gamma, ty);
 
@@ -654,6 +656,12 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_TRUE(first->Equals(scalar_gamma));
     ASSERT_TRUE(second->Equals(scalar_alpha));
     ASSERT_TRUE(last->Equals(scalar_null));
+
+    auto first_dict_scalar = checked_cast<const DictionaryScalar&>(*first);
+    ASSERT_TRUE(first_dict_scalar.value.dictionary->Equals(arr.dictionary()));
+
+    auto second_dict_scalar = checked_cast<const DictionaryScalar&>(*second);
+    ASSERT_TRUE(second_dict_scalar.value.dictionary->Equals(arr.dictionary()));
   }
 }
 

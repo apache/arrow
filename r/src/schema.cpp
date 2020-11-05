@@ -18,14 +18,14 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> schema_(Rcpp::List fields) {
-  return arrow::schema(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
+std::shared_ptr<arrow::Schema> schema_(
+    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+  return arrow::schema(fields);
 }
 
 // [[arrow::export]]
@@ -42,7 +42,7 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
                                             int i) {
   if (i >= s->num_fields() || i < 0) {
-    Rcpp::stop("Invalid field index for schema.");
+    cpp11::stop("Invalid field index for schema.");
   }
 
   return s->field(i);
@@ -72,47 +72,44 @@ bool Schema__HasMetadata(const std::shared_ptr<arrow::Schema>& schema) {
 }
 
 // [[arrow::export]]
-Rcpp::List Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
+cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& schema) {
   auto meta = schema->metadata();
   int64_t n = 0;
   if (schema->HasMetadata()) {
     n = meta->size();
   }
 
-  Rcpp::List out(n);
+  cpp11::writable::list out(n);
   std::vector<std::string> names_out(n);
 
   for (int i = 0; i < n; i++) {
     auto key = meta->key(i);
-    out[i] = meta->value(i);
+    out[i] = cpp11::as_sexp(meta->value(i));
     if (key == "r") {
-      Rf_setAttrib(out[i], R_ClassSymbol, arrow::r::data::classes_metadata_r);
+      Rf_classgets(out[i], arrow::r::data::classes_metadata_r);
     }
     names_out[i] = key;
   }
-  out.attr("names") = names_out;
+  out.names() = names_out;
   return out;
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> Schema__WithMetadata(
-    const std::shared_ptr<arrow::Schema>& schema, Rcpp::CharacterVector metadata) {
-  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
-      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
-  return schema->WithMetadata(kv);
+    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+  auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
+
+  auto kv =
+      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+  return schema->WithMetadata(std::move(kv));
 }
 
 // [[arrow::export]]
-Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) {
-  arrow::ipc::DictionaryMemo empty_memo;
-  std::shared_ptr<arrow::Buffer> out =
-      ValueOrStop(arrow::ipc::SerializeSchema(*schema, &empty_memo));
-
+cpp11::writable::raws Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) {
+  auto out = ValueOrStop(arrow::ipc::SerializeSchema(*schema));
   auto n = out->size();
-  Rcpp::RawVector vec(out->size());
-  std::copy_n(out->data(), n, vec.begin());
-
-  return vec;
+  return cpp11::writable::raws(out->data(), out->data() + n);
 }
 
 // [[arrow::export]]

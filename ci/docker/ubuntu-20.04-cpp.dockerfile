@@ -17,6 +17,7 @@
 
 ARG base=amd64/ubuntu:20.04
 FROM ${base}
+ARG arch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -57,6 +58,7 @@ RUN apt-get update -y -q && \
         libbrotli-dev \
         libbz2-dev \
         libgflags-dev \
+        libcurl4-openssl-dev \
         libgoogle-glog-dev \
         liblz4-dev \
         libprotobuf-dev \
@@ -72,9 +74,14 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        tzdata && \
+        tzdata \
+        wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -95,6 +102,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
@@ -104,6 +112,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \

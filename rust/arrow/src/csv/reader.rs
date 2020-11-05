@@ -50,7 +50,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, PrimitiveBuilder, StringBuilder};
+use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -313,32 +313,7 @@ impl<R: Read> Reader<R> {
         }
     }
 
-    /// Read the next batch of rows
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
-        // read a batch of rows into memory
-        let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
-        for i in 0..self.batch_size {
-            match self.record_iter.next() {
-                Some(Ok(r)) => {
-                    rows.push(r);
-                }
-                Some(Err(e)) => {
-                    return Err(ArrowError::ParseError(format!(
-                        "Error parsing line {}: {:?}",
-                        self.line_number + i,
-                        e
-                    )));
-                }
-                None => break,
-            }
-        }
-
-        // return early if no data was loaded
-        if rows.is_empty() {
-            return Ok(None);
-        }
-
+    fn parse(&self, rows: &[StringRecord]) -> Result<RecordBatch> {
         let projection: Vec<usize> = match self.projection {
             Some(ref v) => v.clone(),
             None => self
@@ -350,7 +325,6 @@ impl<R: Read> Reader<R> {
                 .collect(),
         };
 
-        let rows = &rows[..];
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
@@ -398,8 +372,6 @@ impl<R: Read> Reader<R> {
             })
             .collect();
 
-        self.line_number += rows.len();
-
         let schema_fields = self.schema.fields();
 
         let projected_fields: Vec<Field> = projection
@@ -409,7 +381,7 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
@@ -417,34 +389,74 @@ impl<R: Read> Reader<R> {
         rows: &[StringRecord],
         col_idx: usize,
     ) -> Result<ArrayRef> {
-        let mut builder = PrimitiveBuilder::<T>::new(rows.len());
         let is_boolean_type =
             *self.schema.field(col_idx).data_type() == DataType::Boolean;
-        for (row_index, row) in rows.iter().enumerate() {
-            match row.get(col_idx) {
-                Some(s) if !s.is_empty() => {
-                    let t = if is_boolean_type {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
-                    match t {
-                        Ok(v) => builder.append_value(v)?,
-                        Err(_) => {
-                            // TODO: we should surface the underlying error here.
-                            return Err(ArrowError::ParseError(format!(
+
+        rows.iter()
+            .enumerate()
+            .map(|(row_index, row)| {
+                match row.get(col_idx) {
+                    Some(s) => {
+                        if s.is_empty() {
+                            return Ok(None);
+                        }
+                        let parsed = if is_boolean_type {
+                            s.to_lowercase().parse::<T::Native>()
+                        } else {
+                            s.parse::<T::Native>()
+                        };
+                        match parsed {
+                            Ok(e) => Ok(Some(e)),
+                            Err(_) => Err(ArrowError::ParseError(format!(
+                                // TODO: we should surface the underlying error here.
                                 "Error while parsing value {} for column {} at line {}",
                                 s,
                                 col_idx,
                                 self.line_number + row_index
-                            )));
+                            ))),
                         }
                     }
+                    None => Ok(None),
                 }
-                _ => builder.append_null()?,
+            })
+            .collect::<Result<PrimitiveArray<T>>>()
+            .map(|e| Arc::new(e) as ArrayRef)
+    }
+}
+
+impl<R: Read> Iterator for Reader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // read a batch of rows into memory
+        let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
+        for i in 0..self.batch_size {
+            match self.record_iter.next() {
+                Some(Ok(r)) => {
+                    rows.push(r);
+                }
+                Some(Err(e)) => {
+                    return Some(Err(ArrowError::ParseError(format!(
+                        "Error parsing line {}: {:?}",
+                        self.line_number + i,
+                        e
+                    ))));
+                }
+                None => break,
             }
         }
-        Ok(Arc::new(builder.finish()))
+
+        // return early if no data was loaded
+        if rows.is_empty() {
+            return None;
+        }
+
+        // parse the batches into a RecordBatch
+        let result = self.parse(&rows);
+
+        self.line_number += rows.len();
+
+        Some(result)
     }
 }
 
@@ -621,7 +633,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -683,7 +695,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -721,7 +733,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -749,7 +761,7 @@ mod tests {
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
         ]));
-        assert_eq!(projected_schema.clone(), csv.schema());
+        assert_eq!(projected_schema, csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
@@ -832,11 +844,14 @@ mod tests {
 
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
-            Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
-                format!("{:?}", e)
-            ),
-            Ok(_) => panic!("should have failed"),
+            Some(e) => match e {
+                Err(e) => assert_eq!(
+                    "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
+                    format!("{:?}", e)
+                ),
+                Ok(_) => panic!("should have failed"),
+            }
+            None => panic!("should have failed"),
         }
     }
 
@@ -867,7 +882,7 @@ mod tests {
         writeln!(csv4, "10,\"foo\",")?;
 
         let schema = infer_schema_from_files(
-            &vec![
+            &[
                 csv3.path().to_str().unwrap().to_string(),
                 csv1.path().to_str().unwrap().to_string(),
                 csv2.path().to_str().unwrap().to_string(),

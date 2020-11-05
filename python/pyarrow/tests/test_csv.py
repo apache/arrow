@@ -16,7 +16,7 @@
 # under the License.
 
 import bz2
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 import gc
 import gzip
@@ -534,6 +534,30 @@ class BaseTestCSVRead:
             'b': [datetime(1980, 1, 1), datetime(1980, 1, 2)],
         }
 
+    def test_dates(self):
+        # Dates are inferred as timestamps by default
+        rows = b"a,b\n1970-01-01,1970-01-02\n1971-01-01,1971-01-02\n"
+        table = self.read_bytes(rows)
+        schema = pa.schema([('a', pa.timestamp('s')),
+                            ('b', pa.timestamp('s'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [datetime(1970, 1, 1), datetime(1971, 1, 1)],
+            'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
+        }
+
+        # Can ask for date types explicitly
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.date32(), 'b': pa.date64()}
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.date32()),
+                            ('b', pa.date64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [date(1970, 1, 1), date(1971, 1, 1)],
+            'b': [date(1970, 1, 2), date(1971, 1, 2)],
+        }
+
     def test_auto_dict_encode(self):
         opts = ConvertOptions(auto_dict_encode=True)
         rows = "a,b\nab,1\ncdé,2\ncdé,3\nab,4".encode()
@@ -682,6 +706,38 @@ class BaseTestCSVRead:
         err = str(exc.value)
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
+
+    def test_column_types_dict(self):
+        # Ask for dict-encoded column types in ConvertOptions
+        column_types = [
+            ('a', pa.dictionary(pa.int32(), pa.utf8())),
+            ('b', pa.dictionary(pa.int32(), pa.int64())),
+            ('c', pa.dictionary(pa.int32(), pa.decimal128(11, 2))),
+            ('d', pa.dictionary(pa.int32(), pa.large_utf8()))]
+
+        opts = ConvertOptions(column_types=dict(column_types))
+        rows = (b"a,b,c,d\n"
+                b"abc,123456,1.0,zz\n"
+                b"defg,123456,0.5,xx\n"
+                b"abc,N/A,1.0,xx\n")
+        table = self.read_bytes(rows, convert_options=opts)
+
+        schema = pa.schema(column_types)
+        expected = {
+            'a': ["abc", "defg", "abc"],
+            'b': [123456, 123456, None],
+            'c': [Decimal("1.00"), Decimal("0.50"), Decimal("1.00")],
+            'd': ["zz", "xx", "xx"],
+        }
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+
+        # Unsupported index type
+        column_types[0] = ('a', pa.dictionary(pa.int8(), pa.utf8()))
+
+        opts = ConvertOptions(column_types=dict(column_types))
+        with pytest.raises(NotImplementedError):
+            table = self.read_bytes(rows, convert_options=opts)
 
     def test_column_types_with_column_names(self):
         # When both `column_names` and `column_types` are given, names

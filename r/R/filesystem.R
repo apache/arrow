@@ -122,11 +122,39 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'
 #' @section Factory:
 #'
-#' The `$create()` factory methods instantiate the `FileSystem` object and
-#' take the following arguments, depending on the subclass:
+#' `LocalFileSystem$create()` returns the object and takes no arguments.
 #'
-#' - no argument is needed for instantiating a `LocalFileSystem`
-#' - `base_path` and `base_fs` for instantiating a `SubTreeFileSystem`
+#' `SubTreeFileSystem$create()` takes the following arguments:
+#'
+#' - `base_path`, a string path
+#' - `base_fs`, a `FileSystem` object
+#'
+#' `S3FileSystem$create()` optionally takes arguments:
+#'
+#' - `anonymous`: logical, default `FALSE`. If true, will not attempt to look up
+#'    credentials using standard AWS configuration methods.
+#' - `access_key`, `secret_key`: authentication credentials. If one is provided,
+#'    the other must be as well. If both are provided, they will override any
+#'    AWS configuration set at the environment level.
+#' - `session_token`: optional string for authentication along with
+#'    `access_key` and `secret_key`
+#' - `role_arn`: string AWS ARN of an AccessRole. If provided instead of `access_key` and
+#'    `secret_key`, temporary credentials will be fetched by assuming this role.
+#' - `session_name`: optional string identifier for the assumed role session.
+#' - `external_id`: optional unique string identifier that might be required
+#'    when you assume a role in another account.
+#' - `load_frequency`: integer, frequency (in seconds) with which temporary
+#'    credentials from an assumed role session will be refreshed. Default is
+#'    900 (i.e. 15 minutes)
+#' - `region`: AWS region to connect to. If omitted, the AWS library will
+#'    provide a sensible default based on client configuration, falling back
+#'    to "us-east-1" if no other alternatives are found.
+#' - `endpoint_override`: If non-empty, override region with a connect string
+#'    such as "localhost:9000". This is useful for connecting to file systems
+#'    that emulate S3.
+#' - `scheme`: S3 connection transport (default "https")
+#' - `background_writes`: logical, whether `OutputStream` writes will be issued
+#'    in the background, without blocking (default `TRUE`)
 #'
 #' @section Methods:
 #'
@@ -156,6 +184,15 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    sequential writing.
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
+#'
+#' @section Active bindings:
+#'
+#' - `$type_name`: string filesystem type name, such as "local", "s3", etc.
+#' - `$region`: string AWS region, for `S3FileSystem` and `SubTreeFileSystem`
+#'    containing a `S3FileSystem`
+#' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
+#' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
+#'    root in this `SubTreeFileSystem`.
 #'
 #' @usage NULL
 #' @format NULL
@@ -228,13 +265,26 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
       shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, clean_path_rel(path)))
     },
     OpenInputFile = function(path) {
-      shared_ptr(InputStream, fs___FileSystem__OpenInputFile(self, clean_path_rel(path)))
+      shared_ptr(RandomAccessFile, fs___FileSystem__OpenInputFile(self, clean_path_rel(path)))
     },
     OpenOutputStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, clean_path_rel(path)))
     },
     OpenAppendStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
+    },
+
+    # Friendlier R user interface
+    path = function(x) SubTreeFileSystem$create(x, self),
+    cd = function(x) SubTreeFileSystem$create(x, self),
+    ls = function(path = "", ...) {
+      selector <- FileSelector$create(path, ...) # ... for recursive = TRUE
+      infos <- self$GetFileInfo(selector)
+      map_chr(infos, ~.$path)
+      # TODO: add full.names argument like base::dir() (default right now is TRUE)
+      # TODO: see fs package for glob/regexp filtering
+      # TODO: verbose method that shows other attributes as df
+      # TODO: print methods for FileInfo, SubTreeFileSystem, S3FileSystem
     }
   ),
   active = list(
@@ -242,10 +292,33 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   )
 )
 FileSystem$from_uri <- function(uri) {
+  assert_that(is.string(uri))
   out <- fs___FileSystemFromUri(uri)
   out$fs <- shared_ptr(FileSystem, out$fs)$..dispatch()
   out
 }
+
+get_path_and_filesystem <- function(x, filesystem = NULL) {
+  # Wrapper around FileSystem$from_uri that handles local paths
+  # and an optional explicit filesystem
+  if (inherits(x, "SubTreeFileSystem")) {
+    return(list(fs = x$base_fs, path = x$base_path))
+  }
+  assert_that(is.string(x))
+  if (is_url(x)) {
+    if (!is.null(filesystem)) {
+      # Stop? Can't have URL (which yields a fs) and another fs
+    }
+    FileSystem$from_uri(x)
+  } else {
+    list(
+      fs = filesystem %||% LocalFileSystem$create(),
+      path = clean_path_abs(x)
+    )
+  }
+}
+
+is_url <- function(x) is.string(x) && grepl("://", x)
 
 #' @usage NULL
 #' @format NULL
@@ -259,25 +332,158 @@ LocalFileSystem$create <- function() {
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
-S3FileSystem$create <- function() {
-  fs___EnsureS3Initialized()
-  shared_ptr(S3FileSystem, fs___S3FileSystem__create())
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
+  active = list(
+    region = function() fs___S3FileSystem__region(self)
+  )
+)
+S3FileSystem$create <- function(anonymous = FALSE, ...) {
+  args <- list2(...)
+  if (anonymous) {
+    invalid_args <- intersect(c("access_key", "secret_key", "session_token", "role_arn", "session_name", "external_id", "load_frequency"), names(args))
+    if (length(invalid_args)) {
+      stop("Cannot specify ", oxford_paste(invalid_args), " when anonymous = TRUE", call. = FALSE)
+    }
+  } else {
+    keys_present <- length(intersect(c("access_key", "secret_key"), names(args)))
+    if (keys_present == 1) {
+      stop("Key authentication requires both access_key and secret_key", call. = FALSE)
+    }
+    if ("session_token" %in% names(args) && keys_present != 2) {
+      stop(
+        "In order to initialize a session with temporary credentials, ",
+        "both secret_key and access_key must be provided ",
+        "in addition to session_token.",
+        call. = FALSE
+      )
+    }
+    arn <- "role_arn" %in% names(args)
+    if (keys_present == 2 && arn) {
+      stop("Cannot provide both key authentication and role_arn", call. = FALSE)
+    }
+    arn_extras <- intersect(c("session_name", "external_id", "load_frequency"), names(args))
+    if (length(arn_extras) > 0 && !arn) {
+      stop("Cannot specify ", oxford_paste(arn_extras), " without providing a role_arn string", call. = FALSE)
+    }
+  }
+  args <- c(modifyList(default_s3_options, args), anonymous = anonymous)
+  shared_ptr(S3FileSystem, exec(fs___S3FileSystem__create, !!!args))
 }
 
-arrow_with_s3 <- function() {
-  .Call(`_s3_available`)
+default_s3_options <- list(
+  access_key = "",
+  secret_key = "",
+  session_token = "",
+  role_arn = "",
+  session_name = "",
+  external_id = "",
+  load_frequency = 900L,
+  region = "",
+  endpoint_override = "",
+  scheme = "",
+  background_writes = TRUE
+)
+
+#' Connect to an AWS S3 bucket
+#'
+#' `s3_bucket()` is a convenience function to create an `S3FileSystem` object
+#' that automatically detects the bucket's AWS region and holding onto the its
+#' relative path.
+#'
+#' @param bucket string S3 bucket name or path
+#' @param ... Additional connection options, passed to `S3FileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examples
+#' if (arrow_with_s3()) {
+#'   bucket <- s3_bucket("ursa-labs-taxi-data")
+#' }
+#' @export
+s3_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  # Use FileSystemFromUri to detect the bucket's region
+  if (!is_url(bucket)) {
+    bucket <- paste0("s3://", bucket)
+  }
+  fs_and_path <- FileSystem$from_uri(bucket)
+  fs <- fs_and_path$fs
+  # If there are no additional S3Options, we can use that filesystem
+  # Otherwise, take the region that was detected and make a new fs with the args
+  if (length(args)) {
+    args$region <- fs$region
+    fs <- exec(S3FileSystem$create, !!!args)
+  }
+  # Return a subtree pointing at that bucket path
+  SubTreeFileSystem$create(fs_and_path$path, fs)
 }
 
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
-SubTreeFileSystem$create <- function(base_path, base_fs) {
-  xp <- fs___SubTreeFileSystem__create(clean_path_rel(base_path), base_fs)
-  shared_ptr(SubTreeFileSystem, xp)
+SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+  active = list(
+    base_fs = function() {
+      shared_ptr(FileSystem, fs___SubTreeFileSystem__base_fs(self))$..dispatch()
+    },
+    base_path = function() fs___SubTreeFileSystem__base_path(self)
+  )
+)
+SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
+  fs_and_path <- get_path_and_filesystem(base_path, base_fs)
+  shared_ptr(
+    SubTreeFileSystem,
+    fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
+  )
+}
+
+#' @export
+`$.SubTreeFileSystem` <- function(x, name, ...) {
+  # This is to allow delegating methods/properties to the base_fs
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    get(name, x$base_fs)
+  }
+}
+
+#' Copy files between FileSystems
+#'
+#' @param from A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Files will be copied recursively from this path.
+#' @param to A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Directories will be created as necessary
+#' @param chunk_size The maximum size of block to read before flushing
+#' to the destination file. A larger chunk_size will use more memory while
+#' copying but may help accommodate high latency FileSystems.
+#' @return Nothing: called for side effects in the file system
+#' @export
+#' @examples
+#' \dontrun{
+#' # Copy an S3 bucket's files to a local directory:
+#' copy_files("s3://your-bucket-name", "local-directory")
+#' # Using a FileSystem object
+#' copy_files(s3_bucket("your-bucket-name"), "local-directory")
+#' # Or go the other way, from local to S3
+#' copy_files("local-directory", s3_bucket("your-bucket-name"))
+#' }
+copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
+  from <- get_path_and_filesystem(from)
+  to <- get_path_and_filesystem(to)
+  invisible(fs___CopyFiles(
+    from$fs,
+    FileSelector$create(from$path, recursive = TRUE),
+    to$fs,
+    to$path,
+    chunk_size,
+    option_use_threads()
+  ))
 }
 
 clean_path_abs <- function(path) {

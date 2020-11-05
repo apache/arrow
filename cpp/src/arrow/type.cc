@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <climits>
 #include <cstddef>
+#include <limits>
 #include <ostream>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
@@ -464,6 +465,17 @@ std::string StringType::ToString() const { return "string"; }
 std::string LargeStringType::ToString() const { return "large_string"; }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
+
+Result<std::shared_ptr<DataType>> FixedSizeBinaryType::Make(int32_t byte_width) {
+  if (byte_width < 0) {
+    return Status::Invalid("Negative FixedSizeBinaryType byte width");
+  }
+  if (byte_width > std::numeric_limits<int>::max() / CHAR_BIT) {
+    // bit_width() would overflow
+    return Status::Invalid("byte width of FixedSizeBinaryType too large");
+  }
+  return std::make_shared<FixedSizeBinaryType>(byte_width);
+}
 
 std::string FixedSizeBinaryType::ToString() const {
   std::stringstream ss;

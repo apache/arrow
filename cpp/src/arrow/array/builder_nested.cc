@@ -54,6 +54,18 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
     : MapBuilder(pool, key_builder, item_builder,
                  map(key_builder->type(), item_builder->type(), keys_sorted)) {}
 
+MapBuilder::MapBuilder(MemoryPool* pool,
+                       const std::shared_ptr<ArrayBuilder>& struct_builder,
+                       const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(pool) {
+  auto map_type = internal::checked_cast<const MapType*>(type.get());
+  keys_sorted_ = map_type->keys_sorted();
+  key_builder_ = struct_builder->child_builder(0);
+  item_builder_ = struct_builder->child_builder(1);
+  list_builder_ =
+      std::make_shared<ListBuilder>(pool, struct_builder, struct_builder->type());
+}
+
 Status MapBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(list_builder_->Resize(capacity));
   capacity_ = list_builder_->capacity();
@@ -168,6 +180,19 @@ Status FixedSizeListBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
   return value_builder_->AppendNulls(list_size_ * length);
+}
+
+Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
+  auto new_length = value_builder_->length() + new_elements;
+  if (new_elements != list_size_) {
+    return Status::Invalid("Length of item not correct: expected ", list_size_,
+                           " but got array of size ", new_elements);
+  }
+  if (new_length > maximum_elements()) {
+    return Status::CapacityError("array cannot contain more than ", maximum_elements(),
+                                 " elements, have ", new_elements);
+  }
+  return Status::OK();
 }
 
 Status FixedSizeListBuilder::Resize(int64_t capacity) {

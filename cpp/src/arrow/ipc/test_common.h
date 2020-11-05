@@ -54,11 +54,6 @@ Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int n
                                 std::shared_ptr<Array>* out);
 
 ARROW_TESTING_EXPORT
-Status MakeRandomMapArray(const std::shared_ptr<Array>& child_array, int num_lists,
-                          bool include_nulls, MemoryPool* pool,
-                          std::shared_ptr<Array>* out);
-
-ARROW_TESTING_EXPORT
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out);
 
@@ -132,6 +127,12 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeMap(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeMapOfDictionary(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeDates(std::shared_ptr<RecordBatch>* out);

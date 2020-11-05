@@ -98,7 +98,7 @@ TEST_F(TestFileSystemDataset, ReplaceSchema) {
   auto schm = schema({field("i32", int32()), field("f64", float64())});
   auto format = std::make_shared<DummyFileFormat>(schm);
   ASSERT_OK_AND_ASSIGN(auto dataset,
-                       FileSystemDataset::Make(schm, scalar(true), format, {}));
+                       FileSystemDataset::Make(schm, scalar(true), format, nullptr, {}));
 
   // drop field
   ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());

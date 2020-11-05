@@ -20,11 +20,14 @@
 set -e
 
 declare -A archs
-archs=([amd64]=amd64)
+archs=([amd64]=amd64
+       [arm64v8]=arm64
+       [arm32v7]=arm
+       [s390x]=s390x)
 
 declare -A platforms
-platforms=([macos]=darwin
-           [linux]=linux)
+platforms=([linux]=linux
+           [macos]=darwin)
 
 arch=${archs[$1]}
 platform=${platforms[$2]}
@@ -34,10 +37,10 @@ prefix=$4
 if [ "$#" -ne 4 ]; then
   echo "Usage: $0 <architecture> <platform> <version> <prefix>"
   exit 1
-elif [[ -z ${archs[$1]} ]]; then
+elif [[ -z ${arch} ]]; then
   echo "Unexpected architecture: ${1}"
   exit 1
-elif [[ -z ${platforms[$2]} ]]; then
+elif [[ -z ${platform} ]]; then
   echo "Unexpected platform: ${2}"
   exit 1
 elif [[ ${version} != "latest" ]]; then
@@ -45,5 +48,5 @@ elif [[ ${version} != "latest" ]]; then
   exit 1
 fi
 
-wget -nv -P ${prefix}/bin https://dl.min.io/server/minio/release/linux-${arch}/minio
+wget -nv -P ${prefix}/bin https://dl.min.io/server/minio/release/${platform}-${arch}/minio
 chmod +x ${prefix}/bin/minio

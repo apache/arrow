@@ -16,7 +16,8 @@ write_feather(
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path or \link{OutputStream}}
+\item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
+system (\code{SubTreeFileSystem})}
 
 \item{version}{integer Feather file version. Version 2 is the current.
 Version 1 is the more limited legacy format.}

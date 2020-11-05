@@ -19,6 +19,8 @@
 FileSystem abstraction to interact with various local and remote filesystems.
 """
 
+from pyarrow.util import _is_path_like, _stringify_path
+
 from pyarrow._fs import (  # noqa
     FileSelector,
     FileType,
@@ -27,7 +29,6 @@ from pyarrow._fs import (  # noqa
     LocalFileSystem,
     SubTreeFileSystem,
     _MockFileSystem,
-    _normalize_path,
     FileSystemHandler,
     PyFileSystem,
 )
@@ -63,7 +64,9 @@ def __getattr__(name):
     )
 
 
-def _ensure_filesystem(filesystem, use_mmap=False):
+def _ensure_filesystem(
+    filesystem, use_mmap=False, allow_legacy_filesystem=False
+):
     if isinstance(filesystem, FileSystem):
         return filesystem
 
@@ -80,13 +83,65 @@ def _ensure_filesystem(filesystem, use_mmap=False):
             return PyFileSystem(FSSpecHandler(filesystem))
 
     # map old filesystems to new ones
-    from pyarrow.filesystem import LocalFileSystem as LegacyLocalFileSystem
+    import pyarrow.filesystem as legacyfs
 
-    if isinstance(filesystem, LegacyLocalFileSystem):
+    if isinstance(filesystem, legacyfs.LocalFileSystem):
         return LocalFileSystem(use_mmap=use_mmap)
     # TODO handle HDFS?
+    if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
+        return filesystem
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
+
+
+def _resolve_filesystem_and_path(
+    path, filesystem=None, allow_legacy_filesystem=False
+):
+    """
+    Return filesystem/path from path which could be an URI or a plain
+    filesystem path.
+    """
+    if not _is_path_like(path):
+        if filesystem is not None:
+            raise ValueError(
+                "'filesystem' passed but the specified path is file-like, so"
+                " there is nothing to open with 'filesystem'."
+            )
+        return filesystem, path
+
+    path = _stringify_path(path)
+
+    if filesystem is not None:
+        filesystem = _ensure_filesystem(
+            filesystem, allow_legacy_filesystem=allow_legacy_filesystem
+        )
+        return filesystem, path
+
+    # if filesystem is not given, try to automatically determine one
+    # first check if the file exists as a local (relative) file path
+    # if not then try to parse the path as an URI
+    filesystem = LocalFileSystem()
+    try:
+        file_info = filesystem.get_file_info(path)
+    except OSError:
+        file_info = None
+        exists_locally = False
+    else:
+        exists_locally = (file_info.type != FileType.NotFound)
+
+    # if the file or directory doesn't exists locally, then assume that
+    # the path is an URI describing the file system as well
+    if not exists_locally:
+        try:
+            filesystem, path = FileSystem.from_uri(path)
+        except ValueError as e:
+            # neither an URI nor a locally existing path, so assume that
+            # local path was given and propagate a nicer file not found error
+            # instead of a more confusing scheme parsing error
+            if "empty scheme" not in str(e):
+                raise
+
+    return filesystem, path
 
 
 class FSSpecHandler(FileSystemHandler):
@@ -116,6 +171,9 @@ class FSSpecHandler(FileSystemHandler):
         if isinstance(protocol, list):
             protocol = protocol[0]
         return "fsspec+{0}".format(protocol)
+
+    def normalize_path(self, path):
+        return path
 
     @staticmethod
     def _create_file_info(path, info):

@@ -84,6 +84,7 @@ class Schema;
 
 namespace ipc {
 
+class DictionaryFieldMapper;
 class DictionaryMemo;
 
 }  // namespace ipc
@@ -93,7 +94,7 @@ namespace json {
 
 /// \brief Append integration test Schema format to rapidjson writer
 ARROW_TESTING_EXPORT
-Status WriteSchema(const Schema& schema, ipc::DictionaryMemo* dict_memo,
+Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
                    RjWriter* writer);
 
 ARROW_TESTING_EXPORT
@@ -115,14 +116,10 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
                        ipc::DictionaryMemo* dict_memo, MemoryPool* pool,
                        std::shared_ptr<RecordBatch>* batch);
 
+// NOTE: Doesn't work with dictionary arrays, use ReadRecordBatch instead.
 ARROW_TESTING_EXPORT
 Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
-                 const std::shared_ptr<Field>& type, ipc::DictionaryMemo* dict_memo,
-                 std::shared_ptr<Array>* array);
-
-ARROW_TESTING_EXPORT
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
-                 ipc::DictionaryMemo* dict_memo, std::shared_ptr<Array>* array);
+                 const std::shared_ptr<Field>& type, std::shared_ptr<Array>* array);
 
 }  // namespace json
 }  // namespace testing

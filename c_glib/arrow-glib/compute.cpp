@@ -300,7 +300,7 @@ garrow_function_find(const gchar *name)
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
- *   A return value of the execution as #GArrowData on success, %NULL on error.
+ *   A return value of the execution as #GArrowDatum on success, %NULL on error.
  *
  * Since: 1.0.0
  */
@@ -1246,7 +1246,8 @@ garrow_array_count_values(GArrowArray *array,
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_counted_values = arrow::compute::ValueCounts(arrow_array);
   if (garrow::check(error, arrow_counted_values, "[array][count-values]")) {
-    return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&(*arrow_counted_values)));
+    std::shared_ptr<arrow::Array> arrow_counted_values_array = *arrow_counted_values;
+    return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_counted_values_array));
   } else {
     return NULL;
   }

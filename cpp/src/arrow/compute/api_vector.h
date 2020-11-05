@@ -59,7 +59,7 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
 };
 
 /// \brief Partitioning options for NthToIndices
-struct PartitionNthOptions : public FunctionOptions {
+struct ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot) : pivot(pivot) {}
 
   /// The index into the equivalent sorted array of the partition pivot element.
@@ -202,8 +202,8 @@ ARROW_EXPORT extern const int32_t kCountsFieldIndex;
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ValueCounts(const Datum& value,
-                                           ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value,
+                                                 ExecContext* ctx = NULLPTR);
 
 /// \brief Dictionary-encode values in an array-like object
 /// \param[in] data array-like input

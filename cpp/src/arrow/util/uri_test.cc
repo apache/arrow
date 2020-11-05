@@ -212,6 +212,19 @@ TEST(Uri, ParseUserPass) {
   ASSERT_EQ(uri.host(), "localhost");
   ASSERT_EQ(uri.username(), "someuser");
   ASSERT_EQ(uri.password(), "somepass");
+
+  // With %-encoding
+  ASSERT_OK(uri.Parse("http://some%20user%2Fname:somepass@localhost"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "some user/name");
+  ASSERT_EQ(uri.password(), "somepass");
+
+  ASSERT_OK(uri.Parse("http://some%20user%2Fname:some%20pass%2Fword@localhost"));
+  ASSERT_EQ(uri.scheme(), "http");
+  ASSERT_EQ(uri.host(), "localhost");
+  ASSERT_EQ(uri.username(), "some user/name");
+  ASSERT_EQ(uri.password(), "some pass/word");
 }
 
 TEST(Uri, FileScheme) {

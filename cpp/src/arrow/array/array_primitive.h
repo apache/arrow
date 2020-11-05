@@ -119,11 +119,6 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }
 
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
-
- protected:
-  inline void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->PrimitiveArray::SetData(data);
-  }
 };
 
 }  // namespace arrow

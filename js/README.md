@@ -122,7 +122,7 @@ const rainfall = Table.new(
 ```js
 import { Table } from "apache-arrow";
 
-const table = await Table.from(fetch(("/simple.arrow")));
+const table = await Table.from(fetch("/simple.arrow"));
 console.log(table.toString());
 
 ```

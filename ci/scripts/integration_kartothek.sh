@@ -27,4 +27,4 @@ python -c "import pyarrow.parquet"
 python -c "import kartothek"
 
 pushd /kartothek
-pytest -n0
+pytest -n0 --ignore tests/cli/test_query.py

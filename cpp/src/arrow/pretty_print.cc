@@ -35,7 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
@@ -552,7 +552,7 @@ Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
 }
 
 Status DebugPrint(const Array& arr, int indent) {
-  return PrettyPrint(arr, indent, &std::cout);
+  return PrettyPrint(arr, indent, &std::cerr);
 }
 
 class SchemaPrinter : public PrettyPrinter {

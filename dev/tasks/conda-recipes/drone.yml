@@ -1,0 +1,43 @@
+---
+kind: pipeline
+name: {{ config }}
+
+platform:
+  os: linux
+  arch: arm64
+
+# Omit double builds with crossbow
+trigger:
+  event:
+    - push
+
+steps:
+- name: Install and build
+  image: condaforge/linux-anvil-aarch64
+  environment:
+    CONFIG: {{ config }}
+    UPLOAD_PACKAGES: False
+    ARROW_VERSION: {{ arrow.no_rc_version }}
+    PLATFORM: linux-aarch64
+    BINSTAR_TOKEN:
+      from_secret: BINSTAR_TOKEN
+    FEEDSTOCK_TOKEN:
+      from_secret: FEEDSTOCK_TOKEN
+    STAGING_BINSTAR_TOKEN:
+      from_secret: STAGING_BINSTAR_TOKEN
+    CROSSBOW_GITHUB_TOKEN:
+      from_secret: CROSSBOW_GITHUB_TOKEN
+    CROSSBOW_ANACONDA_TOKEN:
+      from_secret: CROSSBOW_ANACONDA_TOKEN
+  commands:
+    - export RECIPE_ROOT="$FEEDSTOCK_ROOT/arrow-cpp"
+    - export CI=drone
+    - export GIT_BRANCH="{{ arrow.branch }}"
+    - export FEEDSTOCK_NAME=arrow-cpp
+    - export FEEDSTOCK_ROOT="$DRONE_WORKSPACE/arrow/dev/tasks/conda-recipes"
+    - sed -i '$ichown -R conda:conda "$FEEDSTOCK_ROOT"' /opt/docker/bin/entrypoint
+    - yum install -y git
+    - git clone --no-checkout {{ arrow.remote }} arrow
+    - pushd arrow && git fetch -t {{ arrow.remote }} {{ arrow.branch }} && git checkout FETCH_HEAD && git submodule update --init --recursive && popd
+    - mkdir -p $(pwd)/build_artifacts && chmod a+rwx $(pwd)/build_artifacts
+    - /opt/docker/bin/entrypoint $FEEDSTOCK_ROOT/drone-steps.sh $(pwd)/build_artifacts {{ queue_remote_url }} {{ task.branch }} {{ task.tag }} {% if arrow.branch == 'master' %}1{% else %}0{% endif %}

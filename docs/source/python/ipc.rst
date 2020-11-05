@@ -157,16 +157,24 @@ DataFrame output:
 Arbitrary Object Serialization
 ------------------------------
 
+.. warning::
+
+   The custom serialization functionality is deprecated in pyarrow 2.0, and
+   will be removed in a future version.
+
+   While the serialization functions in this section utilize the Arrow stream
+   protocol internally, they do not produce data that is compatible with the
+   above ``ipc.open_file`` and ``ipc.open_stream`` functions.
+
+   For arbitrary objects, you can use the standard library ``pickle``
+   functionality instead. For pyarrow objects, you can use the IPC
+   serialization format through the ``pyarrow.ipc`` module, as explained
+   above.
+
 In ``pyarrow`` we are able to serialize and deserialize many kinds of Python
 objects. While not a complete replacement for the ``pickle`` module, these
 functions can be significantly faster, particular when dealing with collections
 of NumPy arrays.
-
-.. warning::
-
-   While the functions in this section utilize the Arrow stream protocol
-   internally, they do not produce data that is compatible with the above
-   ``ipc.open_file`` and ``ipc.open_stream`` functions.
 
 As an example, consider a dictionary containing NumPy arrays:
 
@@ -324,7 +332,7 @@ An object can be reconstructed from its component-based representation using
 ``SerializationContext`` objects.
 
 Serializing pandas Objects
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The default serialization context has optimized handling of pandas
 objects like ``DataFrame`` and ``Series``. Combined with component-based

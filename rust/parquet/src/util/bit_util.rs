@@ -956,16 +956,16 @@ mod tests {
             .iter()
             .map(|v| v & ((1 << num_bits) - 1))
             .collect();
-        for i in 0..total {
+        (0..total).for_each(|i| {
             assert!(
                 writer.put_value(values[i] as u64, num_bits),
                 "[{}]: put_value() failed",
                 i
             );
-        }
+        });
 
         let mut reader = BitReader::from(writer.consume());
-        for i in 0..total {
+        (0..total).for_each(|i| {
             let v = reader
                 .get_value::<u64>(num_bits)
                 .expect("get_value() should return OK");
@@ -974,7 +974,7 @@ mod tests {
                 "[{}]: expected {} but got {}",
                 i, values[i], v
             );
-        }
+        });
     }
 
     #[test]
@@ -1008,9 +1008,9 @@ mod tests {
         let expected_values: Vec<T> =
             values.iter().map(|v| from_ne_slice(v.as_bytes())).collect();
 
-        for i in 0..total {
+        (0..total).for_each(|i| {
             assert!(writer.put_value(values[i] as u64, num_bits));
-        }
+        });
 
         let buf = writer.consume();
         let mut reader = BitReader::from(buf);
@@ -1103,16 +1103,16 @@ mod tests {
         let total = 64;
         let mut writer = BitWriter::new(total * 32);
         let values = random_numbers::<u32>(total);
-        for i in 0..total {
+        (0..total).for_each(|i| {
             assert!(
                 writer.put_vlq_int(values[i] as u64),
                 "[{}]; put_vlq_int() failed",
                 i
             );
-        }
+        });
 
         let mut reader = BitReader::from(writer.consume());
-        for i in 0..total {
+        (0..total).for_each(|i| {
             let v = reader
                 .get_vlq_int()
                 .expect("get_vlq_int() should return OK");
@@ -1121,7 +1121,7 @@ mod tests {
                 "[{}]: expected {} but got {}",
                 i, values[i], v
             );
-        }
+        });
     }
 
     #[test]
@@ -1129,16 +1129,16 @@ mod tests {
         let total = 64;
         let mut writer = BitWriter::new(total * 32);
         let values = random_numbers::<i32>(total);
-        for i in 0..total {
+        (0..total).for_each(|i| {
             assert!(
                 writer.put_zigzag_vlq_int(values[i] as i64),
                 "[{}]; put_zigzag_vlq_int() failed",
                 i
             );
-        }
+        });
 
         let mut reader = BitReader::from(writer.consume());
-        for i in 0..total {
+        (0..total).for_each(|i| {
             let v = reader
                 .get_zigzag_vlq_int()
                 .expect("get_zigzag_vlq_int() should return OK");
@@ -1147,6 +1147,6 @@ mod tests {
                 "[{}]: expected {} but got {}",
                 i, values[i], v
             );
-        }
+        });
     }
 }

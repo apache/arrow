@@ -448,13 +448,14 @@ TEST(TestStringDictionaryBuilder, ArrayInit) {
   AssertArraysEqual(expected, *result);
 }
 
-TEST(TestStringDictionaryBuilder, MakeBuilder) {
-  auto dict_array = ArrayFromJSON(utf8(), R"(["test", "test2"])");
-  auto dict_type = dictionary(int8(), utf8());
+template <typename BuilderType>
+void TestStringDictionaryMakeBuilder(const std::shared_ptr<DataType>& value_type) {
+  auto dict_array = ArrayFromJSON(value_type, R"(["test", "test2"])");
+  auto dict_type = dictionary(int8(), value_type);
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
-  auto& builder = checked_cast<StringDictionaryBuilder&>(*boxed_builder);
+  auto& builder = checked_cast<BuilderType&>(*boxed_builder);
 
   // Build the dictionary Array
   ASSERT_OK(builder.Append("test"));
@@ -468,6 +469,14 @@ TEST(TestStringDictionaryBuilder, MakeBuilder) {
   DictionaryArray expected(dict_type, int_array, dict_array);
 
   AssertArraysEqual(expected, *result);
+}
+
+TEST(TestStringDictionaryBuilder, MakeBuilder) {
+  TestStringDictionaryMakeBuilder<DictionaryBuilder<StringType>>(utf8());
+}
+
+TEST(TestLargeStringDictionaryBuilder, MakeBuilder) {
+  TestStringDictionaryMakeBuilder<DictionaryBuilder<LargeStringType>>(large_utf8());
 }
 
 // ARROW-4367
@@ -814,19 +823,17 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
-TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
+#ifndef NDEBUG
+TEST(TestFixedSizeBinaryDictionaryBuilder, AppendArrayInvalidType) {
   // Build the dictionary Array
-  auto value_type = arrow::fixed_size_binary(4);
+  auto value_type = fixed_size_binary(4);
   DictionaryBuilder<FixedSizeBinaryType> builder(value_type);
   // Build an array with different byte width
-  FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(5));
-  std::vector<uint8_t> value{100, 1, 1, 1, 1};
-  ASSERT_OK(fsb_builder.Append(value.data()));
-  std::shared_ptr<Array> fsb_array;
-  ASSERT_OK(fsb_builder.Finish(&fsb_array));
+  auto fsb_array = ArrayFromJSON(fixed_size_binary(3), R"(["foo", "bar"])");
 
-  ASSERT_RAISES(Invalid, builder.AppendArray(*fsb_array));
+  ASSERT_RAISES(TypeError, builder.AppendArray(*fsb_array));
 }
+#endif
 
 TEST(TestDecimalDictionaryBuilder, Basic) {
   // Build the dictionary Array
@@ -902,6 +909,78 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 
   DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestNullDictionaryBuilder, Basic) {
+  // MakeBuilder
+  auto dict_type = dictionary(int8(), null());
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
+
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_EQ(3, builder.length());
+  ASSERT_EQ(3, builder.null_count());
+
+  ASSERT_OK(builder.AppendNulls(4));
+  ASSERT_EQ(7, builder.length());
+  ASSERT_EQ(7, builder.null_count());
+
+  auto null_array = ArrayFromJSON(null(), "[null, null, null, null]");
+  ASSERT_OK(builder.AppendArray(*null_array));
+  ASSERT_EQ(11, builder.length());
+  ASSERT_EQ(11, builder.null_count());
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+  AssertTypeEqual(*dict_type, *result->type());
+  ASSERT_EQ(11, result->length());
+  ASSERT_EQ(11, result->null_count());
+}
+
+#ifndef NDEBUG
+TEST(TestNullDictionaryBuilder, AppendArrayInvalidType) {
+  // MakeBuilder
+  auto dict_type = dictionary(int8(), null());
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
+
+  auto int8_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
+  ASSERT_RAISES(TypeError, builder.AppendArray(*int8_array));
+}
+#endif
+
+// ----------------------------------------------------------------------
+// Index byte width tests
+
+template <typename IndexType, typename ValueType>
+void AssertIndexByteWidth(const std::shared_ptr<DataType>& value_type =
+                              TypeTraits<ValueType>::type_singleton()) {
+  auto index_type = TypeTraits<IndexType>::type_singleton();
+  auto dict_type =
+      checked_pointer_cast<DictionaryType>(dictionary(index_type, value_type));
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &builder));
+  auto builder_dict_type = checked_pointer_cast<DictionaryType>(builder->type());
+  AssertTypeEqual(dict_type->index_type(), builder_dict_type->index_type());
+}
+
+typedef ::testing::Types<Int8Type, Int16Type, Int32Type, Int64Type> IndexTypes;
+
+template <typename Type>
+class TestDictionaryBuilderIndexByteWidth : public TestBuilder {};
+
+TYPED_TEST_SUITE(TestDictionaryBuilderIndexByteWidth, IndexTypes);
+
+TYPED_TEST(TestDictionaryBuilderIndexByteWidth, MakeBuilder) {
+  AssertIndexByteWidth<TypeParam, FloatType>();
+  AssertIndexByteWidth<TypeParam, BinaryType>();
+  AssertIndexByteWidth<TypeParam, StringType>();
+  AssertIndexByteWidth<TypeParam, FixedSizeBinaryType>(fixed_size_binary(4));
+  AssertIndexByteWidth<TypeParam, NullType>();
 }
 
 // ----------------------------------------------------------------------

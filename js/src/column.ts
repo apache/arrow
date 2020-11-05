@@ -24,7 +24,6 @@ import { VectorCtorArgs, VectorType as V } from './interfaces';
 import { Chunked, SearchContinuation } from './vector/chunked';
 
 export interface Column<T extends DataType = any> {
-    typeId: T['TType'];
     concat(...others: Vector<T>[]): Column<T>;
     slice(begin?: number, end?: number): Column<T>;
     clone(chunks?: Vector<T>[], offsets?: Uint32Array): Column<T>;
@@ -36,10 +35,22 @@ export class Column<T extends DataType = any>
                Sliceable<Column<T>>,
                Applicative<T, Column<T>> {
 
+    public static new<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
     public static new<T extends DataType>(field: string | Field<T>, ...chunks: (Vector<T> | Vector<T>[])[]): Column<T>;
     public static new<T extends DataType>(field: string | Field<T>, data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
     /** @nocollapse */
-    public static new<T extends DataType = any>(field: string | Field<T>, data: Data<T> | Vector<T> | (Data<T> | Vector<T>)[], ...rest: any[]) {
+    public static new<T extends DataType = any>(...args: any[]) {
+
+        let [field, data, ...rest] = args as [
+            string | Field<T>,
+            Data<T> | Vector<T> | (Data<T> | Vector<T>)[],
+            ...any[]
+        ];
+
+        if (typeof field !== 'string' && !(field instanceof Field)) {
+            data = <Data<T> | Vector<T> | (Data<T> | Vector<T>)[]> field;
+            field = '';
+        }
 
         const chunks = Chunked.flatten<T>(
             Array.isArray(data) ? [...data, ...rest] :

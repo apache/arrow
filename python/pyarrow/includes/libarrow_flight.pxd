@@ -296,6 +296,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CClientMiddlewareFactory]] middleware
         int64_t write_size_limit_bytes
         vector[pair[c_string, CIntStringVariant]] generic_options
+        c_bool disable_server_verification
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod

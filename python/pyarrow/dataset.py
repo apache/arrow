@@ -18,7 +18,7 @@
 """Dataset is currently unstable. APIs subject to change without notice."""
 
 import pyarrow as pa
-from pyarrow.fs import _normalize_path, _MockFileSystem
+from pyarrow.fs import _MockFileSystem
 from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
@@ -32,13 +32,16 @@ from pyarrow._dataset import (  # noqa
     FileSystemDataset,
     FileSystemDatasetFactory,
     FileSystemFactoryOptions,
+    FileWriteOptions,
     Fragment,
     HivePartitioning,
     IpcFileFormat,
+    IpcFileWriteOptions,
     ParquetDatasetFactory,
     ParquetFactoryOptions,
     ParquetFileFormat,
     ParquetFileFragment,
+    ParquetFileWriteOptions,
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
@@ -47,7 +50,8 @@ from pyarrow._dataset import (  # noqa
     ScanTask,
     UnionDataset,
     UnionDatasetFactory,
-    _get_partition_keys
+    _get_partition_keys,
+    _filesystemdataset_write,
 )
 
 
@@ -187,7 +191,7 @@ def _ensure_partitioning(scheme):
     """
     Validate input and return a Partitioning(Factory).
 
-    It passes None through if no partitioning scheme is defiend.
+    It passes None through if no partitioning scheme is defined.
     """
     if scheme is None:
         pass
@@ -227,7 +231,7 @@ def _ensure_fs(fs_or_uri):
         # component then it will be treated as a path prefix
         filesystem, prefix = FileSystem.from_uri(fs_or_uri)
         is_local = isinstance(filesystem, LocalFileSystem)
-        prefix = _normalize_path(filesystem, prefix)
+        prefix = filesystem.normalize_path(prefix)
         if prefix:
             # validate that the prefix is pointing to a directory
             prefix_info = filesystem.get_file_info([prefix])[0]
@@ -294,7 +298,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     filesystem, is_local = _ensure_fs(filesystem)
 
     # allow normalizing irregular paths such as Windows local paths
-    paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
+    paths = [filesystem.normalize_path(_stringify_path(p)) for p in paths]
 
     # validate that all of the paths are pointing to existing *files*
     # possible improvement is to group the file_infos by type and raise for
@@ -384,7 +388,7 @@ def _ensure_single_source(path, filesystem=None):
     filesystem, _ = _ensure_fs(filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
-    path = _normalize_path(filesystem, path)
+    path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
     if file_info is None:
@@ -502,7 +506,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     else:
         filesystem, _ = _ensure_fs(filesystem)
 
-    metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
+    metadata_path = filesystem.normalize_path(_stringify_path(metadata_path))
     options = ParquetFactoryOptions(
         partition_base_dir=partition_base_dir,
         partitioning=_ensure_partitioning(partitioning)
@@ -581,7 +585,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         files may be present in the Dataset (resulting in an error at scan
         time).
     ignore_prefixes : list, optional
-        Files matching one of those prefixes will be ignored by the
+        Files matching any of these prefixes will be ignored by the
         discovery process. This is matched to the basename of a path.
         By default this is ['.', '_'].
         Note that discovery happens only if a directory is passed as source.
@@ -682,3 +686,91 @@ def dataset(source, schema=None, format=None, filesystem=None,
             'Expected a path-like, list of path-likes or a list of Datasets '
             'instead of the given type: {}'.format(type(source).__name__)
         )
+
+
+def _ensure_write_partitioning(scheme):
+    if scheme is None:
+        scheme = partitioning(pa.schema([]))
+    if not isinstance(scheme, Partitioning):
+        # TODO support passing field names, and get types from schema
+        raise ValueError("partitioning needs to be actual Partitioning object")
+    return scheme
+
+
+def write_dataset(data, base_dir, basename_template=None, format=None,
+                  partitioning=None, schema=None,
+                  filesystem=None, file_options=None, use_threads=True):
+    """
+    Write a dataset to a given format and partitioning.
+
+    Parameters
+    ----------
+    data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
+        The data to write. This can be a Dataset instance or
+        in-memory Arrow data.
+    base_dir : str
+        The root directory where to write the dataset.
+    basename_template : str, optional
+        A template string used to generate basenames of written data files.
+        The token '{i}' will be replaced with an automatically incremented
+        integer. If not specified, it defaults to
+        "part-{i}." + format.default_extname
+    format : FileFormat or str
+        The format in which to write the dataset. Currently supported:
+        "parquet", "ipc"/"feather". If a FileSystemDataset is being written
+        and `format` is not specified, it defaults to the same format as the
+        specified FileSystemDataset. When writing a Table or RecordBatch, this
+        keyword is required.
+    partitioning : Partitioning, optional
+        The partitioning scheme specified with the ``partitioning()``
+        function.
+    schema : Schema, optional
+    filesystem : FileSystem, optional
+    file_options : FileWriteOptions, optional
+        FileFormat specific write options, created using the
+        ``FileFormat.make_write_options()`` function.
+    use_threads : bool, default True
+        Write files in parallel. If enabled, then maximum parallelism will be
+        used determined by the number of available CPU cores.
+    """
+    if isinstance(data, Dataset):
+        schema = schema or data.schema
+    elif isinstance(data, (pa.Table, pa.RecordBatch)):
+        schema = schema or data.schema
+        data = [data]
+    elif isinstance(data, list):
+        schema = schema or data[0].schema
+    else:
+        raise ValueError(
+            "Only Dataset, Table/RecordBatch or a list of Table/RecordBatch "
+            "objects are supported."
+        )
+
+    if format is None and isinstance(data, FileSystemDataset):
+        format = data.format
+    else:
+        format = _ensure_format(format)
+
+    if file_options is None:
+        file_options = format.make_write_options()
+
+    if format != file_options.format:
+        raise TypeError("Supplied FileWriteOptions have format {}, "
+                        "which doesn't match supplied FileFormat {}".format(
+                            format, file_options))
+
+    if basename_template is None:
+        basename_template = "part-{i}." + format.default_extname
+
+    partitioning = _ensure_write_partitioning(partitioning)
+
+    if filesystem is None:
+        # fall back to local file system as the default
+        from pyarrow.fs import LocalFileSystem
+        filesystem = LocalFileSystem()
+    filesystem, _ = _ensure_fs(filesystem)
+
+    _filesystemdataset_write(
+        data, base_dir, basename_template, schema,
+        filesystem, partitioning, file_options, use_threads,
+    )

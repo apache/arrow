@@ -25,13 +25,19 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+#include <grpcpp/security/tls_credentials_options.h>
+#endif
 #else
 #include <grpc++/grpc++.h>
 #endif
+
+#include <grpc/grpc_security_constants.h>
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/reader.h"
@@ -82,6 +88,9 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
   }
   return std::dynamic_pointer_cast<FlightWriteSizeStatusDetail>(status.detail());
 }
+
+FlightClientOptions::FlightClientOptions()
+    : write_size_limit_bytes(0), disable_server_verification(false) {}
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
@@ -212,10 +221,10 @@ class FinishableWritableStream : public FinishableStream<Stream, ReadT> {
     // outstanding read.
     std::unique_lock<std::mutex> read_guard(*read_mutex_, std::try_to_lock);
     if (!read_guard.owns_lock()) {
-      return Finish(MakeFlightError(
+      return MakeFlightError(
           FlightStatusCode::Internal,
           "Cannot close stream with pending read operation. Client context: " +
-              st.ToString()));
+              st.ToString());
     }
 
     // Try to flush pending writes. Don't use our WritesDone() to
@@ -834,6 +843,31 @@ class GrpcMetadataReader : public FlightMetadataReader {
   std::shared_ptr<std::mutex> read_mutex_;
 };
 
+namespace {
+// Dummy self-signed certificate to be used because TlsCredentials
+// requires root CA certs, even if you are skipping server
+// verification.
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+constexpr char BLANK_ROOT_PEM[] =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
+    "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
+    "EjAQBgNVBAMTCWxvY2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC\n"
+    "ggEBALjJ8KPEpF0P4GjMPrJhjIBHUL0AX9E4oWdgJRCSFkPKKEWzQabTQBikMOhI\n"
+    "W4VvBMaHEBuECE5OEyrzDRiAO354I4F4JbBfxMOY8NIW0uWD6THWm2KkCzoZRIPW\n"
+    "yZL6dN+mK6cEH+YvbNuy5ZQGNjGG43tyiXdOCAc4AI9POeTtjdMpbbpR2VY4Ad/E\n"
+    "oTEiS3gNnN7WIAdgMhCJxjzvPwKszV3f7pwuTHzFMsuHLKr6JeaVUYfbi4DxxC8Z\n"
+    "k6PF6dLlLf3ngTSLBJyaXP1BhKMvz0TaMK3F0y2OGwHM9J8np2zWjTlNVEzffQZx\n"
+    "SWMOQManlJGs60xYx9KCPJMZZsMCAwEAAaMYMBYwFAYDVR0RBA0wC4IJbG9jYWxo\n"
+    "b3N0MA0GCSqGSIb3DQEBBQUAA4IBAQC0LrmbcNKgO+D50d/wOc+vhi9K04EZh8bg\n"
+    "WYAK1kLOT4eShbzqWGV/1EggY4muQ6ypSELCLuSsg88kVtFQIeRilA6bHFqQSj6t\n"
+    "sqgh2cWsMwyllCtmX6Maf3CLb2ZdoJlqUwdiBdrbIbuyeAZj3QweCtLKGSQzGDyI\n"
+    "KH7G8nC5d0IoRPiCMB6RnMMKsrhviuCdWbAFHop7Ff36JaOJ8iRa2sSf2OXE8j/5\n"
+    "obCXCUvYHf4Zw27JcM2AnnQI9VJLnYxis83TysC5s2Z7t0OYNS9kFmtXQbUNlmpS\n"
+    "doQ/Eu47vWX7S0TXeGziGtbAOKxbHE0BGGPDOAB/jGW/JVbeTiXY\n"
+    "-----END CERTIFICATE-----\n";
+#endif
+}  // namespace
 class FlightClient::FlightClientImpl {
  public:
   Status Connect(const Location& location, const FlightClientOptions& options) {
@@ -844,18 +878,49 @@ class FlightClient::FlightClientImpl {
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
       grpc_uri << location.uri_->host() << ":" << location.uri_->port_text();
 
-      if (scheme == "grpc+tls") {
-        grpc::SslCredentialsOptions ssl_options;
-        if (!options.tls_root_certs.empty()) {
-          ssl_options.pem_root_certs = options.tls_root_certs;
+      if (scheme == kSchemeGrpcTls) {
+        if (options.disable_server_verification) {
+#if !defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+          return Status::NotImplemented(
+              "Using encryption with server verification disabled is unsupported. "
+              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
+#else
+          namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
+
+          // A callback to supply to TlsCredentialsOptions that accepts any server
+          // arguments.
+          struct NoOpTlsAuthorizationCheck
+              : public ge::TlsServerAuthorizationCheckInterface {
+            int Schedule(ge::TlsServerAuthorizationCheckArg* arg) override {
+              arg->set_success(1);
+              arg->set_status(GRPC_STATUS_OK);
+              return 0;
+            }
+          };
+
+          noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
+              std::make_shared<NoOpTlsAuthorizationCheck>());
+          auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
+          materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
+          ge::TlsCredentialsOptions tls_options(
+              GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
+              GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
+              std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
+          creds = ge::TlsCredentials(tls_options);
+#endif
+        } else {
+          grpc::SslCredentialsOptions ssl_options;
+          if (!options.tls_root_certs.empty()) {
+            ssl_options.pem_root_certs = options.tls_root_certs;
+          }
+          if (!options.cert_chain.empty()) {
+            ssl_options.pem_cert_chain = options.cert_chain;
+          }
+          if (!options.private_key.empty()) {
+            ssl_options.pem_private_key = options.private_key;
+          }
+          creds = grpc::SslCredentials(ssl_options);
         }
-        if (!options.cert_chain.empty()) {
-          ssl_options.pem_cert_chain = options.cert_chain;
-        }
-        if (!options.private_key.empty()) {
-          ssl_options.pem_private_key = options.private_key;
-        }
-        creds = grpc::SslCredentials(ssl_options);
       } else {
         creds = grpc::InsecureChannelCredentials();
       }
@@ -867,13 +932,17 @@ class FlightClient::FlightClientImpl {
     }
 
     grpc::ChannelArguments args;
+    // We can't set the same config value twice, so for values where
+    // we want to set defaults, keep them in a map and update them;
+    // then update them all at once
+    std::unordered_map<std::string, int> default_args;
     // Try to reconnect quickly at first, in case the server is still starting up
-    args.SetInt(GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS, 100);
+    default_args[GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS] = 100;
     // Receive messages of any size
-    args.SetMaxReceiveMessageSize(-1);
+    default_args[GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH] = -1;
     // Setting this arg enables each client to open it's own TCP connection to server,
     // not sharing one single connection, which becomes bottleneck under high load.
-    args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
+    default_args[GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL] = 1;
 
     if (options.override_hostname != "") {
       args.SetSslTargetNameOverride(options.override_hostname);
@@ -882,11 +951,14 @@ class FlightClient::FlightClientImpl {
     // Allow setting generic gRPC options.
     for (const auto& arg : options.generic_options) {
       if (util::holds_alternative<int>(arg.second)) {
-        args.SetInt(arg.first, util::get<int>(arg.second));
+        default_args[arg.first] = util::get<int>(arg.second);
       } else if (util::holds_alternative<std::string>(arg.second)) {
         args.SetString(arg.first, util::get<std::string>(arg.second));
       }
       // Otherwise unimplemented
+    }
+    for (const auto& pair : default_args) {
+      args.SetInt(pair.first, pair.second);
     }
 
     std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
@@ -1093,6 +1165,15 @@ class FlightClient::FlightClientImpl {
  private:
   std::unique_ptr<pb::FlightService::Stub> stub_;
   std::shared_ptr<ClientAuthHandler> auth_handler_;
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+  // Scope the TlsServerAuthorizationCheckConfig to be at the class instance level, since
+  // it gets created during Connect() and needs to persist to DoAction() calls. gRPC does
+  // not correctly increase the reference count of this object:
+  // https://github.com/grpc/grpc/issues/22287
+  std::shared_ptr<
+      GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
+      noop_auth_check_;
+#endif
   int64_t write_size_limit_bytes_;
 };
 

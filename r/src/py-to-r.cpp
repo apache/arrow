@@ -18,60 +18,56 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/c/bridge.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema) {
-  return ValueOrStop(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array),
-                                        reinterpret_cast<struct ArrowSchema*>(schema)));
+std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array,
+                                          arrow::r::Pointer<struct ArrowSchema> schema) {
+  return ValueOrStop(arrow::ImportArray(array, schema));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array, uintptr_t schema) {
-  return ValueOrStop(
-      arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(array),
-                               reinterpret_cast<struct ArrowSchema*>(schema)));
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(
+    arrow::r::Pointer<struct ArrowArray> array,
+    arrow::r::Pointer<struct ArrowSchema> schema) {
+  return ValueOrStop(arrow::ImportRecordBatch(array, schema));
 }
 
 // [[arrow::export]]
-uintptr_t allocate_arrow_schema() { return reinterpret_cast<uintptr_t>(new ArrowSchema); }
+arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
 
 // [[arrow::export]]
-void delete_arrow_schema(uintptr_t ptr) {
-  delete reinterpret_cast<struct ArrowSchema*>(ptr);
+void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr) { ptr.finalize(); }
+
+// [[arrow::export]]
+arrow::r::Pointer<struct ArrowArray> allocate_arrow_array() { return {}; }
+
+// [[arrow::export]]
+void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr) { ptr.finalize(); }
+
+// [[arrow::export]]
+void ExportType(const std::shared_ptr<arrow::DataType>& type,
+                arrow::r::Pointer<struct ArrowSchema> ptr) {
+  StopIfNotOk(arrow::ExportType(*type, ptr));
 }
 
 // [[arrow::export]]
-uintptr_t allocate_arrow_array() { return reinterpret_cast<uintptr_t>(new ArrowArray); }
-
-// [[arrow::export]]
-void delete_arrow_array(uintptr_t ptr) {
-  delete reinterpret_cast<struct ArrowArray*>(ptr);
+void ExportSchema(const std::shared_ptr<arrow::Schema>& schema,
+                  arrow::r::Pointer<struct ArrowSchema> ptr) {
+  StopIfNotOk(arrow::ExportSchema(*schema, ptr));
 }
 
 // [[arrow::export]]
-void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr) {
-  StopIfNotOk(arrow::ExportType(*type, reinterpret_cast<struct ArrowSchema*>(ptr)));
+void ExportArray(const std::shared_ptr<arrow::Array>& array,
+                 arrow::r::Pointer<struct ArrowArray> array_ptr,
+                 arrow::r::Pointer<struct ArrowSchema> schema_ptr) {
+  StopIfNotOk(arrow::ExportArray(*array, array_ptr, schema_ptr));
 }
 
 // [[arrow::export]]
-void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr) {
-  StopIfNotOk(arrow::ExportSchema(*schema, reinterpret_cast<struct ArrowSchema*>(ptr)));
-}
-
-// [[arrow::export]]
-void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr,
-                 uintptr_t schema_ptr) {
-  StopIfNotOk(arrow::ExportArray(*array, reinterpret_cast<struct ArrowArray*>(ptr),
-                                 reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
-}
-
-// [[arrow::export]]
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, uintptr_t ptr,
-                       uintptr_t schema_ptr) {
-  StopIfNotOk(
-      arrow::ExportRecordBatch(*batch, reinterpret_cast<struct ArrowArray*>(ptr),
-                               reinterpret_cast<struct ArrowSchema*>(schema_ptr)));
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch,
+                       arrow::r::Pointer<ArrowArray> array_ptr,
+                       arrow::r::Pointer<ArrowSchema> schema_ptr) {
+  StopIfNotOk(arrow::ExportRecordBatch(*batch, array_ptr, schema_ptr));
 }
 
 #endif

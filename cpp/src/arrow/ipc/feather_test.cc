@@ -75,6 +75,7 @@ class TestFeatherBase {
     DoWrite(*table);
     std::shared_ptr<Table> result;
     ASSERT_OK(reader_->Read(&result));
+    ASSERT_OK(result->ValidateFull());
     if (table->num_rows() > 0) {
       AssertTablesEqual(*table, *result);
     } else {
@@ -101,6 +102,7 @@ class TestFeatherBase {
 
     std::shared_ptr<Table> read_table;
     ASSERT_OK(reader_->Read(&read_table));
+    ASSERT_OK(read_table->ValidateFull());
     AssertTablesEqual(*table, *read_table);
   }
 
@@ -329,23 +331,25 @@ namespace {
 
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeIntRecordBatch,
-    &ipc::test::MakeBooleanBatch,
-    &ipc::test::MakeFloatBatch,
     &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeFixedSizeListRecordBatch,
     &ipc::test::MakeNonNullRecordBatch,
     &ipc::test::MakeDeeplyNestedList,
     &ipc::test::MakeStringTypesRecordBatchWithNulls,
     &ipc::test::MakeStruct,
     &ipc::test::MakeUnion,
     &ipc::test::MakeDictionary,
-    &ipc::test::MakeDictionaryFlat,
     &ipc::test::MakeNestedDictionary,
+    &ipc::test::MakeMap,
+    &ipc::test::MakeMapOfDictionary,
     &ipc::test::MakeDates,
     &ipc::test::MakeTimestamps,
     &ipc::test::MakeTimes,
     &ipc::test::MakeFWBinary,
     &ipc::test::MakeNull,
     &ipc::test::MakeDecimal,
+    &ipc::test::MakeBooleanBatch,
+    &ipc::test::MakeFloatBatch,
     &ipc::test::MakeIntervals};
 
 }  // namespace

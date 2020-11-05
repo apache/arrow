@@ -47,13 +47,13 @@ using enable_if_atomic_load_shared_ptr_unavailable =
     enable_if_t<!is_atomic_load_shared_ptr_available<T>::value, T>;
 
 template <class T>
-inline enable_if_atomic_load_shared_ptr_available<std::shared_ptr<T>> atomic_load(
+enable_if_atomic_load_shared_ptr_available<std::shared_ptr<T>> atomic_load(
     const std::shared_ptr<T>* p) {
   return std::atomic_load(p);
 }
 
 template <class T>
-inline enable_if_atomic_load_shared_ptr_unavailable<std::shared_ptr<T>> atomic_load(
+enable_if_atomic_load_shared_ptr_unavailable<std::shared_ptr<T>> atomic_load(
     const std::shared_ptr<T>* p) {
   return *p;
 }
@@ -76,17 +76,35 @@ using enable_if_atomic_store_shared_ptr_unavailable =
     enable_if_t<!is_atomic_store_shared_ptr_available<T>::value, T>;
 
 template <class T>
-inline void atomic_store(
-    enable_if_atomic_store_shared_ptr_available<std::shared_ptr<T>*> p,
-    std::shared_ptr<T> r) {
+void atomic_store(enable_if_atomic_store_shared_ptr_available<std::shared_ptr<T>*> p,
+                  std::shared_ptr<T> r) {
   std::atomic_store(p, std::move(r));
 }
 
 template <class T>
-inline void atomic_store(
-    enable_if_atomic_store_shared_ptr_unavailable<std::shared_ptr<T>*> p,
-    std::shared_ptr<T> r) {
+void atomic_store(enable_if_atomic_store_shared_ptr_unavailable<std::shared_ptr<T>*> p,
+                  std::shared_ptr<T> r) {
   *p = r;
+}
+
+template <class T>
+bool atomic_compare_exchange_strong(
+    enable_if_atomic_store_shared_ptr_available<std::shared_ptr<T>*> p,
+    std::shared_ptr<T>* expected, std::shared_ptr<T> desired) {
+  return std::atomic_compare_exchange_strong(p, expected, std::move(desired));
+}
+
+template <class T>
+bool atomic_compare_exchange_strong(
+    enable_if_atomic_store_shared_ptr_unavailable<std::shared_ptr<T>*> p,
+    std::shared_ptr<T>* expected, std::shared_ptr<T> desired) {
+  if (*p == *expected) {
+    *p = std::move(desired);
+    return true;
+  } else {
+    *expected = *p;
+    return false;
+  }
 }
 
 }  // namespace internal

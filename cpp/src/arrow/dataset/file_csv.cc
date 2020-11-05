@@ -65,7 +65,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
         util::string_view view{reinterpret_cast<const char*>(data), size};
-        if (column_names.emplace(view.to_string()).second) {
+        if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
         return Status::Invalid("CSV file contained multiple columns named ", view);
@@ -156,6 +156,22 @@ class CsvScanTask : public ScanTask {
   std::shared_ptr<const CsvFileFormat> format_;
   FileSource source_;
 };
+
+bool CsvFileFormat::Equals(const FileFormat& format) const {
+  if (type_name() != format.type_name()) return false;
+
+  const auto& other_parse_options =
+      checked_cast<const CsvFileFormat&>(format).parse_options;
+
+  return parse_options.delimiter == other_parse_options.delimiter &&
+         parse_options.quoting == other_parse_options.quoting &&
+         parse_options.quote_char == other_parse_options.quote_char &&
+         parse_options.double_quote == other_parse_options.double_quote &&
+         parse_options.escaping == other_parse_options.escaping &&
+         parse_options.escape_char == other_parse_options.escape_char &&
+         parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
+         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines;
+}
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());

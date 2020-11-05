@@ -79,7 +79,7 @@ unsafe fn nullunpacker32(in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack1_32(in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) & 1;
+    *out = (*in_buf) & 1;
     out = out.offset(1);
     *out = ((*in_buf) >> 1) & 1;
     out = out.offset(1);
@@ -147,7 +147,7 @@ unsafe fn unpack1_32(in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack2_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 2);
+    *out = (*in_buf) % (1u32 << 2);
     out = out.offset(1);
     *out = ((*in_buf) >> 2) % (1u32 << 2);
     out = out.offset(1);
@@ -180,7 +180,7 @@ unsafe fn unpack2_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     *out = (*in_buf) >> 30;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
-    *out = ((*in_buf) >> 0) % (1u32 << 2);
+    *out = (*in_buf) % (1u32 << 2);
     out = out.offset(1);
     *out = ((*in_buf) >> 2) % (1u32 << 2);
     out = out.offset(1);
@@ -216,7 +216,7 @@ unsafe fn unpack2_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack3_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 3);
+    *out = (*in_buf) % (1u32 << 3);
     out = out.offset(1);
     *out = ((*in_buf) >> 3) % (1u32 << 3);
     out = out.offset(1);
@@ -290,7 +290,7 @@ unsafe fn unpack3_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack4_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 4);
+    *out = (*in_buf) % (1u32 << 4);
     out = out.offset(1);
     *out = ((*in_buf) >> 4) % (1u32 << 4);
     out = out.offset(1);
@@ -308,7 +308,7 @@ unsafe fn unpack4_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 4);
+    *out = (*in_buf) % (1u32 << 4);
     out = out.offset(1);
     *out = ((*in_buf) >> 4) % (1u32 << 4);
     out = out.offset(1);
@@ -326,7 +326,7 @@ unsafe fn unpack4_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 4);
+    *out = (*in_buf) % (1u32 << 4);
     out = out.offset(1);
     *out = ((*in_buf) >> 4) % (1u32 << 4);
     out = out.offset(1);
@@ -344,7 +344,7 @@ unsafe fn unpack4_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 4);
+    *out = (*in_buf) % (1u32 << 4);
     out = out.offset(1);
     *out = ((*in_buf) >> 4) % (1u32 << 4);
     out = out.offset(1);
@@ -364,7 +364,7 @@ unsafe fn unpack4_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack5_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 5);
+    *out = (*in_buf) % (1u32 << 5);
     out = out.offset(1);
     *out = ((*in_buf) >> 5) % (1u32 << 5);
     out = out.offset(1);
@@ -444,7 +444,7 @@ unsafe fn unpack5_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack6_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 6);
+    *out = (*in_buf) % (1u32 << 6);
     out = out.offset(1);
     *out = ((*in_buf) >> 6) % (1u32 << 6);
     out = out.offset(1);
@@ -484,7 +484,7 @@ unsafe fn unpack6_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 6);
+    *out = (*in_buf) % (1u32 << 6);
     out = out.offset(1);
     *out = ((*in_buf) >> 6) % (1u32 << 6);
     out = out.offset(1);
@@ -526,7 +526,7 @@ unsafe fn unpack6_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack7_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 7);
+    *out = (*in_buf) % (1u32 << 7);
     out = out.offset(1);
     *out = ((*in_buf) >> 7) % (1u32 << 7);
     out = out.offset(1);
@@ -612,7 +612,7 @@ unsafe fn unpack7_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -622,7 +622,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -632,7 +632,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -642,7 +642,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -652,7 +652,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -662,7 +662,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -672,7 +672,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -682,7 +682,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 8);
+    *out = (*in_buf) % (1u32 << 8);
     out = out.offset(1);
     *out = ((*in_buf) >> 8) % (1u32 << 8);
     out = out.offset(1);
@@ -694,7 +694,7 @@ unsafe fn unpack8_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack9_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 9);
+    *out = (*in_buf) % (1u32 << 9);
     out = out.offset(1);
     *out = ((*in_buf) >> 9) % (1u32 << 9);
     out = out.offset(1);
@@ -786,7 +786,7 @@ unsafe fn unpack9_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack10_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 10);
+    *out = (*in_buf) % (1u32 << 10);
     out = out.offset(1);
     *out = ((*in_buf) >> 10) % (1u32 << 10);
     out = out.offset(1);
@@ -832,7 +832,7 @@ unsafe fn unpack10_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 10);
+    *out = (*in_buf) % (1u32 << 10);
     out = out.offset(1);
     *out = ((*in_buf) >> 10) % (1u32 << 10);
     out = out.offset(1);
@@ -880,7 +880,7 @@ unsafe fn unpack10_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack11_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 11);
+    *out = (*in_buf) % (1u32 << 11);
     out = out.offset(1);
     *out = ((*in_buf) >> 11) % (1u32 << 11);
     out = out.offset(1);
@@ -978,7 +978,7 @@ unsafe fn unpack11_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack12_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 12);
+    *out = (*in_buf) % (1u32 << 12);
     out = out.offset(1);
     *out = ((*in_buf) >> 12) % (1u32 << 12);
     out = out.offset(1);
@@ -1002,7 +1002,7 @@ unsafe fn unpack12_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 12);
+    *out = (*in_buf) % (1u32 << 12);
     out = out.offset(1);
     *out = ((*in_buf) >> 12) % (1u32 << 12);
     out = out.offset(1);
@@ -1026,7 +1026,7 @@ unsafe fn unpack12_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 12);
+    *out = (*in_buf) % (1u32 << 12);
     out = out.offset(1);
     *out = ((*in_buf) >> 12) % (1u32 << 12);
     out = out.offset(1);
@@ -1050,7 +1050,7 @@ unsafe fn unpack12_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 12);
+    *out = (*in_buf) % (1u32 << 12);
     out = out.offset(1);
     *out = ((*in_buf) >> 12) % (1u32 << 12);
     out = out.offset(1);
@@ -1076,7 +1076,7 @@ unsafe fn unpack12_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack13_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 13);
+    *out = (*in_buf) % (1u32 << 13);
     out = out.offset(1);
     *out = ((*in_buf) >> 13) % (1u32 << 13);
     out = out.offset(1);
@@ -1180,7 +1180,7 @@ unsafe fn unpack13_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack14_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 14);
+    *out = (*in_buf) % (1u32 << 14);
     out = out.offset(1);
     *out = ((*in_buf) >> 14) % (1u32 << 14);
     out = out.offset(1);
@@ -1232,7 +1232,7 @@ unsafe fn unpack14_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 14);
+    *out = (*in_buf) % (1u32 << 14);
     out = out.offset(1);
     *out = ((*in_buf) >> 14) % (1u32 << 14);
     out = out.offset(1);
@@ -1286,7 +1286,7 @@ unsafe fn unpack14_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack15_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 15);
+    *out = (*in_buf) % (1u32 << 15);
     out = out.offset(1);
     *out = ((*in_buf) >> 15) % (1u32 << 15);
     out = out.offset(1);
@@ -1396,97 +1396,97 @@ unsafe fn unpack15_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack16_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
     out = out.offset(1);
     in_buf = in_buf.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 16);
+    *out = (*in_buf) % (1u32 << 16);
     out = out.offset(1);
     *out = (*in_buf) >> 16;
 
@@ -1494,7 +1494,7 @@ unsafe fn unpack16_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack17_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 17);
+    *out = (*in_buf) % (1u32 << 17);
     out = out.offset(1);
     *out = (*in_buf) >> 17;
     in_buf = in_buf.offset(1);
@@ -1610,7 +1610,7 @@ unsafe fn unpack17_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack18_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 18);
+    *out = (*in_buf) % (1u32 << 18);
     out = out.offset(1);
     *out = (*in_buf) >> 18;
     in_buf = in_buf.offset(1);
@@ -1668,7 +1668,7 @@ unsafe fn unpack18_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 18);
+    *out = (*in_buf) % (1u32 << 18);
     out = out.offset(1);
     *out = (*in_buf) >> 18;
     in_buf = in_buf.offset(1);
@@ -1728,7 +1728,7 @@ unsafe fn unpack18_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack19_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 19);
+    *out = (*in_buf) % (1u32 << 19);
     out = out.offset(1);
     *out = (*in_buf) >> 19;
     in_buf = in_buf.offset(1);
@@ -1850,7 +1850,7 @@ unsafe fn unpack19_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack20_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 20);
+    *out = (*in_buf) % (1u32 << 20);
     out = out.offset(1);
     *out = (*in_buf) >> 20;
     in_buf = in_buf.offset(1);
@@ -1880,7 +1880,7 @@ unsafe fn unpack20_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 20);
+    *out = (*in_buf) % (1u32 << 20);
     out = out.offset(1);
     *out = (*in_buf) >> 20;
     in_buf = in_buf.offset(1);
@@ -1910,7 +1910,7 @@ unsafe fn unpack20_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 20);
+    *out = (*in_buf) % (1u32 << 20);
     out = out.offset(1);
     *out = (*in_buf) >> 20;
     in_buf = in_buf.offset(1);
@@ -1940,7 +1940,7 @@ unsafe fn unpack20_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 20);
+    *out = (*in_buf) % (1u32 << 20);
     out = out.offset(1);
     *out = (*in_buf) >> 20;
     in_buf = in_buf.offset(1);
@@ -1972,7 +1972,7 @@ unsafe fn unpack20_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack21_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 21);
+    *out = (*in_buf) % (1u32 << 21);
     out = out.offset(1);
     *out = (*in_buf) >> 21;
     in_buf = in_buf.offset(1);
@@ -2100,7 +2100,7 @@ unsafe fn unpack21_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack22_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 22);
+    *out = (*in_buf) % (1u32 << 22);
     out = out.offset(1);
     *out = (*in_buf) >> 22;
     in_buf = in_buf.offset(1);
@@ -2164,7 +2164,7 @@ unsafe fn unpack22_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 22);
+    *out = (*in_buf) % (1u32 << 22);
     out = out.offset(1);
     *out = (*in_buf) >> 22;
     in_buf = in_buf.offset(1);
@@ -2230,7 +2230,7 @@ unsafe fn unpack22_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack23_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 23);
+    *out = (*in_buf) % (1u32 << 23);
     out = out.offset(1);
     *out = (*in_buf) >> 23;
     in_buf = in_buf.offset(1);
@@ -2364,7 +2364,7 @@ unsafe fn unpack23_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2380,7 +2380,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2396,7 +2396,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2412,7 +2412,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2428,7 +2428,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2444,7 +2444,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2460,7 +2460,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2476,7 +2476,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 24);
+    *out = (*in_buf) % (1u32 << 24);
     out = out.offset(1);
     *out = (*in_buf) >> 24;
     in_buf = in_buf.offset(1);
@@ -2494,7 +2494,7 @@ unsafe fn unpack24_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack25_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 25);
+    *out = (*in_buf) % (1u32 << 25);
     out = out.offset(1);
     *out = (*in_buf) >> 25;
     in_buf = in_buf.offset(1);
@@ -2634,7 +2634,7 @@ unsafe fn unpack25_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack26_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 26);
+    *out = (*in_buf) % (1u32 << 26);
     out = out.offset(1);
     *out = (*in_buf) >> 26;
     in_buf = in_buf.offset(1);
@@ -2704,7 +2704,7 @@ unsafe fn unpack26_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 26);
+    *out = (*in_buf) % (1u32 << 26);
     out = out.offset(1);
     *out = (*in_buf) >> 26;
     in_buf = in_buf.offset(1);
@@ -2776,7 +2776,7 @@ unsafe fn unpack26_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack27_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 27);
+    *out = (*in_buf) % (1u32 << 27);
     out = out.offset(1);
     *out = (*in_buf) >> 27;
     in_buf = in_buf.offset(1);
@@ -2922,7 +2922,7 @@ unsafe fn unpack27_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack28_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 28);
+    *out = (*in_buf) % (1u32 << 28);
     out = out.offset(1);
     *out = (*in_buf) >> 28;
     in_buf = in_buf.offset(1);
@@ -2958,7 +2958,7 @@ unsafe fn unpack28_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 28);
+    *out = (*in_buf) % (1u32 << 28);
     out = out.offset(1);
     *out = (*in_buf) >> 28;
     in_buf = in_buf.offset(1);
@@ -2994,7 +2994,7 @@ unsafe fn unpack28_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 28);
+    *out = (*in_buf) % (1u32 << 28);
     out = out.offset(1);
     *out = (*in_buf) >> 28;
     in_buf = in_buf.offset(1);
@@ -3030,7 +3030,7 @@ unsafe fn unpack28_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 28);
+    *out = (*in_buf) % (1u32 << 28);
     out = out.offset(1);
     *out = (*in_buf) >> 28;
     in_buf = in_buf.offset(1);
@@ -3068,7 +3068,7 @@ unsafe fn unpack28_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack29_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 29);
+    *out = (*in_buf) % (1u32 << 29);
     out = out.offset(1);
     *out = (*in_buf) >> 29;
     in_buf = in_buf.offset(1);
@@ -3220,7 +3220,7 @@ unsafe fn unpack29_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack30_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 30);
+    *out = (*in_buf) % (1u32 << 30);
     out = out.offset(1);
     *out = (*in_buf) >> 30;
     in_buf = in_buf.offset(1);
@@ -3296,7 +3296,7 @@ unsafe fn unpack30_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = ((*in_buf) >> 0) % (1u32 << 30);
+    *out = (*in_buf) % (1u32 << 30);
     out = out.offset(1);
     *out = (*in_buf) >> 30;
     in_buf = in_buf.offset(1);
@@ -3374,7 +3374,7 @@ unsafe fn unpack30_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack31_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = ((*in_buf) >> 0) % (1u32 << 31);
+    *out = (*in_buf) % (1u32 << 31);
     out = out.offset(1);
     *out = (*in_buf) >> 31;
     in_buf = in_buf.offset(1);
@@ -3532,131 +3532,131 @@ unsafe fn unpack31_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
 }
 
 unsafe fn unpack32_32(mut in_buf: *const u32, mut out: *mut u32) -> *const u32 {
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
     in_buf = in_buf.offset(1);
     out = out.offset(1);
 
-    *out = (*in_buf) >> 0;
+    *out = *in_buf;
 
     in_buf.offset(1)
 }

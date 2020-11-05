@@ -27,25 +27,30 @@ import (
 )
 
 func TestFileToStream(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-file-to-stream-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile("", "arrow-ipc-")
+			f, err := ioutil.TempFile(tempDir, "go-arrow-file-to-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer f.Close()
-			defer os.Remove(f.Name())
 
 			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
 
-			o, err := ioutil.TempFile("", "arrow-ipc-")
+			o, err := ioutil.TempFile(tempDir, "go-arrow-file-to-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Remove(o.Name())
+			defer o.Close()
 
 			err = processFile(o, f.Name())
 			if err != nil {

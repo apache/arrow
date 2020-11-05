@@ -691,7 +691,14 @@ class Task(Serializable):
     """
 
     def __init__(self, ci, template, artifacts=None, params=None):
-        assert ci in {'circle', 'travis', 'appveyor', 'azure', 'github'}
+        assert ci in {
+            'circle',
+            'travis',
+            'appveyor',
+            'azure',
+            'github',
+            'drone',
+        }
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -733,6 +740,7 @@ class Task(Serializable):
             'appveyor': 'appveyor.yml',
             'azure': 'azure-pipelines.yml',
             'github': '.github/workflows/crossbow.yml',
+            'drone': '.drone.yml',
         }
         return config_files[self.ci]
 

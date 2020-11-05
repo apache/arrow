@@ -27,9 +27,13 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 static inline ipc::IpcReadOptions default_read_options() {
@@ -159,55 +163,50 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
                                    fragment->source());
 }
 
-class IpcWriteTask : public WriteTask {
- public:
-  IpcWriteTask(WritableFileSource destination, std::shared_ptr<FileFormat> format,
-               std::shared_ptr<Fragment> fragment,
-               std::shared_ptr<ScanOptions> scan_options,
-               std::shared_ptr<ScanContext> scan_context)
-      : WriteTask(std::move(destination), std::move(format)),
-        fragment_(std::move(fragment)),
-        scan_options_(std::move(scan_options)),
-        scan_context_(std::move(scan_context)) {}
+//
+// IpcFileWriter, IpcFileWriteOptions
+//
 
-  Status Execute() override {
-    RETURN_NOT_OK(CreateDestinationParentDir());
+std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
+  std::shared_ptr<IpcFileWriteOptions> ipc_options(
+      new IpcFileWriteOptions(shared_from_this()));
 
-    auto schema = scan_options_->schema();
+  ipc_options->options =
+      std::make_shared<ipc::IpcWriteOptions>(ipc::IpcWriteOptions::Defaults());
+  return ipc_options;
+}
 
-    ARROW_ASSIGN_OR_RAISE(auto out_stream, destination_.Open());
-    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_stream.get(), schema));
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          fragment_->Scan(scan_options_, scan_context_));
-
-    for (auto maybe_scan_task : scan_task_it) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
-
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
-        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-      }
-    }
-
-    return writer->Close();
+Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
+    std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+    std::shared_ptr<FileWriteOptions> options) const {
+  if (!Equals(*options->format())) {
+    return Status::TypeError("Mismatching format/write options.");
   }
 
- private:
-  std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_;
-};
+  auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
 
-Result<std::shared_ptr<WriteTask>> IpcFileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-    std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
-  return std::make_shared<IpcWriteTask>(std::move(destination), shared_from_this(),
-                                        std::move(fragment), std::move(scan_options),
-                                        std::move(scan_context));
+  // override use_threads to avoid nested parallelism
+  ipc_options->options->use_threads = false;
+
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        ipc::MakeFileWriter(destination, schema, *ipc_options->options,
+                                            ipc_options->metadata));
+
+  return std::shared_ptr<FileWriter>(
+      new IpcFileWriter(std::move(writer), std::move(schema), std::move(ipc_options)));
 }
+
+IpcFileWriter::IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<IpcFileWriteOptions> options)
+    : FileWriter(std::move(schema), std::move(options)),
+      batch_writer_(std::move(writer)) {}
+
+Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
+  return batch_writer_->WriteRecordBatch(*batch);
+}
+
+Status IpcFileWriter::Finish() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

@@ -535,7 +535,13 @@ cdef class PlasmaClient(_Weakrefable):
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
-        serialized = pyarrow.serialize(value, serialization_context)
+        if serialization_context is not None:
+            warnings.warn(
+                "'serialization_context' is deprecated and will be removed "
+                "in a future version.",
+                DeprecationWarning, stacklevel=2
+            )
+        serialized = pyarrow.lib._serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferWriter(buffer)
         stream.set_memcopy_threads(memcopy_threads)
@@ -566,6 +572,12 @@ cdef class PlasmaClient(_Weakrefable):
             the object_ids and ObjectNotAvailable if the object was not
             available.
         """
+        if serialization_context is not None:
+            warnings.warn(
+                "'serialization_context' is deprecated and will be removed "
+                "in a future version.",
+                DeprecationWarning, stacklevel=2
+            )
         if isinstance(object_ids, Sequence):
             results = []
             buffers = self.get_buffers(object_ids, timeout_ms)
@@ -573,8 +585,8 @@ cdef class PlasmaClient(_Weakrefable):
                 # buffers[i] is None if this object was not available within
                 # the timeout
                 if buffers[i]:
-                    val = pyarrow.deserialize(buffers[i],
-                                              serialization_context)
+                    val = pyarrow.lib._deserialize(buffers[i],
+                                                   serialization_context)
                     results.append(val)
                 else:
                     results.append(ObjectNotAvailable)

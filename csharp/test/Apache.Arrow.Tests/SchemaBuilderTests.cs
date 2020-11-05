@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using Xunit.Sdk;
 
 namespace Apache.Arrow.Tests
 {
@@ -123,10 +124,10 @@ namespace Apache.Arrow.Tests
                 Assert.True(metadata0.Keys.SequenceEqual(schema0.Metadata.Keys) && metadata0.Values.SequenceEqual(schema0.Metadata.Values));
                 Assert.True(metadata1.Keys.SequenceEqual(schema1.Metadata.Keys) && metadata1.Values.SequenceEqual(schema1.Metadata.Values));
                 Assert.True(metadata0.Keys.SequenceEqual(schema2.Metadata.Keys) && metadata0.Values.SequenceEqual(schema2.Metadata.Values));
-                Assert.True(SchemaComparer.Equals(schema0, schema2));
-                Assert.False(SchemaComparer.Equals(schema0, schema1));
-                Assert.False(SchemaComparer.Equals(schema2, schema1));
-                Assert.False(SchemaComparer.Equals(schema2, schema3));
+                SchemaComparer.Compare(schema0, schema2);
+                Assert.Throws<EqualException>(() => SchemaComparer.Compare(schema0, schema1));
+                Assert.Throws<EqualException>(() => SchemaComparer.Compare(schema2, schema1));
+                Assert.Throws<EqualException>(() => SchemaComparer.Compare(schema2, schema3));
             }
 
             [Theory]

@@ -141,6 +141,8 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
       pivotBuffer.copyFrom(medianIdx, 0, vec);
       vec.copyFrom(low, medianIdx, vec);
       vec.copyFrom(0, low, pivotBuffer);
+    } else {
+      pivotBuffer.copyFrom(low, 0, vec);
     }
 
     comparator.attachVectors(vec, pivotBuffer);

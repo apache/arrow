@@ -21,21 +21,24 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
-## Status
+This crate contains a native Rust implementation of the [Arrow columnar format](https://arrow.apache.org/docs/format/Columnar.html). It uses nightly Rust.
 
-This is a native Rust implementation of Apache Arrow. Currently the project
-is developed and tested against nightly Rust. The current status is:
+## Developer's guide
 
-- [x] Primitive Arrays
-- [x] List Arrays
-- [x] Struct Arrays
-- [x] CSV Reader
-- [X] CSV Writer
-- [X] JSON Reader
-- [ ] Parquet Reader
-- [ ] Parquet Writer
-- [X] Arrow IPC
-- [ ] Interop tests with other implementations
+Refer to [lib.rs](src/lib.rs) for an introduction to this crate and current functionality.
+
+### How to run the tests
+
+The tests of this crate depend on two environment variables to be defined.
+Assuming that you are in this crates' current directory:
+
+```bash
+export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=../../testing/data
+cargo test
+```
+
+runs all the tests.
 
 ## Examples
 

@@ -166,8 +166,11 @@ dev/tasks/linux-packages/apache-arrow/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/conda-recipes/*
 docs/requirements.txt
+go/arrow/flight/Flight_grpc.pb.go
 go/arrow/go.sum
 go/arrow/Gopkg.lock
+go/arrow/flight/Flight.pb.go
+go/arrow/flight/Flight_grpc.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/*.tmpldata
@@ -248,6 +251,8 @@ r/man/*.Rd
 r/cran-comments.md
 r/vignettes/*.Rmd
 r/tests/testthat/test-*.txt
+r/inst/include/cpp11.hpp
+r/inst/include/cpp11/*.hpp
 .gitattributes
 ruby/red-arrow/.yardopts
 rust/arrow/test/data/*.csv

@@ -29,9 +29,14 @@
 #include "parquet/platform.h"
 
 #include "arrow/api.h"
+#include "arrow/testing/random.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
+using arrow::Array;
+using arrow::ArrayVector;
 using arrow::BooleanBuilder;
+using arrow::FieldVector;
 using arrow::NumericBuilder;
 
 #define EXIT_NOT_OK(s)                                        \
@@ -88,12 +93,11 @@ std::shared_ptr<ColumnDescriptor> MakeSchema(Repetition::type repetition) {
 }
 
 template <bool nullable, typename ParquetType>
-void SetBytesProcessed(::benchmark::State& state) {
-  int64_t bytes_processed =
-      state.iterations() * BENCHMARK_SIZE * sizeof(typename ParquetType::c_type);
-  if (nullable) {
-    bytes_processed += state.iterations() * BENCHMARK_SIZE * sizeof(int16_t);
-  }
+void SetBytesProcessed(::benchmark::State& state, int64_t num_values = BENCHMARK_SIZE) {
+  const int64_t items_processed = state.iterations() * num_values;
+  const int64_t bytes_processed = items_processed * sizeof(typename ParquetType::c_type);
+
+  state.SetItemsProcessed(bytes_processed);
   state.SetBytesProcessed(bytes_processed);
 }
 
@@ -101,13 +105,13 @@ constexpr int64_t kAlternatingOrNa = -1;
 
 template <typename T>
 std::vector<T> RandomVector(int64_t true_percentage, int64_t vector_size,
-                            const std::array<T, 2>& sample_values) {
-  std::vector<T> values(BENCHMARK_SIZE, {});
+                            const std::array<T, 2>& sample_values, int seed = 500) {
+  std::vector<T> values(vector_size, {});
   if (true_percentage == kAlternatingOrNa) {
     int n = {0};
     std::generate(values.begin(), values.end(), [&n] { return n++ % 2; });
   } else {
-    std::default_random_engine rng(500);
+    std::default_random_engine rng(seed);
     double true_probability = static_cast<double>(true_percentage) / 100.0;
     std::bernoulli_distribution dist(true_probability);
     std::generate(values.begin(), values.end(), [&] { return sample_values[dist(rng)]; });
@@ -127,7 +131,7 @@ std::shared_ptr<::arrow::Table> TableFromVector(
   if (nullable) {
     // Note true values select index 1 of sample_values
     auto valid_bytes = RandomVector<uint8_t>(/*true_percentage=*/null_percentage,
-                                             BENCHMARK_SIZE, /*sample_values=*/{1, 0});
+                                             vec.size(), /*sample_values=*/{1, 0});
     EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), valid_bytes.data()));
   } else {
     EXIT_NOT_OK(builder.AppendValues(vec.data(), vec.size(), nullptr));
@@ -146,8 +150,8 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
                                                              int64_t null_percentage) {
   BooleanBuilder builder;
   if (nullable) {
-    auto valid_bytes = RandomVector<bool>(/*true_percentage=*/null_percentage,
-                                          BENCHMARK_SIZE, {true, false});
+    auto valid_bytes = RandomVector<bool>(/*true_percentage=*/null_percentage, vec.size(),
+                                          {true, false});
     EXIT_NOT_OK(builder.AppendValues(vec, valid_bytes));
   } else {
     EXIT_NOT_OK(builder.AppendValues(vec));
@@ -197,18 +201,11 @@ struct Examples<bool> {
   static constexpr std::array<bool, 2> values() { return {false, true}; }
 };
 
-template <bool nullable, typename ParquetType>
-static void BM_ReadColumn(::benchmark::State& state) {
-  using T = typename ParquetType::c_type;
-
-  auto values = RandomVector<T>(/*percentage=*/state.range(1), BENCHMARK_SIZE,
-                                Examples<T>::values());
-
-  std::shared_ptr<::arrow::Table> table =
-      TableFromVector<ParquetType>(values, nullable, state.range(0));
+static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& table,
+                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
   auto output = CreateOutputStream();
-  EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
-
+  EXIT_NOT_OK(
+      WriteTable(table, ::arrow::default_memory_pool(), output, table.num_rows()));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   while (state.KeepRunning()) {
@@ -220,7 +217,43 @@ static void BM_ReadColumn(::benchmark::State& state) {
     std::shared_ptr<::arrow::Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
   }
-  SetBytesProcessed<nullable, ParquetType>(state);
+
+  if (num_values == -1) {
+    num_values = table.num_rows();
+  }
+  state.SetItemsProcessed(num_values * state.iterations());
+  if (bytes_per_value != -1) {
+    state.SetBytesProcessed(num_values * state.iterations() * bytes_per_value);
+  }
+}
+
+static void BenchmarkReadArray(::benchmark::State& state,
+                               const std::shared_ptr<Array>& array, bool nullable,
+                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
+  auto schema = ::arrow::schema({field("s", array->type(), nullable)});
+  auto table = ::arrow::Table::Make(schema, {array}, array->length());
+
+  EXIT_NOT_OK(table->Validate());
+
+  BenchmarkReadTable(state, *table, num_values, bytes_per_value);
+}
+
+//
+// Benchmark reading a primitive column
+//
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumn(::benchmark::State& state) {
+  using T = typename ParquetType::c_type;
+
+  auto values = RandomVector<T>(/*percentage=*/state.range(1), BENCHMARK_SIZE,
+                                Examples<T>::values());
+
+  std::shared_ptr<::arrow::Table> table =
+      TableFromVector<ParquetType>(values, nullable, state.range(0));
+
+  BenchmarkReadTable(state, *table, table->num_rows(),
+                     sizeof(typename ParquetType::c_type));
 }
 
 // There are two parameters here that cover different data distributions.
@@ -279,6 +312,180 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType)
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
     ->Args({kAlternatingOrNa, 1})
     ->Args({5, 10});
+
+//
+// Benchmark reading a nested column
+//
+
+const std::vector<int64_t> kNestedNullPercents = {0, 1, 50, 99};
+
+// XXX We can use ArgsProduct() starting from Benchmark 1.5.2
+static void NestedReadArguments(::benchmark::internal::Benchmark* b) {
+  for (const auto null_percentage : kNestedNullPercents) {
+    b->Arg(null_percentage);
+  }
+}
+
+static std::shared_ptr<Array> MakeStructArray(::arrow::random::RandomArrayGenerator* rng,
+                                              const ArrayVector& children,
+                                              double null_probability,
+                                              bool propagate_validity = false) {
+  ARROW_CHECK_GT(children.size(), 0);
+  const int64_t length = children[0]->length();
+
+  std::shared_ptr<::arrow::Buffer> null_bitmap;
+  if (null_probability > 0.0) {
+    null_bitmap = rng->NullBitmap(length, null_probability);
+    if (propagate_validity) {
+      // HACK: the Parquet writer currently doesn't allow non-empty list
+      // entries where a parent node is null (for instance, a struct-of-list
+      // where the outer struct is marked null but the inner list value is
+      // non-empty).
+      for (const auto& child : children) {
+        null_bitmap = *::arrow::internal::BitmapOr(
+            ::arrow::default_memory_pool(), null_bitmap->data(), 0,
+            child->null_bitmap_data(), 0, length, 0);
+      }
+    }
+  }
+  FieldVector fields(children.size());
+  char field_name = 'a';
+  for (size_t i = 0; i < children.size(); ++i) {
+    fields[i] = field(std::string{field_name++}, children[i]->type(),
+                      /*nullable=*/null_probability > 0.0);
+  }
+  return *::arrow::StructArray::Make(children, std::move(fields), null_bitmap);
+}
+
+// Make a (int32, int64) struct array
+static std::shared_ptr<Array> MakeStructArray(::arrow::random::RandomArrayGenerator* rng,
+                                              int64_t size, double null_probability) {
+  auto values1 = rng->Int32(size, -5, 5, null_probability);
+  auto values2 = rng->Int64(size, -12345678912345LL, 12345678912345LL, null_probability);
+  return MakeStructArray(rng, {values1, values2}, null_probability);
+}
+
+static void BM_ReadStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+  auto array = MakeStructArray(&rng, kNumValues, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  const int64_t kBytesPerValue = 2 * (sizeof(int32_t) + sizeof(int64_t));
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+  auto values1 = MakeStructArray(&rng, kNumValues, null_probability);
+  auto values2 = MakeStructArray(&rng, kNumValues, null_probability);
+  auto array = MakeStructArray(&rng, {values1, values2}, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadStructOfStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadStructOfListColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
+  auto values1 = rng.Int32(kNumValues, -5, 5, null_probability);
+  auto values2 =
+      rng.Int64(kNumValues, -12345678912345LL, 12345678912345LL, null_probability);
+  auto list1 = rng.List(*values1, kNumValues / 10, null_probability);
+  auto list2 = rng.List(*values2, kNumValues / 10, null_probability);
+  auto array = MakeStructArray(&rng, {list1, list2}, null_probability,
+                               /*propagate_validity =*/true);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadStructOfListColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadListColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  auto values = rng.Int64(kNumValues, /*min=*/-5, /*max=*/5, null_probability);
+  const int64_t kBytesPerValue = sizeof(int64_t);
+
+  auto array = rng.List(*values, kNumValues / 10, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadListOfStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  auto values = MakeStructArray(&rng, kNumValues, null_probability);
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
+  auto array = rng.List(*values, kNumValues / 10, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadListOfStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadListOfListColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  auto values = rng.Int64(kNumValues, /*min=*/-5, /*max=*/5, null_probability);
+  const int64_t kBytesPerValue = sizeof(int64_t);
+
+  auto inner = rng.List(*values, kNumValues / 10, null_probability);
+  auto array = rng.List(*inner, kNumValues / 100, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadListOfListColumn)->Apply(NestedReadArguments);
+
+//
+// Benchmark different ways of reading select row groups
+//
 
 static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);

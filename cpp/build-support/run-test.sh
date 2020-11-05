@@ -96,12 +96,14 @@ function run_test() {
   # even when retries are successful.
   rm -f $XMLFILE
 
-  $TEST_EXECUTABLE "$@" 2>&1 \
+  $TEST_EXECUTABLE "$@" > $LOGFILE.raw 2>&1
+  STATUS=$?
+  cat $LOGFILE.raw \
     | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
     | ${CXXFILT:-c++filt} \
     | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
-  STATUS=$?
+  rm -f $LOGFILE.raw
 
   # TSAN doesn't always exit with a non-zero exit code due to a bug:
   # mutex errors don't get reported through the normal error reporting infrastructure.

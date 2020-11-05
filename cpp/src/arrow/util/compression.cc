@@ -24,146 +24,156 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compression_internal.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace util {
-
-Compressor::~Compressor() {}
-
-Decompressor::~Decompressor() {}
-
-Codec::~Codec() {}
 
 int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 
 Status Codec::Init() { return Status::OK(); }
 
-std::string Codec::GetCodecAsString(Compression::type t) {
+const std::string& Codec::GetCodecAsString(Compression::type t) {
+  static const std::string uncompressed = "uncompressed", snappy = "snappy",
+                           gzip = "gzip", lzo = "lzo", brotli = "brotli",
+                           lz4_raw = "lz4_raw", lz4 = "lz4", lz4_hadoop = "lz4_hadoop",
+                           zstd = "zstd", bz2 = "bz2", unknown = "unknown";
+
   switch (t) {
     case Compression::UNCOMPRESSED:
-      return "UNCOMPRESSED";
+      return uncompressed;
     case Compression::SNAPPY:
-      return "SNAPPY";
+      return snappy;
     case Compression::GZIP:
-      return "GZIP";
+      return gzip;
     case Compression::LZO:
-      return "LZO";
+      return lzo;
     case Compression::BROTLI:
-      return "BROTLI";
+      return brotli;
     case Compression::LZ4:
-      return "LZ4_RAW";
+      return lz4_raw;
     case Compression::LZ4_FRAME:
-      return "LZ4";
+      return lz4;
+    case Compression::LZ4_HADOOP:
+      return lz4_hadoop;
     case Compression::ZSTD:
-      return "ZSTD";
+      return zstd;
     case Compression::BZ2:
-      return "BZ2";
+      return bz2;
     default:
-      return "UNKNOWN";
+      return unknown;
   }
 }
 
 Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
-  if (name == "UNCOMPRESSED") {
+  if (name == "uncompressed") {
     return Compression::UNCOMPRESSED;
-  } else if (name == "GZIP") {
+  } else if (name == "gzip") {
     return Compression::GZIP;
-  } else if (name == "SNAPPY") {
+  } else if (name == "snappy") {
     return Compression::SNAPPY;
-  } else if (name == "LZO") {
+  } else if (name == "lzo") {
     return Compression::LZO;
-  } else if (name == "BROTLI") {
+  } else if (name == "brotli") {
     return Compression::BROTLI;
-  } else if (name == "LZ4_RAW") {
+  } else if (name == "lz4_raw") {
     return Compression::LZ4;
-  } else if (name == "LZ4") {
+  } else if (name == "lz4") {
     return Compression::LZ4_FRAME;
-  } else if (name == "ZSTD") {
+  } else if (name == "lz4_hadoop") {
+    return Compression::LZ4_HADOOP;
+  } else if (name == "zstd") {
     return Compression::ZSTD;
-  } else if (name == "BZ2") {
+  } else if (name == "bz2") {
     return Compression::BZ2;
   } else {
     return Status::Invalid("Unrecognized compression type: ", name);
   }
 }
 
+bool Codec::SupportsCompressionLevel(Compression::type codec) {
+  switch (codec) {
+    case Compression::GZIP:
+    case Compression::BROTLI:
+    case Compression::ZSTD:
+    case Compression::BZ2:
+      return true;
+    default:
+      return false;
+  }
+}
+
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
                                              int compression_level) {
+  if (!IsAvailable(codec_type)) {
+    if (codec_type == Compression::LZO) {
+      return Status::NotImplemented("LZO codec not implemented");
+    }
+
+    auto name = GetCodecAsString(codec_type);
+    if (name == "unknown") {
+      return Status::Invalid("Unrecognized codec");
+    }
+
+    return Status::NotImplemented("Support for codec '", GetCodecAsString(codec_type),
+                                  "' not built");
+  }
+
+  if (compression_level != kUseDefaultCompressionLevel &&
+      !SupportsCompressionLevel(codec_type)) {
+    return Status::Invalid("Codec '", GetCodecAsString(codec_type),
+                           "' doesn't support setting a compression level.");
+  }
+
   std::unique_ptr<Codec> codec;
-  const bool compression_level_set{compression_level != kUseDefaultCompressionLevel};
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
-      if (compression_level_set) {
-        return Status::Invalid("Compression level cannot be specified for UNCOMPRESSED.");
-      }
       return nullptr;
     case Compression::SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
-      if (compression_level_set) {
-        return Status::Invalid("Snappy doesn't support setting a compression level.");
-      }
       codec = internal::MakeSnappyCodec();
-      break;
-#else
-      return Status::NotImplemented("Snappy codec support not built");
 #endif
+      break;
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
       codec = internal::MakeGZipCodec(compression_level);
-      break;
-#else
-      return Status::NotImplemented("Gzip codec support not built");
 #endif
-    case Compression::LZO:
-      if (compression_level_set) {
-        return Status::Invalid("LZ0 doesn't support setting a compression level.");
-      }
-      return Status::NotImplemented("LZO codec not implemented");
+      break;
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
       codec = internal::MakeBrotliCodec(compression_level);
-      break;
-#else
-      return Status::NotImplemented("Brotli codec support not built");
 #endif
+      break;
     case Compression::LZ4:
 #ifdef ARROW_WITH_LZ4
-      if (compression_level_set) {
-        return Status::Invalid("LZ4 doesn't support setting a compression level.");
-      }
       codec = internal::MakeLz4RawCodec();
-      break;
-#else
-      return Status::NotImplemented("LZ4 codec support not built");
 #endif
+      break;
     case Compression::LZ4_FRAME:
 #ifdef ARROW_WITH_LZ4
-      if (compression_level_set) {
-        return Status::Invalid("LZ4 doesn't support setting a compression level.");
-      }
       codec = internal::MakeLz4FrameCodec();
-      break;
-#else
-      return Status::NotImplemented("LZ4 codec support not built");
 #endif
+      break;
+    case Compression::LZ4_HADOOP:
+#ifdef ARROW_WITH_LZ4
+      codec = internal::MakeLz4HadoopRawCodec();
+#endif
+      break;
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
       codec = internal::MakeZSTDCodec(compression_level);
-      break;
-#else
-      return Status::NotImplemented("ZSTD codec support not built");
 #endif
+      break;
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
       codec = internal::MakeBZ2Codec(compression_level);
-      break;
-#else
-      return Status::NotImplemented("BZ2 codec support not built");
 #endif
+      break;
     default:
-      return Status::Invalid("Unrecognized codec");
+      break;
   }
 
+  DCHECK_NE(codec, nullptr);
   RETURN_NOT_OK(codec->Init());
   return std::move(codec);
 }
@@ -194,6 +204,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
 #endif
     case Compression::LZ4:
     case Compression::LZ4_FRAME:
+    case Compression::LZ4_HADOOP:
 #ifdef ARROW_WITH_LZ4
       return true;
 #else

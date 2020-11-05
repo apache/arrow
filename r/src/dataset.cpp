@@ -21,13 +21,12 @@
 
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/table.h>
 #include <arrow/util/iterator.h>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
-
-using Rcpp::CharacterVector;
-using Rcpp::String;
 
 // Dataset, UnionDataset, FileSystemDataset
 
@@ -62,6 +61,12 @@ std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::InMemoryDataset> dataset___InMemoryDataset__create(
+    const std::shared_ptr<arrow::Table>& table) {
+  return std::make_shared<ds::InMemoryDataset>(table);
+}
+
+// [[arrow::export]]
 ds::DatasetVector dataset___UnionDataset__children(
     const std::shared_ptr<ds::UnionDataset>& ds) {
   return ds->children();
@@ -71,6 +76,12 @@ ds::DatasetVector dataset___UnionDataset__children(
 std::shared_ptr<ds::FileFormat> dataset___FileSystemDataset__format(
     const std::shared_ptr<ds::FileSystemDataset>& dataset) {
   return dataset->format();
+}
+
+// [[arrow::export]]
+std::shared_ptr<fs::FileSystem> dataset___FileSystemDataset__filesystem(
+    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
+  return dataset->filesystem();
 }
 
 // [[arrow::export]]
@@ -161,19 +172,58 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(
+    const std::shared_ptr<ds::FileFormat>& fmt) {
+  return fmt->DefaultWriteOptions();
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
-    bool use_buffered_stream, int64_t buffer_size, CharacterVector dict_columns) {
+    bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
   fmt->reader_options.use_buffered_stream = use_buffered_stream;
   fmt->reader_options.buffer_size = buffer_size;
 
-  auto dict_columns_vector = Rcpp::as<std::vector<std::string>>(dict_columns);
+  auto dict_columns_vector = cpp11::as_cpp<std::vector<std::string>>(dict_columns);
   auto& d = fmt->reader_options.dict_columns;
   std::move(dict_columns_vector.begin(), dict_columns_vector.end(),
             std::inserter(d, d.end()));
 
   return fmt;
+}
+
+// [[arrow::export]]
+std::string dataset___FileWriteOptions__type_name(
+    const std::shared_ptr<ds::FileWriteOptions>& options) {
+  return options->type_name();
+}
+
+// [[arrow::export]]
+void dataset___ParquetFileWriteOptions__update(
+    const std::shared_ptr<ds::ParquetFileWriteOptions>& options,
+    const std::shared_ptr<parquet::WriterProperties>& writer_props,
+    const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_writer_props) {
+  options->writer_properties = writer_props;
+  options->arrow_writer_properties = arrow_writer_props;
+}
+
+// [[arrow::export]]
+void dataset___IpcFileWriteOptions__update2(
+    const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format,
+    const std::shared_ptr<arrow::util::Codec>& codec,
+    arrow::ipc::MetadataVersion metadata_version) {
+  ipc_options->options->write_legacy_ipc_format = use_legacy_format;
+  ipc_options->options->codec = codec;
+  ipc_options->options->metadata_version = metadata_version;
+}
+
+// [[arrow::export]]
+void dataset___IpcFileWriteOptions__update1(
+    const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format,
+    arrow::ipc::MetadataVersion metadata_version) {
+  ipc_options->options->write_legacy_ipc_format = use_legacy_format;
+  ipc_options->options->metadata_version = metadata_version;
 }
 
 // [[arrow::export]]
@@ -262,6 +312,25 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__head(
+    const std::shared_ptr<ds::Scanner>& scanner, int n) {
+  // TODO: make this a full Slice with offset > 0
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  std::shared_ptr<arrow::RecordBatch> current_batch;
+
+  for (auto st : ValueOrStop(scanner->Scan())) {
+    for (auto b : ValueOrStop(ValueOrStop(st)->Execute())) {
+      current_batch = ValueOrStop(b);
+      batches.push_back(current_batch->Slice(0, n));
+      n -= current_batch->num_rows();
+      if (n < 0) break;
+    }
+    if (n < 0) break;
+  }
+  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+}
+
+// [[arrow::export]]
 std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
     const std::shared_ptr<ds::Scanner>& scanner) {
   auto it = ValueOrStop(scanner->Scan());
@@ -276,6 +345,12 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
+    const std::shared_ptr<ds::Scanner>& sc) {
+  return sc->schema();
+}
+
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
     const std::shared_ptr<ds::ScanTask>& scan_task) {
   arrow::RecordBatchIterator rbi;
@@ -287,6 +362,21 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
     out.push_back(batch);
   }
   return out;
+}
+
+// [[arrow::export]]
+void dataset___Dataset__Write(
+    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
+    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  ds::FileSystemDatasetWriteOptions opts;
+  opts.file_write_options = file_write_options;
+  opts.filesystem = filesystem;
+  opts.base_dir = base_dir;
+  opts.partitioning = partitioning;
+  opts.basename_template = basename_template;
+  StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 
 #endif

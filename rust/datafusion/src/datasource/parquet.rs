@@ -18,13 +18,14 @@
 //! Parquet data source
 
 use std::string::String;
+use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::datasource::{ScanResult, TableProvider};
+use crate::datasource::TableProvider;
 use crate::error::Result;
-use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::parquet::ParquetExec;
+use crate::physical_plan::ExecutionPlan;
 
 /// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {
@@ -56,51 +57,51 @@ impl TableProvider for ParquetTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Vec<ScanResult>> {
-        let parquet_exec =
-            ParquetExec::try_new(&self.path, projection.clone(), batch_size)?;
-
-        let partitions = parquet_exec.partitions()?;
-
-        let iterators = partitions
-            .iter()
-            .map(|p| p.execute())
-            .collect::<Result<Vec<_>>>()?;
-        Ok(iterators)
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Ok(Arc::new(ParquetExec::try_new(
+            &self.path,
+            projection.clone(),
+            batch_size,
+        )?))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow::array::PrimitiveArrayOps;
     use arrow::array::{
         BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
         TimestampNanosecondArray,
     };
+    use arrow::record_batch::RecordBatch;
     use std::env;
 
-    #[test]
-    fn read_small_batches() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_small_batches() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
-        let scan = table.scan(&projection, 2).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let exec = table.scan(&projection, 2)?;
+        let it = exec.execute(0).await?;
 
-        let mut count = 0;
-        while let Some(batch) = it.next_batch().unwrap() {
-            assert_eq!(11, batch.num_columns());
-            assert_eq!(2, batch.num_rows());
-            count += 1;
-        }
+        let count = it
+            .into_iter()
+            .map(|batch| {
+                let batch = batch.unwrap();
+                assert_eq!(11, batch.num_columns());
+                assert_eq!(2, batch.num_rows());
+            })
+            .count();
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
+
+        Ok(())
     }
 
-    #[test]
-    fn read_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
+    #[tokio::test]
+    async fn read_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
 
         let x: Vec<String> = table
             .schema()
@@ -125,22 +126,19 @@ mod tests {
         );
 
         let projection = None;
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(11, batch.num_columns());
         assert_eq!(8, batch.num_rows());
+
+        Ok(())
     }
 
-    #[test]
-    fn read_bool_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_bool_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![1]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -159,16 +157,15 @@ mod tests {
             "[true, false, true, false, true, false, true, false]",
             format!("{:?}", values)
         );
+
+        Ok(())
     }
 
-    #[test]
-    fn read_i32_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_i32_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![0]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -184,16 +181,15 @@ mod tests {
         }
 
         assert_eq!("[4, 5, 6, 7, 2, 3, 0, 1]", format!("{:?}", values));
+
+        Ok(())
     }
 
-    #[test]
-    fn read_i96_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_i96_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![10]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -209,16 +205,16 @@ mod tests {
         }
 
         assert_eq!("[1235865600000000000, 1235865660000000000, 1238544000000000000, 1238544060000000000, 1233446400000000000, 1233446460000000000, 1230768000000000000, 1230768060000000000]", format!("{:?}", values));
+
+        Ok(())
     }
 
-    #[test]
-    fn read_f32_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_f32_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![6]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
+
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
 
@@ -236,16 +232,15 @@ mod tests {
             "[0.0, 1.1, 0.0, 1.1, 0.0, 1.1, 0.0, 1.1]",
             format!("{:?}", values)
         );
+
+        Ok(())
     }
 
-    #[test]
-    fn read_f64_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_f64_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![7]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -264,16 +259,15 @@ mod tests {
             "[0.0, 10.1, 0.0, 10.1, 0.0, 10.1, 0.0, 10.1]",
             format!("{:?}", values)
         );
+
+        Ok(())
     }
 
-    #[test]
-    fn read_binary_alltypes_plain_parquet() {
-        let table = load_table("alltypes_plain.parquet");
-
+    #[tokio::test]
+    async fn read_binary_alltypes_plain_parquet() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
         let projection = Some(vec![9]);
-        let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
-        let batch = it.next_batch().unwrap().unwrap();
+        let batch = get_first_batch(table, &projection).await?;
 
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -292,13 +286,26 @@ mod tests {
             "[\"0\", \"1\", \"0\", \"1\", \"0\", \"1\", \"0\", \"1\"]",
             format!("{:?}", values)
         );
+
+        Ok(())
     }
 
-    fn load_table(name: &str) -> Box<dyn TableProvider> {
+    fn load_table(name: &str) -> Result<Box<dyn TableProvider>> {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/{}", testdata, name);
-        let table = ParquetTable::try_new(&filename).unwrap();
-        Box::new(table)
+        let table = ParquetTable::try_new(&filename)?;
+        Ok(Box::new(table))
+    }
+
+    async fn get_first_batch(
+        table: Box<dyn TableProvider>,
+        projection: &Option<Vec<usize>>,
+    ) -> Result<RecordBatch> {
+        let exec = table.scan(projection, 1024)?;
+        let mut it = exec.execute(0).await?;
+        it.next()
+            .expect("should have received at least one batch")
+            .map_err(|e| e.into())
     }
 }

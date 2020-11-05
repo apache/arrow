@@ -38,6 +38,7 @@ set(ARROW_PYTHON_SRCS
     inference.cc
     init.cc
     io.cc
+    ipc.cc
     numpy_convert.cc
     numpy_to_arrow.cc
     python_to_arrow.cc

@@ -20,7 +20,7 @@
 import pyarrow as pa
 import numpy as np
 import pandas as pd
-import pandas.util.testing as tm
+from pyarrow.tests.util import rands
 import memory_profiler
 import gc
 import io
@@ -85,7 +85,7 @@ def test_leak3():
                        for i in range(50)})
     table = pa.Table.from_pandas(df, preserve_index=False)
 
-    writer = pq.ParquetWriter('leak_test_' + tm.rands(5) + '.parquet',
+    writer = pq.ParquetWriter('leak_test_' + rands(5) + '.parquet',
                               table.schema)
 
     def func():
