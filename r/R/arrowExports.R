@@ -1316,6 +1316,10 @@ RecordBatch__schema <- function(x){
     .Call(`_arrow_RecordBatch__schema` , x)
 }
 
+RecordBatch__RenameColumns <- function(batch, names){
+    .Call(`_arrow_RecordBatch__RenameColumns` , batch, names)
+}
+
 RecordBatch__ReplaceSchemaMetadata <- function(x, metadata){
     .Call(`_arrow_RecordBatch__ReplaceSchemaMetadata` , x, metadata)
 }
