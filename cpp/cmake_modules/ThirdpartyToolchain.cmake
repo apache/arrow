@@ -2530,11 +2530,6 @@ if(ARROW_WITH_GRPC)
     endif()
   endif()
 
-  get_target_property(GRPC_CPP_PLUGIN gRPC::grpc_cpp_plugin IMPORTED_LOCATION)
-  if(NOT GRPC_CPP_PLUGIN)
-    get_target_property(GRPC_CPP_PLUGIN gRPC::grpc_cpp_plugin IMPORTED_LOCATION_RELEASE)
-  endif()
-
   if(TARGET gRPC::address_sorting)
     set(GRPC_HAS_ADDRESS_SORTING TRUE)
   else()
