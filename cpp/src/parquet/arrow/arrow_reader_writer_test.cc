@@ -3204,9 +3204,19 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   auto type =
       ::arrow::struct_({::arrow::field("string", ::arrow::utf8(), /*nullable=*/true)});
   auto array = ::arrow::ArrayFromJSON(type, R"([{"string": "a"},
+                                                {"string": null},
                                                 {"string": "b"},
                                                 {"string": "c"},
-                                                {"string": "d"}])");
+                                                {"string": null},
+                                                {"string": null},
+                                                {"string": "d"},
+                                                null])");
+
+  auto outer_bitmap = array->data()->buffers[0];
+  outer_bitmap->mutable_data()[0] = 0x7F;
+  auto inner_bitmap =
+      std::static_pointer_cast<::arrow::StructArray>(array)->field(0)->data()->buffers[0];
+  inner_bitmap->mutable_data()[0] = 0x4D;
 
   auto expected = Table::Make(
       ::arrow::schema({::arrow::field("struct", array->type(), /*nullable=*/true)}),
