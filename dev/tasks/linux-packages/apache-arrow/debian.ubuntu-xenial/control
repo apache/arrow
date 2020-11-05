@@ -137,7 +137,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libgandiva300
 Section: libs
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -151,7 +151,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -364,7 +364,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libgandiva-glib300
 Section: libs
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -379,7 +379,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: gir1.2-gandiva-1.0
 Section: introspection
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -391,7 +391,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -406,7 +406,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-doc
 Section: doc
-Architecture: i386 amd64
+Architecture: any
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}

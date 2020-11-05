@@ -29,21 +29,12 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
-ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    wget && \
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${LLVM} main" > \
-    /etc/apt/sources.list.d/llvm.list && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
     build-essential \
+    clang-10 \
     cmake \
     debhelper \
     devscripts \
@@ -67,6 +58,7 @@ RUN \
     libthrift-dev \
     libutf8proc-dev \
     libzstd-dev \
+    llvm-10-dev \
     lsb-release \
     ninja-build \
     pkg-config \
@@ -77,11 +69,6 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
-  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
-      clang-${LLVM} \
-      llvm-${LLVM}-dev; \
-  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \

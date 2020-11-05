@@ -37,21 +37,12 @@ RUN \
     /etc/apt/sources.list.d/backports-sloppy.list
 
 ARG DEBUG
-ARG LLVM
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    wget && \
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/stretch/ llvm-toolchain-stretch-${LLVM} main" > \
-    /etc/apt/sources.list.d/llvm.list && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
     build-essential \
+    clang-7 \
     cmake \
     devscripts \
     fakeroot \
@@ -73,6 +64,7 @@ RUN \
     libssl-dev \
     libutf8proc-dev \
     libzstd-dev \
+    llvm-7-dev \
     lsb-release \
     ninja-build \
     pkg-config \
@@ -90,11 +82,6 @@ RUN \
     libgmock-dev \
     libgtest-dev \
     rapidjson-dev && \
-  if [ "$(dpkg --print-architecture)" != "arm64" ]; then \
-    apt install -y -V ${quiet} \
-      clang-${LLVM} \
-      llvm-${LLVM}-dev; \
-  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
   fi && \
