@@ -58,6 +58,7 @@ jobs:
         call activate base
         run_conda_forge_build_setup
       displayName: conda-forge build setup
+      workingDirectory: arrow\dev\tasks\conda-recipes
 
     - script: |
         conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
