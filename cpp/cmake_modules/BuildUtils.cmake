@@ -177,7 +177,7 @@ function(create_merged_static_lib output_target)
         "-o"
         ${output_lib_path}
         ${all_library_paths})
-  elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU)$")
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
     file(WRITE ${ar_script_path}.in "CREATE ${output_lib_path}\n")
