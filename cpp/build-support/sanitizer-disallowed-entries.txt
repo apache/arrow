@@ -20,3 +20,6 @@
 # Seen error:
 # thirdparty/gmock-1.7.0/include/gmock/gmock-spec-builders.h:1529:12: runtime error: member call on null pointer of type 'testing::internal::ActionResultHolder<void>'
 fun:*testing*internal*InvokeWith*
+
+# Workaround for RapidJSON https://github.com/Tencent/rapidjson/issues/1724
+src:*/rapidjson/internal/*
