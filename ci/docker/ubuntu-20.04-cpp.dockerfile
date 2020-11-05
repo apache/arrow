@@ -98,8 +98,10 @@ RUN apt-get update -y -q && \
 
 COPY ci/scripts/install_minio.sh \
      /arrow/ci/scripts/
+COPY ci/scripts/install_ceph.sh \
+     /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
-
+RUN /arrow/ci/scripts/install_ceph.sh
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
