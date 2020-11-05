@@ -1552,6 +1552,10 @@ Table__ColumnNames <- function(table){
     .Call(`_arrow_Table__ColumnNames` , table)
 }
 
+Table__RenameColumns <- function(table, names){
+    .Call(`_arrow_Table__RenameColumns` , table, names)
+}
+
 Table__Slice1 <- function(table, offset){
     .Call(`_arrow_Table__Slice1` , table, offset)
 }

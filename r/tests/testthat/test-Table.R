@@ -434,3 +434,15 @@ test_that("Table$SelectColumns()", {
   expect_error(tab$SelectColumns(2:4))
   expect_error(tab$SelectColumns(""))
 })
+
+test_that("Table name assignment", {
+  tab <- Table$create(x = 1:10, y = 1:10)
+  expect_identical(names(tab), c("x", "y"))
+  names(tab) <- c("a", "b")
+  expect_identical(names(tab), c("a", "b"))
+  expect_error(names(tab) <- "f")
+  expect_error(names(tab) <- letters)
+  expect_error(names(tab) <- character(0))
+  expect_error(names(tab) <- NULL)
+  expect_error(names(tab) <- c(TRUE, FALSE))
+})

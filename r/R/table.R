@@ -96,6 +96,9 @@ Table <- R6Class("Table", inherit = ArrowObject,
       Table__column(self, i)
     },
     ColumnNames = function() Table__ColumnNames(self),
+    RenameColumns = function(value) {
+      shared_ptr(Table, Table__RenameColumns(self, value))
+    },
     GetColumnByName = function(name) {
       assert_is(name, "character")
       assert_that(length(name) == 1)
@@ -256,6 +259,9 @@ dim.Table <- function(x) c(x$num_rows, x$num_columns)
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' @export
+`names<-.Table` <- function(x, value) x$RenameColumns(value)
 
 #' @export
 `[.Table` <- `[.RecordBatch`
