@@ -19,9 +19,10 @@
 
 namespace librados {
 
-std::string get_temp_pool_name(const std::string& prefix) {
+std::string get_temp_pool_name() {
   char hostname[80];
   char out[160];
+  std::string prefix = "test-rados-api-";
   memset(hostname, 0, sizeof(hostname));
   memset(out, 0, sizeof(out));
   gethostname(hostname, sizeof(hostname) - 1);
