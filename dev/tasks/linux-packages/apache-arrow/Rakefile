@@ -82,20 +82,6 @@ class ApacheArrowPackageTask < PackageTask
          "--output", @full_archive_name)
     end
   end
-
-  def detect_llvm_version
-    detect_env("LLVM")
-  end
-
-  def docker_image(os, architecture)
-    "#{super}-llvm-#{detect_llvm_version}"
-  end
-
-  def docker_build_options(os, architecture)
-    [
-      "--build-arg", "LLVM=#{detect_llvm_version}",
-    ]
-  end
 end
 
 task = ApacheArrowPackageTask.new
