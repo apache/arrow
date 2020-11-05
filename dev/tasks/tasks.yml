@@ -133,6 +133,15 @@ tasks:
     ci: azure
     template: conda-recipes/azure.clean.yml
 
+  # Tricks to minimize the build matrix:
+  #
+  # * On conda-forge the `pyarrow` and `arrow-cpp` packages are built in
+  #   the same feedstock as the dependency matrix is the same for them as
+  #   Python and the OS are the main dimension. The R package `r-arrow` is
+  #   an independent feedstock as it doesn't have the Python but the
+  #   R dimension. To limit the number of CI jobs, we are building `r-arrow`
+  #   for R 3.6 with the Python 3.6 jobs and for R 4.0 with the Python 3.7 jobs.
+
   conda-linux-gcc-py36-cpu:
     ci: azure
     template: conda-recipes/azure.linux.yml
