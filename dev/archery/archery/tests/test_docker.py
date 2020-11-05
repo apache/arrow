@@ -122,7 +122,6 @@ x-hierarchy:
     - conda-python:
       - conda-python-pandas
       - conda-python-dask
-    - conda-r
   - ubuntu-cpp:
     - ubuntu-cpp-cmake32
     - ubuntu-c-glib:
@@ -137,8 +136,6 @@ services:
   conda-python-pandas:
     image: dummy
   conda-python-dask:
-    image: dummy
-  conda-r:
     image: dummy
   ubuntu-cpp:
     image: dummy
@@ -529,7 +526,6 @@ def test_listing_images(arrow_compose_path):
         'conda-python',
         'conda-python-dask',
         'conda-python-pandas',
-        'conda-r',
         'ubuntu-c-glib',
         'ubuntu-cpp',
         'ubuntu-cpp-cmake32',

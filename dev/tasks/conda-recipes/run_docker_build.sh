@@ -61,6 +61,7 @@ docker run ${DOCKER_RUN_ARGS} \
            -v "${build_dir}":/build:rw \
            -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
            -e CONFIG \
+           -e R_CONFIG \
            -e HOST_USER_ID \
            -e UPLOAD_PACKAGES \
            -e ARROW_VERSION \

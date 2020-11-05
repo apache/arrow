@@ -133,11 +133,24 @@ tasks:
     ci: azure
     template: conda-recipes/azure.clean.yml
 
+  # Important notes on the conda setup here:
+  #
+  # * On conda-forge the `pyarrow` and `arrow-cpp` packages are built in
+  #   the same feedstock as the dependency matrix is the same for them as
+  #   Python and the OS are the main dimension. The R package `r-arrow` is
+  #   an independent feedstock as it doesn't have the Python but the
+  #   R dimension. To limit the number of CI jobs, we are building `r-arrow`
+  #   for R 3.6 with the Python 3.6 jobs and for R 4.0 with the Python 3.7 jobs.
+  # * The files in `dev/tasks/conda-recipes/.ci_support/` are automatically
+  #   generated and to be synced regularly from the feedstock. We have no way
+  #   yet to generate them inside the arrow repository automatically.
+
   conda-linux-gcc-py36-cpu:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_cuda_compiler_versionNonepython3.6.____cpython
+      r_config: linux_64_r_base3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -147,6 +160,7 @@ tasks:
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_cuda_compiler_versionNonepython3.7.____cpython
+      r_config: linux_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -221,6 +235,7 @@ tasks:
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.6.____cpython
+      r_config: osx_64_r_base3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -230,6 +245,7 @@ tasks:
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.7.____cpython
+      r_config: osx_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -250,6 +266,7 @@ tasks:
     template: conda-recipes/azure.win.yml
     params:
       config: win_python3.6.____cpython
+      r_config: win_64_r_base3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -259,6 +276,7 @@ tasks:
     template: conda-recipes/azure.win.yml
     params:
       config: win_python3.7.____cpython
+      r_config: win_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -1795,14 +1813,6 @@ tasks:
       r_image: r-base
       r_tag: 3.6-opensuse42
       not_cran: "TRUE"
-
-  test-conda-r-4.0:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        R: 4.0
-      run: conda-r
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure

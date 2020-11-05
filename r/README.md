@@ -72,6 +72,12 @@ Or
 install_arrow(nightly = TRUE)
 ```
 
+Conda users can install `arrow` nightlies from our nightlies channel using:
+
+```
+conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+```
+
 These daily package builds are not official Apache releases and are not
 recommended for production use. They may be useful for testing bug fixes
 and new features under active development.
