@@ -1802,14 +1802,6 @@ tasks:
       r_tag: 3.6-opensuse42
       not_cran: "TRUE"
 
-  test-conda-r-4.0:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        R: 4.0
-      run: conda-r
-
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml

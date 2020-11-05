@@ -94,7 +94,6 @@ x-hierarchy:
       - conda-python-turbodbc
       - conda-python-kartothek
       - conda-python-spark
-    - conda-r
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -823,30 +822,6 @@ services:
     command: *manylinux-command
 
   ################################## R ########################################
-
-  conda-r:
-    # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-r
-    #   docker-compose run conda-r
-    image: ${REPO}:${ARCH}-conda-r-${R}
-    build:
-      context: .
-      dockerfile: ci/docker/conda-r.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-r-${R}
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        r: ${R}
-    shm_size: *shm-size
-    environment:
-      <<: *ccache
-      NOT_CRAN: 'true'
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/r_test.sh /arrow"]
 
   ubuntu-r:
     # Usage:
