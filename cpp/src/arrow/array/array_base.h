@@ -211,7 +211,9 @@ class ARROW_EXPORT FlatArray : public Array {
   /// Returns the slice buffer for the second buffer in the
   /// array (values buffer for primitives, offsets buffers
   /// for variable length binary types.
-  virtual Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const = 0;
+  ///
+  /// \note API EXPERIMENTAL
+  virtual Result<std::shared_ptr<Buffer>> SlicedValues(MemoryPool* pool) const = 0;
 
  protected:
   using Array::Array;
@@ -249,7 +251,7 @@ class ARROW_EXPORT NullArray : public FlatArray {
   explicit NullArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
   explicit NullArray(int64_t length);
 
-  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
+  Result<std::shared_ptr<Buffer>> SlicedValues(MemoryPool* pool) const override {
     return NULLPTR;
   }
 
