@@ -46,8 +46,22 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("sort_indices", {Datum(values)}, ctx));
+Result<std::shared_ptr<Array>> SortIndices(const Array& values, ExecContext* ctx) {
+  return SortIndices(values, SortOrder::ASCENDING, ctx);
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
+                                           ExecContext* ctx) {
+  ArraySortOptions options(order);
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("array_sort_indices", {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> SortIndices(const Table& values,
+                                           const SortOptions& options, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("sort_indices", {Datum(values)}, &options, ctx));
   return result.make_array();
 }
 
@@ -133,6 +147,10 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
                                     const TakeOptions& options, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(table), Datum(indices), options, ctx));
   return result.table();
+}
+
+Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
+  return SortIndices(values, ctx);
 }
 
 }  // namespace compute

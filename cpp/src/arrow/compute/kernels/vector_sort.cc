@@ -21,9 +21,11 @@
 #include <numeric>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/table.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -164,30 +166,38 @@ inline void VisitRawValuesInline(const ArrayType& values,
 }
 
 template <typename ArrowType>
-class CompareSorter {
+class ArrayCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  public:
-  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
+            const ArraySortOptions& options) {
     std::iota(indices_begin, indices_end, 0);
     auto nulls_begin =
         PartitionNulls<ArrayType, StablePartitioner>(indices_begin, indices_end, values);
-    std::stable_sort(indices_begin, nulls_begin,
-                     [&values](uint64_t left, uint64_t right) {
-                       return values.GetView(left) < values.GetView(right);
-                     });
+    if (options.order == SortOrder::ASCENDING) {
+      std::stable_sort(indices_begin, nulls_begin,
+                       [&values](uint64_t left, uint64_t right) {
+                         return values.GetView(left) < values.GetView(right);
+                       });
+    } else {
+      std::stable_sort(indices_begin, nulls_begin,
+                       [&values](uint64_t left, uint64_t right) {
+                         return values.GetView(left) > values.GetView(right);
+                       });
+    }
   }
 };
 
 template <typename ArrowType>
-class CountSorter {
+class ArrayCountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
 
  public:
-  CountSorter() = default;
+  ArrayCountSorter() = default;
 
-  explicit CountSorter(c_type min, c_type max) { SetMinMax(min, max); }
+  explicit ArrayCountSorter(c_type min, c_type max) { SetMinMax(min, max); }
 
   // Assume: max >= min && (max - min) < 4Gi
   void SetMinMax(c_type min, c_type max) {
@@ -195,12 +205,13 @@ class CountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
+            const ArraySortOptions& options) {
     // 32bit counter performs much better than 64bit one
     if (values.length() < (1LL << 32)) {
-      SortInternal<uint32_t>(indices_begin, indices_end, values);
+      SortInternal<uint32_t>(indices_begin, indices_end, values, options);
     } else {
-      SortInternal<uint64_t>(indices_begin, indices_end, values);
+      SortInternal<uint64_t>(indices_begin, indices_end, values, options);
     }
   }
 
@@ -210,23 +221,35 @@ class CountSorter {
 
   template <typename CounterType>
   void SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
-                    const ArrayType& values) {
+                    const ArrayType& values, const ArraySortOptions& options) {
     const uint32_t value_range = value_range_;
 
     // first slot reserved for prefix sum
     std::vector<CounterType> counts(1 + value_range);
 
-    VisitRawValuesInline(
-        values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
-
-    for (uint32_t i = 1; i <= value_range; ++i) {
-      counts[i] += counts[i - 1];
+    if (options.order == SortOrder::ASCENDING) {
+      VisitRawValuesInline(
+          values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
+      for (uint32_t i = 1; i <= value_range; ++i) {
+        counts[i] += counts[i - 1];
+      }
+      uint32_t null_position = counts[value_range];
+      int64_t index = 0;
+      VisitRawValuesInline(
+          values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
+          [&]() { indices_begin[null_position++] = index++; });
+    } else {
+      VisitRawValuesInline(
+          values, [&](c_type v) { ++counts[v - min_]; }, []() {});
+      for (uint32_t i = value_range; i >= 1; --i) {
+        counts[i - 1] += counts[i];
+      }
+      uint32_t null_position = counts[0];
+      int64_t index = 0;
+      VisitRawValuesInline(
+          values, [&](c_type v) { indices_begin[counts[v - min_ + 1]++] = index++; },
+          [&]() { indices_begin[null_position++] = index++; });
     }
-
-    int64_t index = 0;
-    VisitRawValuesInline(
-        values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
-        [&]() { indices_begin[counts[value_range]++] = index++; });
   }
 };
 
@@ -234,12 +257,13 @@ class CountSorter {
 // - Use O(n) counting sort if values are in a small range
 // - Use O(nlogn) std::stable_sort otherwise
 template <typename ArrowType>
-class CountOrCompareSorter {
+class ArrayCountOrCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
 
  public:
-  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
+            const ArraySortOptions& options) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
       c_type min{std::numeric_limits<c_type>::max()};
       c_type max{std::numeric_limits<c_type>::min()};
@@ -257,17 +281,17 @@ class CountOrCompareSorter {
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
           countsort_max_range_) {
         count_sorter_.SetMinMax(min, max);
-        count_sorter_.Sort(indices_begin, indices_end, values);
+        count_sorter_.Sort(indices_begin, indices_end, values, options);
         return;
       }
     }
 
-    compare_sorter_.Sort(indices_begin, indices_end, values);
+    compare_sorter_.Sort(indices_begin, indices_end, values, options);
   }
 
  private:
-  CompareSorter<ArrowType> compare_sorter_;
-  CountSorter<ArrowType> count_sorter_;
+  ArrayCompareSorter<ArrowType> compare_sorter_;
+  ArrayCountSorter<ArrowType> count_sorter_;
 
   // Cross point to prefer counting sort than stl::stable_sort(merge sort)
   // - array to be sorted is longer than "count_min_len_"
@@ -283,36 +307,40 @@ class CountOrCompareSorter {
 };
 
 template <typename Type, typename Enable = void>
-struct Sorter;
+struct ArraySorter;
 
 template <>
-struct Sorter<UInt8Type> {
-  CountSorter<UInt8Type> impl;
-  Sorter() : impl(0, 255) {}
+struct ArraySorter<UInt8Type> {
+  ArrayCountSorter<UInt8Type> impl;
+  ArraySorter() : impl(0, 255) {}
 };
 
 template <>
-struct Sorter<Int8Type> {
-  CountSorter<Int8Type> impl;
-  Sorter() : impl(-128, 127) {}
+struct ArraySorter<Int8Type> {
+  ArrayCountSorter<Int8Type> impl;
+  ArraySorter() : impl(-128, 127) {}
 };
 
 template <typename Type>
-struct Sorter<Type, enable_if_t<is_integer_type<Type>::value &&
-                                (sizeof(typename Type::c_type) > 1)>> {
-  CountOrCompareSorter<Type> impl;
+struct ArraySorter<Type, enable_if_t<is_integer_type<Type>::value &&
+                                     (sizeof(typename Type::c_type) > 1)>> {
+  ArrayCountOrCompareSorter<Type> impl;
 };
 
 template <typename Type>
-struct Sorter<Type, enable_if_t<is_floating_type<Type>::value ||
-                                is_base_binary_type<Type>::value>> {
-  CompareSorter<Type> impl;
+struct ArraySorter<Type, enable_if_t<is_floating_type<Type>::value ||
+                                     is_base_binary_type<Type>::value>> {
+  ArrayCompareSorter<Type> impl;
 };
+
+using ArraySortIndicesState = internal::OptionsWrapper<ArraySortOptions>;
 
 template <typename OutType, typename InType>
-struct SortIndices {
+struct ArraySortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto& options = ArraySortIndicesState::Get(ctx);
+
     std::shared_ptr<ArrayData> arg0;
     KERNEL_RETURN_IF_ERROR(
         ctx,
@@ -322,8 +350,8 @@ struct SortIndices {
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
 
-    Sorter<InType> sorter;
-    sorter.impl.Sort(out_begin, out_end, arr);
+    ArraySorter<InType> sorter;
+    sorter.impl.Sort(out_begin, out_end, arr, options);
   }
 };
 
@@ -346,14 +374,347 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   }
 }
 
+class TableSorter : public TypeVisitor {
+ private:
+  struct ResolvedSortKey {
+    ResolvedSortKey(const ChunkedArray& chunked_array, const SortOrder order)
+        : order(order) {
+      type = chunked_array.type().get();
+      has_nulls = (chunked_array.null_count() > 0);
+      num_chunks = chunked_array.num_chunks();
+      for (const auto& chunk : chunked_array.chunks()) {
+        chunks.push_back(chunk.get());
+      }
+    }
+
+    template <typename ArrayType>
+    ArrayType* ResolveChunk(int64_t index, int64_t& chunk_index) const {
+      if (num_chunks == 1) {
+        chunk_index = index;
+        return static_cast<ArrayType*>(chunks[0]);
+      } else {
+        int64_t offset = 0;
+        for (size_t i = 0; i < num_chunks; ++i) {
+          if (index < offset + chunks[i]->length()) {
+            chunk_index = index - offset;
+            return static_cast<ArrayType*>(chunks[i]);
+          }
+          offset += chunks[i]->length();
+        }
+        return nullptr;
+      }
+    }
+
+    SortOrder order;
+    DataType* type;
+    bool has_nulls;
+    size_t num_chunks;
+    std::vector<Array*> chunks;
+  };
+
+  class Comparer : public TypeVisitor {
+   public:
+    Comparer(const Table& table, const std::vector<SortKey>& sort_keys)
+        : TypeVisitor(), status_(Status::OK()) {
+      for (const auto& sort_key : sort_keys) {
+        const auto& chunked_array = table.GetColumnByName(sort_key.name);
+        if (!chunked_array) {
+          status_ = Status::Invalid("Nonexistent sort key column: ", sort_key.name);
+          return;
+        }
+        sort_keys_.emplace_back(*chunked_array, sort_key.order);
+      }
+    }
+
+    Status status() { return status_; }
+
+    const std::vector<ResolvedSortKey>& sort_keys() { return sort_keys_; }
+
+    bool Compare(uint64_t left, uint64_t right, size_t start_sort_key_index) {
+      current_left_ = left;
+      current_right_ = right;
+      current_compared_ = 0;
+      auto num_sort_keys = sort_keys_.size();
+      for (size_t i = start_sort_key_index; i < num_sort_keys; ++i) {
+        current_sort_key_index_ = i;
+        status_ = sort_keys_[i].type->Accept(this);
+        if (current_compared_ != 0) {
+          break;
+        }
+      }
+      return current_compared_ < 0;
+    }
+
+#define VISIT(TYPE)                                \
+  Status Visit(const TYPE##Type& type) override {  \
+    current_compared_ = CompareType<TYPE##Type>(); \
+    return Status::OK();                           \
+  }
+
+    VISIT(Int8)
+    VISIT(Int16)
+    VISIT(Int32)
+    VISIT(Int64)
+    VISIT(UInt8)
+    VISIT(UInt16)
+    VISIT(UInt32)
+    VISIT(UInt64)
+    VISIT(Float)
+    VISIT(Double)
+    VISIT(String)
+    VISIT(Binary)
+    VISIT(LargeString)
+    VISIT(LargeBinary)
+
+#undef VISIT
+
+   private:
+    template <typename Type>
+    int32_t CompareType() {
+      using ArrayType = typename TypeTraits<Type>::ArrayType;
+      const auto& sort_key = sort_keys_[current_sort_key_index_];
+      auto order = sort_key.order;
+      int64_t index_left = 0;
+      auto array_left = sort_key.ResolveChunk<ArrayType>(current_left_, index_left);
+      int64_t index_right = 0;
+      auto array_right = sort_key.ResolveChunk<ArrayType>(current_right_, index_right);
+      if (sort_key.has_nulls) {
+        auto is_null_left = array_left->IsNull(index_left);
+        auto is_null_right = array_right->IsNull(index_right);
+        if (is_null_left && is_null_right) {
+          return 0;
+        } else if (is_null_left) {
+          return 1;
+        } else if (is_null_right) {
+          return -1;
+        }
+      }
+      auto left = array_left->GetView(index_left);
+      auto right = array_right->GetView(index_right);
+      int32_t compared;
+      if (left == right) {
+        compared = 0;
+      } else if (left > right) {
+        compared = 1;
+      } else {
+        compared = -1;
+      }
+      if (order == SortOrder::DESCENDING) {
+        compared = -compared;
+      }
+      return compared;
+    }
+
+    Status status_;
+    std::vector<ResolvedSortKey> sort_keys_;
+    int64_t current_left_;
+    int64_t current_right_;
+    size_t current_sort_key_index_;
+    int32_t current_compared_;
+  };
+
+ public:
+  TableSorter(uint64_t* indices_begin, uint64_t* indices_end, const Table& table,
+              const SortOptions& options)
+      : indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        table_(table),
+        options_(options),
+        comparer_(table, options.sort_keys) {}
+
+  Status Sort() {
+    ARROW_RETURN_NOT_OK(comparer_.status());
+    return comparer_.sort_keys()[0].type->Accept(this);
+  }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE##Type& type) override { return SortInternal<TYPE##Type>(); }
+
+  VISIT(Int8)
+  VISIT(Int16)
+  VISIT(Int32)
+  VISIT(Int64)
+  VISIT(UInt8)
+  VISIT(UInt16)
+  VISIT(UInt32)
+  VISIT(UInt64)
+  VISIT(Float)
+  VISIT(Double)
+  VISIT(String)
+  VISIT(Binary)
+  VISIT(LargeString)
+  VISIT(LargeBinary)
+
+#undef VISIT
+
+ private:
+  template <typename Type>
+  Status SortInternal() {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    std::iota(indices_begin_, indices_end_, 0);
+
+    auto& comparer = comparer_;
+    const auto& first_sort_key = comparer.sort_keys()[0];
+    auto nulls_begin = indices_end_;
+    if (first_sort_key.has_nulls > 0) {
+      nulls_begin = std::stable_partition(
+          indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
+            int64_t index_chunk = 0;
+            auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
+            return !chunk->IsNull(index_chunk);
+          });
+      std::stable_sort(nulls_begin, indices_end_,
+                       [&comparer](uint64_t left, uint64_t right) {
+                         return comparer.Compare(left, right, 1);
+                       });
+    }
+    std::stable_sort(
+        indices_begin_, nulls_begin,
+        [&first_sort_key, &comparer](uint64_t left, uint64_t right) {
+          int64_t index_left = 0;
+          auto array_left = first_sort_key.ResolveChunk<ArrayType>(left, index_left);
+          int64_t index_right = 0;
+          auto array_right = first_sort_key.ResolveChunk<ArrayType>(right, index_right);
+          auto value_left = array_left->GetView(index_left);
+          auto value_right = array_right->GetView(index_right);
+          if (value_left == value_right) {
+            return comparer.Compare(left, right, 1);
+          } else {
+            auto compared = value_left < value_right;
+            if (first_sort_key.order == SortOrder::ASCENDING) {
+              return compared;
+            } else {
+              return !compared;
+            }
+          }
+        });
+    return Status::OK();
+  }
+
+  uint64_t* indices_begin_;
+  uint64_t* indices_end_;
+  const Table& table_;
+  const SortOptions& options_;
+  Comparer comparer_;
+};
+
 const FunctionDoc sort_indices_doc(
+    "Return the indices that would sort an array, record batch or table",
+    ("This function computes an array of indices that define a stable sort\n"
+     "of the input array, record batch or table.  Null values are considered\n"
+     "greater than any other value and are therefore sorted at the end of the\n"
+     "input. For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values."),
+    {"input"}, "SortOptions");
+
+class SortIndicesMetaFunction : public MetaFunction {
+ public:
+  SortIndicesMetaFunction()
+      : MetaFunction("sort_indices", Arity::Unary(), &sort_indices_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    const SortOptions& sort_options = static_cast<const SortOptions&>(*options);
+    switch (args[0].kind()) {
+      case Datum::ARRAY:
+        return SortIndices(*args[0].make_array(), sort_options, ctx);
+        break;
+      case Datum::CHUNKED_ARRAY:
+        return SortIndices(*args[0].chunked_array(), sort_options, ctx);
+        break;
+      case Datum::RECORD_BATCH: {
+        ARROW_ASSIGN_OR_RAISE(auto table,
+                              Table::FromRecordBatches({args[0].record_batch()}));
+        return SortIndices(*table, sort_options, ctx);
+      } break;
+      case Datum::TABLE:
+        return SortIndices(*args[0].table(), sort_options, ctx);
+        break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for sort_indices operation: "
+        "values=",
+        args[0].ToString());
+  }
+
+ private:
+  Result<std::shared_ptr<Array>> SortIndices(const Array& values,
+                                             const SortOptions& options,
+                                             ExecContext* ctx) const {
+    SortOrder order = SortOrder::ASCENDING;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
+    ArraySortOptions array_options(order);
+    ARROW_ASSIGN_OR_RAISE(
+        Datum result, CallFunction("array_sort_indices", {values}, &array_options, ctx));
+    return result.make_array();
+  }
+
+  Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& values,
+                                             const SortOptions& options,
+                                             ExecContext* ctx) const {
+    SortOrder order = SortOrder::ASCENDING;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
+    ArraySortOptions array_options(order);
+
+    std::shared_ptr<Array> array_values;
+    if (values.num_chunks() == 1) {
+      array_values = values.chunk(0);
+    } else {
+      ARROW_ASSIGN_OR_RAISE(array_values,
+                            Concatenate(values.chunks(), ctx->memory_pool()));
+    }
+    ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("array_sort_indices", {array_values},
+                                                     &array_options, ctx));
+    return result.make_array();
+  }
+
+  Result<Datum> SortIndices(const Table& table, const SortOptions& options,
+                            ExecContext* ctx) const {
+    auto n_sort_keys = options.sort_keys.size();
+    if (n_sort_keys == 0) {
+      return Status::Invalid("Must specify one or more sort keys");
+    }
+    if (n_sort_keys == 1) {
+      auto chunked_array = table.GetColumnByName(options.sort_keys[0].name);
+      if (!chunked_array) {
+        return Status::Invalid("Nonexistent sort key column: ",
+                               options.sort_keys[0].name);
+      }
+      return SortIndices(*chunked_array, options, ctx);
+    }
+
+    auto out_type = uint64();
+    auto length = table.num_rows();
+    auto buffer_size = BitUtil::BytesForBits(
+        length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
+    std::vector<std::shared_ptr<Buffer>> buffers(2);
+    ARROW_ASSIGN_OR_RAISE(buffers[1],
+                          AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
+    auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
+    auto out_begin = out->GetMutableValues<uint64_t>(1);
+    auto out_end = out_begin + length;
+
+    TableSorter sorter(out_begin, out_end, table, options);
+    ARROW_RETURN_NOT_OK(sorter.Sort());
+    return Datum(out);
+  }
+};
+
+const FunctionDoc array_sort_indices_doc(
     "Return the indices that would sort an array",
     ("This function computes an array of indices that define a stable sort\n"
      "of the input array.  Null values are considered greater than any\n"
      "other value and are therefore sorted at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"array"});
+    {"array"}, "ArraySortOptions");
 
 const FunctionDoc partition_nth_indices_doc(
     "Return the indices that would partition an array around a pivot",
@@ -380,10 +741,13 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   base.mem_allocation = MemAllocation::PREALLOCATE;
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
 
-  auto sort_indices =
-      std::make_shared<VectorFunction>("sort_indices", Arity::Unary(), &sort_indices_doc);
-  AddSortingKernels<SortIndices>(base, sort_indices.get());
-  DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
+  auto array_sort_indices = std::make_shared<VectorFunction>(
+      "array_sort_indices", Arity::Unary(), &array_sort_indices_doc);
+  base.init = ArraySortIndicesState::Init;
+  AddSortingKernels<ArraySortIndices>(base, array_sort_indices.get());
+  DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
+
+  DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));
 
   // partition_nth_indices has a parameter so needs its init function
   auto part_indices = std::make_shared<VectorFunction>(
