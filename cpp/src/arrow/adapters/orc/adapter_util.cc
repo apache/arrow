@@ -29,6 +29,7 @@
 
 #include "orc/Exceptions.hh"
 #include "orc/OrcFile.hh"
+#include "orc/MemoryPool.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -340,6 +341,29 @@ Status FillNumericBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   return Status::OK();
 }
 
+template <class array_type, class batch_type, class target_type>
+Status FillNumericBatchCast(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<array_type*>(parray);
+  auto batch = checked_cast<batch_type*>(cbatch);
+  int64_t arrowLength = array->length();
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset;
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    }
+    else {
+      batch->data[orcOffset] = static_cast<target_type>(array->Value(arrowOffset));
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset;
+  return Status::OK();
+}
+
 template <class array_type>
 Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   auto array = checked_cast<array_type*>(parray);
@@ -356,8 +380,13 @@ Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, 
       batch->notNull[orcOffset] = false;
     }
     else {
-      batch->data[orcOffset] = array->GetString(arrowOffset);
-      batch->length[orcOffset] = (batch->data[orcOffset]).length();
+      std::string dataString = array->GetString(arrowOffset);
+      int dataStringLength = dataString.length();  
+      if (batch->data[orcOffset])
+        delete batch->data[orcOffset];
+      batch->data[orcOffset] = new char[dataStringLength];
+      memcpy(batch->data[orcOffset], dataString.c_str(), dataStringLength);
+      batch->length[orcOffset] = dataStringLength;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -380,7 +409,11 @@ Status FillFixedSizeBinaryBatch(const DataType* type, liborc::ColumnVectorBatch*
       batch->notNull[orcOffset] = false;
     }
     else {
-      batch->data[orcOffset] = array->GetString(arrowOffset);
+      std::string dataString = array->GetString(arrowOffset);
+      if (batch->data[orcOffset])
+        delete batch->data[orcOffset];
+      batch->data[orcOffset] = new char[byteWidth];
+      memcpy(batch->data[orcOffset], array->GetString(arrowOffset).c_str(), byteWidth);
       batch->length[orcOffset] = static_cast<int64_t>(byteWidth);
     }
   }
@@ -389,27 +422,30 @@ Status FillFixedSizeBinaryBatch(const DataType* type, liborc::ColumnVectorBatch*
 }
 
 //If Arrow supports 256-bit decimals we can not support it unless ORC does it
-Status FillDecimalBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
-  auto array = checked_cast<Decimal128Array*>(parray);
-  auto batch = checked_cast<liborc::Decimal128VectorBatch*>(cbatch);//Arrow uses 128 bits for decimal type and in the future, 256 bits will also be supported.
-  int64_t arrowLength = array->length();
-  if (!arrowLength)
-    return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
-  int64_t initORCOffset = orcOffset;
-  if (array->null_count())
-    batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
-    if (array->IsNull(arrowOffset)) {
-      batch->notNull[orcOffset] = false;
-    }
-    else {
-      batch->values[orcOffset] = array->FormatValue(arrowOffset);
-    }
-  }
-  batch->numElements += orcOffset - initORCOffset;
-  return Status::OK();
-}
+// Status FillDecimalBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+//   auto array = checked_cast<Decimal128Array*>(parray);
+//   auto batch = checked_cast<liborc::Decimal128VectorBatch*>(cbatch);//Arrow uses 128 bits for decimal type and in the future, 256 bits will also be supported.
+//   int64_t arrowLength = array->length();
+//   if (!arrowLength)
+//     return Status::OK();
+//   int64_t arrowEnd = arrowOffset + arrowLength;
+//   int64_t initORCOffset = orcOffset;
+//   if (array->null_count())
+//     batch->hasNulls = true;
+//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+//     if (array->IsNull(arrowOffset)) {
+//       batch->notNull[orcOffset] = false;
+//     }
+//     else {
+//       char* rawInt128 = const_cast<char *>(array->GetString(arrowOffset).c_str());
+//       uint64_t * lowerBits = reinterpret_cast<uint64_t *>(rawInt128);
+//       int64_t * higherBits = reinterpret_cast<int64_t *>(rawInt128 + 8);
+//       batch->values[orcOffset] = liborc::Int128(*higherBits, *lowerBits);
+//     }
+//   }
+//   batch->numElements += orcOffset - initORCOffset;
+//   return Status::OK();
+// }
 
 // Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
 //   auto array = checked_cast<StructArray*>(parray);
@@ -463,16 +499,18 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
     case Type::type::NA:
       cbatch = nullptr; //Makes cbatch nullptr
       break;
+    case Type::type::BOOL:
+      return FillNumericBatchCast<BooleanArray, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::INT8:
-      return FillNumericBatch<NumericArray<arrow::Int8Type>, liborc::LongVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillNumericBatchCast<NumericArray<arrow::Int8Type>, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::INT16:
-      return FillNumericBatch<NumericArray<arrow::Int16Type>, liborc::LongVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillNumericBatchCast<NumericArray<arrow::Int16Type>, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::INT32:
-      return FillNumericBatch<NumericArray<arrow::Int32Type>, liborc::LongVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillNumericBatchCast<NumericArray<arrow::Int32Type>, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::INT64:
       return FillNumericBatch<NumericArray<arrow::Int64Type>, liborc::LongVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::FLOAT:
-      return FillNumericBatch<NumericArray<arrow::FloatType>, liborc::DoubleVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillNumericBatchCast<NumericArray<arrow::FloatType>, liborc::DoubleVectorBatch, double>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::DOUBLE:
       return FillNumericBatch<NumericArray<arrow::DoubleType>, liborc::DoubleVectorBatch>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::BINARY:
@@ -485,8 +523,10 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
       return FillBinaryBatch<LargeStringArray>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::FIXED_SIZE_BINARY:
       return FillFixedSizeBinaryBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
-    case Type::type::DECIMAL:
-      return FillDecimalBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::DATE32:
+      return FillNumericBatchCast<NumericArray<arrow::Date32Type>, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
+    // case Type::type::DECIMAL:
+    //   return FillDecimalBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
