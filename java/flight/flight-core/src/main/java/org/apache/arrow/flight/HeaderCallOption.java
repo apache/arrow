@@ -36,13 +36,11 @@ public class HeaderCallOption implements CallOptions.GrpcCallOption {
   public HeaderCallOption(CallHeaders headers) {
     for (String key : headers.keys()) {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-        propertiesMetadata.put(
-            Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER),
-            headers.getByte(key));
+        final Metadata.Key<byte[]> metaKey = Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER);
+        headers.getAllByte(key).forEach(v -> propertiesMetadata.put(metaKey, v));
       } else {
-        propertiesMetadata.put(
-            Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER),
-            headers.get(key));
+        final Metadata.Key<String> metaKey = Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
+        headers.getAll(key).forEach(v -> propertiesMetadata.put(metaKey, v));
       }
     }
   }

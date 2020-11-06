@@ -40,20 +40,30 @@ public class FlightCallHeaders implements CallHeaders {
 
   @Override
   public String get(String key) {
-    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return new String((byte[]) Iterables.get(this.keysAndValues.get(key), 0));
+    final Collection<Object> values = this.keysAndValues.get(key);
+    if (values.isEmpty()) {
+      return null;
     }
 
-    return (String) Iterables.get(this.keysAndValues.get(key), 0);
+    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+      return new String((byte[]) Iterables.get(values, 0));
+    }
+
+    return (String) Iterables.get(values, 0);
   }
 
   @Override
   public byte[] getByte(String key) {
-    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return (byte[]) Iterables.get(this.keysAndValues.get(key), 0);
+    final Collection<Object> values = this.keysAndValues.get(key);
+    if (values.isEmpty()) {
+      return null;
     }
 
-    return ((String) Iterables.get(this.keysAndValues.get(key), 0)).getBytes();
+    if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+      return (byte[]) Iterables.get(values, 0);
+    }
+
+    return ((String) Iterables.get(values, 0)).getBytes();
   }
 
   @Override
