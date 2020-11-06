@@ -504,6 +504,12 @@ fn array_from_json(
             Ok(Arc::new(array))
         }
         DataType::Dictionary(key_type, value_type) => {
+            let dict_id = field.dict_id().ok_or_else(|| {
+                ArrowError::JsonError(format!(
+                    "Unable to find dict_id for field {:?}",
+                    field
+                ))
+            })?;
             // find dictionary
             let dictionary = dictionaries
                 .ok_or_else(|| {
@@ -512,7 +518,7 @@ fn array_from_json(
                         field
                     ))
                 })?
-                .get(&field.dict_id());
+                .get(&dict_id);
             match dictionary {
                 Some(dictionary) => dictionary_array_from_json(
                     field, json_col, key_type, value_type, dictionary,
@@ -551,8 +557,12 @@ fn dictionary_array_from_json(
                 "key",
                 dict_key.clone(),
                 field.is_nullable(),
-                field.dict_id(),
-                field.dict_is_ordered(),
+                field
+                    .dict_id()
+                    .expect("Dictionary fields must have a dict_id value"),
+                field
+                    .dict_is_ordered()
+                    .expect("Dictionary fields must have a dict_is_ordered value"),
             );
             let keys = array_from_json(&key_field, json_col, None)?;
             // note: not enough info on nullability of dictionary
