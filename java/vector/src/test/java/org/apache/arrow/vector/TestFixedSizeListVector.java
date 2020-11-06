@@ -402,6 +402,34 @@ public class TestFixedSizeListVector {
     }
   }
 
+  @Test
+  public void testZeroWidthVector() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 0, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {};
+      int[] values2 = new int[] {};
+      int[] values3 = new int[] {};
+
+      //set some values
+      writeListVector(writer1, values1);
+      writeListVector(writer1, values2);
+      writeListVector(writer1, values3);
+      writer1.setValueCount(3);
+
+      assertEquals(3, vector1.getValueCount());
+
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+      int[] realValue3 = convertListToIntArray((JsonStringArrayList) vector1.getObject(2));
+      assertTrue(Arrays.equals(values3, realValue3));
+    }
+  }
+  
   private int[] convertListToIntArray(JsonStringArrayList list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
