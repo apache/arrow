@@ -32,7 +32,7 @@ namespace internal {
 template <class FUNCTION>
 Status ParallelFor(int num_tasks, FUNCTION&& func) {
   auto pool = internal::GetCpuThreadPool();
-  std::vector<Future<Status>> futures(num_tasks);
+  std::vector<Future<>> futures(num_tasks);
 
   for (int i = 0; i < num_tasks; ++i) {
     ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(func, i));

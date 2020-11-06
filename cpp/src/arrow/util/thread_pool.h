@@ -64,14 +64,39 @@ namespace detail {
 // Make sure that both functions returning T and Result<T> can be called
 // through Executor::Submit(), and that a Future<T> is returned for both.
 template <typename T>
-struct ExecutorResultTraits {
-  using ValueType = T;
+struct ExecutorSubmitTraits {
+  using FutureType = Future<T>;
+};
+template <typename T>
+struct ExecutorSubmitTraits<Result<T>> {
+  using FutureType = Future<T>;
 };
 
-template <typename T>
-struct ExecutorResultTraits<Result<T>> {
-  using ValueType = T;
+// Make sure that both functions returning Status and void can be called
+// through Executor::Submit(), and that a Future<> is returned for both.
+template <>
+struct ExecutorSubmitTraits<Status> {
+  using FutureType = Future<>;
 };
+template <>
+struct ExecutorSubmitTraits<void> {
+  using FutureType = Future<>;
+};
+
+template <typename T, typename F>
+typename std::enable_if<
+    !std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
+ExecuteAndMarkFinished(Future<T>* fut, F&& f) {
+  fut->MarkFinished(std::forward<F>(f)());
+}
+
+template <typename F>
+typename std::enable_if<
+    std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
+ExecuteAndMarkFinished(Future<>* fut, F&& f) {
+  std::forward<F>(f)();
+  fut->MarkFinished();
+}
 
 }  // namespace detail
 
@@ -100,7 +125,7 @@ class ARROW_EXPORT Executor {
 
   template <typename Function>
   Status Spawn(TaskHints hints, Function&& func) {
-    return SpawnReal(std::move(hints), std::forward<Function>(func));
+    return SpawnReal(hints, std::forward<Function>(func));
   }
 
   // Submit a callable and arguments for execution.  Return a future that
@@ -108,33 +133,31 @@ class ARROW_EXPORT Executor {
   // The callable's arguments are copied before execution.
   template <
       typename Function, typename... Args,
-      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename ValueType =
-          typename detail::ExecutorResultTraits<FunctionRetType>::ValueType>
-  Result<Future<ValueType>> Submit(TaskHints hints, Function&& func, Args&&... args) {
+      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
+      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
+  Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
     auto bound_func =
         std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
     using BoundFuncType = decltype(bound_func);
 
     struct Task {
       BoundFuncType bound_func;
-      Future<ValueType> future;
+      FutureType future;
 
       void operator()() {
-        ::arrow::detail::ExecuteAndMarkFinished(&future, std::move(bound_func));
+        detail::ExecuteAndMarkFinished(&future, std::move(bound_func));
       }
     };
-    auto future = Future<ValueType>::Make();
-    ARROW_RETURN_NOT_OK(SpawnReal(std::move(hints), Task{std::move(bound_func), future}));
+    auto future = FutureType::Make();
+    ARROW_RETURN_NOT_OK(SpawnReal(hints, Task{std::move(bound_func), future}));
     return future;
   }
 
   template <
       typename Function, typename... Args,
-      typename FunctionRetType = typename std::result_of<Function && (Args && ...)>::type,
-      typename ValueType =
-          typename detail::ExecutorResultTraits<FunctionRetType>::ValueType>
-  Result<Future<ValueType>> Submit(Function&& func, Args&&... args) {
+      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
+      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
+  Result<FutureType> Submit(Function&& func, Args&&... args) {
     return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
   }
 
@@ -163,7 +186,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
 
   // Destroy thread pool; the pool will first be shut down
-  ~ThreadPool();
+  ~ThreadPool() override;
 
   // Return the desired number of worker threads.
   // The actual number of workers may lag a bit before being adjusted to
