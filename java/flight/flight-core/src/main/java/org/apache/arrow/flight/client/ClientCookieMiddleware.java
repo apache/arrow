@@ -36,6 +36,10 @@ import org.slf4j.LoggerFactory;
  * A client middleware for receiving and sending cookie information.
  * Note that this class will not persist permanent cookies beyond the lifetime
  * of this session.
+ *
+ * This middleware will automatically remove cookies that have expired.
+ * <b>Note</b>: Negative max-age values currently do not get marked as expired due to
+ * a JDK issue. Use max-age=0 to explicitly remove an existing cookie.
  */
 public class ClientCookieMiddleware implements FlightClientMiddleware {
   private static final Logger LOGGER = LoggerFactory.getLogger(ClientCookieMiddleware.class);
