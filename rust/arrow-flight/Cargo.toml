@@ -27,10 +27,7 @@ license = "Apache-2.0"
 
 [dependencies]
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
-tonic = "0.3.1"
-# version 0.3.1 has undeclared dependency on tower-util 0.3.1
-# https://github.com/hyperium/tonic/issues/480
-tower-util = "0.3.1"
+tonic = "0.3"
 bytes = "0.5"
 prost = "0.6"
 prost-derive = "0.6"
