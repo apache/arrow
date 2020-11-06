@@ -693,12 +693,6 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
             assert!(arrow_batch.num_rows() == json_batch.num_rows());
 
             for i in 0..num_columns {
-                // println!(
-                //     "Comparing arrays with types: {:?} and {:?} and length {:?}",
-                //     arrow_batch.column(i).data_type(),
-                //     json_batch.column(i).data_type(),
-                //     arrow_batch.num_rows()
-                // );
                 assert_eq!(
                     arrow_batch.column(i).data(),
                     json_batch.column(i).data(),

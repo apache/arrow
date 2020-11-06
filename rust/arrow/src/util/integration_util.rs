@@ -155,7 +155,6 @@ impl ArrowJsonSchema {
 impl ArrowJsonField {
     /// Compare the Arrow JSON field with the Arrow `Field`
     fn equals_field(&self, field: &Field) -> bool {
-        dbg!((&self, &field));
         // convert to a field
         match self.to_arrow_field() {
             Ok(self_field) => {
