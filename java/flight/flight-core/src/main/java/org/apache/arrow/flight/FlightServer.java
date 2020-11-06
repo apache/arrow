@@ -196,6 +196,9 @@ public class FlightServer implements AutoCloseable {
         this.middleware(FlightServerMiddleware.Key.of(Auth2Constants.AUTHORIZATION_HEADER),
             new ServerCallHeaderAuthMiddleware.Factory(headerAuthenticator));
       }
+
+      this.middleware(FlightConstants.HEADER_KEY, new ServerHeaderMiddleware.Factory());
+
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
         case LocationSchemes.GRPC_DOMAIN_SOCKET: {

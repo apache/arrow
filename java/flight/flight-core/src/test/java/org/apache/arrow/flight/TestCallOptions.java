@@ -30,6 +30,8 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import io.grpc.Metadata;
+
 public class TestCallOptions {
 
   @Test
@@ -64,10 +66,63 @@ public class TestCallOptions {
     });
   }
 
+  @Test
+  public void singleProperty() {
+    final FlightCallHeaders headers = new FlightCallHeaders();
+    headers.insert("key", "value");
+    testHeaders(headers);
+  }
+
+  @Test
+  public void multipleProperties() {
+    final FlightCallHeaders headers = new FlightCallHeaders();
+    headers.insert("key", "value");
+    headers.insert("key2", "value2");
+    testHeaders(headers);
+  }
+
+  @Test
+  public void binaryProperties() {
+    final FlightCallHeaders headers = new FlightCallHeaders();
+    headers.insert("key-bin", "value".getBytes());
+    headers.insert("key3-bin", "ëfßæ".getBytes());
+    testHeaders(headers);
+  }
+
+  @Test
+  public void mixedProperties() {
+    final FlightCallHeaders headers = new FlightCallHeaders();
+    headers.insert("key", "value");
+    headers.insert("key3-bin", "ëfßæ".getBytes());
+    testHeaders(headers);
+  }
+
+  private void testHeaders(CallHeaders headers) {
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        HeaderProducer producer = new HeaderProducer();
+        FlightServer s =
+            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
+      client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext();
+
+      final CallHeaders incomingHeaders = producer.headers();
+      for (String key : headers.keys()) {
+        if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+          Assert.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
+        } else {
+          Assert.assertEquals(headers.get(key), incomingHeaders.get(key));
+        }
+      }
+    } catch (InterruptedException | IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   void test(Consumer<FlightClient> testFn) {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        Producer producer = new Producer(a);
+        Producer producer = new Producer();
         FlightServer s =
             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
@@ -77,12 +132,27 @@ public class TestCallOptions {
     }
   }
 
+  static class HeaderProducer extends NoOpFlightProducer implements AutoCloseable {
+    CallHeaders headers;
+
+    @Override
+    public void close() {
+    }
+
+    public CallHeaders headers() {
+      return headers;
+    }
+
+    @Override
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+      this.headers = context.getMiddleware(FlightConstants.HEADER_KEY).headers();
+      listener.onCompleted();
+    }
+  }
+
   static class Producer extends NoOpFlightProducer implements AutoCloseable {
 
-    private final BufferAllocator allocator;
-
-    Producer(BufferAllocator allocator) {
-      this.allocator = allocator;
+    Producer() {
     }
 
     @Override
