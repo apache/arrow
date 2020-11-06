@@ -31,6 +31,7 @@ use arrow::{
     array::Float32Array,
     array::Float64Array,
     array::StringArray,
+    array::UInt64Array,
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -62,6 +63,21 @@ fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
         .collect()
 }
 
+fn create_integer_data(size: usize, value_density: f64) -> Vec<Option<u64>> {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = rand::thread_rng();
+
+    (0..size)
+        .map(|_| {
+            if rng.gen::<f64>() > value_density {
+                None
+            } else {
+                Some(rng.gen::<u64>())
+            }
+        })
+        .collect()
+}
+
 fn create_context(
     partitions_len: usize,
     array_len: usize,
@@ -72,6 +88,14 @@ fn create_context(
         Field::new("utf8", DataType::Utf8, false),
         Field::new("f32", DataType::Float32, false),
         Field::new("f64", DataType::Float64, false),
+        // This field will contain integers randomly selected from a large
+        // range of values, i.e. [0, u64::MAX], such that there are none (or
+        // very few) repeated values.
+        Field::new("u64_wide", DataType::UInt64, false),
+        // This field will contain integers randomly selected from a narrow
+        // range of values such that there are a few distinct values, but they
+        // are repeated often.
+        Field::new("u64_narrow", DataType::UInt64, false),
     ]));
 
     // define data.
@@ -92,12 +116,27 @@ fn create_context(
 
                     let values = create_data(batch_size, 0.5);
 
+                    // Integer values between [0, u64::MAX].
+                    let integer_values_wide = create_integer_data(batch_size, 9.0);
+
+                    // Integer values between [0, 9].
+                    let integer_values_narrow_choices = (0..10).collect::<Vec<u64>>();
+                    let integer_values_narrow = (0..batch_size)
+                        .map(|_| {
+                            *integer_values_narrow_choices
+                                .choose(&mut rand::thread_rng())
+                                .unwrap()
+                        })
+                        .collect::<Vec<u64>>();
+
                     RecordBatch::try_new(
                         schema.clone(),
                         vec![
                             Arc::new(StringArray::from(keys)),
                             Arc::new(Float32Array::from(vec![i as f32; batch_size])),
                             Arc::new(Float64Array::from(values)),
+                            Arc::new(UInt64Array::from(integer_values_wide)),
+                            Arc::new(UInt64Array::from(integer_values_narrow)),
                         ],
                     )
                     .unwrap()
@@ -130,6 +169,32 @@ fn criterion_benchmark(c: &mut Criterion) {
             )
         })
     });
+
+    c.bench_function(
+        "aggregate_query_no_group_by_count_distinct_wide 15 12",
+        |b| {
+            b.iter(|| {
+                query(
+                    ctx.clone(),
+                    "SELECT COUNT(DISTINCT u64_wide) \
+                 FROM t",
+                )
+            })
+        },
+    );
+
+    c.bench_function(
+        "aggregate_query_no_group_by_count_distinct_narrow 15 12",
+        |b| {
+            b.iter(|| {
+                query(
+                    ctx.clone(),
+                    "SELECT COUNT(DISTINCT u64_narrow) \
+                 FROM t",
+                )
+            })
+        },
+    );
 
     c.bench_function("aggregate_query_group_by 15 12", |b| {
         b.iter(|| {
