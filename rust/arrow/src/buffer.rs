@@ -845,7 +845,7 @@ mod tests {
     #[test]
     fn test_buffer_data_equality() {
         let buf1 = Buffer::from(&[0, 1, 2, 3, 4]);
-        let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
+        let buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(buf1, buf2);
 
         // slice with same offset should still preserve equality
@@ -854,12 +854,20 @@ mod tests {
         let buf4 = buf2.slice(2);
         assert_eq!(buf3, buf4);
 
+        // Different capacities should still preserve equality
+        let mut buf2 = MutableBuffer::new(65);
+        buf2.write_all(&[0, 1, 2, 3, 4])
+            .expect("write should be OK");
+
+        let buf2 = buf2.freeze();
+        assert_eq!(buf1, buf2);
+
         // unequal because of different elements
-        buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
+        let buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
         assert_ne!(buf1, buf2);
 
         // unequal because of different length
-        buf2 = Buffer::from(&[0, 1, 2, 3]);
+        let buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert_ne!(buf1, buf2);
     }
 

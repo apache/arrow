@@ -911,17 +911,7 @@ mod tests {
             let expected_data = expected_batch.column(i).data();
             let actual_data = actual_batch.column(i).data();
 
-            assert_eq!(expected_data.data_type(), actual_data.data_type());
-            assert_eq!(expected_data.len(), actual_data.len());
-            assert_eq!(expected_data.null_count(), actual_data.null_count());
-            assert_eq!(expected_data.offset(), actual_data.offset());
-            assert_eq!(expected_data.buffers(), actual_data.buffers());
-            assert_eq!(expected_data.child_data(), actual_data.child_data());
-            // Null counts should be the same, not necessarily bitmaps
-            // A null bitmap is optional if an array has no nulls
-            if expected_data.null_count() != 0 {
-                assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
-            }
+            assert_eq!(expected_data, actual_data);
         }
     }
 
@@ -1198,7 +1188,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Binary support isn't correct yet - buffers don't match
     fn binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1209,7 +1198,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large binary support isn't correct yet - buffers don't match
     fn large_binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
