@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
@@ -105,7 +106,7 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
 fn record_batch_from_json(
     schema: &Schema,
     json_batch: ArrowJsonBatch,
-    json_dictionaries: &[ArrowJsonDictionaryBatch],
+    json_dictionaries: Option<&HashMap<i64, ArrowJsonDictionaryBatch>>,
 ) -> Result<RecordBatch> {
     let mut columns = vec![];
 
@@ -121,7 +122,7 @@ fn record_batch_from_json(
 fn array_from_json(
     field: &Field,
     json_col: ArrowJsonColumn,
-    dictionaries: &[ArrowJsonDictionaryBatch],
+    dictionaries: Option<&HashMap<i64, ArrowJsonDictionaryBatch>>,
 ) -> Result<ArrayRef> {
     match field.data_type() {
         DataType::Null => Ok(Arc::new(NullArray::new(json_col.count))),
@@ -504,7 +505,14 @@ fn array_from_json(
         }
         DataType::Dictionary(key_type, value_type) => {
             // find dictionary
-            let dictionary = dictionaries.iter().find(|d| d.id == field.dict_id());
+            let dictionary = dictionaries
+                .ok_or_else(|| {
+                    ArrowError::JsonError(format!(
+                        "Unable to find any dictionaries for field {:?}",
+                        field
+                    ))
+                })?
+                .get(&field.dict_id());
             match dictionary {
                 Some(dictionary) => dictionary_array_from_json(
                     field, json_col, key_type, value_type, dictionary,
@@ -546,12 +554,12 @@ fn dictionary_array_from_json(
                 field.dict_id(),
                 field.dict_is_ordered(),
             );
-            let keys = array_from_json(&key_field, json_col, &[])?;
+            let keys = array_from_json(&key_field, json_col, None)?;
             // note: not enough info on nullability of dictionary
             let value_field = Field::new("value", dict_value.clone(), true);
             println!("dictionary value type: {:?}", dict_value);
             let values =
-                array_from_json(&value_field, dictionary.data.columns[0].clone(), &[])?;
+                array_from_json(&value_field, dictionary.data.columns[0].clone(), None)?;
 
             // convert key and value to dictionary data
             let dict_data = ArrayData::builder(field.data_type().clone())
@@ -706,7 +714,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
 struct ArrowFile {
     schema: Schema,
     // we can evolve this into a concrete Arrow type
-    dictionaries: Vec<ArrowJsonDictionaryBatch>,
+    dictionaries: HashMap<i64, ArrowJsonDictionaryBatch>,
     batches: Vec<RecordBatch>,
 }
 
@@ -716,7 +724,7 @@ fn read_json_file(json_name: &str) -> Result<ArrowFile> {
     let arrow_json: Value = serde_json::from_reader(reader).unwrap();
     let schema = Schema::from(&arrow_json["schema"])?;
     // read dictionaries
-    let mut dictionaries = vec![];
+    let mut dictionaries = HashMap::new();
     if let Some(dicts) = arrow_json.get("dictionaries") {
         for d in dicts
             .as_array()
@@ -725,14 +733,14 @@ fn read_json_file(json_name: &str) -> Result<ArrowFile> {
             let json_dict: ArrowJsonDictionaryBatch = serde_json::from_value(d.clone())
                 .expect("Unable to get dictionary from JSON");
             // TODO: convert to a concrete Arrow type
-            dictionaries.push(json_dict);
+            dictionaries.insert(json_dict.id, json_dict);
         }
     }
 
     let mut batches = vec![];
     for b in arrow_json["batches"].as_array().unwrap() {
         let json_batch: ArrowJsonBatch = serde_json::from_value(b.clone()).unwrap();
-        let batch = record_batch_from_json(&schema, json_batch, dictionaries.as_slice())?;
+        let batch = record_batch_from_json(&schema, json_batch, Some(&dictionaries))?;
         batches.push(batch);
     }
     Ok(ArrowFile {
