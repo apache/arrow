@@ -20,6 +20,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <utility>
 
@@ -49,25 +50,14 @@ class SerialTaskGroup : public TaskGroup {
   Status Finish() override {
     if (!finished_) {
       finished_ = true;
-      if (parent_) {
-        parent_->status_ &= status_;
-      }
     }
     return status_;
   }
 
   int parallelism() override { return 1; }
 
-  std::shared_ptr<TaskGroup> MakeSubGroup() override {
-    auto child = new SerialTaskGroup();
-    child->parent_ = this;
-    return std::shared_ptr<TaskGroup>(child);
-  }
-
- protected:
   Status status_;
   bool finished_ = false;
-  SerialTaskGroup* parent_ = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -91,14 +81,17 @@ class ThreadedTaskGroup : public TaskGroup {
       nremaining_.fetch_add(1, std::memory_order_acquire);
 
       auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
-      Status st = executor_->Spawn([self, task]() {
-        if (self->ok_.load(std::memory_order_acquire)) {
-          // XXX what about exceptions?
-          Status st = task();
-          self->UpdateStatus(std::move(st));
-        }
-        self->OneTaskDone();
-      });
+      Status st = executor_->Spawn(std::bind(
+          [](const std::shared_ptr<ThreadedTaskGroup>& self,
+             const std::function<Status()>& task) {
+            if (self->ok_.load(std::memory_order_acquire)) {
+              // XXX what about exceptions?
+              Status st = task();
+              self->UpdateStatus(std::move(st));
+            }
+            self->OneTaskDone();
+          },
+          std::move(self), std::move(task)));
       UpdateStatus(std::move(st));
     }
   }
@@ -116,25 +109,15 @@ class ThreadedTaskGroup : public TaskGroup {
       cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
       // Current tasks may start other tasks, so only set this when done
       finished_ = true;
-      if (parent_) {
-        parent_->OneTaskDone();
-      }
+      completion_future_.MarkFinished(status_);
     }
     return status_;
   }
 
   int parallelism() override { return executor_->GetCapacity(); }
 
-  std::shared_ptr<TaskGroup> MakeSubGroup() override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto child = new ThreadedTaskGroup(executor_);
-    child->parent_ = this;
-    nremaining_.fetch_add(1, std::memory_order_acquire);
-    return std::shared_ptr<TaskGroup>(child);
-  }
-
  protected:
-  void UpdateStatus(Status&& st) {
+  void UpdateStatus(const Status& st) {
     // Must be called unlocked, only locks on error
     if (ARROW_PREDICT_FALSE(!st.ok())) {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -159,13 +142,13 @@ class ThreadedTaskGroup : public TaskGroup {
   Executor* executor_;
   std::atomic<int32_t> nremaining_;
   std::atomic<bool> ok_;
+  Future<> completion_future_ = Future<>::Make();
 
   // These members use locking
   std::mutex mutex_;
   std::condition_variable cv_;
   Status status_;
   bool finished_ = false;
-  ThreadedTaskGroup* parent_ = nullptr;
 };
 
 std::shared_ptr<TaskGroup> TaskGroup::MakeSerial() {

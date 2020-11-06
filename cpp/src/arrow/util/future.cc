@@ -229,6 +229,16 @@ class ConcreteFutureImpl : public FutureImpl {
 
   void DoMarkFailed() { DoMarkFinishedOrFailed(FutureState::FAILURE); }
 
+  void AddCallback(Callback callback) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (IsFutureFinished(state_)) {
+      lock.unlock();
+      std::move(callback)();
+    } else {
+      callbacks_.push_back(std::move(callback));
+    }
+  }
+
   void DoMarkFinishedOrFailed(FutureState state) {
     {
       // Lock the hypothetical waiter first, and the future after.
@@ -243,6 +253,12 @@ class ConcreteFutureImpl : public FutureImpl {
       }
     }
     cv_.notify_all();
+
+    // run callbacks
+    for (auto&& callback : callbacks_) {
+      std::move(callback)();
+    }
+    callbacks_.clear();
   }
 
   void DoWait() {
@@ -300,5 +316,9 @@ bool FutureImpl::Wait(double seconds) { return GetConcreteFuture(this)->DoWait(s
 void FutureImpl::MarkFinished() { GetConcreteFuture(this)->DoMarkFinished(); }
 
 void FutureImpl::MarkFailed() { GetConcreteFuture(this)->DoMarkFailed(); }
+
+void FutureImpl::AddCallback(Callback callback) {
+  GetConcreteFuture(this)->AddCallback(std::move(callback));
+}
 
 }  // namespace arrow

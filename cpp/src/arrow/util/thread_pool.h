@@ -59,47 +59,6 @@ ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
 
-namespace detail {
-
-// Make sure that both functions returning T and Result<T> can be called
-// through Executor::Submit(), and that a Future<T> is returned for both.
-template <typename T>
-struct ExecutorSubmitTraits {
-  using FutureType = Future<T>;
-};
-template <typename T>
-struct ExecutorSubmitTraits<Result<T>> {
-  using FutureType = Future<T>;
-};
-
-// Make sure that both functions returning Status and void can be called
-// through Executor::Submit(), and that a Future<> is returned for both.
-template <>
-struct ExecutorSubmitTraits<Status> {
-  using FutureType = Future<>;
-};
-template <>
-struct ExecutorSubmitTraits<void> {
-  using FutureType = Future<>;
-};
-
-template <typename T, typename F>
-typename std::enable_if<
-    !std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
-ExecuteAndMarkFinished(Future<T>* fut, F&& f) {
-  fut->MarkFinished(std::forward<F>(f)());
-}
-
-template <typename F>
-typename std::enable_if<
-    std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
-ExecuteAndMarkFinished(Future<>* fut, F&& f) {
-  std::forward<F>(f)();
-  fut->MarkFinished();
-}
-
-}  // namespace detail
-
 // Hints about a task that may be used by an Executor.
 // They are ignored by the provided ThreadPool implementation.
 struct TaskHints {
@@ -131,32 +90,22 @@ class ARROW_EXPORT Executor {
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
-  template <
-      typename Function, typename... Args,
-      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
-      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
+  template <typename Function, typename... Args,
+            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
+                Function && (Args && ...)>>
   Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
-    auto bound_func =
-        std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
-    using BoundFuncType = decltype(bound_func);
-
-    struct Task {
-      BoundFuncType bound_func;
-      FutureType future;
-
-      void operator()() {
-        detail::ExecuteAndMarkFinished(&future, std::move(bound_func));
-      }
-    };
     auto future = FutureType::Make();
-    ARROW_RETURN_NOT_OK(SpawnReal(hints, Task{std::move(bound_func), future}));
+
+    auto task = std::bind(::arrow::detail::Continue, future, std::forward<Function>(func),
+                          std::forward<Args>(args)...);
+    ARROW_RETURN_NOT_OK(SpawnReal(hints, std::move(task)));
+
     return future;
   }
 
-  template <
-      typename Function, typename... Args,
-      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
-      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
+  template <typename Function, typename... Args,
+            typename FutureType = typename ::arrow::detail::ContinueFuture::ForSignature<
+                Function && (Args && ...)>>
   Result<FutureType> Submit(Function&& func, Args&&... args) {
     return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
   }

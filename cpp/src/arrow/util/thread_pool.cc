@@ -32,10 +32,10 @@
 namespace arrow {
 namespace internal {
 
-Executor::~Executor() {}
+Executor::~Executor() = default;
 
 struct ThreadPool::State {
-  State() : desired_capacity_(0), please_shutdown_(false), quick_shutdown_(false) {}
+  State() = default;
 
   // NOTE: in case locking becomes too expensive, we can investigate lock-free FIFOs
   // such as https://github.com/cameron314/concurrentqueue
@@ -50,10 +50,10 @@ struct ThreadPool::State {
   std::deque<std::function<void()>> pending_tasks_;
 
   // Desired number of threads
-  int desired_capacity_;
+  int desired_capacity_ = 0;
   // Are we shutting down?
-  bool please_shutdown_;
-  bool quick_shutdown_;
+  bool please_shutdown_ = false;
+  bool quick_shutdown_ = false;
 };
 
 // The worker loop is an independent function so that it can keep running
