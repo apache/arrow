@@ -1159,7 +1159,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     elif compression is not None:
         for column, codec in compression.iteritems():
             check_compression_name(codec)
-            props.compression(column, compression_from_name(codec))
+            props.compression(tobytes(column), compression_from_name(codec))
 
     if isinstance(compression_level, int):
         props.compression_level(compression_level)

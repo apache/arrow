@@ -838,6 +838,11 @@ def test_compression_level(use_legacy_dataset):
                      compression_level=5,
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check that the user can provide a compression per column
+    _check_roundtrip(table, expected=table,
+                     compression={'a': "gzip", 'b': "snappy"},
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Check that the user can provide a compression level per column
     _check_roundtrip(table, expected=table, compression="gzip",
                      compression_level={'a': 2, 'b': 3},
