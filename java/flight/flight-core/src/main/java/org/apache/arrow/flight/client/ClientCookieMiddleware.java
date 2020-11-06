@@ -19,6 +19,7 @@ package org.apache.arrow.flight.client;
 
 import java.net.HttpCookie;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -72,7 +73,14 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
       newCookieHeaderValues.forEach(headerValue -> {
         try {
           final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
-          parsedCookies.forEach(parsedCookie -> cookies.put(parsedCookie.getName(), parsedCookie));
+          parsedCookies.forEach(parsedCookie -> {
+            final String cookieNameLc = parsedCookie.getName().toLowerCase(Locale.ENGLISH);
+            if (parsedCookie.hasExpired()) {
+              cookies.remove(cookieNameLc);
+            } else {
+              cookies.put(parsedCookie.getName().toLowerCase(Locale.ENGLISH), parsedCookie);
+            }
+          });
         } catch (IllegalArgumentException ex) {
           LOGGER.warn("Skipping incorrectly formatted Set-Cookie header with value '{}'.", headerValue);
         }

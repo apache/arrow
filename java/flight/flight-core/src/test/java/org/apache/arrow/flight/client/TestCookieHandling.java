@@ -132,8 +132,10 @@ public class TestCookieHandling {
     // Note: using max-age changes cookie version from 0->1, which quotes values.
     Assert.assertEquals("k=\"v\"", cookieMiddleware.getValidCookiesAsString());
 
+    // Note: The JDK treats Max-Age < 0 as not expired and treats 0 as expired.
+    // This violates the RFC, which states that less than zero and zero should both be expired.
     headersToSend = new ErrorFlightMetadata();
-    headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=-2");
+    headersToSend.insert(SET_COOKIE_HEADER, "k=v; Max-Age=0");
     cookieMiddleware = testFactory.onCallStarted(new CallInfo(FlightMethod.DO_ACTION));
     cookieMiddleware.onHeadersReceived(headersToSend);
 
