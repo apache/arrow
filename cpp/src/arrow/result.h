@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <new>
 #include <string>
 #include <type_traits>
@@ -423,6 +424,8 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 
   void Destroy() {
     if (ARROW_PREDICT_TRUE(status_.ok())) {
+      static_assert(offsetof(Result<T>, status_) == 0,
+                    "Status is guaranteed to be at the start of Result<>");
       internal::launder(reinterpret_cast<const T*>(&data_))->~T();
     }
   }

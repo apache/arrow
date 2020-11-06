@@ -135,11 +135,6 @@ class ARROW_EXPORT FutureWaiter {
 
 namespace detail {
 
-template <typename T>
-struct FutureStoredType {
-  using type = T;
-};
-
 struct Empty {
   static Result<Empty> ToResult(Status s) {
     if (ARROW_PREDICT_TRUE(s.ok())) {
@@ -150,16 +145,6 @@ struct Empty {
 
   template <typename T>
   using EnableIfSame = typename std::enable_if<std::is_same<Empty, T>::value>::type;
-};
-
-// Future<Status> and Future<void> just store a Status.
-template <>
-struct FutureStoredType<Status> {
-  using type = Empty;
-};
-template <>
-struct FutureStoredType<void> {
-  using type = Empty;
 };
 
 }  // namespace detail
@@ -178,10 +163,10 @@ struct FutureStoredType<void> {
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, or wait on multiple Futures at once (using WaitForAll,
 /// WaitForAny or AsCompletedIterator).
-template <typename T = void>
+template <typename T = detail::Empty>
 class Future {
  public:
-  using ValueType = typename detail::FutureStoredType<T>::type;
+  using ValueType = T;
   static constexpr double kInfinity = FutureImpl::kInfinity;
 
   // The default constructor creates an invalid Future.  Use Future::Make()
@@ -215,6 +200,14 @@ class Future {
   /// \brief Wait for the Future to complete and return its Status
   const Status& status() const { return result().status(); }
 
+  /// \brief Future<T> is convertible to Future<>, which views only the
+  /// Status of the original. Marking this Future Finished is not supported.
+  explicit operator Future<>() const {
+    Future<> status_future;
+    status_future.impl_ = impl_;
+    return status_future;
+  }
+
   /// \brief Wait for the Future to complete
   void Wait() const {
     CheckValid();
@@ -243,7 +236,7 @@ class Future {
   /// The Future's result is set to `res`.
   void MarkFinished(Result<ValueType> res) { DoMarkFinished(std::move(res)); }
 
-  /// \brief Mark a Future<void> or Future<Status> completed with the provided Status.
+  /// \brief Mark a Future<> or Future<> completed with the provided Status.
   template <typename E = ValueType>
   detail::Empty::EnableIfSame<E> MarkFinished(Status s = Status::OK()) {
     return DoMarkFinished(E::ToResult(std::move(s)));
@@ -270,7 +263,7 @@ class Future {
     return fut;
   }
 
-  /// \brief Make a finished Future<void> or Future<Status> with the provided Status.
+  /// \brief Make a finished Future<> or Future<> with the provided Status.
   template <typename E = ValueType>
   detail::Empty::EnableIfSame<E> MakeFinished(Status s = Status::OK()) {
     return MakeFinished(E::ToResult(std::move(s)));
@@ -307,6 +300,9 @@ class Future {
   std::shared_ptr<FutureImpl> impl_;
 
   friend class FutureWaiter;
+
+  template <typename U>
+  friend class Future;
 };
 
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future
@@ -318,21 +314,6 @@ static Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
   }
   return std::move(maybe_future).MoveValueUnsafe();
 }
-
-namespace detail {
-
-template <typename T, typename F>
-void ExecuteAndMarkFinished(Future<T>* fut, F&& f) {
-  fut->MarkFinished(std::forward<F>(f)());
-}
-
-template <typename F>
-void ExecuteAndMarkFinished(Future<void>* fut, F&& f) {
-  std::forward<F>(f)();
-  fut->MarkFinished(detail::Empty{});
-}
-
-}  // namespace detail
 
 /// \brief Wait for all the futures to end, or for the given timeout to expire.
 ///

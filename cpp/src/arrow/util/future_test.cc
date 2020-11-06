@@ -70,9 +70,9 @@ struct MoveOnlyDataType {
   MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
   MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
 
-  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(other); }
+  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
   MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
-    MoveFrom(other);
+    MoveFrom(&other);
     return *this;
   }
 
@@ -85,10 +85,10 @@ struct MoveOnlyDataType {
     }
   }
 
-  void MoveFrom(MoveOnlyDataType& other) {
+  void MoveFrom(MoveOnlyDataType* other) {
     Destroy();
-    data = other.data;
-    other.data = nullptr;
+    data = other->data;
+    other->data = nullptr;
   }
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
@@ -158,9 +158,9 @@ IteratorResults<T> IteratorToResults(Iterator<T> iterator) {
 }
 
 // So that main thread may wait a bit for a future to be finished
-static const auto kYieldDuration = std::chrono::microseconds(50);
-static const double kTinyWait = 1e-5;  // seconds
-static const double kLargeWait = 5.0;  // seconds
+constexpr auto kYieldDuration = std::chrono::microseconds(50);
+constexpr double kTinyWait = 1e-5;  // seconds
+constexpr double kLargeWait = 5.0;  // seconds
 
 template <typename T>
 class SimpleExecutor {
@@ -347,31 +347,55 @@ TEST(FutureSyncTest, MoveOnlyDataType) {
   }
 }
 
-TEST(FutureSyncTest, void) {
+TEST(FutureSyncTest, Empty) {
   {
     // MarkFinished()
-    auto fut = Future<void>::Make();
+    auto fut = Future<>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished();
     AssertSuccessful(fut);
   }
-}
-
-TEST(FutureSyncTest, Status) {
   {
     // MarkFinished(Status)
-    auto fut = Future<Status>::Make();
+    auto fut = Future<>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished(Status::OK());
     AssertSuccessful(fut);
   }
   {
     // MarkFinished(Status)
-    auto fut = Future<Status>::Make();
+    auto fut = Future<>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut);
     ASSERT_RAISES(IOError, fut.status());
+  }
+}
+
+TEST(FutureSyncTest, GetStatusFuture) {
+  {
+    auto fut = Future<MoveOnlyDataType>::Make();
+    Future<> status_future(fut);
+
+    AssertNotFinished(fut);
+    AssertNotFinished(status_future);
+
+    fut.MarkFinished(MoveOnlyDataType(42));
+    AssertSuccessful(fut);
+    AssertSuccessful(status_future);
+    ASSERT_EQ(&fut.status(), &status_future.status());
+  }
+  {
+    auto fut = Future<MoveOnlyDataType>::Make();
+    Future<> status_future(fut);
+
+    AssertNotFinished(fut);
+    AssertNotFinished(status_future);
+
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut);
+    AssertFailed(status_future);
+    ASSERT_EQ(&fut.status(), &status_future.status());
   }
 }
 
@@ -693,7 +717,7 @@ class FutureTestBase : public ::testing::Test {
 template <typename T>
 class FutureTest : public FutureTestBase<T> {};
 
-typedef ::testing::Types<int, Foo, MoveOnlyDataType> FutureTestTypes;
+using FutureTestTypes = ::testing::Types<int, Foo, MoveOnlyDataType>;
 
 TYPED_TEST_SUITE(FutureTest, FutureTestTypes);
 
@@ -718,7 +742,7 @@ TYPED_TEST(FutureTest, StressWaitForAll) { this->TestStressWaitForAll(); }
 template <typename T>
 class FutureIteratorTest : public FutureTestBase<T> {};
 
-typedef ::testing::Types<Foo, MoveOnlyDataType> FutureIteratorTestTypes;
+using FutureIteratorTestTypes = ::testing::Types<Foo, MoveOnlyDataType>;
 
 TYPED_TEST_SUITE(FutureIteratorTest, FutureIteratorTestTypes);
 
