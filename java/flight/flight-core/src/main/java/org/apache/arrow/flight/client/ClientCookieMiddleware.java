@@ -21,7 +21,6 @@ import java.net.HttpCookie;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -29,6 +28,8 @@ import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.util.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A client middleware for receiving and sending cookie information.
@@ -36,8 +37,11 @@ import org.apache.arrow.util.VisibleForTesting;
  * of this session.
  */
 public class ClientCookieMiddleware implements FlightClientMiddleware {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ClientCookieMiddleware.class);
+
   private static final String SET_COOKIE_HEADER = "Set-Cookie";
   private static final String COOKIE_HEADER = "Cookie";
+
   private final Factory factory;
 
   @VisibleForTesting
@@ -57,6 +61,23 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
     public ClientCookieMiddleware onCallStarted(CallInfo info) {
       return new ClientCookieMiddleware(this);
     }
+
+    private void updateCookies(Iterable<String> newCookieHeaderValues) {
+      // Note: Intentionally overwrite existing cookie values.
+      // A cookie defined once will continue to be used in all subsequent
+      // requests on the client instance. The server can send the same cookie again
+      // with a different value and the client will use the new value in future requests.
+      // The server can also update a cookie to have an Expiry in the past or negative age
+      // to signal that the client should stop using the cookie immediately.
+      newCookieHeaderValues.forEach(headerValue -> {
+        try {
+          final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
+          parsedCookies.forEach(parsedCookie -> cookies.put(parsedCookie.getName(), parsedCookie));
+        } catch (IllegalArgumentException ex) {
+          LOGGER.warn("Skipping incorrectly formatted Set-Cookie header with value '{}'.", headerValue);
+        }
+      });
+    }
   }
 
   @Override
@@ -69,18 +90,9 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-    // Note: A cookie defined once will continue to be used in all subsequent
-    // requests on the client instance. The server can send the same cookie again
-    // with a different value and the client will use the new value in future requests.
-    // The server can also update a cookie to have an Expiry in the past or negative age
-    // to signal that the client should stop using the cookie immediately.
-    final Consumer<String> handleSetCookieHeader = (headerValue) -> {
-      final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
-      parsedCookies.forEach(parsedCookie -> factory.cookies.put(parsedCookie.getName(), parsedCookie));
-    };
     final Iterable<String> setCookieHeaders = incomingHeaders.getAll(SET_COOKIE_HEADER);
     if (setCookieHeaders != null) {
-      setCookieHeaders.forEach(handleSetCookieHeader);
+      factory.updateCookies(setCookieHeaders);
     }
   }
 
