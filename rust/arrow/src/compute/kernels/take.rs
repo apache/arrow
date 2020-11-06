@@ -217,6 +217,8 @@ where
 
     let null_slice = null_buf.data_mut();
 
+    // This iteration is implemented with a while loop, rather than a
+    // map()/collect(), since the while loop performs better in the benchmarks.
     let mut new_values: Vec<T::Native> = Vec::with_capacity(data_len);
     let mut i = 0;
     while i < data_len {
