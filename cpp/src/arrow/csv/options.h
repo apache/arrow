@@ -118,6 +118,8 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Whether to use the global CPU thread pool
   bool use_threads = true;
+  /// Whether to read in an async fashion
+  bool read_async = false;
   /// Block size we request from the IO layer; also determines the size of
   /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB

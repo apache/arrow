@@ -128,6 +128,22 @@ class ARROW_EXPORT Executor {
     return SpawnReal(hints, std::forward<Function>(func));
   }
 
+  /// \brief Returns a future that will be completed when the base future completes but
+  /// continuations will run on this executor
+  template <typename T>
+  Result<Future<T>> Transfer(Future<T>& future) {
+    auto transferred_future = Future<T>::Make();
+    future.Then([this, transferred_future](const Result<T>& result) mutable {
+      auto submit_status = Submit([transferred_future, result]() mutable {
+        transferred_future.MarkFinished(result);
+      });
+      if (!submit_status.ok()) {
+        transferred_future.MarkFinished(submit_status.status());
+      }
+    });
+    return transferred_future;
+  }
+
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.

@@ -136,11 +136,46 @@ static void ThreadedTaskGroup(benchmark::State& state) {
 
   for (auto _ : state) {
     auto task_group = TaskGroup::MakeThreaded(pool.get());
-    for (int32_t i = 0; i < nspawns; ++i) {
-      // Pass the task by reference to avoid copying it around
-      task_group->Append(std::ref(task));
-    }
+    task_group->Append([&task, nspawns, task_group] {
+      for (int32_t i = 0; i < nspawns; ++i) {
+        // Pass the task by reference to avoid copying it around
+        task_group->Append(std::ref(task));
+      }
+      return Status::OK();
+    });
     ABORT_NOT_OK(task_group->Finish());
+  }
+  ABORT_NOT_OK(pool->Shutdown(true /* wait */));
+
+  state.SetItemsProcessed(state.iterations() * nspawns);
+}
+
+// Benchmark threaded TaskGroup using futures
+static void FutureTaskGroup(benchmark::State& state) {
+  const auto nthreads = static_cast<int>(state.range(0));
+  const auto workload_size = static_cast<int32_t>(state.range(1));
+
+  std::shared_ptr<ThreadPool> pool;
+  pool = *ThreadPool::Make(nthreads);
+
+  Task task(workload_size);
+
+  const int32_t nspawns = 10000000 / workload_size + 1;
+
+  for (auto _ : state) {
+    auto task_group = TaskGroup::MakeThreaded(pool.get());
+    task_group->Append([&task, pool, nspawns, task_group] {
+      for (int32_t i = 0; i < nspawns; ++i) {
+        // Pass the task by reference to avoid copying it around
+        auto future_result = pool->Submit(std::ref(task));
+        ABORT_NOT_OK(future_result);
+        task_group->Append(*future_result);
+      }
+      return Status::OK();
+    });
+    auto final_future = task_group->FinishAsync();
+    final_future.Wait();
+    ABORT_NOT_OK(final_future.status());
   }
   ABORT_NOT_OK(pool->Shutdown(true /* wait */));
 
@@ -190,6 +225,7 @@ BENCHMARK(ReferenceWorkloadCost)->Apply(WorkloadCost_Customize);
 BENCHMARK(SerialTaskGroup)->Apply(WorkloadCost_Customize);
 BENCHMARK(ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(FutureTaskGroup)->Apply(ThreadPoolSpawn_Customize);
 
 }  // namespace internal
 }  // namespace arrow

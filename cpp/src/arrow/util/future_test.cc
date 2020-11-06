@@ -122,15 +122,21 @@ void AssertFinished(const Future<T>& fut) {
 // Assert the future is successful *now*
 template <typename T>
 void AssertSuccessful(const Future<T>& fut) {
-  ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-  ASSERT_OK(fut.status());
+  ASSERT_TRUE(fut.Wait(0.1));
+  if (IsFutureFinished(fut.state())) {
+    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
+    ASSERT_OK(fut.status());
+  }
 }
 
 // Assert the future is failed *now*
 template <typename T>
 void AssertFailed(const Future<T>& fut) {
-  ASSERT_EQ(fut.state(), FutureState::FAILURE);
-  ASSERT_FALSE(fut.status().ok());
+  ASSERT_TRUE(fut.Wait(0.1));
+  if (IsFutureFinished(fut.state())) {
+    ASSERT_EQ(fut.state(), FutureState::FAILURE);
+    ASSERT_FALSE(fut.status().ok());
+  }
 }
 
 template <typename T>
@@ -273,6 +279,592 @@ TEST(FutureSyncTest, Int) {
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut);
     ASSERT_RAISES(IOError, fut.result());
+  }
+}
+
+TEST(FutureRefTest, ChainRemoved) {
+  // Creating a future chain should not prevent the futures from being deleted if the
+  // entire chain is deleted
+  std::weak_ptr<FutureImpl> ref;
+  std::weak_ptr<FutureImpl> ref2;
+  {
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& status) { return Status::OK(); });
+    ref = fut.impl_;
+    ref2 = fut2.impl_;
+  }
+  ASSERT_TRUE(ref.expired());
+  ASSERT_TRUE(ref2.expired());
+}
+
+TEST(FutureRefTest, TailRemoved) {
+  // Keeping the head of the future chain should keep the entire chain alive
+  std::shared_ptr<Future<>> ref;
+  std::weak_ptr<FutureImpl> ref2;
+  bool side_effect_run = false;
+  {
+    ref = std::make_shared<Future<>>(Future<>::Make());
+    auto fut2 = ref->Then([&side_effect_run](const Status& status) {
+      side_effect_run = true;
+      return Status::OK();
+    });
+    ref2 = fut2.impl_;
+  }
+  ASSERT_FALSE(ref2.expired());
+
+  ref->MarkFinished();
+  ASSERT_TRUE(side_effect_run);
+}
+
+TEST(FutureRefTest, HeadRemoved) {
+  // Keeping the tail of the future chain should not keep the entire chain alive.  If no
+  // one has a reference to the head then there is no need to keep it, nothing will finish
+  // it.  In theory the intermediate futures could be finished by some external process
+  // but that would be highly unusual and bad practice so in reality this would just be a
+  // reference to a future that will never complete which is ok.
+  std::weak_ptr<FutureImpl> ref;
+  std::shared_ptr<Future<>> ref2;
+  {
+    auto fut = std::make_shared<Future<>>(Future<>::Make());
+    ref = fut->impl_;
+    ref2 = std::make_shared<Future<>>(
+        fut->Then([](const Status& status) { return Status::OK(); }));
+  }
+  ASSERT_TRUE(ref.expired());
+}
+
+TEST(FutureCompletionTest, Void) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then(
+        [&passed_in_result](const Result<int>& result) { passed_in_result = *result; });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](const Result<int>& result) {});
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](const Result<int>& result) {}, true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertSuccessful(fut2);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) {});
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) {});
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 =
+        fut.Then([&status_seen](const Status& result) { status_seen = result; }, true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertSuccessful(fut2);
+  }
+}
+
+TEST(FutureCompletionTest, NonVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](const Result<int>& result) {
+      auto passed_in_result = *result;
+      return passed_in_result * passed_in_result;
+    });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42 * 42);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](const Result<int>& result) {
+      auto passed_in_result = *result;
+      return passed_in_result * passed_in_result;
+    });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then(
+        [&was_io_error](const Result<int>& result) {
+          was_io_error = result.status().IsIOError();
+          return 100;
+        },
+        true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 100);
+    ASSERT_TRUE(was_io_error);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return 42; });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return 42; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen](const Status& result) {
+          status_seen = result;
+          return 42;
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+}
+
+TEST(FutureCompletionTest, FutureNonVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](const Result<int>& result) {
+      passed_in_result = *result;
+      return innerFut;
+    });
+    fut.MarkFinished(42);
+    ASSERT_EQ(passed_in_result, 42);
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto fut2 = fut.Then([innerFut](const Result<int>& result) { return innerFut; });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then(
+        [&was_io_error, innerFut](const Result<int>& result) {
+          was_io_error = result.status().IsIOError();
+          return innerFut;
+        },
+        true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+    ASSERT_TRUE(was_io_error);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished();
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<std::string>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen, &innerFut](const Status& result) {
+          status_seen = result;
+          return innerFut;
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+  }
+}
+
+TEST(FutureCompletionTest, Status) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    int passed_in_result = 0;
+    Future<> fut2 = fut.Then([&passed_in_result](const Result<int>& result) {
+      passed_in_result = *result;
+      return Status::OK();
+    });
+    fut.MarkFinished(42);
+    ASSERT_EQ(passed_in_result, 42);
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    auto fut2 = fut.Then([innerFut](const Result<int>& result) { return innerFut; });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<std::string>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then(
+        [&was_io_error, innerFut](const Result<int>& result) {
+          was_io_error = result.status().IsIOError();
+          return innerFut;
+        },
+        true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished("hello");
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, "hello");
+    ASSERT_TRUE(was_io_error);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return Status::OK(); });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return Status::OK(); });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen](const Status& result) {
+          status_seen = result;
+          return Status::OK();
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertSuccessful(fut2);
+  }
+}
+
+TEST(FutureCompletionTest, FutureStatus) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    int passed_in_result = 0;
+    Future<> fut2 = fut.Then([&passed_in_result, innerFut](const Result<int>& result) {
+      passed_in_result = *result;
+      return innerFut;
+    });
+    fut.MarkFinished(42);
+    ASSERT_EQ(passed_in_result, 42);
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished(Status::OK());
+    AssertSuccessful(fut2);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([innerFut](const Result<int>& result) { return innerFut; });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then(
+        [&was_io_error, innerFut](const Result<int>& result) {
+          was_io_error = result.status().IsIOError();
+          return innerFut;
+        },
+        true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished(Status::OK());
+    AssertSuccessful(fut2);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished();
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished(Status::OK());
+    AssertSuccessful(fut2);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen, &innerFut](const Status& result) {
+          status_seen = result;
+          return innerFut;
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished(Status::OK());
+    AssertSuccessful(fut2);
+  }
+}
+
+TEST(FutureCompletionTest, Result) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    Future<int> fut2 = fut.Then([](const Result<int>& result) {
+      auto passed_in_result = *result;
+      return Result<int>(passed_in_result * passed_in_result);
+    });
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42 * 42);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto fut2 = fut.Then([](const Result<int>& result) {
+      auto passed_in_result = *result;
+      return Result<int>(passed_in_result * passed_in_result);
+    });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    ASSERT_TRUE(fut2.status().IsIOError());
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    bool was_io_error = false;
+    auto fut2 = fut.Then(
+        [&was_io_error](const Result<int>& result) {
+          was_io_error = result.status().IsIOError();
+          return Result<int>(100);
+        },
+        true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 100);
+    ASSERT_TRUE(was_io_error);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return Result<int>(42); });
+    fut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto fut2 = fut.Then([](const Status& result) { return Result<int>(42); });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen](const Status& result) {
+          status_seen = result;
+          return Result<int>(42);
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertSuccessful(fut2);
+    auto result = *fut2.result();
+    ASSERT_EQ(result, 42);
+  }
+}
+
+TEST(FutureCompletionTest, FutureVoid) {
+  {
+    // Simple callback
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](const Result<int>& result) {
+      passed_in_result = *result;
+      return innerFut;
+    });
+    fut.MarkFinished(42);
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+    auto res = fut2.status();
+    ASSERT_OK(res);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Precompleted future
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    innerFut.MarkFinished();
+    int passed_in_result = 0;
+    auto fut2 = fut.Then([&passed_in_result, innerFut](const Result<int>& result) {
+      passed_in_result = *result;
+      return innerFut;
+    });
+    AssertNotFinished(fut2);
+    fut.MarkFinished(42);
+    AssertSuccessful(fut2);
+    ASSERT_EQ(passed_in_result, 42);
+  }
+  {
+    // Propagate failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([innerFut](const Result<int>& result) { return innerFut; });
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertFailed(fut2);
+    if (IsFutureFinished(fut2.state())) {
+      ASSERT_TRUE(fut2.status().IsIOError());
+    }
+  }
+  {
+    // Swallow failure
+    auto fut = Future<int>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 =
+        fut.Then([innerFut](const Result<int>& result) { return innerFut; }, true);
+    fut.MarkFinished(Result<int>(Status::IOError("xxx")));
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // From void
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished();
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
+  }
+  {
+    // From failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    auto fut2 = fut.Then([&innerFut](const Status& result) { return innerFut; });
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut2);
+  }
+  {
+    // Recover a failed status
+    auto fut = Future<>::Make();
+    auto innerFut = Future<>::Make();
+    Status status_seen = Status::OK();
+    auto fut2 = fut.Then(
+        [&status_seen, &innerFut](const Status& result) {
+          status_seen = result;
+          return innerFut;
+        },
+        true);
+    ASSERT_TRUE(status_seen.ok());
+    fut.MarkFinished(Status::IOError("xxx"));
+    ASSERT_TRUE(status_seen.IsIOError());
+    AssertNotFinished(fut2);
+    innerFut.MarkFinished();
+    AssertSuccessful(fut2);
   }
 }
 

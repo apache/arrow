@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -31,15 +32,80 @@
 
 namespace arrow {
 
+namespace detail {
+
+struct Empty {
+  static Result<Empty> ToResult(Status s) {
+    if (ARROW_PREDICT_TRUE(s.ok())) {
+      return Empty{};
+    }
+    return s;
+  }
+
+  template <typename T>
+  using EnableIfSame = typename std::enable_if<std::is_same<Empty, T>::value>::type;
+};
+
+}  // namespace detail
+class FutureWaiter;
+template <typename T = detail::Empty>
+class Future;
+template <typename T>
+class FutureStorage;
+
 /// A Future's execution or completion status
 enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 
+using Callback = std::function<void()>;
+
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
+
+template <typename>
+struct is_future : std::false_type {};
+
+template <typename T>
+struct is_future<Future<T>> : std::true_type {};
+
+template <typename Signature>
+using result_of_t = typename std::result_of<Signature>::type;
+
+namespace detail {
+
+template <typename ContinuationReturn>
+struct ContinuedFutureImpl;
+
+template <>
+struct ContinuedFutureImpl<void> {
+  using type = Future<>;
+};
+
+template <>
+struct ContinuedFutureImpl<Status> {
+  using type = Future<>;
+};
+
+template <typename R>
+struct ContinuedFutureImpl {
+  using type = Future<R>;
+};
+
+template <typename T>
+struct ContinuedFutureImpl<Result<T>> {
+  using type = Future<T>;
+};
+
+template <typename T>
+struct ContinuedFutureImpl<Future<T>> {
+  using type = Future<T>;
+};
+
+template <typename Signature>
+using ContinuedFuture = typename ContinuedFutureImpl<result_of_t<Signature>>::type;
+
+}  // namespace detail
 
 // ---------------------------------------------------------------------
 // Type-erased helpers
-
-class FutureWaiter;
 
 class ARROW_EXPORT FutureImpl {
  public:
@@ -60,6 +126,7 @@ class ARROW_EXPORT FutureImpl {
   void MarkFailed();
   void Wait();
   bool Wait(double seconds);
+  void AddCallback(Callback callback);
 
   // Waiter API
   inline FutureState SetWaiter(FutureWaiter* w, int future_num);
@@ -71,6 +138,71 @@ class ARROW_EXPORT FutureImpl {
   // XXX small objects could be stored alongside state_ instead of boxed in a pointer
   using Storage = std::unique_ptr<void, void (*)(void*)>;
   Storage result_{NULLPTR, NULLPTR};
+
+  template <typename Finished, typename ContinuedFuture, typename Continuation,
+            typename Return = result_of_t<Continuation && (const Result<Finished>&)>>
+  typename std::enable_if<std::is_void<Return>::value>::type Continue(
+      ContinuedFuture next, Continuation&& continuation, bool run_on_failure) {
+    static_assert(std::is_same<ContinuedFuture, Future<>>::value, "");
+    const auto& this_result = *static_cast<Result<Finished>*>(result_.get());
+
+    if (this_result.ok() || run_on_failure) {
+      std::forward<Continuation>(continuation)(this_result);
+      next.MarkFinished(Status::OK());
+    } else {
+      next.MarkFinished(this_result.status());
+    }
+  }
+
+  template <typename Finished, typename ContinuedFuture, typename Continuation,
+            typename Return = result_of_t<Continuation && (const Result<Finished>&)>>
+  typename std::enable_if<std::is_same<Return, Status>::value>::type Continue(
+      ContinuedFuture next, Continuation&& continuation, bool run_on_failure) {
+    static_assert(std::is_same<ContinuedFuture, Future<>>::value, "");
+    const auto& this_result = *static_cast<Result<Finished>*>(result_.get());
+
+    if (this_result.ok() || run_on_failure) {
+      Status next_status = std::forward<Continuation>(continuation)(this_result);
+      next.MarkFinished(std::move(next_status));
+    } else {
+      next.MarkFinished(this_result.status());
+    }
+  }
+
+  template <typename Finished, typename ContinuedFuture, typename Continuation,
+            typename Return = result_of_t<Continuation && (const Result<Finished>&)>>
+  typename std::enable_if<!std::is_void<Return>::value &&
+                          !std::is_same<Return, Status>::value &&
+                          !is_future<Return>::value>::type
+  Continue(ContinuedFuture next, Continuation&& continuation, bool run_on_failure) {
+    static_assert(!std::is_same<ContinuedFuture, Future<>>::value, "");
+    const auto& this_result = *static_cast<Result<Finished>*>(result_.get());
+
+    if (this_result.ok() || run_on_failure) {
+      Result<typename ContinuedFuture::ValueType> next_result =
+          std::forward<Continuation>(continuation)(this_result);
+      next.MarkFinished(std::move(next_result));
+    } else {
+      next.MarkFinished(this_result.status());
+    }
+  }
+
+  template <typename Finished, typename ContinuedFuture, typename Continuation,
+            typename Return = result_of_t<Continuation && (const Result<Finished>&)>>
+  typename std::enable_if<is_future<Return>::value>::type Continue(
+      ContinuedFuture next, Continuation&& continuation, bool run_on_failure) {
+    const auto& this_result = *static_cast<Result<Finished>*>(result_.get());
+
+    if (this_result.ok() || run_on_failure) {
+      auto next_future = std::forward<Continuation>(continuation)(this_result);
+      next_future.AddCallback(
+          [next_future, next]() mutable { next.MarkFinished(next_future.result()); });
+    } else {
+      next.MarkFinished(this_result.status());
+    }
+  }
+
+  std::vector<Callback> callbacks_;
 
   template <typename T>
   friend class Future;
@@ -133,22 +265,6 @@ class ARROW_EXPORT FutureWaiter {
   friend class ConcreteFutureImpl;
 };
 
-namespace detail {
-
-struct Empty {
-  static Result<Empty> ToResult(Status s) {
-    if (ARROW_PREDICT_TRUE(s.ok())) {
-      return Empty{};
-    }
-    return s;
-  }
-
-  template <typename T>
-  using EnableIfSame = typename std::enable_if<std::is_same<Empty, T>::value>::type;
-};
-
-}  // namespace detail
-
 // ---------------------------------------------------------------------
 // Public API
 
@@ -163,7 +279,7 @@ struct Empty {
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, or wait on multiple Futures at once (using WaitForAll,
 /// WaitForAny or AsCompletedIterator).
-template <typename T = detail::Empty>
+template <typename T>
 class Future {
  public:
   using ValueType = T;
@@ -195,6 +311,12 @@ class Future {
   Result<ValueType>&& result() && {
     Wait();
     return std::move(*GetResult());
+  }
+
+  /// \brief In general, Then should be preferred over AddCallback.
+  void AddCallback(Callback callback) const {
+    // TODO: Get rid of this method or at least make protected somehow?
+    impl_->AddCallback(callback);
   }
 
   /// \brief Wait for the Future to complete and return its Status
@@ -264,9 +386,124 @@ class Future {
   }
 
   /// \brief Make a finished Future<> or Future<> with the provided Status.
-  template <typename E = ValueType>
-  detail::Empty::EnableIfSame<E> MakeFinished(Status s = Status::OK()) {
+  template <typename E = ValueType, typename = detail::Empty::EnableIfSame<E>>
+  static Future<> MakeFinished(Status s = Status::OK()) {
     return MakeFinished(E::ToResult(std::move(s)));
+  }
+
+  /// \brief Consumer API: Register a continuation to run when this future completes
+  ///
+  /// The continuation will run in the same thread that called MarkFinished (whatever
+  /// callback is registered with this function will run before MarkFinished returns).
+  /// If your callback is lengthy then it is generally best to spawn a task so that the
+  /// callback can immediately return a future.
+  ///
+  /// The callback should receive (const Result<T> &).
+  ///
+  /// This method returns a future which will be completed after the callback (and
+  /// potentially the callback task) have finished.
+  ///
+  /// If the callback returns:
+  /// - void, a Future<> will be produced which will complete successully as soon
+  ///   as the callback runs.
+  /// - Status, a Future<> will be produced which will complete with the returned Status
+  ///   as soon as the callback runs.
+  /// - V or Result<V>, a Future<V> will be produced which will complete with the result
+  ///   of the callback as soon as the callback runs.
+  /// - Future<V>, a Future<V> will be produced which will be marked complete when the
+  ///   future returned by the callback completes (and will complete with the same
+  ///   result).
+  ///
+  /// If this future fails (results in a non-ok status) then by default the callback will
+  /// not run.  Instead the future that this method returns will be marked failed with the
+  /// same status (the failure will propagate).  This is analagous to throwing an
+  /// exception in sequential code, the failure propagates upwards, skipping the following
+  /// code.
+  ///
+  /// However, if run_on_failure is set to true then the callback will be run even if this
+  /// future fails.  The callback will receive the failed status (or failed result) and
+  /// can attempt to salvage or continue despite the failure.  As long as the callback
+  /// doesn't return a failed status (or failed future) then the final future (the one
+  /// returned by this method) will be marked with the successful result of the callback.
+  /// This is analagous to catching an exception in sequential code.
+  ///
+  /// If this future is already completed then the callback will be run immediately
+  /// (before this method returns) and the returned future may already be marked complete
+  /// (it will definitely be marked complete if the callback returns a non-future or a
+  /// completed future).
+  ///
+  /// Care should be taken when creating continuation callbacks.  The callback may not run
+  /// for some time.  If the callback is a lambda function then capture by reference is
+  /// generally not advised as references are probably not going to still be in scope when
+  /// the callback runs.  Capture by value or passing in a shared_ptr should generally be
+  /// safe.  Capturing this may or may not be safe, you will need to ensure that the this
+  /// object is going to still exist when the callback is run.  This can be tricky because
+  /// even though the "semantic instance" may still exist if the instance was moved then
+  /// it will no longer exist.
+  ///
+  /// Example:
+  ///
+  /// // This approach is NOT SAFE.  Even though the task objects are kept around until
+  /// after they are finished it is not the SAME task object.
+  /// // The task object is created, the callback lambda is created, a copy of this is
+  /// copied into the callback, and then the task object is
+  /// // immediately moved into the vector.  This move creates a new task object (with a
+  /// different this pointer).  The this pointer that exists
+  /// // when the callback actually runs will be pointing to an invalid MyTask object.
+  /// class MyTask {
+  ///   public:
+  ///     MyTask(std::shared_ptr<MyItem> item, Future<Block> block_to_process) :
+  ///     item_(item) {
+  ///       task_future_ = block_to_process.Then([this] {return Process();});
+  ///     }
+  ///     ARROW_DEFAULT_MOVE_AND_ASSIGN(MyTask);
+  ///   private:
+  ///     Status Process();
+  ///     std::shared_ptr<MyItem> item_;
+  ///     Future<> task_future_;
+  /// };
+  ///
+  /// std::vector<MyTask> tasks;
+  /// for (auto && block_future : block_futures) {
+  ///   for (auto && item : items) {
+  ///     tasks.push_back(MyTask(item, block_future));
+  ///   }
+  /// }
+  /// AwaitAllTasks(tasks);
+  struct LessPrefer {};
+  struct Prefer : LessPrefer {};
+
+  template <typename Continuation>
+  detail::ContinuedFuture<Continuation && (const Result<T>&)> ThenImpl(
+      Continuation&& continuation, bool run_on_failure, Prefer) const {
+    auto future = detail::ContinuedFuture < Continuation && (const Result<T>&) > ::Make();
+
+    // We know impl_ will be valid when invoking callbacks because at least one thread
+    // will be waiting for MarkFinished to return. Thus it's safe to keep a non-owning
+    // reference to impl_ here (but *not* to `this`!)
+    FutureImpl* impl = impl_.get();
+    impl_->AddCallback([impl, future, continuation, run_on_failure]() mutable {
+      impl->Continue<T>(std::move(future), std::move(continuation), run_on_failure);
+    });
+
+    return future;
+  }
+
+  template <typename Continuation>
+  detail::ContinuedFuture<Continuation && (const Status&)> ThenImpl(
+      Continuation&& continuation, bool run_on_failure, LessPrefer) const {
+    return ThenImpl(
+        [continuation](const Result<T>& result) mutable {
+          return std::move(continuation)(result.status());
+        },
+        run_on_failure, Prefer{});
+  }
+
+  template <typename Continuation>
+  auto Then(Continuation&& continuation, bool run_on_failure = false) const
+      -> decltype(ThenImpl(std::forward<Continuation>(continuation), run_on_failure,
+                           Prefer{})) {
+    return ThenImpl(std::forward<Continuation>(continuation), run_on_failure, Prefer{});
   }
 
  protected:
@@ -303,6 +540,10 @@ class Future {
 
   template <typename U>
   friend class Future;
+
+  FRIEND_TEST(FutureRefTest, ChainRemoved);
+  FRIEND_TEST(FutureRefTest, TailRemoved);
+  FRIEND_TEST(FutureRefTest, HeadRemoved);
 };
 
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future

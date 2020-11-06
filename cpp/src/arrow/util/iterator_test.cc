@@ -50,6 +50,104 @@ struct IterationTraits<TestInt> {
 };
 
 template <typename T>
+class ManualIteratorBase {
+ public:
+  Result<T> Next(std::size_t index) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    last_asked_for_index_ = index;
+    waiting_count_++;
+    if (cv_.wait_for(lock, std::chrono::milliseconds(3000),
+                     [this, index] { return finished_ || results_.size() > index; })) {
+      waiting_count_--;
+      if (finished_ && index >= results_.size()) {
+        return Result<T>(IterationTraits<T>::End());
+      }
+      return Result<T>(results_[index]);
+    } else {
+      waiting_count_--;
+      return Result<T>(
+          Status::Invalid("Timed out waiting for someone to deliver a value"));
+    }
+  }
+
+  void Deliver(const T& value) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      results_.push_back(value);
+    }
+    cv_.notify_all();
+  }
+
+  void MarkFinished() {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      finished_ = true;
+    }
+    cv_.notify_all();
+  }
+
+  std::size_t LastAskedForIndex() const { return last_asked_for_index_; }
+
+  Status WaitForWaiters(unsigned int num_waiters, unsigned int last_asked_for_index) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (cv_.wait_for(lock, std::chrono::milliseconds(100),
+                     [this, num_waiters, last_asked_for_index] {
+                       return waiting_count_ >= num_waiters &&
+                              last_asked_for_index == last_asked_for_index_;
+                     })) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Timed out waiting for waiters to show up at iterator");
+    }
+  }
+
+  Status WaitForGteWaiters(unsigned int num_waiters) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (cv_.wait_for(lock, std::chrono::milliseconds(100),
+                     [this, num_waiters] { return waiting_count_ >= num_waiters; })) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Timed out waiting for waiters to show up at iterator");
+    }
+  }
+
+  Status WaitForLteWaiters(unsigned int num_waiters) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (cv_.wait_for(lock, std::chrono::milliseconds(100),
+                     [this, num_waiters] { return waiting_count_ <= num_waiters; })) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Timed out waiting for waiters to show up at iterator");
+    }
+  }
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  std::vector<T> results_;
+  bool finished_;
+  unsigned int waiting_count_;
+  std::size_t last_asked_for_index_ = -1;
+};
+
+template <typename T>
+class ManualIterator {
+ public:
+  explicit ManualIterator(std::shared_ptr<ManualIteratorBase<T>> base)
+      : base_(base), i(0) {}
+  Result<T> Next() { return base_->Next(i++); }
+
+ private:
+  std::shared_ptr<ManualIteratorBase<T>> base_;
+  std::size_t i;
+};
+
+template <typename T>
+Iterator<T> MakeManual(std::shared_ptr<ManualIteratorBase<T>> base) {
+  return Iterator<T>(ManualIterator<T>(base));
+}
+
+template <typename T>
 class TracingIterator {
  public:
   explicit TracingIterator(Iterator<T> it) : it_(std::move(it)), state_(new State) {}
@@ -390,6 +488,93 @@ TEST(ReadaheadIterator, NextError) {
   AssertIteratorNext({2}, it);
   AssertIteratorNext({3}, it);
   AssertIteratorExhausted(it);
+}
+
+TEST(AsyncReadaheadIterator, BasicIteration) {
+  auto base_it = VectorIt({1, 2});
+  ASSERT_OK_AND_ASSIGN(auto readahead_it,
+                       MakeAsyncReadaheadIterator(std::move(base_it), 1));
+  auto future_one = readahead_it.NextFuture();
+  auto future_two = readahead_it.NextFuture();
+  auto future_three = readahead_it.NextFuture();
+  future_three.Wait();
+  ASSERT_EQ(TestInt(1), *future_one.result());
+  ASSERT_EQ(TestInt(2), *future_two.result());
+  ASSERT_EQ(TestInt(), *future_three.result());
+}
+
+TEST(AsyncReadaheadIterator, FastConsumer) {
+  auto base = std::make_shared<ManualIteratorBase<TestInt>>();
+  auto base_it = MakeManual<TestInt>(base);
+  ASSERT_OK_AND_ASSIGN(auto readahead_it,
+                       MakeAsyncReadaheadIterator(std::move(base_it), 2));
+  auto future_one = readahead_it.NextFuture();
+  auto future_two = readahead_it.NextFuture();
+  auto future_three = readahead_it.NextFuture();
+  // The readahead should ask for item 0 and wait
+  ASSERT_OK(base->WaitForWaiters(1, 0));
+  // Even though readahead is 2 there should only be one thread so one waiter.  TODO:
+  // Optimize 100ms wait
+  ASSERT_TRUE(base->WaitForGteWaiters(2).IsInvalid());
+  ASSERT_EQ(FutureState::PENDING, future_one.state());
+
+  base->Deliver(1);
+  ASSERT_OK(base->WaitForWaiters(1, 1));
+  ASSERT_TRUE(future_one.is_valid());
+  if (future_one.is_valid()) {
+    ASSERT_EQ(future_one.result(), 1);
+  }
+  ASSERT_EQ(FutureState::PENDING, future_two.state());
+
+  base->MarkFinished();
+  ASSERT_TRUE(future_two.Wait(0.1));
+  if (future_two.is_valid()) {
+    ASSERT_EQ(IterationTraits<TestInt>::End(), future_two.result().ValueOrDie());
+  }
+
+  ASSERT_TRUE(future_three.Wait(0.1));
+  ASSERT_EQ(IterationTraits<TestInt>::End(), future_three.result().ValueOrDie());
+}
+
+TEST(AsyncReadaheadIterator, FastProducer) {
+  auto base = std::make_shared<ManualIteratorBase<TestInt>>();
+  auto base_it = MakeManual<TestInt>(base);
+  ASSERT_OK_AND_ASSIGN(auto readahead_it,
+                       MakeAsyncReadaheadIterator(std::move(base_it), 2));
+  base->Deliver(1);
+  base->Deliver(2);
+  base->MarkFinished();
+  // There should be no one waiting for values.
+  ASSERT_OK(base->WaitForLteWaiters(
+      0));  // First the thread finishes reading and blocks on its own queue
+  ASSERT_TRUE(base->WaitForGteWaiters(1)
+                  .IsInvalid());  // Then the thread remains blocked and doesn't call Next
+
+  auto future_one = readahead_it.NextFuture();
+  // Future should be returned immediately completed
+  ASSERT_EQ(TestInt(1), future_one.result().ValueOrDie());
+
+  auto future_two = readahead_it.NextFuture();
+  ASSERT_EQ(TestInt(2), future_two.result().ValueOrDie());
+
+  auto future_three = readahead_it.NextFuture();
+  ASSERT_EQ(IterationTraits<TestInt>::End(), future_three.result().ValueOrDie());
+}
+
+TEST(AsyncReadaheadIterator, ForEach) {
+  auto it = VectorIt({1, 2, 3, 4});
+  ASSERT_OK_AND_ASSIGN(auto readahead_it, MakeAsyncReadaheadIterator(std::move(it), 1));
+  std::atomic<uint32_t> sum(0);
+  auto for_each_future = async::AsyncForEach<TestInt>(
+      std::move(readahead_it),
+      [&sum](const TestInt& r) {
+        sum.fetch_add(r.value);
+        return Status::OK();
+      },
+      1);
+  for_each_future.Wait();
+  ASSERT_OK(for_each_future.status());
+  ASSERT_EQ(10, sum.load());
 }
 
 }  // namespace arrow
