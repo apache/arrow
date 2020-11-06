@@ -111,7 +111,6 @@ class ParquetException : public std::exception {
   std::string msg_;
 };
 
-
 PARQUET_EXPORT
 std::ostream& operator<<(std::ostream& os, const ParquetException& exception);
 

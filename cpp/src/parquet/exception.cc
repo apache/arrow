@@ -24,4 +24,4 @@ std::ostream& operator<<(std::ostream& os, const ParquetException& exception) {
   return os;
 }
 
-}  // parquet
+}  // namespace parquet
