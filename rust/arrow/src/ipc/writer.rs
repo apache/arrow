@@ -180,7 +180,9 @@ impl<W: Write> FileWriter<W> {
             let column = batch.column(i);
 
             if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
-                let dict_id = field.dict_id();
+                let dict_id = field
+                    .dict_id()
+                    .expect("All Dictionary types have `dict_id`");
                 let dict_data = column.data();
                 let dict_values = &dict_data.child_data()[0];
 
@@ -317,7 +319,9 @@ impl<W: Write> StreamWriter<W> {
             let column = batch.column(i);
 
             if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
-                let dict_id = field.dict_id();
+                let dict_id = field
+                    .dict_id()
+                    .expect("All Dictionary types have `dict_id`");
                 let dict_data = column.data();
                 let dict_values = &dict_data.child_data()[0];
 
