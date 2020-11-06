@@ -650,7 +650,7 @@ class ColumnWriterImpl {
   ColumnChunkMetaDataBuilder* metadata_;
   const ColumnDescriptor* descr_;
   // scratch buffer if validity bits need to be recalculated.
-  std::shared_ptr<Buffer> bits_buffer_;
+  std::shared_ptr<ResizableBuffer> bits_buffer_;
   const internal::LevelInfo level_info_;
 
   std::unique_ptr<PageWriter> pager_;
@@ -1020,8 +1020,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       int64_t batch_num_values = 0;
       int64_t batch_num_spaced_values = 0;
       int64_t null_count;
-      MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), value_offset,
-                                 batch_size, &batch_num_values, &batch_num_spaced_values,
+      MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
+                                 &batch_num_values, &batch_num_spaced_values,
                                  &null_count);
 
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
@@ -1056,8 +1056,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     bool maybe_parent_nulls = level_info_.HasNullableValues() && !single_nullable_element;
     if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(
-          bits_buffer_, arrow::AllocateBuffer(BitUtil::BytesForBits(leaf_array.length()),
-                                              ctx->memory_pool));
+          bits_buffer_,
+          arrow::AllocateResizableBuffer(
+              BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
     }
 
@@ -1184,8 +1185,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return values_to_write;
   }
 
-  void MaybeCalculateValidityBits(const int16_t* def_levels, int64_t value_offset,
-                                  int64_t batch_size, int64_t* out_values_to_write,
+  void MaybeCalculateValidityBits(const int16_t* def_levels, int64_t batch_size,
+                                  int64_t* out_values_to_write,
                                   int64_t* out_spaced_values_to_write,
                                   int64_t* null_count) {
     if (bits_buffer_ == nullptr) {
@@ -1203,9 +1204,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       }
       return;
     }
+    // Shrink to fit possible causes another allocation, and would only be necessary
+    // on the last batch.
+    int64_t new_bitmap_size = BitUtil::BytesForBits(batch_size);
+    if (new_bitmap_size != bits_buffer_->size()) {
+      PARQUET_THROW_NOT_OK(
+          bits_buffer_->Resize(new_bitmap_size, /*shrink_to_fit=*/false));
+      bits_buffer_->ZeroPadding();
+    }
     internal::ValidityBitmapInputOutput io;
     io.valid_bits = bits_buffer_->mutable_data();
-    io.valid_bits_offset = value_offset;
     io.values_read_upper_bound = batch_size;
     internal::DefLevelsToBitmap(def_levels, batch_size, level_info_, &io);
     *out_values_to_write = io.values_read - io.null_count;
@@ -1219,8 +1227,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
-    ARROW_CHECK_LE(bits_buffer_->size(), array->offset() + array->length());
-    buffers[0] = SliceBuffer(bits_buffer_, 0, array->offset() + array->length());
+    buffers[0] = bits_buffer_;
     // Should be a leaf array.
     DCHECK_EQ(array->num_fields(), 0);
     return arrow::MakeArray(std::make_shared<ArrayData>(array->type(), array->length(),
@@ -1370,7 +1377,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // Bits is not null for nullable values.  At this point in the code we can't determine
     // if the leaf array has the same null values as any parents it might have had so we
     // need to recompute it from def levels.
-    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), value_offset, batch_size,
+    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                &batch_num_values, &batch_num_spaced_values, &null_count);
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
@@ -1797,7 +1804,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     int64_t batch_num_spaced_values = 0;
     int64_t null_count = 0;
 
-    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), value_offset, batch_size,
+    MaybeCalculateValidityBits(AddIfNotNull(def_levels, offset), batch_size,
                                &batch_num_values, &batch_num_spaced_values, &null_count);
     WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                       AddIfNotNull(rep_levels, offset));
