@@ -21,6 +21,7 @@
 #include "arrow/adapters/orc/adapter_util.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/builder.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/chunked_array.h"
 #include "arrow/util/checked_cast.h"
@@ -475,32 +476,36 @@ Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, 
   return Status::OK();
 }
 
-// template <class array_type, class offset_type>
-// Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
-//   auto array = checked_cast<array_type*>(parray);
-//   auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
-//   DataType* elementType = array->value_type();
-//   int64_t arrowLength = array->length();
-//   if (!arrowLength)
-//     return Status::OK();
-//   int64_t arrowEnd = arrowOffset + arrowLength;
-//   int64_t initORCOffset = orcOffset;
-//   batch->offset[orcOffset] = static_cast<int64_t>array->value_offset(arrowOffset);
-//   if (array->null_count)
-//     batch->hasNulls = true;
-//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
-//     if (array->IsNull(arrowOffset)) {
-//       batch->notNull[orcOffset] = false;
-//     }
-//     else {
-//       batch->offset[orcOffset + 1] = static_cast<int64_t>array->value_offset(arrowOffset + 1);
-//       FillBatch(elementType, (batch->elements).get(), 0, batch->offset[orcOffset], batch->offset[orcOffset+1] - batch->offset[orcOffset], array->getScalar(arrowOffset))
-//     }
-//   }
-//   batch->numElements += orcOffset - initORCOffset;
-//   (batch->elements)->numElements += batch->offset[orcOffset] - batch->offset[initORCOffset];
-//   return Status::OK();
-// }
+template <class array_type, class scalar_type>
+Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<array_type*>(parray);
+  auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
+  DataType* elementType = array->value_type().get();
+  int64_t arrowLength = array->length();
+  int64_t subarrayArrowOffset = 0;
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset;
+  batch->offsets[orcOffset] = array->value_offset(arrowOffset);
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+    batch->offsets[orcOffset + 1] = array->value_offset(arrowOffset + 1);
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    }
+    else {
+      std::shared_ptr<Scalar> subarray;
+      ARROW_ASSIGN_OR_RAISE(subarray, array->GetScalar(arrowOffset));
+      subarrayArrowOffset = 0;//We will always finish it within the batch
+      RETURN_NOT_OK(FillBatch(elementType, (batch->elements).get(), subarrayArrowOffset, batch->offsets[orcOffset], batch->offsets[orcOffset+1] - batch->offsets[orcOffset], (std::static_pointer_cast<scalar_type>(subarray)->value).get()));
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset;
+  (batch->elements)->numElements += batch->offsets[orcOffset] - batch->offsets[initORCOffset];
+  return Status::OK();
+}
 
 Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   //Check for nullptr
@@ -544,6 +549,10 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
     //   return FillDecimalBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::STRUCT:
       return FillStructBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::LIST:
+      return FillListBatch<ListArray, ListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::LARGE_LIST:
+      return FillListBatch<LargeListArray, LargeListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }

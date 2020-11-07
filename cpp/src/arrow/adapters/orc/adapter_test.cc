@@ -74,7 +74,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
   return liborc::createWriter(type, stream, options);
 }
 
-TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
+TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
   MemoryOutputStream mem_stream(DEFAULT_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> type(
       liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
@@ -165,7 +165,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //WriteORC tests
 
 // //Bool
-// TEST(TestAdapter, writeBoolEmpty) {
+// TEST(TestAdapterWriteNumerical, writeBoolEmpty) {
 //   BooleanBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -195,7 +195,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBoolNoNulls) {
+// TEST(TestAdapterWriteNumerical, writeBoolNoNulls) {
 //   BooleanBuilder builder;
 //   (void)(builder.Append(true));
 //   (void)(builder.Append(false));
@@ -233,7 +233,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBoolAllNulls) {
+// TEST(TestAdapterWriteNumerical, writeBoolAllNulls) {
 //   BooleanBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -269,7 +269,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBooleanMixed) {
+// TEST(TestAdapterWriteNumerical, writeBooleanMixed) {
 //   BooleanBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(true));
@@ -313,7 +313,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Int8
-// TEST(TestAdapter, writeInt8Empty) {
+// TEST(TestAdapterWriteNumerical, writeInt8Empty) {
 //   Int8Builder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -343,7 +343,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt8NoNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt8NoNulls) {
 //   Int8Builder builder;
 //   (void)(builder.Append(1));
 //   (void)(builder.Append(2));
@@ -381,7 +381,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt8AllNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt8AllNulls) {
 //   Int8Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -417,7 +417,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt8Mixed) {
+// TEST(TestAdapterWriteNumerical, writeInt8Mixed) {
 //   Int8Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1));
@@ -461,7 +461,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Int16
-// TEST(TestAdapter, writeInt16Empty) {
+// TEST(TestAdapterWriteNumerical, writeInt16Empty) {
 //   Int16Builder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -491,7 +491,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt16NoNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt16NoNulls) {
 //   Int16Builder builder;
 //   (void)(builder.Append(1));
 //   (void)(builder.Append(2));
@@ -529,7 +529,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt16AllNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt16AllNulls) {
 //   Int16Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -565,7 +565,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt16Mixed) {
+// TEST(TestAdapterWriteNumerical, writeInt16Mixed) {
 //   Int16Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1));
@@ -609,7 +609,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Int32
-// TEST(TestAdapter, writeInt32Empty) {
+// TEST(TestAdapterWriteNumerical, writeInt32Empty) {
 //   Int32Builder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -639,7 +639,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt32NoNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt32NoNulls) {
 //   Int32Builder builder;
 //   (void)(builder.Append(1));
 //   (void)(builder.Append(2));
@@ -677,7 +677,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt32AllNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt32AllNulls) {
 //   Int32Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -713,7 +713,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt32Mixed) {
+// TEST(TestAdapterWriteNumerical, writeInt32Mixed) {
 //   Int32Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1));
@@ -757,7 +757,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Int64
-// TEST(TestAdapter, writeInt64Empty) {
+// TEST(TestAdapterWriteNumerical, writeInt64Empty) {
 //   Int64Builder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -787,7 +787,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt64NoNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt64NoNulls) {
 //   Int64Builder builder;
 //   (void)(builder.Append(1));
 //   (void)(builder.Append(2));
@@ -825,7 +825,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt64AllNulls) {
+// TEST(TestAdapterWriteNumerical, writeInt64AllNulls) {
 //   Int64Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -861,7 +861,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeInt64Mixed) {
+// TEST(TestAdapterWriteNumerical, writeInt64Mixed) {
 //   Int64Builder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1));
@@ -905,7 +905,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Float
-// TEST(TestAdapter, writeFloatEmpty) {
+// TEST(TestAdapterWriteNumerical, writeFloatEmpty) {
 //   FloatBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -935,7 +935,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFloatNoNulls) {
+// TEST(TestAdapterWriteNumerical, writeFloatNoNulls) {
 //   FloatBuilder builder;
 //   (void)(builder.Append(1.5));
 //   (void)(builder.Append(2.6));
@@ -973,7 +973,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFloatAllNulls) {
+// TEST(TestAdapterWriteNumerical, writeFloatAllNulls) {
 //   FloatBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1009,7 +1009,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFloatMixed) {
+// TEST(TestAdapterWriteNumerical, writeFloatMixed) {
 //   FloatBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1.2));
@@ -1053,7 +1053,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Double
-// TEST(TestAdapter, writeDoubleEmpty) {
+// TEST(TestAdapterWriteNumerical, writeDoubleEmpty) {
 //   DoubleBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1083,7 +1083,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDoubleNoNulls) {
+// TEST(TestAdapterWriteNumerical, writeDoubleNoNulls) {
 //   DoubleBuilder builder;
 //   (void)(builder.Append(1.5));
 //   (void)(builder.Append(2.6));
@@ -1121,7 +1121,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDoubleAllNulls) {
+// TEST(TestAdapterWriteNumerical, writeDoubleAllNulls) {
 //   DoubleBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1157,7 +1157,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDoubleMixed) {
+// TEST(TestAdapterWriteNumerical, writeDoubleMixed) {
 //   DoubleBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(1.2));
@@ -1201,7 +1201,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 //Decimal
-// TEST(TestAdapter, writeDecimalEmpty) {
+// TEST(TestAdapterWriteNumerical, writeDecimalEmpty) {
 //   Decimal128Builder builder(decimal(38, 6));
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1231,7 +1231,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDecimalNoNulls) {
+// TEST(TestAdapterWriteNumerical, writeDecimalNoNulls) {
 //   Decimal128Builder builder(decimal(38, 6));
 //   (void)(builder.Append(new Decimal128("1.5")));
 //   (void)(builder.Append(new Decimal128("2.6")));
@@ -1269,7 +1269,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDecimalAllNulls) {
+// TEST(TestAdapterWriteNumerical, writeDecimalAllNulls) {
 //   Decimal32Builder builder(decimal(38, 6));
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1305,7 +1305,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeDecimalMixed) {
+// TEST(TestAdapterWriteNumerical, writeDecimalMixed) {
 //   Decimal128Builder builder(decimal(38, 6));
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(new Decimal128("1.2")));
@@ -1351,7 +1351,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // //Binary formats
 
 // //String
-// TEST(TestAdapter, writeStringEmpty) {
+// TEST(TestAdapterWriteBinary, writeStringEmpty) {
 //   StringBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1381,7 +1381,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeStringNoNulls) {
+// TEST(TestAdapterWriteBinary, writeStringNoNulls) {
 //   StringBuilder builder;
 //   (void)(builder.Append("A"));
 //   (void)(builder.Append("AB"));
@@ -1423,7 +1423,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeStringAllNulls) {
+// TEST(TestAdapterWriteBinary, writeStringAllNulls) {
 //   StringBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1459,7 +1459,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeStringMixed) {
+// TEST(TestAdapterWriteBinary, writeStringMixed) {
 //   StringBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(""));
@@ -1505,7 +1505,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //LargeString
-// TEST(TestAdapter, writeLargeStringEmpty) {
+// TEST(TestAdapterWriteBinary, writeLargeStringEmpty) {
 //   LargeStringBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1535,7 +1535,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeStringNoNulls) {
+// TEST(TestAdapterWriteBinary, writeLargeStringNoNulls) {
 //   LargeStringBuilder builder;
 //   (void)(builder.Append("A"));
 //   (void)(builder.Append("AB"));
@@ -1577,7 +1577,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeStringAllNulls) {
+// TEST(TestAdapterWriteBinary, writeLargeStringAllNulls) {
 //   LargeStringBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1613,7 +1613,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeStringMixed) {
+// TEST(TestAdapterWriteBinary, writeLargeStringMixed) {
 //   LargeStringBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.Append(""));
@@ -1659,7 +1659,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //Binary
-// TEST(TestAdapter, writeBinaryEmpty) {
+// TEST(TestAdapterWriteBinary, writeBinaryEmpty) {
 //   BinaryBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1689,7 +1689,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBinaryNoNulls) {
+// TEST(TestAdapterWriteBinary, writeBinaryNoNulls) {
 //   BinaryBuilder builder;
 //   char a[] = "\xf4", b[] = "\x22\x0e",c[] = "",d[] = "\xff\x66\xbf\x5b";
 //   (void)(builder.Append(a));
@@ -1732,7 +1732,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBinaryAllNulls) {
+// TEST(TestAdapterWriteBinary, writeBinaryAllNulls) {
 //   BinaryBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1768,7 +1768,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeBinaryMixed) {
+// TEST(TestAdapterWriteBinary, writeBinaryMixed) {
 //   BinaryBuilder builder;
 //   char a[] = "", b[] = "\xff\xfe";
 //   (void)(builder.AppendNull());
@@ -1815,7 +1815,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //LargeBinary
-// TEST(TestAdapter, writeLargeBinaryEmpty) {
+// TEST(TestAdapterWriteBinary, writeLargeBinaryEmpty) {
 //   LargeBinaryBuilder builder;
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -1845,7 +1845,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeBinaryNoNulls) {
+// TEST(TestAdapterWriteBinary, writeLargeBinaryNoNulls) {
 //   LargeBinaryBuilder builder;
 //   char a[] = "\xf4", b[] = "\x22\x0e",c[] = "",d[] = "\xff\x66\xbf\x5b";
 //   (void)(builder.Append(a));
@@ -1888,7 +1888,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeBinaryAllNulls) {
+// TEST(TestAdapterWriteBinary, writeLargeBinaryAllNulls) {
 //   LargeBinaryBuilder builder;
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -1924,7 +1924,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeLargeBinaryMixed) {
+// TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
 //   LargeBinaryBuilder builder;
 //   char a[] = "", b[] = "\xff\xfe";
 //   (void)(builder.AppendNull());
@@ -1971,7 +1971,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 // }
 
 // //FixedSizeBinary
-// TEST(TestAdapter, writeFixedSizeBinaryEmpty) {
+// TEST(TestAdapterWriteBinary, writeFixedSizeBinaryEmpty) {
 //   FixedSizeBinaryBuilder builder(fixed_size_binary(4));
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
@@ -2001,7 +2001,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFixedSizeBinaryNoNulls) {
+// TEST(TestAdapterWriteBinary, writeFixedSizeBinaryNoNulls) {
 //   FixedSizeBinaryBuilder builder(fixed_size_binary(4));
 //   char a[] = "\xf4\xd2\x21\x39", b[] = "\x22\x0e\x09\xaa",c[] = "\x34\x01\x43\x42",d[] = "\xff\x66\xbf\x5b";
 //   (void)(builder.Append(a));
@@ -2044,7 +2044,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFixedSizeBinaryAllNulls) {
+// TEST(TestAdapterWriteBinary, writeFixedSizeBinaryAllNulls) {
 //   FixedSizeBinaryBuilder builder(fixed_size_binary(1));
 //   (void)(builder.AppendNull());
 //   (void)(builder.AppendNull());
@@ -2080,7 +2080,7 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->add(*batch);
 //   writer->close();
 // }
-// TEST(TestAdapter, writeFixedSizeBinaryMixed) {
+// TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
 //   FixedSizeBinaryBuilder builder(fixed_size_binary(2));
 //   char a[] = "\xa2\x34", b[] = "\xff\xfe";
 //   (void)(builder.AppendNull());
@@ -2126,8 +2126,9 @@ TEST(TestAdapter, readIntAndStringFileMultipleStripes) {
 //   writer->close();
 // }
 
+//Nested types
 //Struct
-TEST(TestAdapter, writeStructEmpty) {
+TEST(TestAdapterWriteNested, writeStructEmpty) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -2182,7 +2183,7 @@ TEST(TestAdapter, writeStructEmpty) {
   writer->add(*batch);
   writer->close();
 }
-TEST(TestAdapter, writeStructNoNulls) {
+TEST(TestAdapterWriteNested, writeStructNoNulls) {
 
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -2261,7 +2262,7 @@ TEST(TestAdapter, writeStructNoNulls) {
   writer->add(*batch);
   writer->close();
 }
-TEST(TestAdapter, writeStructMixed1) {
+TEST(TestAdapterWriteNested, writeStructMixed1) {
 
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -2342,7 +2343,7 @@ TEST(TestAdapter, writeStructMixed1) {
   writer->add(*batch);
   writer->close();
 }
-TEST(TestAdapter, writeStructMixed2) {
+TEST(TestAdapterWriteNested, writeStructMixed2) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -2436,7 +2437,7 @@ TEST(TestAdapter, writeStructMixed2) {
   writer->add(*batch);
   writer->close();
 }
-TEST(TestAdapter, writeStructMixed3) {
+TEST(TestAdapterWriteNested, writeStructMixed3) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
