@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, Field, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
@@ -86,6 +86,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
+        let num_rows = batch.num_rows();
         let mut levels = vec![];
         let batch_level = LevelInfo::new_from_batch(batch);
         batch
