@@ -59,6 +59,9 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
     super(buf);
+    if (buf.order() != ByteOrder.nativeOrder()) {
+      throw new IllegalStateException("ByteOrder of ByteBuf is different from the system endian.");
+    }
 
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
