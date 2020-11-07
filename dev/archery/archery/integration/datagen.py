@@ -1551,17 +1551,14 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS')     # TODO(ARROW-8716)
         .skip_category('Rust'),
 
-        generate_nested_case()
-        .skip_category('Rust'),  # TODO(ARROW-10261)
+        generate_nested_case(),
 
         generate_recursive_nested_case()
-        .skip_category('Go')     # TODO(ARROW-8453)
-        .skip_category('Rust'),  # TODO(ARROW-10261)
+        .skip_category('Go'),    # TODO(ARROW-8453)
 
         generate_nested_large_offsets_case()
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),  # TODO(ARROW-10261)
+        .skip_category('JS'),
 
         generate_unions_case()
         .skip_category('Go')
