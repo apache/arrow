@@ -21,10 +21,20 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
 use crate::util::bit_util;
+use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
+
+#[inline]
+fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
+    if let Some(ref buf) = null_bit_buffer {
+        len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset, len))
+            .unwrap()
+    } else {
+        0
+    }
+}
 
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
@@ -35,13 +45,13 @@ pub struct ArrayData {
     data_type: DataType,
 
     /// The number of elements in this array data
-    pub(crate) len: usize,
+    len: usize,
 
     /// The number of null elements in this array data
-    pub(crate) null_count: usize,
+    null_count: usize,
 
-    /// The offset into this array data
-    pub(crate) offset: usize,
+    /// The offset into this array data, in number of items
+    offset: usize,
 
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
@@ -70,18 +80,7 @@ impl ArrayData {
         child_data: Vec<ArrayDataRef>,
     ) -> Self {
         let null_count = match null_count {
-            None => {
-                if let Some(ref buf) = null_bit_buffer {
-                    len.checked_sub(bit_util::count_set_bits_offset(
-                        buf.data(),
-                        offset,
-                        len,
-                    ))
-                    .unwrap()
-                } else {
-                    0
-                }
-            }
+            None => count_nulls(null_bit_buffer.as_ref(), offset, len),
             Some(null_count) => null_count,
         };
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
@@ -121,7 +120,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(i);
+            return !b.is_set(self.offset + i);
         }
         false
     }
@@ -140,7 +139,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(i);
+            return b.is_set(self.offset + i);
         }
         true
     }
@@ -206,6 +205,41 @@ impl ArrayData {
         }
 
         size
+    }
+
+    /// Creates a zero-copy slice of itself. This creates a new [ArrayData]
+    /// with a different offset, len and a shifted null bitmap.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `offset + length > self.len()`.
+    pub fn slice(&self, offset: usize, length: usize) -> ArrayData {
+        assert!((offset + length) <= self.len());
+
+        let mut new_data = self.clone();
+
+        new_data.len = length;
+        new_data.offset = offset + self.offset;
+
+        new_data.null_count =
+            count_nulls(new_data.null_buffer(), new_data.offset, new_data.len);
+
+        new_data
+    }
+
+    /// Returns the `buffer` as a slice of type `T` starting at self.offset
+    /// # Panics
+    /// This function panics if:
+    /// * the buffer is not byte-aligned with type T, or
+    /// * the datatype is `Boolean` (it corresponds to a bit-packed buffer where the offset is not applicable)
+    #[inline]
+    pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
+        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
+        if values.0.len() != 0 || values.2.len() != 0 {
+            panic!("The buffer is not byte-aligned with its interpretation")
+        };
+        assert_ne!(self.data_type, DataType::Boolean);
+        &values.1[self.offset..]
     }
 }
 
@@ -434,5 +468,28 @@ mod tests {
             .build();
         assert!(arr_data.null_buffer().is_some());
         assert_eq!(&bit_v, arr_data.null_buffer().unwrap().data());
+    }
+
+    #[test]
+    fn test_slice() {
+        let mut bit_v: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut bit_v, 0);
+        bit_util::set_bit(&mut bit_v, 3);
+        bit_util::set_bit(&mut bit_v, 10);
+        let data = ArrayData::builder(DataType::Int32)
+            .len(16)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        let data = data.as_ref();
+        let new_data = data.slice(1, 15);
+        assert_eq!(data.len() - 1, new_data.len());
+        assert_eq!(1, new_data.offset());
+        assert_eq!(data.null_count(), new_data.null_count());
+
+        // slice of a slice (removes one null)
+        let new_data = new_data.slice(1, 14);
+        assert_eq!(data.len() - 2, new_data.len());
+        assert_eq!(2, new_data.offset());
+        assert_eq!(data.null_count() - 1, new_data.null_count());
     }
 }

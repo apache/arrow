@@ -87,6 +87,7 @@ mod builder;
 mod cast;
 mod data;
 mod equal;
+mod equal_json;
 mod iterator;
 mod null;
 mod ord;
@@ -246,8 +247,7 @@ pub use self::iterator::*;
 
 // --------------------- Array Equality ---------------------
 
-pub use self::equal::ArrayEqual;
-pub use self::equal::JsonEqual;
+pub use self::equal_json::JsonEqual;
 
 // --------------------- Array's values comparison ---------------------
 

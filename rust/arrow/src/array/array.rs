@@ -29,7 +29,7 @@ use num::Num;
 
 use super::*;
 use crate::array::builder::StringDictionaryBuilder;
-use crate::array::equal::JsonEqual;
+use crate::array::equal_json::JsonEqual;
 use crate::buffer::{buffer_bin_or, Buffer, MutableBuffer};
 use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
@@ -50,7 +50,7 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance.
-pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
+pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     /// Returns the array as [`Any`](std::any::Any) so that it can be
     /// downcasted to a specific implementation.
     ///
@@ -112,10 +112,10 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// // Make slice over the values [2, 3, 4]
     /// let array_slice = array.slice(1, 3);
     ///
-    /// assert!(array_slice.equals(&Int32Array::from(vec![2, 3, 4])));
+    /// assert_eq!(array_slice.as_ref(), &Int32Array::from(vec![2, 3, 4]));
     /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
-        make_array(slice_data(self.data_ref(), offset, length))
+        make_array(Arc::new(self.data_ref().as_ref().slice(offset, length)))
     }
 
     /// Returns the length (i.e., number of elements) of this array.
@@ -182,8 +182,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.is_null(1), true);
     /// ```
     fn is_null(&self, index: usize) -> bool {
-        let data = self.data_ref();
-        data.is_null(data.offset() + index)
+        self.data().is_null(index)
     }
 
     /// Returns whether the element at `index` is not null.
@@ -200,8 +199,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.is_valid(1), false);
     /// ```
     fn is_valid(&self, index: usize) -> bool {
-        let data = self.data_ref();
-        data.is_valid(data.offset() + index)
+        self.data().is_valid(index)
     }
 
     /// Returns the total number of null values in this array.
@@ -336,33 +334,6 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
-}
-
-/// Creates a zero-copy slice of the array's data.
-///
-/// # Panics
-///
-/// Panics if `offset + length > data.len()`.
-fn slice_data(data: &ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
-    assert!((offset + length) <= data.len());
-
-    let mut new_data = data.as_ref().clone();
-    let len = std::cmp::min(new_data.len - offset, length);
-
-    offset += data.offset;
-    new_data.len = len;
-    new_data.offset = offset;
-
-    // Calculate the new null count based on the offset
-    new_data.null_count = if let Some(bitmap) = new_data.null_bitmap() {
-        let valid_bits = bitmap.bits.data();
-        len.checked_sub(bit_util::count_set_bits_offset(valid_bits, offset, length))
-            .unwrap()
-    } else {
-        0
-    };
-
-    Arc::new(new_data)
 }
 
 // creates a new MutableBuffer initializes all falsed
@@ -853,11 +824,6 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     }
 }
 
-/// Common operations for List types.
-pub trait ListArrayOps<OffsetSize: OffsetSizeTrait> {
-    fn value_offset_at(&self, i: usize) -> OffsetSize;
-}
-
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord {
     fn prefix() -> &'static str;
@@ -1030,14 +996,6 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
         write!(f, "]")
-    }
-}
-
-impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
-    for GenericListArray<OffsetSize>
-{
-    fn value_offset_at(&self, i: usize) -> OffsetSize {
-        self.value_offset_at(i)
     }
 }
 
@@ -1324,14 +1282,6 @@ impl<OffsetSize: BinaryOffsetSizeTrait> Array for GenericBinaryArray<OffsetSize>
     /// Returns the total number of bytes of memory occupied physically by this [$name].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
-    }
-}
-
-impl<OffsetSize: BinaryOffsetSizeTrait> ListArrayOps<OffsetSize>
-    for GenericBinaryArray<OffsetSize>
-{
-    fn value_offset_at(&self, i: usize) -> OffsetSize {
-        self.value_offset_at(i)
     }
 }
 
@@ -1691,14 +1641,6 @@ impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
     }
 }
 
-impl<OffsetSize: StringOffsetSizeTrait> ListArrayOps<OffsetSize>
-    for GenericStringArray<OffsetSize>
-{
-    fn value_offset_at(&self, i: usize) -> OffsetSize {
-        self.value_offset_at(i)
-    }
-}
-
 /// An array where each element is a variable-sized sequence of bytes representing a string
 /// whose maximum length (in bytes) is represented by a i32.
 pub type StringArray = GenericStringArray<i32>;
@@ -1791,12 +1733,6 @@ impl FixedSizeBinaryArray {
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
         self.length * i as i32
-    }
-}
-
-impl ListArrayOps<i32> for FixedSizeBinaryArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
     }
 }
 
@@ -1935,8 +1871,8 @@ impl From<ArrayDataRef> for StructArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            let child_data = if data.offset != 0 || data.len != cd.len {
-                slice_data(&cd, data.offset, data.len)
+            let child_data = if data.offset() != 0 || data.len() != cd.len() {
+                Arc::new(cd.as_ref().slice(data.offset(), data.len()))
             } else {
                 cd.clone()
             };

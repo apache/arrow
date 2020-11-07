@@ -565,12 +565,12 @@ mod tests {
         expected_data: Vec<u32>,
     ) where
         T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>> + ArrayEqual,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
         let expected = UInt32Array::from(expected_data);
         let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
-        assert!(output.equals(&expected))
+        assert_eq!(output, expected)
     }
 
     fn test_sort_primitive_arrays<T>(
@@ -579,13 +579,12 @@ mod tests {
         expected_data: Vec<Option<T::Native>>,
     ) where
         T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>> + ArrayEqual,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
-        let expected = PrimitiveArray::<T>::from(expected_data);
+        let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
         let output = sort(&(Arc::new(output) as ArrayRef), options).unwrap();
-        let output = output.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-        assert!(output.equals(&expected))
+        assert_eq!(&output, &expected)
     }
 
     fn test_sort_to_indices_string_arrays(
@@ -596,7 +595,7 @@ mod tests {
         let output = StringArray::from(data);
         let expected = UInt32Array::from(expected_data);
         let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
-        assert!(output.equals(&expected))
+        assert_eq!(output, expected)
     }
 
     fn test_sort_string_arrays(
@@ -605,10 +604,9 @@ mod tests {
         expected_data: Vec<Option<&str>>,
     ) {
         let output = StringArray::from(data);
-        let expected = StringArray::from(expected_data);
+        let expected = Arc::new(StringArray::from(expected_data)) as ArrayRef;
         let output = sort(&(Arc::new(output) as ArrayRef), options).unwrap();
-        let output = output.as_any().downcast_ref::<StringArray>().unwrap();
-        assert!(output.equals(&expected))
+        assert_eq!(&output, &expected)
     }
 
     fn test_sort_string_dict_arrays<T: ArrowDictionaryKeyType>(
@@ -635,7 +633,7 @@ mod tests {
             .expect("Unable to get dictionary values");
         let sorted_keys = sorted.keys_array();
 
-        assert!(sorted_dict.equals(dict));
+        assert_eq!(sorted_dict, dict);
 
         let sorted_strings = StringArray::try_from(
             (0..sorted.len())
@@ -652,32 +650,14 @@ mod tests {
         let expected =
             StringArray::try_from(expected_data).expect("Unable to create string array");
 
-        assert!(sorted_strings.equals(&expected))
+        assert_eq!(sorted_strings, expected)
     }
 
     fn test_lex_sort_arrays(input: Vec<SortColumn>, expected_output: Vec<ArrayRef>) {
         let sorted = lexsort(&input).unwrap();
-        let sorted2cmp = sorted.iter().map(|arr| -> Box<&dyn ArrayEqual> {
-            match arr.data_type() {
-                DataType::Int64 => Box::new(as_primitive_array::<Int64Type>(&arr)),
-                DataType::UInt32 => Box::new(as_primitive_array::<UInt32Type>(&arr)),
-                DataType::Utf8 => Box::new(as_string_array(&arr)),
-                DataType::Dictionary(key_type, _) => match key_type.as_ref() {
-                    DataType::Int8 => Box::new(as_dictionary_array::<Int8Type>(&arr)),
-                    DataType::Int16 => Box::new(as_dictionary_array::<Int16Type>(&arr)),
-                    DataType::Int32 => Box::new(as_dictionary_array::<Int32Type>(&arr)),
-                    _ => panic!("unexpected dictionary key type"),
-                },
-                _ => panic!("unexpected array type"),
-            }
-        });
-        for (i, values) in sorted2cmp.enumerate() {
-            assert!(
-                values.equals(&(*expected_output[i])),
-                "expect {:#?} to be: {:#?}",
-                sorted,
-                expected_output
-            );
+
+        for (result, expected) in sorted.iter().zip(expected_output.iter()) {
+            assert_eq!(result, expected);
         }
     }
 

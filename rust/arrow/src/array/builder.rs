@@ -531,7 +531,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
 
             for i in 0..len {
                 // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
         Ok(())
@@ -761,8 +761,7 @@ where
                 .append_slice(adjusted_offsets.as_slice())?;
 
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -974,8 +973,7 @@ where
                 .append_slice(adjusted_offsets.as_slice())?;
 
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -1156,8 +1154,7 @@ where
             let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
             self.values().append_data(&[sliced.data()])?;
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -1963,8 +1960,7 @@ impl ArrayBuilder for StructBuilder {
                 builder.append_data(&[sliced.data()])?;
             }
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -3558,7 +3554,7 @@ mod tests {
             array.slice(2, 0).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(Int32Array::from(vec![
+        let expected = Int32Array::from(vec![
             None,
             Some(1),
             None,
@@ -3567,14 +3563,15 @@ mod tests {
             None,
             Some(6),
             Some(7),
+            // array.data() end
             Some(3),
             None,
             None,
             Some(6),
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
 
         let mut builder = Float64Builder::new(64);
         builder.append_null()?;
@@ -3588,7 +3585,7 @@ mod tests {
             array.slice(2, 1).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(Float64Array::from(vec![
+        let expected = Float64Array::from(vec![
             None,
             Some(1.0),
             None,
@@ -3603,10 +3600,10 @@ mod tests {
             Some(6.0),
             Some(7.0),
             None,
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
         Ok(())
     }
 
@@ -3630,7 +3627,7 @@ mod tests {
             array.slice(2, 0).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(BooleanArray::from(vec![
+        let expected = BooleanArray::from(vec![
             None,
             Some(true),
             None,
@@ -3643,10 +3640,10 @@ mod tests {
             None,
             None,
             Some(false),
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
         Ok(())
     }
 
@@ -3712,7 +3709,7 @@ mod tests {
             finished.data().buffers()[0].data(),
             expected_list.data().buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3802,7 +3799,7 @@ mod tests {
             finished.data().child_data()[0].buffers()[0].data(),
             expected_list.data().child_data()[0].buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3879,7 +3876,7 @@ mod tests {
             finished.data().child_data()[0].buffers()[0].data(),
             expected_list.data().child_data()[0].buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3963,7 +3960,7 @@ mod tests {
         );
         let expected_list =
             FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -4037,7 +4034,7 @@ mod tests {
         let expected_list =
             FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
         let expected_list = FixedSizeBinaryArray::from(expected_list);
-        // assert!(expected_list.values().equals(&*finished.values()));
+        // assert_eq!(expected_list.values(), finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -4111,10 +4108,10 @@ mod tests {
             true, true, true, false, true, false, true, false, true, false, true, false,
             true, false,
         ])) as ArrayRef;
-        let expected = Arc::new(StructArray::from(vec![(field1, f1), (field2, f2)]));
+        let expected = StructArray::from(vec![(field1, f1), (field2, f2)]);
         assert_eq!(arr2.data().child_data()[0], expected.data().child_data()[0]);
         assert_eq!(arr2.data().child_data()[1], expected.data().child_data()[1]);
-        assert!(arr2.equals(&*expected));
+        assert_eq!(arr2, expected);
 
         Ok(())
     }
