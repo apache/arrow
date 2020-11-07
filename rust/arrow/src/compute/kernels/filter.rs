@@ -1052,10 +1052,7 @@ mod tests {
         // but keys are filtered
         assert_eq!(2, d.len());
         assert_eq!(true, d.is_null(0));
-        assert_eq!(
-            "world",
-            values.value(d.keys().nth(1).unwrap().unwrap() as usize)
-        );
+        assert_eq!("world", values.value(d.keys().value(1) as usize));
     }
 
     #[test]

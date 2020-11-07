@@ -2326,7 +2326,7 @@ where
     ///
     /// ```
     /// use arrow::datatypes::Int16Type;
-    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
+    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder, Int16Array};
     /// use std::convert::TryFrom;
     ///
     /// let dictionary_values = StringArray::from(vec![None, Some("abc"), Some("def")]);
@@ -2338,9 +2338,9 @@ where
     ///
     /// let dictionary_array = builder.finish();
     ///
-    /// let keys: Vec<Option<i16>> = dictionary_array.keys().collect();
+    /// let keys = dictionary_array.keys();
     ///
-    /// assert_eq!(keys, vec![Some(2), None, Some(1)]);
+    /// assert_eq!(keys, &Int16Array::from(vec![Some(2), None, Some(1)]));
     /// ```
     pub fn new_with_dictionary(
         keys_builder: PrimitiveBuilder<K>,
@@ -3430,8 +3430,10 @@ mod tests {
         builder.append(22345678).unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &UInt8Array::from(vec![Some(0), None, Some(1)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
@@ -3442,7 +3444,6 @@ mod tests {
         assert_eq!(array.is_null(1), true);
         assert_eq!(array.is_null(2), false);
 
-        assert_eq!(aks, vec![Some(0), None, Some(1)]);
         assert_eq!(avs, &[12345678, 22345678]);
     }
 
@@ -3458,14 +3459,15 @@ mod tests {
         builder.append("abc").unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &Int8Array::from(vec![Some(0), None, Some(1), Some(1), Some(0)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
         let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
 
-        assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
         assert_eq!(ava.value(0), "abc");
         assert_eq!(ava.value(1), "def");
     }
@@ -3486,14 +3488,15 @@ mod tests {
         builder.append("ghi").unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &Int8Array::from(vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
         let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
 
-        assert_eq!(aks, vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)]);
         assert_eq!(ava.is_valid(0), false);
         assert_eq!(ava.value(1), "def");
         assert_eq!(ava.value(2), "abc");
