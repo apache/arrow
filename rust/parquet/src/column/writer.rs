@@ -319,7 +319,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
         }
 
         if let Some(nulls) = null_count {
-            self.num_column_nulls += nulls;
+            self.num_column_nulls += nulls; // TODO: null count doesn't seem to be computed
         }
 
         let calculate_page_stats = (min.is_none() || max.is_none())

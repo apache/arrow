@@ -86,6 +86,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
+        let num_rows = batch.num_rows();
         let mut levels = vec![];
         let batch_level = LevelInfo::new_from_batch(batch);
         batch
