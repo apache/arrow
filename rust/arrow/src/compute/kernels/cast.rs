@@ -57,9 +57,11 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
     match (from_type, to_type) {
         (Struct(_), _) => false,
         (_, Struct(_)) => false,
-        (List(list_from), List(list_to)) => can_cast_types(list_from, list_to),
+        (List(list_from), List(list_to)) => {
+            can_cast_types(list_from.data_type(), list_to.data_type())
+        }
         (List(_), _) => false,
-        (_, List(list_to)) => can_cast_types(from_type, list_to),
+        (_, List(list_to)) => can_cast_types(from_type, list_to.data_type()),
         (Dictionary(_, from_value_type), Dictionary(_, to_value_type)) => {
             can_cast_types(from_value_type, to_value_type)
         }
@@ -243,9 +245,9 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (List(_), List(ref to)) => {
             let data = array.data_ref();
             let underlying_array = make_array(data.child_data()[0].clone());
-            let cast_array = cast(&underlying_array, &to)?;
+            let cast_array = cast(&underlying_array, to.data_type())?;
             let array_data = ArrayData::new(
-                *to.clone(),
+                to.data_type().clone(),
                 array.len(),
                 Some(cast_array.null_count()),
                 cast_array
@@ -266,12 +268,12 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         )),
         (_, List(ref to)) => {
             // cast primitive to list's primitive
-            let cast_array = cast(array, &to)?;
+            let cast_array = cast(array, to.data_type())?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
             let offsets: Vec<i32> = (0..=array.len() as i32).collect();
             let value_offsets = Buffer::from(offsets[..].to_byte_slice());
             let list_data = ArrayData::new(
-                *to.clone(),
+                to.data_type().clone(),
                 array.len(),
                 Some(cast_array.null_count()),
                 cast_array
@@ -1219,7 +1221,11 @@ mod tests {
     fn test_cast_i32_to_list_i32() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        let b = cast(
+            &array,
+            &DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+        )
+        .unwrap();
         assert_eq!(5, b.len());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(0, arr.value_offset(0));
@@ -1245,7 +1251,11 @@ mod tests {
     fn test_cast_i32_to_list_i32_nullable() {
         let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), Some(9)]);
         let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        let b = cast(
+            &array,
+            &DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+        )
+        .unwrap();
         assert_eq!(5, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
@@ -1274,7 +1284,11 @@ mod tests {
         let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), None, Some(10)]);
         let array = Arc::new(a) as ArrayRef;
         let array = array.slice(2, 4);
-        let b = cast(&array, &DataType::List(Box::new(DataType::Float64))).unwrap();
+        let b = cast(
+            &array,
+            &DataType::List(Box::new(Field::new("item", DataType::Float64, true))),
+        )
+        .unwrap();
         assert_eq!(4, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
@@ -1348,7 +1362,8 @@ mod tests {
         let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -1356,8 +1371,11 @@ mod tests {
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
-        let cast_array =
-            cast(&list_array, &DataType::List(Box::new(DataType::UInt16))).unwrap();
+        let cast_array = cast(
+            &list_array,
+            &DataType::List(Box::new(Field::new("item", DataType::UInt16, true))),
+        )
+        .unwrap();
         // 3 negative values should get lost when casting to unsigned,
         // 1 value should overflow
         assert_eq!(4, cast_array.null_count());
@@ -1403,7 +1421,8 @@ mod tests {
         let value_offsets = Buffer::from(&[0, 3, 6, 9].to_byte_slice());
 
         // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -1413,7 +1432,11 @@ mod tests {
 
         cast(
             &list_array,
-            &DataType::List(Box::new(DataType::Timestamp(TimeUnit::Microsecond, None))),
+            &DataType::List(Box::new(Field::new(
+                "item",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                true,
+            ))),
         )
         .unwrap();
     }
@@ -2816,7 +2839,8 @@ mod tests {
         let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_buffer(value_offsets.clone())
@@ -2837,7 +2861,8 @@ mod tests {
         let value_offsets = Buffer::from(&[0i64, 3, 6, 8].to_byte_slice());
 
         // Construct a list array from the above two
-        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_buffer(value_offsets.clone())
@@ -2856,7 +2881,10 @@ mod tests {
             .build();
 
         // Construct a fixed size list array from the above two
-        let list_data_type = DataType::FixedSizeList(Box::new(DataType::Int32), 2);
+        let list_data_type = DataType::FixedSizeList(
+            Box::new(Field::new("item", DataType::Int32, true)),
+            2,
+        );
         let list_data = ArrayData::builder(list_data_type)
             .len(5)
             .add_child_data(value_data.clone())
@@ -2949,12 +2977,12 @@ mod tests {
             LargeBinary,
             Utf8,
             LargeUtf8,
-            List(Box::new(DataType::Int8)),
-            List(Box::new(DataType::Utf8)),
-            FixedSizeList(Box::new(DataType::Int8), 10),
-            FixedSizeList(Box::new(DataType::Utf8), 10),
-            LargeList(Box::new(DataType::Int8)),
-            LargeList(Box::new(DataType::Utf8)),
+            List(Box::new(Field::new("item", DataType::Int8, true))),
+            List(Box::new(Field::new("item", DataType::Utf8, true))),
+            FixedSizeList(Box::new(Field::new("item", DataType::Int8, true)), 10),
+            FixedSizeList(Box::new(Field::new("item", DataType::Utf8, false)), 10),
+            LargeList(Box::new(Field::new("item", DataType::Int8, true))),
+            LargeList(Box::new(Field::new("item", DataType::Utf8, false))),
             Struct(vec![
                 Field::new("f1", DataType::Int32, false),
                 Field::new("f2", DataType::Utf8, true),

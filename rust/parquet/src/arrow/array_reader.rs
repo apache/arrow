@@ -1348,7 +1348,11 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
                     .ok()
                     .map(|f| f.data_type().to_owned())
                     .unwrap_or_else(|| {
-                        ArrowType::List(Box::new(item_reader_type.clone()))
+                        ArrowType::List(Box::new(Field::new(
+                            list_type.name(),
+                            item_reader_type.clone(),
+                            list_type.is_optional(),
+                        )))
                     });
 
                 let list_array_reader: Box<dyn ArrayReader> = match arrow_type {
@@ -2309,7 +2313,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i32>::new(
             Box::new(item_array_reader),
-            ArrowType::List(Box::new(ArrowType::Int32)),
+            ArrowType::List(Box::new(Field::new("item", ArrowType::Int32, true))),
             ArrowType::Int32,
             1,
             1,
@@ -2363,7 +2367,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i64>::new(
             Box::new(item_array_reader),
-            ArrowType::LargeList(Box::new(ArrowType::Int32)),
+            ArrowType::LargeList(Box::new(Field::new("item", ArrowType::Int32, true))),
             ArrowType::Int32,
             1,
             1,

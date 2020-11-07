@@ -775,7 +775,11 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::List(Box::new(self.values_builder.data_type()))
+        DataType::List(Box::new(Field::new(
+            "item",
+            self.values_builder.data_type(),
+            true,
+        )))
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -839,15 +843,19 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         self.offsets_builder.append(0).unwrap();
-        let data =
-            ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-                .len(len)
-                .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                .add_buffer(offset_buffer)
-                .add_child_data(values_data)
-                .null_bit_buffer(null_bit_buffer)
-                .build();
+        let data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            values_data.data_type().clone(),
+            true, // TODO: find a consistent way of getting this
+        ))))
+        .len(len)
+        .null_count(len - nulls)
+        .add_buffer(offset_buffer)
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
 
         ListArray::from(data)
     }
@@ -980,7 +988,11 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::LargeList(Box::new(self.values_builder.data_type()))
+        DataType::LargeList(Box::new(Field::new(
+            "item",
+            self.values_builder.data_type(),
+            true,
+        )))
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1044,12 +1056,15 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         self.offsets_builder.append(0).unwrap();
-        let data = ArrayData::builder(DataType::LargeList(Box::new(
+        let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
+            "item",
             values_data.data_type().clone(),
-        )))
+            true,
+        ))))
         .len(len)
-        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .null_count(len - nulls)
         .add_buffer(offset_buffer)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
@@ -1155,7 +1170,10 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::FixedSizeList(Box::new(self.values_builder.data_type()), self.list_len)
+        DataType::FixedSizeList(
+            Box::new(Field::new("item", self.values_builder.data_type(), true)),
+            self.list_len,
+        )
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1230,12 +1248,13 @@ where
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         let data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(values_data.data_type().clone()),
+            Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
         ))
         .len(len)
-        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .null_count(len - nulls)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
         .build();
@@ -1445,7 +1464,7 @@ fn append_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::List(Box::new(DataType::UInt8)),
+                    DataType::List(Box::new(Field::new("item", DataType::UInt8, true))),
                     array.len(),
                     None,
                     array.null_buffer().cloned(),
@@ -1497,7 +1516,11 @@ fn append_large_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::LargeList(Box::new(DataType::UInt8)),
+                    DataType::LargeList(Box::new(Field::new(
+                        "item",
+                        DataType::UInt8,
+                        true,
+                    ))),
                     array.len(),
                     None,
                     array.null_buffer().cloned(),
@@ -1595,7 +1618,10 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
                 vec![],
             )) as ArrayDataRef;
             let list_data = Arc::new(ArrayData::new(
-                DataType::FixedSizeList(Box::new(DataType::UInt8), self.builder.list_len),
+                DataType::FixedSizeList(
+                    Box::new(Field::new("item", DataType::UInt8, true)),
+                    self.builder.list_len,
+                ),
                 array.len(),
                 None,
                 array.null_buffer().cloned(),
@@ -3368,11 +3394,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Data type List(Int64) is not currently supported")]
+    #[should_panic(
+        expected = "Data type List(Field { name: \"item\", data_type: Int64, nullable: true, dict_id: 0, dict_is_ordered: false }) is not currently supported"
+    )]
     fn test_struct_array_builder_from_schema_unsupported_type() {
         let mut fields = Vec::new();
         fields.push(Field::new("f1", DataType::Int16, false));
-        let list_type = DataType::List(Box::new(DataType::Int64));
+        let list_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true)));
         fields.push(Field::new("f2", list_type, false));
 
         let _ = StructBuilder::from_fields(fields, 5);
@@ -3667,7 +3696,7 @@ mod tests {
         let list_value_offsets =
             Buffer::from(&[0, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Int64)),
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             8,
             None,
             None,
@@ -3753,7 +3782,7 @@ mod tests {
             &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
         );
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Int64)),
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             12,
             None,
             None,
@@ -3795,7 +3824,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         let list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Utf8)),
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             3,
             None,
             None,
@@ -3830,7 +3859,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Utf8)),
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             7,
             None,
             None, // is this correct?
@@ -3918,7 +3947,10 @@ mod tests {
             Some(12),
         ]);
         let expected_list_data = ArrayData::new(
-            DataType::FixedSizeList(Box::new(DataType::UInt16), 2),
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt16, true)),
+                2,
+            ),
             12,
             None,
             None,
@@ -3988,7 +4020,10 @@ mod tests {
             None,
         ]);
         let expected_list_data = ArrayData::new(
-            DataType::FixedSizeList(Box::new(DataType::UInt8), 2),
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt8, true)),
+                2,
+            ),
             12,
             None,
             None,

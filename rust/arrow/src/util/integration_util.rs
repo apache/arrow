@@ -375,9 +375,9 @@ impl ArrowJsonBatch {
 /// Convert an Arrow JSON column/array into a vector of `Value`
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
-        DataType::List(dt) => json_from_list_col(col, &**dt),
-        DataType::FixedSizeList(dt, list_size) => {
-            json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
+        DataType::List(field) => json_from_list_col(col, field.data_type()),
+        DataType::FixedSizeList(field, list_size) => {
+            json_from_fixed_size_list_col(col, field.data_type(), *list_size as usize)
         }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         DataType::Int64
@@ -474,7 +474,7 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
         })
         .collect();
     let inner = match data_type {
-        DataType::List(ref dt) => json_from_col(child, &**dt),
+        DataType::List(ref field) => json_from_col(child, field.data_type()),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(
             child.validity.as_ref().unwrap().as_slice(),
@@ -511,8 +511,8 @@ fn json_from_fixed_size_list_col(
     // get the inner array
     let child = &col.children.clone().expect("list type must have children")[0];
     let inner = match data_type {
-        DataType::List(ref dt) => json_from_col(child, &**dt),
-        DataType::FixedSizeList(ref dt, _) => json_from_col(child, &**dt),
+        DataType::List(ref field) => json_from_col(child, field.data_type()),
+        DataType::FixedSizeList(ref field, _) => json_from_col(child, field.data_type()),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(
             child.validity.as_ref().unwrap().as_slice(),
@@ -577,13 +577,13 @@ mod tests {
                     "nullable": true,
                     "children": [
                         {
-                            "name": "item",
+                            "name": "custom_item",
                             "type": {
                                 "name": "int",
                                 "isSigned": true,
                                 "bitWidth": 32
                             },
-                            "nullable": true,
+                            "nullable": false,
                             "children": []
                         }
                     ]
@@ -595,7 +595,15 @@ mod tests {
             Field::new("c1", DataType::Int32, true),
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::Utf8, true),
-            Field::new("c4", DataType::List(Box::new(DataType::Int32)), true),
+            Field::new(
+                "c4",
+                DataType::List(Box::new(Field::new(
+                    "custom_item",
+                    DataType::Int32,
+                    false,
+                ))),
+                true,
+            ),
         ]);
         assert!(json_schema.equals_schema(&schema));
     }
@@ -661,7 +669,11 @@ mod tests {
                 true,
             ),
             Field::new("utf8s", DataType::Utf8, true),
-            Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
+            Field::new(
+                "lists",
+                DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+                true,
+            ),
             Field::new(
                 "structs",
                 DataType::Struct(vec![
@@ -735,7 +747,8 @@ mod tests {
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)

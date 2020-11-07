@@ -80,7 +80,7 @@ impl AggregateExpr for DistinctCount {
             .map(|data_type| {
                 Field::new(
                     &format_state_name(&self.name, "count distinct"),
-                    DataType::List(Box::new(data_type.clone())),
+                    DataType::List(Box::new(Field::new("item", data_type.clone(), true))),
                     false,
                 )
             })

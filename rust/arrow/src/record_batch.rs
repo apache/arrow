@@ -99,6 +99,7 @@ impl RecordBatch {
                     "all columns in a record batch must have the same length".to_string(),
                 ));
             }
+            // list types can have different names, but we only need the data types to be the same
             if column.data_type() != schema.field(i).data_type() {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}",

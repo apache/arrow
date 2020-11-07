@@ -142,10 +142,14 @@ async fn parquet_list_columns() {
     let schema = Arc::new(Schema::new(vec![
         Field::new(
             "int64_list",
-            DataType::List(Box::new(DataType::Int64)),
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             true,
         ),
-        Field::new("utf8_list", DataType::List(Box::new(DataType::Utf8)), true),
+        Field::new(
+            "utf8_list",
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+            true,
+        ),
     ]));
 
     let sql = "SELECT int64_list, utf8_list FROM list_columns";

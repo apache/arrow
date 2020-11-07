@@ -114,7 +114,9 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
         DataType::Duration(TimeUnit::Nanosecond) => {
             concat_primitive::<DurationNanosecondType>(array_data_list)
         }
-        DataType::List(nested_type) => concat_list(array_data_list, *nested_type.clone()),
+        DataType::List(nested_field) => {
+            concat_list(array_data_list, nested_field.data_type())
+        }
         t => Err(ArrowError::ComputeError(format!(
             "Concat not supported for data type {:?}",
             t
@@ -145,7 +147,7 @@ where
 #[inline]
 fn concat_list(
     array_data_list: &[ArrayDataRef],
-    data_type: DataType,
+    data_type: &DataType,
 ) -> Result<ArrayRef> {
     match data_type {
         DataType::Int8 => concat_primitive_list::<Int8Type>(array_data_list),
