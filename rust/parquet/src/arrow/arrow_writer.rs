@@ -20,11 +20,13 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, Field, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
+use super::levels::LevelInfo;
 use super::schema::add_encoded_arrow_schema_to_metadata;
+
 use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
@@ -84,12 +86,28 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
+        let num_rows = batch.num_rows();
         let mut levels = vec![];
-        batch.columns().iter().for_each(|array| {
-            let mut array_levels =
-                get_levels(array, 0, &vec![1i16; batch.num_rows()][..], None);
-            levels.append(&mut array_levels);
-        });
+        let batch_level = LevelInfo {
+            definition: vec![1; num_rows],
+            repetition: None,
+            definition_mask: vec![(true, 1); num_rows],
+            array_offsets: (0..=(num_rows as i64)).collect(),
+            array_mask: vec![true; num_rows],
+            max_definition: 1,
+            is_list: false,
+            is_nullable: true, // setting as null treats non-null structs correctly
+        };
+        // TODO: between `max_definition` and `level` below, one might have to be 0
+        batch
+            .columns()
+            .iter()
+            .zip(batch.schema().fields())
+            .for_each(|(array, field)| {
+                let mut array_levels =
+                    calculate_array_levels(array, field, 1, &batch_level);
+                levels.append(&mut array_levels);
+            });
         // reverse levels so we can use Vec::pop(&mut self)
         levels.reverse();
 
@@ -125,7 +143,7 @@ fn get_col_writer(
 fn write_leaves(
     mut row_group_writer: &mut Box<dyn RowGroupWriter>,
     array: &arrow_array::ArrayRef,
-    mut levels: &mut Vec<Levels>,
+    mut levels: &mut Vec<LevelInfo>,
 ) -> Result<()> {
     match array.data_type() {
         ArrowDataType::Null
@@ -217,6 +235,9 @@ fn write_leaves(
                 use std::convert::TryFrom;
                 // This removes NULL values from the keys, but
                 // they're encoded by the levels, so that's fine.
+
+                // nevi-me: if we materialize values by iterating on the array, can't we instead 'just' cast to the values?
+                // in the failing dictionary test, the materialized values here are incorrect (missing 22345678)
                 let materialized_values: Vec<_> = keys
                     .into_iter()
                     .flatten()
@@ -232,11 +253,17 @@ fn write_leaves(
                         materialized_values,
                     );
 
+                // I added this because we need to consider dictionaries in structs correctly,
+                // I don't think it's the cause for the failing test though, as the materialized_p_arr
+                // in the test is incorrect when it gets here (missing 22345678 value)
+                let indices = filter_array_indices(&levels);
+                let values = get_numeric_array_slice::<Int32Type, _>(
+                    &materialized_primitive_array,
+                    &indices,
+                );
+
                 writer.write_batch(
-                    get_numeric_array_slice::<Int32Type, _>(
-                        &materialized_primitive_array,
-                    )
-                    .as_slice(),
+                    values.as_slice(),
                     Some(levels.definition.as_slice()),
                     levels.repetition.as_deref(),
                 )?;
@@ -318,7 +345,7 @@ where
 fn write_dict<K, V, T>(
     array: &(dyn Array + 'static),
     writer: &mut ColumnWriterImpl<T>,
-    levels: Levels,
+    levels: LevelInfo,
 ) -> Result<()>
 where
     T: DataType,
@@ -336,8 +363,9 @@ where
 fn write_leaf(
     writer: &mut ColumnWriter,
     column: &arrow_array::ArrayRef,
-    levels: Levels,
+    levels: LevelInfo,
 ) -> Result<i64> {
+    let indices = filter_array_indices(&levels);
     let written = match writer {
         ColumnWriter::Int32ColumnWriter(ref mut typed) => {
             let array = arrow::compute::cast(column, &ArrowDataType::Int32)?;
@@ -345,8 +373,10 @@ fn write_leaf(
                 .as_any()
                 .downcast_ref::<arrow_array::Int32Array>()
                 .expect("Unable to get int32 array");
+            // assigning values to make it easier to debug
+            let slice = get_numeric_array_slice::<Int32Type, _>(&array, &indices); // TODO: this function is incomplete as it doesn't take into account the actual definition in slicing
             typed.write_batch(
-                get_numeric_array_slice::<Int32Type, _>(&array).as_slice(),
+                slice.as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -354,7 +384,7 @@ fn write_leaf(
         ColumnWriter::BoolColumnWriter(ref mut typed) => {
             let array = arrow_array::BooleanArray::from(column.data());
             typed.write_batch(
-                get_bool_array_slice(&array).as_slice(),
+                get_bool_array_slice(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -362,7 +392,7 @@ fn write_leaf(
         ColumnWriter::Int64ColumnWriter(ref mut typed) => {
             let array = arrow_array::Int64Array::from(column.data());
             typed.write_batch(
-                get_numeric_array_slice::<Int64Type, _>(&array).as_slice(),
+                get_numeric_array_slice::<Int64Type, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -373,7 +403,7 @@ fn write_leaf(
         ColumnWriter::FloatColumnWriter(ref mut typed) => {
             let array = arrow_array::Float32Array::from(column.data());
             typed.write_batch(
-                get_numeric_array_slice::<FloatType, _>(&array).as_slice(),
+                get_numeric_array_slice::<FloatType, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -381,7 +411,7 @@ fn write_leaf(
         ColumnWriter::DoubleColumnWriter(ref mut typed) => {
             let array = arrow_array::Float64Array::from(column.data());
             typed.write_batch(
-                get_numeric_array_slice::<DoubleType, _>(&array).as_slice(),
+                get_numeric_array_slice::<DoubleType, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -428,25 +458,64 @@ fn write_leaf(
     Ok(written as i64)
 }
 
-/// A struct that represents definition and repetition levels.
-/// Repetition levels are only populated if the parent or current leaf is repeated
-#[derive(Debug)]
-struct Levels {
-    definition: Vec<i16>,
-    repetition: Option<Vec<i16>>,
-}
-
 /// Compute nested levels of the Arrow array, recursing into lists and structs
-fn get_levels(
+/// Returns a list of `LevelInfo`, where each level is for nested primitive arrays.
+///
+/// The algorithm works by eagerly incrementing non-null values, and decrementing
+/// when a value is null.
+///
+/// *Examples:*
+///
+/// A record batch always starts at a populated definition = level 1.
+/// When a batch only has a primitive, i.e. `<batch<primitive[a]>>, column `a`
+/// can only have a maximum level of 1 if it is not null.
+/// If it is null, we decrement by 1, such that the null slots will = level 0.
+///
+/// If a batch has nested arrays (list, struct, union, etc.), then the incrementing
+/// takes place.
+/// A `<batch<struct[a]<primitive[b]>>` will have up to 2 levels (if nullable).
+/// When calculating levels for `a`, if the struct slot is not empty, we
+/// increment by 1, such that we'd have `[2, 2, 2]` if all 3 slots are not null.
+/// If there is an empty slot, we decrement, leaving us with `[2, 0, 2]` as the
+/// null slot effectively means that no record is populated for the row altogether.
+///
+/// *Lists*
+///
+/// TODO
+///
+/// *Non-nullable arrays*
+///
+/// If an array is non-nullable, this is accounted for when converting the Arrow
+/// schema to a Parquet schema.
+/// When dealing with `<batch<primitive[_]>>` there is no issue, as the meximum
+/// level will always be = 1.
+///
+/// When dealing with nested types, the logic becomes a bit complicate.
+/// A non-nullable struct; `<batch<struct{non-null}[a]<primitive[b]>>>` will only
+/// have 1 maximum level, where 0 means `b` is nul, and 1 means `b` is not null.
+///
+/// We account for the above by checking if the `Field` is nullable, and adjusting
+/// the [inc|dec]rement accordingly.
+fn calculate_array_levels(
     array: &arrow_array::ArrayRef,
+    field: &Field,
     level: i16,
-    parent_def_levels: &[i16],
-    parent_rep_levels: Option<&[i16]>,
-) -> Vec<Levels> {
+    level_info: &LevelInfo,
+) -> Vec<LevelInfo> {
     match array.data_type() {
-        ArrowDataType::Null => vec![Levels {
-            definition: parent_def_levels.iter().map(|v| (v - 1).max(0)).collect(),
-            repetition: None,
+        ArrowDataType::Null => vec![LevelInfo {
+            definition: level_info
+                .definition
+                .iter()
+                .map(|d| (d - 1).max(0))
+                .collect(),
+            repetition: level_info.repetition.clone(),
+            definition_mask: level_info.definition_mask.clone(),
+            array_offsets: level_info.array_offsets.clone(),
+            array_mask: level_info.array_mask.clone(),
+            max_definition: level,
+            is_list: level_info.is_list,
+            is_nullable: true, // always nullable as all values are nulls
         }],
         ArrowDataType::Boolean
         | ArrowDataType::Int8
@@ -470,13 +539,19 @@ fn get_levels(
         | ArrowDataType::Duration(_)
         | ArrowDataType::Interval(_)
         | ArrowDataType::Binary
-        | ArrowDataType::LargeBinary => vec![Levels {
-            definition: get_primitive_def_levels(array, parent_def_levels),
-            repetition: None,
+        | ArrowDataType::LargeBinary => vec![LevelInfo {
+            definition: get_primitive_def_levels(array, field, &level_info.definition),
+            repetition: level_info.repetition.clone(),
+            definition_mask: level_info.definition_mask.clone(),
+            array_offsets: level_info.array_offsets.clone(),
+            array_mask: level_info.array_mask.clone(),
+            is_list: level_info.is_list,
+            max_definition: level,
+            is_nullable: field.is_nullable(),
         }],
         ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
         ArrowDataType::Decimal(_, _) => unimplemented!(),
-        ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
+        ArrowDataType::List(list_field) | ArrowDataType::LargeList(list_field) => {
             let array_data = array.data();
             let child_data = array_data.child_data().get(0).unwrap();
             // get offsets, accounting for large offsets if present
@@ -492,10 +567,13 @@ fn get_levels(
 
             let mut list_def_levels = Vec::with_capacity(child_array.len());
             let mut list_rep_levels = Vec::with_capacity(child_array.len());
-            let rep_levels: Vec<i16> = parent_rep_levels
+            let rep_levels: Vec<i16> = level_info
+                .repetition
+                .clone()
                 .map(|l| l.to_vec())
-                .unwrap_or_else(|| vec![0i16; parent_def_levels.len()]);
-            parent_def_levels
+                .unwrap_or_else(|| vec![0i16; level_info.definition.len()]);
+            level_info
+                .definition
                 .iter()
                 .zip(rep_levels)
                 .zip(offsets.windows(2))
@@ -526,9 +604,15 @@ fn get_levels(
             // if datatype is a primitive, we can construct levels of the child array
             match child_array.data_type() {
                 // TODO: The behaviour of a <list<null>> is untested
-                ArrowDataType::Null => vec![Levels {
+                ArrowDataType::Null => vec![LevelInfo {
                     definition: list_def_levels,
                     repetition: Some(list_rep_levels),
+                    definition_mask: level_info.definition_mask.clone(), // TODO: list mask
+                    array_offsets: offsets,
+                    array_mask: level_info.array_mask.clone(), // TODO: list mask
+                    is_list: true,
+                    is_nullable: list_field.is_nullable(),
+                    max_definition: level + 1, // TODO: compute correctly
                 }],
                 ArrowDataType::Boolean
                 | ArrowDataType::Int8
@@ -549,11 +633,20 @@ fn get_levels(
                 | ArrowDataType::Time64(_)
                 | ArrowDataType::Duration(_)
                 | ArrowDataType::Interval(_) => {
-                    let def_levels =
-                        get_primitive_def_levels(&child_array, &list_def_levels[..]);
-                    vec![Levels {
+                    let def_levels = get_primitive_def_levels(
+                        &child_array,
+                        list_field,
+                        &list_def_levels[..],
+                    );
+                    vec![LevelInfo {
                         definition: def_levels,
                         repetition: Some(list_rep_levels),
+                        array_mask: vec![],
+                        array_offsets: vec![],
+                        definition_mask: vec![],
+                        is_list: true,
+                        is_nullable: list_field.is_nullable(),
+                        max_definition: level + 1, // TODO: update
                     }]
                 }
                 ArrowDataType::Binary
@@ -567,33 +660,93 @@ fn get_levels(
                     unimplemented!()
                 }
                 ArrowDataType::FixedSizeList(_, _) => unimplemented!(),
-                ArrowDataType::Struct(_) => get_levels(
-                    array,
-                    level + 1, // indicates a nesting level of 2 (list + struct)
-                    &list_def_levels[..],
-                    Some(&list_rep_levels[..]),
-                ),
+                ArrowDataType::Struct(_) => {
+                    let struct_level_info = LevelInfo {
+                        definition: list_def_levels,
+                        repetition: Some(list_rep_levels),
+                        definition_mask: vec![],
+                        array_offsets: vec![],
+                        array_mask: vec![],
+                        max_definition: level + 1,
+                        is_list: list_field.is_nullable(),
+                        is_nullable: true, // // indicates a nesting level of 2 (list + struct)
+                    };
+                    calculate_array_levels(
+                        array,
+                        list_field,
+                        level + 1, // indicates a nesting level of 2 (list + struct)
+                        &struct_level_info,
+                    )
+                }
                 ArrowDataType::Union(_) => unimplemented!(),
                 ArrowDataType::Dictionary(_, _) => unimplemented!(),
             }
         }
         ArrowDataType::FixedSizeList(_, _) => unimplemented!(),
-        ArrowDataType::Struct(_) => {
+        ArrowDataType::Struct(struct_fields) => {
             let struct_array: &arrow_array::StructArray = array
                 .as_any()
                 .downcast_ref::<arrow_array::StructArray>()
                 .expect("Unable to get struct array");
-            let mut struct_def_levels = Vec::with_capacity(struct_array.len());
-            for i in 0..array.len() {
-                struct_def_levels.push(level + struct_array.is_valid(i) as i16);
+            let array_len = struct_array.len();
+            let mut struct_def_levels = Vec::with_capacity(array_len);
+            let mut struct_mask = Vec::with_capacity(array_len);
+            // we can have a <struct<struct<_>>, in which case we should check
+            // the parent struct in the child struct's offsets
+            for (i, def_level) in level_info.definition.iter().enumerate() {
+                if *def_level == level {
+                    if !field.is_nullable() {
+                        // push the level as is
+                        struct_def_levels.push(level);
+                    } else if struct_array.is_valid(i) {
+                        // Increment to indicate that this value is not null
+                        // The next level will decrement if it is null
+                        // we can check if current value is null
+                        struct_def_levels.push(level + 1);
+                    } else {
+                        // decrement to show that only the previous level is populated
+                        // we only decrement if previous field is nullable
+                        struct_def_levels.push(level - (level_info.is_nullable as i16));
+                    }
+                } else {
+                    struct_def_levels.push(*def_level);
+                }
+                // TODO: is it more efficient to use `bitvec` here?
+                struct_mask.push(struct_array.is_valid(i));
             }
             // trying to create levels for struct's fields
             let mut struct_levels = vec![];
-            struct_array.columns().into_iter().for_each(|col| {
-                let mut levels =
-                    get_levels(col, level + 1, &struct_def_levels[..], parent_rep_levels);
-                struct_levels.append(&mut levels);
-            });
+            let struct_level_info = LevelInfo {
+                definition: struct_def_levels,
+                // TODO: inherit the parent's repetition? (relevant for <list<struct<_>>)
+                repetition: level_info.repetition.clone(),
+                // Is it correct to increment this by 1 level?
+                definition_mask: level_info
+                    .definition_mask
+                    .iter()
+                    .map(|(state, index)| (*state, index + 1))
+                    .collect(),
+                // logically, a struct should inherit its parent's offsets
+                array_offsets: level_info.array_offsets.clone(),
+                // this should be just the struct's mask, not its parent's
+                array_mask: struct_mask,
+                max_definition: level_info.max_definition + (field.is_nullable() as i16),
+                is_list: level_info.is_list,
+                is_nullable: field.is_nullable(),
+            };
+            struct_array
+                .columns()
+                .into_iter()
+                .zip(struct_fields)
+                .for_each(|(col, struct_field)| {
+                    let mut levels = calculate_array_levels(
+                        col,
+                        struct_field,
+                        level + (field.is_nullable() as i16),
+                        &struct_level_info,
+                    );
+                    struct_levels.append(&mut levels);
+                });
             struct_levels
         }
         ArrowDataType::Union(_) => unimplemented!(),
@@ -601,9 +754,19 @@ fn get_levels(
             // Need to check for these cases not implemented in C++:
             // - "Writing DictionaryArray with nested dictionary type not yet supported"
             // - "Writing DictionaryArray with null encoded in dictionary type not yet supported"
-            vec![Levels {
-                definition: get_primitive_def_levels(array, parent_def_levels),
-                repetition: None,
+            vec![LevelInfo {
+                definition: get_primitive_def_levels(
+                    array,
+                    field,
+                    &level_info.definition,
+                ),
+                repetition: level_info.repetition.clone(),
+                definition_mask: level_info.definition_mask.clone(),
+                array_offsets: level_info.array_offsets.clone(),
+                array_mask: level_info.array_mask.clone(),
+                is_list: level_info.is_list,
+                max_definition: level,
+                is_nullable: field.is_nullable(),
             }]
         }
     }
@@ -613,16 +776,31 @@ fn get_levels(
 /// In the case where the array in question is a child of either a list or struct, the levels
 /// are incremented in accordance with the `level` parameter.
 /// Parent levels are either 0 or 1, and are used to higher (correct terminology?) leaves as null
+///
+/// TODO: (a comment to remove, note to help me reduce the mental bookkeeping)
+/// We want an array's levels to be additive here, i.e. if we have an array that
+/// comes from <batch<primitive>>, we should consume &[0; array.len()], so that
+/// we add values to it, instead of subtract values
+///
+/// An alternaitve is to pass the max level, and use it to compute whether we
+/// should increment (though this is likely tricker)
 fn get_primitive_def_levels(
     array: &arrow_array::ArrayRef,
+    field: &Field,
     parent_def_levels: &[i16],
 ) -> Vec<i16> {
     let mut array_index = 0;
     let max_def_level = parent_def_levels.iter().max().unwrap();
     let mut primitive_def_levels = vec![];
     parent_def_levels.iter().for_each(|def_level| {
-        if def_level < max_def_level {
+        // TODO: if field is non-nullable, can its parent be nullable? Ideally shouldn't
+        // being non-null means that for a level > 1, then we should subtract 1?
+        if !field.is_nullable() && *max_def_level > 1 {
+            primitive_def_levels.push(*def_level - 1);
+            array_index += 1;
+        } else if def_level < max_def_level {
             primitive_def_levels.push(*def_level);
+            array_index += 1;
         } else {
             primitive_def_levels.push(def_level - array.is_null(array_index) as i16);
             array_index += 1;
@@ -655,29 +833,57 @@ def_get_binary_array_fn!(get_large_string_array, arrow_array::LargeStringArray);
 /// Get the underlying numeric array slice, skipping any null values.
 /// If there are no null values, it might be quicker to get the slice directly instead of
 /// calling this function.
-fn get_numeric_array_slice<T, A>(array: &arrow_array::PrimitiveArray<A>) -> Vec<T::T>
+fn get_numeric_array_slice<T, A>(
+    array: &arrow_array::PrimitiveArray<A>,
+    indices: &[usize],
+) -> Vec<T::T>
 where
     T: DataType,
     A: arrow::datatypes::ArrowNumericType,
     T::T: From<A::Native>,
 {
-    let mut values = Vec::with_capacity(array.len() - array.null_count());
-    for i in 0..array.len() {
-        if array.is_valid(i) {
-            values.push(array.value(i).into())
-        }
+    let mut values = Vec::with_capacity(indices.len());
+    for i in indices {
+        values.push(array.value(*i).into())
     }
     values
 }
 
-fn get_bool_array_slice(array: &arrow_array::BooleanArray) -> Vec<bool> {
-    let mut values = Vec::with_capacity(array.len() - array.null_count());
-    for i in 0..array.len() {
-        if array.is_valid(i) {
-            values.push(array.value(i))
-        }
+fn get_bool_array_slice(
+    array: &arrow_array::BooleanArray,
+    indices: &[usize],
+) -> Vec<bool> {
+    let mut values = Vec::with_capacity(indices.len());
+    for i in indices {
+        values.push(array.value(*i))
     }
     values
+}
+
+/// Given a level's information, calculate the offsets required to index an array
+/// correctly.
+fn filter_array_indices(level: &LevelInfo) -> Vec<usize> {
+    // TODO: we don't quite get the def levels right all the time, so for now we recalculate it
+    // this has the downside that if no values are populated, the slicing will be wrong
+
+    // TODO: we should reliably track this, to avoid finding the max value
+    let max_def = level.definition.iter().max().cloned().unwrap();
+    let mut filtered = vec![];
+    // remove slots that are false from definition_mask
+    let mut index = 0;
+    level
+        .definition
+        .iter()
+        .zip(&level.definition_mask)
+        .for_each(|(def, (mask, _))| {
+            if *mask {
+                if *def == max_def {
+                    filtered.push(index);
+                }
+                index += 1;
+            }
+        });
+    filtered
 }
 
 #[cfg(test)]
@@ -687,15 +893,13 @@ mod tests {
     use std::io::Seek;
     use std::sync::Arc;
 
-    use arrow::array::*;
     use arrow::datatypes::ToByteSlice;
     use arrow::datatypes::{DataType, Field, Schema, UInt32Type, UInt8Type};
     use arrow::record_batch::RecordBatch;
+    use arrow::{array::*, buffer::Buffer};
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
-    use crate::file::{
-        metadata::KeyValue, reader::SerializedFileReader, writer::InMemoryWriteableCursor,
-    };
+    use crate::file::{reader::SerializedFileReader, writer::InMemoryWriteableCursor};
     use crate::util::test_common::get_temp_file;
 
     #[test]
@@ -772,6 +976,25 @@ mod tests {
 
     #[test]
     #[ignore = "repetitions might be incorrect, will be addressed as part of ARROW-9728"]
+    fn arrow_writer_non_null() {
+        // define schema
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        // create some data
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+
+        // build a record batch
+        let batch =
+            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)]).unwrap();
+
+        let file = get_temp_file("test_arrow_writer_non_null.parquet", &[]);
+        let mut writer = ArrowWriter::try_new(file, Arc::new(schema), None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+    }
+
+    #[test]
+    #[ignore = "list support is incomplete"]
     fn arrow_writer_list() {
         // define schema
         let schema = Schema::new(vec![Field::new(
@@ -870,6 +1093,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "list support is incomplete"]
     fn arrow_writer_complex() {
         // define schema
         let struct_field_d = Field::new("d", DataType::Float64, true);
@@ -927,23 +1151,76 @@ mod tests {
 
         // build a record batch
         let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
+            Arc::new(schema),
             vec![Arc::new(a), Arc::new(b), Arc::new(c)],
         )
         .unwrap();
 
-        let props = WriterProperties::builder()
-            .set_key_value_metadata(Some(vec![KeyValue {
-                key: "test_key".to_string(),
-                value: Some("test_value".to_string()),
-            }]))
-            .build();
+        roundtrip("test_arrow_writer_complex.parquet", batch);
+    }
 
-        let file = get_temp_file("test_arrow_writer_complex.parquet", &[]);
-        let mut writer =
-            ArrowWriter::try_new(file, Arc::new(schema), Some(props)).unwrap();
-        writer.write(&batch).unwrap();
-        writer.close().unwrap();
+    #[test]
+    fn arrow_writer_2_level_struct() {
+        // tests writing <struct<struct<primitive>>
+        let field_c = Field::new("c", DataType::Int32, true);
+        let field_b = Field::new("b", DataType::Struct(vec![field_c]), true);
+        let field_a = Field::new("a", DataType::Struct(vec![field_b.clone()]), true);
+        let schema = Schema::new(vec![field_a.clone()]);
+
+        // create data
+        let c = Int32Array::from(vec![Some(1), None, Some(3), None, None, Some(6)]);
+        let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
+            .len(6)
+            .null_bit_buffer(Buffer::from(vec![0b00100111]))
+            .add_child_data(c.data())
+            .build();
+        let b = StructArray::from(b_data);
+        let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
+            .len(6)
+            .null_bit_buffer(Buffer::from(vec![0b00101111]))
+            .add_child_data(b.data())
+            .build();
+        let a = StructArray::from(a_data);
+
+        assert_eq!(a.null_count(), 1);
+        assert_eq!(a.column(0).null_count(), 2);
+
+        // build a racord batch
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]).unwrap();
+
+        roundtrip("test_arrow_writer_2_level_struct.parquet", batch);
+    }
+
+    #[test]
+    fn arrow_writer_2_level_struct_non_null() {
+        // tests writing <struct<struct<primitive>>
+        let field_c = Field::new("c", DataType::Int32, false);
+        let field_b = Field::new("b", DataType::Struct(vec![field_c]), true);
+        let field_a = Field::new("a", DataType::Struct(vec![field_b.clone()]), false);
+        let schema = Schema::new(vec![field_a.clone()]);
+
+        // create data
+        let c = Int32Array::from(vec![1, 2, 3, 4, 5, 6]);
+        let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
+            .len(6)
+            .null_bit_buffer(Buffer::from(vec![0b00100111]))
+            .add_child_data(c.data())
+            .build();
+        let b = StructArray::from(b_data);
+        // a intentionally has no null buffer, to test that this is handled correctly
+        let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
+            .len(6)
+            .add_child_data(b.data())
+            .build();
+        let a = StructArray::from(a_data);
+
+        assert_eq!(a.null_count(), 0);
+        assert_eq!(a.column(0).null_count(), 2);
+
+        // build a racord batch
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]).unwrap();
+
+        roundtrip("test_arrow_writer_2_level_struct_non_null.parquet", batch);
     }
 
     const SMALL_SIZE: usize = 100;
@@ -1292,7 +1569,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "repetitions might be incorrect, will be addressed as part of ARROW-9728"]
+    #[ignore = "list support is incomplete"]
     fn list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
@@ -1317,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "repetitions might be incorrect, will be addressed as part of ARROW-9728"]
+    #[ignore = "list support is incomplete"]
     fn large_list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =

@@ -332,6 +332,7 @@ impl BitWriter {
     #[inline]
     pub fn put_value(&mut self, v: u64, num_bits: usize) -> bool {
         assert!(num_bits <= 64);
+        // TODO:why does this cause crashes in tests?
         assert_eq!(v.checked_shr(num_bits as u32).unwrap_or(0), 0); // covers case v >> 64
 
         if self.byte_offset * 8 + self.bit_offset + num_bits > self.max_bytes as usize * 8
