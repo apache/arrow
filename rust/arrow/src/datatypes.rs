@@ -1183,7 +1183,7 @@ impl Field {
         self.nullable
     }
 
-    /// IReturns the dictionary ID
+    /// Returns the dictionary ID
     #[inline]
     pub const fn dict_id(&self) -> i64 {
         self.dict_id

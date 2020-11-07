@@ -530,19 +530,6 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         List(ref list_type) => {
             let child = build_field(fbb, list_type);
-            // let inner_types = get_fb_field_type(list_type, fbb);
-            // let child = ipc::Field::create(
-            //     fbb,
-            //     &ipc::FieldArgs {
-            //         name: None,
-            //         nullable: false,
-            //         type_type: inner_types.type_type,
-            //         type_: Some(inner_types.type_),
-            //         children: inner_types.children,
-            //         dictionary: None,
-            //         custom_metadata: None,
-            //     },
-            // );
             FBFieldType {
                 type_type: ipc::Type::List,
                 type_: ipc::ListBuilder::new(fbb).finish().as_union_value(),
@@ -551,19 +538,6 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         LargeList(ref list_type) => {
             let child = build_field(fbb, list_type);
-            // let inner_types = get_fb_field_type(list_type, fbb);
-            // let child = ipc::Field::create(
-            //     fbb,
-            //     &ipc::FieldArgs {
-            //         name: None,
-            //         nullable: false,
-            //         type_type: inner_types.type_type,
-            //         type_: Some(inner_types.type_),
-            //         dictionary: None,
-            //         children: inner_types.children,
-            //         custom_metadata: None,
-            //     },
-            // );
             FBFieldType {
                 type_type: ipc::Type::LargeList,
                 type_: ipc::LargeListBuilder::new(fbb).finish().as_union_value(),
@@ -572,19 +546,6 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         }
         FixedSizeList(ref list_type, len) => {
             let child = build_field(fbb, list_type);
-            // let inner_types = get_fb_field_type(list_type, fbb);
-            // let child = ipc::Field::create(
-            //     fbb,
-            //     &ipc::FieldArgs {
-            //         name: None,
-            //         nullable: false,
-            //         type_type: inner_types.type_type,
-            //         type_: Some(inner_types.type_),
-            //         dictionary: None,
-            //         children: inner_types.children,
-            //         custom_metadata: None,
-            //     },
-            // );
             let mut builder = ipc::FixedSizeListBuilder::new(fbb);
             builder.add_listSize(*len as i32);
             FBFieldType {
