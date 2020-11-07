@@ -418,9 +418,7 @@ fn array_from_json(
             }
             Ok(Arc::new(b.finish()))
         }
-        DataType::List(child_type) => {
-            let child_field =
-                Field::new("item", *child_type.clone(), field.is_nullable());
+        DataType::List(child_field) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_array = array_from_json(
@@ -443,9 +441,7 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(ListArray::from(list_data)))
         }
-        DataType::LargeList(child_type) => {
-            let child_field =
-                Field::new("item", *child_type.clone(), field.is_nullable());
+        DataType::LargeList(child_field) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_array = array_from_json(
@@ -472,8 +468,7 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(LargeListArray::from(list_data)))
         }
-        DataType::FixedSizeList(child_type, _) => {
-            let child_field = Field::new("item", *child_type.clone(), true); // field.is_nullable()
+        DataType::FixedSizeList(child_field, _) => {
             let children = json_col.children.clone().unwrap();
             let child_array = array_from_json(
                 &child_field,
@@ -504,12 +499,7 @@ fn array_from_json(
             Ok(Arc::new(array))
         }
         DataType::Dictionary(key_type, value_type) => {
-            let dict_id = field.dict_id().ok_or_else(|| {
-                ArrowError::JsonError(format!(
-                    "Unable to find dict_id for field {:?}",
-                    field
-                ))
-            })?;
+            let dict_id = field.dict_id();
             // find dictionary
             let dictionary = dictionaries
                 .ok_or_else(|| {
@@ -557,12 +547,8 @@ fn dictionary_array_from_json(
                 "key",
                 dict_key.clone(),
                 field.is_nullable(),
-                field
-                    .dict_id()
-                    .expect("Dictionary fields must have a dict_id value"),
-                field
-                    .dict_is_ordered()
-                    .expect("Dictionary fields must have a dict_is_ordered value"),
+                field.dict_id(),
+                field.dict_is_ordered(),
             );
             let keys = array_from_json(&key_field, json_col, None)?;
             // note: not enough info on nullability of dictionary
