@@ -124,31 +124,32 @@ impl Iterator for BitChunkIterator<'_> {
 
     #[inline]
     fn next(&mut self) -> Option<u64> {
-        if self.index >= self.chunk_len {
+        let index = self.index;
+        if index >= self.chunk_len {
             return None;
         }
 
+        let raw_data = (self.raw_data as *const u64);
+
         // cast to *const u64 should be fine since we are using read_unaligned
+        // bit-packed buffers are stored starting with the least-significant byte first
+        // so when reading as u64 on a big-endian machine, the bytes need to be swapped
         #[allow(clippy::cast_ptr_alignment)]
-        let current = unsafe {
-            std::ptr::read_unaligned((self.raw_data as *const u64).add(self.index))
-        };
+        let current = unsafe { std::ptr::read_unaligned(raw_data.add(index)).to_le() };
 
         let combined = if self.bit_offset == 0 {
             current
         } else {
             // cast to *const u64 should be fine since we are using read_unaligned
             #[allow(clippy::cast_ptr_alignment)]
-            let next = unsafe {
-                std::ptr::read_unaligned(
-                    (self.raw_data as *const u64).add(self.index + 1),
-                )
-            };
+            let next =
+                unsafe { std::ptr::read_unaligned(raw_data.add(index + 1)).to_le() };
+
             current >> self.bit_offset
                 | (next & ((1 << self.bit_offset) - 1)) << (64 - self.bit_offset)
         };
 
-        self.index += 1;
+        self.index = index + 1;
 
         Some(combined)
     }
