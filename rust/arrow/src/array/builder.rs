@@ -848,7 +848,7 @@ where
         let data = ArrayData::builder(DataType::List(Box::new(Field::new(
             "item",
             values_data.data_type().clone(),
-            nulls > 0,
+            true, // TODO: find a consistent way of getting this
         ))))
         .len(len)
         .null_count(len - nulls)
@@ -1061,7 +1061,7 @@ where
         let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
             "item",
             values_data.data_type().clone(),
-            nulls > 0,
+            true,
         ))))
         .len(len)
         .null_count(len - nulls)
@@ -1250,11 +1250,7 @@ where
         let null_bit_buffer = self.bitmap_builder.finish();
         let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         let data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(Field::new(
-                "item",
-                values_data.data_type().clone(),
-                nulls > 0,
-            )),
+            Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
         ))
         .len(len)

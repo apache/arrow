@@ -671,7 +671,7 @@ mod tests {
             Field::new("utf8s", DataType::Utf8, true),
             Field::new(
                 "lists",
-                DataType::List(Box::new(Field::new("itemx", DataType::Int32, false))),
+                DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
                 true,
             ),
             Field::new(

@@ -251,19 +251,19 @@
       },
       {
         "name": "lists",
+        "nullable": true,
         "type": {
           "name": "list"
         },
-        "nullable": true,
         "children": [
           {
-            "name": "itemx",
+            "name": "item",
+            "nullable": true,
             "type": {
               "name": "int",
-              "isSigned": true,
-              "bitWidth": 32
+              "bitWidth": 32,
+              "isSigned": true
             },
-            "nullable": false,
             "children": []
           }
         ]

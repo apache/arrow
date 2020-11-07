@@ -872,35 +872,6 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 }
 
 impl DataType {
-    /// Compare data types considering that list fields only match on type
-    // TODO: remove this custom comparator when we have clarity on how list field
-    // names should be handled between Arrow and Parquet
-    pub fn compare(&self, other: &Self) -> bool {
-        match (self, other) {
-            (DataType::List(f1), DataType::List(f2))
-            | (DataType::LargeList(f1), DataType::LargeList(f2)) => {
-                f1.data_type().compare(f2.data_type())
-            }
-            (DataType::FixedSizeList(f1, l1), DataType::FixedSizeList(f2, l2)) => {
-                f1.data_type().compare(f2.data_type()) && l1 == l2
-            }
-            (DataType::Struct(fields1), DataType::Struct(fields2)) => {
-                if fields1.len() != fields2.len() {
-                    return false;
-                }
-                fields1.iter().zip(fields2).all(|(a, b)| {
-                    // fields must be the same, but if any field is a list child,
-                    // we should only compare datatypes
-                    a.data_type().compare(b.data_type())
-                        && a.name() == b.name()
-                        && a.is_nullable() == b.is_nullable()
-                        && a.dict_id == b.dict_id
-                        && a.dict_is_ordered == b.dict_is_ordered
-                })
-            }
-            _ => self == other,
-        }
-    }
     /// Parse a data type from a JSON representation
     fn from(json: &Value) -> Result<DataType> {
         let default_field = Field::new("", DataType::Boolean, true);
