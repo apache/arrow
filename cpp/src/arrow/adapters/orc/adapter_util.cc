@@ -447,18 +447,33 @@ Status FillFixedSizeBinaryBatch(const DataType* type, liborc::ColumnVectorBatch*
 //   return Status::OK();
 // }
 
-// Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
-//   auto array = checked_cast<StructArray*>(parray);
-//   auto batch = checked_cast<liborc::StructVectorBatch*>(cbatch);
-//   auto size = type->fields().size();
-//   int64_t lastIndex = offset + length;
-//   for (auto i = 0; i < size; i++) {
-//     for (auto j = offset; j < lastIndex; j++) {
-//       if 
-//       subarray = array->field(i).get();
-//     }
-//   }
-// }
+Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<StructArray*>(parray);
+  auto batch = checked_cast<liborc::StructVectorBatch*>(cbatch);
+  std::size_t size = type->fields().size();
+  int64_t arrowLength = array->length();
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset;
+  int64_t initArrowOffset = arrowOffset;
+  //First fill fields of ColumnVectorBatch
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset;
+  //Fill the fields
+  for (std::size_t i = 0; i < size; i++) {
+    orcOffset = initORCOffset;
+    arrowOffset = initArrowOffset;
+    RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->fields[i], arrowOffset, orcOffset, length, array->field(i).get()));
+  }
+  return Status::OK();
+}
 
 // template <class array_type, class offset_type>
 // Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
@@ -527,6 +542,8 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
       return FillNumericBatchCast<NumericArray<arrow::Date32Type>, liborc::LongVectorBatch, int64_t>(type, cbatch, arrowOffset, orcOffset, length, parray);
     // case Type::type::DECIMAL:
     //   return FillDecimalBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::STRUCT:
+      return FillStructBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
