@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn test_take_value_index_from_large_list() {
         let list = build_list(
-            DataType::LargeList(Box::new(DataType::Int32)),
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
             Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
             vec![0i64, 2i64, 5i64, 10i64],
         );
