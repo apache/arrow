@@ -1579,17 +1579,16 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 
     pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
-        let iter = v.iter().map(|e| e.map(|e| e.to_string()));
-        GenericStringArray::from_iter(iter)
+        GenericStringArray::from_iter(v.into_iter())
     }
 }
 
-impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Ptr>
+impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Option<Ptr>>
     for GenericStringArray<OffsetSize>
 where
-    Ptr: Borrow<Option<String>>,
+    Ptr: AsRef<str>,
 {
-    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = Option<Ptr>>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (_, data_len) = iter.size_hint();
         let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
@@ -1601,7 +1600,8 @@ where
         offsets.push(length_so_far);
 
         for (i, s) in iter.enumerate() {
-            if let Some(s) = s.borrow() {
+            if let Some(s) = s {
+                let s = s.as_ref();
                 // set null bit
                 let null_slice = null_buf.data_mut();
                 bit_util::set_bit(null_slice, i);
@@ -3945,6 +3945,23 @@ mod tests {
             "LargeStringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
             format!("{:?}", arr)
         );
+    }
+
+    #[test]
+    fn test_string_array_from_iter() {
+        let data = vec![Some("hello"), None, Some("arrow")];
+        // from Vec<Option<&str>>
+        let array1 = StringArray::from(data.clone());
+        // from Iterator<Option<&str>>
+        let array2: StringArray = data.clone().into_iter().collect();
+        // from Iterator<Option<String>>
+        let array3: StringArray = data
+            .into_iter()
+            .map(|x| x.map(|s| format!("{}", s)))
+            .collect();
+
+        assert_eq!(array1, array2);
+        assert_eq!(array2, array3);
     }
 
     #[test]
