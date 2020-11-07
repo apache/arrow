@@ -412,16 +412,6 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
 }
 
 impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
-    pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
-        let array_data = ArrayData::builder(T::DATA_TYPE)
-            .len(length)
-            .add_buffer(values)
-            .null_count(null_count)
-            .offset(offset)
-            .build();
-        PrimitiveArray::from(array_data)
-    }
-
     /// Returns the length of this array.
     pub fn len(&self) -> usize {
         self.data.len()
@@ -2360,10 +2350,9 @@ mod tests {
     #[test]
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
-        let buf2 = buf.clone();
-        let arr = Int32Array::new(5, buf, 0, 0);
+        let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
         let slice = unsafe { std::slice::from_raw_parts(arr.raw_values(), 5) };
-        assert_eq!(buf2, arr.values());
+        assert_eq!(buf, arr.values());
         assert_eq!(&[0, 1, 2, 3, 4], slice);
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.offset());
@@ -2653,8 +2642,7 @@ mod tests {
 
     #[test]
     fn test_int32_fmt_debug() {
-        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
-        let arr = Int32Array::new(5, buf, 0, 0);
+        let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
         assert_eq!(
             "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
             format!("{:?}", arr)
@@ -2694,8 +2682,7 @@ mod tests {
 
     #[test]
     fn test_boolean_fmt_debug() {
-        let buf = Buffer::from(&[true, false, false].to_byte_slice());
-        let arr = BooleanArray::new(3, buf, 0, 0);
+        let arr = BooleanArray::from(vec![true, false, false]);
         assert_eq!(
             "PrimitiveArray<Boolean>\n[\n  true,\n  false,\n  false,\n]",
             format!("{:?}", arr)
@@ -2768,23 +2755,6 @@ mod tests {
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         Int32Array::from(data);
-    }
-
-    #[test]
-    fn test_boolean_array_new() {
-        // 00000010 01001000
-        let buf = Buffer::from([72_u8, 2_u8]);
-        let buf2 = buf.clone();
-        let arr = BooleanArray::new(10, buf, 0, 0);
-        assert_eq!(buf2, arr.values());
-        assert_eq!(10, arr.len());
-        assert_eq!(0, arr.offset());
-        assert_eq!(0, arr.null_count());
-        for i in 0..10 {
-            assert!(!arr.is_null(i));
-            assert!(arr.is_valid(i));
-            assert_eq!(i == 3 || i == 6 || i == 9, arr.value(i), "failed at {}", i)
-        }
     }
 
     #[test]
