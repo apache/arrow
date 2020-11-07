@@ -64,12 +64,12 @@ public class TestUnsafeDirectLittleEndian {
     assertEquals(1.234567D, unsafeDirect.getDouble(40), 0.0);
     assertEquals(-1.234567D, unsafeDirect.getDouble(48), 0.0);
 
-    byte[] inBytes = "12345".getBytes(StandardCharsets.UTF_8);
+    byte[] inBytes = "1234567".getBytes(StandardCharsets.UTF_8);
     try (ByteArrayInputStream bais = new ByteArrayInputStream(inBytes);
          ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-      assertEquals(3, unsafeDirect.setBytes(56, bais, 3));
-      unsafeDirect.getBytes(56, baos, 3);
-      assertEquals("123", baos.toString(StandardCharsets.UTF_8));
+      assertEquals(5, unsafeDirect.setBytes(56, bais, 5));
+      unsafeDirect.getBytes(56, baos, 5);
+      assertEquals("12345", new String(baos.toByteArray(), StandardCharsets.UTF_8));
     } catch (IOException e) {
       e.printStackTrace();
     }
