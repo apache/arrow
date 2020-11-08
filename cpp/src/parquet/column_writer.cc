@@ -56,6 +56,7 @@ using arrow::Datum;
 using arrow::Status;
 using arrow::BitUtil::BitWriter;
 using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
 
 namespace parquet {
@@ -1222,17 +1223,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   std::shared_ptr<Array> MaybeReplaceValidity(std::shared_ptr<Array> array,
-                                              int64_t new_null_count) {
+                                              int64_t new_null_count,
+                                              arrow::MemoryPool* memory_pool) {
     if (bits_buffer_ == nullptr) {
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
     buffers[0] = bits_buffer_;
+    DCHECK_GT(buffers.size(), 1);
+    PARQUET_ASSIGN_OR_THROW(
+        buffers[1],
+        checked_pointer_cast<arrow::FlatArray>(array)->SlicedValues(memory_pool));
     // Should be a leaf array.
     DCHECK_EQ(array->num_fields(), 0);
-    return arrow::MakeArray(std::make_shared<ArrayData>(array->type(), array->length(),
-                                                        std::move(buffers),
-                                                        new_null_count, array->offset()));
+    return arrow::MakeArray(std::make_shared<ArrayData>(
+        array->type(), array->length(), std::move(buffers), new_null_count));
   }
 
   void WriteLevelsSpaced(int64_t num_levels, const int16_t* def_levels,
@@ -1383,7 +1388,8 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    writeable_indices = MaybeReplaceValidity(writeable_indices, null_count);
+    writeable_indices =
+        MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool);
     dict_encoder->PutIndices(*writeable_indices);
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     value_offset += batch_num_spaced_values;
@@ -1810,7 +1816,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
-    data_slice = MaybeReplaceValidity(data_slice, null_count);
+    data_slice = MaybeReplaceValidity(data_slice, null_count, ctx->memory_pool);
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
@@ -1855,8 +1861,6 @@ struct SerializeFunctor<
 
 // ----------------------------------------------------------------------
 // Write Arrow to Decimal128
-
-using ::arrow::internal::checked_pointer_cast;
 
 // Requires a custom serializer because decimal128 in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
