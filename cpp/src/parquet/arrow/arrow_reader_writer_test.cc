@@ -38,6 +38,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -3202,30 +3203,30 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
 TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   // ARROW-10493
   auto type =
-      ::arrow::struct_({::arrow::field("string", ::arrow::utf8(), /*nullable=*/true)});
-  auto array = ::arrow::ArrayFromJSON(type, R"([{"string": "a"},
-                                                {"string": null},
-                                                {"string": "b"},
-                                                {"string": "c"},
-                                                {"string": null},
-                                                {"string": null},
-                                                {"string": "d"},
+      ::arrow::struct_({::arrow::field("inner", ::arrow::utf8(), /*nullable=*/true)});
+  auto outer_array = ::arrow::ArrayFromJSON(type,
+                                            R"([{"inner": "a"},
+                                                {"inner": null},
+                                                {"inner": "b"},
+                                                {"inner": "c"},
+                                                {"inner": null},
+                                                {"inner": null},
+                                                {"inner": "d"},
                                                 null])");
-
-  auto outer_bitmap = array->data()->buffers[0];
-  outer_bitmap->mutable_data()[0] = 0x7F;
-  auto inner_bitmap =
-      std::static_pointer_cast<::arrow::StructArray>(array)->field(0)->data()->buffers[0];
-  inner_bitmap->mutable_data()[0] = 0x4D;
+  auto inner_array =
+      std::static_pointer_cast<::arrow::StructArray>(outer_array)->field(0);
+  ASSERT_OK_AND_ASSIGN(inner_array->data()->buffers[0],
+                       ::arrow::internal::BytesToBits({1, 0, 1, 1, 0, 0, 1, 0}));
+  ASSERT_OK_AND_ASSIGN(outer_array->data()->buffers[0],
+                       ::arrow::internal::BytesToBits({1, 1, 1, 1, 1, 1, 1, 0}));
 
   auto expected = Table::Make(
-      ::arrow::schema({::arrow::field("struct", array->type(), /*nullable=*/true)}),
-      {array});
+      ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {outer_array});
 
   auto write_props = WriterProperties::Builder().write_batch_size(2)->build();
 
   std::shared_ptr<Table> actual;
-  DoRoundtrip(expected, /*row_group_size=*/array->length(), &actual, write_props);
+  DoRoundtrip(expected, /*row_group_size=*/outer_array->length(), &actual, write_props);
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
