@@ -3229,33 +3229,6 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
-TEST(TestArrowReaderAdHoc, WriteBatchedNestedSpaced) {
-  // ARROW-10493
-  auto type =
-      ::arrow::struct_({::arrow::field("float", ::arrow::float32(), /*nullable=*/true)});
-  auto array = ::arrow::ArrayFromJSON(type, R"([{"float": null},
-                                                {"float": 2.0},
-                                                {"float": null},
-                                                {"float": 4.0},
-                                                {"float": null},
-                                                {"float": 6.0},
-                                                {"float": null},
-                                                {"float": 8.0}])");
-  auto inner_bitmap =
-      std::static_pointer_cast<::arrow::StructArray>(array)->field(0)->data()->buffers[0];
-  inner_bitmap->mutable_data()[0] = 0x55;
-
-  auto expected = Table::Make(
-      ::arrow::schema({::arrow::field("struct", array->type(), /*nullable=*/true)}),
-      {array});
-
-  auto write_props = WriterProperties::Builder().write_batch_size(3)->build();
-
-  std::shared_ptr<Table> actual;
-  DoRoundtrip(expected, /*row_group_size=*/array->length(), &actual, write_props);
-  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
-}
-
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<DataType>>> {};

@@ -1028,7 +1028,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
         WriteValuesSpaced(values + value_offset, batch_num_values,
-                          batch_num_spaced_values, bits_buffer_->data(), value_offset);
+                          batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0);
       } else {
         WriteValuesSpaced(values + value_offset, batch_num_values,
                           batch_num_spaced_values, valid_bits,
