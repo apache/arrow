@@ -480,30 +480,56 @@ template <class array_type, class scalar_type>
 Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   auto array = checked_cast<array_type*>(parray);
   auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
+  auto elementBatch = (batch->elements).get();
   DataType* elementType = array->value_type().get();
   int64_t arrowLength = array->length();
-  int64_t subarrayArrowOffset = 0;
   if (!arrowLength)
     return Status::OK();
   int64_t arrowEnd = arrowOffset + arrowLength;
-  int64_t initORCOffset = orcOffset;
-  batch->offsets[orcOffset] = array->value_offset(arrowOffset);
+  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  if (orcOffset == 0)
+    batch->offsets[0] = 0;
   if (array->null_count())
     batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
-    batch->offsets[orcOffset + 1] = array->value_offset(arrowOffset + 1);
+    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + array->value_offset(arrowOffset + 1) - array->value_offset(arrowOffset);
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     }
-    else {
-      std::shared_ptr<Scalar> subarray;
-      ARROW_ASSIGN_OR_RAISE(subarray, array->GetScalar(arrowOffset));
-      subarrayArrowOffset = 0;//We will always finish it within the batch
-      RETURN_NOT_OK(FillBatch(elementType, (batch->elements).get(), subarrayArrowOffset, batch->offsets[orcOffset], batch->offsets[orcOffset+1] - batch->offsets[orcOffset], (std::static_pointer_cast<scalar_type>(subarray)->value).get()));
+  }
+  batch->numElements += orcOffset - initORCOffset; 
+  int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset), initSubarrayORCOffset = batch->offsets[initORCOffset];
+  //Let the subbatch take care of itself. Don't manipulate it here.
+  RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset, initSubarrayORCOffset, array->value_offset(arrowOffset) - array->value_offset(initArrowOffset), array->values().get()));
+  return Status::OK();
+}
+
+Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<FixedSizeListArray*>(parray);
+  auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
+  auto elementBatch = (batch->elements).get();
+  DataType* elementType = array->value_type().get();
+  int64_t arrowLength = array->length();
+  int32_t elementLength = array->value_length(); //Fixed length of each subarray
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  if (orcOffset == 0)
+    batch->offsets[0] = 0;
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
     }
   }
-  batch->numElements += orcOffset - initORCOffset;
-  (batch->elements)->numElements += batch->offsets[orcOffset] - batch->offsets[initORCOffset];
+  int64_t numProcessedSubarrays = orcOffset - initORCOffset;
+  batch->numElements += numProcessedSubarrays; 
+  int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset), initSubarrayORCOffset = batch->offsets[initORCOffset];
+  //Let the subbatch take care of itself. Don't manipulate it here.
+  RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset, initSubarrayORCOffset, elementLength * numProcessedSubarrays, array->values().get()));
   return Status::OK();
 }
 
@@ -553,6 +579,8 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
       return FillListBatch<ListArray, ListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::LARGE_LIST:
       return FillListBatch<LargeListArray, LargeListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::FIXED_SIZE_LIST:
+      return FillFixedSizeListBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
