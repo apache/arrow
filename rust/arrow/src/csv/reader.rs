@@ -67,6 +67,9 @@ lazy_static! {
         .case_insensitive(true)
         .build()
         .unwrap();
+    static ref DATE_RE: Regex = Regex::new(r"^\d\d\d\d-\d\d-\d\d$").unwrap();
+    static ref DATETIME_RE: Regex =
+        Regex::new(r"^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d$").unwrap();
 }
 
 /// Infer the data type of a record
@@ -79,6 +82,10 @@ fn infer_field_schema(string: &str) -> DataType {
     // match regex in a particular order
     if BOOLEAN_RE.is_match(string) {
         DataType::Boolean
+    } else if DATETIME_RE.is_match(string) {
+        DataType::Date64(DateUnit::Millisecond)
+    } else if DATE_RE.is_match(string) {
+        DataType::Date32(DateUnit::Day)
     } else if DECIMAL_RE.is_match(string) {
         DataType::Float64
     } else if INTEGER_RE.is_match(string) {
@@ -217,6 +224,35 @@ pub fn infer_schema_from_files(
     }
 
     Schema::try_merge(&schemas)
+}
+
+/// Parses a string into the specified `ArrowPrimitiveType`.
+fn parse_field<T: ArrowPrimitiveType>(s: &str) -> Result<T::Native> {
+    let from_ymd = chrono::NaiveDate::from_ymd;
+    let since = chrono::NaiveDate::signed_duration_since;
+
+    match T::DATA_TYPE {
+        DataType::Boolean => s
+            .to_lowercase()
+            .parse::<T::Native>()
+            .map_err(|_| ArrowError::ParseError("Error parsing boolean".to_string())),
+        DataType::Date32(DateUnit::Day) => {
+            let days = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                .map(|t| since(t, from_ymd(1970, 1, 1)).num_days() as i32);
+            days.map(|t| unsafe { std::mem::transmute_copy::<i32, T::Native>(&t) })
+                .map_err(|e| ArrowError::ParseError(e.to_string()))
+        }
+        DataType::Date64(DateUnit::Millisecond) => {
+            let millis = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
+                .map(|t| t.timestamp_millis());
+            millis
+                .map(|t| unsafe { std::mem::transmute_copy::<i64, T::Native>(&t) })
+                .map_err(|e| ArrowError::ParseError(e.to_string()))
+        }
+        _ => s
+            .parse::<T::Native>()
+            .map_err(|_| ArrowError::ParseError("Error parsing field".to_string())),
+    }
 }
 
 // optional bounds of the reader, of the form (min line, max line).
@@ -370,6 +406,7 @@ impl<R: Read> Iterator for Reader<R> {
 }
 
 /// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
+
 fn parse(
     rows: &[StringRecord],
     fields: &Vec<Field>,
@@ -430,6 +467,12 @@ fn parse(
                     }
                     Ok(Arc::new(builder.finish()) as ArrayRef)
                 }
+                &DataType::Date32(_) => {
+                    build_primitive_array::<Date32Type>(line_number, rows, i)
+                }
+                &DataType::Date64(_) => {
+                    build_primitive_array::<Date64Type>(line_number, rows, i)
+                }
                 other => Err(ArrowError::ParseError(format!(
                     "Unsupported data type {:?}",
                     other
@@ -446,7 +489,6 @@ fn parse(
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
-// parses a specific column (col_idx) into an Arrow Array.
 fn build_primitive_array<T: ArrowPrimitiveType>(
     line_number: usize,
     rows: &[StringRecord],
@@ -460,11 +502,8 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if T::DATA_TYPE == DataType::Boolean {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
+
+                    let parsed = parse_field::<T>(s);
                     match parsed {
                         Ok(e) => Ok(Some(e)),
                         Err(_) => Err(ArrowError::ParseError(format!(
@@ -835,13 +874,13 @@ mod tests {
             .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
-            .with_projection(vec![0, 1, 2, 3]);
+            .with_projection(vec![0, 1, 2, 3, 4]);
 
         let mut csv = builder.build(file).unwrap();
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(5, batch.num_rows());
-        assert_eq!(4, batch.num_columns());
+        assert_eq!(5, batch.num_columns());
 
         let schema = batch.schema();
 
@@ -849,11 +888,16 @@ mod tests {
         assert_eq!(&DataType::Float64, schema.field(1).data_type());
         assert_eq!(&DataType::Float64, schema.field(2).data_type());
         assert_eq!(&DataType::Boolean, schema.field(3).data_type());
+        assert_eq!(
+            &DataType::Date32(DateUnit::Day),
+            schema.field(4).data_type()
+        );
 
         assert_eq!(false, schema.field(0).is_nullable());
         assert_eq!(true, schema.field(1).is_nullable());
         assert_eq!(true, schema.field(2).is_nullable());
         assert_eq!(false, schema.field(3).is_nullable());
+        assert_eq!(true, schema.field(4).is_nullable());
 
         assert_eq!(false, batch.column(1).is_null(0));
         assert_eq!(false, batch.column(1).is_null(1));
@@ -901,6 +945,34 @@ mod tests {
         assert_eq!(infer_field_schema("10.2"), DataType::Float64);
         assert_eq!(infer_field_schema("true"), DataType::Boolean);
         assert_eq!(infer_field_schema("false"), DataType::Boolean);
+        assert_eq!(
+            infer_field_schema("2020-11-08"),
+            DataType::Date32(DateUnit::Day)
+        );
+        assert_eq!(
+            infer_field_schema("2020-11-08T14:20:01"),
+            DataType::Date64(DateUnit::Millisecond)
+        );
+    }
+
+    #[test]
+    fn parse_date32() {
+        assert_eq!(parse_field::<Date32Type>("1970-01-01").unwrap(), 0);
+        assert_eq!(parse_field::<Date32Type>("2020-03-15").unwrap(), 18336);
+        assert_eq!(parse_field::<Date32Type>("1945-05-08").unwrap(), -9004);
+    }
+
+    #[test]
+    fn parse_date64() {
+        assert_eq!(parse_field::<Date64Type>("1970-01-01T00:00:00").unwrap(), 0);
+        assert_eq!(
+            parse_field::<Date64Type>("2018-11-13T17:11:10").unwrap(),
+            1542129070000
+        );
+        assert_eq!(
+            parse_field::<Date64Type>("1900-02-28T12:34:56").unwrap(),
+            -2203932304000
+        );
     }
 
     #[test]
