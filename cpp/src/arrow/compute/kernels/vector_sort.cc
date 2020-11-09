@@ -556,9 +556,10 @@ class TableSorter : public TypeVisitor {
     auto& comparer = comparer_;
     const auto& first_sort_key = comparer.sort_keys()[0];
     auto nulls_begin = indices_end_;
-    if (first_sort_key.has_nulls > 0) {
-      nulls_begin = std::stable_partition(
-          indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
+    if (first_sort_key.has_nulls) {
+      StablePartitioner partitioner;
+      nulls_begin =
+          partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
             int64_t index_chunk = 0;
             auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
             return !chunk->IsNull(index_chunk);
