@@ -256,58 +256,6 @@ class ThreadedBlockReader : public BlockReader {
   }
 };
 
-// An object that reads delimited CSV blocks for threaded use.
-// It's pretty much the same as the threaded block reader but operates
-// on a push instead of a pull basis
-class AsyncBlockReader {
- public:
-  AsyncBlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer)
-      : chunker_(std::move(chunker)),
-        partial_(std::make_shared<Buffer>("")),
-        buffer_(std::move(first_buffer)) {}
-
-  Result<arrow::util::optional<CSVBlock>> Next(std::shared_ptr<Buffer> next_buffer) {
-    if (buffer_ == nullptr) {
-      // EOF
-      return util::optional<CSVBlock>();
-    }
-
-    std::shared_ptr<Buffer> whole, completion, next_partial;
-    bool is_final = (next_buffer == nullptr);
-
-    auto current_partial = std::move(partial_);
-    auto current_buffer = std::move(buffer_);
-
-    if (is_final) {
-      // End of file reached => compute completion from penultimate block
-      RETURN_NOT_OK(
-          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole));
-    } else {
-      // Get completion of partial from previous block.
-      std::shared_ptr<Buffer> starts_with_whole;
-      // Get completion of partial from previous block.
-      RETURN_NOT_OK(chunker_->ProcessWithPartial(current_partial, current_buffer,
-                                                 &completion, &starts_with_whole));
-
-      // Get a complete CSV block inside `partial + block`, and keep
-      // the rest for the next iteration.
-      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
-    }
-
-    partial_ = std::move(next_partial);
-    buffer_ = std::move(next_buffer);
-
-    return CSVBlock{current_partial, completion, whole, block_index_++, is_final, {}};
-  }
-
- protected:
-  std::unique_ptr<Chunker> chunker_;
-  std::shared_ptr<Buffer> partial_, buffer_;
-  int64_t block_index_ = 0;
-  // Whether there was a trailing CR at the end of last received buffer
-  bool trailing_cr_ = false;
-};
-
 /////////////////////////////////////////////////////////////////////////
 // Base class for common functionality
 
@@ -501,6 +449,7 @@ class ReaderMixin {
   ConversionSchema conversion_schema_;
 
   std::shared_ptr<io::InputStream> input_;
+  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
   std::shared_ptr<internal::TaskGroup> task_group_;
 };
 
@@ -765,7 +714,6 @@ class SerialStreamingReader : public BaseStreamingReader {
   bool source_eof_ = false;
   int64_t last_block_index_ = 0;
   std::shared_ptr<SerialBlockReader> block_reader_;
-  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -817,13 +765,6 @@ class SerialTableReader : public BaseTableReader {
     RETURN_NOT_OK(task_group_->Finish());
     return MakeTable();
   }
-
-  Future<std::shared_ptr<Table>> ReadAsync() override {
-    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
-  }
-
- protected:
-  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -895,110 +836,8 @@ class ThreadedTableReader : public BaseTableReader {
     return MakeTable();
   }
 
-  Future<std::shared_ptr<Table>> ReadAsync() override {
-    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
-  }
-
  protected:
   ThreadPool* thread_pool_;
-  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
-};
-
-class AsyncTableReader : public BaseTableReader,
-                         public std::enable_shared_from_this<AsyncTableReader> {
- public:
-  using BaseTableReader::BaseTableReader;
-
-  AsyncTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                   const ReadOptions& read_options, const ParseOptions& parse_options,
-                   const ConvertOptions& convert_options, ThreadPool* thread_pool)
-      : BaseTableReader(pool, input, read_options, parse_options, convert_options),
-        thread_pool_(thread_pool) {}
-
-  ~AsyncTableReader() override {}
-
-  Status Init() override {
-    ARROW_ASSIGN_OR_RAISE(auto istream_it,
-                          io::MakeInputStreamIterator(input_, read_options_.block_size));
-    auto sync_buffer_iterator = CSVBufferIterator::Make(std::move(istream_it));
-
-    int32_t block_queue_size = thread_pool_->GetCapacity();
-    ARROW_ASSIGN_OR_RAISE(
-        buffer_iterator_,
-        MakeAsyncReadaheadIterator(std::move(sync_buffer_iterator), block_queue_size));
-    return Status::OK();
-  }
-
-  Result<std::shared_ptr<Table>> Read() override {
-    auto future = ReadAsync();
-    future.Wait();
-    return future.result();
-  }
-
-  Future<std::shared_ptr<Table>> ReadAsync() override {
-    task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
-
-    // Read in the first block before multi-threading the rest
-    task_group_->Append(buffer_iterator_.NextFuture().Then(
-        [this](const Result<std::shared_ptr<Buffer>>& first_buffer_res) {
-          // TODO: Should not have to do this, Then should allow me to take in
-          // std::shared_ptr<Buffer>, why take in result if second parameter to then is
-          // false?
-          ARROW_ASSIGN_OR_RAISE(auto first_buffer, first_buffer_res);
-          if (first_buffer == IterationTraits<std::shared_ptr<Buffer>>::End()) {
-            return Status::Invalid("Empty CSV file");
-          }
-          RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
-          RETURN_NOT_OK(MakeColumnBuilders());
-          AsyncBlockReader* block_reader =
-              new AsyncBlockReader(MakeChunker(parse_options_), std::move(first_buffer));
-          std::function<Status(const std::shared_ptr<Buffer>& buffer)> callback =
-              [this, block_reader](const std::shared_ptr<Buffer>& buffer) {
-                ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_reader->Next(buffer));
-                if (!maybe_block.has_value()) {
-                  // EOF, nothing to do for this block
-                  return Status::OK();
-                }
-                // Launch parse task
-                task_group_->Append([this, maybe_block] {
-                  return ParseAndInsert(maybe_block->partial, maybe_block->completion,
-                                        maybe_block->buffer, maybe_block->block_index,
-                                        maybe_block->is_final)
-                      .status();
-                });
-                return Status::OK();
-              };
-          auto for_each_future =
-              async::AsyncForEach(std::move(buffer_iterator_), callback);
-          // The block reader needs to be pumped one last time.  The iterators pump this
-          // with the end signal but AsyncForEach does not pass that call on so we pump it
-          // here.  We can also delete the block reader at this point
-          task_group_->Append(for_each_future.Then(
-              [this, block_reader](const Status& status) {
-                // TODO Check status and delete block_reader no matter what
-                ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_reader->Next(nullptr));
-                if (maybe_block.has_value()) {
-                  task_group_->Append([this, maybe_block] {
-                    return ParseAndInsert(maybe_block->partial, maybe_block->completion,
-                                          maybe_block->buffer, maybe_block->block_index,
-                                          maybe_block->is_final)
-                        .status();
-                  });
-                }
-                delete block_reader;
-                return Status::OK();
-              },
-              true));
-          return Status::OK();
-        }));
-
-    return task_group_->FinishAsync().Then(
-        [this](const Status& status) { return MakeTable(); });
-  }
-
- protected:
-  ThreadPool* thread_pool_;
-  AsyncReadaheadIterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -1010,17 +849,9 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
     const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    if (read_options.read_async) {
-      reader = std::make_shared<AsyncTableReader>(
-          pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
-    } else {
-      reader = std::make_shared<ThreadedTableReader>(
-          pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
-    }
+    reader = std::make_shared<ThreadedTableReader>(
+        pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
   } else {
-    if (read_options.read_async) {
-      return Status::Invalid("There is no support for a serial async reader right now");
-    }
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);
   }

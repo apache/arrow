@@ -28,9 +28,4 @@ if (ARROW_PARQUET AND ARROW_DATASET)
     EXTRA_LINK_LIBS
     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(dataset-parquet-scan-example parquet)
-
-endif()
-
-if (ARROW_CSV AND ARROW_S3)
-  ADD_ARROW_EXAMPLE(csv-reader-example)
 endif()
