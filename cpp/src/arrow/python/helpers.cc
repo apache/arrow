@@ -21,7 +21,6 @@
 #include "arrow/python/helpers.h"
 
 #include <limits>
-#include <mutex>
 #include <sstream>
 #include <type_traits>
 #include <typeinfo>
