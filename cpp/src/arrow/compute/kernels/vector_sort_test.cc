@@ -557,7 +557,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
 TEST_P(TestTableSortIndicesRandom, Sort) {
   auto first_sort_key_name = std::get<0>(GetParam());
   auto null_probability = std::get<1>(GetParam());
-  auto seed = 0x61549225;
+  random::SeedType seed = 0x61549225;
   std::vector<std::string> column_names = {
       "uint8", "uint16", "uint32", "uint64", "int8",   "int16",
       "int32", "int64",  "float",  "double", "string",
