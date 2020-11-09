@@ -316,6 +316,11 @@ TYPED_TEST(TestArraySortIndicesKernelForStrings, SortStrings) {
   this->AssertSortIndices(R"(["a", "b", "c"])", "[0, 1, 2]");
   this->AssertSortIndices(R"(["foo", "bar", "baz"])", "[1,2,0]");
   this->AssertSortIndices(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
+
+  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::ASCENDING,
+                          "[2, 1, 3, 0]");
+  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::DESCENDING,
+                          "[0, 1, 3, 2]");
 }
 
 template <typename ArrowType>
