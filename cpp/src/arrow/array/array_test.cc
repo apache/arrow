@@ -16,11 +16,9 @@
 // under the License.
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -43,9 +41,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/builder.h"
 #include "arrow/compare.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"

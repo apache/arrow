@@ -24,9 +24,13 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "parquet/column_reader.h"

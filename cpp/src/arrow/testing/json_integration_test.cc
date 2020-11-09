@@ -29,15 +29,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
@@ -45,6 +44,7 @@
 #include "arrow/testing/json_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
 
 DEFINE_string(arrow, "", "Arrow file name");

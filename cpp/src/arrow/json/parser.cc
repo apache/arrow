@@ -29,9 +29,8 @@
 #include "rapidjson/reader.h"
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type.h"
 #include "arrow/util/bitset_stack.h"
 #include "arrow/util/logging.h"

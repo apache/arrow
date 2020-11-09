@@ -29,7 +29,9 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"

@@ -25,28 +25,16 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class Schema;
-class Status;
-class Tensor;
-class SparseTensor;
-
-namespace io {
-
-class InputStream;
-class RandomAccessFile;
-
-}  // namespace io
-
 namespace ipc {
 
 class DictionaryMemo;

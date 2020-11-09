@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"

@@ -17,6 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include <array>
 #include <iostream>
 #include <random>
 
@@ -28,7 +29,9 @@
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
 
-#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"

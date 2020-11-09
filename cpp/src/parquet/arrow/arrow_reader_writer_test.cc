@@ -29,11 +29,15 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
