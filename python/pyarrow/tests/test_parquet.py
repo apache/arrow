@@ -61,8 +61,6 @@ def datadir(datadir):
 parametrize_legacy_dataset = pytest.mark.parametrize(
     "use_legacy_dataset",
     [True, pytest.param(False, marks=pytest.mark.dataset)])
-parametrize_legacy_dataset_xfail = pytest.mark.parametrize(
-    "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.xfail)])
 parametrize_legacy_dataset_not_supported = pytest.mark.parametrize(
     "use_legacy_dataset", [True, pytest.param(False, marks=pytest.mark.skip)])
 parametrize_legacy_dataset_fixed = pytest.mark.parametrize(

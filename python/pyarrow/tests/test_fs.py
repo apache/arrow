@@ -16,6 +16,7 @@
 # under the License.
 
 from datetime import datetime, timezone, timedelta
+from distutils.version import LooseVersion
 import gzip
 import pathlib
 import pickle
@@ -349,8 +350,8 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_connection, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if sys.version_info < (3, 7):
-        pytest.skip("Latest s3fs version is async and requires Python >= 3.7")
+    if sys.version_info < (3, 7) and s3fs.__version__ >= LooseVersion("0.5"):
+        pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
 
     host, port, access_key, secret_key = s3_connection
     bucket = 'pyarrow-filesystem/'
@@ -689,11 +690,11 @@ def test_get_file_info_with_selector(fs, pathfn):
             assert len(infos) == 5
 
         for info in infos:
-            if (info.path.endswith(file_a) or info.path.endswith(file_b)
-                    or info.path.endswith(file_c)):
+            if (info.path.endswith(file_a) or info.path.endswith(file_b) or
+                    info.path.endswith(file_c)):
                 assert info.type == FileType.File
-            elif (info.path.rstrip("/").endswith(dir_a)
-                  or info.path.rstrip("/").endswith(dir_b)):
+            elif (info.path.rstrip("/").endswith(dir_a) or
+                  info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
