@@ -201,7 +201,7 @@ class Future {
   const Status& status() const { return result().status(); }
 
   /// \brief Future<T> is convertible to Future<>, which views only the
-  /// Status of the original. Marking this Future Finished is not supported.
+  /// Status of the original. Marking the returned Future Finished is not supported.
   explicit operator Future<>() const {
     Future<> status_future;
     status_future.impl_ = impl_;
@@ -236,7 +236,7 @@ class Future {
   /// The Future's result is set to `res`.
   void MarkFinished(Result<ValueType> res) { DoMarkFinished(std::move(res)); }
 
-  /// \brief Mark a Future<> or Future<> completed with the provided Status.
+  /// \brief Mark a Future<> completed with the provided Status.
   template <typename E = ValueType>
   detail::Empty::EnableIfSame<E> MarkFinished(Status s = Status::OK()) {
     return DoMarkFinished(E::ToResult(std::move(s)));
@@ -263,9 +263,9 @@ class Future {
     return fut;
   }
 
-  /// \brief Make a finished Future<> or Future<> with the provided Status.
+  /// \brief Make a finished Future<> with the provided Status.
   template <typename E = ValueType>
-  detail::Empty::EnableIfSame<E> MakeFinished(Status s = Status::OK()) {
+  static detail::Empty::EnableIfSame<E> MakeFinished(Status s = Status::OK()) {
     return MakeFinished(E::ToResult(std::move(s)));
   }
 
