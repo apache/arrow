@@ -44,11 +44,11 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RenameColumns(
-    const std::shared_ptr<arrow::RecordBatch>& batch, const std::vector<std::string>& names) {
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const std::vector<std::string>& names) {
   int n = batch->num_columns();
   if (names.size() != static_cast<size_t>(n)) {
-    cpp11::stop("RecordBatch has %d columns but %d names were provided",
-                n, names.size());
+    cpp11::stop("RecordBatch has %d columns but %d names were provided", n, names.size());
   }
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (int i = 0; i < n; i++) {
