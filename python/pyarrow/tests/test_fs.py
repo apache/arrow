@@ -603,8 +603,6 @@ def test_non_path_like_input_raises(fs):
 
 
 def test_get_file_info(fs, pathfn):
-    skip_fsspec_s3fs(fs)  # s3fs doesn't create nested directories
-
     aaa = pathfn('a/aa/aaa/')
     bb = pathfn('a/bb')
     c = pathfn('c.txt')
@@ -621,6 +619,7 @@ def test_get_file_info(fs, pathfn):
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
+    assert aaa_info.type == FileType.Directory
     assert 'FileType.Directory' in repr(aaa_info)
     assert aaa_info.size is None
     check_mtime_or_absent(aaa_info)
@@ -631,7 +630,7 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    if fs.type_name != "py::fsspec+memory":
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
         check_mtime(bb_info)
 
     assert c_info.path == str(c)
@@ -640,7 +639,7 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    if fs.type_name != "py::fsspec+memory":
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
         check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
@@ -659,12 +658,12 @@ def test_get_file_info(fs, pathfn):
 
 
 def test_get_file_info_with_selector(fs, pathfn):
-    skip_fsspec_s3fs(fs)
-
     base_dir = pathfn('selector-dir/')
     file_a = pathfn('selector-dir/test_file_a')
     file_b = pathfn('selector-dir/test_file_b')
     dir_a = pathfn('selector-dir/test_dir_a')
+    file_c = pathfn('selector-dir/test_dir_a/test_file_c')
+    dir_b = pathfn('selector-dir/test_dir_b')
 
     try:
         fs.create_dir(base_dir)
@@ -673,34 +672,51 @@ def test_get_file_info_with_selector(fs, pathfn):
         with fs.open_output_stream(file_b):
             pass
         fs.create_dir(dir_a)
+        with fs.open_output_stream(file_c):
+            pass
+        fs.create_dir(dir_b)
 
+        # recursive selector
         selector = FileSelector(base_dir, allow_not_found=False,
                                 recursive=True)
         assert selector.base_dir == base_dir
 
         infos = fs.get_file_info(selector)
-        assert len(infos) == 3
+        if fs.type_name == "py::fsspec+s3":
+            # s3fs only lists directories if they are not empty
+            assert len(infos) == 4
+        else:
+            assert len(infos) == 5
 
         for info in infos:
-            if info.path.endswith(file_a):
+            if (info.path.endswith(file_a) or info.path.endswith(file_b)
+                    or info.path.endswith(file_c)):
                 assert info.type == FileType.File
-            elif info.path.endswith(file_b):
-                assert info.type == FileType.File
-            elif info.path.rstrip("/").endswith(dir_a):
+            elif (info.path.rstrip("/").endswith(dir_a)
+                  or info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
             check_mtime_or_absent(info)
+
+        # non-recursive selector -> not selecting the nested file_c
+        selector = FileSelector(base_dir, recursive=False)
+
+        infos = fs.get_file_info(selector)
+        if fs.type_name == "py::fsspec+s3":
+            # s3fs only lists directories if they are not empty
+            assert len(infos) == 3
+        else:
+            assert len(infos) == 4
+
     finally:
-        fs.delete_file(file_a)
-        fs.delete_file(file_b)
-        fs.delete_dir(dir_a)
         fs.delete_dir(base_dir)
 
 
 def test_create_dir(fs, pathfn):
-    skip_fsspec_s3fs(fs)  # create_dir doesn't create dir, so delete dir fails
-
+    # s3fs fails deleting dir fails if it is empty
+    # (https://github.com/dask/s3fs/issues/317)
+    skip_fsspec_s3fs(fs)
     d = pathfn('test-directory/')
 
     with pytest.raises(pa.ArrowIOError):
