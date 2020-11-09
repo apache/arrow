@@ -557,7 +557,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
 TEST_P(TestTableSortIndicesRandom, Sort) {
   auto first_sort_key_name = std::get<0>(GetParam());
   auto null_probability = std::get<1>(GetParam());
-  random::SeedType seed = 0x61549225;
+  auto seed = 0x61549225;
   std::vector<std::string> column_names = {
       "uint8", "uint16", "uint32", "uint64", "int8",   "int16",
       "int32", "int64",  "float",  "double", "string",
@@ -586,14 +586,14 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   };
   auto table = Table::Make(schema(fields), columns, length);
   std::default_random_engine engine(seed);
-  std::uniform_int_distribution<> distribution(0, column_names.size() - 1);
+  std::uniform_int_distribution<> distribution(0);
   auto n_sort_keys = 2;
   std::vector<SortKey> sort_keys;
   auto first_sort_key_order =
       (distribution(engine) % 2) == 0 ? SortOrder::ASCENDING : SortOrder::DESCENDING;
   sort_keys.emplace_back(first_sort_key_name, first_sort_key_order);
   for (int i = 1; i < n_sort_keys; ++i) {
-    auto& column_name = column_names[distribution(engine)];
+    auto& column_name = column_names[distribution(engine) % column_names.size()];
     auto order =
         (distribution(engine) % 2) == 0 ? SortOrder::ASCENDING : SortOrder::DESCENDING;
     sort_keys.emplace_back(column_name, order);
