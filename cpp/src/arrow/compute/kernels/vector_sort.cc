@@ -233,7 +233,7 @@ class ArrayCountSorter {
       for (uint32_t i = 1; i <= value_range; ++i) {
         counts[i] += counts[i - 1];
       }
-      uint32_t null_position = counts[value_range];
+      auto null_position = counts[value_range];
       int64_t index = 0;
       VisitRawValuesInline(
           values, [&](c_type v) { indices_begin[counts[v - min_]++] = index++; },
@@ -244,7 +244,7 @@ class ArrayCountSorter {
       for (uint32_t i = value_range; i >= 1; --i) {
         counts[i - 1] += counts[i];
       }
-      uint32_t null_position = counts[0];
+      auto null_position = counts[0];
       int64_t index = 0;
       VisitRawValuesInline(
           values, [&](c_type v) { indices_begin[counts[v - min_ + 1]++] = index++; },
