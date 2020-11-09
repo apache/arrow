@@ -78,3 +78,7 @@ harness = false
 [[bench]]
 name = "math_query_sql"
 harness = false
+
+[[bench]]
+name = "filter_query_sql"
+harness = false
