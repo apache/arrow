@@ -265,6 +265,15 @@ names.Table <- function(x) x$ColumnNames()
 
 #' @export
 `[[<-.Table` <- function(x, i, value) {
+  if (!is.character(i) & !is.numeric(i)) {
+    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  } else if (is.na(i)) {
+    # Catch if a NA_character or NA_integer is passed. These are caught elsewhere
+    # in cpp (i.e. _arrow_RecordBatch__column_name)
+    # TODO: figure out if catching in cpp like ^^^ is preferred
+    stop("'i' cannot be NA", call. = FALSE)
+  }
+
   if (is.null(value)) {
     if (is.character(i)) {
       i <- match(i, names(x))
@@ -280,12 +289,9 @@ names.Table <- function(x) x$ColumnNames()
       }
     }
 
-    # auto-magic recycling
-    n_value <- NROW(value)
-    x_num_rows <- x$num_rows
-    if (n_value < x_num_rows && n_value > 0L &&
-        (x_num_rows%%n_value == 0L) && NCOL(value) <= 1L) {
-      value <- rep(value, length.out = x_num_rows)
+    # auto-magic recycling on non-ArrowObjects
+    if (!inherits(value, "ArrowObject")) {
+      value <- vctrs::vec_recycle(value, x$num_rows)
     }
 
     # construct the field

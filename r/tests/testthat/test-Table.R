@@ -194,10 +194,7 @@ test_that("[[<- assignment", {
 
   expect_error(
     tab[["atom"]] <- 1:6,
-    paste0(
-      "Invalid: Added column's length must match table's length. ",
-      "Expected length 10 but got length 6"
-    )
+    "Can't recycle input of size 6 to size 10."
   )
 
   # assign Arrow array and chunked_array
@@ -209,8 +206,11 @@ test_that("[[<- assignment", {
   expect_vector(tab$chunked, 1:10)
 
   # nonsense indexes
-  expect_error(tab[[NA]] <- letters[10:1], "missing value where TRUE/FALSE needed")
-  expect_error(tab[[NULL]] <- letters[10:1], "argument is of length zero")
+  expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
+  expect_error(tab[[NA_integer_]] <- letters[10:1], "'i' cannot be NA")
+  expect_error(tab[[NA_real_]] <- letters[10:1], "'i' cannot be NA")
+  expect_error(tab[[NA_character_]] <- letters[10:1], "'i' cannot be NA")
+  expect_error(tab[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
 })
 
 test_that("Table$Slice", {
