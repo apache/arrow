@@ -980,8 +980,6 @@ impl LogicalPlan {
 /// visitor.post_visit(Filter)
 /// visitor.post_visit(Projection)
 /// ```
-///
-/// Example use: TODO
 pub trait PlanVisitor {
     /// The type of error returned by this visitor
     type Error;
@@ -1018,7 +1016,6 @@ impl LogicalPlan {
             return Ok(false);
         }
 
-        // recurse
         let recurse = match self {
             LogicalPlan::Projection { input, .. } => input.accept(visitor)?,
             LogicalPlan::Filter { input, .. } => input.accept(visitor)?,
