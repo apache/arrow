@@ -20,6 +20,7 @@
 
 #include "arrow/python/helpers.h"
 
+#include <cmath>
 #include <limits>
 #include <mutex>
 #include <sstream>
