@@ -686,7 +686,7 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_CLS)
-  add_subdirectory(adapters/skyhookdm-ceph-cls)
+  add_subdirectory(adapters/arrow-rados-cls)
 endif()
 
 if(ARROW_PYTHON)
