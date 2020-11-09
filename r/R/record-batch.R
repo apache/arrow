@@ -76,8 +76,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     RenameColumns = function(value) {
-      assert_that(identical(class(value), "character"), msg = "names must be character")
-      assert_that(identical(length(self$schema$names), length(value)), msg = "names has inconsistent length")
+      assert_is(value, "character")
       shared_ptr(RecordBatch, RecordBatch__RenameColumns(self, value))
     },
     Equals = function(other, check_metadata = FALSE, ...) {
