@@ -38,6 +38,11 @@ h.settings.register_profile('debug', max_examples=10,
 # pytest pyarrow -sv --enable-hypothesis --hypothesis-profile=debug
 h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
+# Set this at the beginning before the AWS SDK was loaded to avoid reading in
+# user configuration values.
+os.environ['AWS_CONFIG_FILE'] = "/dev/null"
+
+
 groups = [
     'cython',
     'dataset',
