@@ -594,8 +594,6 @@ class TableSorter : public TypeVisitor {
 
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
-  const Table& table_;
-  const SortOptions& options_;
   Comparer comparer_;
 };
 
