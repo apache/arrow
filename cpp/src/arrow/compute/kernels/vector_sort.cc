@@ -183,7 +183,7 @@ class ArrayCompareSorter {
     } else {
       std::stable_sort(indices_begin, nulls_begin,
                        [&values](uint64_t left, uint64_t right) {
-                         return values.GetView(left) > values.GetView(right);
+                         return values.GetView(right) < values.GetView(left);
                        });
     }
   }
