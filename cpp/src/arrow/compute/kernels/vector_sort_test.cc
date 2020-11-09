@@ -472,20 +472,22 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
           continue;
         if (right_array_->IsNull(right_index_)) return true;
         if (left_array_->IsNull(left_index_)) return false;
-        int compared = Compare();
-        if (compared == 0) continue;
+        status_ = left_array_->type()->Accept(this);
+        if (compared_ == 0) continue;
         if (sort_key.order == SortOrder::ASCENDING) {
-          return compared < 0;
+          return compared_ < 0;
         } else {
-          return compared > 0;
+          return compared_ > 0;
         }
       }
       return lhs < rhs;
     }
 
+    Status status() const { return status_; }
+
 #define VISIT(TYPE)                               \
   Status Visit(const TYPE##Type& type) override { \
-    CompareType(type);                            \
+    CompareType<TYPE##Type>();                    \
     return Status::OK();                          \
   }
 
@@ -517,13 +519,8 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       return nullptr;
     }
 
-    int Compare() {
-      left_array_->type()->Accept(this);
-      return compared_;
-    }
-
     template <typename Type>
-    void CompareType(const Type& type) {
+    void CompareType() {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
       auto left = checked_pointer_cast<ArrayType>(left_array_)->GetView(left_index_);
       auto right = checked_pointer_cast<ArrayType>(right_array_)->GetView(right_index_);
@@ -541,6 +538,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     std::shared_ptr<Array> right_array_;
     int64_t right_index_;
     int compared_;
+    Status status_;
   };
 
  public:
@@ -551,6 +549,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       uint64_t lhs = offsets.Value(i - 1);
       uint64_t rhs = offsets.Value(i);
       ASSERT_TRUE(comparator(table, options, lhs, rhs));
+      ASSERT_OK(comparator.status());
     }
   }
 };
