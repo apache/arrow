@@ -4344,3 +4344,19 @@ def test_parquet_dataset_new_filesystem(tempdir):
     dataset = pq.ParquetDataset('.', filesystem=filesystem)
     result = dataset.read()
     assert result.equals(table)
+
+
+def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
+    # ARROW-10462 ensure that on Windows we properly use posix-style paths
+    # as used by fsspec
+    fsspec = pytest.importorskip("fsspec")
+    filesystem = fsspec.filesystem('file')
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'data.parquet')
+
+    # pass a posix-style path (using "/" also on Windows)
+    path = str(tempdir).replace("\\", "/")
+    dataset = pq.ParquetDataset(path, filesystem=filesystem)
+    # ensure the piece path is also posix-style
+    expected = path + "/data.parquet"
+    assert dataset.pieces[0].path == expected

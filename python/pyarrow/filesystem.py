@@ -446,10 +446,6 @@ def _ensure_filesystem(fs):
         for mro in inspect.getmro(fs_type):
             if mro.__name__ == 'S3FileSystem':
                 return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ == 'LocalFileSystem':
-                return LocalFileSystem._get_instance()
 
         if "fsspec" in sys.modules:
             fsspec = sys.modules["fsspec"]
