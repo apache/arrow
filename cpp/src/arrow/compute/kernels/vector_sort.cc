@@ -518,8 +518,6 @@ class TableSorter : public TypeVisitor {
               const SortOptions& options)
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
-        table_(table),
-        options_(options),
         comparer_(table, options.sort_keys) {}
 
   Status Sort() {
