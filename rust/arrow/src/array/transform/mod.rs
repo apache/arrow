@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{io::Write, mem::size_of, sync::Arc};
+use std::{mem::size_of, sync::Arc};
 
 use crate::{buffer::MutableBuffer, datatypes::DataType, util::bit_util};
 
@@ -252,24 +252,24 @@ impl<'a> MutableArrayData<'a> {
             }
             DataType::Utf8 | DataType::Binary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
-                buffer.write_all(0i32.to_byte_slice()).unwrap();
+                buffer.extend_from_slice(&[0i32].to_byte_slice());
                 vec![buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::LargeUtf8 | DataType::LargeBinary => {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
-                buffer.write_all(0i64.to_byte_slice()).unwrap();
+                buffer.extend_from_slice(&[0i64].to_byte_slice());
                 vec![buffer, MutableBuffer::new(capacity * size_of::<u8>())]
             }
             DataType::List(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i32>());
-                buffer.write_all(0i32.to_byte_slice()).unwrap();
+                buffer.extend_from_slice(0i32.to_byte_slice());
                 vec![buffer]
             }
             DataType::LargeList(_) => {
                 // offset buffer always starts with a zero
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
-                buffer.write_all(0i64.to_byte_slice()).unwrap();
+                buffer.extend_from_slice(&[0i64].to_byte_slice());
                 vec![buffer]
             }
             DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {

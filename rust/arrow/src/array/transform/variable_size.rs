@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::io::Write;
-
 use crate::{
     array::{ArrayData, OffsetSizeTrait},
     buffer::MutableBuffer,
@@ -35,9 +33,7 @@ fn extend_offset_values<T: OffsetSizeTrait>(
     let start_values = offsets[start].to_usize().unwrap();
     let end_values = offsets[start + len].to_usize().unwrap();
     let new_values = &values[start_values..end_values];
-    buffer.reserve(buffer.len() + new_values.len());
-    // unwrap because the operation is infalible due to how we reserved memory.
-    buffer.write_all(new_values).unwrap();
+    buffer.extend_from_slice(new_values);
 }
 
 pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
@@ -86,15 +82,10 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                         let start = offsets[i].to_usize().unwrap()
                             - offsets[0].to_usize().unwrap();
                         let bytes = &values[start..(start + length)];
-                        values_buffer.reserve(values_buffer.len() + bytes.len());
-                        // unwrap because the operation is infalible due to how we reserved memory.
-                        values_buffer.write_all(bytes).unwrap();
+                        values_buffer.extend_from_slice(bytes);
                     }
                     // offsets are always present
-                    // unwrap because the operation is infalible due to how we reserved memory.
-                    offset_buffer
-                        .write_all(last_offset.to_byte_slice())
-                        .unwrap();
+                    offset_buffer.extend_from_slice(last_offset.to_byte_slice());
                 })
             },
         )
