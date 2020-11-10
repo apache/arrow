@@ -678,12 +678,10 @@ tasks:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
   wheel-win-cp39:
-    ci: appveyor
-    template: python-wheels/appveyor.yml
+    ci: github
+    template: python-wheels/github.win.yml
     params:
-      script: win-build.bat
       python_version: 3.9
-      python_interpreter: C:\Python38-x64\python.exe
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
 
