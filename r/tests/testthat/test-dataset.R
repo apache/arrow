@@ -694,7 +694,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
 
   fmt <- FileFormat$create("parquet")
   factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
-  expect_is(factory, "DatasetFactory")
+  expect_is(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()
   expect_is(schm, "Schema")
@@ -716,9 +716,9 @@ test_that("Assembling a Dataset manually and getting a Table", {
 
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
-  expect_is(factory1, "DatasetFactory")
+  expect_is(factory1, "FileSystemDatasetFactory")
   factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
-  expect_is(factory2, "DatasetFactory")
+  expect_is(factory2, "FileSystemDatasetFactory")
 
   factory <- DatasetFactory$create(list(factory1, factory2))
   expect_is(factory, "DatasetFactory")

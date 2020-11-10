@@ -284,8 +284,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   int64_t num_rows = 0;
   StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
-  auto out = arrow::RecordBatch::Make(schema, num_rows, arrays);
-  return out;
+  return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
 #endif
