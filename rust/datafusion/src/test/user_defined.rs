@@ -52,7 +52,6 @@ impl UserDefinedLogicalNode for TestUserDefinedPlanNode {
         vec![&self.input]
     }
 
-    /// Schema for TestUserDefined is the same as the input
     fn schema(&self) -> &SchemaRef {
         self.input.schema()
     }
@@ -61,7 +60,6 @@ impl UserDefinedLogicalNode for TestUserDefinedPlanNode {
         vec![]
     }
 
-    /// For example: `TestUserDefined: k=10`
     fn fmt_for_explain(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TestUserDefined")
     }
