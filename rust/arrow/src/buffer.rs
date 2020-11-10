@@ -70,7 +70,7 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
-        if self.capacity != other.capacity {
+        if self.len != other.len {
             return false;
         }
 

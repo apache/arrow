@@ -282,7 +282,7 @@ mod tests {
             .build();
         let int_data = ArrayData::builder(DataType::Int64)
             .len(4)
-            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .add_buffer(Buffer::from([42i64, 28, 19, 31].to_byte_slice()))
             .build();
         let mut field_types = vec![];
         field_types.push(Field::new("a", DataType::Boolean, false));

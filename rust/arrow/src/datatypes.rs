@@ -873,7 +873,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 
 impl DataType {
     /// Parse a data type from a JSON representation
-    fn from(json: &Value) -> Result<DataType> {
+    pub(crate) fn from(json: &Value) -> Result<DataType> {
         let default_field = Field::new("", DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
@@ -1489,7 +1489,7 @@ impl fmt::Display for Field {
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
     /// A map of key-value pairs containing additional meta data.
-    #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub(crate) metadata: HashMap<String, String>,
 }
 
@@ -1696,9 +1696,24 @@ impl Schema {
     }
 
     /// Parse a `metadata` definition from a JSON representation
+    /// The JSON can either be an Object or an Array of Objects
     fn from_metadata(json: &Value) -> Result<HashMap<String, String>> {
-        if let Value::Object(md) = json {
-            md.iter()
+        match json {
+            Value::Array(_) => {
+                let mut hashmap = HashMap::new();
+                let values: Vec<MetadataKeyValue> = serde_json::from_value(json.clone())
+                    .map_err(|_| {
+                        ArrowError::JsonError(
+                            "Unable to parse object into key-value pair".to_string(),
+                        )
+                    })?;
+                for meta in values {
+                    hashmap.insert(meta.key.clone(), meta.value);
+                }
+                Ok(hashmap)
+            }
+            Value::Object(md) => md
+                .iter()
                 .map(|(k, v)| {
                     if let Value::String(v) = v {
                         Ok((k.to_string(), v.to_string()))
@@ -1708,11 +1723,10 @@ impl Schema {
                         ))
                     }
                 })
-                .collect::<Result<_>>()
-        } else {
-            Err(ArrowError::ParseError(
+                .collect::<Result<_>>(),
+            _ => Err(ArrowError::ParseError(
                 "`metadata` field must be an object".to_string(),
-            ))
+            )),
         }
     }
 }
@@ -1733,6 +1747,11 @@ impl fmt::Display for Schema {
 /// A reference-counted reference to a [`Schema`](crate::datatypes::Schema).
 pub type SchemaRef = Arc<Schema>;
 
+#[derive(Deserialize)]
+struct MetadataKeyValue {
+    key: String,
+    value: String,
+}
 #[cfg(test)]
 mod tests {
     use super::*;

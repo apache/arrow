@@ -202,6 +202,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Timestamp(_, _), Date32(_)) => true,
         (Timestamp(_, _), Date64(_)) => true,
         // date64 to timestamp might not make sense,
+        (Int64, Duration(_)) => true,
         (Null, Int32) => true,
         (_, _) => false,
     }
@@ -751,6 +752,21 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         // date64 to timestamp might not make sense,
+        (Int64, Duration(to_unit)) => {
+            use TimeUnit::*;
+            match to_unit {
+                Second => cast_array_data::<DurationSecondType>(array, to_type.clone()),
+                Millisecond => {
+                    cast_array_data::<DurationMillisecondType>(array, to_type.clone())
+                }
+                Microsecond => {
+                    cast_array_data::<DurationMicrosecondType>(array, to_type.clone())
+                }
+                Nanosecond => {
+                    cast_array_data::<DurationNanosecondType>(array, to_type.clone())
+                }
+            }
+        }
 
         // null to primitive/flat types
         (Null, Int32) => Ok(Arc::new(Int32Array::from(vec![None; array.len()]))),
