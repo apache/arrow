@@ -245,8 +245,9 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
   std::string out_path;
-  R6 out_fs = ValueOrStop(fs::FileSystemFromUri(path, &out_path));
-  return cpp11::writable::list({"fs"_nm = out_fs, "path"_nm = out_path});
+  return cpp11::writable::list(
+      {"fs"_nm = cpp11::to_r6(ValueOrStop(fs::FileSystemFromUri(path, &out_path))),
+       "path"_nm = out_path});
 }
 
 // [[arrow::export]]

@@ -135,19 +135,19 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return R6(datum.scalar());
+      return cpp11::to_r6(datum.scalar());
 
     case arrow::Datum::ARRAY:
-      return R6(datum.make_array());
+      return cpp11::to_r6(datum.make_array());
 
     case arrow::Datum::CHUNKED_ARRAY:
-      return R6(datum.chunked_array());
+      return cpp11::to_r6(datum.chunked_array());
 
     case arrow::Datum::RECORD_BATCH:
-      return R6(datum.record_batch());
+      return cpp11::to_r6(datum.record_batch());
 
     case arrow::Datum::TABLE:
-      return R6(datum.table());
+      return cpp11::to_r6(datum.table());
 
     default:
       break;

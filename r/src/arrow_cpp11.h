@@ -344,22 +344,6 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 }  // namespace r
 }  // namespace arrow
 
-class R6 {
- public:
-  template <typename T>
-  R6(const std::shared_ptr<T>& x) : data_(cpp11::to_r6<T>(x)) {}
-
-  template <typename T>
-  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::move(x))) {}
-
-  R6(SEXP data) : data_(data) {}
-
-  operator SEXP() const { return data_; }
-
- private:
-  SEXP data_;
-};
-
 namespace cpp11 {
 
 template <typename T>
