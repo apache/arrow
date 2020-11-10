@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{io::Write, mem::size_of};
+use std::mem::size_of;
 
 use crate::{array::ArrayData, datatypes::ArrowNativeType};
 
@@ -29,9 +29,7 @@ pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
             let len = len * size_of::<T>();
             let bytes = &values[start..start + len];
             let buffer = &mut mutable.buffers[0];
-            buffer.reserve(buffer.len() + bytes.len());
-            // unwrap because the operation is infalible due to how we reserved memory.
-            buffer.write_all(bytes).unwrap();
+            buffer.extend_from_slice(bytes);
         },
     )
 }

@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::io::Write;
-
 use crate::{
     array::{ArrayData, OffsetSizeTrait},
     datatypes::ToByteSlice,
@@ -61,19 +59,15 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                     if array.is_valid(i) {
                         // compute the new offset
                         last_offset = last_offset + offsets[i + 1] - offsets[i];
-                        // append offset
-                        // unwrap because the operation is infalible due to how we reserved memory.
-                        buffer.write_all(last_offset.to_byte_slice()).unwrap();
 
                         // append value
                         child.extend(
                             offsets[i].to_usize().unwrap(),
                             offsets[i + 1].to_usize().unwrap(),
                         );
-                    } else {
-                        // unwrap because the operation is infalible due to how we reserved memory.
-                        buffer.write_all(last_offset.to_byte_slice()).unwrap();
                     }
+                    // append offset
+                    buffer.extend_from_slice(last_offset.to_byte_slice());
                 })
             },
         )
