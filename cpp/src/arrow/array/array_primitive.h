@@ -57,7 +57,7 @@ class NumericArray : public PrimitiveArray {
     return reinterpret_cast<const value_type*>(raw_values_) + data_->offset;
   }
 
-  Result<std::shared_ptr<Buffer>> SlicedValues(MemoryPool* pool) const override {
+  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
     return SliceBuffer(data_->buffers[1], data_->offset * sizeof(value_type),
                        data_->length * sizeof(value_type));
   }
@@ -87,7 +87,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
                            i + data_->offset);
   }
 
-  Result<std::shared_ptr<Buffer>> SlicedValues(MemoryPool* pool) const override;
+  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override;
   bool GetView(int64_t i) const { return Value(i); }
 
   /// \brief Return the number of false (0) values among the valid
@@ -119,7 +119,7 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   TypeClass::DayMilliseconds GetValue(int64_t i) const;
   TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
 
-  Result<std::shared_ptr<Buffer>> SlicedValues(MemoryPool* pool) const override {
+  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
     return SliceBuffer(data_->buffers[1], data_->offset * sizeof(TypeClass),
                        data_->length * sizeof(TypeClass));
   }

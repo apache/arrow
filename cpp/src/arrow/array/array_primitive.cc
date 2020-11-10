@@ -76,7 +76,7 @@ int64_t BooleanArray::true_count() const {
   }
 }
 
-Result<std::shared_ptr<Buffer>> BooleanArray::SlicedValues(MemoryPool* pool) const {
+Result<std::shared_ptr<const Buffer>> BooleanArray::SlicedValues(MemoryPool* pool) const {
   if (BitUtil::IsMultipleOf8(data_->offset)) {
     return SliceBuffer(data_->buffers[1], BitUtil::BytesForBits(data_->offset),
                        BitUtil::BytesForBits(data_->length));

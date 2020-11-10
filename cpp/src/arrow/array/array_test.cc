@@ -1887,18 +1887,6 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
-TEST_F(TestFWBinaryArray, ValuesSliced) {
-  auto type = fixed_size_binary(3);
-
-  auto sliced = ArrayFromJSON(type, R"(["abc", "def", "ghi", "jkl"])")->Slice(1, 2);
-  std::shared_ptr<ArrayData> array_data = sliced->data()->Copy();
-  ASSERT_OK_AND_ASSIGN(
-      array_data->buffers[1],
-      checked_pointer_cast<FlatArray>(sliced)->SlicedValues(default_memory_pool()));
-  array_data->offset = 0;
-  ASSERT_ARRAYS_EQUAL(*MakeArray(array_data), *sliced);
-}
-
 // ----------------------------------------------------------------------
 // AdaptiveInt tests
 

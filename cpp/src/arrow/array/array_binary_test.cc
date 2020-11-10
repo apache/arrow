@@ -247,26 +247,6 @@ class TestStringArray : public ::testing::Test {
     ASSERT_EQ(arr->GetString(0), "b");
   }
 
-  void TestSlicedValues() {
-    BuilderType builder;
-
-    ASSERT_OK(builder.Append("abc"));
-    ASSERT_OK(builder.Append("efghi"));
-    ASSERT_OK(builder.Append("jklmno"));
-    ASSERT_OK(builder.Append("jkl1"));
-    ASSERT_OK(builder.Append("xyz"));
-
-    std::shared_ptr<Array> array;
-    ASSERT_OK(builder.Finish(&array));
-    auto sliced = array->Slice(2, 2);
-    std::shared_ptr<ArrayData> array_data = sliced->data()->Copy();
-    ASSERT_OK_AND_ASSIGN(array_data->buffers[1],
-                         internal::checked_pointer_cast<FlatArray>(sliced)->SlicedValues(
-                             default_memory_pool()));
-    array_data->offset = 0;
-    ASSERT_ARRAYS_EQUAL(*::arrow::MakeArray(array_data), *sliced);
-  }
-
   Status ValidateFull(int64_t length, std::vector<offset_type> offsets,
                       util::string_view data, int64_t offset = 0) {
     ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
@@ -370,8 +350,6 @@ TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
 TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
-
-TYPED_TEST(TestStringArray, TestSlicedValues) { this->TestSlicedValues(); }
 
 TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); }
 
