@@ -1003,7 +1003,6 @@ bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
-  auto id = dict_type.value_type()->id();
   return ::arrow::is_base_binary_like(dict_type.value_type()->id());
 }
 
