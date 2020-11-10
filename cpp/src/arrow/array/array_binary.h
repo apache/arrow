@@ -69,11 +69,6 @@ class BaseBinaryArray : public FlatArray {
                              raw_value_offsets_[i + 1] - pos);
   }
 
-  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
-    return SliceBuffer(data_->buffers[1], data_->offset * sizeof(offset_type),
-                       data_->length * sizeof(offset_type));
-  }
-
   /// \brief Get binary value as a std::string
   ///
   /// \param i the value index
@@ -228,11 +223,6 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   int32_t byte_width() const { return byte_width_; }
 
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
-
-  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
-    return SliceBuffer(data_->buffers[1], data_->offset * byte_width_,
-                       data_->length * byte_width_);
-  }
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data) {

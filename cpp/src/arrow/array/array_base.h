@@ -207,12 +207,6 @@ static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
 
 /// Base class for non-nested arrays
 class ARROW_EXPORT FlatArray : public Array {
- public:
-  /// Returns the slice buffer for the second buffer in the
-  /// array (values buffer for primitives, offsets buffers
-  /// for variable length binary types.
-  virtual Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const = 0;
-
  protected:
   using Array::Array;
 };
@@ -248,10 +242,6 @@ class ARROW_EXPORT NullArray : public FlatArray {
 
   explicit NullArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
   explicit NullArray(int64_t length);
-
-  Result<std::shared_ptr<const Buffer>> SlicedValues(MemoryPool* pool) const override {
-    return NULLPTR;
-  }
 
  private:
   void SetData(const std::shared_ptr<ArrayData>& data) {
