@@ -22,7 +22,7 @@
 
 namespace cpp11 {
 template <>
-std::string r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>& type) {
+const char* r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>& type) {
   using arrow::Type;
 
   switch (type->id()) {
@@ -99,84 +99,86 @@ std::string r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType
   }
 
   return "DataType";
-
-  // switch(names(Type)[self$id + 1],
-  //
-  //        INTERVAL = stop("Type INTERVAL not implemented yet"),
-  //        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
-  //        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
-  //        MAP = stop("Type MAP not implemented yet"),
-  //        EXTENSION = stop("Type EXTENSION not implemented yet"),
-  //        DURATION = stop("Type DURATION not implemented yet"),
 }
+// switch(names(Type)[self$id + 1],
+//
+//        INTERVAL = stop("Type INTERVAL not implemented yet"),
+//        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
+//        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
+//        MAP = stop("Type MAP not implemented yet"),
+//        EXTENSION = stop("Type EXTENSION not implemented yet"),
+//        DURATION = stop("Type DURATION not implemented yet"),
 
 }  // namespace cpp11
 
 // [[arrow::export]]
-R6 Int8__initialize() { return arrow::int8(); }
+std::shared_ptr<arrow::DataType> Int8__initialize() { return arrow::int8(); }
 
 // [[arrow::export]]
-R6 Int16__initialize() { return arrow::int16(); }
+std::shared_ptr<arrow::DataType> Int16__initialize() { return arrow::int16(); }
 
 // [[arrow::export]]
-R6 Int32__initialize() { return arrow::int32(); }
+std::shared_ptr<arrow::DataType> Int32__initialize() { return arrow::int32(); }
 
 // [[arrow::export]]
-R6 Int64__initialize() { return arrow::int64(); }
+std::shared_ptr<arrow::DataType> Int64__initialize() { return arrow::int64(); }
 
 // [[arrow::export]]
-R6 UInt8__initialize() { return arrow::uint8(); }
+std::shared_ptr<arrow::DataType> UInt8__initialize() { return arrow::uint8(); }
 
 // [[arrow::export]]
-R6 UInt16__initialize() { return arrow::uint16(); }
+std::shared_ptr<arrow::DataType> UInt16__initialize() { return arrow::uint16(); }
 
 // [[arrow::export]]
-R6 UInt32__initialize() { return arrow::uint32(); }
+std::shared_ptr<arrow::DataType> UInt32__initialize() { return arrow::uint32(); }
 
 // [[arrow::export]]
-R6 UInt64__initialize() { return arrow::uint64(); }
+std::shared_ptr<arrow::DataType> UInt64__initialize() { return arrow::uint64(); }
 
 // [[arrow::export]]
-R6 Float16__initialize() { return arrow::float16(); }
+std::shared_ptr<arrow::DataType> Float16__initialize() { return arrow::float16(); }
 
 // [[arrow::export]]
-R6 Float32__initialize() { return arrow::float32(); }
+std::shared_ptr<arrow::DataType> Float32__initialize() { return arrow::float32(); }
 
 // [[arrow::export]]
-R6 Float64__initialize() { return arrow::float64(); }
+std::shared_ptr<arrow::DataType> Float64__initialize() { return arrow::float64(); }
 
 // [[arrow::export]]
-R6 Boolean__initialize() { return arrow::boolean(); }
+std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean(); }
 
 // [[arrow::export]]
-R6 Utf8__initialize() { return arrow::utf8(); }
+std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
 
 // [[arrow::export]]
-R6 LargeUtf8__initialize() { return arrow::large_utf8(); }
+std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
 
 // [[arrow::export]]
-R6 Binary__initialize() { return arrow::binary(); }
+std::shared_ptr<arrow::DataType> Binary__initialize() { return arrow::binary(); }
 
 // [[arrow::export]]
-R6 LargeBinary__initialize() { return arrow::large_binary(); }
+std::shared_ptr<arrow::DataType> LargeBinary__initialize() {
+  return arrow::large_binary();
+}
 
 // [[arrow::export]]
-R6 Date32__initialize() { return arrow::date32(); }
+std::shared_ptr<arrow::DataType> Date32__initialize() { return arrow::date32(); }
 
 // [[arrow::export]]
-R6 Date64__initialize() { return arrow::date64(); }
+std::shared_ptr<arrow::DataType> Date64__initialize() { return arrow::date64(); }
 
 // [[arrow::export]]
-R6 Null__initialize() { return arrow::null(); }
+std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
 
 // [[arrow::export]]
-R6 Decimal128Type__initialize(int32_t precision, int32_t scale) {
+std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
+                                                            int32_t scale) {
   // Use the builder that validates inputs
   return ValueOrStop(arrow::Decimal128Type::Make(precision, scale));
 }
 
 // [[arrow::export]]
-R6 FixedSizeBinary__initialize(R_xlen_t byte_width) {
+std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
     cpp11::stop("'byte_width' cannot be NA");
   }
@@ -187,66 +189,69 @@ R6 FixedSizeBinary__initialize(R_xlen_t byte_width) {
 }
 
 // [[arrow::export]]
-R6 Timestamp__initialize(arrow::TimeUnit::type unit, const std::string& timezone) {
+std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit,
+                                                       const std::string& timezone) {
   return arrow::timestamp(unit, timezone);
 }
 
 // [[arrow::export]]
-R6 Time32__initialize(arrow::TimeUnit::type unit) { return arrow::time32(unit); }
+std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit) {
+  return arrow::time32(unit);
+}
 
 // [[arrow::export]]
-R6 Time64__initialize(arrow::TimeUnit::type unit) { return arrow::time64(unit); }
+std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) {
+  return arrow::time64(unit);
+}
 
 // [[arrow::export]]
-R6 list__(SEXP x) {
+std::shared_ptr<arrow::DataType> list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
     return arrow::list(field);
   }
 
-  if (Rf_inherits(x, "DataType")) {
-    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return arrow::list(type);
+  if (!Rf_inherits(x, "DataType")) {
+    cpp11::stop("incompatible");
   }
 
-  cpp11::stop("incompatible");
-  return R_NilValue;
+  auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+  return arrow::list(type);
 }
 
 // [[arrow::export]]
-R6 large_list__(SEXP x) {
+std::shared_ptr<arrow::DataType> large_list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
     return arrow::large_list(field);
   }
 
-  if (Rf_inherits(x, "DataType")) {
-    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return arrow::large_list(type);
+  if (!Rf_inherits(x, "DataType")) {
+    cpp11::stop("incompatible");
   }
 
-  cpp11::stop("incompatible");
-  return R_NilValue;
+  auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+  return arrow::large_list(type);
 }
 
 // [[arrow::export]]
-R6 fixed_size_list__(SEXP x, int list_size) {
+std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
     return arrow::fixed_size_list(field, list_size);
   }
 
-  if (Rf_inherits(x, "DataType")) {
-    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return arrow::fixed_size_list(type, list_size);
+  if (!Rf_inherits(x, "DataType")) {
+    cpp11::stop("incompatible");
   }
 
-  cpp11::stop("incompatible");
-  return R_NilValue;
+  auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+  return arrow::fixed_size_list(type, list_size);
 }
 
 // [[arrow::export]]
-R6 struct__(const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+std::shared_ptr<arrow::DataType> struct__(
+    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
   return arrow::struct_(fields);
 }
 
@@ -323,19 +328,21 @@ arrow::TimeUnit::type TimestampType__unit(
 }
 
 // [[arrow::export]]
-R6 DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type,
-                              const std::shared_ptr<arrow::DataType>& value_type,
-                              bool ordered) {
+std::shared_ptr<arrow::DataType> DictionaryType__initialize(
+    const std::shared_ptr<arrow::DataType>& index_type,
+    const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
   return ValueOrStop(arrow::DictionaryType::Make(index_type, value_type, ordered));
 }
 
 // [[arrow::export]]
-R6 DictionaryType__index_type(const std::shared_ptr<arrow::DictionaryType>& type) {
+std::shared_ptr<arrow::DataType> DictionaryType__index_type(
+    const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->index_type();
 }
 
 // [[arrow::export]]
-R6 DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type) {
+std::shared_ptr<arrow::DataType> DictionaryType__value_type(
+    const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->value_type();
 }
 
@@ -350,8 +357,8 @@ bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type)
 }
 
 // [[arrow::export]]
-R6 StructType__GetFieldByName(const std::shared_ptr<arrow::StructType>& type,
-                              const std::string& name) {
+std::shared_ptr<arrow::Field> StructType__GetFieldByName(
+    const std::shared_ptr<arrow::StructType>& type, const std::string& name) {
   return type->GetFieldByName(name);
 }
 
@@ -362,32 +369,38 @@ int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type,
 }
 
 // [[arrow::export]]
-R6 ListType__value_field(const std::shared_ptr<arrow::ListType>& type) {
+std::shared_ptr<arrow::Field> ListType__value_field(
+    const std::shared_ptr<arrow::ListType>& type) {
   return type->value_field();
 }
 
 // [[arrow::export]]
-R6 ListType__value_type(const std::shared_ptr<arrow::ListType>& type) {
+std::shared_ptr<arrow::DataType> ListType__value_type(
+    const std::shared_ptr<arrow::ListType>& type) {
   return type->value_type();
 }
 
 // [[arrow::export]]
-R6 LargeListType__value_field(const std::shared_ptr<arrow::LargeListType>& type) {
+std::shared_ptr<arrow::Field> LargeListType__value_field(
+    const std::shared_ptr<arrow::LargeListType>& type) {
   return type->value_field();
 }
 
 // [[arrow::export]]
-R6 LargeListType__value_type(const std::shared_ptr<arrow::LargeListType>& type) {
+std::shared_ptr<arrow::DataType> LargeListType__value_type(
+    const std::shared_ptr<arrow::LargeListType>& type) {
   return type->value_type();
 }
 
 // [[arrow::export]]
-R6 FixedSizeListType__value_field(const std::shared_ptr<arrow::FixedSizeListType>& type) {
+std::shared_ptr<arrow::Field> FixedSizeListType__value_field(
+    const std::shared_ptr<arrow::FixedSizeListType>& type) {
   return type->value_field();
 }
 
 // [[arrow::export]]
-R6 FixedSizeListType__value_type(const std::shared_ptr<arrow::FixedSizeListType>& type) {
+std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(
+    const std::shared_ptr<arrow::FixedSizeListType>& type) {
   return type->value_type();
 }
 

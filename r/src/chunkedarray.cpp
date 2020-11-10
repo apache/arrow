@@ -37,7 +37,8 @@ int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
+std::shared_ptr<arrow::Array> ChunkedArray__chunk(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
   arrow::r::validate_index(i, chunked_array->num_chunks());
   return chunked_array->chunk(i);
 }
@@ -49,28 +50,31 @@ cpp11::list ChunkedArray__chunks(
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+std::shared_ptr<arrow::DataType> ChunkedArray__type(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->type();
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
-                        R_xlen_t offset) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   return chunked_array->Slice(offset);
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
-                        R_xlen_t offset, R_xlen_t length) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset,
+    R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   arrow::r::validate_slice_length(length, chunked_array->length() - offset);
   return chunked_array->Slice(offset, length);
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__View(const std::shared_ptr<arrow::ChunkedArray>& array,
-                      const std::shared_ptr<arrow::DataType>& type) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
+    const std::shared_ptr<arrow::ChunkedArray>& array,
+    const std::shared_ptr<arrow::DataType>& type) {
   return ValueOrStop(array->View(type));
 }
 

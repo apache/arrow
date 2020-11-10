@@ -22,9 +22,9 @@
 #include <vector>
 #undef Free
 
-#include "./nameof.h"
-
 #include <cpp11.hpp>
+
+#include "./nameof.h"
 
 // borrowed from enc package
 // because R does not make these macros available (i.e. from Defn.h)
@@ -295,14 +295,10 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
-std::string r6_class_name(const std::shared_ptr<T>& x);
+SEXP to_r6(const std::shared_ptr<T>& ptr, const std::string& r_class_name) {
+  if (ptr == nullptr) return R_NilValue;
 
-template <typename T>
-SEXP to_r6(const std::shared_ptr<T>& x) {
-  if (x == nullptr) return R_NilValue;
-
-  auto r_class_name = cpp11::r6_class_name<T>(x);
-  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
+  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r_class_name.c_str());
 
   // make call:  <symbol>$new(<x>)
@@ -315,7 +311,26 @@ SEXP to_r6(const std::shared_ptr<T>& x) {
   UNPROTECT(3);
   return r6;
 }
+
+template <typename T>
+const char* r6_class_name(const std::shared_ptr<T>&);
+
+template <typename T>
+SEXP to_r6(const std::shared_ptr<T>& x) {
+  if (x == nullptr) return R_NilValue;
+
+  return to_r6(x, cpp11::r6_class_name<T>(x));
+}
+
 }  // namespace cpp11
+
+#define DEFAULT_R6_CLASS_NAME(CLASS, NAME)                          \
+  namespace cpp11 {                                                 \
+  template <>                                                       \
+  const char* r6_class_name<CLASS>(const std::shared_ptr<CLASS>&) { \
+    return NAME;                                                    \
+  }                                                                 \
+  }
 
 namespace arrow {
 namespace r {
@@ -359,6 +374,11 @@ enable_if_shared_ptr<T> as_cpp(SEXP from) {
 template <typename E>
 enable_if_enum<E, SEXP> as_sexp(E e) {
   return as_sexp(static_cast<int>(e));
+}
+
+template <typename T>
+SEXP as_sexp(const std::shared_ptr<T>& ptr) {
+  return cpp11::to_r6<T>(ptr);
 }
 
 }  // namespace cpp11

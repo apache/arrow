@@ -24,41 +24,13 @@
 
 namespace fs = ::arrow::fs;
 
-namespace cpp11 {
-template <>
-std::string r6_class_name<fs::FileSelector>(const std::shared_ptr<fs::FileSelector>& x) {
-  return "FileSelector";
-}
-template <>
-std::string r6_class_name<fs::FileInfo>(const std::shared_ptr<fs::FileInfo>& x) {
-  return "FileInfo";
-}
-template <>
-std::string r6_class_name<arrow::io::InputStream>(
-    const std::shared_ptr<arrow::io::InputStream>& x) {
-  return "InputStream";
-}
-template <>
-std::string r6_class_name<arrow::io::OutputStream>(
-    const std::shared_ptr<arrow::io::OutputStream>& x) {
-  return "OutputStream";
-}
-template <>
-std::string r6_class_name<arrow::io::RandomAccessFile>(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  return "RandomAccessFile";
-}
-template <>
-std::string r6_class_name<fs::LocalFileSystem>(
-    const std::shared_ptr<fs::LocalFileSystem>& x) {
-  return "LocalFileSystem";
-}
-template <>
-std::string r6_class_name<fs::SubTreeFileSystem>(
-    const std::shared_ptr<fs::SubTreeFileSystem>& x) {
-  return "SubTreeFileSystem";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(fs::FileSelector, "FileSelector")
+DEFAULT_R6_CLASS_NAME(fs::FileInfo, "FileInfo")
+DEFAULT_R6_CLASS_NAME(arrow::io::InputStream, "InputStream")
+DEFAULT_R6_CLASS_NAME(arrow::io::OutputStream, "OutputStream")
+DEFAULT_R6_CLASS_NAME(arrow::io::RandomAccessFile, "RandomAccessFile")
+DEFAULT_R6_CLASS_NAME(fs::LocalFileSystem, "LocalFileSystem")
+DEFAULT_R6_CLASS_NAME(fs::SubTreeFileSystem, "SubTreeFileSystem")
 
 // [[arrow::export]]
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {
@@ -136,8 +108,9 @@ bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selec
 }
 
 // [[arrow::export]]
-R6 fs___FileSelector__create(const std::string& base_dir, bool allow_not_found,
-                             bool recursive) {
+std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir,
+                                                            bool allow_not_found,
+                                                            bool recursive) {
   auto selector = std::make_shared<fs::FileSelector>();
   selector->base_dir = base_dir;
   selector->allow_not_found = allow_not_found;
@@ -215,26 +188,26 @@ void fs___FileSystem__CopyFile(const std::shared_ptr<fs::FileSystem>& file_syste
 }
 
 // [[arrow::export]]
-R6 fs___FileSystem__OpenInputStream(const std::shared_ptr<fs::FileSystem>& file_system,
-                                    const std::string& path) {
+std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(
+    const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
   return ValueOrStop(file_system->OpenInputStream(path));
 }
 
 // [[arrow::export]]
-R6 fs___FileSystem__OpenInputFile(const std::shared_ptr<fs::FileSystem>& file_system,
-                                  const std::string& path) {
+std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(
+    const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
   return ValueOrStop(file_system->OpenInputFile(path));
 }
 
 // [[arrow::export]]
-R6 fs___FileSystem__OpenOutputStream(const std::shared_ptr<fs::FileSystem>& file_system,
-                                     const std::string& path) {
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(
+    const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
   return ValueOrStop(file_system->OpenOutputStream(path));
 }
 
 // [[arrow::export]]
-R6 fs___FileSystem__OpenAppendStream(const std::shared_ptr<fs::FileSystem>& file_system,
-                                     const std::string& path) {
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(
+    const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
   return ValueOrStop(file_system->OpenAppendStream(path));
 }
 
@@ -245,16 +218,18 @@ std::string fs___FileSystem__type_name(
 }
 
 // [[arrow::export]]
-R6 fs___LocalFileSystem__create() { return std::make_shared<fs::LocalFileSystem>(); }
+std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
+  return std::make_shared<fs::LocalFileSystem>();
+}
 
 // [[arrow::export]]
-R6 fs___SubTreeFileSystem__create(const std::string& base_path,
-                                  const std::shared_ptr<fs::FileSystem>& base_fs) {
+std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
+    const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs) {
   return std::make_shared<fs::SubTreeFileSystem>(base_path, base_fs);
 }
 
 // [[arrow::export]]
-R6 fs___SubTreeFileSystem__base_fs(
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
     const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
   return file_system->base_fs();
 }
@@ -291,12 +266,12 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-R6 fs___S3FileSystem__create(bool anonymous = false, std::string access_key = "",
-                             std::string secret_key = "", std::string session_token = "",
-                             std::string role_arn = "", std::string session_name = "",
-                             std::string external_id = "", int load_frequency = 900,
-                             std::string region = "", std::string endpoint_override = "",
-                             std::string scheme = "", bool background_writes = true) {
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
+    bool anonymous = false, std::string access_key = "", std::string secret_key = "",
+    std::string session_token = "", std::string role_arn = "",
+    std::string session_name = "", std::string external_id = "", int load_frequency = 900,
+    std::string region = "", std::string endpoint_override = "", std::string scheme = "",
+    bool background_writes = true) {
   fs::S3Options s3_opts;
   // Handle auth (anonymous, keys, default)
   // (validation/internal coherence handled in R)
@@ -327,7 +302,7 @@ R6 fs___S3FileSystem__create(bool anonymous = false, std::string access_key = ""
   s3_opts.background_writes = background_writes;
 
   StopIfNotOk(fs::EnsureS3Initialized());
-  return cpp11::r6(ValueOrStop(fs::S3FileSystem::Make(s3_opts)), "S3FileSystem");
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 
 // [[s3::export]]

@@ -23,13 +23,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
-namespace cpp11 {
-template <>
-inline std::string r6_class_name<arrow::compute::CastOptions>(
-    const std::shared_ptr<arrow::compute::CastOptions>& codec) {
-  return "CastOptions";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(arrow::compute::CastOptions, "CastOptions")
 
 arrow::compute::ExecContext* gc_context() {
   static arrow::compute::ExecContext context(gc_memory_pool());
@@ -37,8 +31,8 @@ arrow::compute::ExecContext* gc_context() {
 }
 
 // [[arrow::export]]
-R6 compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate,
-                                     bool allow_float_truncate) {
+std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
+    bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {
   auto options = std::make_shared<arrow::compute::CastOptions>();
   options->allow_int_overflow = allow_int_overflow;
   options->allow_time_truncate = allow_time_truncate;
@@ -47,16 +41,18 @@ R6 compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_tr
 }
 
 // [[arrow::export]]
-R6 Array__cast(const std::shared_ptr<arrow::Array>& array,
-               const std::shared_ptr<arrow::DataType>& target_type,
-               const std::shared_ptr<arrow::compute::CastOptions>& options) {
+std::shared_ptr<arrow::Array> Array__cast(
+    const std::shared_ptr<arrow::Array>& array,
+    const std::shared_ptr<arrow::DataType>& target_type,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
   return ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
-                      const std::shared_ptr<arrow::DataType>& target_type,
-                      const std::shared_ptr<arrow::compute::CastOptions>& options) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
+    const std::shared_ptr<arrow::DataType>& target_type,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
   arrow::Datum value(chunked_array);
   arrow::Datum out =
       ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
@@ -64,9 +60,10 @@ R6 ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
 }
 
 // [[arrow::export]]
-R6 RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch,
-                     const std::shared_ptr<arrow::Schema>& schema,
-                     const std::shared_ptr<arrow::compute::CastOptions>& options) {
+std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
   auto nc = batch->num_columns();
 
   arrow::ArrayVector columns(nc);
@@ -79,9 +76,10 @@ R6 RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch,
 }
 
 // [[arrow::export]]
-R6 Table__cast(const std::shared_ptr<arrow::Table>& table,
-               const std::shared_ptr<arrow::Schema>& schema,
-               const std::shared_ptr<arrow::compute::CastOptions>& options) {
+std::shared_ptr<arrow::Table> Table__cast(
+    const std::shared_ptr<arrow::Table>& table,
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::compute::CastOptions>& options) {
   auto nc = table->num_columns();
 
   using ColumnVector = std::vector<std::shared_ptr<arrow::ChunkedArray>>;

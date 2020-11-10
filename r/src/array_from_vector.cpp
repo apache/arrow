@@ -1528,10 +1528,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 }  // namespace arrow
 
 // [[arrow::export]]
-R6 Array__infer_type(SEXP x) { return arrow::r::InferArrowType(x); }
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
+  return arrow::r::InferArrowType(x);
+}
 
 // [[arrow::export]]
-R6 Array__from_vector(SEXP x, SEXP s_type) {
+std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
   // we keep track of whether it was inferred or supplied
   bool type_inferred = Rf_isNull(s_type);
@@ -1546,7 +1548,8 @@ R6 Array__from_vector(SEXP x, SEXP s_type) {
 }
 
 // [[arrow::export]]
-R6 ChunkedArray__from_list(cpp11::list chunks, SEXP s_type) {
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
+                                                             SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
   // the type might be NULL, in which case we need to infer it from the data
@@ -1586,9 +1589,10 @@ R6 ChunkedArray__from_list(cpp11::list chunks, SEXP s_type) {
 }
 
 // [[arrow::export]]
-R6 DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type,
-                               const std::shared_ptr<arrow::Array>& indices,
-                               const std::shared_ptr<arrow::Array>& dict) {
+std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
+    const std::shared_ptr<arrow::DataType>& type,
+    const std::shared_ptr<arrow::Array>& indices,
+    const std::shared_ptr<arrow::Array>& dict) {
   return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
 }
 

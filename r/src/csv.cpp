@@ -22,36 +22,15 @@
 #include <arrow/csv/reader.h>
 #include <arrow/util/value_parsing.h>
 
-namespace cpp11 {
-template <>
-inline std::string r6_class_name<arrow::csv::ReadOptions>(
-    const std::shared_ptr<arrow::csv::ReadOptions>& codec) {
-  return "CsvReadOptions";
-}
-template <>
-inline std::string r6_class_name<arrow::csv::ParseOptions>(
-    const std::shared_ptr<arrow::csv::ParseOptions>& codec) {
-  return "CsvParseOptions";
-}
-template <>
-inline std::string r6_class_name<arrow::csv::ConvertOptions>(
-    const std::shared_ptr<arrow::csv::ConvertOptions>& codec) {
-  return "CsvConvertOptions";
-}
-template <>
-inline std::string r6_class_name<arrow::csv::TableReader>(
-    const std::shared_ptr<arrow::csv::TableReader>& codec) {
-  return "CsvTableReader";
-}
-template <>
-inline std::string r6_class_name<arrow::TimestampParser>(
-    const std::shared_ptr<arrow::TimestampParser>& codec) {
-  return "TimestampParser";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions")
+DEFAULT_R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions")
+DEFAULT_R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions")
+DEFAULT_R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader")
+DEFAULT_R6_CLASS_NAME(arrow::TimestampParser, "TimestampParser")
 
 // [[arrow::export]]
-R6 csv___ReadOptions__initialize(cpp11::list options) {
+std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
+    cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ReadOptions>(arrow::csv::ReadOptions::Defaults());
   res->use_threads = cpp11::as_cpp<bool>(options["use_threads"]);
@@ -65,7 +44,8 @@ R6 csv___ReadOptions__initialize(cpp11::list options) {
 }
 
 // [[arrow::export]]
-R6 csv___ParseOptions__initialize(cpp11::list options) {
+std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
+    cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ParseOptions>(arrow::csv::ParseOptions::Defaults());
   res->delimiter = cpp11::as_cpp<char>(options["delimiter"]);
@@ -89,7 +69,8 @@ SEXP csv___ReadOptions__column_names(
 }
 
 // [[arrow::export]]
-R6 csv___ConvertOptions__initialize(cpp11::list options) {
+std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
+    cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(
       arrow::csv::ConvertOptions::Defaults());
   res->check_utf8 = cpp11::as_cpp<bool>(options["check_utf8"]);
@@ -161,7 +142,7 @@ R6 csv___ConvertOptions__initialize(cpp11::list options) {
 }
 
 // [[arrow::export]]
-R6 csv___TableReader__Make(
+std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
@@ -171,7 +152,8 @@ R6 csv___TableReader__Make(
 }
 
 // [[arrow::export]]
-R6 csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
+std::shared_ptr<arrow::Table> csv___TableReader__Read(
+    const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
   return ValueOrStop(table_reader->Read());
 }
 
@@ -187,11 +169,14 @@ std::string TimestampParser__format(
 }
 
 // [[arrow::export]]
-R6 TimestampParser__MakeStrptime(std::string format) {
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
+    std::string format) {
   return arrow::TimestampParser::MakeStrptime(format);
 }
 
 // [[arrow::export]]
-R6 TimestampParser__MakeISO8601() { return arrow::TimestampParser::MakeISO8601(); }
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
+  return arrow::TimestampParser::MakeISO8601();
+}
 
 #endif

@@ -21,7 +21,10 @@
 #include <arrow/array/data.h>
 
 // [[arrow::export]]
-R6 ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x) { return x->type; }
+std::shared_ptr<arrow::DataType> ArrayData__get_type(
+    const std::shared_ptr<arrow::ArrayData>& x) {
+  return x->type;
+}
 
 // [[arrow::export]]
 int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x) {

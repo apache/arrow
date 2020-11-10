@@ -20,26 +20,13 @@
 
 #include <arrow/json/reader.h>
 
-namespace cpp11 {
-template <>
-std::string r6_class_name<arrow::json::ReadOptions>(
-    const std::shared_ptr<arrow::json::ReadOptions>& x) {
-  return "JsonReadOptions";
-}
-template <>
-std::string r6_class_name<arrow::json::ParseOptions>(
-    const std::shared_ptr<arrow::json::ParseOptions>& x) {
-  return "JsonParseOptions";
-}
-template <>
-std::string r6_class_name<arrow::json::TableReader>(
-    const std::shared_ptr<arrow::json::TableReader>& x) {
-  return "JsonTableReader";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions")
+DEFAULT_R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions")
+DEFAULT_R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader")
 
 // [[arrow::export]]
-R6 json___ReadOptions__initialize(bool use_threads, int block_size) {
+std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads,
+                                                                         int block_size) {
   auto res =
       std::make_shared<arrow::json::ReadOptions>(arrow::json::ReadOptions::Defaults());
   res->use_threads = use_threads;
@@ -48,7 +35,8 @@ R6 json___ReadOptions__initialize(bool use_threads, int block_size) {
 }
 
 // [[arrow::export]]
-R6 json___ParseOptions__initialize(bool newlines_in_values) {
+std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(
+    bool newlines_in_values) {
   auto res =
       std::make_shared<arrow::json::ParseOptions>(arrow::json::ParseOptions::Defaults());
   res->newlines_in_values = newlines_in_values;
@@ -56,7 +44,7 @@ R6 json___ParseOptions__initialize(bool newlines_in_values) {
 }
 
 // [[arrow::export]]
-R6 json___TableReader__Make(
+std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
     const std::shared_ptr<arrow::json::ParseOptions>& parse_options) {
@@ -65,7 +53,7 @@ R6 json___TableReader__Make(
 }
 
 // [[arrow::export]]
-R6 json___TableReader__Read(
+std::shared_ptr<arrow::Table> json___TableReader__Read(
     const std::shared_ptr<arrow::json::TableReader>& table_reader) {
   return ValueOrStop(table_reader->Read());
 }

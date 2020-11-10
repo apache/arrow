@@ -23,7 +23,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-R6 schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+std::shared_ptr<arrow::Schema> schema_(
+    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
   return arrow::schema(fields);
 }
 
@@ -38,7 +39,8 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 }
 
 // [[arrow::export]]
-R6 Schema__field(const std::shared_ptr<arrow::Schema>& s, int i) {
+std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
+                                            int i) {
   if (i >= s->num_fields() || i < 0) {
     cpp11::stop("Invalid field index for schema.");
   }
@@ -47,7 +49,8 @@ R6 Schema__field(const std::shared_ptr<arrow::Schema>& s, int i) {
 }
 
 // [[arrow::export]]
-R6 Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x) {
+std::shared_ptr<arrow::Field> Schema__GetFieldByName(
+    const std::shared_ptr<arrow::Schema>& s, std::string x) {
   return s->GetFieldByName(x);
 }
 
@@ -91,8 +94,8 @@ cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& sch
 }
 
 // [[arrow::export]]
-R6 Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema,
-                        cpp11::strings metadata) {
+std::shared_ptr<arrow::Schema> Schema__WithMetadata(
+    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
   auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
 
@@ -115,7 +118,8 @@ bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema,
 }
 
 // [[arrow::export]]
-R6 arrow__UnifySchemas(const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
+std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
+    const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
   return ValueOrStop(arrow::UnifySchemas(schemas));
 }
 

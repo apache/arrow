@@ -21,26 +21,18 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
-namespace cpp11 {
-template <>
-std::string r6_class_name<arrow::ipc::RecordBatchStreamReader>(
-    const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& x) {
-  return "RecordBatchStreamReader";
-}
-template <>
-std::string r6_class_name<arrow::ipc::RecordBatchFileReader>(
-    const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& x) {
-  return "RecordBatchFileReader";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchStreamReader, "RecordBatchStreamReader")
+DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchFileReader, "RecordBatchFileReader")
 
 // [[arrow::export]]
-R6 RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   return reader->schema();
 }
 
 // [[arrow::export]]
-R6 RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
   StopIfNotOk(reader->ReadNext(&batch));
   return batch;
@@ -49,7 +41,7 @@ R6 RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& 
 // -------- RecordBatchStreamReader
 
 // [[arrow::export]]
-R6 ipc___RecordBatchStreamReader__Open(
+std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   return ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream));
 }
@@ -73,7 +65,7 @@ cpp11::list ipc___RecordBatchStreamReader__batches(
 // -------- RecordBatchFileReader
 
 // [[arrow::export]]
-R6 ipc___RecordBatchFileReader__schema(
+std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   return reader->schema();
 }
@@ -85,7 +77,7 @@ int ipc___RecordBatchFileReader__num_record_batches(
 }
 
 // [[arrow::export]]
-R6 ipc___RecordBatchFileReader__ReadRecordBatch(
+std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   if (i < 0 && i >= reader->num_record_batches()) {
     cpp11::stop("Record batch index out of bounds");
@@ -94,13 +86,13 @@ R6 ipc___RecordBatchFileReader__ReadRecordBatch(
 }
 
 // [[arrow::export]]
-R6 ipc___RecordBatchFileReader__Open(
+std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   return ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file));
 }
 
 // [[arrow::export]]
-R6 Table__from_RecordBatchFileReader(
+std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   int num_batches = reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
@@ -112,7 +104,7 @@ R6 Table__from_RecordBatchFileReader(
 }
 
 // [[arrow::export]]
-R6 Table__from_RecordBatchStreamReader(
+std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
     const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;

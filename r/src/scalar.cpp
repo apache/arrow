@@ -27,8 +27,8 @@
 namespace cpp11 {
 
 template <>
-std::string r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>& ptr) {
-  if (ptr->type->id() == arrow::Type::STRUCT) {
+const char* r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>& type) {
+  if (type->type->id() == arrow::Type::STRUCT) {
     return "StructScalar";
   }
   return "Scalar";
@@ -37,7 +37,8 @@ std::string r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>& p
 }  // namespace cpp11
 
 // [[arrow::export]]
-R6 Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i) {
+std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x,
+                                                int64_t i) {
   return ValueOrStop(x->GetScalar(i));
 }
 
@@ -47,19 +48,20 @@ std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
 }
 
 // [[arrow::export]]
-R6 Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
-                  const std::shared_ptr<arrow::DataType>& t) {
+std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
+                                              const std::shared_ptr<arrow::DataType>& t) {
   return ValueOrStop(s->CastTo(t));
 }
 
 // [[arrow::export]]
-R6 StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i) {
+std::shared_ptr<arrow::Scalar> StructScalar__field(
+    const std::shared_ptr<arrow::StructScalar>& s, int i) {
   return ValueOrStop(s->field(i));
 }
 
 // [[arrow::export]]
-R6 StructScalar__GetFieldByName(const std::shared_ptr<arrow::StructScalar>& s,
-                                const std::string& name) {
+std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
+    const std::shared_ptr<arrow::StructScalar>& s, const std::string& name) {
   return ValueOrStop(s->field(name));
 }
 
@@ -76,6 +78,8 @@ SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s) { return s->is_valid; }
 
 // [[arrow::export]]
-R6 Scalar__type(const std::shared_ptr<arrow::Scalar>& s) { return s->type; }
+std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scalar>& s) {
+  return s->type;
+}
 
 #endif

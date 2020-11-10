@@ -59,6 +59,11 @@ struct ParseOptions;
 
 }  // namespace json
 
+namespace dataset {
+class DirectoryPartitioning;
+class HivePartitioning;
+}  // namespace dataset
+
 }  // namespace arrow
 
 namespace parquet {

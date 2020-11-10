@@ -21,9 +21,9 @@
 #include <arrow/type.h>
 
 // [[arrow::export]]
-R6 Field__initialize(const std::string& name,
-                     const std::shared_ptr<arrow::DataType>& field,
-                     bool nullable = true) {
+std::shared_ptr<arrow::Field> Field__initialize(
+    const std::string& name, const std::shared_ptr<arrow::DataType>& field,
+    bool nullable = true) {
   return arrow::field(name, field, nullable);
 }
 
@@ -49,6 +49,8 @@ bool Field__nullable(const std::shared_ptr<arrow::Field>& field) {
 }
 
 // [[arrow::export]]
-R6 Field__type(const std::shared_ptr<arrow::Field>& field) { return field->type(); }
+std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field) {
+  return field->type();
+}
 
 #endif

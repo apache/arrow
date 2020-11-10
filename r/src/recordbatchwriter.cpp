@@ -20,13 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
-namespace cpp11 {
-template <>
-inline std::string r6_class_name<arrow::ipc::RecordBatchWriter>(
-    const std::shared_ptr<arrow::ipc::RecordBatchWriter>& x) {
-  return "RecordBatchWriter";
-}
-}  // namespace cpp11
+DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchWriter, "RecordBatchWriter")
 
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
@@ -49,7 +43,7 @@ void ipc___RecordBatchWriter__Close(
 }
 
 // [[arrow::export]]
-R6 ipc___RecordBatchFileWriter__Open(
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
     arrow::ipc::MetadataVersion metadata_version) {
@@ -61,7 +55,7 @@ R6 ipc___RecordBatchFileWriter__Open(
 }
 
 // [[arrow::export]]
-R6 ipc___RecordBatchStreamWriter__Open(
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
     arrow::ipc::MetadataVersion metadata_version) {
