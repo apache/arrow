@@ -456,6 +456,67 @@ static inline bool UTF8Transform(const uint8_t* first, const uint8_t* last,
   return true;
 }
 
+template <class Predicate>
+static inline bool UTF8FindIf(const uint8_t* first, const uint8_t* last,
+                              Predicate&& predicate, const uint8_t** position) {
+  const uint8_t* i = first;
+  while (i < last) {
+    uint32_t codepoint = 0;
+    const uint8_t* current = i;
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
+      return false;
+    }
+    if (predicate(codepoint)) {
+      *position = current;
+      return true;
+    }
+  }
+  *position = last;
+  return true;
+}
+
+// same semantics as std::find_if using reverse iterators when the return value
+// having the same semantics as std::reverse_iterator<..>.base()
+template <class Predicate>
+static inline bool UTF8FindIfReverse(const uint8_t* first, const uint8_t* last,
+                                     Predicate&& predicate, const uint8_t** position) {
+  const uint8_t* i = last - 1;
+  while (i >= first) {
+    uint32_t codepoint = 0;
+    const uint8_t* current = i;
+    if (ARROW_PREDICT_FALSE(!UTF8DecodeReverse(&i, &codepoint))) {
+      return false;
+    }
+    if (predicate(codepoint)) {
+      *position = current + 1;
+      return true;
+    }
+  }
+  *position = first;
+  return true;
+}
+
+template <class UnaryFunction>
+static inline bool UTF8ForEach(const uint8_t* first, const uint8_t* last,
+                               UnaryFunction&& f) {
+  const uint8_t* i = first;
+  while (i < last) {
+    uint32_t codepoint = 0;
+    if (ARROW_PREDICT_FALSE(!UTF8Decode(&i, &codepoint))) {
+      return false;
+    }
+    f(codepoint);
+  }
+  return true;
+}
+
+template <class UnaryFunction>
+static inline bool UTF8ForEach(std::string s, UnaryFunction&& f) {
+  return UTF8ForEach(reinterpret_cast<const uint8_t*>(s.data()),
+                     reinterpret_cast<const uint8_t*>(s.data() + s.length()),
+                     std::forward<UnaryFunction>(f));
+}
+
 template <class UnaryPredicate>
 static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* result,
                              UnaryPredicate&& predicate) {

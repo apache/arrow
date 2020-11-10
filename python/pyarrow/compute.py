@@ -33,6 +33,7 @@ from pyarrow._compute import (  # noqa
     MatchSubstringOptions,
     SplitOptions,
     SplitPatternOptions,
+    TrimOptions,
     MinMaxOptions,
     ModeOptions,
     PartitionNthOptions,

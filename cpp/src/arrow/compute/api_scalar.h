@@ -92,6 +92,13 @@ struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   TimeUnit::type unit;
 };
 
+struct ARROW_EXPORT TrimOptions : public FunctionOptions {
+  explicit TrimOptions(std::string characters) : characters(std::move(characters)) {}
+
+  /// The individual characters that can be trimmed from the string.
+  std::string characters;
+};
+
 enum CompareOperator : int8_t {
   EQUAL,
   NOT_EQUAL,

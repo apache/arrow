@@ -412,5 +412,32 @@ TEST(UTF8DecodeReverse, Basics) {
   CheckInvalid("\xF0\x80\x80");
 }
 
+TEST(UTF8FindIf, Basics) {
+  auto CheckOk = [](const std::string& s, unsigned char test, int64_t offset_left,
+                    int64_t offset_right) -> void {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
+    const uint8_t* end = begin + s.length();
+    std::reverse_iterator<const uint8_t*> rbegin(end);
+    std::reverse_iterator<const uint8_t*> rend(begin);
+    const uint8_t* left;
+    const uint8_t* right;
+    auto predicate = [&](uint32_t c) { return c == test; };
+    EXPECT_TRUE(UTF8FindIf(begin, end, predicate, &left));
+    EXPECT_TRUE(UTF8FindIfReverse(begin, end, predicate, &right));
+    EXPECT_EQ(offset_left, left - begin);
+    EXPECT_EQ(offset_right, right - begin);
+    EXPECT_EQ(std::find_if(begin, end, predicate) - begin, left - begin);
+    EXPECT_EQ(std::find_if(rbegin, rend, predicate).base() - begin, right - begin);
+  };
+
+  CheckOk("aaaba", 'a', 0, 5);
+  CheckOk("aaaba", 'b', 3, 4);
+  CheckOk("aaababa", 'b', 3, 6);
+  CheckOk("aaababa", 'c', 7, 0);
+  CheckOk("a", 'a', 0, 1);
+  CheckOk("a", 'b', 1, 0);
+  CheckOk("", 'b', 0, 0);
+}
+
 }  // namespace util
 }  // namespace arrow

@@ -606,6 +606,23 @@ class MatchSubstringOptions(_MatchSubstringOptions):
         self._set_options(pattern)
 
 
+cdef class _TrimOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CTrimOptions] trim_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.trim_options.get()
+
+    def _set_options(self, characters):
+        self.trim_options.reset(
+            new CTrimOptions(tobytes(characters)))
+
+
+class TrimOptions(_TrimOptions):
+    def __init__(self, characters):
+        self._set_options(characters)
+
+
 cdef class _FilterOptions(FunctionOptions):
     cdef:
         CFilterOptions filter_options
