@@ -133,9 +133,13 @@ TYPED_TEST(TestNthToIndicesForReal, Real) {
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 5);
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 6);
 
-  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 0);
-  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 1);
-  this->AssertNthToIndicesJson("[NaN, 2, NaN, 3, 1]", 2);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 0);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 1);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 2);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 3);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 4);
+  this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 3);
+  this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 4);
 }
 
 TYPED_TEST(TestNthToIndicesForIntegral, Integral) {

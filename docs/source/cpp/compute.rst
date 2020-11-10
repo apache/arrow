@@ -627,10 +627,12 @@ In these functions, nulls are considered greater than any other value
   in sorted order, and all indices before the *N*'th point to elements
   less or equal to elements at or after the *N*'th (similar to
   :func:`std::nth_element`).  *N* is given in
-  :member:`PartitionNthOptions::pivot`.
+  :member:`PartitionNthOptions::pivot`. Nulls are sorted to the end of
+  output. NaNs are sorted after normal values but before Nulls.
 
 * \(2) The output is an array of indices into the input array, that define
-  a non-stable sort of the input array.
+  a stable sort of the input array. Nulls are sorted to the end of output.
+  NaNs are sorted after normal values but before Nulls.
 
 * \(3) Input values are ordered lexicographically as bytestrings (even
   for String arrays).
