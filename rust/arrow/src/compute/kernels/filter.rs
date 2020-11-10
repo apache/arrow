@@ -128,6 +128,8 @@ pub fn filter_record_batch(
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
+
     use super::*;
     use crate::datatypes::ToByteSlice;
     use crate::{
@@ -440,5 +442,36 @@ mod tests {
             .build();
 
         assert_eq!(&make_array(expected), &result);
+    }
+
+    #[test]
+    fn test_struct() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+
+        let a = StructArray::try_from(vec![("f1", strings), ("f2", ints)]).unwrap();
+
+        let b = BooleanArray::from(vec![true, true, false, false, true]);
+        let result = filter(&a, &b).unwrap();
+
+        let strings: ArrayRef =
+            Arc::new(StringArray::from(vec![Some("joe"), None, Some("doe")]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), Some(2), Some(5)]));
+
+        let expected =
+            StructArray::try_from(vec![("f1", strings), ("f2", ints)]).unwrap();
+        assert_eq!(result.as_ref(), &expected)
     }
 }
