@@ -21,9 +21,6 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchStreamReader, "RecordBatchStreamReader")
-DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchFileReader, "RecordBatchFileReader")
-
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {

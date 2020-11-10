@@ -21,9 +21,6 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::ipc::MessageReader, "MessageReader")
-DEFAULT_R6_CLASS_NAME(arrow::ipc::Message, "Message")
-
 // [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body_length();

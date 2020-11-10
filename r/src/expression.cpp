@@ -22,9 +22,6 @@
 #include <arrow/dataset/api.h>
 namespace ds = ::arrow::dataset;
 
-DEFAULT_R6_CLASS_NAME(ds::Expression, "Expression")
-DEFAULT_R6_CLASS_NAME(ds::ComparisonExpression, "Expression")
-
 // [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
   return ds::field_ref(std::move(name));

@@ -20,10 +20,6 @@
 
 #include <arrow/json/reader.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions")
-DEFAULT_R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions")
-DEFAULT_R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader")
-
 // [[arrow::export]]
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads,
                                                                          int block_size) {

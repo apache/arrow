@@ -23,8 +23,6 @@
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::compute::CastOptions, "CastOptions")
-
 arrow::compute::ExecContext* gc_context() {
   static arrow::compute::ExecContext context(gc_memory_pool());
   return &context;

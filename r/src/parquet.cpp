@@ -38,13 +38,6 @@ class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
 
 }  // namespace parquet
 
-DEFAULT_R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties")
-DEFAULT_R6_CLASS_NAME(parquet::ArrowWriterProperties, "ParquetArrowWriterProperties")
-DEFAULT_R6_CLASS_NAME(parquet::WriterProperties, "ParquetWriterProperties")
-DEFAULT_R6_CLASS_NAME(parquet::arrow::FileReader, "ParquetFileReader")
-DEFAULT_R6_CLASS_NAME(parquet::WriterPropertiesBuilder, "ParquetWriterPropertiesBuilder")
-DEFAULT_R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter")
-
 // [[arrow::export]]
 std::shared_ptr<parquet::ArrowReaderProperties>
 parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {

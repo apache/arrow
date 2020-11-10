@@ -27,8 +27,9 @@
 namespace cpp11 {
 
 template <>
-const char* r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>& type) {
-  if (type->type->id() == arrow::Type::STRUCT) {
+const char* r6_class_name<arrow::Scalar>::get(
+    const std::shared_ptr<arrow::Scalar>& scalar) {
+  if (scalar->type->id() == arrow::Type::STRUCT) {
     return "StructScalar";
   }
   return "Scalar";

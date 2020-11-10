@@ -20,8 +20,6 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::ipc::RecordBatchWriter, "RecordBatchWriter")
-
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,

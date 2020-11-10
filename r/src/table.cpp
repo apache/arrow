@@ -22,18 +22,6 @@
 #include <arrow/table.h>
 #include <arrow/util/key_value_metadata.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::Table, "Table")
-DEFAULT_R6_CLASS_NAME(arrow::Field, "Field")
-DEFAULT_R6_CLASS_NAME(arrow::ArrayData, "ArrayData")
-DEFAULT_R6_CLASS_NAME(arrow::ChunkedArray, "ChunkedArray")
-DEFAULT_R6_CLASS_NAME(arrow::Buffer, "Buffer")
-DEFAULT_R6_CLASS_NAME(arrow::util::Codec, "Codec")
-DEFAULT_R6_CLASS_NAME(arrow::io::CompressedOutputStream, "CompressedOutputStream")
-DEFAULT_R6_CLASS_NAME(arrow::io::CompressedInputStream, "CompressedInputStream")
-DEFAULT_R6_CLASS_NAME(arrow::RecordBatch, "RecordBatch")
-DEFAULT_R6_CLASS_NAME(arrow::Schema, "Schema")
-DEFAULT_R6_CLASS_NAME(arrow::MemoryPool, "MemoryPool")
-
 // [[arrow::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();

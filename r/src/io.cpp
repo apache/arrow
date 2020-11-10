@@ -21,12 +21,6 @@
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::io::MemoryMappedFile, "MemoryMappedFile")
-DEFAULT_R6_CLASS_NAME(arrow::io::ReadableFile, "ReadableFile")
-DEFAULT_R6_CLASS_NAME(arrow::io::BufferReader, "BufferReader")
-DEFAULT_R6_CLASS_NAME(arrow::io::FileOutputStream, "FileOutputStream")
-DEFAULT_R6_CLASS_NAME(arrow::io::BufferOutputStream, "BufferOutputStream")
-
 // ------ arrow::io::Readable
 
 // [[arrow::export]]

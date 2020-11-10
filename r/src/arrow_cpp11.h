@@ -316,25 +316,34 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   return r6;
 }
 
+/// This trait defines a single static function which returns the name of the R6 class
+/// which corresponds to T. By default, this is just the c++ class name with any
+/// namespaces stripped, for example the R6 class for arrow::ipc::RecordBatchStreamReader
+/// is simply named "RecordBatchStreamReader".
+///
+/// Some classes require specializations of this trait. For example the R6 classes which
+/// wrap arrow::csv::ReadOptions and arrow::json::ReadOptions would collide if both were
+/// named "ReadOptions", so they are named "CsvReadOptions" and "JsonReadOptions"
+/// respectively. Other classes such as arrow::Array are base classes and the proper R6
+/// class name must be derived by examining a discriminant like Array::type_id.
+///
+/// All specializations are located in arrow_exports.h to be visible in generated code.
 template <typename T>
-const char* r6_class_name(const std::shared_ptr<T>&);
+struct r6_class_name {
+  static const char* get(const std::shared_ptr<T>& ptr) {
+    static const std::string name = arrow::util::nameof<T>(/*strip_namespace=*/true);
+    return name.c_str();
+  }
+};
 
 template <typename T>
 SEXP to_r6(const std::shared_ptr<T>& x) {
   if (x == nullptr) return R_NilValue;
 
-  return to_r6(x, cpp11::r6_class_name<T>(x));
+  return to_r6(x, cpp11::r6_class_name<T>::get(x));
 }
 
 }  // namespace cpp11
-
-#define DEFAULT_R6_CLASS_NAME(CLASS, NAME)                          \
-  namespace cpp11 {                                                 \
-  template <>                                                       \
-  const char* r6_class_name<CLASS>(const std::shared_ptr<CLASS>&) { \
-    return NAME;                                                    \
-  }                                                                 \
-  }
 
 namespace arrow {
 namespace r {

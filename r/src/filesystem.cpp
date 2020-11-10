@@ -24,17 +24,25 @@
 
 namespace fs = ::arrow::fs;
 
-DEFAULT_R6_CLASS_NAME(fs::FileSelector, "FileSelector")
-DEFAULT_R6_CLASS_NAME(fs::FileInfo, "FileInfo")
-DEFAULT_R6_CLASS_NAME(arrow::io::InputStream, "InputStream")
-DEFAULT_R6_CLASS_NAME(arrow::io::OutputStream, "OutputStream")
-DEFAULT_R6_CLASS_NAME(arrow::io::RandomAccessFile, "RandomAccessFile")
-DEFAULT_R6_CLASS_NAME(fs::LocalFileSystem, "LocalFileSystem")
-DEFAULT_R6_CLASS_NAME(fs::SubTreeFileSystem, "SubTreeFileSystem")
+namespace cpp11 {
 
-#if defined(ARROW_R_WITH_S3)
-DEFAULT_R6_CLASS_NAME(fs::S3FileSystem, "S3FileSystem")
-#endif
+template <>
+const char* r6_class_name<fs::FileSystem>::get(
+    const std::shared_ptr<fs::FileSystem>& file_system) {
+  auto type_name = file_system->type_name();
+
+  if (type_name == "local") {
+    return "LocalFileSystem";
+  } else if (type_name == "s3") {
+    return "S3FileSystem";
+  } else if (type_name == "subtree") {
+    return "SubTreeFileSystem";
+  } else {
+    return "FileSystem";
+  }
+}
+
+}  // namespace cpp11
 
 // [[arrow::export]]
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {

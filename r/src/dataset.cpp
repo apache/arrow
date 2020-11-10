@@ -28,26 +28,10 @@
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
 
-DEFAULT_R6_CLASS_NAME(ds::UnionDataset, "UnionDataset")
-DEFAULT_R6_CLASS_NAME(ds::InMemoryDataset, "InMemoryDataset")
-DEFAULT_R6_CLASS_NAME(ds::FileSystemDataset, "FileSystemDataset")
-DEFAULT_R6_CLASS_NAME(ds::ScannerBuilder, "ScannerBuilder")
-DEFAULT_R6_CLASS_NAME(ds::DatasetFactory, "DatasetFactory")
-DEFAULT_R6_CLASS_NAME(ds::FileSystemDatasetFactory, "FileSystemDatasetFactory")
-DEFAULT_R6_CLASS_NAME(ds::PartitioningFactory, "PartitioningFactory")
-DEFAULT_R6_CLASS_NAME(ds::ParquetFileFormat, "ParquetFileFormat")
-DEFAULT_R6_CLASS_NAME(ds::IpcFileFormat, "IpcFileFormat")
-DEFAULT_R6_CLASS_NAME(ds::CsvFileFormat, "CsvFileFormat")
-DEFAULT_R6_CLASS_NAME(ds::DirectoryPartitioning, "DirectoryPartitioning")
-DEFAULT_R6_CLASS_NAME(ds::HivePartitioning, "HivePartitioning")
-DEFAULT_R6_CLASS_NAME(ds::Scanner, "Scanner")
-DEFAULT_R6_CLASS_NAME(ds::ScanTask, "ScanTask")
-DEFAULT_R6_CLASS_NAME(ds::FileWriteOptions, "FileWriteOptions")
-
 namespace cpp11 {
 
 template <>
-const char* r6_class_name<ds::Dataset>(const std::shared_ptr<ds::Dataset>& dataset) {
+const char* r6_class_name<ds::Dataset>::get(const std::shared_ptr<ds::Dataset>& dataset) {
   auto type_name = dataset->type_name();
 
   if (type_name == "union") {
@@ -62,23 +46,7 @@ const char* r6_class_name<ds::Dataset>(const std::shared_ptr<ds::Dataset>& datas
 }
 
 template <>
-const char* r6_class_name<fs::FileSystem>(
-    const std::shared_ptr<fs::FileSystem>& file_system) {
-  auto type_name = file_system->type_name();
-
-  if (type_name == "local") {
-    return "LocalFileSystem";
-  } else if (type_name == "s3") {
-    return "S3FileSystem";
-  } else if (type_name == "subtree") {
-    return "SubTreeFileSystem";
-  } else {
-    return "FileSystem";
-  }
-}
-
-template <>
-const char* r6_class_name<ds::FileFormat>(
+const char* r6_class_name<ds::FileFormat>::get(
     const std::shared_ptr<ds::FileFormat>& file_format) {
   auto type_name = file_format->type_name();
   if (type_name == "parquet") {

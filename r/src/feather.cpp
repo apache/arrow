@@ -21,8 +21,6 @@
 #include <arrow/ipc/feather.h>
 #include <arrow/type.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader")
-
 // ---------- WriteFeather
 
 // [[arrow::export]]

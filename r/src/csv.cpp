@@ -22,12 +22,6 @@
 #include <arrow/csv/reader.h>
 #include <arrow/util/value_parsing.h>
 
-DEFAULT_R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions")
-DEFAULT_R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions")
-DEFAULT_R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions")
-DEFAULT_R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader")
-DEFAULT_R6_CLASS_NAME(arrow::TimestampParser, "TimestampParser")
-
 // [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
     cpp11::list options) {
