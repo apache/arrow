@@ -19,6 +19,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <utility>
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
@@ -31,37 +32,54 @@ namespace internal {
 
 namespace {
 
-using PartitionFunc = decltype(std::partition<uint64_t*, std::function<bool(uint64_t)>>);
+// NOTE: std::partition is usually faster than std::stable_partition.
+
+struct NonStablePartitioner {
+  template <typename Predicate>
+  uint64_t* operator()(uint64_t* indices_begin, uint64_t* indices_end, Predicate&& pred) {
+    return std::partition(indices_begin, indices_end, std::forward<Predicate>(pred));
+  }
+};
+
+struct StablePartitioner {
+  template <typename Predicate>
+  uint64_t* operator()(uint64_t* indices_begin, uint64_t* indices_end, Predicate&& pred) {
+    return std::stable_partition(indices_begin, indices_end,
+                                 std::forward<Predicate>(pred));
+  }
+};
 
 // Move Nulls to end of array. Return where Null starts.
-template <typename ArrayType>
+template <typename ArrayType, typename Partitioner>
 enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
-               PartitionFunc partition) {
+PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
   if (values.null_count() == 0) {
     return indices_end;
   }
-  return partition(indices_begin, indices_end,
-                   [&values](uint64_t ind) { return !values.IsNull(ind); });
+  Partitioner partitioner;
+  return partitioner(indices_begin, indices_end,
+                     [&values](uint64_t ind) { return !values.IsNull(ind); });
 }
 
-// Move NaNs and Nulls to end of array, Nulls after NaN. Return where NaN/Null starts.
-template <typename ArrayType>
+// Move NaNs and Nulls to end of array, Nulls after NaN.
+// Return where NaN/Null starts.
+template <typename ArrayType, typename Partitioner>
 enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
-               PartitionFunc partition) {
+PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  Partitioner partitioner;
   if (values.null_count() == 0) {
-    return partition(indices_begin, indices_end, [&values](uint64_t ind) {
+    return partitioner(indices_begin, indices_end, [&values](uint64_t ind) {
       return !std::isnan(values.GetView(ind));
     });
   }
-  uint64_t* nulls_begin = partition(indices_begin, indices_end, [&values](uint64_t ind) {
-    return !values.IsNull(ind) && !std::isnan(values.GetView(ind));
-  });
+  uint64_t* nulls_begin =
+      partitioner(indices_begin, indices_end, [&values](uint64_t ind) {
+        return !values.IsNull(ind) && !std::isnan(values.GetView(ind));
+      });
   // move Nulls after NaN
   if (values.null_count() < static_cast<int64_t>(indices_end - nulls_begin)) {
-    partition(nulls_begin, indices_end,
-              [&values](uint64_t ind) { return !values.IsNull(ind); });
+    partitioner(nulls_begin, indices_end,
+                [&values](uint64_t ind) { return !values.IsNull(ind); });
   }
   return nulls_begin;
 }
@@ -111,8 +129,8 @@ struct PartitionNthToIndices {
     if (pivot == arr.length()) {
       return;
     }
-    const auto partition = std::partition<uint64_t*, std::function<bool(uint64_t)>>;
-    auto nulls_begin = PartitionNulls(out_begin, out_end, arr, partition);
+    auto nulls_begin =
+        PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr);
     auto nth_begin = out_begin + pivot;
     if (nth_begin < nulls_begin) {
       std::nth_element(out_begin, nth_begin, nulls_begin,
@@ -152,9 +170,8 @@ class CompareSorter {
  public:
   void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     std::iota(indices_begin, indices_end, 0);
-    const auto partition =
-        std::stable_partition<uint64_t*, std::function<bool(uint64_t)>>;
-    auto nulls_begin = PartitionNulls(indices_begin, indices_end, values, partition);
+    auto nulls_begin =
+        PartitionNulls<ArrayType, StablePartitioner>(indices_begin, indices_end, values);
     std::stable_sort(indices_begin, nulls_begin,
                      [&values](uint64_t left, uint64_t right) {
                        return values.GetView(left) < values.GetView(right);
