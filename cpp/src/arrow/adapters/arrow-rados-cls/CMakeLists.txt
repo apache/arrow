@@ -16,7 +16,7 @@
 # under the License.
 
 add_custom_target(cls_arrow)
-arrow_install_all_headers("arrow/adapters/skyhookdm-ceph-cls")
+arrow_install_all_headers("arrow/adapters/arrow-rados-cls")
 
 # cls_arrow
 set(ARROW_CLS_SRCS cls_arrow.cc)

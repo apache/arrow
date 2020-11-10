@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/skyhookdm-ceph-cls/cls_arrow_test_utils.h"
+#include "arrow/adapters/arrow-rados-cls/cls_arrow_test_utils.h"
 
 namespace librados {
 
