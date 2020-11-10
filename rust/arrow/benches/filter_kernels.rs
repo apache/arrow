@@ -14,85 +14,89 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+extern crate arrow;
+
+use arrow::util::test_util::seedable_rng;
+use rand::{
+    distributions::{Alphanumeric, Standard},
+    prelude::Distribution,
+    Rng,
+};
 
 use arrow::array::*;
 use arrow::compute::{filter, FilterContext};
 use arrow::datatypes::ArrowNumericType;
+use arrow::datatypes::{Float32Type, UInt8Type};
+
 use criterion::{criterion_group, criterion_main, Criterion};
 
-fn create_primitive_array<T, F>(size: usize, value_fn: F) -> PrimitiveArray<T>
+fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
-    F: Fn(usize) -> T::Native,
+    Standard: Distribution<T::Native>,
 {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
     let mut builder = PrimitiveArray::<T>::builder(size);
-    for i in 0..size {
-        builder.append_value(value_fn(i)).unwrap();
-    }
-    builder.finish()
-}
 
-fn create_u8_array_with_nulls(size: usize) -> UInt8Array {
-    let mut builder = UInt8Builder::new(size);
-    for i in 0..size {
-        if i % 2 == 0 {
-            builder.append_value(1).unwrap();
-        } else {
+    for _ in 0..size {
+        if rng.gen::<f32>() < null_density {
             builder.append_null().unwrap();
+        } else {
+            builder.append_value(rng.gen()).unwrap();
         }
     }
     builder.finish()
 }
 
-fn create_bool_array<F>(size: usize, value_fn: F) -> BooleanArray
-where
-    F: Fn(usize) -> bool,
-{
+fn create_string_array(size: usize, null_density: f32) -> StringArray {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = StringBuilder::new(size);
+
+    for _ in 0..size {
+        if rng.gen::<f32>() < null_density {
+            builder.append_null().unwrap();
+        } else {
+            let value = (&mut rng)
+                .sample_iter(&Alphanumeric)
+                .take(10)
+                .collect::<String>();
+            builder.append_value(&value).unwrap();
+        }
+    }
+    builder.finish()
+}
+
+fn create_bool_array(size: usize, trues_density: f32) -> BooleanArray {
+    let mut rng = seedable_rng();
     let mut builder = BooleanBuilder::new(size);
-    for i in 0..size {
-        builder.append_value(value_fn(i)).unwrap();
+    for _ in 0..size {
+        let value = rng.gen::<f32>() < trues_density;
+        builder.append_value(value).unwrap();
     }
     builder.finish()
 }
 
 fn bench_filter_u8(data_array: &UInt8Array, filter_array: &BooleanArray) {
-    filter(
-        criterion::black_box(data_array),
-        criterion::black_box(filter_array),
-    )
-    .unwrap();
+    criterion::black_box(filter(data_array, filter_array).unwrap());
 }
 
-// fn bench_filter_f32(data_array: &Float32Array, filter_array: &BooleanArray) {
-//     filter(criterion::black_box(data_array), criterion::black_box(filter_array)).unwrap();
-// }
-
-fn bench_filter_context_u8(data_array: &UInt8Array, filter_context: &FilterContext) {
-    filter_context
-        .filter(criterion::black_box(data_array))
-        .unwrap();
-}
-
-fn bench_filter_context_f32(data_array: &Float32Array, filter_context: &FilterContext) {
-    filter_context
-        .filter(criterion::black_box(data_array))
-        .unwrap();
+fn bench_filter_context<T: Array>(data_array: &T, filter_context: &FilterContext) {
+    criterion::black_box(filter_context.filter(data_array).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let filter_array = create_bool_array(size, |i| matches!(i % 2, 0));
-    let sparse_filter_array = create_bool_array(size, |i| matches!(i % 8000, 0));
-    let dense_filter_array = create_bool_array(size, |i| !matches!(i % 8000, 0));
+    let filter_array = create_bool_array(size, 0.5);
+    let sparse_filter_array = create_bool_array(size, 1.0 - 1.0 / 8000.0);
+    let dense_filter_array = create_bool_array(size, 1.0 / 8000.0);
 
     let filter_context = FilterContext::new(&filter_array).unwrap();
     let sparse_filter_context = FilterContext::new(&sparse_filter_array).unwrap();
     let dense_filter_context = FilterContext::new(&dense_filter_array).unwrap();
 
-    let data_array = create_primitive_array(size, |i| match i % 2 {
-        0 => 1,
-        _ => 0,
-    });
+    let data_array = create_primitive_array(size, 0.0);
     c.bench_function("filter u8 low selectivity", |b| {
         b.iter(|| bench_filter_u8(&data_array, &filter_array))
     });
@@ -104,38 +108,46 @@ fn add_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("filter context u8 low selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &filter_context))
+        b.iter(|| bench_filter_context(&data_array, &filter_context))
     });
     c.bench_function("filter context u8 high selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &sparse_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
     });
     c.bench_function("filter context u8 very low selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &dense_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
     });
 
-    let data_array = create_u8_array_with_nulls(size);
+    let data_array = create_primitive_array::<UInt8Type>(size, 0.5);
     c.bench_function("filter context u8 w NULLs low selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &filter_context))
+        b.iter(|| bench_filter_context(&data_array, &filter_context))
     });
     c.bench_function("filter context u8 w NULLs high selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &sparse_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
     });
     c.bench_function("filter context u8 w NULLs very low selectivity", |b| {
-        b.iter(|| bench_filter_context_u8(&data_array, &dense_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
     });
 
-    let data_array = create_primitive_array(size, |i| match i % 2 {
-        0 => 1.0,
-        _ => 0.0,
-    });
+    let data_array = create_primitive_array::<Float32Type>(size, 0.5);
     c.bench_function("filter context f32 low selectivity", |b| {
-        b.iter(|| bench_filter_context_f32(&data_array, &filter_context))
+        b.iter(|| bench_filter_context(&data_array, &filter_context))
     });
     c.bench_function("filter context f32 high selectivity", |b| {
-        b.iter(|| bench_filter_context_f32(&data_array, &sparse_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
     });
     c.bench_function("filter context f32 very low selectivity", |b| {
-        b.iter(|| bench_filter_context_f32(&data_array, &dense_filter_context))
+        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
+    });
+
+    let data_array = create_string_array(size, 0.5);
+    c.bench_function("filter context string low selectivity", |b| {
+        b.iter(|| bench_filter_context(&data_array, &filter_context))
+    });
+    c.bench_function("filter context string high selectivity", |b| {
+        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
+    });
+    c.bench_function("filter context string very low selectivity", |b| {
+        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
     });
 }
 
