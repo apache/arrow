@@ -1230,12 +1230,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
     buffers[0] = bits_buffer_;
+    // Should be a leaf array.
+    DCHECK_EQ(array->num_fields(), 0);
     DCHECK_GT(buffers.size(), 1);
     PARQUET_ASSIGN_OR_THROW(
         buffers[1],
         checked_pointer_cast<arrow::FlatArray>(array)->SlicedValues(memory_pool));
-    // Should be a leaf array.
-    DCHECK_EQ(array->num_fields(), 0);
     return arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));
   }
