@@ -61,15 +61,15 @@ static void SortToIndicesInt64Compare(benchmark::State& state) {
 
 BENCHMARK(SortToIndicesInt64Count)
     ->Apply(RegressionSetArgs)
-    ->Args({1 << 20, 1})
-    ->Args({1 << 23, 1})
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(SortToIndicesInt64Compare)
     ->Apply(RegressionSetArgs)
-    ->Args({1 << 20, 1})
-    ->Args({1 << 23, 1})
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
