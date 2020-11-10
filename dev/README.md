@@ -28,7 +28,7 @@ https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
 remote.
 
 NOTE: It may take some time (a few hours) between when you complete
-the setup at GitBox, and when your github account will be added as a
+the setup at GitBox, and when your GitHub account will be added as a
 committer.
 
 ## How to merge a Pull request
