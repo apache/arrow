@@ -24,8 +24,6 @@
 
 #include "./nameof.h"
 
-// TODO: move this include up once we can resolve this issue in cpp11
-//       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
 
 // borrowed from enc package
