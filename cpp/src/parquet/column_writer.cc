@@ -1193,6 +1193,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                                   int64_t* null_count) {
     if (bits_buffer_ == nullptr) {
       if (level_info_.def_level == 0) {
+        // In this case def levels should be null and we only
+        // need to ouptut counts which will always be equal to
+        // the batch size passed in (max def_level == 0 indicates
+        // there cannot be repeeated or null fields).
+        DCHECK_EQ(def_levels, nullptr);
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
