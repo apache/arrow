@@ -442,8 +442,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                           header.repetition_levels_byte_length, &levels_byte_len)) {
         throw ParquetException("Levels size too large (corrupt file?)");
       }
-      page_buffer = DecompressIfNeeded(std::move(page_buffer), compressed_len,
-                                       uncompressed_len, levels_byte_len);
+      // DecompressIfNeeded doesn't take `is_compressed` into account as
+      // it's page type-agnostic.
+      if (is_compressed) {
+        page_buffer = DecompressIfNeeded(std::move(page_buffer), compressed_len,
+                                         uncompressed_len, levels_byte_len);
+      }
 
       return std::make_shared<DataPageV2>(
           page_buffer, header.num_values, header.num_nulls, header.num_rows,

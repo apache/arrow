@@ -217,21 +217,21 @@ def test_set_data_page_size(use_legacy_dataset):
 @parametrize_legacy_dataset
 def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
-    df = alltypes_sample(size=10)
+    tables = []
+    batch = pa.RecordBatch.from_pandas(alltypes_sample(size=10))
+    tables.append(pa.Table.from_batches([batch] * 3))
+    df, _ = dataframe_with_lists()
+    batch = pa.RecordBatch.from_pandas(df)
+    tables.append(pa.Table.from_batches([batch] * 3))
 
     for data_page_version in ['1.0', '2.0']:
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
-
-        df, _ = dataframe_with_lists()
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
+        for use_dictionary in [True, False]:
+            for table in tables:
+                _check_roundtrip(
+                    table, version='2.0',
+                    use_legacy_dataset=use_legacy_dataset,
+                    data_page_version=data_page_version,
+                    use_dictionary=use_dictionary)
 
 
 @pytest.mark.pandas

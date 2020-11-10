@@ -873,7 +873,8 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_values, encoding_,
-                    def_levels_byte_length, rep_levels_byte_length, uncompressed_size);
+                    def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
+                    pager_->has_compressor());
     WriteDataPage(page);
   }
 }
