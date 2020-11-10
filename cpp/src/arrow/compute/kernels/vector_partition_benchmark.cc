@@ -50,8 +50,8 @@ static void NthToIndicesInt64(benchmark::State& state) {
 
 BENCHMARK(NthToIndicesInt64)
     ->Apply(RegressionSetArgs)
-    ->Args({1 << 20, 1})
-    ->Args({1 << 23, 1})
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 

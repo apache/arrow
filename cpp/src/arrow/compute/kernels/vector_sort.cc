@@ -16,8 +16,10 @@
 // under the License.
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <numeric>
+#include <utility>
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
@@ -29,6 +31,58 @@ namespace compute {
 namespace internal {
 
 namespace {
+
+// NOTE: std::partition is usually faster than std::stable_partition.
+
+struct NonStablePartitioner {
+  template <typename Predicate>
+  uint64_t* operator()(uint64_t* indices_begin, uint64_t* indices_end, Predicate&& pred) {
+    return std::partition(indices_begin, indices_end, std::forward<Predicate>(pred));
+  }
+};
+
+struct StablePartitioner {
+  template <typename Predicate>
+  uint64_t* operator()(uint64_t* indices_begin, uint64_t* indices_end, Predicate&& pred) {
+    return std::stable_partition(indices_begin, indices_end,
+                                 std::forward<Predicate>(pred));
+  }
+};
+
+// Move Nulls to end of array. Return where Null starts.
+template <typename ArrayType, typename Partitioner>
+enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
+PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  if (values.null_count() == 0) {
+    return indices_end;
+  }
+  Partitioner partitioner;
+  return partitioner(indices_begin, indices_end,
+                     [&values](uint64_t ind) { return !values.IsNull(ind); });
+}
+
+// Move NaNs and Nulls to end of array, Nulls after NaN.
+// Return where NaN/Null starts.
+template <typename ArrayType, typename Partitioner>
+enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
+PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
+  Partitioner partitioner;
+  if (values.null_count() == 0) {
+    return partitioner(indices_begin, indices_end, [&values](uint64_t ind) {
+      return !std::isnan(values.GetView(ind));
+    });
+  }
+  uint64_t* nulls_begin =
+      partitioner(indices_begin, indices_end, [&values](uint64_t ind) {
+        return !values.IsNull(ind) && !std::isnan(values.GetView(ind));
+      });
+  // move Nulls after NaN
+  if (values.null_count() < static_cast<int64_t>(indices_end - nulls_begin)) {
+    partitioner(nulls_begin, indices_end,
+                [&values](uint64_t ind) { return !values.IsNull(ind); });
+  }
+  return nulls_begin;
+}
 
 // ----------------------------------------------------------------------
 // partition_nth_indices implementation
@@ -50,6 +104,7 @@ Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
 template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
+
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
       ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
@@ -74,11 +129,8 @@ struct PartitionNthToIndices {
     if (pivot == arr.length()) {
       return;
     }
-    uint64_t* nulls_begin = out_end;
-    if (arr.null_count()) {
-      nulls_begin = std::stable_partition(
-          out_begin, out_end, [&arr](uint64_t ind) { return !arr.IsNull(ind); });
-    }
+    auto nulls_begin =
+        PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr);
     auto nth_begin = out_begin + pivot;
     if (nth_begin < nulls_begin) {
       std::nth_element(out_begin, nth_begin, nulls_begin,
@@ -118,13 +170,8 @@ class CompareSorter {
  public:
   void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     std::iota(indices_begin, indices_end, 0);
-
-    auto nulls_begin = indices_end;
-    if (values.null_count()) {
-      nulls_begin =
-          std::stable_partition(indices_begin, indices_end,
-                                [&values](uint64_t ind) { return !values.IsNull(ind); });
-    }
+    auto nulls_begin =
+        PartitionNulls<ArrayType, StablePartitioner>(indices_begin, indices_end, values);
     std::stable_sort(indices_begin, nulls_begin,
                      [&values](uint64_t left, uint64_t right) {
                        return values.GetView(left) < values.GetView(right);
@@ -301,9 +348,11 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
 
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array",
-    ("This function computes an array of indices that define a non-stable sort\n"
+    ("This function computes an array of indices that define a stable sort\n"
      "of the input array.  Null values are considered greater than any\n"
-     "other value and are therefore sorted at the end of the array."),
+     "other value and are therefore sorted at the end of the array.\n"
+     "For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values."),
     {"array"});
 
 const FunctionDoc partition_nth_indices_doc(
@@ -317,6 +366,8 @@ const FunctionDoc partition_nth_indices_doc(
      "\n"
      "Null values are considered greater than any other value and are\n"
      "therefore partitioned towards the end of the array.\n"
+     "For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values.\n"
      "\n"
      "The pivot index `N` must be given in PartitionNthOptions."),
     {"array"}, "PartitionNthOptions");

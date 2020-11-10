@@ -40,6 +40,10 @@ class NthComparator {
   bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
+    if (is_floating_type<typename ArrayType::TypeClass>::value) {
+      if (array.GetView(rhs) != array.GetView(rhs)) return true;
+      if (array.GetView(lhs) != array.GetView(lhs)) return false;
+    }
     return array.GetView(lhs) <= array.GetView(rhs);
   }
 };
@@ -51,6 +55,13 @@ class SortComparator {
     if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
+    if (is_floating_type<typename ArrayType::TypeClass>::value) {
+      const bool lhs_isnan = array.GetView(lhs) != array.GetView(lhs);
+      const bool rhs_isnan = array.GetView(rhs) != array.GetView(rhs);
+      if (lhs_isnan && rhs_isnan) return lhs < rhs;
+      if (rhs_isnan) return true;
+      if (lhs_isnan) return false;
+    }
     if (array.GetView(lhs) == array.GetView(rhs)) return lhs < rhs;
     return array.GetView(lhs) < array.GetView(rhs);
   }
@@ -121,6 +132,14 @@ TYPED_TEST(TestNthToIndicesForReal, Real) {
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 2);
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 5);
   this->AssertNthToIndicesJson("[null, 1, 3.3, null, 2, 5.3]", 6);
+
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 0);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 1);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 2);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 3);
+  this->AssertNthToIndicesJson("[null, 2, NaN, 3, 1]", 4);
+  this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 3);
+  this->AssertNthToIndicesJson("[NaN, 2, null, 3, 1]", 4);
 }
 
 TYPED_TEST(TestNthToIndicesForIntegral, Integral) {
@@ -243,25 +262,23 @@ TYPED_TEST(TestSortToIndicesKernelForReal, SortReal) {
   this->AssertSortToIndices("[]", "[]");
 
   this->AssertSortToIndices("[3.4, 2.6, 6.3]", "[1, 0, 2]");
-
   this->AssertSortToIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0,1,2,3,4,5,6]");
-
   this->AssertSortToIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
-
   this->AssertSortToIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2,0,6,1,5,3,4]");
 
   this->AssertSortToIndices("[null, 1, 3.3, null, 2, 5.3]", "[1,4,2,5,0,3]");
+
+  this->AssertSortToIndices("[3, 4, NaN, 1, 2, null]", "[3,4,0,1,2,5]");
+  this->AssertSortToIndices("[NaN, 2, NaN, 3, 1]", "[4,1,3,0,2]");
+  this->AssertSortToIndices("[null, NaN, NaN, null]", "[1,2,0,3]");
 }
 
 TYPED_TEST(TestSortToIndicesKernelForIntegral, SortIntegral) {
   this->AssertSortToIndices("[]", "[]");
 
   this->AssertSortToIndices("[3, 2, 6]", "[1, 0, 2]");
-
   this->AssertSortToIndices("[1, 2, 3, 4, 5, 6, 7]", "[0,1,2,3,4,5,6]");
-
   this->AssertSortToIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
-
   this->AssertSortToIndices("[10, 12, 4, 50, 50, 32, 11]", "[2,0,6,1,5,3,4]");
 
   this->AssertSortToIndices("[null, 1, 3, null, 2, 5]", "[1,4,2,5,0,3]");
@@ -271,9 +288,7 @@ TYPED_TEST(TestSortToIndicesKernelForStrings, SortStrings) {
   this->AssertSortToIndices("[]", "[]");
 
   this->AssertSortToIndices(R"(["a", "b", "c"])", "[0, 1, 2]");
-
   this->AssertSortToIndices(R"(["foo", "bar", "baz"])", "[1,2,0]");
-
   this->AssertSortToIndices(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
 }
 
