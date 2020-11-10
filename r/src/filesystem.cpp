@@ -32,6 +32,10 @@ DEFAULT_R6_CLASS_NAME(arrow::io::RandomAccessFile, "RandomAccessFile")
 DEFAULT_R6_CLASS_NAME(fs::LocalFileSystem, "LocalFileSystem")
 DEFAULT_R6_CLASS_NAME(fs::SubTreeFileSystem, "SubTreeFileSystem")
 
+#if defined(ARROW_R_WITH_S3)
+DEFAULT_R6_CLASS_NAME(fs::S3FileSystem, "S3FileSystem")
+#endif
+
 // [[arrow::export]]
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x) {
   return x->type();
