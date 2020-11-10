@@ -1187,6 +1187,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return values_to_write;
   }
 
+  // This method will always update the three output parameters,
+  // out_values_to_write, out_spaced_values_to_write and null_count.  Additionally
+  // it will update the validity bitmap if required (i.e. if at least one level
+  // of nullable structs directly precede the leaf node).
   void MaybeCalculateValidityBits(const int16_t* def_levels, int64_t batch_size,
                                   int64_t* out_values_to_write,
                                   int64_t* out_spaced_values_to_write,
@@ -1194,9 +1198,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (bits_buffer_ == nullptr) {
       if (level_info_.def_level == 0) {
         // In this case def levels should be null and we only
-        // need to ouptut counts which will always be equal to
+        // need to output counts which will always be equal to
         // the batch size passed in (max def_level == 0 indicates
-        // there cannot be repeeated or null fields).
+        // there cannot be repeated or null fields).
         DCHECK_EQ(def_levels, nullptr);
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
