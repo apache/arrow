@@ -877,9 +877,8 @@ def test_fill_null():
 
     arr = pa.array([b'a', b'bb', None], type=pa.large_binary())
     result = arr.fill_null('ccc')
-    expected = pa.array([b'a', b'bb', b'ccc'])
+    expected = pa.array([b'a', b'bb', b'ccc'], type=pa.large_binary())
     assert result.equals(expected)
-
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
