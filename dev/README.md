@@ -24,7 +24,7 @@ testing, or committing to Arrow.
 
 Merging a pull request requires being a committer on the project. In addition
 you need to have linked your GitHub and ASF accounts on
-https://gitbox.apache.org/setup/ to be able to push to GitHub as the mainshe
+https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
 remote.
 
 NOTE: It may take some time (a few hours) between when you complete
