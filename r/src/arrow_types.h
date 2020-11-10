@@ -120,15 +120,4 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 }  // namespace r
 }  // namespace arrow
 
-namespace cpp11 {
-
-template <>
-const char* r6_class_name<arrow::Array>(const std::shared_ptr<arrow::Array>&);
-template <>
-const char* r6_class_name<arrow::DataType>(const std::shared_ptr<arrow::DataType>&);
-template <>
-const char* r6_class_name<arrow::Scalar>(const std::shared_ptr<arrow::Scalar>&);
-
-}  // namespace cpp11
-
 #endif
