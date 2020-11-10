@@ -99,16 +99,18 @@ const char* r6_class_name<arrow::DataType>::get(
       break;
   }
 
+  // No R6 classes are defined for:
+  //    INTERVAL
+  //    SPARSE_UNION
+  //    DENSE_UNION
+  //    MAP
+  //    EXTENSION
+  //    DURATION
+  //
+  // If a c++ function returns one it will be wrapped as a DataType.
+
   return "DataType";
 }
-// switch(names(Type)[self$id + 1],
-//
-//        INTERVAL = stop("Type INTERVAL not implemented yet"),
-//        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
-//        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
-//        MAP = stop("Type MAP not implemented yet"),
-//        EXTENSION = stop("Type EXTENSION not implemented yet"),
-//        DURATION = stop("Type DURATION not implemented yet"),
 
 }  // namespace cpp11
 
