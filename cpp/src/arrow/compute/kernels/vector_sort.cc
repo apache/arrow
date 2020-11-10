@@ -348,9 +348,11 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
 
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array",
-    ("This function computes an array of indices that define a non-stable sort\n"
+    ("This function computes an array of indices that define a stable sort\n"
      "of the input array.  Null values are considered greater than any\n"
-     "other value and are therefore sorted at the end of the array."),
+     "other value and are therefore sorted at the end of the array.\n"
+     "For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values."),
     {"array"});
 
 const FunctionDoc partition_nth_indices_doc(
@@ -364,6 +366,8 @@ const FunctionDoc partition_nth_indices_doc(
      "\n"
      "Null values are considered greater than any other value and are\n"
      "therefore partitioned towards the end of the array.\n"
+     "For floating-point types, NaNs are considered greater than any\n"
+     "other non-null value, but smaller than null values.\n"
      "\n"
      "The pivot index `N` must be given in PartitionNthOptions."),
     {"array"}, "PartitionNthOptions");
