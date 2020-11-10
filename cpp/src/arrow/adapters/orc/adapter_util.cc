@@ -476,7 +476,7 @@ Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, 
   return Status::OK();
 }
 
-template <class array_type, class scalar_type>
+template <class array_type>
 Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   auto array = checked_cast<array_type*>(parray);
   auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
@@ -533,9 +533,87 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
   return Status::OK();
 }
 
+Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<MapArray*>(parray);
+  auto batch = checked_cast<liborc::MapVectorBatch*>(cbatch);
+  auto keyBatch = (batch->keys).get();
+  auto elementBatch = (batch->elements).get();
+  auto keyArray = array->keys().get();
+  auto elementArray = array->items().get();
+  DataType* keyType = keyArray->type().get();
+  DataType* elementType = elementArray->type().get();
+  int64_t arrowLength = array->length();
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  if (orcOffset == 0)
+    batch->offsets[0] = 0;
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + array->value_offset(arrowOffset + 1) - array->value_offset(arrowOffset);
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset; 
+  int64_t subarrayArrowOffset = array->value_offset(initArrowOffset), subarrayORCOffset = batch->offsets[initORCOffset], subarrayLength = array->value_offset(arrowOffset) - array->value_offset(initArrowOffset);
+  int64_t initSubarrayArrowSet = subarrayArrowOffset, initSubarrayORCOffset = subarrayORCOffset;
+  //Let the subbatches take care of itself. Don't manipulate it here.
+  RETURN_NOT_OK(FillBatch(keyType, keyBatch, subarrayArrowOffset, subarrayORCOffset, subarrayLength, keyArray));
+  subarrayORCOffset = initSubarrayORCOffset;
+  subarrayArrowOffset = initSubarrayArrowSet;
+  RETURN_NOT_OK(FillBatch(elementType, elementBatch, subarrayArrowOffset, subarrayORCOffset, subarrayLength, elementArray));
+  return Status::OK();
+}
+
+Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+  auto array = checked_cast<UnionArray*>(parray);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(cbatch);
+  std::size_t size = type->fields().size();
+  int64_t arrowLength = array->length();
+  if (!arrowLength)
+    return Status::OK();
+  int64_t arrowEnd = arrowOffset + arrowLength;
+  int64_t initORCOffset = orcOffset;
+  int64_t initArrowOffset = arrowOffset;
+  //If there is a better way to implement this please change it.
+  std::vector<uint64_t> nextChildrenOffsets(size, 0);
+  std::size_t unusedSubtypes = size;
+  for (int64_t i = orcOffset - 1; unusedSubtypes > 0 && i >= 0; i--) {
+    unsigned char currentType = batch->tags[i];
+    if(nextChildrenOffsets[currentType]) {
+      nextChildrenOffsets[currentType] = batch->offsets[i] + 1;
+      unusedSubtypes--;
+    }
+  }
+  //First fill fields of ColumnVectorBatch
+  if (array->null_count())
+    batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {   
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    }
+    else {
+      int tag = array->child_id(arrowOffset);
+      batch->tags[orcOffset] = tag;
+      batch->offsets[orcOffset] = nextChildrenOffsets[tag];
+      nextChildrenOffsets[tag]++;
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset;
+  //Fill the fields
+  for (std::size_t i = 0; i < size; i++) {
+    orcOffset = initORCOffset;
+    arrowOffset = initArrowOffset;
+    RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->children[i], arrowOffset, orcOffset, length, array->field(i).get()));
+  }
+  return Status::OK();
+}
+
 Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   //Check for nullptr
-  
   if (type == nullptr){
     cbatch = nullptr;
     return Status::OK();
@@ -576,11 +654,15 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
     case Type::type::STRUCT:
       return FillStructBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::LIST:
-      return FillListBatch<ListArray, ListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillListBatch<ListArray>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::LARGE_LIST:
-      return FillListBatch<LargeListArray, LargeListScalar>(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillListBatch<LargeListArray>(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::FIXED_SIZE_LIST:
       return FillFixedSizeListBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::MAP:
+      return FillMapBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::DENSE_UNION:
+      return FillDenseUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
