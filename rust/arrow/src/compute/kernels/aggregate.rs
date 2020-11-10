@@ -159,12 +159,6 @@ where
 
             let buffer_chunk_iter = buffer_chunks.interpret();
 
-            remainder.iter().enumerate().for_each(|(i, value)| {
-                if buffer_remainder_bits & (1 << i) != 0 {
-                    sum = sum + *value;
-                }
-            });
-
             &data_chunks
                 .zip(buffer_chunk_iter)
                 .for_each(|(chunk, mask)| {
@@ -174,6 +168,12 @@ where
                         }
                     });
                 });
+
+            remainder.iter().enumerate().for_each(|(i, value)| {
+                if buffer_remainder_bits & (1 << i) != 0 {
+                    sum = sum + *value;
+                }
+            });
 
             Some(sum)
         }
