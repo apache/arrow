@@ -3208,6 +3208,34 @@ def test_table_from_pandas_schema_with_custom_metadata():
     assert table.schema.metadata.get(b'meta') == b'True'
 
 
+def test_table_from_pandas_schema_field_order_metadat():
+    # ARROW-10532
+    # ensure that a different field order in specified schema doesn't
+    # mangle metadata
+    df = pd.DataFrame({
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "float": np.random.randn(2)
+    })
+
+    schema = pa.schema([
+        pa.field("float", pa.float32(), nullable=True),
+        pa.field("datetime", pa.timestamp("s", tz="UTC"), nullable=False)
+    ])
+
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.equals(schema)
+    metadata_float = table.schema.pandas_metadata["columns"][0]
+    assert metadata_float["name"] == "float"
+    assert metadata_float["metadata"] is None
+    metadata_datetime = table.schema.pandas_metadata["columns"][1]
+    assert metadata_datetime["name"] == "datetime"
+    assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
+
+    result = table.to_pandas()
+    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    tm.assert_frame_equal(result, expected)
+
+
 # ----------------------------------------------------------------------
 # RecordBatch, Table
 

@@ -177,13 +177,14 @@ def get_column_metadata(column, name, arrow_type, field_name):
     }
 
 
-def construct_metadata(df, column_names, index_levels, index_descriptors,
-                       preserve_index, types):
+def construct_metadata(columns_to_convert, df, column_names, index_levels,
+                       index_descriptors, preserve_index, types):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
 
     Parameters
     ----------
+    columns_to_convert : list[pd.Series]
     df : pandas.DataFrame
     index_levels : List[pd.Index]
     index_descriptors : List[Dict]
@@ -203,9 +204,9 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
     index_types = types[ntypes - num_serialized_index_levels:]
 
     column_metadata = []
-    for col_name, sanitized_name, arrow_type in zip(df.columns, column_names,
-                                                    df_types):
-        metadata = get_column_metadata(df[col_name], name=sanitized_name,
+    for col, sanitized_name, arrow_type in zip(columns_to_convert,
+                                               column_names, df_types):
+        metadata = get_column_metadata(col, name=sanitized_name,
                                        arrow_type=arrow_type,
                                        field_name=sanitized_name)
         column_metadata.append(metadata)
@@ -529,8 +530,10 @@ def dataframe_to_types(df, preserve_index, columns=None):
                 type_ = pa.array(c, from_pandas=True).type
         types.append(type_)
 
-    metadata = construct_metadata(df, column_names, index_columns,
-                                  index_descriptors, preserve_index, types)
+    metadata = construct_metadata(
+        columns_to_convert, df, column_names, index_columns,
+        index_descriptors, preserve_index, types
+    )
 
     return all_names, types, metadata
 
@@ -610,9 +613,10 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             fields.append(pa.field(name, type_))
         schema = pa.schema(fields)
 
-    pandas_metadata = construct_metadata(df, column_names, index_columns,
-                                         index_descriptors, preserve_index,
-                                         types)
+    pandas_metadata = construct_metadata(
+        columns_to_convert, df, column_names, index_columns,
+        index_descriptors, preserve_index, types
+    )
     metadata = deepcopy(schema.metadata) if schema.metadata else dict()
     metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
