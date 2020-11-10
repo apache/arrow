@@ -295,11 +295,15 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
-SEXP to_r6(const std::shared_ptr<T>& ptr, const std::string& r_class_name) {
+SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   if (ptr == nullptr) return R_NilValue;
 
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
-  SEXP r6_class = Rf_install(r_class_name.c_str());
+  SEXP r6_class = Rf_install(r6_class_name);
+
+  if (Rf_findVarInFrame3(arrow::r::ns::arrow, r6_class, FALSE) == R_UnboundValue) {
+    cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
+  }
 
   // make call:  <symbol>$new(<x>)
   SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
