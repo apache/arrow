@@ -1564,7 +1564,7 @@ extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1582,7 +1582,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, S
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1599,7 +1599,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, S
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);

@@ -23,6 +23,7 @@
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/table.h>
+#include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
 
 namespace ds = ::arrow::dataset;
@@ -162,7 +163,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format,
@@ -173,11 +174,12 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     options.partitioning = partitioning;
   }
 
-  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make1(
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format) {
@@ -185,7 +187,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make1(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
     const std::shared_ptr<ds::FileFormat>& format,
@@ -196,7 +198,8 @@ std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(
     options.partitioning = factory;
   }
 
-  return ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options));
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
 }
 
 // FileFormat, ParquetFileFormat, IpcFileFormat
