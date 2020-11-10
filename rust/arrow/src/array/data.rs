@@ -446,4 +446,11 @@ mod tests {
         assert_eq!(2, new_data.offset());
         assert_eq!(data.null_count() - 1, new_data.null_count());
     }
+
+    #[test]
+    fn test_equality() {
+        let int_data = ArrayData::builder(DataType::Int32).build();
+        let float_data = ArrayData::builder(DataType::Float32).build();
+        assert_ne!(int_data, float_data);
+    }
 }
