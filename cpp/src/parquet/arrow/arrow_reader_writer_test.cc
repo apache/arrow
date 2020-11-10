@@ -2473,6 +2473,17 @@ TEST(ArrowReadWrite, ListOfStructOfList1) {
   CheckSimpleRoundtrip(table, 2);
 }
 
+TEST(ArrowReadWrite, ListWithNoValues) {
+  using ::arrow::Buffer;
+  using ::arrow::field;
+
+  auto type = list(field("item", ::arrow::int32(), /*nullable=*/false));
+  auto array = ::arrow::ArrayFromJSON(type, "[null, []]");
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
 TEST(ArrowReadWrite, Map) {
   using ::arrow::field;
   using ::arrow::map;
