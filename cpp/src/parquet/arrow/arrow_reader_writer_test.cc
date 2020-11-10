@@ -3201,22 +3201,33 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
 
 TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   // ARROW-10493
-  auto type =
-      ::arrow::struct_({::arrow::field("inner", ::arrow::utf8(), /*nullable=*/true)});
-  auto outer_array = ::arrow::ArrayFromJSON(type,
-                                            R"([{"inner": "a"},
-                                                {"inner": null},
-                                                {"inner": "b"},
-                                                {"inner": "c"},
-                                                {"inner": null},
-                                                {"inner": null},
-                                                {"inner": "d"},
+  std::vector<std::shared_ptr<::arrow::Field>> fields{
+      ::arrow::field("s", ::arrow::utf8(), /*nullable=*/true),
+      ::arrow::field("d", ::arrow::decimal128(4, 2), /*nullable=*/true),
+      ::arrow::field("b", ::arrow::boolean(), /*nullable=*/true),
+      ::arrow::field("i8", ::arrow::int8(), /*nullable=*/true),
+      ::arrow::field("i64", ::arrow::int64(), /*nullable=*/true)};
+  auto type = ::arrow::struct_(fields);
+  auto outer_array = ::arrow::ArrayFromJSON(
+      type,
+      R"([{"s": "abc", "d": "1.23", "b": true, "i8": 10, "i64": 11 },
+                                                {"s": "de", "d": "3.45", "b": true, "i8": 12, "i64": 13 },
+                                                {"s": "fghi", "d": "6.78", "b": false, "i8": 14, "i64": 15 },
+                                                {},
+                                                {"s": "jklmo", "d": "9.10", "b": true, "i8": 16, "i64": 17 },
+                                                null,
+                                                {"s": "p", "d": "11.12", "b": false, "i8": 18, "i64": 19 },
+                                                {"s": "qrst", "d": "13.14", "b": false, "i8": 20, "i64": 21 },
+                                                {},
+                                                {"s": "uvw", "d": "15.16", "b": true, "i8": 22, "i64": 23 },
+                                                {"s": "x", "d": "17.18", "b": false, "i8": 24, "i64": 25 },
+                                                {},
                                                 null])");
 
   auto expected = Table::Make(
       ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {outer_array});
 
-  auto write_props = WriterProperties::Builder().write_batch_size(2)->build();
+  auto write_props = WriterProperties::Builder().write_batch_size(4)->build();
 
   std::shared_ptr<Table> actual;
   DoRoundtrip(expected, /*row_group_size=*/outer_array->length(), &actual, write_props);

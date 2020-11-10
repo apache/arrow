@@ -1293,10 +1293,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   Result<std::shared_ptr<Array>> MaybeReplaceValidity(std::shared_ptr<Array> array,
                                                       int64_t new_null_count,
                                                       arrow::MemoryPool* memory_pool) {
-    if (bits_buffer_ == nullptr || array->num_fields() == 0) {
+    if (bits_buffer_ == nullptr) {
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
+    if (buffers.empty()) {
+      return array;
+    }
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
     DCHECK_GT(buffers.size(), 1);
