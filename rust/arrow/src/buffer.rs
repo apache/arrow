@@ -617,6 +617,12 @@ impl MutableBuffer {
         }
     }
 
+    /// creates a new [MutableBuffer] where every bit is initialized to `0`
+    pub fn new_null(len: usize) -> Self {
+        let num_bytes = bit_util::ceil(len, 8);
+        MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
+    }
+
     /// Set the bits in the range of `[0, end)` to 0 (if `val` is false), or 1 (if `val`
     /// is true). Also extend the length of this buffer to be `end`.
     ///

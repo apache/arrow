@@ -20,9 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    array::BinaryOffsetSizeTrait, Array, ArrayData, FixedSizeBinaryArray,
-    GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
-    PrimitiveArray, StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, FixedSizeBinaryArray, GenericBinaryArray,
+    GenericListArray, GenericStringArray, OffsetSizeTrait, PrimitiveArray,
+    StringOffsetSizeTrait, StructArray,
 };
 
 use crate::datatypes::{ArrowPrimitiveType, DataType, IntervalUnit};
@@ -216,7 +216,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::array::{
-        array::Array, array::BinaryOffsetSizeTrait, ArrayDataRef, ArrayRef, BooleanArray,
+        array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
         FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray, Int32Builder,
         ListBuilder, NullArray, PrimitiveBuilder, StringArray, StringDictionaryBuilder,
         StringOffsetSizeTrait, StructArray,
