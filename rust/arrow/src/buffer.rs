@@ -414,6 +414,7 @@ where
 
     let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result
         .write_all(rem)
@@ -448,6 +449,7 @@ where
 
     let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
     let rem = op(left_chunks.remainder_bits());
+    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result
         .write_all(rem)
