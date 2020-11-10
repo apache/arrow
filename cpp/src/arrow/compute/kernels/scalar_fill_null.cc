@@ -92,8 +92,7 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     const ArrayData& input = *batch[0].array();
     const auto& fill_value_scalar =
         checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
-    util::string_view fill_value =
-        static_cast<util::string_view>(*fill_value_scalar.value);
+    util::string_view fill_value(*fill_value_scalar.value);
     ArrayData* output = out->mutable_array();
 
     // Ensure the kernel is configured properly to have no validity bitmap /
