@@ -568,6 +568,35 @@ class TestConvertMetadata:
         table = pa.Table.from_pandas(df)
         assert table.schema.pandas_metadata['pandas_version'] is not None
 
+    def test_mismatch_metadata_schema(self):
+        # ARROW-10511
+        # It is possible that the metadata and actual schema is not fully
+        # matching (eg no timezone information for tz-aware column)
+        # -> to_pandas() conversion should not fail on that
+        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+
+        # OPTION 1: casting after conversion
+        table = pa.Table.from_pandas(df)
+        # cast the "datetime" column to be tz-aware
+        new_col = table["datetime"].cast(pa.timestamp('ns', tz="UTC"))
+        new_table1 = table.set_column(
+            0, pa.field("datetime", new_col.type), new_col
+        )
+
+        # OPTION 2: specify schema during conversion
+        schema = pa.schema([("datetime", pa.timestamp('ns', tz="UTC"))])
+        new_table2 = pa.Table.from_pandas(df, schema=schema)
+
+        expected = df.copy()
+        expected["datetime"] = expected["datetime"].dt.tz_localize("UTC")
+
+        for new_table in [new_table1, new_table2]:
+            # ensure the new table still has the pandas metadata
+            assert new_table.schema.pandas_metadata is not None
+            # convert to pandas
+            result = new_table.to_pandas()
+            tm.assert_frame_equal(result, expected)
+
 
 class TestConvertPrimitiveTypes:
     """
