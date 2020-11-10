@@ -28,7 +28,7 @@
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 
-#include "arrow/adapters/skyhookdm-ceph-cls/cls_arrow_test_utils.h"
+#include "arrow/adapters/arrow-rados-cls/cls_arrow_test_utils.h"
 #include "gtest/gtest.h"
 
 using arrow::dataset::string_literals::operator"" _;

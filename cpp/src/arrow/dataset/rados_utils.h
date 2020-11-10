@@ -41,7 +41,7 @@ namespace dataset {
 ARROW_DS_EXPORT Status int64_to_char(char* buffer, int64_t num);
 
 /// \brief Convert a buffer to 64-bit integer.
-ARROW_DS_EXPORT Status char_to_int64(int32_t endianness, char* buffer, int64_t& num);
+ARROW_DS_EXPORT Status char_to_int64(char* buffer, int64_t& num);
 
 /// \brief Serialize Expression and Schema to a bufferlist.
 ///
