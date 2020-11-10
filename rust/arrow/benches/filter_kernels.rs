@@ -16,7 +16,7 @@
 // under the License.
 extern crate arrow;
 
-use arrow::util::test_util::seedable_rng;
+use arrow::{compute::Filter, util::test_util::seedable_rng};
 use rand::{
     distributions::{Alphanumeric, Standard},
     prelude::Distribution,
@@ -24,7 +24,7 @@ use rand::{
 };
 
 use arrow::array::*;
-use arrow::compute::{filter, FilterContext};
+use arrow::compute::{build_filter, filter};
 use arrow::datatypes::ArrowNumericType;
 use arrow::datatypes::{Float32Type, UInt8Type};
 
@@ -78,12 +78,12 @@ fn create_bool_array(size: usize, trues_density: f32) -> BooleanArray {
     builder.finish()
 }
 
-fn bench_filter_u8(data_array: &UInt8Array, filter_array: &BooleanArray) {
+fn bench_filter(data_array: &UInt8Array, filter_array: &BooleanArray) {
     criterion::black_box(filter(data_array, filter_array).unwrap());
 }
 
-fn bench_filter_context<T: Array>(data_array: &T, filter_context: &FilterContext) {
-    criterion::black_box(filter_context.filter(data_array).unwrap());
+fn bench_built_filter<'a>(filter: &Filter<'a>, data: &impl Array) {
+    criterion::black_box(filter(&data.data()));
 }
 
 fn add_benchmark(c: &mut Criterion) {
@@ -92,62 +92,63 @@ fn add_benchmark(c: &mut Criterion) {
     let sparse_filter_array = create_bool_array(size, 1.0 - 1.0 / 8000.0);
     let dense_filter_array = create_bool_array(size, 1.0 / 8000.0);
 
-    let filter_context = FilterContext::new(&filter_array).unwrap();
-    let sparse_filter_context = FilterContext::new(&sparse_filter_array).unwrap();
-    let dense_filter_context = FilterContext::new(&dense_filter_array).unwrap();
+    let filter = build_filter(&filter_array).unwrap();
+    let sparse_filter = build_filter(&sparse_filter_array).unwrap();
+    let dense_filter = build_filter(&dense_filter_array).unwrap();
 
-    let data_array = create_primitive_array(size, 0.0);
+    let data_array = create_primitive_array::<UInt8Type>(size, 0.0);
+
     c.bench_function("filter u8 low selectivity", |b| {
-        b.iter(|| bench_filter_u8(&data_array, &filter_array))
+        b.iter(|| bench_filter(&data_array, &filter_array))
     });
     c.bench_function("filter u8 high selectivity", |b| {
-        b.iter(|| bench_filter_u8(&data_array, &sparse_filter_array))
+        b.iter(|| bench_filter(&data_array, &sparse_filter_array))
     });
     c.bench_function("filter u8 very low selectivity", |b| {
-        b.iter(|| bench_filter_u8(&data_array, &dense_filter_array))
+        b.iter(|| bench_filter(&data_array, &dense_filter_array))
     });
 
     c.bench_function("filter context u8 low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &filter_context))
+        b.iter(|| bench_built_filter(&filter, &data_array))
     });
     c.bench_function("filter context u8 high selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
+        b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
     c.bench_function("filter context u8 very low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
+        b.iter(|| bench_built_filter(&dense_filter, &data_array))
     });
 
     let data_array = create_primitive_array::<UInt8Type>(size, 0.5);
     c.bench_function("filter context u8 w NULLs low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &filter_context))
+        b.iter(|| bench_built_filter(&filter, &data_array))
     });
     c.bench_function("filter context u8 w NULLs high selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
+        b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
     c.bench_function("filter context u8 w NULLs very low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
+        b.iter(|| bench_built_filter(&dense_filter, &data_array))
     });
 
     let data_array = create_primitive_array::<Float32Type>(size, 0.5);
     c.bench_function("filter context f32 low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &filter_context))
+        b.iter(|| bench_built_filter(&filter, &data_array))
     });
     c.bench_function("filter context f32 high selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
+        b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
     c.bench_function("filter context f32 very low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
+        b.iter(|| bench_built_filter(&dense_filter, &data_array))
     });
 
     let data_array = create_string_array(size, 0.5);
     c.bench_function("filter context string low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &filter_context))
+        b.iter(|| bench_built_filter(&filter, &data_array))
     });
     c.bench_function("filter context string high selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &sparse_filter_context))
+        b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
     c.bench_function("filter context string very low selectivity", |b| {
-        b.iter(|| bench_filter_context(&data_array, &dense_filter_context))
+        b.iter(|| bench_built_filter(&dense_filter, &data_array))
     });
 }
 

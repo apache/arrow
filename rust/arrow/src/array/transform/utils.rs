@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::io::Write;
-
 use crate::{
     array::OffsetSizeTrait, buffer::MutableBuffer, datatypes::ToByteSlice, util::bit_util,
 };
@@ -60,7 +58,6 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
         // compute the new offset
         let length = offsets[1] - offsets[0];
         last_offset = last_offset + length;
-        // unwrap because the operation is infalible due to how we reserved memory.
-        buffer.write_all(last_offset.to_byte_slice()).unwrap();
+        buffer.extend_from_slice(last_offset.to_byte_slice());
     });
 }
