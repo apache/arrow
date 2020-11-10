@@ -105,7 +105,7 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
       KERNEL_RETURN_IF_ERROR(
           ctx, builder.ReserveData(input.buffers[2]->size() +
                                    fill_value.length() * input.GetNullCount()));
-      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length + 1));
+      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
       KERNEL_RETURN_IF_ERROR(ctx, VisitArrayDataInline<Type>(
                                       input,
