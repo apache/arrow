@@ -26,6 +26,8 @@ use crate::datatypes::DataType;
 use crate::util::bit_util;
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
+use super::equal::equal;
+
 #[inline]
 fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
     if let Some(ref buf) = null_bit_buffer {
@@ -245,57 +247,8 @@ impl ArrayData {
 
 impl PartialEq for ArrayData {
     fn eq(&self, other: &Self) -> bool {
-        assert_eq!(
-            self.data_type(),
-            other.data_type(),
-            "Data types not the same"
-        );
-        assert_eq!(self.len(), other.len(), "Lengths not the same");
-        // TODO: when adding tests for this, test that we can compare with arrays that have offsets
-        assert_eq!(self.offset(), other.offset(), "Offsets not the same");
-        assert_eq!(self.null_count(), other.null_count());
-        // compare buffers excluding padding
-        let self_buffers = self.buffers();
-        let other_buffers = other.buffers();
-        assert_eq!(self_buffers.len(), other_buffers.len());
-        self_buffers.iter().zip(other_buffers).for_each(|(s, o)| {
-            compare_buffer_regions(
-                s,
-                self.offset(), // TODO mul by data length
-                o,
-                other.offset(), // TODO mul by data len
-            );
-        });
-        // assert_eq!(self.buffers(), other.buffers());
-
-        assert_eq!(self.child_data(), other.child_data());
-        // null arrays can skip the null bitmap, thus only compare if there are no nulls
-        if self.null_count() != 0 || other.null_count() != 0 {
-            compare_buffer_regions(
-                self.null_buffer().unwrap(),
-                self.offset(),
-                other.null_buffer().unwrap(),
-                other.offset(),
-            )
-        }
-        true
+        equal(self, other)
     }
-}
-
-/// A helper to compare buffer regions of 2 buffers.
-/// Compares the length of the shorter buffer.
-fn compare_buffer_regions(
-    left: &Buffer,
-    left_offset: usize,
-    right: &Buffer,
-    right_offset: usize,
-) {
-    // for convenience, we assume that the buffer lengths are only unequal if one has padding,
-    // so we take the shorter length so we can discard the padding from the longer length
-    let shorter_len = left.len().min(right.len());
-    let s_sliced = left.bit_slice(left_offset, shorter_len);
-    let o_sliced = right.bit_slice(right_offset, shorter_len);
-    assert_eq!(s_sliced, o_sliced);
 }
 
 /// Builder for `ArrayData` type
@@ -388,6 +341,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::buffer::Buffer;
+    use crate::datatypes::ToByteSlice;
     use crate::util::bit_util;
 
     #[test]
@@ -403,16 +357,16 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let v = vec![0, 1, 2, 3];
         let child_arr_data = Arc::new(ArrayData::new(
             DataType::Int32,
-            10,
+            5,
             Some(0),
             None,
             0,
-            vec![],
+            vec![Buffer::from([1i32, 2, 3, 4, 5].to_byte_slice())],
             vec![],
         ));
+        let v = vec![0, 1, 2, 3];
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
             .len(20)
