@@ -38,7 +38,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -3213,12 +3212,6 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
                                                 {"inner": null},
                                                 {"inner": "d"},
                                                 null])");
-  auto inner_array =
-      std::static_pointer_cast<::arrow::StructArray>(outer_array)->field(0);
-  ASSERT_OK_AND_ASSIGN(inner_array->data()->buffers[0],
-                       ::arrow::internal::BytesToBits({1, 0, 1, 1, 0, 0, 1, 0}));
-  ASSERT_OK_AND_ASSIGN(outer_array->data()->buffers[0],
-                       ::arrow::internal::BytesToBits({1, 1, 1, 1, 1, 1, 1, 0}));
 
   auto expected = Table::Make(
       ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {outer_array});
