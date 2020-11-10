@@ -1558,7 +1558,8 @@ def get_generated_json_files(tempdir=None):
 
         generate_nested_large_offsets_case()
         .skip_category('Go')
-        .skip_category('JS'),
+        .skip_category('JS')
+        .skip_category('Rust'),
 
         generate_unions_case()
         .skip_category('Go')
