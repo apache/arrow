@@ -32,6 +32,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visitor_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -42,6 +43,7 @@ using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 
 namespace parquet {
+namespace {
 
 // ----------------------------------------------------------------------
 // Comparator implementations
@@ -323,35 +325,25 @@ template <bool is_signed>
 std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
     const TypedComparatorImpl<is_signed, ByteArrayType>& comparator,
     const ::arrow::Array& values) {
-  const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
+  using Helper = CompareHelper<ByteArrayType, is_signed>;
 
-  ByteArray min, max;
-  if (data.null_count() > 0) {
-    ::arrow::internal::BitmapReader reader(data.null_bitmap_data(), data.offset(),
-                                           data.length());
-    int64_t i = 0;
-    while (!reader.IsSet()) {
-      ++i;
-      reader.Next();
-    }
+  ByteArray min = Helper::DefaultMin();
+  ByteArray max = Helper::DefaultMax();
+  constexpr int type_length = -1;
 
-    min = data.GetView(i);
-    max = data.GetView(i);
-    for (; i < data.length(); i++, reader.Next()) {
-      ByteArray val = data.GetView(i);
-      if (reader.IsSet()) {
-        min = comparator.CompareInline(val, min) ? val : min;
-        max = comparator.CompareInline(max, val) ? val : max;
-      }
-    }
+  const auto valid_func = [&](ByteArray val) {
+    min = Helper::Min(type_length, val, min);
+    max = Helper::Max(type_length, val, max);
+  };
+  const auto null_func = [&]() {};
+
+  if (::arrow::is_binary_like(values.type_id())) {
+    ::arrow::VisitArrayDataInline<::arrow::BinaryType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
   } else {
-    min = data.GetView(0);
-    max = data.GetView(0);
-    for (int64_t i = 0; i < data.length(); i++) {
-      ByteArray val = data.GetView(i);
-      min = comparator.CompareInline(val, min) ? val : min;
-      max = comparator.CompareInline(max, val) ? val : max;
-    }
+    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    ::arrow::VisitArrayDataInline<::arrow::LargeBinaryType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
   }
 
   return {min, max};
@@ -367,55 +359,6 @@ template <>
 std::pair<ByteArray, ByteArray> TypedComparatorImpl<false, ByteArrayType>::GetMinMax(
     const ::arrow::Array& values) {
   return GetMinMaxBinaryHelper<false>(*this, values);
-}
-
-std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
-                                             SortOrder::type sort_order,
-                                             int type_length) {
-  if (SortOrder::SIGNED == sort_order) {
-    switch (physical_type) {
-      case Type::BOOLEAN:
-        return std::make_shared<TypedComparatorImpl<true, BooleanType>>();
-      case Type::INT32:
-        return std::make_shared<TypedComparatorImpl<true, Int32Type>>();
-      case Type::INT64:
-        return std::make_shared<TypedComparatorImpl<true, Int64Type>>();
-      case Type::INT96:
-        return std::make_shared<TypedComparatorImpl<true, Int96Type>>();
-      case Type::FLOAT:
-        return std::make_shared<TypedComparatorImpl<true, FloatType>>();
-      case Type::DOUBLE:
-        return std::make_shared<TypedComparatorImpl<true, DoubleType>>();
-      case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
-      case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
-      default:
-        ParquetException::NYI("Signed Compare not implemented");
-    }
-  } else if (SortOrder::UNSIGNED == sort_order) {
-    switch (physical_type) {
-      case Type::INT32:
-        return std::make_shared<TypedComparatorImpl<false, Int32Type>>();
-      case Type::INT64:
-        return std::make_shared<TypedComparatorImpl<false, Int64Type>>();
-      case Type::INT96:
-        return std::make_shared<TypedComparatorImpl<false, Int96Type>>();
-      case Type::BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
-      case Type::FIXED_LEN_BYTE_ARRAY:
-        return std::make_shared<TypedComparatorImpl<false, FLBAType>>(type_length);
-      default:
-        ParquetException::NYI("Unsigned Compare not implemented");
-    }
-  } else {
-    throw ParquetException("UNKNOWN Sort Order");
-  }
-  return nullptr;
-}
-
-std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
-  return Make(descr->physical_type(), descr->sort_order(), descr->type_length());
 }
 
 template <typename DType>
@@ -691,8 +634,59 @@ void TypedStatisticsImpl<ByteArrayType>::PlainDecode(const std::string& src,
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
 
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Public factory functions
+
+std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
+                                             SortOrder::type sort_order,
+                                             int type_length) {
+  if (SortOrder::SIGNED == sort_order) {
+    switch (physical_type) {
+      case Type::BOOLEAN:
+        return std::make_shared<TypedComparatorImpl<true, BooleanType>>();
+      case Type::INT32:
+        return std::make_shared<TypedComparatorImpl<true, Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<TypedComparatorImpl<true, Int64Type>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<true, Int96Type>>();
+      case Type::FLOAT:
+        return std::make_shared<TypedComparatorImpl<true, FloatType>>();
+      case Type::DOUBLE:
+        return std::make_shared<TypedComparatorImpl<true, DoubleType>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
+      default:
+        ParquetException::NYI("Signed Compare not implemented");
+    }
+  } else if (SortOrder::UNSIGNED == sort_order) {
+    switch (physical_type) {
+      case Type::INT32:
+        return std::make_shared<TypedComparatorImpl<false, Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<TypedComparatorImpl<false, Int64Type>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<false, Int96Type>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<false, FLBAType>>(type_length);
+      default:
+        ParquetException::NYI("Unsigned Compare not implemented");
+    }
+  } else {
+    throw ParquetException("UNKNOWN Sort Order");
+  }
+  return nullptr;
+}
+
+std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
+  return Make(descr->physical_type(), descr->sort_order(), descr->type_length());
+}
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              ::arrow::MemoryPool* pool) {

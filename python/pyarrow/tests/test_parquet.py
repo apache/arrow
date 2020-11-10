@@ -121,6 +121,16 @@ def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
     return result.to_pandas()
 
 
+def test_large_binary():
+    for use_dictionary in [False, True]:
+        data = [b'foo', b'bar'] * 50
+        arr = pa.array(data, type=pa.large_binary())
+        table = pa.Table.from_arrays([arr], names=['strs'])
+        # Data is read back as regular binary
+        expected = pa.Table.from_arrays([pa.array(data)], names=['strs'])
+        _check_roundtrip(table, expected, use_dictionary=use_dictionary)
+
+
 @parametrize_legacy_dataset
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
