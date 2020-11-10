@@ -2223,9 +2223,14 @@ def test_read_partitioned_directory_s3fs_wrapper(
     s3_example_s3fs, use_legacy_dataset
 ):
     from pyarrow.filesystem import S3FSWrapper
+    import s3fs
+
+    if s3fs.__version__ >= LooseVersion("0.5"):
+        pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
 
     fs, path = s3_example_s3fs
-    wrapper = S3FSWrapper(fs)
+    with pytest.warns(DeprecationWarning):
+        wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, path)
 
     # Check that we can auto-wrap

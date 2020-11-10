@@ -17,7 +17,6 @@
 
 
 import os
-import inspect
 import posixpath
 import sys
 import urllib.parse
@@ -319,6 +318,10 @@ class DaskFileSystem(FileSystem):
     """
 
     def __init__(self, fs):
+        warnings.warn(
+            "The pyarrow.filesystem.DaskFileSystem/S3FSWrapper are deprecated "
+            "as of pyarrow 3.0.0, and will be removed in a future version.",
+            DeprecationWarning, stacklevel=2)
         self.fs = fs
 
     @implements(FileSystem.isdir)
@@ -450,10 +453,6 @@ def _ensure_filesystem(fs):
                 # pyarrow.filesystem.FileSystem, still allow fsspec
                 # filesystems (which should be compatible with our legacy fs)
                 return fs
-
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ == 'S3FileSystem':
-                return S3FSWrapper(fs)
 
         raise OSError('Unrecognized filesystem: {}'.format(fs_type))
     else:
