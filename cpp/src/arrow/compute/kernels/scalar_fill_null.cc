@@ -120,9 +120,6 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
       std::shared_ptr<Array> string_array;
       KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
       *output = *string_array->data();
-      // The builder does not match the logical type, due to
-      // GenerateTypeAgnosticVarBinaryBase
-      output->type = input.type;
     } else {
       *output = input;
     }
