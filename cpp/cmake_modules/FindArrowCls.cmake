@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(DEFINED ARROW_CLS_FOUND)
+if(DEFINED ARROW_RADOS_CLS_FOUND)
   return()
 endif()
 
@@ -67,7 +67,7 @@ find_package_handle_standard_args(ArrowCls
                                   ARROW_CLS_VERSION_MATCH
                                   VERSION_VAR
                                   ARROW_CLS_VERSION)
-set(ARROW_CLS_FOUND ${ArrowCls_FOUND})
+set(ARROW_RADOS_CLS_FOUND ${ArrowCls_FOUND})
 
 if(ArrowCls_FOUND AND NOT ArrowCls_FIND_QUIETLY)
   message(STATUS "Found the Arrow Cls by ${ARROW_CLS_FIND_APPROACH}")
