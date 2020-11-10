@@ -238,6 +238,30 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(util::string_view(value, length));
   }
 
+  /// \brief Append a decimal (only for Decimal16Type)
+  template <typename T1 = T>
+  enable_if_decimal16<T1, Status> Append(const Decimal16& value) {
+    uint8_t data[2];
+    value.ToBytes(data);
+    return Append(data, 2);
+  }
+
+  /// \brief Append a decimal (only for Decimal32Type)
+  template <typename T1 = T>
+  enable_if_decimal32<T1, Status> Append(const Decimal32& value) {
+    uint8_t data[4];
+    value.ToBytes(data);
+    return Append(data, 4);
+  }
+
+  /// \brief Append a decimal (only for Decimal64Type)
+  template <typename T1 = T>
+  enable_if_decimal64<T1, Status> Append(const Decimal64& value) {
+    uint8_t data[8];
+    value.ToBytes(data);
+    return Append(data, 8);
+  }
+
   /// \brief Append a decimal (only for Decimal128Type)
   template <typename T1 = T>
   enable_if_decimal128<T1, Status> Append(const Decimal128& value) {

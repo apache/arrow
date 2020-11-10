@@ -352,14 +352,6 @@ struct BaseDecimalScalar : public Scalar {
   ValueType value;
 };
 
-struct ARROW_EXPORT Decimal128Scalar : public BaseDecimalScalar<128> {
-  using BaseDecimalScalar<128>::BaseDecimalScalar;
-};
-
-struct ARROW_EXPORT Decimal256Scalar : public BaseDecimalScalar<256> {
-  using BaseDecimalScalar<256>::BaseDecimalScalar;
-};
-
 struct ARROW_EXPORT BaseListScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;

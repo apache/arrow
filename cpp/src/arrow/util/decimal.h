@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/basic_decimal.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -256,5 +257,78 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
 };
+
+
+template<uint32_t width>
+class DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
+  public:
+
+  using _DecimalType = typename DecimalTypeTraits<width>::ValueType;
+  using ValueType = typename BasicDecimalAnyWidth<width>::ValueType;
+
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in Sphinx)
+  using BasicDecimalAnyWidth<width>::BasicDecimalAnyWidth;
+  /// \endcond
+
+  /// \brief constructor creates a Decimal256 from a BasicDecimal128.
+  constexpr DecimalAnyWidth(const BasicDecimalAnyWidth<width>& value) noexcept : BasicDecimalAnyWidth<width>(value) {}
+
+  /// \brief Parse the number from a base 10 string representation.
+  explicit DecimalAnyWidth(const std::string& value);
+
+  /// \brief Empty constructor creates a Decimal256 with a value of 0.
+  // This is required on some older compilers.
+  constexpr DecimalAnyWidth() noexcept : BasicDecimalAnyWidth<width>() {}
+
+  /// \brief Convert the Decimal256 value to a base 10 decimal string with the given
+  /// scale.
+  std::string ToString(int32_t scale) const;
+
+  /// \brief Convert the value to an integer string
+  std::string ToIntegerString() const;
+
+  /// \brief Convert a decimal string to a Decimal256 value, optionally including
+  /// precision and scale if they're passed in and not null.
+  static Status FromString(const util::string_view& s, DecimalAnyWidth* out,
+                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, DecimalAnyWidth* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, DecimalAnyWidth* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<_DecimalType> FromString(const util::string_view& s);
+  static Result<_DecimalType> FromString(const std::string& s);
+  static Result<_DecimalType> FromString(const char* s);
+
+  /// \brief Convert Decimal256 from one scale to another
+  Result<_DecimalType> Rescale(int32_t original_scale, int32_t new_scale) const {
+    _DecimalType out;
+    auto dstatus = BasicDecimalAnyWidth<width>::Rescale(original_scale, new_scale, &out);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(out);
+  }
+
+  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
+                                               const DecimalAnyWidth& decimal) {
+    os << decimal.ToIntegerString();
+    return os;
+  }
+
+ private:
+  /// Converts internal error code to Status
+  Status ToArrowStatus(DecimalStatus dstatus) const;
+};
+
+// class ARROW_EXPORT Decimal16 : DecimalAnyWidth<16> {
+//   using DecimalAnyWidth<16>::DecimalAnyWidth;
+// };
+
+// class ARROW_EXPORT Decimal32 : DecimalAnyWidth<32> {
+//   using DecimalAnyWidth<32>::DecimalAnyWidth;
+// };
+
+// class ARROW_EXPORT Decimal64 : DecimalAnyWidth<64> {
+//   using DecimalAnyWidth<64>::DecimalAnyWidth;
+// };
 
 }  // namespace arrow

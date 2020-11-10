@@ -35,6 +35,9 @@ struct DecimalTypeTraits<width> {                        \
   using ValueType = Decimal##width;                      \
 };
 
+DECIMAL_TYPE_TRAITS_DECL(16)
+DECIMAL_TYPE_TRAITS_DECL(32)
+DECIMAL_TYPE_TRAITS_DECL(64)
 DECIMAL_TYPE_TRAITS_DECL(128)
 DECIMAL_TYPE_TRAITS_DECL(256)
 

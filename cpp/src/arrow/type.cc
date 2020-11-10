@@ -67,6 +67,12 @@ constexpr Type::type FixedSizeBinaryType::type_id;
 
 constexpr Type::type StructType::type_id;
 
+constexpr Type::type Decimal16Type::type_id;
+
+constexpr Type::type Decimal32Type::type_id;
+
+constexpr Type::type Decimal64Type::type_id;
+
 constexpr Type::type Decimal128Type::type_id;
 
 constexpr Type::type Decimal256Type::type_id;
@@ -131,6 +137,9 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(HALF_FLOAT)
     TO_STRING_CASE(FLOAT)
     TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(DECIMAL16)
+    TO_STRING_CASE(DECIMAL32)
+    TO_STRING_CASE(DECIMAL64)
     TO_STRING_CASE(DECIMAL128)
     TO_STRING_CASE(DECIMAL256)
     TO_STRING_CASE(DATE32)
@@ -2183,6 +2192,18 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
                                                     : decimal256(precision, scale);
 }
 
+std::shared_ptr<DataType> decimal16(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal16Type>(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal32Type>(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal64Type>(precision, scale);
+}
+
 std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal128Type>(precision, scale);
 }
@@ -2198,6 +2219,9 @@ std::string BaseDecimalType<width>::ToString() const {
   return s.str();
 }
 
+template class BaseDecimalType<16>;
+template class BaseDecimalType<32>;
+template class BaseDecimalType<64>;
 template class BaseDecimalType<128>;
 template class BaseDecimalType<256>;
 

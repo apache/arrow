@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal_type_traits.h"
 
 namespace arrow {
 
@@ -328,29 +329,23 @@ TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
 
-TEST(TestDecimal128Scalar, Basics) {
-  auto ty = decimal128(3, 2);
-  auto pi = Decimal128Scalar(Decimal128("3.14"), ty);
+
+template<typename T>
+class TestDecimalScalar : public testing::Test {};
+using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
+
+TYPED_TEST_SUITE(TestDecimalScalar, DecimalTypes);
+
+TYPED_TEST(TestDecimalScalar, Basics) {
+  using ScalarType = typename TypeParam::ScalarType;
+  using TypeClass = typename TypeParam::TypeClass;
+  using ValueType = typename TypeParam::ValueType;
+
+  auto ty = std::make_shared<TypeClass>(3, 2);
+  auto pi = ScalarType(ValueType("3.14"), ty);
   auto null = MakeNullScalar(ty);
 
-  ASSERT_EQ(pi.value, Decimal128("3.14"));
-
-  // test Array.GetScalar
-  auto arr = ArrayFromJSON(ty, "[null, \"3.14\"]");
-  ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
-  ASSERT_OK_AND_ASSIGN(auto second, arr->GetScalar(1));
-  ASSERT_TRUE(first->Equals(null));
-  ASSERT_FALSE(first->Equals(pi));
-  ASSERT_TRUE(second->Equals(pi));
-  ASSERT_FALSE(second->Equals(null));
-}
-
-TEST(TestDecimal256Scalar, Basics) {
-  auto ty = decimal256(3, 2);
-  auto pi = Decimal256Scalar(Decimal256("3.14"), ty);
-  auto null = MakeNullScalar(ty);
-
-  ASSERT_EQ(pi.value, Decimal256("3.14"));
+  ASSERT_EQ(pi.value, ValueType("3.14"));
 
   // test Array.GetScalar
   auto arr = ArrayFromJSON(ty, "[null, \"3.14\"]");

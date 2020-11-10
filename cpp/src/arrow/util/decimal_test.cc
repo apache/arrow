@@ -24,6 +24,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <functional>
 
 #include <gtest/gtest.h>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -899,7 +900,6 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   auto rand = random::RandomArrayGenerator(0x5487655);
   auto x_array = rand.Numeric<ArrowType>(size, static_cast<CType>(0),
                                          std::numeric_limits<CType>::max(), 0);
-
   auto x_ptr = x_array->data()->template GetValues<CType>(1);
   std::vector<CType> ret;
   for (int i = 0; i < size; ++i) {
@@ -1566,5 +1566,190 @@ TEST_P(Decimal256ToStringTest, ToString) {
 
 INSTANTIATE_TEST_SUITE_P(Decimal256ToStringTest, Decimal256ToStringTest,
                          ::testing::ValuesIn(kToStringTestData));
+
+
+// DecimalAnyWidth
+
+template <typename T>
+class DecimalAnyWidthTest : public ::testing::Test { };
+
+template <typename T>
+class Decimal16Test : public ::testing::Test { };
+
+template <typename T>
+class Decimal32Test : public ::testing::Test { };
+
+template <typename T>
+class Decimal64Test : public ::testing::Test { };
+
+using DecimalTypes = ::testing::Types<Decimal16, Decimal32, Decimal64>;
+
+struct DecimalFromStringParams {
+  std::string value;
+  int expected_value;
+  int32_t expected_scale;
+  int32_t expected_precision;
+};
+
+static const std::vector<DecimalFromStringParams> DecimalFromStringParamsList = {
+  {"1234", 1234, 0, 4},
+  {"12.34", 1234, 2, 4},
+  {"+12.34", 1234, 2, 4},
+  {"-12.34", -1234, 2, 4},
+  {".0000", 0, 4, 4}
+};
+
+TYPED_TEST_SUITE(DecimalAnyWidthTest, DecimalTypes);
+
+TYPED_TEST(DecimalAnyWidthTest, FromString) {
+  for (auto& param : DecimalFromStringParamsList) {
+    TypeParam d;
+    int precision, scale;
+
+    ASSERT_OK(TypeParam::FromString(param.value, &d, &precision, &scale));
+
+    ASSERT_EQ(param.expected_value, d);
+    ASSERT_EQ(param.expected_precision, precision);
+    ASSERT_EQ(param.expected_scale, scale);
+  }
+}
+
+TYPED_TEST(DecimalAnyWidthTest, FromBool) {
+  ASSERT_EQ(TypeParam(0), TypeParam(false));
+  ASSERT_EQ(TypeParam(1), TypeParam(true));
+}
+
+using Decimal16Types =
+    ::testing::Types<char, unsigned char, short, int>;
+
+using Decimal32Types =
+    ::testing::Types<char, unsigned char, short, unsigned short, int>;
+
+using Decimal64Types =
+    ::testing::Types<char, unsigned char, short, unsigned short,
+                     int, unsigned int, long, long long
+                     >;
+
+TYPED_TEST_SUITE(Decimal16Test, Decimal16Types);
+
+TYPED_TEST(Decimal16Test, Decimal16Types) {
+  TypeParam value = 42;
+  TypeParam max_value = std::numeric_limits<TypeParam>::max();
+  TypeParam min_value = std::numeric_limits<TypeParam>::min();
+
+  Decimal16 d(value);
+  ASSERT_EQ(value, d);
+
+  // Constructing from int will cause overflow
+  if (std::is_same<int, TypeParam>::value) {
+    Decimal16 max_value_d(max_value);
+    ASSERT_EQ(static_cast<int16_t>(max_value), max_value_d);
+
+    Decimal16 min_value_d(min_value);
+    ASSERT_EQ(static_cast<int16_t>(min_value), min_value_d);
+  }
+  else {
+    Decimal16 max_value_d(max_value);
+    ASSERT_EQ(max_value, max_value_d);
+
+    Decimal16 min_value_d(min_value);
+    ASSERT_EQ(min_value, min_value_d);
+  }
+}
+
+TYPED_TEST_SUITE(Decimal32Test, Decimal32Types);
+
+TYPED_TEST(Decimal32Test, Decimal32Types) {
+  TypeParam value = 42;
+  TypeParam max_value = std::numeric_limits<TypeParam>::max();
+  TypeParam min_value = std::numeric_limits<TypeParam>::min();
+
+  Decimal32 d(value);
+  ASSERT_EQ(value, d);
+
+  Decimal32 max_value_d(max_value);
+  ASSERT_EQ(max_value, max_value_d);
+
+  Decimal32 min_value_d(min_value);
+  ASSERT_EQ(min_value, min_value_d);
+}
+
+TYPED_TEST_SUITE(Decimal64Test, Decimal64Types);
+
+TYPED_TEST(Decimal64Test, Decimal64Types) {
+  TypeParam value = 42;
+  TypeParam max_value = std::numeric_limits<TypeParam>::max();
+  TypeParam min_value = std::numeric_limits<TypeParam>::min();
+
+  Decimal64 d(value);
+  ASSERT_EQ(value, d);
+
+  Decimal64 max_value_d(max_value);
+  ASSERT_EQ(max_value, max_value_d);
+
+  Decimal64 min_value_d(min_value);
+  ASSERT_EQ(min_value, min_value_d);
+}
+
+static const std::vector<int16_t> DecimalAnyWidthValues = { -2, -1, 0, 1, 2};
+
+TYPED_TEST(DecimalAnyWidthTest, ComparatorTest) {
+  for (size_t i=0; i<DecimalAnyWidthValues.size(); i++){
+    TypeParam d1(DecimalAnyWidthValues[i]);
+    for (size_t j=0; j<DecimalAnyWidthValues.size(); j++){
+      TypeParam d2(DecimalAnyWidthValues[j]);
+
+      ASSERT_EQ(i == j, d1 == d2);
+      ASSERT_EQ(i != j, d1 != d2);
+      ASSERT_EQ(i < j, d1 < d2);
+      ASSERT_EQ(i <= j, d1 <= d2);
+      ASSERT_EQ(i > j, d1 > d2);
+      ASSERT_EQ(i >= j, d1 >= d2);
+    }
+  }
+}
+
+TYPED_TEST(DecimalAnyWidthTest, UpCast) {
+  TypeParam d(42);
+  Decimal64 d64(d);
+
+  ASSERT_EQ(d, d64);
+}
+
+template<typename T>
+struct DecimalAnyWidthBinaryParams {
+  static const std::vector<std::pair<std::string, std::function<T(T, T)>>> value;
+};
+
+template<typename T>
+const std::vector<std::pair<std::string, std::function<T(T, T)>>> DecimalAnyWidthBinaryParams<T>::value = {
+  {"+", [](T x, T y) -> T { return x + y;} },
+  {"-", [](T x, T y) -> T { return x - y;} },
+  {"*", [](T x, T y) -> T { return x * y;} },
+  {"/", [](T x, T y) -> T { return y == 0? 0 : x / y;} },
+  {"%", [](T x, T y) -> T { return y == 0? 0 : x % y;} },
+};
+
+TYPED_TEST(DecimalAnyWidthTest, BinaryOperations) {
+  using ValueType = typename arrow::DecimalAnyWidthTest_BinaryOperations_Test<gtest_TypeParam_>::TypeParam::ValueType;
+  using ArrowValueType = typename arrow::CTypeTraits<ValueType>::ArrowType;
+
+  auto DecimalFns = DecimalAnyWidthBinaryParams<TypeParam>::value;
+  auto NumericFns = DecimalAnyWidthBinaryParams<ValueType>::value;
+
+  for (size_t i = 0; i < DecimalFns.size(); i++){
+    for (auto x : GetRandomNumbers<ArrowValueType>(8)) {
+      for (auto y : GetRandomNumbers<ArrowValueType>(8)) {
+        TypeParam d1(x), d2(y);
+        ASSERT_EQ(NumericFns[i].second(x, y), DecimalFns[i].second(d1, d2))
+        << d1 << DecimalFns[i].first << " " << d2 << " " << " != " << NumericFns[i].second(x, y);
+      }
+    }
+  }
+}
+
+
+
+
 
 }  // namespace arrow

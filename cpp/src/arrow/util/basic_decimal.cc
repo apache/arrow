@@ -30,6 +30,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
+#include "arrow/util/decimal_scale_multipliers.h"
 #include "arrow/util/decimal_meta.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -38,88 +39,8 @@ namespace arrow {
 
 using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
+using internal::SafeSignedMultiply;
 
-static const BasicDecimal128 ScaleMultipliers[] = {
-    BasicDecimal128(1LL),
-    BasicDecimal128(10LL),
-    BasicDecimal128(100LL),
-    BasicDecimal128(1000LL),
-    BasicDecimal128(10000LL),
-    BasicDecimal128(100000LL),
-    BasicDecimal128(1000000LL),
-    BasicDecimal128(10000000LL),
-    BasicDecimal128(100000000LL),
-    BasicDecimal128(1000000000LL),
-    BasicDecimal128(10000000000LL),
-    BasicDecimal128(100000000000LL),
-    BasicDecimal128(1000000000000LL),
-    BasicDecimal128(10000000000000LL),
-    BasicDecimal128(100000000000000LL),
-    BasicDecimal128(1000000000000000LL),
-    BasicDecimal128(10000000000000000LL),
-    BasicDecimal128(100000000000000000LL),
-    BasicDecimal128(1000000000000000000LL),
-    BasicDecimal128(0LL, 10000000000000000000ULL),
-    BasicDecimal128(5LL, 7766279631452241920ULL),
-    BasicDecimal128(54LL, 3875820019684212736ULL),
-    BasicDecimal128(542LL, 1864712049423024128ULL),
-    BasicDecimal128(5421LL, 200376420520689664ULL),
-    BasicDecimal128(54210LL, 2003764205206896640ULL),
-    BasicDecimal128(542101LL, 1590897978359414784ULL),
-    BasicDecimal128(5421010LL, 15908979783594147840ULL),
-    BasicDecimal128(54210108LL, 11515845246265065472ULL),
-    BasicDecimal128(542101086LL, 4477988020393345024ULL),
-    BasicDecimal128(5421010862LL, 7886392056514347008ULL),
-    BasicDecimal128(54210108624LL, 5076944270305263616ULL),
-    BasicDecimal128(542101086242LL, 13875954555633532928ULL),
-    BasicDecimal128(5421010862427LL, 9632337040368467968ULL),
-    BasicDecimal128(54210108624275LL, 4089650035136921600ULL),
-    BasicDecimal128(542101086242752LL, 4003012203950112768ULL),
-    BasicDecimal128(5421010862427522LL, 3136633892082024448ULL),
-    BasicDecimal128(54210108624275221LL, 12919594847110692864ULL),
-    BasicDecimal128(542101086242752217LL, 68739955140067328ULL),
-    BasicDecimal128(5421010862427522170LL, 687399551400673280ULL)};
-
-static const BasicDecimal128 ScaleMultipliersHalf[] = {
-    BasicDecimal128(0ULL),
-    BasicDecimal128(5ULL),
-    BasicDecimal128(50ULL),
-    BasicDecimal128(500ULL),
-    BasicDecimal128(5000ULL),
-    BasicDecimal128(50000ULL),
-    BasicDecimal128(500000ULL),
-    BasicDecimal128(5000000ULL),
-    BasicDecimal128(50000000ULL),
-    BasicDecimal128(500000000ULL),
-    BasicDecimal128(5000000000ULL),
-    BasicDecimal128(50000000000ULL),
-    BasicDecimal128(500000000000ULL),
-    BasicDecimal128(5000000000000ULL),
-    BasicDecimal128(50000000000000ULL),
-    BasicDecimal128(500000000000000ULL),
-    BasicDecimal128(5000000000000000ULL),
-    BasicDecimal128(50000000000000000ULL),
-    BasicDecimal128(500000000000000000ULL),
-    BasicDecimal128(5000000000000000000ULL),
-    BasicDecimal128(2LL, 13106511852580896768ULL),
-    BasicDecimal128(27LL, 1937910009842106368ULL),
-    BasicDecimal128(271LL, 932356024711512064ULL),
-    BasicDecimal128(2710LL, 9323560247115120640ULL),
-    BasicDecimal128(27105LL, 1001882102603448320ULL),
-    BasicDecimal128(271050LL, 10018821026034483200ULL),
-    BasicDecimal128(2710505LL, 7954489891797073920ULL),
-    BasicDecimal128(27105054LL, 5757922623132532736ULL),
-    BasicDecimal128(271050543LL, 2238994010196672512ULL),
-    BasicDecimal128(2710505431LL, 3943196028257173504ULL),
-    BasicDecimal128(27105054312LL, 2538472135152631808ULL),
-    BasicDecimal128(271050543121LL, 6937977277816766464ULL),
-    BasicDecimal128(2710505431213LL, 14039540557039009792ULL),
-    BasicDecimal128(27105054312137LL, 11268197054423236608ULL),
-    BasicDecimal128(271050543121376LL, 2001506101975056384ULL),
-    BasicDecimal128(2710505431213761LL, 1568316946041012224ULL),
-    BasicDecimal128(27105054312137610LL, 15683169460410122240ULL),
-    BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
-    BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 static const BasicDecimal256 ScaleMultipliersDecimal256[] = {
     BasicDecimal256({1ULL, 0ULL, 0ULL, 0ULL}),
@@ -233,7 +154,7 @@ static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
 #endif
 
-// same as ScaleMultipliers[38] - 1
+// same as ScaleMultipliers128[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
     BasicDecimal128(5421010862427522170LL, 687399551400673280ULL - 1);
 
@@ -283,7 +204,7 @@ BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
 bool BasicDecimal128::FitsInPrecision(int32_t precision) const {
   DCHECK_GT(precision, 0);
   DCHECK_LE(precision, DecimalMeta<128>::max_precision);
-  return BasicDecimal128::Abs(*this) < ScaleMultipliers[precision];
+  return BasicDecimal128::Abs(*this) < ScaleMultipliers128[precision];
 }
 
 BasicDecimal128& BasicDecimal128::operator+=(const BasicDecimal128& right) {
@@ -931,8 +852,6 @@ DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
   const int32_t abs_delta_scale = std::abs(delta_scale);
 
   DecimalClass multiplier = DecimalClass::GetScaleMultiplier(abs_delta_scale);
-  DCHECK_GE(abs_delta_scale, 1);
-  DCHECK_LE(abs_delta_scale, DecimalMeta<128>::max_precision);
 
   const bool rescale_would_cause_data_loss =
       RescaleWouldCauseDataLoss(value, delta_scale, multiplier, out);
@@ -955,7 +874,7 @@ void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, DecimalMeta<128>::max_precision);
 
-  BasicDecimal128 multiplier(ScaleMultipliers[scale]);
+  BasicDecimal128 multiplier(ScaleMultipliers128[scale]);
   auto s = Divide(multiplier, whole, fraction);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
@@ -964,7 +883,7 @@ const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, DecimalMeta<128>::max_precision);
 
-  return ScaleMultipliers[scale];
+  return ScaleMultipliers128[scale];
 }
 
 const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
@@ -973,7 +892,7 @@ BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
   DCHECK_LE(increase_by, DecimalMeta<128>::max_precision);
 
-  return (*this) * ScaleMultipliers[increase_by];
+  return (*this) * ScaleMultipliers128[increase_by];
 }
 
 BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
@@ -984,13 +903,13 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
     return *this;
   }
 
-  BasicDecimal128 divisor(ScaleMultipliers[reduce_by]);
+  BasicDecimal128 divisor(ScaleMultipliers128[reduce_by]);
   BasicDecimal128 result;
   BasicDecimal128 remainder;
   auto s = Divide(divisor, &result, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   if (round) {
-    auto divisor_half = ScaleMultipliersHalf[reduce_by];
+    auto divisor_half = ScaleMultipliersHalf128[reduce_by];
     if (remainder.Abs() >= divisor_half) {
       if (result > 0) {
         result += 1;
@@ -1197,5 +1116,137 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return result;
 }
+
+/// BasicDecimalAnyWidth
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>::BasicDecimalAnyWidth(const uint8_t* bytes) {
+  DCHECK_NE(bytes, nullptr);
+  value = *(reinterpret_cast<const ValueType*>(bytes));
+};
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator+=(const BasicDecimalAnyWidth<width>& right) {
+  value = SafeSignedAdd<ValueType>(value, right.value);
+  return *this;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator-=(const BasicDecimalAnyWidth<width>& right) {
+  value -= right.value;
+  return *this;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator*=(const BasicDecimalAnyWidth<width>& right) {
+  value = value * right.value;
+  return *this;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator/=(const BasicDecimalAnyWidth<width>& right) {
+  BasicDecimalAnyWidth<width> remainder;
+  auto s = Divide(right, this, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return *this;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::operator%=(const BasicDecimalAnyWidth<width>& right) {
+  BasicDecimalAnyWidth<width> result;
+  auto s = Divide(right, &result, this);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return *this;
+}
+
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Abs() { return *this < 0 ? Negate() : *this; }
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::Abs(const BasicDecimalAnyWidth<width>& in) {
+  BasicDecimalAnyWidth<width> result(in);
+  return result.Abs();
+}
+
+template<uint32_t width>
+DecimalStatus BasicDecimalAnyWidth<width>::Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
+                       BasicDecimalAnyWidth* remainder) const {
+  if (divisor.value == 0) {
+    return DecimalStatus::kDivideByZero;
+  }
+
+  bool dividen_was_negative = Sign() == -1;
+  bool divisor_was_negative = divisor.Sign() == -1;
+
+  *result = value / divisor.value;
+  *remainder = value % divisor.value;
+
+  FixDivisionSigns(result, remainder, dividen_was_negative, divisor_was_negative);
+  return DecimalStatus::kSuccess;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, DecimalMeta<width>::max_precision);
+
+  return BasicDecimalAnyWidth<width>(ScaleMultipliersAnyWidth<width>::value[scale]);
+}
+
+template<uint32_t width>
+std::array<uint8_t, (width >> 3)> BasicDecimalAnyWidth<width>::ToBytes() const {
+  std::array<uint8_t, (width >> 3)> out{{0}};
+  ToBytes(out.data());
+  return out;
+}
+
+template<uint32_t width>
+void BasicDecimalAnyWidth<width>::ToBytes(uint8_t* out) const {
+  DCHECK_NE(out, nullptr);
+  reinterpret_cast<ValueType*>(out)[0] = value;
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width>& BasicDecimalAnyWidth<width>::Negate() { 
+  value = - value;
+  return *this;
+}
+
+template<uint32_t width>
+DecimalStatus BasicDecimalAnyWidth<width>::Rescale(int32_t original_scale, int32_t new_scale,
+                      BasicDecimalAnyWidth<width>* out) const {
+  return DecimalRescale(*this, original_scale, new_scale, out);
+}
+
+template<uint32_t width>
+bool BasicDecimalAnyWidth<width>::FitsInPrecision(int32_t precision) const {
+  DCHECK_GT(precision, 0);
+  DCHECK_LE(precision, DecimalMeta<width>::max_precision);
+  return BasicDecimalAnyWidth<width>::Abs(*this) < ScaleMultipliersAnyWidth<width>::value[precision];
+}
+
+template<uint32_t width>
+void BasicDecimalAnyWidth<width>::GetWholeAndFraction(int scale, BasicDecimalAnyWidth<width>* whole,
+                                          BasicDecimalAnyWidth<width>* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, DecimalMeta<width>::max_precision);
+
+  BasicDecimalAnyWidth<width> multiplier(ScaleMultipliersAnyWidth<width>::value[scale]);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+}
+
+template<uint32_t width>
+BasicDecimalAnyWidth<width> BasicDecimalAnyWidth<width>::IncreaseScaleBy(int32_t increase_by) const {
+  DCHECK_GE(increase_by, 0);
+  DCHECK_LE(increase_by, DecimalMeta<width>::max_precision);
+
+  return (*this) * ScaleMultipliersAnyWidth<width>::value[increase_by];
+}
+
+template class BasicDecimalAnyWidth<64>;
+template class BasicDecimalAnyWidth<32>;
+template class BasicDecimalAnyWidth<16>;
 
 }  // namespace arrow

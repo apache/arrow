@@ -298,14 +298,8 @@ class SchemaWriter {
     writer_->Int(type.list_size());
   }
 
-  void WriteTypeMetadata(const Decimal128Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal256Type& type) {
+  template <uint32_t width>
+  void WriteTypeMetadata(const BaseDecimalType<width>& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
     writer_->Key("scale");
@@ -384,6 +378,9 @@ class SchemaWriter {
     return WritePrimitive("fixedsizebinary", type);
   }
 
+  Status Visit(const Decimal16Type& type) { return WritePrimitive("decimal16", type); }
+  Status Visit(const Decimal32Type& type) { return WritePrimitive("decimal32", type); }
+  Status Visit(const Decimal64Type& type) { return WritePrimitive("decimal64", type); }
   Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
   Status Visit(const Decimal256Type& type) { return WritePrimitive("decimal256", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
@@ -549,23 +546,12 @@ class ArrayWriter {
     }
   }
 
-  void WriteDataValues(const Decimal128Array& arr) {
+  template<uint32_t width>
+  void WriteDataValues(const BaseDecimalArray<width>& arr) {
     static const char null_string[] = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        const Decimal128 value(arr.GetValue(i));
-        writer_->String(value.ToIntegerString());
-      } else {
-        writer_->String(null_string, sizeof(null_string));
-      }
-    }
-  }
-
-  void WriteDataValues(const Decimal256Array& arr) {
-    static const char null_string[] = "0";
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (arr.IsValid(i)) {
-        const Decimal256 value(arr.GetValue(i));
+        const typename BaseDecimalArray<width>::ValueType value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
         writer_->String(null_string, sizeof(null_string));
@@ -860,14 +846,27 @@ Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
     bit_width = maybe_bit_width.ValueOrDie();
   }
 
-  if (bit_width == 128) {
-    *type = decimal128(precision, scale);
-  } else if (bit_width == 256) {
-    *type = decimal256(precision, scale);
-  } else {
-    return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
-                           bit_width);
+  switch (bit_width) {
+    case 16:
+      *type = decimal16(precision, scale);
+      break;
+    case 32:
+      *type = decimal32(precision, scale);
+      break;
+    case 64:
+      *type = decimal64(precision, scale);
+      break;
+    case 128:
+      *type = decimal128(precision, scale);
+      break;
+    case 256:
+      *type = decimal256(precision, scale);
+      break;
+    default:
+      return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+                          bit_width);
   }
+
   return Status::OK();
 }
 

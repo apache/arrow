@@ -62,6 +62,14 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  template<uint32_t width>
+  Status Visit(const BaseDecimalArray<width>& array) {
+    if (array.length() > 0 && array.values() == nullptr) {
+      return Status::Invalid("values is null");
+    }
+    return Status::OK();
+  }
+
   Status Visit(const StringType& type) { return ValidateBinaryLike(type); }
 
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }

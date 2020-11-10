@@ -913,6 +913,27 @@ class BaseDecimalType : public DecimalType {
   static constexpr int32_t kByteWidth = width / 8;
 };
 
+/// \brief Concrete type class for decimal 16-bit data
+class ARROW_EXPORT Decimal16Type : public BaseDecimalType<16> {
+public:
+  static constexpr Type::type type_id = Type::DECIMAL16;
+  using BaseDecimalType<16>::BaseDecimalType;
+};
+
+/// \brief Concrete type class for decimal 32-bit data
+class ARROW_EXPORT Decimal32Type : public BaseDecimalType<32> {
+public:
+  static constexpr Type::type type_id = Type::DECIMAL32;
+  using BaseDecimalType<32>::BaseDecimalType;
+};
+
+/// \brief Concrete type class for decimal 64-bit data
+class ARROW_EXPORT Decimal64Type : public BaseDecimalType<64> {
+public:
+  static constexpr Type::type type_id = Type::DECIMAL64;
+  using BaseDecimalType<64>::BaseDecimalType;
+};
+
 /// \brief Concrete type class for decimal 128-bit data
 class ARROW_EXPORT Decimal128Type : public BaseDecimalType<128> {
 public:

@@ -1851,6 +1851,48 @@ TEST(TypesTest, TestDecimal256Large) {
   EXPECT_EQ(t1.bit_width(), 256);
 }
 
+TEST(TypesTest, TestDecimal16) {
+  Decimal16Type t1(5, 3);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL16);
+  EXPECT_EQ(t1.precision(), 5);
+  EXPECT_EQ(t1.scale(), 3);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal16(5, 3)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 2);
+  EXPECT_EQ(t1.bit_width(), 16);
+}
+
+TEST(TypesTest, TestDecimal32) {
+  Decimal32Type t1(10, 5);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL32);
+  EXPECT_EQ(t1.precision(), 10);
+  EXPECT_EQ(t1.scale(), 5);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal32(10, 5)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 4);
+  EXPECT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64) {
+  Decimal64Type t1(19, 10);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL64);
+  EXPECT_EQ(t1.precision(), 19);
+  EXPECT_EQ(t1.scale(), 10);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal64(19, 10)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 8);
+  EXPECT_EQ(t1.bit_width(), 64);
+}
+
 TEST(TypesTest, TestDecimalEquals) {
   Decimal128Type t1(8, 4);
   Decimal128Type t2(8, 4);

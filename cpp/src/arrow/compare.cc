@@ -264,6 +264,11 @@ class RangeDataEqualsImpl {
 
   Status Visit(const LargeListType& type) { return CompareList(type); }
 
+  template <uint32_t width>
+  Status Visit(const BaseDecimalArray<width>& left) {
+    return Visit(checked_cast<const FixedSizeBinaryArray&>(left));
+  }
+
   Status Visit(const FixedSizeListType& type) {
     const auto list_size = type.list_size();
     const ArrayData& left_data = *left_.child_data[0];
@@ -605,14 +610,9 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& left) {
-    const auto& right = checked_cast<const Decimal128Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& left) {
-    const auto& right = checked_cast<const Decimal256Type&>(right_);
+  template <uint32_t width>
+  Status Visit(const BaseDecimalType<width>& left) {
+    const auto& right = checked_cast<const BaseDecimalType<width>&>(right_);
     result_ = left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
@@ -721,14 +721,9 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Scalar& left) {
-    const auto& right = checked_cast<const Decimal128Scalar&>(right_);
-    result_ = left.value == right.value;
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Scalar& left) {
-    const auto& right = checked_cast<const Decimal256Scalar&>(right_);
+  template <uint32_t width>
+  Status Visit(const BaseDecimalScalar<width>& left) {
+    const auto& right = checked_cast<const BaseDecimalScalar<width>&>(right_);
     result_ = left.value == right.value;
     return Status::OK();
   }

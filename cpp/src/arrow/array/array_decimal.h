@@ -44,16 +44,6 @@ class BaseDecimalArray : public FixedSizeBinaryArray {
   std::string FormatValue(int64_t i) const;
 };
 
-/// Array class for decimal 128-bit data                                       
-class ARROW_EXPORT Decimal128Array : public BaseDecimalArray<128> { 
-  using BaseDecimalArray<128>::BaseDecimalArray;                          
-};
-
-/// Array class for decimal 256-bit data
-class ARROW_EXPORT Decimal256Array : public BaseDecimalArray<256> { 
-  using BaseDecimalArray<256>::BaseDecimalArray;                          
-};
-
 // Backward compatibility
 using DecimalArray = Decimal128Array;
 

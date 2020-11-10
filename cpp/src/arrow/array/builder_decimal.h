@@ -62,16 +62,6 @@ public:
   std::shared_ptr<TypeClass> decimal_type_;
 };
 
-/// Builder class for decimal 128-bit                                    
-class ARROW_EXPORT Decimal128Builder : public BaseDecimalBuilder<128> {
-  using BaseDecimalBuilder<128>::BaseDecimalBuilder;
-};
-
-/// Builder class for decimal 256-bit 
-class ARROW_EXPORT Decimal256Builder : public BaseDecimalBuilder<256> {
-  using BaseDecimalBuilder<256>::BaseDecimalBuilder;
-};
-
 // Backward compatibility
 using DecimalBuilder = Decimal128Builder;
 

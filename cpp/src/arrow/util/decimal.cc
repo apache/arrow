@@ -463,15 +463,13 @@ inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
   return Status::OK();
 }
 
-}  // namespace
-
-Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
-                              int32_t* precision, int32_t* scale) {
+Status FromStringToArray(const util::string_view& s, DecimalComponents& dec,
+                         uint64_t* out, int32_t array_size,
+                         int32_t* precision, int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
 
-  DecimalComponents dec;
   if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
     return Status::Invalid("The string '", s, "' is not a valid decimal number");
   }
@@ -482,26 +480,47 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   if (first_non_zero != std::string::npos) {
     significant_digits += dec.whole_digits.size() - first_non_zero;
   }
-  int32_t parsed_precision = static_cast<int32_t>(significant_digits);
 
-  int32_t parsed_scale = 0;
-  if (dec.has_exponent) {
-    auto adjusted_exponent = dec.exponent;
-    auto len = static_cast<int32_t>(significant_digits);
-    parsed_scale = -adjusted_exponent + len - 1;
-  } else {
-    parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
+  if (precision != nullptr) {
+    *precision = static_cast<int32_t>(significant_digits);
+  }
+
+  if (scale != nullptr) {
+    if (dec.has_exponent) {
+      auto adjusted_exponent = dec.exponent;
+      auto len = static_cast<int32_t>(significant_digits);
+      *scale = -adjusted_exponent + len - 1;
+    } else {
+      *scale = static_cast<int32_t>(dec.fractional_digits.size());
+    }
   }
 
   if (out != nullptr) {
-    std::array<uint64_t, 2> little_endian_array = {0, 0};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
-    *out =
-        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
-    if (parsed_scale < 0) {
-      *out *= GetScaleMultiplier(-parsed_scale);
+    ShiftAndAdd(dec.whole_digits, out, array_size);
+    ShiftAndAdd(dec.fractional_digits, out,
+                array_size);
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
+
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+                              int32_t* precision, int32_t* scale) {
+  std::array<uint64_t, 2> little_endian_array = {0, 0};
+  DecimalComponents dec;
+
+  auto status = FromStringToArray(s, dec, little_endian_array.data(), 2, precision, scale);
+  if (status != Status::OK()) {
+    return status;
+  }
+
+  if (out != nullptr) {
+    *out = Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
+
+    if (scale != nullptr && *scale < 0) {
+      *out *= GetScaleMultiplier(-*scale);
     }
 
     if (dec.sign == '-') {
@@ -509,19 +528,14 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
     }
   }
 
-  if (parsed_scale < 0) {
-    parsed_precision -= parsed_scale;
-    parsed_scale = 0;
+  if (scale != nullptr && *scale < 0) {
+    if (precision != nullptr) {
+      *precision -= *scale;
+    }
+    *scale = 0;
   }
 
-  if (precision != nullptr) {
-    *precision = parsed_precision;
-  }
-  if (scale != nullptr) {
-    *scale = parsed_scale;
-  }
-
-  return Status::OK();
+  return status;
 }
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
@@ -649,49 +663,22 @@ std::string Decimal256::ToString(int32_t scale) const {
 
 Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
                               int32_t* precision, int32_t* scale) {
-  if (s.empty()) {
-    return Status::Invalid("Empty string cannot be converted to decimal");
-  }
-
+  std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
   DecimalComponents dec;
-  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
-    return Status::Invalid("The string '", s, "' is not a valid decimal number");
-  }
 
-  // Count number of significant digits (without leading zeros)
-  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
-  size_t significant_digits = dec.fractional_digits.size();
-  if (first_non_zero != std::string::npos) {
-    significant_digits += dec.whole_digits.size() - first_non_zero;
-  }
-
-  if (precision != nullptr) {
-    *precision = static_cast<int32_t>(significant_digits);
-  }
-
-  if (scale != nullptr) {
-    if (dec.has_exponent) {
-      auto adjusted_exponent = dec.exponent;
-      auto len = static_cast<int32_t>(significant_digits);
-      *scale = -adjusted_exponent + len - 1;
-    } else {
-      *scale = static_cast<int32_t>(dec.fractional_digits.size());
-    }
+  auto status = FromStringToArray(s, dec, little_endian_array.data(), 4, precision, scale);
+  if (status != Status::OK()) {
+    return status;
   }
 
   if (out != nullptr) {
-    std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
     *out = Decimal256(little_endian_array);
-
     if (dec.sign == '-') {
       out->Negate();
     }
   }
 
-  return Status::OK();
+  return status;
 }
 
 Status Decimal256::FromString(const std::string& s, Decimal256* out, int32_t* precision,
@@ -768,4 +755,95 @@ std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
+
+template<uint32_t width>
+DecimalAnyWidth<width>::DecimalAnyWidth(const std::string& str) : DecimalAnyWidth() {
+  *this = DecimalAnyWidth<width>::FromString(str).ValueOrDie();
+}
+
+template<uint32_t width>
+std::string DecimalAnyWidth<width>::ToIntegerString() const {
+  std::stringstream ss;
+  ss << this->Value();
+  return ss.str();
+}
+
+template<uint32_t width>
+std::string DecimalAnyWidth<width>::ToString(int32_t scale) const {
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
+}
+
+template<uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const util::string_view& s, DecimalAnyWidth<width>* out,
+                              int32_t* precision, int32_t* scale) {
+  std::array<uint64_t, 1> little_endian_array = {0};
+  DecimalComponents dec;
+
+  auto status = FromStringToArray(s, dec, little_endian_array.data(), 1, precision, scale);
+  if (status != Status::OK()) {
+    return status;
+  }
+
+  if (out != nullptr) {
+    *out = DecimalAnyWidth<width>(static_cast<ValueType>(little_endian_array[0]));
+
+    if (scale != nullptr && *scale < 0) {
+      *out *= BasicDecimalAnyWidth<width>::GetScaleMultiplier(*scale);
+    }
+
+    if (dec.sign == '-') {
+      out->Negate();
+    }
+  }
+
+  if (scale != nullptr && *scale < 0) {
+    if (precision != nullptr) {
+      *precision -= *scale;
+    }
+    *scale = 0;
+  }
+
+  return status;
+}
+
+template<uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const std::string& s, DecimalAnyWidth<width>* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+template<uint32_t width>
+Status DecimalAnyWidth<width>::FromString(const char* s, DecimalAnyWidth<width>* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+template<uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const util::string_view& s) {
+  _DecimalType out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
+  return std::move(out);
+}
+
+template<uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const std::string& s) {
+  return FromString(util::string_view(s));
+}
+
+template<uint32_t width>
+Result<typename DecimalAnyWidth<width>::_DecimalType> DecimalAnyWidth<width>::FromString(const char* s) {
+  return FromString(util::string_view(s));
+}
+
+template<uint32_t width>
+Status DecimalAnyWidth<width>::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, width);
+}
+
+template class DecimalAnyWidth<16>;
+template class DecimalAnyWidth<32>;
+template class DecimalAnyWidth<64>;
+
 }  // namespace arrow

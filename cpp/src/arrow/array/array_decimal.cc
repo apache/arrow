@@ -46,6 +46,9 @@ std::string BaseDecimalArray<width>::FormatValue(int64_t i) const {
   return value.ToString(type_.scale());
 }
 
+template class BaseDecimalArray<16>;
+template class BaseDecimalArray<32>;
+template class BaseDecimalArray<64>;
 template class BaseDecimalArray<128>;
 template class BaseDecimalArray<256>;
 

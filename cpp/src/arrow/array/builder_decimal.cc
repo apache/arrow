@@ -72,6 +72,9 @@ Status BaseDecimalBuilder<width>::FinishInternal(std::shared_ptr<ArrayData>* out
   return Status::OK();
 }
 
+template class BaseDecimalBuilder<16>;
+template class BaseDecimalBuilder<32>;
+template class BaseDecimalBuilder<64>;
 template class BaseDecimalBuilder<128>;
 template class BaseDecimalBuilder<256>;
 

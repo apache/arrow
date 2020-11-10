@@ -145,13 +145,33 @@ struct StructScalar;
 
 class DecimalType;
 
-#define DECIMAL_DECL(width)     \
-class Decimal##width;           \
-class Decimal##width##Type;     \
-class Decimal##width##Array;    \
-class Decimal##width##Builder;  \
-struct Decimal##width##Scalar;
+template<uint32_t width>
+class DecimalAnyWidth;
 
+template<uint32_t width>
+class BaseDecimalArray;
+
+template<uint32_t width>
+class BaseDecimalBuilder;
+
+template<uint32_t width>
+struct BaseDecimalScalar;
+
+using Decimal16 = DecimalAnyWidth<16>;
+using Decimal32 = DecimalAnyWidth<32>;
+using Decimal64 = DecimalAnyWidth<64>;
+class Decimal128;
+class Decimal256;
+
+#define DECIMAL_DECL(width)                                \
+class Decimal##width##Type;                                \
+using Decimal##width##Array = BaseDecimalArray<width>;     \
+using Decimal##width##Builder = BaseDecimalBuilder<width>; \
+using Decimal##width##Scalar = BaseDecimalScalar<width>;
+
+DECIMAL_DECL(16)
+DECIMAL_DECL(32)
+DECIMAL_DECL(64)
 DECIMAL_DECL(128)
 DECIMAL_DECL(256)
 
@@ -338,6 +358,12 @@ struct Type {
     /// DAY_TIME interval in SQL style
     INTERVAL_DAY_TIME,
 
+    DECIMAL16,
+
+    DECIMAL32,
+
+    DECIMAL64,
+
     /// Precision- and scale-based decimal type with 128 bits.
     DECIMAL128,
 
@@ -443,6 +469,18 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 /// \brief Create a Decimal128Type or Decimal256Type instance depending on the precision
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal16Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal16(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal32Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal64Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale);
 
 /// \brief Create a Decimal128Type instance
 ARROW_EXPORT

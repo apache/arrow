@@ -69,6 +69,11 @@ struct ScalarHashImpl {
     return StdHash(s.value.days) & StdHash(s.value.days);
   }
 
+  template <uint32_t width>
+  typename std::enable_if<width <= 64, Status>::type Visit(const BaseDecimalScalar<width>& s) {
+    return StdHash(s.value.Value());
+  }
+
   Status Visit(const Decimal128Scalar& s) {
     return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
   }

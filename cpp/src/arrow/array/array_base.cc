@@ -69,13 +69,18 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
-  Status Visit(const Decimal128Array& a) {
-    return Finish(Decimal128(a.GetValue(index_)));
+  #define DECL_DECIMAL_VISIT(width)                    \
+  Status Visit(const Decimal##width##Array& a) {       \
+    return Finish(Decimal##width(a.GetValue(index_))); \
   }
 
-  Status Visit(const Decimal256Array& a) {
-    return Finish(Decimal256(a.GetValue(index_)));
-  }
+  DECL_DECIMAL_VISIT(16)
+  DECL_DECIMAL_VISIT(32)
+  DECL_DECIMAL_VISIT(64)
+  DECL_DECIMAL_VISIT(128)
+  DECL_DECIMAL_VISIT(256)
+
+  #undef DECL_DECIMAL_VISIT
 
   template <typename T>
   Status Visit(const BaseBinaryArray<T>& a) {

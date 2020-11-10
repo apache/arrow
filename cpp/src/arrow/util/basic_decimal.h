@@ -26,6 +26,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
+#include "arrow/util/decimal_meta.h"
 
 namespace arrow {
 
@@ -35,6 +36,9 @@ enum class DecimalStatus {
   kOverflow,
   kRescaleDataLoss,
 };
+
+template<uint32_t width>
+class BasicDecimalAnyWidth;
 
 /// Represents a signed 128-bit integer in two's complement.
 ///
@@ -58,6 +62,11 @@ class ARROW_EXPORT BasicDecimal128 {
   constexpr BasicDecimal128(T value) noexcept
       : BasicDecimal128(value >= T{0} ? 0 : -1, static_cast<uint64_t>(value)) {  // NOLINT
   }
+
+  /// \brief Upcast BasicDecimal with less widths
+  template <uint32_t width>
+  constexpr BasicDecimal128(const BasicDecimalAnyWidth<width>& other) noexcept
+      : BasicDecimal128(other.Value()) {}
 
   /// \brief Create a BasicDecimal128 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
@@ -211,6 +220,10 @@ class ARROW_EXPORT BasicDecimal256 {
       : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()),
                               extend(value.high_bits()), extend(value.high_bits())}) {}
 
+  template <uint32_t width>
+  constexpr BasicDecimal256(const BasicDecimalAnyWidth<width>& other) noexcept
+      : BasicDecimal256(other.Value()) {}
+
   /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
   explicit BasicDecimal256(const uint8_t* bytes);
@@ -322,4 +335,151 @@ ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
+
+
+template<uint32_t width>
+class BasicDecimalAnyWidth {
+ public:
+  using ValueType = typename IntTypes<width>::signed_type;
+  /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
+  constexpr BasicDecimalAnyWidth() noexcept : value(0) {}
+
+  /// \brief Convert any integer value into a BasicDecimal256.
+  template <typename T,
+            typename = typename std::enable_if<
+                std::is_integral<T>::value && 
+                ((sizeof(T) < sizeof(ValueType)) || ((sizeof(T) == sizeof(ValueType)) && std::is_signed<T>::value)
+                || std::is_same<T, int>::value), T>::type>
+  constexpr BasicDecimalAnyWidth(T value) noexcept
+      : value(static_cast<ValueType>(value)) {}
+  
+  /// \brief Upcast BasicDecimal with less widths
+  template <uint32_t _width,
+            typename = typename std::enable_if<_width <= width, void>::type>
+  constexpr BasicDecimalAnyWidth(const BasicDecimalAnyWidth<_width>& other) noexcept
+      : value(static_cast<ValueType>(other.Value())) {}
+
+  /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
+  /// native-endian byte order.
+  explicit BasicDecimalAnyWidth(const uint8_t* bytes);
+
+  /// \brief Negate the current value (in-place)
+  BasicDecimalAnyWidth& Negate();
+
+  /// \brief Absolute value (in-place)
+  BasicDecimalAnyWidth& Abs();
+
+  /// \brief Absolute value
+  static BasicDecimalAnyWidth Abs(const BasicDecimalAnyWidth& left);
+
+  DecimalStatus Divide(const BasicDecimalAnyWidth& divisor, BasicDecimalAnyWidth* result,
+                       BasicDecimalAnyWidth* remainder) const;
+                      
+  // \brief Scale multiplier for given scale value.
+  static BasicDecimalAnyWidth GetScaleMultiplier(int32_t scale);
+
+  /// \brief Return the raw bytes of the value in native-endian byte order.
+  std::array<uint8_t, (width >> 3)> ToBytes() const;
+  void ToBytes(uint8_t* out) const;
+
+  /// \brief Convert BasicDecimal128 from one scale to another
+  DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
+                        BasicDecimalAnyWidth* out) const;
+
+  inline int64_t Sign() const { return value >= 0 ? 1 : -1; }
+
+  /// \brief Get the high bits of the two's complement representation of the number.
+  inline constexpr ValueType Value() const { return value; }
+
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to `precision`.
+  bool FitsInPrecision(int32_t precision) const;
+
+  /// \brief separate the integer and fractional parts for the given scale.
+  void GetWholeAndFraction(int32_t scale, BasicDecimalAnyWidth* whole,
+                           BasicDecimalAnyWidth* fraction) const;
+  
+  /// \brief Scale up.
+  BasicDecimalAnyWidth IncreaseScaleBy(int32_t increase_by) const;
+
+  BasicDecimalAnyWidth& operator +=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator -=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator *=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator /=(const BasicDecimalAnyWidth&);
+  BasicDecimalAnyWidth& operator %=(const BasicDecimalAnyWidth&);
+
+  friend bool operator==(const BasicDecimalAnyWidth& left,
+                         const BasicDecimalAnyWidth& right) {
+    return left.value == right.value;
+  }
+
+  friend bool operator!=(const BasicDecimalAnyWidth& left,
+                         const BasicDecimalAnyWidth& right) {
+    return !operator==(left, right);
+  }
+
+  friend bool operator<(const BasicDecimalAnyWidth& left,
+                        const BasicDecimalAnyWidth& right) {
+    return left.value < right.value;
+  }
+
+  friend bool operator<=(const BasicDecimalAnyWidth& left,
+                         const BasicDecimalAnyWidth& right) {
+    return !operator<(right, left);
+  }
+
+  friend bool operator>(const BasicDecimalAnyWidth& left,
+                        const BasicDecimalAnyWidth& right) {
+    return operator<(right, left);
+  }
+
+  friend bool operator>=(const BasicDecimalAnyWidth& left,
+                         const BasicDecimalAnyWidth& right) {
+    return !operator<(left, right);
+  }
+
+  friend BasicDecimalAnyWidth operator+(const BasicDecimalAnyWidth& left,
+                                        const BasicDecimalAnyWidth& right) {
+    BasicDecimalAnyWidth result(left);
+    result += right;
+    return result;
+  };
+
+  friend BasicDecimalAnyWidth operator-(const BasicDecimalAnyWidth& left,
+                                        const BasicDecimalAnyWidth& right) {
+    BasicDecimalAnyWidth result(left);
+    result -= right;
+    return result;
+  };
+
+  friend BasicDecimalAnyWidth operator*(const BasicDecimalAnyWidth& left,
+                                        const BasicDecimalAnyWidth& right) {
+    BasicDecimalAnyWidth result(left);
+    result *= right;
+    return result;
+  };
+
+  friend BasicDecimalAnyWidth operator/(const BasicDecimalAnyWidth& left,
+                                        const BasicDecimalAnyWidth& right) {
+    BasicDecimalAnyWidth result = left;
+    result /= right;
+    return result;
+  };
+
+  friend BasicDecimalAnyWidth operator%(const BasicDecimalAnyWidth& left, const BasicDecimalAnyWidth& right) {
+    BasicDecimalAnyWidth result = left;
+    result %= right;
+    return result;
+  }
+
+ private:
+  ValueType value;
+};
+
+
+using BasicDecimal64 = BasicDecimalAnyWidth<64>;
+using BasicDecimal32 = BasicDecimalAnyWidth<32>;
+using BasicDecimal16 = BasicDecimalAnyWidth<16>;
+
 }  // namespace arrow

@@ -19,8 +19,40 @@
 
 namespace arrow {
 
+template<int bit_width>
+struct IntTypes {};
+
+#define IntTypes_DECL(bit_width)             \
+template<>                                   \
+struct IntTypes<bit_width>{                  \
+  using signed_type = int##bit_width##_t;    \
+  using unsigned_type = uint##bit_width##_t; \
+};
+
+IntTypes_DECL(64);
+IntTypes_DECL(32);
+IntTypes_DECL(16);
+
 template<uint32_t width>
 struct DecimalMeta;
+
+template<>
+struct DecimalMeta<16> {
+  static constexpr const char* name = "decimal16";
+  static constexpr int32_t max_precision = 5;
+};
+
+template<>
+struct DecimalMeta<32> {
+  static constexpr const char* name = "decimal32";
+  static constexpr int32_t max_precision = 10;
+};
+
+template<>
+struct DecimalMeta<64> {
+  static constexpr const char* name = "decimal64";
+  static constexpr int32_t max_precision = 19;
+};
 
 template<>
 struct DecimalMeta<128> {

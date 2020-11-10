@@ -79,6 +79,14 @@ SignedInt SafeSignedSubtract(SignedInt u, SignedInt v) {
                                 static_cast<UnsignedInt>(v));
 }
 
+/// Signed multiply with well-defined behaviour on overflow (as unsigned)
+template <typename SignedInt>
+SignedInt SafeSignedMultiply(SignedInt u, SignedInt v) {
+  using UnsignedInt = typename std::make_unsigned<SignedInt>::type;
+  return static_cast<SignedInt>(static_cast<UnsignedInt>(u) *
+                                static_cast<UnsignedInt>(v));
+}
+
 /// Signed left shift with well-defined behaviour on negative numbers or overflow
 template <typename SignedInt, typename Shift>
 SignedInt SafeLeftShift(SignedInt u, Shift shift) {

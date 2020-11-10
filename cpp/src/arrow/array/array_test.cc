@@ -2407,6 +2407,32 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     }
   }
 
+  void InitNoNullsTest(int32_t precision) {
+    std::vector<DecimalValue> draw = {DecimalValue(1), DecimalValue(-2), DecimalValue(2389),
+                                      DecimalValue(4), DecimalValue(-12348)};
+    std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+    this->TestCreate(precision, draw, valid_bytes, 0);
+    this->TestCreate(precision, draw, valid_bytes, 2);
+  }
+
+  void InitWithNullsTest(int32_t precision, std::string big_value, std::string big_negate_value) {
+    std::vector<DecimalValue> draw = {DecimalValue(1), DecimalValue(2),  DecimalValue(-1),
+                                     DecimalValue(4), DecimalValue(-1), DecimalValue(1),
+                                     DecimalValue(2)};
+    DecimalValue big;
+    ASSERT_OK_AND_ASSIGN(big, DecimalValue::FromString(big_value));
+    draw.push_back(big);
+
+    DecimalValue big_negative;
+    ASSERT_OK_AND_ASSIGN(big_negative, DecimalValue::FromString(big_negate_value));
+    draw.push_back(big_negative);
+
+    std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                        true, true, true,  true};
+    this->TestCreate(precision, draw, valid_bytes, 0);
+    this->TestCreate(precision, draw, valid_bytes, 2);
+  }
+
   template <size_t BYTE_WIDTH = 16>
   void TestCreate(int32_t precision, const DecimalVector& draw,
                   const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
@@ -2451,34 +2477,58 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 };
 
+using Decimal16Test = DecimalTest<Decimal16Type>;
+
+TEST_P(Decimal16Test, NoNulls) {
+  int32_t precision = GetParam();
+  this->InitNoNullsTest(precision);
+}
+
+TEST_P(Decimal16Test, WithNulls) {
+  int32_t precision = GetParam();
+  this->InitWithNullsTest(precision, "163.84", "-163.84");
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal16Test, Decimal16Test, ::testing::Range(1, 5));
+
+using Decimal32Test = DecimalTest<Decimal32Type>;
+
+TEST_P(Decimal32Test, NoNulls) {
+  int32_t precision = GetParam();
+  this->InitNoNullsTest(precision);
+}
+
+TEST_P(Decimal32Test, WithNulls) {
+  int32_t precision = GetParam();
+  this->InitWithNullsTest(precision, "107374.1824", "-107374.1824");
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal32Test, Decimal32Test, ::testing::Range(1, 10));
+
+using Decimal64Test = DecimalTest<Decimal64Type>;
+
+TEST_P(Decimal64Test, NoNulls) {
+  int32_t precision = GetParam();
+  this->InitNoNullsTest(precision);
+}
+
+TEST_P(Decimal64Test, WithNulls) {
+  int32_t precision = GetParam();
+  this->InitWithNullsTest(precision, "46116860184.27387904", "-46116860184.27387904");
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal64Test, Decimal64Test, ::testing::Range(1, 19));
+
 using Decimal128Test = DecimalTest<Decimal128Type>;
 
 TEST_P(Decimal128Test, NoNulls) {
   int32_t precision = GetParam();
-  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(-2), Decimal128(2389),
-                                  Decimal128(4), Decimal128(-12348)};
-  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
-  this->TestCreate(precision, draw, valid_bytes, 0);
-  this->TestCreate(precision, draw, valid_bytes, 2);
+  this->InitNoNullsTest(precision);
 }
 
 TEST_P(Decimal128Test, WithNulls) {
   int32_t precision = GetParam();
-  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(2),  Decimal128(-1),
-                                  Decimal128(4), Decimal128(-1), Decimal128(1),
-                                  Decimal128(2)};
-  Decimal128 big;
-  ASSERT_OK_AND_ASSIGN(big, Decimal128::FromString("230342903942.234234"));
-  draw.push_back(big);
-
-  Decimal128 big_negative;
-  ASSERT_OK_AND_ASSIGN(big_negative, Decimal128::FromString("-23049302932.235234"));
-  draw.push_back(big_negative);
-
-  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
-                                      true, true, true,  true};
-  this->TestCreate(precision, draw, valid_bytes, 0);
-  this->TestCreate(precision, draw, valid_bytes, 2);
+  this->InitWithNullsTest(precision, "23049302932.235234", "-23049302932.235234");
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128Test, Decimal128Test, ::testing::Range(1, 38));
@@ -2487,34 +2537,15 @@ using Decimal256Test = DecimalTest<Decimal256Type>;
 
 TEST_P(Decimal256Test, NoNulls) {
   int32_t precision = GetParam();
-  std::vector<Decimal256> draw = {Decimal256(1), Decimal256(-2), Decimal256(2389),
-                                  Decimal256(4), Decimal256(-12348)};
-  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
-  this->TestCreate(precision, draw, valid_bytes, 0);
-  this->TestCreate(precision, draw, valid_bytes, 2);
+  this->InitNoNullsTest(precision);
 }
 
 TEST_P(Decimal256Test, WithNulls) {
   int32_t precision = GetParam();
-  std::vector<Decimal256> draw = {Decimal256(1), Decimal256(2),  Decimal256(-1),
-                                  Decimal256(4), Decimal256(-1), Decimal256(1),
-                                  Decimal256(2)};
-  Decimal256 big;  // (pow(2, 255) - 1) / pow(10, 38)
-  ASSERT_OK_AND_ASSIGN(big,
-                       Decimal256::FromString("578960446186580977117854925043439539266."
-                                              "34992332820282019728792003956564819967"));
-  draw.push_back(big);
-
-  Decimal256 big_negative;  // -pow(2, 255) / pow(10, 38)
-  ASSERT_OK_AND_ASSIGN(big_negative,
-                       Decimal256::FromString("-578960446186580977117854925043439539266."
-                                              "34992332820282019728792003956564819968"));
-  draw.push_back(big_negative);
-
-  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
-                                      true, true, true,  true};
-  this->TestCreate(precision, draw, valid_bytes, 0);
-  this->TestCreate(precision, draw, valid_bytes, 2);
+  this->InitWithNullsTest(precision, "578960446186580977117854925043439539266."
+                                     "34992332820282019728792003956564819967",
+                                     "-578960446186580977117854925043439539266."
+                                     "34992332820282019728792003956564819968");
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test,

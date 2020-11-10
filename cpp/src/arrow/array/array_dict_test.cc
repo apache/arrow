@@ -859,6 +859,18 @@ void TestDecimalDictionaryBuilderBasic(std::shared_ptr<DataType> decimal_type) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+TEST(TestDecimal16DictionaryBuilder, Basic) {
+  TestDecimalDictionaryBuilderBasic<Decimal16>(arrow::decimal16(2, 0));
+}
+
+TEST(TestDecimal32DictionaryBuilder, Basic) {
+  TestDecimalDictionaryBuilderBasic<Decimal32>(arrow::decimal32(2, 0));
+}
+
+TEST(TestDecimal64DictionaryBuilder, Basic) {
+  TestDecimalDictionaryBuilderBasic<Decimal64>(arrow::decimal64(2, 0));
+}
+
 TEST(TestDecimal128DictionaryBuilder, Basic) {
   TestDecimalDictionaryBuilderBasic<Decimal128>(arrow::decimal128(2, 0));
 }
@@ -920,6 +932,12 @@ void TestDecimalDictionaryBuilderDoubleTableSize(
   DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
 }
+
+// TEST(TestDecimal64DictionaryBuilder, DoubleTableSize) {
+//   const auto& decimal_type = arrow::decimal64(18, 0);
+//   Decimal64Builder decimal_builder(decimal_type);
+//   TestDecimalDictionaryBuilderDoubleTableSize(decimal_type, decimal_builder);
+// }
 
 TEST(TestDecimal128DictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal128(21, 0);

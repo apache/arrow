@@ -67,6 +67,9 @@ namespace arrow {
   ACTION(Time64);                               \
   ACTION(MonthInterval);                        \
   ACTION(DayTimeInterval);                      \
+  ACTION(Decimal16);                            \
+  ACTION(Decimal32);                            \
+  ACTION(Decimal64);                            \
   ACTION(Decimal128);                           \
   ACTION(Decimal256);                           \
   ACTION(List);                                 \

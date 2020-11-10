@@ -222,12 +222,8 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  Status WriteDataValues(const Decimal128Array& array) {
-    WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
-    return Status::OK();
-  }
-
-  Status WriteDataValues(const Decimal256Array& array) {
+  template <uint32_t width>
+  Status WriteDataValues(const BaseDecimalArray<width>& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
     return Status::OK();
   }

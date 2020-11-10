@@ -332,10 +332,17 @@ class DecimalConverter final
   const DecimalSubtype* decimal_type_;
 };
 
-template <typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
-using Decimal128Converter = DecimalConverter<Decimal128Type, Decimal128, BuilderType>;
-template <typename BuilderType = typename TypeTraits<Decimal256Type>::BuilderType>
-using Decimal256Converter = DecimalConverter<Decimal256Type, Decimal256, BuilderType>;
+#define DECL_DECIMAL_CONVERTER(width)                                                                  \
+template <typename BuilderType = typename TypeTraits<Decimal##width##Type>::BuilderType>               \
+using Decimal##width##Converter = DecimalConverter<Decimal##width##Type, Decimal##width, BuilderType>;
+
+DECL_DECIMAL_CONVERTER(16)
+DECL_DECIMAL_CONVERTER(32)
+DECL_DECIMAL_CONVERTER(64)
+DECL_DECIMAL_CONVERTER(128)
+DECL_DECIMAL_CONVERTER(256)
+
+#undef DECL_DECIMAL_CONVERTER
 
 // ------------------------------------------------------------------------
 // Converter for timestamp arrays
@@ -786,6 +793,9 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter, LargeBinaryType)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
                           FixedSizeBinaryType)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL16, Decimal16Converter, Decimal16Type)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter, Decimal32Type)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter, Decimal64Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter, Decimal128Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter, Decimal256Type)
     default:
@@ -843,6 +853,9 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL16, Decimal16Converter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter<>)
     SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)

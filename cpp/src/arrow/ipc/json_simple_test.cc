@@ -41,6 +41,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/decimal_type_traits.h"
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"
@@ -498,8 +499,19 @@ TEST(TestFixedSizeBinary, Dictionary) {
   ASSERT_RAISES(Invalid, ArrayFromJSON(dictionary(int8(), type), R"(["x"])", &array));
 }
 
-template <typename DecimalValue, typename DecimalBuilder>
-void TestDecimalBasic(std::shared_ptr<DataType> type) {
+template <typename T>
+class TestDecimal : public testing::Test {};
+using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
+
+TYPED_TEST_SUITE(TestDecimal, DecimalTypes);
+
+TYPED_TEST(TestDecimal, Basic) {
+  using TypeClass = typename TypeParam::TypeClass;
+  using DecimalBuilder = typename TypeParam::BuilderType;
+  using DecimalValue = typename TypeParam::ValueType;
+
+  auto type = std::make_shared<TypeClass>(5, 4);
+
   std::shared_ptr<Array> expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
@@ -510,54 +522,47 @@ void TestDecimalBasic(std::shared_ptr<DataType> type) {
   }
   AssertArraysEqual(*expected, *actual);
 
-  ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", \"-78.9000\"]", &actual));
+  ASSERT_OK(ArrayFromJSON(type, "[\"1.2345\", \"-3.2000\"]", &actual));
   ASSERT_OK(actual->ValidateFull());
   {
     DecimalBuilder builder(type);
-    ASSERT_OK(builder.Append(DecimalValue(1234567)));
-    ASSERT_OK(builder.Append(DecimalValue(-789000)));
+    ASSERT_OK(builder.Append(DecimalValue(12345)));
+    ASSERT_OK(builder.Append(DecimalValue(-32000)));
     ASSERT_OK(builder.Finish(&expected));
   }
   AssertArraysEqual(*expected, *actual);
 
-  ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", null]", &actual));
+  ASSERT_OK(ArrayFromJSON(type, "[\"1.2345\", null]", &actual));
   ASSERT_OK(actual->ValidateFull());
   {
     DecimalBuilder builder(type);
-    ASSERT_OK(builder.Append(DecimalValue(1234567)));
+    ASSERT_OK(builder.Append(DecimalValue(12345)));
     ASSERT_OK(builder.AppendNull());
     ASSERT_OK(builder.Finish(&expected));
   }
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestDecimal128, Basics) {
-  TestDecimalBasic<Decimal128, Decimal128Builder>(decimal128(10, 4));
+TYPED_TEST(TestDecimal, Errors) {
+  using TypeClass = typename TypeParam::TypeClass;
+  auto type = std::make_shared<TypeClass>(5, 4);
+
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[1.2345]", &array));
+  // Bad scale
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.345\"]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.34560\"]", &array));
 }
 
-TEST(TestDecimal256, Basics) {
-  TestDecimalBasic<Decimal256, Decimal256Builder>(decimal256(10, 4));
-}
-
-TEST(TestDecimal, Errors) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 4), decimal256(10, 4)}) {
-    std::shared_ptr<Array> array;
-
-    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
-    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[12.3456]", &array));
-    // Bad scale
-    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.345\"]", &array));
-    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.34560\"]", &array));
-  }
-}
-
-TEST(TestDecimal, Dictionary) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 2), decimal256(10, 2)}) {
-    AssertJSONDictArray(int32(), type,
-                        R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
-                        /*indices=*/"[0, 1, 1, null, 0]",
-                        /*values=*/R"(["123.45", "-78.90"])");
-  }
+TYPED_TEST(TestDecimal, Dictionary) {
+  using TypeClass = typename TypeParam::TypeClass;
+  auto type = std::make_shared<TypeClass>(5, 2);
+  AssertJSONDictArray(int32(), type,
+                      R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
+                      /*indices=*/"[0, 1, 1, null, 0]",
+                      /*values=*/R"(["123.45", "-78.90"])");
 }
 
 TEST(TestList, IntegerList) {
