@@ -335,7 +335,7 @@ class R6 {
   R6(const std::shared_ptr<T>& x) : data_(cpp11::to_r6<T>(x)) {}
 
   template <typename T>
-  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::shared_ptr<T>(x.release()))) {}
+  R6(std::unique_ptr<T> x) : data_(cpp11::to_r6<T>(std::move(x))) {}
 
   R6(SEXP data) : data_(data) {}
 
