@@ -1231,7 +1231,7 @@ impl<'a, 'b> PlanVisitor for GraphvizVisitor<'a, 'b> {
 
         writeln!(
             self.f,
-            "    {}[label={}]",
+            "    {}[shape=box label={}]",
             id,
             GraphvizBuilder::quoted(&label)
         )?;
@@ -2059,12 +2059,13 @@ mod tests {
             plan.display_graphviz()
         );
         assert!(
-            graphviz
-                .contains(r#"[label="TableScan: employee.csv projection=Some([0, 3])"]"#),
+            graphviz.contains(
+                r#"[shape=box label="TableScan: employee.csv projection=Some([0, 3])"]"#
+            ),
             "\n{}",
             plan.display_graphviz()
         );
-        assert!(graphviz.contains(r#"[label="TableScan: employee.csv projection=Some([0, 3])\nSchema: [id:Int32, state:Utf8]"]"#),
+        assert!(graphviz.contains(r#"[shape=box label="TableScan: employee.csv projection=Some([0, 3])\nSchema: [id:Int32, state:Utf8]"]"#),
                 "\n{}", plan.display_graphviz());
         assert!(
             graphviz.contains(r#"// End DataFusion GraphViz Plan"#),
