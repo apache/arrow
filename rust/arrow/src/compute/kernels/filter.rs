@@ -327,7 +327,8 @@ impl FilterContext {
         let mut u64_buffer = MutableBuffer::new(filter_bytes.len());
         // add to the resulting len so is is a multiple of the size of u64
         let pad_addional_len = (8 - filter_bytes.len() % 8) % 8;
-        u64_buffer.write_bytes(filter_bytes, pad_addional_len)?;
+        u64_buffer.extend_from_slice(filter_bytes);
+        u64_buffer.extend_from_slice(&vec![0; pad_addional_len]);
         let mut filter_u64 = u64_buffer.typed_data_mut::<u64>().to_owned();
 
         // mask of any bits outside of the given len

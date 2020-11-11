@@ -260,7 +260,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use std::io::Write;
     use std::mem;
 
     let len = left.len();
@@ -283,7 +282,7 @@ where
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
-            result.write(b).unwrap();
+            result.extend_from_slice(b);
         });
     }
 
@@ -293,7 +292,7 @@ where
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
-            result.write(&b[0..rem_buffer_size]).unwrap();
+            result.extend_from_slice(&b[0..rem_buffer_size]);
         });
     }
 
@@ -321,7 +320,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use std::io::Write;
     use std::mem;
 
     let len = left.len();
@@ -336,7 +334,7 @@ where
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
-            result.write(b).unwrap();
+            result.extend_from_slice(b);
         });
     }
 
@@ -345,7 +343,7 @@ where
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
-            result.write(&b[0..rem_buffer_size]).unwrap();
+            result.extend_from_slice(&b[0..rem_buffer_size]);
         });
     }
 
