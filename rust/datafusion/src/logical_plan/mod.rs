@@ -22,7 +22,7 @@
 //! physical query plans and executed.
 
 use std::fmt::{self, Debug, Display};
-use std::{any::Any, collections::HashMap, collections::HashSet, sync::Arc};
+use std::{collections::HashMap, collections::HashSet, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
@@ -37,71 +37,15 @@ use crate::{physical_plan::udf::ScalarUDF, sql::parser::FileType};
 use arrow::record_batch::RecordBatch;
 
 mod expr;
+mod extension;
 mod operators;
 
 pub use expr::{
     and, array, avg, binary_expr, col, concat, count, create_udaf, create_udf,
     exprlist_to_fields, length, lit, max, min, sum, Expr, Literal,
 };
+pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
-
-/// This defines the interface for `LogicalPlan` nodes that can be
-/// used to extend DataFusion with custom relational operators.
-///
-/// See the example in
-/// [user_defined_plan.rs](../../tests/user_defined_plan.rs) for an
-/// example of how to use this extension API
-pub trait UserDefinedLogicalNode: Debug {
-    /// Return a reference to self as Any, to support dynamic downcasting
-    fn as_any(&self) -> &dyn Any;
-
-    /// Return the logical plan's inputs
-    fn inputs(&self) -> Vec<&LogicalPlan>;
-
-    /// Return the output schema of this logical plan node
-    fn schema(&self) -> &SchemaRef;
-
-    /// returns all expressions in the current logical plan node. This
-    /// should not include expressions of any inputs (aka
-    /// non-recursively) These expressions are used for optimizer
-    /// passes and rewrites.
-    fn expressions(&self) -> Vec<Expr>;
-
-    /// A list of output columns (e.g. the names of columns in
-    /// self.schema()) for which predicates can not be pushed below
-    /// this node without changing the output.
-    ///
-    /// By default, this returns all columns and thus prevents any
-    /// predicates from being pushed below this node.
-    fn prevent_predicate_push_down_columns(&self) -> HashSet<String> {
-        // default (safe) is all columns in the schema.
-        self.schema()
-            .fields()
-            .iter()
-            .map(|f| f.name().clone())
-            .collect()
-    }
-
-    /// Write a single line, human readable string to `f` for use in explain plan
-    ///
-    /// For example: `TopK: k=10`
-    fn fmt_for_explain(&self, f: &mut fmt::Formatter) -> fmt::Result;
-
-    /// Create a new `ExtensionPlanNode` with the specified children
-    /// and expressions. This function is used during optimization
-    /// when the plan is being rewritten and a new instance of the
-    /// `ExtensionPlanNode` must be created.
-    ///
-    /// Note that exprs and inputs are in the same order as the result
-    /// of self.inputs and self.exprs.
-    ///
-    /// So, `self.from_template(exprs, ..).expressions() == exprs
-    fn from_template(
-        &self,
-        exprs: &Vec<Expr>,
-        inputs: &Vec<LogicalPlan>,
-    ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
-}
 
 /// Describes the source of the table, either registered on the context or by reference
 #[derive(Clone)]
