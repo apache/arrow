@@ -128,7 +128,7 @@ struct ARROW_EXPORT WriteProperties {
   Compression::type compression = Compression::UNCOMPRESSED;
 
   /// Compressor-specific compression level
-  int compression_level = Compression::kUseDefaultCompressionLevel;
+  int compression_level = ::arrow::util::kUseDefaultCompressionLevel;
 };
 
 ARROW_EXPORT

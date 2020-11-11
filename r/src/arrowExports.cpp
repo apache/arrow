@@ -5102,12 +5102,12 @@ extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP array_ptr_sexp, SEXP sc
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Pointer<ArrowArray> array_ptr, arrow::r::Pointer<ArrowSchema> schema_ptr);
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Pointer<struct ArrowArray> array_ptr, arrow::r::Pointer<struct ArrowSchema> schema_ptr);
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::Input<arrow::r::Pointer<ArrowArray>>::type array_ptr(array_ptr_sexp);
-	arrow::r::Input<arrow::r::Pointer<ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array_ptr(array_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
 	ExportRecordBatch(batch, array_ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11

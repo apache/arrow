@@ -23,8 +23,16 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <limits>
+#include <memory>
+#include <utility>
+
 #include <arrow/buffer.h>  // for RBuffer definition below
-#include <arrow/c/bridge.h>
+#include <arrow/result.h>
+#include <arrow/status.h>
+
+// forward declaration-only headers
+#include <arrow/c/abi.h>
 #include <arrow/compute/type_fwd.h>
 #include <arrow/csv/type_fwd.h>
 #include <arrow/dataset/type_fwd.h>
@@ -32,17 +40,9 @@
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
 #include <arrow/json/type_fwd.h>
-#include <arrow/result.h>
-#include <arrow/status.h>
 #include <arrow/type_fwd.h>
-#include <arrow/util/compression.h>
 #include <arrow/util/type_fwd.h>
 #include <parquet/type_fwd.h>
-
-#include <limits>
-#include <memory>
-#include <utility>
-#include <vector>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
