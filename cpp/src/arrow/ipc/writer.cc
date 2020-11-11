@@ -230,7 +230,7 @@ class RecordBatchSerializer {
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
         size = buffer->size();
-        padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+        padding = BitUtil::RoundUp(size, options_.alignment) - size;
       }
 
       buffer_meta_.push_back({offset, size});
@@ -238,7 +238,6 @@ class RecordBatchSerializer {
     }
 
     out_->body_length = offset - buffer_start_offset_;
-    DCHECK(BitUtil::IsMultipleOf8(out_->body_length));
 
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out

@@ -129,11 +129,6 @@ class ArrayLoader {
     if (length < 0) {
       return Status::Invalid("Negative length for reading buffer ", buffer_index_);
     }
-    // This construct permits overriding GetBuffer at compile time
-    if (!BitUtil::IsMultipleOf8(offset)) {
-      return Status::Invalid("Buffer ", buffer_index_,
-                             " did not start on 8-byte aligned offset: ", offset);
-    }
     return file_->ReadAt(offset, length).Value(out);
   }
 

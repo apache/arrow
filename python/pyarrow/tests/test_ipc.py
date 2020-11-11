@@ -238,6 +238,34 @@ def test_stream_categorical_roundtrip(stream_fixture):
     assert_frame_equal(table.to_pandas(), df)
 
 
+def test_contiguous_buffers(stream_fixture, size=(5, 5)):
+    stream_fixture.options = pa.ipc.IpcWriteOptions(alignment=1)
+    stream_fixture.use_legacy_ipc_format = None
+
+    df = pd.DataFrame(np.random.randint(10, size=size), dtype=np.uint8)
+    batch = pa.RecordBatch.from_pandas(df)
+    with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
+        wr.write_batch(batch)
+
+    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
+             .read_all())
+
+    address = min(
+        c.chunks[0].buffers()[1].address
+        for c in table.columns)
+
+    class numpy_holder:
+        __array_interface__ = dict(
+            data=(address, False),
+            typestr='u1',
+            shape=size)
+
+    actual = np.array(numpy_holder(), copy=False).T
+    np.testing.assert_allclose(
+        df.values,
+        actual)
+
+
 def test_open_stream_from_buffer(stream_fixture):
     # ARROW-2859
     _, batches = stream_fixture.write_batches()

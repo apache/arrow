@@ -61,6 +61,8 @@ cdef class IpcWriteOptions(_Weakrefable):
     use_threads: bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
+    alignment : int, default 8
+        Byte alignment for metadata, body & buffers
     """
     __slots__ = ()
 
@@ -68,13 +70,15 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  use_legacy_format=False, compression=None,
-                 bint use_threads=True):
+                 bint use_threads=True, alignment=None):
         self.c_options = CIpcWriteOptions.Defaults()
         self.use_legacy_format = use_legacy_format
         self.metadata_version = metadata_version
         if compression is not None:
             self.compression = compression
         self.use_threads = use_threads
+        if alignment is not None:
+            self.alignment = alignment
 
     @property
     def use_legacy_format(self):
@@ -83,6 +87,15 @@ cdef class IpcWriteOptions(_Weakrefable):
     @use_legacy_format.setter
     def use_legacy_format(self, bint value):
         self.c_options.write_legacy_ipc_format = value
+
+    @property
+    def alignment(self):
+        return self.c_options.alignment
+
+    @alignment.setter
+    def alignment(self, value):
+        assert value >= 1, "unsupported alignment"
+        self.c_options.alignment = value
 
     @property
     def metadata_version(self):
