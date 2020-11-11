@@ -22,6 +22,8 @@ namespace arrow {
 template <typename T>
 class Future;
 
+class TimestampParser;
+
 namespace internal {
 
 class Executor;

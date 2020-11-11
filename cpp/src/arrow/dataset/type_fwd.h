@@ -79,6 +79,8 @@ const std::shared_ptr<Expression>& scalar(bool);
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;
+class DirectoryPartitioning;
+class HivePartitioning;
 
 struct ScanContext;
 

@@ -1129,7 +1129,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
-          arrow::AllocateResizableBuffer(
+          ::arrow::AllocateResizableBuffer(
               BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
     }
@@ -1304,7 +1304,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   Result<std::shared_ptr<Array>> MaybeReplaceValidity(std::shared_ptr<Array> array,
                                                       int64_t new_null_count,
-                                                      arrow::MemoryPool* memory_pool) {
+                                                      ::arrow::MemoryPool* memory_pool) {
     if (bits_buffer_ == nullptr) {
       return array;
     }
@@ -1320,7 +1320,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer));
       buffers[1] = slicer.buffer_;
     }
-    return arrow::MakeArray(std::make_shared<ArrayData>(
+    return ::arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));
   }
 
@@ -1462,7 +1462,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
   auto WriteIndicesChunk = [&](int64_t offset, int64_t batch_size) {
     int64_t batch_num_values = 0;
     int64_t batch_num_spaced_values = 0;
-    int64_t null_count = arrow::kUnknownNullCount;
+    int64_t null_count = ::arrow::kUnknownNullCount;
     // Bits is not null for nullable values.  At this point in the code we can't determine
     // if the leaf array has the same null values as any parents it might have had so we
     // need to recompute it from def levels.

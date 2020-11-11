@@ -654,7 +654,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
         parquet::ParquetFileReader::Open(
-            std::make_shared<arrow::io::BufferReader>(pbuffer));
+            std::make_shared<::arrow::io::BufferReader>(pbuffer));
 
     // Get the File MetaData
     std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
@@ -867,7 +867,7 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   // Create a ParquetReader instance
   std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
       parquet::ParquetFileReader::Open(
-          std::make_shared<arrow::io::BufferReader>(pbuffer));
+          std::make_shared<::arrow::io::BufferReader>(pbuffer));
   // Get the File MetaData
   std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
   std::shared_ptr<parquet::RowGroupMetaData> rg_metadata = file_metadata->RowGroup(0);

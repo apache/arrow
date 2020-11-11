@@ -62,7 +62,7 @@ namespace parquet {
 class PARQUET_EXPORT StreamWriter {
  public:
   template <typename T>
-  using optional = arrow::util::optional<T>;
+  using optional = ::arrow::util::optional<T>;
 
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move
@@ -149,7 +149,7 @@ class PARQUET_EXPORT StreamWriter {
   /// \brief Output operators for variable length strings.
   StreamWriter& operator<<(const char* v);
   StreamWriter& operator<<(const std::string& v);
-  StreamWriter& operator<<(arrow::util::string_view v);
+  StreamWriter& operator<<(::arrow::util::string_view v);
 
   /// \brief Output operator for optional fields.
   template <typename T>

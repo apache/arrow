@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

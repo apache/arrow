@@ -72,8 +72,8 @@ inline std::string data_file(const char* file) {
 // A temporary directory that contains the encrypted files generated in the tests.
 extern std::unique_ptr<TemporaryDir> temp_dir;
 
-inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
-  arrow::Result<std::unique_ptr<TemporaryDir>> dir;
+inline ::arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
+  ::arrow::Result<std::unique_ptr<TemporaryDir>> dir;
   ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
   return dir;
 }

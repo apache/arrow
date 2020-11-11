@@ -936,7 +936,7 @@ void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
 std::string FileMetaData::SerializeToString() const {
   // We need to pass in an initial size. Since it will automatically
   // increase the buffer size to hold the metadata, we just leave it 0.
-  PARQUET_ASSIGN_OR_THROW(auto serializer, arrow::io::BufferOutputStream::Create(0));
+  PARQUET_ASSIGN_OR_THROW(auto serializer, ::arrow::io::BufferOutputStream::Create(0));
   WriteTo(serializer.get());
   PARQUET_ASSIGN_OR_THROW(auto metadata_buffer, serializer->Finish());
   return metadata_buffer->ToString();

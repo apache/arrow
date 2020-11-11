@@ -15,23 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 namespace arrow {
+namespace json {
 
-struct Datum;
+class TableReader;
+struct ReadOptions;
+struct ParseOptions;
 
-namespace compute {
-
-struct CastOptions;
-
-class ExecContext;
-class KernelContext;
-
-struct Kernel;
-struct ScalarKernel;
-struct ScalarAggregateKernel;
-struct VectorKernel;
-
-}  // namespace compute
+}  // namespace json
 }  // namespace arrow

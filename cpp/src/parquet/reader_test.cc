@@ -450,22 +450,22 @@ TEST(TestFileReader, BufferedReads) {
   std::shared_ptr<WriterProperties> writer_props =
       WriterProperties::Builder().write_batch_size(64)->data_pagesize(128)->build();
 
-  ASSERT_OK_AND_ASSIGN(auto out_file, arrow::io::BufferOutputStream::Create());
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
   std::shared_ptr<ParquetFileWriter> file_writer =
       ParquetFileWriter::Open(out_file, schema, writer_props);
 
   RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
 
-  std::vector<std::shared_ptr<arrow::Array>> column_data;
+  ::arrow::ArrayVector column_data;
   ::arrow::random::RandomArrayGenerator rag(0);
 
   // Scratch space for reads
-  std::vector<std::shared_ptr<Buffer>> scratch_space;
+  ::arrow::BufferVector scratch_space;
 
   // write columns
   for (int col_index = 0; col_index < num_columns; ++col_index) {
     DoubleWriter* writer = static_cast<DoubleWriter*>(rg_writer->NextColumn());
-    std::shared_ptr<arrow::Array> col = rag.Float64(num_rows, 0, 100);
+    std::shared_ptr<::arrow::Array> col = rag.Float64(num_rows, 0, 100);
     const auto& col_typed = static_cast<const ::arrow::DoubleArray&>(*col);
     writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.raw_values());
     column_data.push_back(col);
@@ -479,7 +479,7 @@ TEST(TestFileReader, BufferedReads) {
 
   // Open the reader
   ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
-  auto in_file = std::make_shared<arrow::io::BufferReader>(file_buf);
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
   ReaderProperties reader_props;
   reader_props.enable_buffered_stream();
