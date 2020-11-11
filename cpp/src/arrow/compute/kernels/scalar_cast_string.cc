@@ -102,43 +102,22 @@ constexpr bool has_same_width() {
   return sizeof(typename I::offset_type) == sizeof(typename O::offset_type);
 }
 
+template <typename I, typename O, typename Enable = void>
+struct CastBinaryToBinaryOffsets {};
+
 // Cast same-width offsets (no-op)
 template <typename I, typename O>
-void CastBinaryToBinaryOffsets(enable_if_t<has_same_width<I, O>(), KernelContext*> ctx,
-                               const ArrayData& input, ArrayData* output) {}
+struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_same_width<I, O>()>> {
+  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+  }
+};
 
 // Upcast offsets
 template <typename I, typename O>
-void CastBinaryToBinaryOffsets(enable_if_t<has_smaller_width<I, O>(), KernelContext*> ctx,
-                               const ArrayData& input, ArrayData* output) {
-  using input_offset_type = typename I::offset_type;
-  using output_offset_type = typename O::offset_type;
-  KERNEL_ASSIGN_OR_RAISE(
-      output->buffers[1], ctx,
-      ctx->Allocate((output->length + output->offset + 1) * sizeof(output_offset_type)));
-  memset(output->buffers[1]->mutable_data(), 0,
-         output->offset * sizeof(output_offset_type));
-  ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
-                              output->GetMutableValues<output_offset_type>(1),
-                              output->length + 1);
-}
-
-// Downcast offsets
-template <typename I, typename O>
-void CastBinaryToBinaryOffsets(enable_if_t<has_smaller_width<O, I>(), KernelContext*> ctx,
-                               const ArrayData& input, ArrayData* output) {
-  using input_offset_type = typename I::offset_type;
-  using output_offset_type = typename O::offset_type;
-
-  constexpr input_offset_type kMaxOffset = std::numeric_limits<output_offset_type>::max();
-
-  const input_offset_type* input_offsets = input.GetValues<input_offset_type>(1);
-
-  // Binary offsets are ascending, so it's enough to check the last one for overflow.
-  if (input_offsets[input.length] > kMaxOffset) {
-    ctx->SetStatus(Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
-                                   output->type->ToString(), ": input array too large"));
-  } else {
+struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_smaller_width<I, O>()>> {
+  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+    using input_offset_type = typename I::offset_type;
+    using output_offset_type = typename O::offset_type;
     KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
                            ctx->Allocate((output->length + output->offset + 1) *
                                          sizeof(output_offset_type)));
@@ -148,7 +127,37 @@ void CastBinaryToBinaryOffsets(enable_if_t<has_smaller_width<O, I>(), KernelCont
                                 output->GetMutableValues<output_offset_type>(1),
                                 output->length + 1);
   }
-}
+};
+
+// Downcast offsets
+template <typename I, typename O>
+struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_smaller_width<O, I>()>> {
+  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+    using input_offset_type = typename I::offset_type;
+    using output_offset_type = typename O::offset_type;
+
+    constexpr input_offset_type kMaxOffset =
+        std::numeric_limits<output_offset_type>::max();
+
+    const input_offset_type* input_offsets = input.GetValues<input_offset_type>(1);
+
+    // Binary offsets are ascending, so it's enough to check the last one for overflow.
+    if (input_offsets[input.length] > kMaxOffset) {
+      ctx->SetStatus(Status::Invalid("Failed casting from ", input.type->ToString(),
+                                     " to ", output->type->ToString(),
+                                     ": input array too large"));
+    } else {
+      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
+                             ctx->Allocate((output->length + output->offset + 1) *
+                                           sizeof(output_offset_type)));
+      memset(output->buffers[1]->mutable_data(), 0,
+             output->offset * sizeof(output_offset_type));
+      ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
+                                  output->GetMutableValues<output_offset_type>(1),
+                                  output->length + 1);
+    }
+  }
+};
 
 template <typename O, typename I>
 struct BinaryToBinaryCastFunctor {
@@ -173,7 +182,7 @@ struct BinaryToBinaryCastFunctor {
 
     // Start with a zero-copy cast, but change indices to expected size
     ZeroCopyCastExec(ctx, batch, out);
-    CastBinaryToBinaryOffsets<I, O>(ctx, input, out->mutable_array());
+    CastBinaryToBinaryOffsets<I, O>::CastOffsets(ctx, input, out->mutable_array());
   }
 };
 
@@ -181,11 +190,8 @@ struct BinaryToBinaryCastFunctor {
 #pragma warning(pop)
 #endif
 
-// String casts available
-//
-// * Numbers and boolean to (Large)String
-// * (Large)Binary/String to (Large)Binary
-// * (Large)Binary to (Large)String with UTF8 validation
+// ----------------------------------------------------------------------
+// Cast functions registration
 
 template <typename OutType>
 void AddNumberToStringCasts(CastFunction* func) {
