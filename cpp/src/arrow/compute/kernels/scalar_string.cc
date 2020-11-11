@@ -1308,8 +1308,8 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
   explicit UTF8TrimBase(TrimOptions options) : options(options) {
     // TODO: check return / can we raise an exception here?
     arrow::util::UTF8ForEach(options.characters, [&](uint32_t c) {
-      codepoints.resize(c);
-      codepoints[c] = true;
+      codepoints.resize(std::max(c + 1, static_cast<uint32_t>(codepoints.size())));
+      codepoints.at(c) = true;
     });
   }
 
