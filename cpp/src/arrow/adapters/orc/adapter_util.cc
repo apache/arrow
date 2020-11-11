@@ -589,18 +589,12 @@ Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbat
     }
   }
   //First fill fields of ColumnVectorBatch
-  if (array->null_count())
-    batch->hasNulls = true;
+  //For the parent type no nulls exist
   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {   
-    if (array->IsNull(arrowOffset)) {
-      batch->notNull[orcOffset] = false;
-    }
-    else {
-      int tag = array->child_id(arrowOffset);
-      batch->tags[orcOffset] = tag;
-      batch->offsets[orcOffset] = nextChildrenOffsets[tag];
-      nextChildrenOffsets[tag]++;
-    }
+    int tag = array->child_id(arrowOffset);
+    batch->tags[orcOffset] = tag;
+    batch->offsets[orcOffset] = nextChildrenOffsets[tag];
+    nextChildrenOffsets[tag]++;
   }
   batch->numElements += orcOffset - initORCOffset;
   //Fill the fields
