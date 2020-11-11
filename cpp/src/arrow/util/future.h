@@ -264,8 +264,8 @@ class Future {
   }
 
   /// \brief Make a finished Future<> with the provided Status.
-  template <typename E = ValueType>
-  static detail::Empty::EnableIfSame<E> MakeFinished(Status s = Status::OK()) {
+  template <typename E = ValueType, typename = detail::Empty::EnableIfSame<E>>
+  static Future<> MakeFinished(Status s = Status::OK()) {
     return MakeFinished(E::ToResult(std::move(s)));
   }
 

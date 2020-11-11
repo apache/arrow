@@ -356,11 +356,27 @@ TEST(FutureSyncTest, Empty) {
     AssertSuccessful(fut);
   }
   {
+    // MakeFinished()
+    auto fut = Future<>::MakeFinished();
+    AssertSuccessful(fut);
+    auto res = fut.result();
+    ASSERT_OK(res);
+    res = std::move(fut.result());
+    ASSERT_OK(res);
+  }
+  {
     // MarkFinished(Status)
     auto fut = Future<>::Make();
     AssertNotFinished(fut);
     fut.MarkFinished(Status::OK());
     AssertSuccessful(fut);
+  }
+  {
+    // MakeFinished(Status)
+    auto fut = Future<>::MakeFinished(Status::OK());
+    AssertSuccessful(fut);
+    fut = Future<>::MakeFinished(Status::IOError("xxx"));
+    AssertFailed(fut);
   }
   {
     // MarkFinished(Status)
