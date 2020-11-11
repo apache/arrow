@@ -14,7 +14,7 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
-use crate::error::Result;
+use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Expr;
 use crate::logical_plan::{and, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
@@ -90,7 +90,7 @@ impl OptimizerRule for FilterPushDown {
         // construct optimized position of each of the new filters
         // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
         // can push the filter to depth 10
-        let mut new_filtersnew_filters: BTreeMap<usize, Expr> = BTreeMap::new();
+        let mut new_filters: BTreeMap<usize, Expr> = BTreeMap::new();
         for (filter_depth, expr) in result.filters {
             // get all columns on the filter expression
             let mut filter_columns: HashSet<String> = HashSet::new();
@@ -126,13 +126,13 @@ impl OptimizerRule for FilterPushDown {
             }
 
             // AND filter expressions that would be placed on the same depth
-            if let Some(existing_expression) = new_filtersnew_filters.get(&new_depth) {
+            if let Some(existing_expression) = new_filters.get(&new_depth) {
                 new_expression = and(existing_expression, &new_expression)
             }
-            new_filtersnew_filters.insert(new_depth, new_expression);
+            new_filters.insert(new_depth, new_expression);
         }
 
-        optimize_plan(plan, &new_filtersnew_filters, 0)
+        optimize_plan(plan, &new_filters, 0)
     }
 }
 
@@ -214,6 +214,36 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
             result.break_points.insert(depth, columns);
             Ok(result)
         }
+        LogicalPlan::Extension { node } => {
+            let inputs = node.inputs();
+
+            let mut result = match inputs.len() {
+                0 => AnalysisResult {
+                    break_points: BTreeMap::new(),
+                    filters: BTreeMap::new(),
+                    projections: BTreeMap::new(),
+                },
+                1 => analyze_plan(inputs[0], depth + 1)?,
+                _ => {
+                    return Err(DataFusionError::NotImplemented(
+                        "Not Yet Implemented: Predicate pushdown for multiple inputs"
+                            .into(),
+                    ))
+                }
+            };
+
+            // collect all columns that break at this depth
+            let columns = node
+                .schema()
+                .fields()
+                .iter()
+                .map(|f| f.name().clone())
+                .collect::<HashSet<_>>();
+            result.break_points.insert(depth, columns);
+
+            Ok(result)
+        }
+
         // all other plans add breaks to all their columns to indicate that filters can't proceed further.
         _ => {
             let columns = plan
@@ -615,6 +645,29 @@ mod tests {
         \n  Filter: #a GtEq Int64(1) And #a LtEq Int64(1)\
         \n    Limit: 1\
         \n      TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// verifies that filters on a plan with user nodes are not lost
+    /// (ARROW-10547)
+    #[test]
+    fn filters_user_defined_node() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .filter(col("a").lt_eq(lit(1i64)))?
+            .build()?;
+
+        let plan = crate::test::user_defined::new(plan);
+
+        let expected = "\
+            TestUserDefined\
+             \n  Filter: #a LtEq Int64(1)\
+             \n    TableScan: test projection=None";
+
+        // not part of the test
+        assert_eq!(format!("{:?}", plan), expected);
 
         assert_optimized_plan_eq(&plan, expected);
         Ok(())

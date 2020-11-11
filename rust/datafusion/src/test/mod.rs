@@ -249,6 +249,7 @@ pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {
     assert_eq!(actual, expected);
 }
 
+pub mod user_defined;
 pub mod variable;
 
 mod tests {
