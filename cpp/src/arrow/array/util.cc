@@ -223,6 +223,13 @@ class ArrayDataEndianSwapper {
   Status Visit(const StructType& type) { return Status::OK(); }
   Status Visit(const SparseUnionType& type) { return Status::OK(); }
 
+#if 0
+  template <typename T>
+  enable_if_binary_like<T, Status> Visit(const T& type) {
+    RETURN_NOT_OK(SwapSmallOffset());
+    return Status::OK();
+  }
+#else
   Status Visit(const StringType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
@@ -239,7 +246,8 @@ class ArrayDataEndianSwapper {
     RETURN_NOT_OK(SwapLargeOffset());
     return Status::OK();
   }
-
+#endif
+  
   Status Visit(const ListType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
