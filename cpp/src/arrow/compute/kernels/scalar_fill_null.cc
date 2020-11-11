@@ -85,51 +85,6 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
 };
 
 template <typename Type>
-struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
-  using BuilderType = typename TypeTraits<Type>::BuilderType;
-
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const ArrayData& input = *batch[0].array();
-    const auto& fill_value_scalar =
-        checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
-    util::string_view fill_value(*fill_value_scalar.value);
-    ArrayData* output = out->mutable_array();
-
-    // Ensure the kernel is configured properly to have no validity bitmap /
-    // null count 0 unless we explicitly propagate it below.
-    DCHECK(output->buffers[0] == nullptr);
-
-    if (input.MayHaveNulls() && fill_value_scalar.is_valid) {
-      BuilderType builder(input.type, ctx->memory_pool());
-      //
-      KERNEL_RETURN_IF_ERROR(
-          ctx, builder.ReserveData(input.buffers[2]->size() +
-                                   fill_value.length() * input.GetNullCount()));
-      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
-
-      KERNEL_RETURN_IF_ERROR(ctx, VisitArrayDataInline<Type>(
-                                      input,
-                                      [&](util::string_view s) {
-                                        builder.UnsafeAppend(s);
-                                        return Status::OK();
-                                      },
-                                      [&]() {
-                                        builder.UnsafeAppend(fill_value);
-                                        return Status::OK();
-                                      }));
-      std::shared_ptr<Array> string_array;
-      KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
-      *output = *string_array->data();
-      // The builder does not match the logical type, due to
-      // GenerateTypeAgnosticVarBinaryBase
-      output->type = input.type;
-    } else {
-      *output = input;
-    }
-  }
-};
-
-template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ArrayData& data = *batch[0].array();
@@ -197,6 +152,51 @@ void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   AddKernels(TemporalTypes());
   AddKernels({boolean(), null()});
 }
+
+template <typename Type>
+struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ArrayData& input = *batch[0].array();
+    const auto& fill_value_scalar =
+        checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
+    util::string_view fill_value(*fill_value_scalar.value);
+    ArrayData* output = out->mutable_array();
+
+    // Ensure the kernel is configured properly to have no validity bitmap /
+    // null count 0 unless we explicitly propagate it below.
+    DCHECK(output->buffers[0] == nullptr);
+
+    if (input.MayHaveNulls() && fill_value_scalar.is_valid) {
+      BuilderType builder(input.type, ctx->memory_pool());
+      //
+      KERNEL_RETURN_IF_ERROR(
+          ctx, builder.ReserveData(input.buffers[2]->size() +
+                                   fill_value.length() * input.GetNullCount()));
+      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
+
+      KERNEL_RETURN_IF_ERROR(ctx, VisitArrayDataInline<Type>(
+                                      input,
+                                      [&](util::string_view s) {
+                                        builder.UnsafeAppend(s);
+                                        return Status::OK();
+                                      },
+                                      [&]() {
+                                        builder.UnsafeAppend(fill_value);
+                                        return Status::OK();
+                                      }));
+      std::shared_ptr<Array> string_array;
+      KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
+      *output = *string_array->data();
+      // The builder does not match the logical type, due to
+      // GenerateTypeAgnosticVarBinaryBase
+      output->type = input.type;
+    } else {
+      *output = input;
+    }
+  }
+};
 
 void AddBinaryFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
