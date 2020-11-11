@@ -24,7 +24,6 @@
 
 namespace cpp11 {
 
-template <>
 const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>& array) {
   auto type = array->type_id();
   switch (type) {

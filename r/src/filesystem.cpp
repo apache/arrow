@@ -26,7 +26,6 @@ namespace fs = ::arrow::fs;
 
 namespace cpp11 {
 
-template <>
 const char* r6_class_name<fs::FileSystem>::get(
     const std::shared_ptr<fs::FileSystem>& file_system) {
   auto type_name = file_system->type_name();

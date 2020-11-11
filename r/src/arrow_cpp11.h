@@ -327,14 +327,9 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
 /// respectively. Other classes such as arrow::Array are base classes and the proper R6
 /// class name must be derived by examining a discriminant like Array::type_id.
 ///
-/// All specializations are located in arrow_exports.h to be visible in generated code.
+/// All specializations are located in arrow_types.h
 template <typename T>
-struct r6_class_name {
-  static const char* get(const std::shared_ptr<T>& ptr) {
-    static const std::string name = arrow::util::nameof<T>(/*strip_namespace=*/true);
-    return name.c_str();
-  }
-};
+struct r6_class_name;
 
 template <typename T>
 SEXP to_r6(const std::shared_ptr<T>& x) {

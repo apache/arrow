@@ -26,7 +26,6 @@
 
 namespace cpp11 {
 
-template <>
 const char* r6_class_name<arrow::Scalar>::get(
     const std::shared_ptr<arrow::Scalar>& scalar) {
   if (scalar->type->id() == arrow::Type::STRUCT) {

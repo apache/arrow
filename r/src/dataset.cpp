@@ -31,7 +31,6 @@ namespace fs = ::arrow::fs;
 
 namespace cpp11 {
 
-template <>
 const char* r6_class_name<ds::Dataset>::get(const std::shared_ptr<ds::Dataset>& dataset) {
   auto type_name = dataset->type_name();
 
@@ -46,7 +45,6 @@ const char* r6_class_name<ds::Dataset>::get(const std::shared_ptr<ds::Dataset>& 
   }
 }
 
-template <>
 const char* r6_class_name<ds::FileFormat>::get(
     const std::shared_ptr<ds::FileFormat>& file_format) {
   auto type_name = file_format->type_name();

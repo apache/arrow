@@ -21,7 +21,7 @@
 #include <arrow/type.h>
 
 namespace cpp11 {
-template <>
+
 const char* r6_class_name<arrow::DataType>::get(
     const std::shared_ptr<arrow::DataType>& type) {
   using arrow::Type;

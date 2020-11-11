@@ -2,7 +2,7 @@
 #include <cpp11.hpp>
 #include <cpp11/declarations.hpp>
 
-#include "./arrow_exports.h"
+#include "./arrow_types.h"
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)

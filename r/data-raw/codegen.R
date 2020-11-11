@@ -140,7 +140,7 @@ writeLines(con = "src/arrowExports.cpp", glue::glue('
 #include <cpp11.hpp>
 #include <cpp11/declarations.hpp>
 
-#include "./arrow_exports.h"
+#include "./arrow_types.h"
 
 {cpp_functions_definitions}
 {cpp_classes_finalizers}
