@@ -568,7 +568,7 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int
   return Status::OK();
 }
 
-Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
   auto array = checked_cast<UnionArray*>(parray);
   auto batch = checked_cast<liborc::UnionVectorBatch*>(cbatch);
   std::size_t size = type->fields().size();
@@ -578,23 +578,12 @@ Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbat
   int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   int64_t initArrowOffset = arrowOffset;
-  //If there is a better way to implement this please change it.
-  std::vector<uint64_t> nextChildrenOffsets(size, 0);
-  std::size_t unusedSubtypes = size;
-  for (int64_t i = orcOffset - 1; unusedSubtypes > 0 && i >= 0; i--) {
-    unsigned char currentType = batch->tags[i];
-    if(nextChildrenOffsets[currentType]) {
-      nextChildrenOffsets[currentType] = batch->offsets[i] + 1;
-      unusedSubtypes--;
-    }
-  }
   //First fill fields of ColumnVectorBatch
   //For the parent type no nulls exist
   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {   
     int tag = array->child_id(arrowOffset);
     batch->tags[orcOffset] = tag;
-    batch->offsets[orcOffset] = nextChildrenOffsets[tag];
-    nextChildrenOffsets[tag]++;
+    batch->offsets[orcOffset] = orcOffset;
   }
   batch->numElements += orcOffset - initORCOffset;
   //Fill the fields
@@ -656,7 +645,8 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_
     case Type::type::MAP:
       return FillMapBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::DENSE_UNION:
-      return FillDenseUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+    case Type::type::SPARSE_UNION:
+      return FillUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
