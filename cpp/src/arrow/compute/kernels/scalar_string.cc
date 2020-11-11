@@ -1465,89 +1465,86 @@ struct AsciiRTrim : AsciiTrimBase<Type, false, true, AsciiRTrim<Type>> {
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
-    ("For each string in `strings`, emit a string with leading and trailing whitespace "
-     "characters removed, where whitespace characters are defined by the Unicode "
+    ("For each string in `strings`, emit a string with leading and trailing whitespace\n"
+     "characters removed, where whitespace characters are defined by the Unicode\n"
      "standard.  Null values emit null."),
     {"strings"});
 
 const FunctionDoc utf8_ltrim_whitespace_doc(
     "Trim leading whitespace characters",
-    ("For each string in `strings`, emit a string with leading whitespace "
-     "characters removed, where whitespace characters are defined by the Unicode "
+    ("For each string in `strings`, emit a string with leading whitespace\n"
+     "characters removed, where whitespace characters are defined by the Unicode\n"
      "standard.  Null values emit null."),
     {"strings"});
 
 const FunctionDoc utf8_rtrim_whitespace_doc(
     "Trim trailing whitespace characters",
-    ("For each string in `strings`, emit a string with trailing whitespace "
-     "characters removed, where whitespace characters are defined by the Unicode "
+    ("For each string in `strings`, emit a string with trailing whitespace\n"
+     "characters removed, where whitespace characters are defined by the Unicode\n"
      "standard.  Null values emit null."),
     {"strings"});
 
 const FunctionDoc ascii_trim_whitespace_doc(
     "Trim leading and trailing ASCII whitespace characters",
-    ("For each string in `strings`, emit a string with leading and trailing ASCII "
-     "whitespace characters removed. Use `utf8_trim_whitespace` to trim Unicode "
+    ("For each string in `strings`, emit a string with leading and trailing ASCII\n"
+     "whitespace characters removed. Use `utf8_trim_whitespace` to trim Unicode\n"
      "whitespace characters. Null values emit null."),
     {"strings"});
 
 const FunctionDoc ascii_ltrim_whitespace_doc(
     "Trim leading ASCII whitespace characters",
-    ("For each string in `strings`, emit a string with leading ASCII whitespace "
-     "characters removed.  Use `utf8_ltrim_whitespace` to trim leading Unicode "
+    ("For each string in `strings`, emit a string with leading ASCII whitespace\n"
+     "characters removed.  Use `utf8_ltrim_whitespace` to trim leading Unicode\n"
      "whitespace characters. Null values emit null."),
     {"strings"});
 
 const FunctionDoc ascii_rtrim_whitespace_doc(
     "Trim trailing ASCII whitespace characters",
-    ("For each string in `strings`, emit a string with trailing ASCII whitespace "
-     "characters removed. Use `utf8_rtrim_whitespace` to trim trailing Unicode "
+    ("For each string in `strings`, emit a string with trailing ASCII whitespace\n"
+     "characters removed. Use `utf8_rtrim_whitespace` to trim trailing Unicode\n"
      "whitespace characters. Null values emit null."),
     {"strings"});
 
 const FunctionDoc utf8_trim_doc(
     "Trim leading and trailing characters present in the `characters` arguments",
-    ("For each string in `strings`, emit a string with leading and trailing "
-     "characters removed that are present in the `characters` argument.  Null values "
-     "emit "
-     "null."),
+    ("For each string in `strings`, emit a string with leading and trailing\n"
+     "characters removed that are present in the `characters` argument.  Null values\n"
+     "emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc utf8_ltrim_doc(
     "Trim leading characters present in the `characters` arguments",
-    ("For each string in `strings`, emit a string with leading "
-     "characters removed that are present in the `characters` argument.  Null values "
-     "emit "
-     "null."),
+    ("For each string in `strings`, emit a string with leading\n"
+     "characters removed that are present in the `characters` argument.  Null values\n"
+     "emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc utf8_rtrim_doc(
     "Trim trailing characters present in the `characters` arguments",
     ("For each string in `strings`, emit a string with leading "
-     "characters removed that are present in the `characters` argument.  Null values "
-     "emit "
-     "null."),
+     "characters removed that are present in the `characters` argument.  Null values\n"
+     "emit null."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_trim_doc(
     utf8_trim_doc.summary + "",
     utf8_trim_doc.description +
-        ("Both the input string as the `characters` argument are interepreted as ASCII "
-         "characters, to trim non-ASCII characters, use `utf8_trim"),
+        ("\nBoth the input string as the `characters` argument are interepreted as\n"
+         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_ltrim_doc(
     utf8_ltrim_doc.summary + "",
     utf8_ltrim_doc.description +
-        ("Both the input string as the `characters` argument are interepreted as ASCII "
-         "characters, to trim non-ASCII characters, use `utf8_trim"),
+        ("\nBoth the input string as the `characters` argument are interepreted as\n"
+         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc ascii_rtrim_doc(
     utf8_rtrim_doc.summary + "",
     utf8_rtrim_doc.description +
-        ("Both the input string as the `characters` argument are interepreted as ASCII "
-         "characters, to trim non-ASCII characters, use `utf8_trim"),
+        ("\nBoth the input string as the `characters` argument are interepreted as\n"
+         "ASCII characters, to trim non-ASCII characters, use `utf8_trim`."),
     {"strings"}, "TrimOptions");
 
 const FunctionDoc strptime_doc(
