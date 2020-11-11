@@ -1735,10 +1735,7 @@ pub struct DecimalArray {
 impl DecimalArray {
     /// Returns the element at index `i` as i128.
     pub fn value(&self, i: usize) -> i128 {
-        assert!(
-            i < self.data.len(),
-            "DecimalArray out of bounds access"
-        );
+        assert!(i < self.data.len(), "DecimalArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         let raw_val = unsafe {
             let pos = self.value_offset_at(offset);
@@ -4446,48 +4443,18 @@ mod tests {
 
     #[test]
     fn test_decimal_array() {
-        let values: [u8; 20] = [0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75, 36, 64];
+        let values: [u8; 20] = [
+            0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75,
+            36, 64,
+        ];
 
         let array_data = ArrayData::builder(DataType::Decimal(23, 6))
             .len(2)
             .add_buffer(Buffer::from(&values[..]))
             .build();
         let fixed_size_binary_array = DecimalArray::from(array_data);
-        // assert_eq!(10, fixed_size_binary_array.len());
-        // assert_eq!(0, fixed_size_binary_array.null_count());
-        assert_eq!(
-            8_887_000_000,
-            fixed_size_binary_array.value(0)
-        );
-        assert_eq!(
-            -8_887_000_000,
-            fixed_size_binary_array.value(1)
-        );
+        assert_eq!(8_887_000_000, fixed_size_binary_array.value(0));
+        assert_eq!(-8_887_000_000, fixed_size_binary_array.value(1));
         assert_eq!(10, fixed_size_binary_array.value_length());
-        // assert_eq!(10, fixed_size_binary_array.value_offset(2));
-        // for i in 0..3 {
-        //     assert!(fixed_size_binary_array.is_valid(i));
-        //     assert!(!fixed_size_binary_array.is_null(i));
-        // }
-
-        // Test binary array with offset
-        // let array_data = ArrayData::builder(DataType::FixedSizeBinary(5))
-        //     .len(2)
-        //     .offset(1)
-        //     .add_buffer(Buffer::from(&values[..]))
-        //     .build();
-        // let fixed_size_binary_array = FixedSizeBinaryArray::from(array_data);
-        // assert_eq!(
-        //     [b't', b'h', b'e', b'r', b'e'],
-        //     fixed_size_binary_array.value(0)
-        // );
-        // assert_eq!(
-        //     [b'a', b'r', b'r', b'o', b'w'],
-        //     fixed_size_binary_array.value(1)
-        // );
-        // assert_eq!(2, fixed_size_binary_array.len());
-        // assert_eq!(5, fixed_size_binary_array.value_offset(0));
-        // assert_eq!(5, fixed_size_binary_array.value_length());
-        // assert_eq!(10, fixed_size_binary_array.value_offset(1));
     }
 }

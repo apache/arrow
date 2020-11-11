@@ -20,7 +20,7 @@ use crate::datatypes::*;
 use crate::util::bit_util;
 use array::{
     Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericListArray,
-    GenericStringArray, ListArrayOps, OffsetSizeTrait, StringOffsetSizeTrait
+    GenericStringArray, ListArrayOps, OffsetSizeTrait, StringOffsetSizeTrait,
 };
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
@@ -680,15 +680,9 @@ impl ArrayEqual for DecimalArray {
             return false;
         }
 
-        let other = other
-            .as_any()
-            .downcast_ref::<DecimalArray>()
-            .unwrap();
+        let other = other.as_any().downcast_ref::<DecimalArray>().unwrap();
 
-        let this = self
-            .as_any()
-            .downcast_ref::<DecimalArray>()
-            .unwrap();
+        let this = self.as_any().downcast_ref::<DecimalArray>().unwrap();
 
         // TODO: handle null & length == 0 case?
 
@@ -737,10 +731,7 @@ impl ArrayEqual for DecimalArray {
         other_start_idx: usize,
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other
-            .as_any()
-            .downcast_ref::<DecimalArray>()
-            .unwrap();
+        let other = other.as_any().downcast_ref::<DecimalArray>().unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {

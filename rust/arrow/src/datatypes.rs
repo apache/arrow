@@ -1123,7 +1123,9 @@ impl DataType {
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
-            DataType::Decimal(precision, scale) => json!({"name": "decimal", "precision": precision, "scale": scale}),
+            DataType::Decimal(precision, scale) => {
+                json!({"name": "decimal", "precision": precision, "scale": scale})
+            }
         }
     }
 
