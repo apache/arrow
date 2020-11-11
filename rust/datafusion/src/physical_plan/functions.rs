@@ -29,10 +29,7 @@
 //! This module also has a set of coercion rules to improve user experience: if an argument i32 is passed
 //! to a function that supports f64, it is coerced to f64.
 
-use super::{
-    type_coercion::{coerce, data_types},
-    PhysicalExpr,
-};
+use super::{ColumnarValue, PhysicalExpr, type_coercion::{coerce, data_types}};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
@@ -343,17 +340,17 @@ impl PhysicalExpr for ScalarFunctionExpr {
         Ok(true)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         // evaluate the arguments
         let inputs = self
             .args
             .iter()
-            .map(|e| e.evaluate(batch))
+            .map(|e| e.evaluate(batch).map(|v| v.to_array(batch)))
             .collect::<Result<Vec<_>>>()?;
 
         // evaluate the function
         let fun = self.fun.as_ref();
-        (fun)(&inputs)
+        (fun)(&inputs).map(|a| ColumnarValue::Array(a))
     }
 }
 
@@ -381,8 +378,8 @@ mod tests {
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);
 
         // evaluate works
-        let result =
-            expr.evaluate(&RecordBatch::try_new(Arc::new(schema.clone()), columns)?)?;
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
+        let result = expr.evaluate(&batch)?.to_array(&batch);
 
         // downcast works
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -422,8 +419,8 @@ mod tests {
         assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
 
         // evaluate works
-        let result =
-            expr.evaluate(&RecordBatch::try_new(Arc::new(schema.clone()), columns)?)?;
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
+        let result = expr.evaluate(&batch)?.to_array(&batch);
 
         // downcast works
         let result = result.as_any().downcast_ref::<StringArray>().unwrap();
@@ -475,8 +472,8 @@ mod tests {
         );
 
         // evaluate works
-        let result =
-            expr.evaluate(&RecordBatch::try_new(Arc::new(schema.clone()), columns)?)?;
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
+        let result = expr.evaluate(&batch)?.to_array(&batch);
 
         // downcast works
         let result = result
