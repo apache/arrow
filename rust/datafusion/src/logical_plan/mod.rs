@@ -32,8 +32,9 @@ mod registry;
 pub use builder::LogicalPlanBuilder;
 pub use display::display_schema;
 pub use expr::{
-    and, array, avg, binary_expr, col, concat, count, create_udaf, create_udf,
-    exprlist_to_fields, length, lit, max, min, sum, Expr, Literal,
+    abs, acos, and, array, asin, atan, avg, binary_expr, ceil, col, concat, cos, count,
+    create_udaf, create_udf, exp, exprlist_to_fields, floor, length, lit, ln, log10,
+    log2, max, min, round, signum, sin, sqrt, sum, tan, trunc, Expr, Literal,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
