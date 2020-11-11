@@ -102,17 +102,15 @@ constexpr bool has_same_width() {
   return sizeof(typename I::offset_type) == sizeof(typename O::offset_type);
 }
 
-// Cast same width offsets (no-op)
+// Cast same-width offsets (no-op)
 template <typename I, typename O>
-enable_if_t<has_same_width<I, O>()> CastBinaryToBinaryOffsets(KernelContext* ctx,
-                                                              const ArrayData& input,
-                                                              ArrayData* output) {}
+void CastBinaryToBinaryOffsets(enable_if_t<has_same_width<I, O>(), KernelContext*> ctx,
+                               const ArrayData& input, ArrayData* output) {}
 
 // Upcast offsets
 template <typename I, typename O>
-enable_if_t<has_smaller_width<I, O>()> CastBinaryToBinaryOffsets(KernelContext* ctx,
-                                                                 const ArrayData& input,
-                                                                 ArrayData* output) {
+void CastBinaryToBinaryOffsets(enable_if_t<has_smaller_width<I, O>(), KernelContext*> ctx,
+                               const ArrayData& input, ArrayData* output) {
   using input_offset_type = typename I::offset_type;
   using output_offset_type = typename O::offset_type;
   KERNEL_ASSIGN_OR_RAISE(
@@ -127,9 +125,8 @@ enable_if_t<has_smaller_width<I, O>()> CastBinaryToBinaryOffsets(KernelContext* 
 
 // Downcast offsets
 template <typename I, typename O>
-enable_if_t<has_smaller_width<O, I>()> CastBinaryToBinaryOffsets(KernelContext* ctx,
-                                                                 const ArrayData& input,
-                                                                 ArrayData* output) {
+void CastBinaryToBinaryOffsets(enable_if_t<has_smaller_width<O, I>(), KernelContext*> ctx,
+                               const ArrayData& input, ArrayData* output) {
   using input_offset_type = typename I::offset_type;
   using output_offset_type = typename O::offset_type;
 
