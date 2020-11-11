@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <set>
 #include <string>
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -1304,12 +1303,14 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
   using offset_type = typename Base::offset_type;
   using State = OptionsWrapper<TrimOptions>;
   TrimOptions options;
-  std::set<uint32_t> codepoints;
+  std::vector<bool> codepoints;
 
   explicit UTF8TrimBase(TrimOptions options) : options(options) {
     // TODO: check return / can we raise an exception here?
-    arrow::util::UTF8ForEach(options.characters,
-                             [&](uint32_t c) { codepoints.insert(c); });
+    arrow::util::UTF8ForEach(options.characters, [&](uint32_t c) {
+      codepoints.reserve(c);
+      codepoints[c] = true;
+    });
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1330,7 +1331,7 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
     const uint8_t* begin_trimmed = begin;
 
     auto predicate = [&](uint32_t c) {
-      bool contains = codepoints.find(c) != codepoints.end();
+      bool contains = codepoints[c];
       return !contains;
     };
     if (left && !ARROW_PREDICT_TRUE(
@@ -1408,10 +1409,11 @@ struct AsciiTrimBase : StringTransform<Type, Derived> {
   using offset_type = typename Base::offset_type;
   using State = OptionsWrapper<TrimOptions>;
   TrimOptions options;
-  std::set<char> characters;
+  std::vector<bool> characters;
 
-  explicit AsciiTrimBase(TrimOptions options) : options(options) {
-    characters.insert(options.characters.begin(), options.characters.end());
+  explicit AsciiTrimBase(TrimOptions options) : options(options), characters(256) {
+    std::for_each(options.characters.begin(), options.characters.end(),
+                  [&](char c) { characters[static_cast<unsigned char>(c)] = true; });
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1427,7 +1429,7 @@ struct AsciiTrimBase : StringTransform<Type, Derived> {
     const uint8_t* begin_trimmed;
 
     auto predicate = [&](unsigned char c) {
-      bool contains = characters.find(static_cast<char>(c)) != characters.end();
+      bool contains = characters[c];
       return !contains;
     };
 
