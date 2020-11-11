@@ -223,7 +223,7 @@ class TestCast : public TestBase {
   }
 
   template <typename SourceType, typename DestType>
-  void TestCastBinaryToString() {
+  void TestCastBinaryToBinary() {
     CastOptions options;
     auto src_type = TypeTraits<SourceType>::type_singleton();
     auto dest_type = TypeTraits<DestType>::type_singleton();
@@ -233,41 +233,28 @@ class TestCast : public TestBase {
     std::vector<bool> valid = {1, 1, 1, 1, 0};
     std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
 
-    std::shared_ptr<Array> array;
-
     // Should accept when invalid but null.
-    ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
-    CheckZeroCopy(*array, dest_type);
-
-    // Should refuse due to invalid utf8 payload
-    CheckFails<SourceType>(strings, all, dest_type, options,
-                           /*check_scalar=*/false);
-
-    // Should accept due to option override
-    options.allow_invalid_utf8 = true;
-    CheckCase<SourceType, DestType>(strings, all, strings, options,
-                                    /*check_scalar=*/false, /*validate_full=*/false);
-  }
-
-  template <typename SourceType, typename DestType>
-  void TestCastStringToBinary() {
-    CastOptions options;
-    auto src_type = TypeTraits<SourceType>::type_singleton();
-    auto dest_type = TypeTraits<DestType>::type_singleton();
-
-    // All valid except the last one
-    std::vector<bool> all = {1, 1, 1, 1, 1};
-    std::vector<bool> valid = {1, 1, 1, 1, 0};
-    std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
-
-    std::shared_ptr<Array> array;
-
-    // Should accept when invalid but null.
-    ArrayFromVector<SourceType, std::string>(src_type, valid, strings, &array);
-    CheckZeroCopy(*array, dest_type);
-
-    CheckCase<SourceType, DestType>(src_type, strings, all, dest_type, strings, options,
+    CheckCase<SourceType, DestType>(strings, valid, strings, options,
                                     /*check_scalar=*/false);
+
+    // Should accept empty array
+    CheckCaseJSON(src_type, dest_type, "[]", "[]", /*check_scalar=*/false);
+
+    if (!SourceType::is_utf8 && DestType::is_utf8) {
+      // Should refuse due to invalid utf8 payload
+      CheckFails<SourceType>(strings, all, dest_type, options,
+                             /*check_scalar=*/false);
+      // Should accept due to option override
+      options.allow_invalid_utf8 = true;
+      CheckCase<SourceType, DestType>(strings, all, strings, options,
+                                      /*check_scalar=*/false, /*validate_full=*/false);
+    } else {
+      // Destination type allows non-utf8 data,
+      // or source type also enforces utf8 data.
+      const bool validate_full = !DestType::is_utf8;
+      CheckCase<SourceType, DestType>(strings, all, strings, options,
+                                      /*check_scalar=*/false, validate_full);
+    }
   }
 
   template <typename DestType>
@@ -1577,16 +1564,48 @@ TEST_F(TestCast, StringToTimestampErrors) {
   }
 }
 
-TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType>(); }
+TEST_F(TestCast, BinaryToString) { TestCastBinaryToBinary<BinaryType, StringType>(); }
 
-TEST_F(TestCast, LargeBinaryToLargeString) {
-  TestCastBinaryToString<LargeBinaryType, LargeStringType>();
+TEST_F(TestCast, BinaryToLargeBinary) {
+  TestCastBinaryToBinary<BinaryType, LargeBinaryType>();
 }
 
-TEST_F(TestCast, StringToBinary) { TestCastStringToBinary<StringType, BinaryType>(); }
+TEST_F(TestCast, BinaryToLargeString) {
+  TestCastBinaryToBinary<BinaryType, LargeStringType>();
+}
+
+TEST_F(TestCast, LargeBinaryToBinary) {
+  TestCastBinaryToBinary<LargeBinaryType, BinaryType>();
+}
+
+TEST_F(TestCast, LargeBinaryToString) {
+  TestCastBinaryToBinary<LargeBinaryType, StringType>();
+}
+
+TEST_F(TestCast, LargeBinaryToLargeString) {
+  TestCastBinaryToBinary<LargeBinaryType, LargeStringType>();
+}
+
+TEST_F(TestCast, StringToBinary) { TestCastBinaryToBinary<StringType, BinaryType>(); }
+
+TEST_F(TestCast, StringToLargeBinary) {
+  TestCastBinaryToBinary<StringType, LargeBinaryType>();
+}
+
+TEST_F(TestCast, StringToLargeString) {
+  TestCastBinaryToBinary<StringType, LargeStringType>();
+}
+
+TEST_F(TestCast, LargeStringToBinary) {
+  TestCastBinaryToBinary<LargeStringType, BinaryType>();
+}
+
+TEST_F(TestCast, LargeStringToString) {
+  TestCastBinaryToBinary<LargeStringType, StringType>();
+}
 
 TEST_F(TestCast, LargeStringToLargeBinary) {
-  TestCastStringToBinary<LargeStringType, LargeBinaryType>();
+  TestCastBinaryToBinary<LargeStringType, LargeBinaryType>();
 }
 
 TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
