@@ -5165,6 +5165,22 @@ extern "C" SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> RecordBatch__RenameColumns(const std::shared_ptr<arrow::RecordBatch>& batch, const std::vector<std::string>& names);
+extern "C" SEXP _arrow_RecordBatch__RenameColumns(SEXP batch_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
+	return cpp11::as_sexp(RecordBatch__RenameColumns(batch, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatch__RenameColumns(SEXP batch_sexp, SEXP names_sexp){
+	Rf_error("Cannot call RecordBatch__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
@@ -6087,6 +6103,22 @@ extern "C" SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__RenameColumns(const std::shared_ptr<arrow::Table>& table, const std::vector<std::string>& names);
+extern "C" SEXP _arrow_Table__RenameColumns(SEXP table_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
+	return cpp11::as_sexp(Table__RenameColumns(table, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__RenameColumns(SEXP table_sexp, SEXP names_sexp){
+	Rf_error("Cannot call Table__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table, R_xlen_t offset);
 extern "C" SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
 BEGIN_CPP11
@@ -6703,6 +6735,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
+		{ "_arrow_RecordBatch__RenameColumns", (DL_FUNC) &_arrow_RecordBatch__RenameColumns, 2}, 
 		{ "_arrow_RecordBatch__ReplaceSchemaMetadata", (DL_FUNC) &_arrow_RecordBatch__ReplaceSchemaMetadata, 2}, 
 		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
 		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
@@ -6762,6 +6795,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
 		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 
 		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1}, 
+		{ "_arrow_Table__RenameColumns", (DL_FUNC) &_arrow_Table__RenameColumns, 2}, 
 		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
 		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
 		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 3}, 

@@ -75,6 +75,12 @@ std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>&
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__RenameColumns(
+    const std::shared_ptr<arrow::Table>& table, const std::vector<std::string>& names) {
+  return ValueOrStop(table->RenameColumns(names));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table,
                                             R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, table->num_rows());

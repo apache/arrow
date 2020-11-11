@@ -75,6 +75,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
@@ -203,6 +204,9 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
+
+#' @export
+`names<-.RecordBatch` <- function(x, value) x$RenameColumns(value)
 
 #' @importFrom methods as
 #' @export
