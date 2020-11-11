@@ -46,7 +46,7 @@ impl<'a> BufferBitSlice<'a> {
     ///
     /// Returns immutable view with the given offset in bits and length in bits.
     /// This view have zero-copy representation over the actual data.
-    #[inline]
+    #[inline(always)]
     pub fn view(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
         Self {
             buffer_data: self.buffer_data,
@@ -58,7 +58,7 @@ impl<'a> BufferBitSlice<'a> {
     /// Returns bit chunks in native 64-bit allocation size.
     /// Native representations in Arrow follows 64-bit convention.
     /// Chunks can still be reinterpreted in any primitive type lower than u64.
-    #[inline]
+    #[inline(always)]
     pub fn chunks<T>(&self) -> BufferBitChunksExact<T>
     where
         T: BitMemory,
@@ -105,21 +105,21 @@ where
 {
     ///
     /// Returns remainder bit length from the exact chunk iterator
-    #[inline]
+    #[inline(always)]
     pub fn remainder_bit_len(&self) -> usize {
         self.remainder_len_in_bits
     }
 
     ///
     /// Returns the remainder bits interpreted as given type.
-    #[inline]
+    #[inline(always)]
     pub fn remainder_bits(&self) -> T {
         self.remainder
     }
 
     ///
     /// Interprets underlying chunk's view's bits as a given type.
-    #[inline]
+    #[inline(always)]
     pub fn interpret(self) -> impl Iterator<Item = T> + 'a
     where
         T: BitMemory,
@@ -129,7 +129,7 @@ where
 
     ///
     /// Returns underlying iterator as it is
-    #[inline]
+    #[inline(always)]
     pub fn iter(&self) -> &ChunksExact<'a, LocalBits, u8> {
         &self.chunks_exact
     }
