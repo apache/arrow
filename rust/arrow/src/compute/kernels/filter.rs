@@ -112,7 +112,7 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
     }
 
     fn null_buffer(&mut self) -> Buffer {
-        self.target_buffer.resize(self.target_index).unwrap();
+        self.target_buffer.resize(self.target_index);
         // use mem::replace to detach self.target_buffer from self so that it can be returned
         let target_buffer = mem::replace(&mut self.target_buffer, MutableBuffer::new(0));
         target_buffer.freeze()
@@ -149,7 +149,7 @@ fn filter_array_impl(
     let filter_u64 = &filter_context.filter_u64;
     let data_bytes = data_array.data_ref().buffers()[0].data();
     let mut target_buffer = MutableBuffer::new(filtered_count * value_size);
-    target_buffer.resize(filtered_count * value_size)?;
+    target_buffer.resize(filtered_count * value_size);
     let target_bytes = target_buffer.data_mut();
     let mut target_byte_index: usize = 0;
     let mut null_bit_setter = get_null_bit_setter(data_array);

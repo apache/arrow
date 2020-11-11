@@ -657,7 +657,7 @@ impl MutableBuffer {
     /// also ensure the new capacity will be a multiple of 64 bytes.
     ///
     /// Returns the new capacity for this buffer.
-    pub fn reserve(&mut self, capacity: usize) -> Result<usize> {
+    pub fn reserve(&mut self, capacity: usize) -> usize {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
@@ -666,7 +666,7 @@ impl MutableBuffer {
             self.data = new_data as *mut u8;
             self.capacity = new_capacity;
         }
-        Ok(self.capacity)
+        self.capacity
     }
 
     /// Resizes the buffer so that the `len` will equal to the `new_len`.
@@ -676,9 +676,9 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
-    pub fn resize(&mut self, new_len: usize) -> Result<()> {
+    pub fn resize(&mut self, new_len: usize) -> () {
         if new_len > self.len {
-            self.reserve(new_len)?;
+            self.reserve(new_len);
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
@@ -689,7 +689,6 @@ impl MutableBuffer {
             }
         }
         self.len = new_len;
-        Ok(())
     }
 
     /// Returns whether this buffer is empty or not.
@@ -1028,11 +1027,11 @@ mod tests {
         assert_eq!(64, buf.capacity());
 
         // Reserving a smaller capacity should have no effect.
-        let mut new_cap = buf.reserve(10).expect("reserve should be OK");
+        let mut new_cap = buf.reserve(10);
         assert_eq!(64, new_cap);
         assert_eq!(64, buf.capacity());
 
-        new_cap = buf.reserve(100).expect("reserve should be OK");
+        new_cap = buf.reserve(100);
         assert_eq!(128, new_cap);
         assert_eq!(128, buf.capacity());
     }
@@ -1043,23 +1042,23 @@ mod tests {
         assert_eq!(64, buf.capacity());
         assert_eq!(0, buf.len());
 
-        buf.resize(20).expect("resize should be OK");
+        buf.resize(20);
         assert_eq!(64, buf.capacity());
         assert_eq!(20, buf.len());
 
-        buf.resize(10).expect("resize should be OK");
+        buf.resize(10);
         assert_eq!(64, buf.capacity());
         assert_eq!(10, buf.len());
 
-        buf.resize(100).expect("resize should be OK");
+        buf.resize(100);
         assert_eq!(128, buf.capacity());
         assert_eq!(100, buf.len());
 
-        buf.resize(30).expect("resize should be OK");
+        buf.resize(30);
         assert_eq!(64, buf.capacity());
         assert_eq!(30, buf.len());
 
-        buf.resize(0).expect("resize should be OK");
+        buf.resize(0);
         assert_eq!(0, buf.capacity());
         assert_eq!(0, buf.len());
     }
@@ -1091,7 +1090,7 @@ mod tests {
         buf.write_all(&[0xbb])?;
         assert_eq!(buf, buf2);
 
-        buf2.reserve(65)?;
+        buf2.reserve(65);
         assert!(buf != buf2);
 
         Ok(())
