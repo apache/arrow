@@ -22,7 +22,6 @@
 #endif
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -58,121 +57,6 @@ ARROW_EXPORT int GetCpuThreadPoolCapacity();
 ARROW_EXPORT Status SetCpuThreadPoolCapacity(int threads);
 
 namespace internal {
-
-namespace detail {
-
-// Make sure that both functions returning T and Result<T> can be called
-// through Executor::Submit(), and that a Future<T> is returned for both.
-template <typename T>
-struct ExecutorSubmitTraits {
-  using FutureType = Future<T>;
-};
-template <typename T>
-struct ExecutorSubmitTraits<Result<T>> {
-  using FutureType = Future<T>;
-};
-
-// Make sure that both functions returning Status and void can be called
-// through Executor::Submit(), and that a Future<> is returned for both.
-template <>
-struct ExecutorSubmitTraits<Status> {
-  using FutureType = Future<>;
-};
-template <>
-struct ExecutorSubmitTraits<void> {
-  using FutureType = Future<>;
-};
-
-template <typename T, typename F>
-typename std::enable_if<
-    !std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
-ExecuteAndMarkFinished(Future<T>* fut, F&& f) {
-  fut->MarkFinished(std::forward<F>(f)());
-}
-
-template <typename F>
-typename std::enable_if<
-    std::is_same<typename std::result_of<F && ()>::type, void>::value>::type
-ExecuteAndMarkFinished(Future<>* fut, F&& f) {
-  std::forward<F>(f)();
-  fut->MarkFinished();
-}
-
-}  // namespace detail
-
-// Hints about a task that may be used by an Executor.
-// They are ignored by the provided ThreadPool implementation.
-struct TaskHints {
-  // The lower, the more urgent
-  int32_t priority = 0;
-  // The IO transfer size in bytes
-  int64_t io_size = -1;
-  // The approximate CPU cost in number of instructions
-  int64_t cpu_cost = -1;
-  // An application-specific ID
-  int64_t external_id = -1;
-};
-
-class ARROW_EXPORT Executor {
- public:
-  virtual ~Executor();
-
-  // Spawn a fire-and-forget task.
-  template <typename Function>
-  Status Spawn(Function&& func) {
-    return SpawnReal(TaskHints{}, std::forward<Function>(func));
-  }
-
-  template <typename Function>
-  Status Spawn(TaskHints hints, Function&& func) {
-    return SpawnReal(hints, std::forward<Function>(func));
-  }
-
-  // Submit a callable and arguments for execution.  Return a future that
-  // will return the callable's result value once.
-  // The callable's arguments are copied before execution.
-  template <
-      typename Function, typename... Args,
-      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
-      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
-  Result<FutureType> Submit(TaskHints hints, Function&& func, Args&&... args) {
-    auto bound_func =
-        std::bind(std::forward<Function>(func), std::forward<Args>(args)...);
-    using BoundFuncType = decltype(bound_func);
-
-    struct Task {
-      BoundFuncType bound_func;
-      FutureType future;
-
-      void operator()() {
-        detail::ExecuteAndMarkFinished(&future, std::move(bound_func));
-      }
-    };
-    auto future = FutureType::Make();
-    ARROW_RETURN_NOT_OK(SpawnReal(hints, Task{std::move(bound_func), future}));
-    return future;
-  }
-
-  template <
-      typename Function, typename... Args,
-      typename ReturnType = typename std::result_of<Function && (Args && ...)>::type,
-      typename FutureType = typename detail::ExecutorSubmitTraits<ReturnType>::FutureType>
-  Result<FutureType> Submit(Function&& func, Args&&... args) {
-    return Submit(TaskHints{}, std::forward<Function>(func), std::forward<Args>(args)...);
-  }
-
-  // Return the level of parallelism (the number of tasks that may be executed
-  // concurrently).  This may be an approximate number.
-  virtual int GetCapacity() = 0;
-
- protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
-
-  Executor() = default;
-
-  // Subclassing API
-  virtual Status SpawnReal(TaskHints hints, std::function<void()> task) = 0;
-};
 
 // An Executor implementation spawning tasks in FIFO manner on a fixed-size
 // pool of worker threads.

@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -27,19 +28,14 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 /// A Future's execution or completion status
 enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
-
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
-
-// ---------------------------------------------------------------------
-// Type-erased helpers
-
-class FutureWaiter;
 
 class ARROW_EXPORT FutureImpl {
  public:
@@ -361,4 +357,111 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   return waiter->MoveFinishedFutures();
 }
 
+namespace internal {
+namespace detail {
+
+// Make sure that both functions returning T and Result<T> can be called
+// through Executor::Submit(), and that a Future<T> is returned for both.
+template <typename T>
+struct FutureForReturn {
+  using type = Future<T>;
+};
+template <typename T>
+struct FutureForReturn<Result<T>> {
+  using type = Future<T>;
+};
+
+// Make sure that both functions returning Status and void can be called
+// through Executor::Submit(), and that a Future<> is returned for both.
+template <>
+struct FutureForReturn<Status> {
+  using type = Future<>;
+};
+template <>
+struct FutureForReturn<void> {
+  using type = Future<>;
+};
+
+constexpr struct {
+  template <typename T, typename F, typename... A>
+  typename std::enable_if<
+      !std::is_same<typename std::result_of<F && (A && ...)>::type, void>::value>::type
+  operator()(Future<T> fut, F&& f, A&&... args) const {
+    fut.MarkFinished(std::forward<F>(f)(std::forward<A>(args)...));
+  }
+
+  template <typename F, typename... A>
+  typename std::enable_if<
+      std::is_same<typename std::result_of<F && (A && ...)>::type, void>::value>::type
+  operator()(Future<> fut, F&& f, A&&... args) const {
+    std::forward<F>(f)(std::forward<A>(args)...);
+    fut.MarkFinished();
+  }
+} ExecuteAndMarkFinished;
+
+}  // namespace detail
+
+// Hints about a task that may be used by an Executor.
+// They are ignored by the provided ThreadPool implementation.
+struct TaskHints {
+  // The lower, the more urgent
+  int32_t priority = 0;
+  // The IO transfer size in bytes
+  int64_t io_size = -1;
+  // The approximate CPU cost in number of instructions
+  int64_t cpu_cost = -1;
+  // An application-specific ID
+  int64_t external_id = -1;
+};
+
+class ARROW_EXPORT Executor {
+ public:
+  virtual ~Executor();
+
+  // Spawn a fire-and-forget task.
+  template <typename Function>
+  Status Spawn(Function&& func) {
+    return SpawnReal(TaskHints{}, std::forward<Function>(func));
+  }
+
+  template <typename Function>
+  Status Spawn(TaskHints hints, Function&& func) {
+    return SpawnReal(std::move(hints), std::forward<Function>(func));
+  }
+
+  // Submit a callable and arguments for execution. Return a future that
+  // will return the callable's result value once it has been invoked.
+  // The callable's arguments are copied before execution.
+  template <typename F, typename... A,
+            typename ReturnType = typename std::result_of<F && (A && ...)>::type,
+            typename FutureType = typename detail::FutureForReturn<ReturnType>::type>
+  Result<FutureType> Submit(F&& func, A&&... args) {
+    return Submit(TaskHints{}, std::forward<F>(func), std::forward<A>(args)...);
+  }
+
+  template <typename F, typename... A,
+            typename ReturnType = typename std::result_of<F && (A && ...)>::type,
+            typename FutureType = typename detail::FutureForReturn<ReturnType>::type>
+  Result<FutureType> Submit(TaskHints hints, F&& func, A&&... args) {
+    auto future = FutureType::Make();
+    auto task = std::bind(detail::ExecuteAndMarkFinished, future, std::forward<F>(func),
+                          std::forward<A>(args)...);
+    ARROW_RETURN_NOT_OK(SpawnReal(hints, std::move(task)));
+    return future;
+  }
+
+  // Return the level of parallelism (the number of tasks that may be executed
+  // concurrently).  This may be an approximate number.
+  virtual int GetCapacity() = 0;
+
+ protected:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
+
+  Executor() = default;
+
+  // Subclassing API
+  virtual Status SpawnReal(TaskHints hints, std::function<void()> task) = 0;
+};
+
+}  // namespace internal
 }  // namespace arrow

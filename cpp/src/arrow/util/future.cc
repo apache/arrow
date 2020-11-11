@@ -301,4 +301,6 @@ void FutureImpl::MarkFinished() { GetConcreteFuture(this)->DoMarkFinished(); }
 
 void FutureImpl::MarkFailed() { GetConcreteFuture(this)->DoMarkFailed(); }
 
+internal::Executor::~Executor() = default;
+
 }  // namespace arrow
