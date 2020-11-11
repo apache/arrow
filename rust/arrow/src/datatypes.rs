@@ -145,6 +145,8 @@ pub enum DataType {
     /// This type mostly used to represent low cardinality string
     /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
+    /// Decimal value with precision and scale
+    Decimal(usize, usize),
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -1121,6 +1123,7 @@ impl DataType {
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
+            DataType::Decimal(precision, scale) => json!({"name": "decimal", "precision": precision, "scale": scale}),
         }
     }
 
@@ -1454,7 +1457,8 @@ impl Field {
             | DataType::FixedSizeList(_, _)
             | DataType::FixedSizeBinary(_)
             | DataType::Utf8
-            | DataType::LargeUtf8 => {
+            | DataType::LargeUtf8
+            | DataType::Decimal(_, _) => {
                 if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"

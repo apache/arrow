@@ -334,6 +334,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
+        DataType::Decimal(_, _) => Arc::new(FixedSizeBinaryArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -1719,6 +1720,126 @@ impl From<Vec<Option<&str>>> for StringArray {
 impl From<Vec<Option<&str>>> for LargeStringArray {
     fn from(v: Vec<Option<&str>>) -> Self {
         LargeStringArray::from_opt_vec(v)
+    }
+}
+
+/// A type of `DecimalArray` whose elements are binaries.
+pub struct DecimalArray {
+    data: ArrayDataRef,
+    value_data: RawPtrBox<u8>,
+    precision: usize,
+    scale: usize,
+    length: i32,
+}
+
+impl DecimalArray {
+    /// Returns the element at index `i` as i128.
+    pub fn value(&self, i: usize) -> i128 {
+        assert!(
+            i < self.data.len(),
+            "DecimalArray out of bounds access"
+        );
+        let offset = i.checked_add(self.data.offset()).unwrap();
+        let raw_val = unsafe {
+            let pos = self.value_offset_at(offset);
+            std::slice::from_raw_parts(
+                self.value_data.get().offset(pos as isize),
+                (self.value_offset_at(offset + 1) - pos) as usize,
+            )
+        };
+        Self::from_bytes_to_i128(raw_val)
+    }
+
+    fn from_bytes_to_i128(b: &[u8]) -> i128 {
+        let first_bit = b[0] & 128u8 == 128u8;
+        let mut result = if first_bit { [255u8; 16] } else { [0u8; 16] };
+        for (i, v) in b.iter().enumerate() {
+            result[i + (16 - b.len())] = *v;
+        }
+        i128::from_be_bytes(result)
+    }
+
+    /// Returns the offset for the element at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_offset(&self, i: usize) -> i32 {
+        self.value_offset_at(self.data.offset() + i)
+    }
+
+    /// Returns the length for an element.
+    ///
+    /// All elements have the same length as the array is a fixed size.
+    #[inline]
+    pub fn value_length(&self) -> i32 {
+        self.length
+    }
+
+    /// Returns a clone of the value data buffer
+    pub fn value_data(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    #[inline]
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.length * i as i32
+    }
+}
+
+impl From<ArrayDataRef> for DecimalArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            1,
+            "BinaryArray data should contain 1 buffer only (values)"
+        );
+        let value_data = data.buffers()[0].raw_data();
+        let (precision, scale) = match data.data_type() {
+            DataType::Decimal(precision, scale) => (*precision, *scale),
+            _ => panic!("Expected data type to be Decimal"),
+        };
+        let length = (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32;
+        Self {
+            data,
+            value_data: RawPtrBox::new(value_data),
+            precision,
+            scale,
+            length,
+        }
+    }
+}
+
+impl fmt::Debug for DecimalArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DecimalArray<{}, {}>\n[\n", self.precision, self.scale)?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
+impl Array for DecimalArray {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeBinaryArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [FixedSizeBinaryArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -4321,5 +4442,52 @@ mod tests {
         assert_eq!(0, keys.value(0));
         assert_eq!(1, keys.value(2));
         assert_eq!(0, keys.value(5));
+    }
+
+    #[test]
+    fn test_decimal_array() {
+        let values: [u8; 20] = [0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75, 36, 64];
+
+        let array_data = ArrayData::builder(DataType::Decimal(23, 6))
+            .len(2)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let fixed_size_binary_array = DecimalArray::from(array_data);
+        // assert_eq!(10, fixed_size_binary_array.len());
+        // assert_eq!(0, fixed_size_binary_array.null_count());
+        assert_eq!(
+            8_887_000_000,
+            fixed_size_binary_array.value(0)
+        );
+        assert_eq!(
+            -8_887_000_000,
+            fixed_size_binary_array.value(1)
+        );
+        assert_eq!(10, fixed_size_binary_array.value_length());
+        // assert_eq!(10, fixed_size_binary_array.value_offset(2));
+        // for i in 0..3 {
+        //     assert!(fixed_size_binary_array.is_valid(i));
+        //     assert!(!fixed_size_binary_array.is_null(i));
+        // }
+
+        // Test binary array with offset
+        // let array_data = ArrayData::builder(DataType::FixedSizeBinary(5))
+        //     .len(2)
+        //     .offset(1)
+        //     .add_buffer(Buffer::from(&values[..]))
+        //     .build();
+        // let fixed_size_binary_array = FixedSizeBinaryArray::from(array_data);
+        // assert_eq!(
+        //     [b't', b'h', b'e', b'r', b'e'],
+        //     fixed_size_binary_array.value(0)
+        // );
+        // assert_eq!(
+        //     [b'a', b'r', b'r', b'o', b'w'],
+        //     fixed_size_binary_array.value(1)
+        // );
+        // assert_eq!(2, fixed_size_binary_array.len());
+        // assert_eq!(5, fixed_size_binary_array.value_offset(0));
+        // assert_eq!(5, fixed_size_binary_array.value_length());
+        // assert_eq!(10, fixed_size_binary_array.value_offset(1));
     }
 }
