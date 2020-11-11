@@ -93,31 +93,26 @@ struct Utf8Validator {
 };
 
 template <typename I, typename O>
-constexpr bool has_smaller_width() {
-  return sizeof(typename I::offset_type) < sizeof(typename O::offset_type);
-}
-
-template <typename I, typename O>
-constexpr bool has_same_width() {
-  return sizeof(typename I::offset_type) == sizeof(typename O::offset_type);
-}
-
-template <typename I, typename O, typename Enable = void>
-struct CastBinaryToBinaryOffsets {};
+struct CastBinaryToBinaryOffsets;
 
 // Cast same-width offsets (no-op)
-template <typename I, typename O>
-struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_same_width<I, O>()>> {
+template <>
+struct CastBinaryToBinaryOffsets<int32_t, int32_t> {
+  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+  }
+};
+template <>
+struct CastBinaryToBinaryOffsets<int64_t, int64_t> {
   static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
   }
 };
 
 // Upcast offsets
-template <typename I, typename O>
-struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_smaller_width<I, O>()>> {
+template <>
+struct CastBinaryToBinaryOffsets<int32_t, int64_t> {
   static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = typename I::offset_type;
-    using output_offset_type = typename O::offset_type;
+    using input_offset_type = int32_t;
+    using output_offset_type = int64_t;
     KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
                            ctx->Allocate((output->length + output->offset + 1) *
                                          sizeof(output_offset_type)));
@@ -130,16 +125,16 @@ struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_smaller_width<I, O>()>> {
 };
 
 // Downcast offsets
-template <typename I, typename O>
-struct CastBinaryToBinaryOffsets<I, O, enable_if_t<has_smaller_width<O, I>()>> {
+template <>
+struct CastBinaryToBinaryOffsets<int64_t, int32_t> {
   static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = typename I::offset_type;
-    using output_offset_type = typename O::offset_type;
+    using input_offset_type = int64_t;
+    using output_offset_type = int32_t;
 
     constexpr input_offset_type kMaxOffset =
         std::numeric_limits<output_offset_type>::max();
 
-    const input_offset_type* input_offsets = input.GetValues<input_offset_type>(1);
+    auto input_offsets = input.GetValues<input_offset_type>(1);
 
     // Binary offsets are ascending, so it's enough to check the last one for overflow.
     if (input_offsets[input.length] > kMaxOffset) {
@@ -182,7 +177,8 @@ struct BinaryToBinaryCastFunctor {
 
     // Start with a zero-copy cast, but change indices to expected size
     ZeroCopyCastExec(ctx, batch, out);
-    CastBinaryToBinaryOffsets<I, O>::CastOffsets(ctx, input, out->mutable_array());
+    CastBinaryToBinaryOffsets<input_offset_type, output_offset_type>::CastOffsets(
+        ctx, input, out->mutable_array());
   }
 };
 
