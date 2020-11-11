@@ -23,15 +23,29 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <arrow/buffer.h>  // for RBuffer definition below
-#include <arrow/c/bridge.h>
-#include <arrow/result.h>
-#include <arrow/type_fwd.h>
-
 #include <limits>
 #include <memory>
 #include <utility>
-#include <vector>
+
+#include <arrow/buffer.h>  // for RBuffer definition below
+#include <arrow/result.h>
+#include <arrow/status.h>
+
+// forward declaration-only headers
+#include <arrow/c/abi.h>
+#include <arrow/compute/type_fwd.h>
+#include <arrow/csv/type_fwd.h>
+#include <arrow/dataset/type_fwd.h>
+#include <arrow/filesystem/type_fwd.h>
+#include <arrow/io/type_fwd.h>
+#include <arrow/ipc/type_fwd.h>
+#include <arrow/json/type_fwd.h>
+#include <arrow/type_fwd.h>
+#include <arrow/util/type_fwd.h>
+#include <parquet/type_fwd.h>
+
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -118,5 +132,76 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
 }  // namespace r
 }  // namespace arrow
+
+namespace cpp11 {
+
+template <typename T>
+struct r6_class_name {
+  static const char* get(const std::shared_ptr<T>& ptr) {
+    static const std::string name = arrow::util::nameof<T>(/*strip_namespace=*/true);
+    return name.c_str();
+  }
+};
+
+// Overrides of default R6 class names:
+#define R6_CLASS_NAME(CLASS, NAME)                                         \
+  template <>                                                              \
+  struct r6_class_name<CLASS> {                                            \
+    static const char* get(const std::shared_ptr<CLASS>&) { return NAME; } \
+  }
+
+R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions");
+R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions");
+R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions");
+R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader");
+
+R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");
+R6_CLASS_NAME(parquet::ArrowWriterProperties, "ParquetArrowWriterProperties");
+R6_CLASS_NAME(parquet::WriterProperties, "ParquetWriterProperties");
+R6_CLASS_NAME(parquet::arrow::FileReader, "ParquetFileReader");
+R6_CLASS_NAME(parquet::WriterPropertiesBuilder, "ParquetWriterPropertiesBuilder");
+R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter");
+
+R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader");
+
+R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions");
+R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions");
+R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader");
+
+#undef R6_CLASS_NAME
+
+// Declarations of discriminated base classes.
+// Definitions reside in corresponding .cpp files.
+template <>
+struct r6_class_name<fs::FileSystem> {
+  static const char* get(const std::shared_ptr<fs::FileSystem>&);
+};
+
+template <>
+struct r6_class_name<arrow::Array> {
+  static const char* get(const std::shared_ptr<arrow::Array>&);
+};
+
+template <>
+struct r6_class_name<arrow::Scalar> {
+  static const char* get(const std::shared_ptr<arrow::Scalar>&);
+};
+
+template <>
+struct r6_class_name<arrow::DataType> {
+  static const char* get(const std::shared_ptr<arrow::DataType>&);
+};
+
+template <>
+struct r6_class_name<ds::Dataset> {
+  static const char* get(const std::shared_ptr<ds::Dataset>&);
+};
+
+template <>
+struct r6_class_name<ds::FileFormat> {
+  static const char* get(const std::shared_ptr<ds::FileFormat>&);
+};
+
+}  // namespace cpp11
 
 #endif

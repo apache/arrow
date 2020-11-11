@@ -192,7 +192,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
   public = list(
     Read = function(columns) {
-      shared_ptr(Table, ipc___feather___Reader__Read(self, columns))
+      ipc___feather___Reader__Read(self, columns)
     }
   ),
   active = list(
@@ -207,5 +207,5 @@ names.FeatherReader <- function(x) x$column_names
 
 FeatherReader$create <- function(file, mmap = TRUE, ...) {
   assert_is(file, "RandomAccessFile")
-  shared_ptr(FeatherReader, ipc___feather___Reader__Open(file))
+  ipc___feather___Reader__Open(file)
 }

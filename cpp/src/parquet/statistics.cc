@@ -56,14 +56,14 @@ struct CompareHelper {
   // MSVC17 fix, isnan is not overloaded for IntegralType as per C++11
   // standard requirements.
   template <typename T1 = T>
-  static arrow::enable_if_t<std::is_floating_point<T1>::value, T> Coalesce(T val,
-                                                                           T fallback) {
+  static ::arrow::enable_if_t<std::is_floating_point<T1>::value, T> Coalesce(T val,
+                                                                             T fallback) {
     return std::isnan(val) ? fallback : val;
   }
 
   template <typename T1 = T>
-  static arrow::enable_if_t<!std::is_floating_point<T1>::value, T> Coalesce(T val,
-                                                                            T fallback) {
+  static ::arrow::enable_if_t<!std::is_floating_point<T1>::value, T> Coalesce(
+      T val, T fallback) {
     return val;
   }
 
@@ -83,7 +83,7 @@ struct UnsignedCompareHelperBase {
   static T Coalesce(T val, T fallback) { return val; }
 
   static inline bool Compare(int type_length, T a, T b) {
-    return arrow::util::SafeCopy<UCType>(a) < arrow::util::SafeCopy<UCType>(b);
+    return ::arrow::util::SafeCopy<UCType>(a) < ::arrow::util::SafeCopy<UCType>(b);
   }
 
   static T Min(int type_length, T a, T b) { return Compare(type_length, a, b) ? a : b; }
@@ -117,8 +117,8 @@ struct CompareHelper<Int96Type, is_signed> {
     if (a.value[2] != b.value[2]) {
       // Only the MSB bit is by Signed comparison. For little-endian, this is the
       // last bit of Int96 type.
-      return arrow::util::SafeCopy<msb_type>(a.value[2]) <
-             arrow::util::SafeCopy<msb_type>(b.value[2]);
+      return ::arrow::util::SafeCopy<msb_type>(a.value[2]) <
+             ::arrow::util::SafeCopy<msb_type>(b.value[2]);
     } else if (a.value[1] != b.value[1]) {
       return (a.value[1] < b.value[1]);
     }
@@ -223,11 +223,11 @@ CleanStatistic(std::pair<T, T> min_max) {
 
   // Ignore if one of the value is nan.
   if (std::isnan(min) || std::isnan(max)) {
-    return arrow::util::nullopt;
+    return ::arrow::util::nullopt;
   }
 
   if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
-    return arrow::util::nullopt;
+    return ::arrow::util::nullopt;
   }
 
   T zero{};
@@ -245,7 +245,7 @@ CleanStatistic(std::pair<T, T> min_max) {
 
 optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return arrow::util::nullopt;
+    return ::arrow::util::nullopt;
   }
   return min_max;
 }
@@ -253,7 +253,7 @@ optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
     std::pair<ByteArray, ByteArray> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return arrow::util::nullopt;
+    return ::arrow::util::nullopt;
   }
   return min_max;
 }

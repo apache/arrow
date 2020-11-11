@@ -93,15 +93,15 @@
 Table <- R6Class("Table", inherit = ArrowObject,
   public = list(
     column = function(i) {
-      shared_ptr(ChunkedArray, Table__column(self, i))
+      Table__column(self, i)
     },
     ColumnNames = function() Table__ColumnNames(self),
     GetColumnByName = function(name) {
       assert_is(name, "character")
       assert_that(length(name) == 1)
-      shared_ptr(ChunkedArray, Table__GetColumnByName(self, name))
+      Table__GetColumnByName(self, name)
     },
-    field = function(i) shared_ptr(Field, Table__field(self, i)),
+    field = function(i) Table__field(self, i),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
     ToString = function() ToString_tabular(self),
@@ -110,18 +110,18 @@ Table <- R6Class("Table", inherit = ArrowObject,
       assert_is(target_schema, "Schema")
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(Table, Table__cast(self, target_schema, options))
+      Table__cast(self, target_schema, options)
     },
 
     SelectColumns = function(indices) {
-      shared_ptr(Table, Table__SelectColumns(self, indices))
+      Table__SelectColumns(self, indices)
     },
 
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        shared_ptr(Table, Table__Slice1(self, offset))
+        Table__Slice1(self, offset)
       } else {
-        shared_ptr(Table, Table__Slice2(self, offset, length))
+        Table__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -131,13 +131,13 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(Table, call_function("take", self, i))
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(Table, call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
 
     Equals = function(other, check_metadata = FALSE, ...) {
@@ -150,13 +150,19 @@ Table <- R6Class("Table", inherit = ArrowObject,
 
     ValidateFull = function() {
       Table__ValidateFull(self)
+    },
+
+    invalidate = function() {
+      .Call(`_arrow_Table__Reset`, self)
+      super$invalidate()
     }
+
   ),
 
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
-    schema = function() shared_ptr(Schema, Table__schema(self)),
+    schema = function() Table__schema(self),
     metadata = function(new) {
       if (missing(new)) {
         # Get the metadata (from the schema)
@@ -167,11 +173,11 @@ Table <- R6Class("Table", inherit = ArrowObject,
         out <- Table__ReplaceSchemaMetadata(self, new)
         # ReplaceSchemaMetadata returns a new object but we're modifying in place,
         # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out)
+        self$set_pointer(out$pointer())
         self
       }
     },
-    columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
+    columns = function() Table__columns(self)
   )
 )
 
@@ -218,9 +224,9 @@ Table$create <- function(..., schema = NULL) {
   }
   stopifnot(length(dots) > 0)
   if (all_record_batches(dots)) {
-    shared_ptr(Table, Table__from_record_batches(dots, schema))
+    Table__from_record_batches(dots, schema)
   } else {
-    shared_ptr(Table, Table__from_dots(dots, schema))
+    Table__from_dots(dots, schema)
   }
 }
 

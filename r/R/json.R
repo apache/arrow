@@ -64,7 +64,7 @@ read_json_arrow <- function(file,
 #' @export
 JsonTableReader <- R6Class("JsonTableReader", inherit = ArrowObject,
   public = list(
-    Read = function() shared_ptr(Table, json___TableReader__Read(self))
+    Read = function() json___TableReader__Read(self)
   )
 )
 JsonTableReader$create <- function(file,
@@ -72,10 +72,7 @@ JsonTableReader$create <- function(file,
                                    parse_options = JsonParseOptions$create(),
                                    ...) {
   assert_is(file, "InputStream")
-  shared_ptr(
-    JsonTableReader,
-    json___TableReader__Make(file, read_options, parse_options)
-  )
+  json___TableReader__Make(file, read_options, parse_options)
 }
 
 #' @rdname CsvReadOptions
@@ -85,7 +82,7 @@ JsonTableReader$create <- function(file,
 #' @export
 JsonReadOptions <- R6Class("JsonReadOptions", inherit = ArrowObject)
 JsonReadOptions$create <- function(use_threads = option_use_threads(), block_size = 1048576L) {
-  shared_ptr(JsonReadOptions, json___ReadOptions__initialize(use_threads, block_size))
+  json___ReadOptions__initialize(use_threads, block_size)
 }
 
 #' @rdname CsvReadOptions
@@ -95,5 +92,5 @@ JsonReadOptions$create <- function(use_threads = option_use_threads(), block_siz
 #' @export
 JsonParseOptions <- R6Class("JsonParseOptions", inherit = ArrowObject)
 JsonParseOptions$create <- function(newlines_in_values = FALSE) {
-  shared_ptr(JsonParseOptions, json___ParseOptions__initialize(newlines_in_values))
+  json___ParseOptions__initialize(newlines_in_values)
 }

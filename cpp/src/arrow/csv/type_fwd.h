@@ -15,35 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./arrow_types.h"
+namespace arrow {
+namespace csv {
 
-#if defined(ARROW_R_WITH_ARROW)
-#include <arrow/array/data.h>
+class TableReader;
+struct ConvertOptions;
+struct ReadOptions;
+struct ParseOptions;
 
-// [[arrow::export]]
-std::shared_ptr<arrow::DataType> ArrayData__get_type(
-    const std::shared_ptr<arrow::ArrayData>& x) {
-  return x->type;
-}
-
-// [[arrow::export]]
-int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x) {
-  return x->length;
-}
-
-// [[arrow::export]]
-int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x) {
-  return x->null_count;
-}
-
-// [[arrow::export]]
-int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
-  return x->offset;
-}
-
-// [[arrow::export]]
-cpp11::list ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
-  return arrow::r::to_r_list(x->buffers);
-}
-
-#endif
+}  // namespace csv
+}  // namespace arrow

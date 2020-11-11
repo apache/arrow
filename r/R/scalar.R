@@ -31,37 +31,26 @@ Scalar <- R6Class("Scalar",
   inherit = ArrowObject,
   # TODO: document the methods
   public = list(
-    ..dispatch = function() {
-      type_id <- self$type$id
-      if (type_id == Type$STRUCT) {
-        shared_ptr(StructScalar, self$pointer())
-      } else {
-        self
-      }
-    },
     ToString = function() Scalar__ToString(self),
     cast = function(target_type) {
-      Scalar$create(Scalar__CastTo(self, as_type(target_type)))
+      Scalar__CastTo(self, as_type(target_type))
     },
     as_vector = function() Scalar__as_vector(self)
   ),
   active = list(
     is_valid = function() Scalar__is_valid(self),
     null_count = function() sum(!self$is_valid),
-    type = function() DataType$create(Scalar__type(self))
+    type = function() Scalar__type(self)
   )
 )
 Scalar$create <- function(x, type = NULL) {
-  if (!inherits(x, "externalptr")) {
-    if (is.null(x)) {
-      x <- vctrs::unspecified(1)
-    } else if (length(x) != 1 && !is.data.frame(x)) {
-      # Wrap in a list type
-      x <- list(x)
-    }
-    x <- Array__GetScalar(Array$create(x, type = type), 0)
+  if (is.null(x)) {
+    x <- vctrs::unspecified(1)
+  } else if (length(x) != 1 && !is.data.frame(x)) {
+    # Wrap in a list type
+    x <- list(x)
   }
-  shared_ptr(Scalar, x)$..dispatch()
+  Array__GetScalar(Array$create(x, type = type), 0)
 }
 
 #' @rdname array
@@ -71,8 +60,8 @@ Scalar$create <- function(x, type = NULL) {
 StructScalar <- R6Class("StructScalar",
   inherit = Scalar,
   public = list(
-    field = function(i) Scalar$create(StructScalar__field(self, i)),
-    GetFieldByName = function(name) Scalar$create(StructScalar__GetFieldByName(self, name))
+    field = function(i) StructScalar__field(self, i),
+    GetFieldByName = function(name) StructScalar__GetFieldByName(self, name)
   )
 )
 

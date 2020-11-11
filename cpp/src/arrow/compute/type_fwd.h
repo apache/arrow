@@ -23,6 +23,8 @@ struct Datum;
 
 namespace compute {
 
+struct CastOptions;
+
 class ExecContext;
 class KernelContext;
 

@@ -24,7 +24,7 @@ py_to_r.pyarrow.lib.Array <- function(x, ...) {
   })
 
   x$`_export_to_c`(array_ptr, schema_ptr)
-  Array$create(ImportArray(array_ptr, schema_ptr))
+  ImportArray(array_ptr, schema_ptr)
 }
 
 r_to_py.Array <- function(x, convert = FALSE) {
@@ -53,7 +53,8 @@ py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
   })
 
   x$`_export_to_c`(array_ptr, schema_ptr)
-  shared_ptr(RecordBatch, ImportRecordBatch(array_ptr, schema_ptr))
+
+  ImportRecordBatch(array_ptr, schema_ptr)
 }
 
 r_to_py.RecordBatch <- function(x, convert = FALSE) {

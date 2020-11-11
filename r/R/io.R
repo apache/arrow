@@ -68,7 +68,7 @@ OutputStream <- R6Class("OutputStream", inherit = Writable,
 #' @export
 FileOutputStream <- R6Class("FileOutputStream", inherit = OutputStream)
 FileOutputStream$create <- function(path) {
-  shared_ptr(FileOutputStream, io___FileOutputStream__Open(clean_path_abs(path)))
+  io___FileOutputStream__Open(clean_path_abs(path))
 }
 
 #' @usage NULL
@@ -78,13 +78,13 @@ FileOutputStream$create <- function(path) {
 BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    finish = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
+    finish = function() io___BufferOutputStream__Finish(self),
     write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     tell = function() io___BufferOutputStream__Tell(self)
   )
 )
 BufferOutputStream$create <- function(initial_capacity = 0L) {
-  shared_ptr(BufferOutputStream, io___BufferOutputStream__Create(initial_capacity))
+  io___BufferOutputStream__Create(initial_capacity)
 }
 
 # InputStream -------------------------------------------------------------
@@ -92,7 +92,7 @@ BufferOutputStream$create <- function(initial_capacity = 0L) {
 
 Readable <- R6Class("Readable", inherit = ArrowObject,
   public = list(
-    Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
+    Read = function(nbytes) io___Readable__Read(self, nbytes)
   )
 )
 
@@ -148,9 +148,9 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
 
     Read = function(nbytes = NULL) {
       if (is.null(nbytes)) {
-        shared_ptr(Buffer, io___RandomAccessFile__Read0(self))
+        io___RandomAccessFile__Read0(self)
       } else {
-        shared_ptr(Buffer, io___Readable__Read(self, nbytes))
+        io___Readable__Read(self, nbytes)
       }
     },
 
@@ -158,7 +158,7 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
       if (is.null(nbytes)) {
         nbytes <- self$GetSize() - position
       }
-      shared_ptr(Buffer, io___RandomAccessFile__ReadAt(self, position, nbytes))
+      io___RandomAccessFile__ReadAt(self, position, nbytes)
     }
   )
 )
@@ -179,7 +179,7 @@ MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
 #' @export
 ReadableFile <- R6Class("ReadableFile", inherit = RandomAccessFile)
 ReadableFile$create <- function(path) {
-  shared_ptr(ReadableFile, io___ReadableFile__Open(clean_path_abs(path)))
+  io___ReadableFile__Open(clean_path_abs(path))
 }
 
 #' @usage NULL
@@ -189,7 +189,7 @@ ReadableFile$create <- function(path) {
 BufferReader <- R6Class("BufferReader", inherit = RandomAccessFile)
 BufferReader$create <- function(x) {
   x <- buffer(x)
-  shared_ptr(BufferReader, io___BufferReader__initialize(x))
+  io___BufferReader__initialize(x)
 }
 
 #' Create a new read/write memory mapped file of a given size
@@ -202,7 +202,7 @@ BufferReader$create <- function(x) {
 #' @export
 mmap_create <- function(path, size) {
   path <- clean_path_abs(path)
-  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Create(path, size))
+  io___MemoryMappedFile__Create(path, size)
 }
 
 #' Open a memory mapped file
@@ -214,7 +214,7 @@ mmap_create <- function(path, size) {
 mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
   path <- clean_path_abs(path)
-  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Open(path, mode))
+  io___MemoryMappedFile__Open(path, mode)
 }
 
 #' Handle a range of possible input sources

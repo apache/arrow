@@ -512,14 +512,6 @@ dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, p
     invisible(.Call(`_arrow_dataset___Dataset__Write` , file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
 }
 
-shared_ptr_is_null <- function(xp){
-    .Call(`_arrow_shared_ptr_is_null` , xp)
-}
-
-unique_ptr_is_null <- function(xp){
-    .Call(`_arrow_unique_ptr_is_null` , xp)
-}
-
 Int8__initialize <- function(){
     .Call(`_arrow_Int8__initialize` )
 }
@@ -644,12 +636,12 @@ DataType__Equals <- function(lhs, rhs){
     .Call(`_arrow_DataType__Equals` , lhs, rhs)
 }
 
-DataType__num_children <- function(type){
-    .Call(`_arrow_DataType__num_children` , type)
+DataType__num_fields <- function(type){
+    .Call(`_arrow_DataType__num_fields` , type)
 }
 
-DataType__children_pointer <- function(type){
-    .Call(`_arrow_DataType__children_pointer` , type)
+DataType__fields <- function(type){
+    .Call(`_arrow_DataType__fields` , type)
 }
 
 DataType__id <- function(type){

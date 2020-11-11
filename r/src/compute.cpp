@@ -66,7 +66,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
 
   arrow::ArrayVector columns(nc);
   for (int i = 0; i < nc; i++) {
-    columns[i] = Array__cast(batch->column(i), schema->field(i)->type(), options);
+    columns[i] = ValueOrStop(
+        arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *options));
   }
 
   return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
@@ -82,7 +83,10 @@ std::shared_ptr<arrow::Table> Table__cast(
   using ColumnVector = std::vector<std::shared_ptr<arrow::ChunkedArray>>;
   ColumnVector columns(nc);
   for (int i = 0; i < nc; i++) {
-    columns[i] = ChunkedArray__cast(table->column(i), schema->field(i)->type(), options);
+    arrow::Datum value(table->column(i));
+    arrow::Datum out =
+        ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *options));
+    columns[i] = out.chunked_array();
   }
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
 }
@@ -129,19 +133,19 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return cpp11::as_sexp(datum.scalar());
+      return cpp11::to_r6(datum.scalar());
 
     case arrow::Datum::ARRAY:
-      return cpp11::as_sexp(datum.make_array());
+      return cpp11::to_r6(datum.make_array());
 
     case arrow::Datum::CHUNKED_ARRAY:
-      return cpp11::as_sexp(datum.chunked_array());
+      return cpp11::to_r6(datum.chunked_array());
 
     case arrow::Datum::RECORD_BATCH:
-      return cpp11::as_sexp(datum.record_batch());
+      return cpp11::to_r6(datum.record_batch());
 
     case arrow::Datum::TABLE:
-      return cpp11::as_sexp(datum.table());
+      return cpp11::to_r6(datum.table());
 
     default:
       break;

@@ -53,14 +53,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
 }
 
 // [[arrow::export]]
-arrow::ArrayVector RecordBatch__columns(
-    const std::shared_ptr<arrow::RecordBatch>& batch) {
+cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
   arrow::ArrayVector res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = batch->column(i);
   }
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]

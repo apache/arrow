@@ -72,7 +72,7 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
   // ARROW-6058
   std::string data = "shorter than expected";
   auto buf = std::make_shared<Buffer>(data);
-  auto reader = std::make_shared<arrow::io::BufferReader>(buf);
+  auto reader = std::make_shared<::arrow::io::BufferReader>(buf);
 
   ReaderProperties props;
   try {

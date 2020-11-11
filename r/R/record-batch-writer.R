@@ -133,13 +133,11 @@ RecordBatchStreamWriter$create <- function(sink,
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchStreamWriter,
-    ipc___RecordBatchStreamWriter__Open(
-      sink,
-      schema,
-      get_ipc_use_legacy_format(use_legacy_format),
-      get_ipc_metadata_version(metadata_version)
-    )
+  ipc___RecordBatchStreamWriter__Open(
+    sink,
+    schema,
+    get_ipc_use_legacy_format(use_legacy_format),
+    get_ipc_metadata_version(metadata_version)
   )
 }
 
@@ -162,13 +160,11 @@ RecordBatchFileWriter$create <- function(sink,
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchFileWriter,
-    ipc___RecordBatchFileWriter__Open(
-      sink,
-      schema,
-      get_ipc_use_legacy_format(use_legacy_format),
-      get_ipc_metadata_version(metadata_version)
-    )
+  ipc___RecordBatchFileWriter__Open(
+    sink,
+    schema,
+    get_ipc_use_legacy_format(use_legacy_format),
+    get_ipc_metadata_version(metadata_version)
   )
 }
 

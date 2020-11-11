@@ -60,14 +60,13 @@ std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& 
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(
-    const std::shared_ptr<arrow::Table>& table) {
+cpp11::list Table__columns(const std::shared_ptr<arrow::Table>& table) {
   auto nc = table->num_columns();
   std::vector<std::shared_ptr<arrow::ChunkedArray>> res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = table->column(i);
   }
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 // [[arrow::export]]

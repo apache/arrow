@@ -34,7 +34,7 @@ namespace test {
 
 template <typename T>
 using optional = StreamReader::optional<T>;
-using arrow::util::nullopt;
+using ::arrow::util::nullopt;
 
 struct TestData {
   static void init() { std::time(&ts_offset_); }
@@ -150,7 +150,7 @@ class TestStreamReader : public ::testing::Test {
   const char* GetDataFile() const { return "stream_reader_test.parquet"; }
 
   void SetUp() {
-    PARQUET_ASSIGN_OR_THROW(auto infile, arrow::io::ReadableFile::Open(GetDataFile()));
+    PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
     auto file_reader = parquet::ParquetFileReader::Open(infile);
     reader_ = StreamReader{std::move(file_reader)};
   }
@@ -202,7 +202,7 @@ class TestStreamReader : public ::testing::Test {
 
   void createTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
-                            arrow::io::FileOutputStream::Open(GetDataFile()));
+                            ::arrow::io::FileOutputStream::Open(GetDataFile()));
 
     auto file_writer = ParquetFileWriter::Open(outfile, GetSchema());
 
@@ -591,7 +591,7 @@ class TestOptionalFields : public ::testing::Test {
   const char* GetDataFile() const { return "stream_reader_test_optional_fields.parquet"; }
 
   void SetUp() {
-    PARQUET_ASSIGN_OR_THROW(auto infile, arrow::io::ReadableFile::Open(GetDataFile()));
+    PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
 
     auto file_reader = ParquetFileReader::Open(infile);
 
@@ -645,7 +645,7 @@ class TestOptionalFields : public ::testing::Test {
 
   void createTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
-                            arrow::io::FileOutputStream::Open(GetDataFile()));
+                            ::arrow::io::FileOutputStream::Open(GetDataFile()));
 
     StreamWriter os{ParquetFileWriter::Open(outfile, GetSchema())};
 
@@ -835,8 +835,8 @@ class TestReadingDataFiles : public ::testing::Test {
 };
 
 TEST_F(TestReadingDataFiles, AllTypesPlain) {
-  PARQUET_ASSIGN_OR_THROW(
-      auto infile, arrow::io::ReadableFile::Open(GetDataFile("alltypes_plain.parquet")));
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(
+                                           GetDataFile("alltypes_plain.parquet")));
 
   auto file_reader = ParquetFileReader::Open(infile);
   auto reader = StreamReader{std::move(file_reader)};
@@ -880,7 +880,7 @@ TEST_F(TestReadingDataFiles, AllTypesPlain) {
 
 TEST_F(TestReadingDataFiles, Int32Decimal) {
   PARQUET_ASSIGN_OR_THROW(
-      auto infile, arrow::io::ReadableFile::Open(GetDataFile("int32_decimal.parquet")));
+      auto infile, ::arrow::io::ReadableFile::Open(GetDataFile("int32_decimal.parquet")));
 
   auto file_reader = ParquetFileReader::Open(infile);
   auto reader = StreamReader{std::move(file_reader)};
@@ -897,7 +897,7 @@ TEST_F(TestReadingDataFiles, Int32Decimal) {
 
 TEST_F(TestReadingDataFiles, Int64Decimal) {
   PARQUET_ASSIGN_OR_THROW(
-      auto infile, arrow::io::ReadableFile::Open(GetDataFile("int64_decimal.parquet")));
+      auto infile, ::arrow::io::ReadableFile::Open(GetDataFile("int64_decimal.parquet")));
 
   auto file_reader = ParquetFileReader::Open(infile);
   auto reader = StreamReader{std::move(file_reader)};

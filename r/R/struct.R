@@ -20,11 +20,11 @@
 StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
-    GetFieldByName = function(name) shared_ptr(Field, StructType__GetFieldByName(self, name)),
+    GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
   )
 )
-StructType$create <- function(...) shared_ptr(StructType, struct__(.fields(list(...))))
+StructType$create <- function(...) struct__(.fields(list(...)))
 
 #' @rdname data-type
 #' @export

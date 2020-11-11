@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/c/bridge.h>
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array,
                                           arrow::r::Pointer<struct ArrowSchema> schema) {
@@ -65,8 +67,8 @@ void ExportArray(const std::shared_ptr<arrow::Array>& array,
 
 // [[arrow::export]]
 void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch,
-                       arrow::r::Pointer<ArrowArray> array_ptr,
-                       arrow::r::Pointer<ArrowSchema> schema_ptr) {
+                       arrow::r::Pointer<struct ArrowArray> array_ptr,
+                       arrow::r::Pointer<struct ArrowSchema> schema_ptr) {
   StopIfNotOk(arrow::ExportRecordBatch(*batch, array_ptr, schema_ptr));
 }
 

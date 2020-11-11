@@ -88,9 +88,9 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 
 /// Compute the section of the file that should be read for the given
 /// row group and column chunk.
-arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
-                                             int64_t source_size, int row_group_index,
-                                             int column_index) {
+::arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
+                                               int64_t source_size, int row_group_index,
+                                               int column_index) {
   auto row_group_metadata = file_metadata->RowGroup(row_group_index);
   auto column_metadata = row_group_metadata->ColumnChunk(column_index);
 
@@ -142,7 +142,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
 
-    arrow::io::ReadRange col_range =
+    ::arrow::io::ReadRange col_range =
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
     std::shared_ptr<ArrowInputStream> stream;
     if (cached_source_) {
@@ -254,8 +254,8 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const ::arrow::io::AsyncContext& ctx,
                  const ::arrow::io::CacheOptions& options) {
     cached_source_ =
-        std::make_shared<arrow::io::internal::ReadRangeCache>(source_, ctx, options);
-    std::vector<arrow::io::ReadRange> ranges;
+        std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
+    std::vector<::arrow::io::ReadRange> ranges;
     for (int row : row_groups) {
       for (int col : column_indices) {
         ranges.push_back(
@@ -316,7 +316,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
  private:
   std::shared_ptr<ArrowInputFile> source_;
-  std::shared_ptr<arrow::io::internal::ReadRangeCache> cached_source_;
+  std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source_;
   int64_t source_size_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
@@ -344,7 +344,7 @@ void SerializedFile::ParseUnencryptedFileMetadata(
     const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size,
     std::shared_ptr<Buffer>* metadata_buffer, uint32_t* metadata_len,
     uint32_t* read_metadata_len) {
-  *metadata_len = arrow::util::SafeLoadAs<uint32_t>(
+  *metadata_len = ::arrow::util::SafeLoadAs<uint32_t>(
       reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
       kFooterSize);
   int64_t metadata_start = source_size_ - kFooterSize - *metadata_len;
@@ -376,7 +376,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     const std::shared_ptr<Buffer>& footer_buffer, int64_t footer_read_size) {
   // encryption with encrypted footer
   // both metadata & crypto metadata length
-  uint32_t footer_len = arrow::util::SafeLoadAs<uint32_t>(
+  uint32_t footer_len = ::arrow::util::SafeLoadAs<uint32_t>(
       reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
       kFooterSize);
   int64_t crypto_metadata_start = source_size_ - kFooterSize - footer_len;

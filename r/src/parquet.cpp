@@ -24,6 +24,20 @@
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 
+namespace parquet {
+
+class WriterPropertiesBuilder : public WriterProperties::Builder {
+ public:
+  using WriterProperties::Builder::Builder;
+};
+
+class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
+ public:
+  using ArrowWriterProperties::Builder::Builder;
+};
+
+}  // namespace parquet
+
 // [[arrow::export]]
 std::shared_ptr<parquet::ArrowReaderProperties>
 parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
@@ -144,20 +158,6 @@ std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(
   PARQUET_THROW_NOT_OK(reader->ReadColumn(i - 1, &array));
   return array;
 }
-
-namespace parquet {
-
-class WriterPropertiesBuilder : public WriterProperties::Builder {
- public:
-  using WriterProperties::Builder::Builder;
-};
-
-class ArrowWriterPropertiesBuilder : public ArrowWriterProperties::Builder {
- public:
-  using ArrowWriterProperties::Builder::Builder;
-};
-
-}  // namespace parquet
 
 // [[arrow::export]]
 std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___create(

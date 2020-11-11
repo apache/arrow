@@ -285,15 +285,18 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
-    df <- Scanner$create(x)$ToTable()
+    tab <- Scanner$create(x)$ToTable()
   } else {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
-    df <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
+    tab <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
   }
   if (as_data_frame) {
-    df <- as.data.frame(df)
+    df <- as.data.frame(tab)
+    tab$invalidate()
+    restore_dplyr_features(df, x)
+  } else {
+    restore_dplyr_features(tab, x)
   }
-  restore_dplyr_features(df, x)
 }
 collect.Table <- as.data.frame.Table
 collect.RecordBatch <- as.data.frame.RecordBatch

@@ -55,9 +55,8 @@ std::shared_ptr<arrow::Field> Schema__GetFieldByName(
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::Field>> Schema__fields(
-    const std::shared_ptr<arrow::Schema>& schema) {
-  return schema->fields();
+cpp11::list Schema__fields(const std::shared_ptr<arrow::Schema>& schema) {
+  return arrow::r::to_r_list(schema->fields());
 }
 
 // [[arrow::export]]

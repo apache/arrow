@@ -60,7 +60,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
 
   std::vector<bool> draws;
-  arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
+  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
 
   std::unique_ptr<BooleanEncoder> encoder =
       MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
@@ -81,7 +81,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], arrow::BitUtil::GetBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], ::arrow::BitUtil::GetBit(decode_data, i)) << i;
   }
 }
 
@@ -341,7 +341,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+    std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
 
     auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
     auto encoder =
@@ -408,8 +408,8 @@ TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
 
 class TestArrowBuilderDecoding : public ::testing::Test {
  public:
-  using DenseBuilder = arrow::internal::ChunkedBinaryBuilder;
-  using DictBuilder = arrow::BinaryDictionary32Builder;
+  using DenseBuilder = ::arrow::internal::ChunkedBinaryBuilder;
+  using DictBuilder = ::arrow::BinaryDictionary32Builder;
 
   void SetUp() override { null_probabilities_ = {0.0, 0.5, 1.0}; }
   void TearDown() override {}
@@ -424,7 +424,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     constexpr int repeat = 100;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
-    arrow::random::RandomArrayGenerator rag(0);
+    ::arrow::random::RandomArrayGenerator rag(0);
     expected_dense_ = rag.BinaryWithRepeats(repeat * num_unique, num_unique, min_length,
                                             max_length, null_probability);
 
@@ -437,7 +437,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     ASSERT_OK(builder->Finish(&expected_dict_));
 
     // Initialize input_data_ for the encoder from the expected_array_ values
-    const auto& binary_array = static_cast<const arrow::BinaryArray&>(*expected_dense_);
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
     input_data_.resize(binary_array.length());
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
@@ -454,7 +454,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   // Setup encoder/decoder pair for testing with
   virtual void SetupEncoderDecoder() = 0;
 
-  void CheckDense(int actual_num_values, const arrow::Array& chunk) {
+  void CheckDense(int actual_num_values, const ::arrow::Array& chunk) {
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
     ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
   }
@@ -462,7 +462,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   template <typename Builder>
   void CheckDict(int actual_num_values, Builder& builder) {
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
-    std::shared_ptr<arrow::Array> actual;
+    std::shared_ptr<::arrow::Array> actual;
     ASSERT_OK(builder.Finish(&actual));
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
   }
@@ -517,8 +517,8 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
  protected:
   std::vector<double> null_probabilities_;
-  std::shared_ptr<arrow::Array> expected_dict_;
-  std::shared_ptr<arrow::Array> expected_dense_;
+  std::shared_ptr<::arrow::Array> expected_dict_;
+  std::shared_ptr<::arrow::Array> expected_dense_;
   int num_values_;
   int null_count_;
   std::vector<ByteArray> input_data_;
@@ -572,7 +572,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   const double null_probability = 0.25;
 
   auto CheckSeed = [&](int seed) {
-    arrow::random::RandomArrayGenerator rag(seed);
+    ::arrow::random::RandomArrayGenerator rag(seed);
     auto values = rag.String(size, min_length, max_length, null_probability);
 
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
@@ -585,7 +585,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.builder.reset(new arrow::StringBuilder);
+    acc.builder.reset(new ::arrow::StringBuilder);
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -594,7 +594,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.builder->Finish(&result));
     ASSERT_EQ(50, result->length());
-    arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result);
   };
 
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
@@ -642,9 +642,9 @@ class EncodingAdHocTyped : public ::testing::Test {
     return column_descr.get();
   }
 
-  std::shared_ptr<arrow::Array> GetValues(int seed);
+  std::shared_ptr<::arrow::Array> GetValues(int seed);
 
-  static std::shared_ptr<arrow::DataType> arrow_type();
+  static std::shared_ptr<::arrow::DataType> arrow_type();
 
   void Plain(int seed) {
     auto values = GetValues(seed);
@@ -658,7 +658,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    BuilderType acc(arrow_type(), arrow::default_memory_pool());
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -667,7 +667,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
-    arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result);
   }
 
   void ByteStreamSplit(int seed) {
@@ -687,7 +687,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    BuilderType acc(arrow_type(), arrow::default_memory_pool());
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -696,7 +696,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
-    arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result);
   }
 
   void Dict(int seed) {
@@ -719,7 +719,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::unique_ptr<TypedDecoder<ParquetType>> decoder;
     GetDictDecoder(encoder, num_values, &buf, &dict_buf, column_descr(), &decoder);
 
-    BuilderType acc(arrow_type(), arrow::default_memory_pool());
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -727,7 +727,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
-    arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result);
   }
 
   void DictPutIndices() {
@@ -735,14 +735,15 @@ class EncodingAdHocTyped : public ::testing::Test {
       return;
     }
 
-    auto dict_values =
-        arrow::ArrayFromJSON(arrow_type(), std::is_same<ParquetType, FLBAType>::value
-                                               ? R"(["abcdefgh", "ijklmnop", "qrstuvwx"])"
-                                               : "[120, -37, 47]");
-    auto indices = arrow::ArrayFromJSON(arrow::int32(), "[0, 1, 2]");
-    auto indices_nulls = arrow::ArrayFromJSON(arrow::int32(), "[null, 0, 1, null, 2]");
+    auto dict_values = ::arrow::ArrayFromJSON(
+        arrow_type(), std::is_same<ParquetType, FLBAType>::value
+                          ? R"(["abcdefgh", "ijklmnop", "qrstuvwx"])"
+                          : "[120, -37, 47]");
+    auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 1, 2]");
+    auto indices_nulls =
+        ::arrow::ArrayFromJSON(::arrow::int32(), "[null, 0, 1, null, 2]");
 
-    auto expected = arrow::ArrayFromJSON(
+    auto expected = ::arrow::ArrayFromJSON(
         arrow_type(), std::is_same<ParquetType, FLBAType>::value
                           ? R"(["abcdefgh", "ijklmnop", "qrstuvwx", null,
                                 "abcdefgh", "ijklmnop", null, "qrstuvwx"])"
@@ -770,7 +771,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::unique_ptr<TypedDecoder<ParquetType>> decoder;
     GetDictDecoder(encoder, num_values, &buf, &dict_buf, column_descr(), &decoder);
 
-    BuilderType acc(arrow_type(), arrow::default_memory_pool());
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
     ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
                                                static_cast<int>(expected->null_count()),
                                                expected->null_bitmap_data(),
@@ -778,7 +779,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
-    arrow::AssertArraysEqual(*expected, *result);
+    ::arrow::AssertArraysEqual(*expected, *result);
   }
 
  protected:
@@ -787,31 +788,31 @@ class EncodingAdHocTyped : public ::testing::Test {
 };
 
 template <typename ParquetType>
-std::shared_ptr<arrow::DataType> EncodingAdHocTyped<ParquetType>::arrow_type() {
-  return arrow::TypeTraits<ArrowType>::type_singleton();
+std::shared_ptr<::arrow::DataType> EncodingAdHocTyped<ParquetType>::arrow_type() {
+  return ::arrow::TypeTraits<ArrowType>::type_singleton();
 }
 
 template <>
-std::shared_ptr<arrow::DataType> EncodingAdHocTyped<FLBAType>::arrow_type() {
-  return arrow::fixed_size_binary(sizeof(uint64_t));
+std::shared_ptr<::arrow::DataType> EncodingAdHocTyped<FLBAType>::arrow_type() {
+  return ::arrow::fixed_size_binary(sizeof(uint64_t));
 }
 
 template <typename ParquetType>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<ParquetType>::GetValues(int seed) {
-  arrow::random::RandomArrayGenerator rag(seed);
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<ParquetType>::GetValues(int seed) {
+  ::arrow::random::RandomArrayGenerator rag(seed);
   return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<BooleanType>::GetValues(int seed) {
-  arrow::random::RandomArrayGenerator rag(seed);
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<BooleanType>::GetValues(int seed) {
+  ::arrow::random::RandomArrayGenerator rag(seed);
   return rag.Boolean(size_, 0.1, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) {
-  arrow::random::RandomArrayGenerator rag(seed);
-  std::shared_ptr<arrow::Array> values;
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) {
+  ::arrow::random::RandomArrayGenerator rag(seed);
+  std::shared_ptr<::arrow::Array> values;
   ARROW_EXPECT_OK(
       rag.UInt64(size_, 0, std::numeric_limits<uint64_t>::max(), null_probability_)
           ->View(arrow_type())
@@ -842,7 +843,7 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   const int64_t min_length = 0;
   const int64_t max_length = 10;
   const double null_probability = 0.1;
-  arrow::random::RandomArrayGenerator rag(0);
+  ::arrow::random::RandomArrayGenerator rag(0);
   auto values = rag.String(size, min_length, max_length, null_probability);
 
   auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
@@ -858,7 +859,7 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
   typename EncodingTraits<ByteArrayType>::Accumulator acc;
-  acc.builder.reset(new arrow::StringBuilder);
+  acc.builder.reset(new ::arrow::StringBuilder);
   ASSERT_EQ(num_values,
             decoder->DecodeArrow(static_cast<int>(values->length()),
                                  static_cast<int>(values->null_count()),
@@ -866,22 +867,23 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
 
   std::shared_ptr<::arrow::Array> result;
   ASSERT_OK(acc.builder->Finish(&result));
-  arrow::AssertArraysEqual(*values, *result);
+  ::arrow::AssertArraysEqual(*values, *result);
 }
 
 TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPut) { this->Dict(0); }
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   // Part of ARROW-3246
-  auto dict_values = arrow::ArrayFromJSON(arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
+  auto dict_values =
+      ::arrow::ArrayFromJSON(::arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
 
-  auto CheckIndexType = [&](const std::shared_ptr<arrow::DataType>& index_ty) {
-    auto indices = arrow::ArrayFromJSON(index_ty, "[0, 1, 2]");
-    auto indices_nulls = arrow::ArrayFromJSON(index_ty, "[null, 0, 1, null, 2]");
+  auto CheckIndexType = [&](const std::shared_ptr<::arrow::DataType>& index_ty) {
+    auto indices = ::arrow::ArrayFromJSON(index_ty, "[0, 1, 2]");
+    auto indices_nulls = ::arrow::ArrayFromJSON(index_ty, "[null, 0, 1, null, 2]");
 
-    auto expected = arrow::ArrayFromJSON(arrow::binary(),
-                                         "[\"foo\", \"bar\", \"baz\", null, "
-                                         "\"foo\", \"bar\", null, \"baz\"]");
+    auto expected = ::arrow::ArrayFromJSON(::arrow::binary(),
+                                           "[\"foo\", \"bar\", \"baz\", null, "
+                                           "\"foo\", \"bar\", null, \"baz\"]");
 
     auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
                                                          /*use_dictionary=*/true);
@@ -903,7 +905,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.builder.reset(new arrow::BinaryBuilder);
+    acc.builder.reset(new ::arrow::BinaryBuilder);
     ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
                                                static_cast<int>(expected->null_count()),
                                                expected->null_bitmap_data(),
@@ -911,7 +913,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.builder->Finish(&result));
-    arrow::AssertArraysEqual(*expected, *result);
+    ::arrow::AssertArraysEqual(*expected, *result);
   };
 
   for (auto ty : ::arrow::all_dictionary_index_types()) {
@@ -988,13 +990,14 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
           num_values_, null_count_, valid_bits_, 0, builder.get());
     }
     ASSERT_EQ(actual_num_values, num_values_ - null_count_);
-    std::shared_ptr<arrow::Array> actual;
+    std::shared_ptr<::arrow::Array> actual;
     ASSERT_OK(builder->Finish(&actual));
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
 
     // Check that null indices are zero-initialized
-    const auto& dict_actual = checked_cast<const arrow::DictionaryArray&>(*actual);
-    const auto& indices = checked_cast<const arrow::Int32Array&>(*dict_actual.indices());
+    const auto& dict_actual = checked_cast<const ::arrow::DictionaryArray&>(*actual);
+    const auto& indices =
+        checked_cast<const ::arrow::Int32Array&>(*dict_actual.indices());
 
     auto raw_values = indices.raw_values();
     for (int64_t i = 0; i < indices.length(); ++i) {
@@ -1052,11 +1055,11 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
 
     {
-      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_), 0);
+      std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_), 0);
       std::vector<T> expected_filtered_output;
       const int every_nth = 5;
       expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);
-      arrow::internal::BitmapWriter writer{valid_bits.data(), 0, num_values_};
+      ::arrow::internal::BitmapWriter writer{valid_bits.data(), 0, num_values_};
       // Set every fifth bit.
       for (int i = 0; i < num_values_; ++i) {
         if (i % every_nth == 0) {

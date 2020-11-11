@@ -61,8 +61,9 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
     const std::shared_ptr<arrow::Schema>& schema) {
   // TODO: perhaps this should come from the R side
   arrow::ipc::DictionaryMemo memo;
-  return ValueOrStop(arrow::ipc::ReadRecordBatch(*message, schema, &memo,
-                                                 arrow::ipc::IpcReadOptions::Defaults()));
+  auto batch = ValueOrStop(arrow::ipc::ReadRecordBatch(
+      *message, schema, &memo, arrow::ipc::IpcReadOptions::Defaults()));
+  return batch;
 }
 
 // [[arrow::export]]
@@ -85,7 +86,8 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  return arrow::ipc::MessageReader::Open(stream);
+  return std::shared_ptr<arrow::ipc::MessageReader>(
+      arrow::ipc::MessageReader::Open(stream));
 }
 
 // [[arrow::export]]
