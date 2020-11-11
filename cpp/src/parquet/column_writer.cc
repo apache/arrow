@@ -33,10 +33,12 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/visitor_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"
@@ -53,14 +55,81 @@
 using arrow::Array;
 using arrow::ArrayData;
 using arrow::Datum;
+using arrow::Result;
 using arrow::Status;
 using arrow::BitUtil::BitWriter;
 using arrow::internal::checked_cast;
+using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
 
 namespace parquet {
 
 namespace {
+
+// Visitor that exracts the value buffer from a FlatArray at a given offset.
+struct ValueBufferSlicer {
+  template <typename T>
+  ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    auto data = array.data();
+    buffer_ =
+        SliceBuffer(data->buffers[1], data->offset * sizeof(typename T::offset_type),
+                    data->length * sizeof(typename T::offset_type));
+    return Status::OK();
+  }
+
+  template <typename T>
+  ::arrow::enable_if_fixed_size_binary<typename T::TypeClass, Status> Visit(
+      const T& array) {
+    auto data = array.data();
+    buffer_ = SliceBuffer(data->buffers[1], data->offset * array.byte_width(),
+                          data->length * array.byte_width());
+    return Status::OK();
+  }
+
+  template <typename T>
+  ::arrow::enable_if_t<::arrow::has_c_type<typename T::TypeClass>::value &&
+                           !std::is_same<BooleanType, typename T::TypeClass>::value,
+                       Status>
+  Visit(const T& array) {
+    auto data = array.data();
+    buffer_ = SliceBuffer(
+        data->buffers[1],
+        ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->offset),
+        ::arrow::TypeTraits<typename T::TypeClass>::bytes_required(data->length));
+    return Status::OK();
+  }
+
+  Status Visit(const ::arrow::BooleanArray& array) {
+    auto data = array.data();
+    if (BitUtil::IsMultipleOf8(data->offset)) {
+      buffer_ = SliceBuffer(data->buffers[1], BitUtil::BytesForBits(data->offset),
+                            BitUtil::BytesForBits(data->length));
+      return Status::OK();
+    }
+    PARQUET_ASSIGN_OR_THROW(buffer_,
+                            ::arrow::internal::CopyBitmap(pool_, data->buffers[1]->data(),
+                                                          data->offset, data->length));
+    return Status::OK();
+  }
+#define NOT_IMPLEMENTED_VISIT(ArrowTypePrefix)                                      \
+  Status Visit(const ::arrow::ArrowTypePrefix##Array& array) {                      \
+    return Status::NotImplemented("Slicing not implemented for " #ArrowTypePrefix); \
+  }
+
+  NOT_IMPLEMENTED_VISIT(Null);
+  NOT_IMPLEMENTED_VISIT(Union);
+  NOT_IMPLEMENTED_VISIT(List);
+  NOT_IMPLEMENTED_VISIT(LargeList);
+  NOT_IMPLEMENTED_VISIT(Struct);
+  NOT_IMPLEMENTED_VISIT(FixedSizeList);
+  NOT_IMPLEMENTED_VISIT(Dictionary);
+  NOT_IMPLEMENTED_VISIT(Extension);
+
+#undef NOT_IMPLEMENTED_VISIT
+
+  MemoryPool* pool_;
+  std::shared_ptr<Buffer> buffer_;
+};
 
 internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   internal::LevelInfo level_info;
@@ -1233,15 +1302,24 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     *null_count = io.null_count;
   }
 
-  std::shared_ptr<Array> MaybeReplaceValidity(std::shared_ptr<Array> array,
-                                              int64_t new_null_count) {
+  Result<std::shared_ptr<Array>> MaybeReplaceValidity(std::shared_ptr<Array> array,
+                                                      int64_t new_null_count,
+                                                      arrow::MemoryPool* memory_pool) {
     if (bits_buffer_ == nullptr) {
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
+    if (buffers.empty()) {
+      return array;
+    }
     buffers[0] = bits_buffer_;
     // Should be a leaf array.
-    DCHECK_EQ(array->num_fields(), 0);
+    DCHECK_GT(buffers.size(), 1);
+    ValueBufferSlicer slicer{memory_pool, /*buffer=*/nullptr};
+    if (array->data()->offset > 0) {
+      RETURN_NOT_OK(::arrow::VisitArrayInline(*array, &slicer));
+      buffers[1] = slicer.buffer_;
+    }
     return arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));
   }
@@ -1394,7 +1472,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    writeable_indices = MaybeReplaceValidity(writeable_indices, null_count);
+    PARQUET_ASSIGN_OR_THROW(
+        writeable_indices,
+        MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
     dict_encoder->PutIndices(*writeable_indices);
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     value_offset += batch_num_spaced_values;
@@ -1821,7 +1901,8 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
-    data_slice = MaybeReplaceValidity(data_slice, null_count);
+    PARQUET_ASSIGN_OR_THROW(
+        data_slice, MaybeReplaceValidity(data_slice, null_count, ctx->memory_pool));
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
@@ -1866,8 +1947,6 @@ struct SerializeFunctor<
 
 // ----------------------------------------------------------------------
 // Write Arrow to Decimal128
-
-using ::arrow::internal::checked_pointer_cast;
 
 // Requires a custom serializer because decimal128 in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
