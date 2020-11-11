@@ -456,6 +456,38 @@ pub fn lit<T: Literal>(n: T) -> Expr {
     n.lit()
 }
 
+/// Create an convenience function representing a unary scalar function
+macro_rules! unary_math_expr {
+    ($ENUM:ident, $FUNC:ident) => {
+        #[allow(missing_docs)]
+        pub fn $FUNC(e: Expr) -> Expr {
+            Expr::ScalarFunction {
+                fun: functions::BuiltinScalarFunction::$ENUM,
+                args: vec![e],
+            }
+        }
+    };
+}
+
+// generate methods for creating the supported unary math expressions
+unary_math_expr!(Sqrt, sqrt);
+unary_math_expr!(Sin, sin);
+unary_math_expr!(Cos, cos);
+unary_math_expr!(Tan, tan);
+unary_math_expr!(Asin, asin);
+unary_math_expr!(Acos, acos);
+unary_math_expr!(Atan, atan);
+unary_math_expr!(Floor, floor);
+unary_math_expr!(Ceil, ceil);
+unary_math_expr!(Round, round);
+unary_math_expr!(Trunc, trunc);
+unary_math_expr!(Abs, abs);
+unary_math_expr!(Signum, signum);
+unary_math_expr!(Exp, exp);
+unary_math_expr!(Log, ln);
+unary_math_expr!(Log2, log2);
+unary_math_expr!(Log10, log10);
+
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
     Expr::ScalarFunction {
