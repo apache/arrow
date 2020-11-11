@@ -46,7 +46,7 @@
 namespace parquet {
 namespace test {
 
-using arrow::internal::TemporaryDir;
+using ::arrow::internal::TemporaryDir;
 
 using parquet::ConvertedType;
 using parquet::Repetition;
