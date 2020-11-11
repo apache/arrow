@@ -21,18 +21,13 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
-use std::collections::HashSet;
-
-use crate::error::Result;
-use crate::physical_plan::udaf::AggregateUDF;
-use crate::physical_plan::udf::ScalarUDF;
-
 mod builder;
 mod display;
 mod expr;
 mod extension;
 mod operators;
 mod plan;
+mod registry;
 
 pub use builder::LogicalPlanBuilder;
 pub use display::display_schema;
@@ -43,15 +38,4 @@ pub use expr::{
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
 pub use plan::{LogicalPlan, PlanType, PlanVisitor, StringifiedPlan, TableSource};
-
-/// A registry knows how to build logical expressions out of user-defined function' names
-pub trait FunctionRegistry {
-    /// Set of all available udfs.
-    fn udfs(&self) -> HashSet<String>;
-
-    /// Returns a reference to the udf named `name`.
-    fn udf(&self, name: &str) -> Result<&ScalarUDF>;
-
-    /// Returns a reference to the udaf named `name`.
-    fn udaf(&self, name: &str) -> Result<&AggregateUDF>;
-}
+pub use registry::FunctionRegistry;
