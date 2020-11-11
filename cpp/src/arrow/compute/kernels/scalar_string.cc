@@ -1308,7 +1308,7 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
   explicit UTF8TrimBase(TrimOptions options) : options(options) {
     // TODO: check return / can we raise an exception here?
     arrow::util::UTF8ForEach(options.characters, [&](uint32_t c) {
-      codepoints.reserve(c);
+      codepoints.resize(c);
       codepoints[c] = true;
     });
   }
