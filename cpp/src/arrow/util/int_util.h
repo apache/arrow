@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
@@ -68,6 +69,21 @@ void DowncastUInts(const uint64_t* source, uint32_t* dest, int64_t length);
 
 ARROW_EXPORT
 void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length);
+
+ARROW_EXPORT
+void UpcastInts(const int32_t* source, int64_t* dest, int64_t length);
+
+template <typename InputInt, typename OutputInt>
+inline typename std::enable_if<(sizeof(InputInt) >= sizeof(OutputInt))>::type CastInts(
+    const InputInt* source, OutputInt* dest, int64_t length) {
+  DowncastInts(source, dest, length);
+}
+
+template <typename InputInt, typename OutputInt>
+inline typename std::enable_if<(sizeof(InputInt) < sizeof(OutputInt))>::type CastInts(
+    const InputInt* source, OutputInt* dest, int64_t length) {
+  UpcastInts(source, dest, length);
+}
 
 template <typename InputInt, typename OutputInt>
 ARROW_EXPORT void TransposeInts(const InputInt* source, OutputInt* dest, int64_t length,
