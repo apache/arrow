@@ -1576,6 +1576,18 @@ Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
 }
 
+Table__RemoveColumn <- function(table, i){
+    .Call(`_arrow_Table__RemoveColumn` , table, i)
+}
+
+Table__AddColumn <- function(table, i, field, column){
+    .Call(`_arrow_Table__AddColumn` , table, i, field, column)
+}
+
+Table__SetColumn <- function(table, i, field, column){
+    .Call(`_arrow_Table__SetColumn` , table, i, field, column)
+}
+
 Table__SelectColumns <- function(table, indices){
     .Call(`_arrow_Table__SelectColumns` , table, indices)
 }
