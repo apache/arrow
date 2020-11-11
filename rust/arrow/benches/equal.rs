@@ -26,17 +26,18 @@ use std::sync::Arc;
 extern crate arrow;
 
 use arrow::array::*;
+use arrow::util::test_util::seedable_rng;
 
 fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
     let mut builder = StringBuilder::new(size);
 
     for _ in 0..size {
         if with_nulls && rng.gen::<f32>() > 0.5 {
             builder.append_null().unwrap();
         } else {
-            let string = rand::thread_rng()
+            let string = seedable_rng()
                 .sample_iter(&Alphanumeric)
                 .take(10)
                 .collect::<String>();
@@ -48,7 +49,7 @@ fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
     let mut builder = Float32Builder::new(size);
 
     for _ in 0..size {

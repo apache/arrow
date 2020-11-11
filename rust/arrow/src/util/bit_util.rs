@@ -199,10 +199,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
     use std::collections::HashSet;
 
     use super::*;
+    use crate::util::test_util::seedable_rng;
+    use rand::Rng;
 
     #[test]
     fn test_round_upto_multiple_of_64() {
@@ -246,7 +247,7 @@ mod tests {
         const NUM_BYTE: usize = 10;
         let mut buf = vec![0; NUM_BYTE];
         let mut expected = vec![];
-        let mut rng = thread_rng();
+        let mut rng = seedable_rng();
         for i in 0..8 * NUM_BYTE {
             let b = rng.gen_bool(0.5);
             expected.push(b);
@@ -290,7 +291,7 @@ mod tests {
         const NUM_BYTE: usize = 10;
         let mut buf = vec![0; NUM_BYTE];
         let mut expected = vec![];
-        let mut rng = thread_rng();
+        let mut rng = seedable_rng();
         for i in 0..8 * NUM_BYTE {
             let b = rng.gen_bool(0.5);
             expected.push(b);
@@ -314,7 +315,7 @@ mod tests {
         const NUM_BYTE: usize = 10;
         let mut buf = vec![255; NUM_BYTE];
         let mut expected = vec![];
-        let mut rng = thread_rng();
+        let mut rng = seedable_rng();
         for i in 0..8 * NUM_BYTE {
             let b = rng.gen_bool(0.5);
             expected.push(b);
@@ -343,7 +344,7 @@ mod tests {
         let mut expected = Vec::with_capacity(NUM_BYTE * 8);
         expected.resize(NUM_BYTE * 8, false);
 
-        let mut rng = thread_rng();
+        let mut rng = seedable_rng();
 
         for _ in 0..NUM_BLOCKS {
             let start = rng.gen_range(0, NUM_BYTE * 8 - MAX_BLOCK_SIZE);
@@ -371,7 +372,7 @@ mod tests {
 
         let mut buffer: [u8; NUM_BYTES * 8] = [0; NUM_BYTES * 8];
         let mut v = HashSet::new();
-        let mut rng = thread_rng();
+        let mut rng = seedable_rng();
         for _ in 0..NUM_SETS {
             let offset = rng.gen_range(0, 8 * NUM_BYTES);
             v.insert(offset);

@@ -30,6 +30,7 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::{cast, take};
 use arrow::datatypes::*;
+use arrow::util::test_util::seedable_rng;
 
 // cast array from specified primitive array type to desired data type
 fn create_numeric<T>(size: usize) -> ArrayRef
@@ -44,7 +45,7 @@ where
 fn create_strings(size: usize) -> ArrayRef {
     let v = (0..size)
         .map(|_| {
-            rand::thread_rng()
+            seedable_rng()
                 .sample_iter(&Alphanumeric)
                 .take(5)
                 .collect::<String>()
@@ -57,7 +58,7 @@ fn create_strings(size: usize) -> ArrayRef {
 }
 
 fn create_random_index(size: usize) -> UInt32Array {
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
     let ints = Int32Array::from(vec![rng.gen_range(-24i32, size as i32); size]);
     // cast to u32, conveniently marking negative values as nulls
     UInt32Array::from(
