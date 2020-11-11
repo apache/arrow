@@ -380,7 +380,7 @@ class TableSorter : public TypeVisitor {
     ResolvedSortKey(const ChunkedArray& chunked_array, const SortOrder order)
         : order(order) {
       type = chunked_array.type().get();
-      has_nulls = (chunked_array.null_count() > 0);
+      null_count = chunked_array.null_count();
       num_chunks = chunked_array.num_chunks();
       for (const auto& chunk : chunked_array.chunks()) {
         chunks.push_back(chunk.get());
@@ -407,7 +407,7 @@ class TableSorter : public TypeVisitor {
 
     SortOrder order;
     DataType* type;
-    bool has_nulls;
+    int64_t null_count;
     size_t num_chunks;
     std::vector<Array*> chunks;
   };
@@ -478,7 +478,7 @@ class TableSorter : public TypeVisitor {
       auto array_left = sort_key.ResolveChunk<ArrayType>(current_left_, index_left);
       int64_t index_right = 0;
       auto array_right = sort_key.ResolveChunk<ArrayType>(current_right_, index_right);
-      if (sort_key.has_nulls) {
+      if (sort_key.null_count > 0) {
         auto is_null_left = array_left->IsNull(index_left);
         auto is_null_right = array_right->IsNull(index_right);
         if (is_null_left && is_null_right) {
@@ -554,19 +554,7 @@ class TableSorter : public TypeVisitor {
     auto& comparer = comparer_;
     const auto& first_sort_key = comparer.sort_keys()[0];
     auto nulls_begin = indices_end_;
-    if (first_sort_key.has_nulls) {
-      StablePartitioner partitioner;
-      nulls_begin =
-          partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
-            int64_t index_chunk = 0;
-            auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
-            return !chunk->IsNull(index_chunk);
-          });
-      std::stable_sort(nulls_begin, indices_end_,
-                       [&comparer](uint64_t left, uint64_t right) {
-                         return comparer.Compare(left, right, 1);
-                       });
-    }
+    nulls_begin = PartitionNullsInternal<Type>(first_sort_key);
     std::stable_sort(
         indices_begin_, nulls_begin,
         [&first_sort_key, &comparer](uint64_t left, uint64_t right) {
@@ -588,6 +576,70 @@ class TableSorter : public TypeVisitor {
           }
         });
     return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_t<!is_floating_type<Type>::value, uint64_t*> PartitionNullsInternal(
+      const ResolvedSortKey& first_sort_key) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    if (first_sort_key.null_count == 0) {
+      return indices_end_;
+    }
+    StablePartitioner partitioner;
+    auto nulls_begin =
+        partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
+          int64_t index_chunk = 0;
+          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
+          return !chunk->IsNull(index_chunk);
+        });
+    auto& comparer = comparer_;
+    std::stable_sort(nulls_begin, indices_end_,
+                     [&comparer](uint64_t left, uint64_t right) {
+                       return comparer.Compare(left, right, 1);
+                     });
+    return nulls_begin;
+  }
+
+  template <typename Type>
+  enable_if_t<is_floating_type<Type>::value, uint64_t*> PartitionNullsInternal(
+      const ResolvedSortKey& first_sort_key) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    StablePartitioner partitioner;
+    if (first_sort_key.null_count == 0) {
+      return partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
+        int64_t index_chunk = 0;
+        auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
+        return !std::isnan(chunk->GetView(index_chunk));
+      });
+    }
+    auto nans_and_nulls_begin =
+        partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
+          int64_t index_chunk = 0;
+          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
+          return !chunk->IsNull(index_chunk) && !std::isnan(chunk->GetView(index_chunk));
+        });
+    auto nulls_begin = nans_and_nulls_begin;
+    if (first_sort_key.null_count < static_cast<int64_t>(indices_end_ - nulls_begin)) {
+      // move Nulls after NaN
+      nulls_begin = partitioner(
+          nans_and_nulls_begin, indices_end_, [&first_sort_key](uint64_t index) {
+            int64_t index_chunk = 0;
+            auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
+            return !chunk->IsNull(index_chunk);
+          });
+    }
+    auto& comparer = comparer_;
+    if (nans_and_nulls_begin != nulls_begin) {
+      std::stable_sort(nans_and_nulls_begin, nulls_begin,
+                       [&comparer](uint64_t left, uint64_t right) {
+                         return comparer.Compare(left, right, 1);
+                       });
+    }
+    std::stable_sort(nulls_begin, indices_end_,
+                     [&comparer](uint64_t left, uint64_t right) {
+                       return comparer.Compare(left, right, 1);
+                     });
+    return nans_and_nulls_begin;
   }
 
   uint64_t* indices_begin_;

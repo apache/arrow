@@ -463,21 +463,42 @@ TEST_F(TestTableSortIndices, SortNull) {
   this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
 }
 
+TEST_F(TestTableSortIndices, SortNaN) {
+  auto table = TableFromJSON(schema({
+                                 {field("a", float32())},
+                                 {field("b", float32())},
+                             }),
+                             {"["
+                              "{\"a\": null, \"b\": 5},"
+                              "{\"a\": 1,    \"b\": 3},"
+                              "{\"a\": 3,    \"b\": null},"
+                              "{\"a\": null, \"b\": null},"
+                              "{\"a\": NaN,  \"b\": null},"
+                              "{\"a\": NaN,  \"b\": 5},"
+                              "{\"a\": NaN,  \"b\": NaN},"
+                              "{\"a\": 1,    \"b\": 5}"
+                              "]"});
+  SortOptions options(
+      {SortKey("a", SortOrder::ASCENDING), SortKey("b", SortOrder::DESCENDING)});
+  this->AssertSortIndices(table, options, "[7, 1, 2, 5, 6, 4, 0, 3]");
+}
+
 using RandomParam = std::tuple<std::string, double>;
 class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   class Comparator : public TypeVisitor {
    public:
     bool operator()(const Table& table, const SortOptions& options, uint64_t lhs,
                     uint64_t rhs) {
+      lhs_ = lhs;
+      rhs_ = rhs;
       for (const auto& sort_key : options.sort_keys) {
         auto chunked_array = table.GetColumnByName(sort_key.name);
-        left_array_ = findTargetArray(chunked_array, lhs, left_index_);
-        right_array_ = findTargetArray(chunked_array, rhs, right_index_);
-        if (right_array_->IsNull(right_index_) && left_array_->IsNull(left_index_))
-          continue;
-        if (right_array_->IsNull(right_index_)) return true;
-        if (left_array_->IsNull(left_index_)) return false;
-        status_ = left_array_->type()->Accept(this);
+        lhs_array_ = findTargetArray(chunked_array, lhs, lhs_index_);
+        rhs_array_ = findTargetArray(chunked_array, rhs, rhs_index_);
+        if (rhs_array_->IsNull(rhs_index_) && lhs_array_->IsNull(lhs_index_)) continue;
+        if (rhs_array_->IsNull(rhs_index_)) return true;
+        if (lhs_array_->IsNull(lhs_index_)) return false;
+        status_ = lhs_array_->type()->Accept(this);
         if (compared_ == 0) continue;
         if (sort_key.order == SortOrder::ASCENDING) {
           return compared_ < 0;
@@ -492,7 +513,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
 
 #define VISIT(TYPE)                               \
   Status Visit(const TYPE##Type& type) override { \
-    CompareType<TYPE##Type>();                    \
+    compared_ = CompareType<TYPE##Type>();        \
     return Status::OK();                          \
   }
 
@@ -525,23 +546,32 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     }
 
     template <typename Type>
-    void CompareType() {
+    int CompareType() {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
-      auto left = checked_pointer_cast<ArrayType>(left_array_)->GetView(left_index_);
-      auto right = checked_pointer_cast<ArrayType>(right_array_)->GetView(right_index_);
-      if (left == right) {
-        compared_ = 0;
-      } else if (left > right) {
-        compared_ = 1;
+      auto lhs_value = checked_pointer_cast<ArrayType>(lhs_array_)->GetView(lhs_index_);
+      auto rhs_value = checked_pointer_cast<ArrayType>(rhs_array_)->GetView(rhs_index_);
+      if (is_floating_type<Type>::value) {
+        const bool lhs_isnan = lhs_value != lhs_value;
+        const bool rhs_isnan = rhs_value != rhs_value;
+        if (lhs_isnan && rhs_isnan) return 0;
+        if (rhs_isnan) return 1;
+        if (lhs_isnan) return -1;
+      }
+      if (lhs_value == rhs_value) {
+        return 0;
+      } else if (lhs_value > rhs_value) {
+        return 1;
       } else {
-        compared_ = -1;
+        return -1;
       }
     }
 
-    std::shared_ptr<Array> left_array_;
-    int64_t left_index_;
-    std::shared_ptr<Array> right_array_;
-    int64_t right_index_;
+    int64_t lhs_;
+    std::shared_ptr<Array> lhs_array_;
+    int64_t lhs_index_;
+    int64_t rhs_;
+    std::shared_ptr<Array> rhs_array_;
+    int64_t rhs_index_;
     int compared_;
     Status status_;
   };
