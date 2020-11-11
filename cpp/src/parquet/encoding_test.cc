@@ -341,7 +341,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
+    std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_) + 1, 255);
 
     auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
     auto encoder =
@@ -788,31 +788,31 @@ class EncodingAdHocTyped : public ::testing::Test {
 };
 
 template <typename ParquetType>
-std::shared_ptr<arrow::DataType> EncodingAdHocTyped<ParquetType>::arrow_type() {
+std::shared_ptr<::arrow::DataType> EncodingAdHocTyped<ParquetType>::arrow_type() {
   return ::arrow::TypeTraits<ArrowType>::type_singleton();
 }
 
 template <>
-std::shared_ptr<arrow::DataType> EncodingAdHocTyped<FLBAType>::arrow_type() {
+std::shared_ptr<::arrow::DataType> EncodingAdHocTyped<FLBAType>::arrow_type() {
   return ::arrow::fixed_size_binary(sizeof(uint64_t));
 }
 
 template <typename ParquetType>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<ParquetType>::GetValues(int seed) {
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<ParquetType>::GetValues(int seed) {
   ::arrow::random::RandomArrayGenerator rag(seed);
   return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<BooleanType>::GetValues(int seed) {
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<BooleanType>::GetValues(int seed) {
   ::arrow::random::RandomArrayGenerator rag(seed);
   return rag.Boolean(size_, 0.1, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) {
+std::shared_ptr<::arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) {
   ::arrow::random::RandomArrayGenerator rag(seed);
-  std::shared_ptr<arrow::Array> values;
+  std::shared_ptr<::arrow::Array> values;
   ARROW_EXPECT_OK(
       rag.UInt64(size_, 0, std::numeric_limits<uint64_t>::max(), null_probability_)
           ->View(arrow_type())
@@ -881,7 +881,7 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
     auto indices = ::arrow::ArrayFromJSON(index_ty, "[0, 1, 2]");
     auto indices_nulls = ::arrow::ArrayFromJSON(index_ty, "[null, 0, 1, null, 2]");
 
-    auto expected = ::arrow::ArrayFromJSON(arrow::binary(),
+    auto expected = ::arrow::ArrayFromJSON(::arrow::binary(),
                                            "[\"foo\", \"bar\", \"baz\", null, "
                                            "\"foo\", \"bar\", null, \"baz\"]");
 
@@ -995,8 +995,9 @@ TEST_F(DictEncoding, CheckDecodeIndicesSpaced) {
     ASSERT_ARRAYS_EQUAL(*actual, *expected_dict_);
 
     // Check that null indices are zero-initialized
-    const auto& dict_actual = checked_cast<const arrow::DictionaryArray&>(*actual);
-    const auto& indices = checked_cast<const arrow::Int32Array&>(*dict_actual.indices());
+    const auto& dict_actual = checked_cast<const ::arrow::DictionaryArray&>(*actual);
+    const auto& indices =
+        checked_cast<const ::arrow::Int32Array&>(*dict_actual.indices());
 
     auto raw_values = indices.raw_values();
     for (int64_t i = 0; i < indices.length(); ++i) {
@@ -1054,11 +1055,11 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
 
     {
-      std::vector<uint8_t> valid_bits(arrow::BitUtil::BytesForBits(num_values_), 0);
+      std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_), 0);
       std::vector<T> expected_filtered_output;
       const int every_nth = 5;
       expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);
-      arrow::internal::BitmapWriter writer{valid_bits.data(), 0, num_values_};
+      ::arrow::internal::BitmapWriter writer{valid_bits.data(), 0, num_values_};
       // Set every fifth bit.
       for (int i = 0; i < num_values_; ++i) {
         if (i % every_nth == 0) {

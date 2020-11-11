@@ -27,6 +27,7 @@
 #include "arrow/util/string_view.h"
 
 #include "parquet/platform.h"
+#include "parquet/type_fwd.h"
 
 namespace arrow {
 namespace util {
