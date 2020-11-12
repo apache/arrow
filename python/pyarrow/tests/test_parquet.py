@@ -4444,3 +4444,15 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
+
+
+def test_parquet_compression_roundtrip(tempdir):
+    # ARROW-10480: ensure even with nonstandard Parquet file naming
+    # conventions, writing and then reading a file works. In
+    # particular, ensure that we don't automatically double-compress
+    # the stream due to auto-detecting the extension in the filename
+    table = pa.table([pa.array(range(4))], names=["ints"])
+    path = tempdir / "arrow-10480.pyarrow.gz"
+    pq.write_table(table, path, compression="GZIP")
+    result = pq.read_table(path)
+    assert result.equals(table)
