@@ -741,6 +741,7 @@ class TestPrimitiveModeKernel : public ::testing::Test {
                       const std::vector<CType>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+    ASSERT_OK(out.make_array()->ValidateFull());
     const StructArray out_array(out.array());
     ASSERT_EQ(out_array.length(), expected_modes.size());
     ASSERT_EQ(out_array.num_fields(), 2);
@@ -779,19 +780,20 @@ class TestPrimitiveModeKernel : public ::testing::Test {
     AssertModeIs(chunked, expected_mode, expected_count);
   }
 
-  void AssertModeIsNull(const Datum& array, int n) {
+  void AssertModesEmpty(const Datum& array, int n) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+    ASSERT_OK(out.make_array()->ValidateFull());
     ASSERT_EQ(out.array()->length, 0);
   }
 
-  void AssertModeIsNull(const std::string& json, int n = 1) {
+  void AssertModesEmpty(const std::string& json, int n = 1) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertModeIsNull(array, n);
+    AssertModesEmpty(array, n);
   }
 
-  void AssertModeIsNull(const std::vector<std::string>& json, int n = 1) {
+  void AssertModesEmpty(const std::vector<std::string>& json, int n = 1) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertModeIsNull(chunked, n);
+    AssertModesEmpty(chunked, n);
   }
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
@@ -816,18 +818,18 @@ TEST_F(TestBooleanModeKernel, Basics) {
   this->AssertModeIs("[false, false, true, true, true, false]", false, 3);
 
   this->AssertModeIs("[true, null, false, false, null, true, null, null, true]", true, 3);
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
   this->AssertModeIs({"[true, false]", "[true, true]", "[false, false]"}, false, 3);
   this->AssertModeIs({"[true, null]", "[]", "[null, false]"}, false, 1);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
 
   this->AssertModesAre("[false, false, true, true, true, false]", 2, {false, true},
                        {3, 3});
   this->AssertModesAre("[true, null, false, false, null, true, null, null, true]", 100,
                        {true, false}, {3, 2});
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"}, 4);
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"}, 4);
 }
 
 TYPED_TEST_SUITE(TestIntegerModeKernel, IntegralArrowTypes);
@@ -837,16 +839,16 @@ TYPED_TEST(TestIntegerModeKernel, Basics) {
   this->AssertModeIs("[127, 0, 127, 127, 0, 1, 0, 127]", 127, 4);
 
   this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
   this->AssertModeIs({"[5]", "[1, 1, 5]", "[5]"}, 5, 3);
   this->AssertModeIs({"[5]", "[1, 1, 5]", "[5, 1]"}, 1, 3);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
 
   this->AssertModesAre("[127, 0, 127, 127, 0, 1, 0, 127]", 2, {127, 0}, {4, 3});
   this->AssertModesAre("[null, null, 2, null, 1]", 3, {1, 2}, {1, 1});
-  this->AssertModeIsNull("[null, null, null]", 10);
+  this->AssertModesEmpty("[null, null, null]", 10);
 }
 
 TYPED_TEST_SUITE(TestFloatingModeKernel, RealArrowTypes);
@@ -859,16 +861,16 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
   this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
   this->AssertModeIs("[NaN, NaN, 1, null, 1]", 1, 2);
 
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
   this->AssertModeIs("[NaN, NaN, 1]", NAN, 2);
   this->AssertModeIs("[NaN, NaN, null]", NAN, 2);
   this->AssertModeIs("[NaN, NaN, NaN]", NAN, 3);
 
   this->AssertModeIs({"[Inf, 100]", "[Inf, 100]", "[Inf]"}, INFINITY, 3);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
   this->AssertModeIs({"[NaN, 1]", "[NaN, 1]", "[NaN]"}, NAN, 3);
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
 
   this->AssertModesAre("[Inf, 100, Inf, 100, Inf]", 2, {INFINITY, 100}, {3, 2});
   this->AssertModesAre("[NaN, NaN, 1, null, 1, 2, 2]", 3, {1, 2, NAN}, {2, 2, 2});
@@ -925,6 +927,7 @@ void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
 
   auto expected = NaiveMode<ArrowType>(*array);
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
+  ASSERT_OK(out.make_array()->ValidateFull());
   const StructArray out_array(out.array());
   ASSERT_EQ(out_array.length(), 1);
   ASSERT_EQ(out_array.num_fields(), 2);

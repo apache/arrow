@@ -29,8 +29,8 @@ namespace internal {
 
 namespace {
 
-constexpr char kModeFieldName[] = "modes";
-constexpr char kCountFieldName[] = "counts";
+constexpr char kModeFieldName[] = "mode";
+constexpr char kCountFieldName[] = "count";
 
 // {value:count} map
 template <typename CType>
@@ -170,7 +170,7 @@ struct ModeState {
   }
 
   // find top-n value/count pairs with min-heap (priority queue with '>' comparator)
-  void Finalize(CType* modes, int64_t* counts, const int n) {
+  void Finalize(CType* modes, int64_t* counts, const int64_t n) {
     DCHECK(n >= 1 && n <= this->DistinctValues());
 
     // mode 'greater than' comparator: larger count or same count with smaller value
@@ -186,7 +186,7 @@ struct ModeState {
     // push nan if exists
     const bool has_nan = is_floating_type<ArrowType>::value && this->nan_count > 0;
     if (has_nan) {
-      vector[0] = std::make_pair(NAN, this->nan_count);
+      vector[0] = std::make_pair(static_cast<CType>(NAN), this->nan_count);
     }
     // push n or n-1 modes
     auto it = this->value_counts.cbegin();
@@ -209,7 +209,7 @@ struct ModeState {
 
     // pop modes from min-heap and insert into output array (in reverse order)
     DCHECK_EQ(min_heap.size(), static_cast<size_t>(n));
-    for (int i = n - 1; i >= 0; --i) {
+    for (int64_t i = n - 1; i >= 0; --i) {
       std::tie(modes[i], counts[i]) = min_heap.top();
       min_heap.pop();
     }
@@ -248,6 +248,7 @@ struct ModeImpl : public ScalarAggregator {
     auto data = ArrayData::Make(data_type, n, 0);
     data->buffers.resize(2);
     data->buffers[0] = nullptr;
+    data->buffers[1] = nullptr;
     return data;
   }
 
@@ -257,28 +258,26 @@ struct ModeImpl : public ScalarAggregator {
     const auto& out_type =
         struct_({field(kModeFieldName, mode_type), field(kCountFieldName, count_type)});
 
-    int n = this->options.n;
+    int64_t n = this->options.n;
     if (n > state.DistinctValues()) {
       n = state.DistinctValues();
-    }
-    if (n <= 0) {
-      *out = Datum(StructArray(out_type, 0, ArrayVector{}).data());
-      return;
+    } else if (n < 0) {
+      n = 0;
     }
 
     auto mode_data = this->MakeArrayData(mode_type, n);
     auto count_data = this->MakeArrayData(count_type, n);
-    KERNEL_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx, ctx->Allocate(n * sizeof(CType)));
-    KERNEL_ASSIGN_OR_RAISE(count_data->buffers[1], ctx,
-                           ctx->Allocate(n * sizeof(int64_t)));
+    if (n > 0) {
+      KERNEL_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx,
+                             ctx->Allocate(n * sizeof(CType)));
+      KERNEL_ASSIGN_OR_RAISE(count_data->buffers[1], ctx,
+                             ctx->Allocate(n * sizeof(int64_t)));
+      CType* mode_buffer = mode_data->template GetMutableValues<CType>(1);
+      int64_t* count_buffer = count_data->template GetMutableValues<int64_t>(1);
+      this->state.Finalize(mode_buffer, count_buffer, n);
+    }
 
-    CType* mode_buffer = mode_data->template GetMutableValues<CType>(1);
-    int64_t* count_buffer = count_data->template GetMutableValues<int64_t>(1);
-    this->state.Finalize(mode_buffer, count_buffer, n);
-
-    *out = Datum(
-        StructArray(out_type, n, ArrayVector{MakeArray(mode_data), MakeArray(count_data)})
-            .data());
+    *out = Datum(ArrayData::Make(out_type, n, {nullptr}, {mode_data, count_data}, 0));
   }
 
   std::shared_ptr<DataType> out_type;
@@ -340,7 +339,7 @@ const FunctionDoc mode_doc{
      "Values with larger counts are returned before smaller counts.\n"
      "If there are more than one values with same count, smaller one is returned first.\n"
      "Nulls are ignored.  If there are no non-null values in the array,\n"
-     "null is returned."),
+     "empty array is returned."),
     {"array"},
     "ModeOptions"};
 

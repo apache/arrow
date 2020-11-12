@@ -81,11 +81,11 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
 /// Returns top-n common values and counts.
 /// By default, returns the most common value and count.
 struct ARROW_EXPORT ModeOptions : public FunctionOptions {
-  explicit ModeOptions(int n = 1) : n(n) {}
+  explicit ModeOptions(int64_t n = 1) : n(n) {}
 
   static ModeOptions Defaults() { return ModeOptions{}; }
 
-  int n = 1;
+  int64_t n = 1;
 };
 
 /// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
