@@ -80,7 +80,9 @@ def _write_table(table, path, **kwargs):
 
 
 def _read_table(*args, **kwargs):
-    return pq.read_table(*args, **kwargs)
+    table = pq.read_table(*args, **kwargs)
+    table.validate(full=True)
+    return table
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
@@ -88,10 +90,10 @@ def _roundtrip_table(table, read_table_kwargs=None,
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
-    buf = io.BytesIO()
-    _write_table(table, buf, **write_table_kwargs)
-    buf.seek(0)
-    return _read_table(buf, use_legacy_dataset=use_legacy_dataset,
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, **write_table_kwargs)
+    reader = pa.BufferReader(writer.getvalue())
+    return _read_table(reader, use_legacy_dataset=use_legacy_dataset,
                        **read_table_kwargs)
 
 
@@ -122,13 +124,24 @@ def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
 
 
 def test_large_binary():
-    for use_dictionary in [False, True]:
-        data = [b'foo', b'bar'] * 50
-        arr = pa.array(data, type=pa.large_binary())
+    data = [b'foo', b'bar'] * 50
+    for type in [pa.large_binary(), pa.large_string()]:
+        arr = pa.array(data, type=type)
         table = pa.Table.from_arrays([arr], names=['strs'])
-        # Data is read back as regular binary
-        expected = pa.Table.from_arrays([pa.array(data)], names=['strs'])
-        _check_roundtrip(table, expected, use_dictionary=use_dictionary)
+        for use_dictionary in [False, True]:
+            _check_roundtrip(table, use_dictionary=use_dictionary)
+
+
+@pytest.mark.large_memory
+def test_large_binary_huge():
+    s = b'xy' * 997
+    data = [s] * ((1 << 33) // len(s))
+    for type in [pa.large_binary(), pa.large_string()]:
+        arr = pa.array(data, type=type)
+        table = pa.Table.from_arrays([arr], names=['strs'])
+        for use_dictionary in [False, True]:
+            _check_roundtrip(table, use_dictionary=use_dictionary)
+        del arr, table
 
 
 @parametrize_legacy_dataset
