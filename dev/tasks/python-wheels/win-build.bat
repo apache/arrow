@@ -43,7 +43,7 @@ pushd arrow\cpp\build
 @rem conda-forge also results in a broken build so we use the BUNDLED
 @rem dependency resolution strategy for now
 
-@rem -DBoost_SOURCE=BUNDLED is required because boost-cpp package in
+@rem -DBOOST_SOURCE=BUNDLED is required because boost-cpp package in
 @rem conda-forge stopped providing static library.
 cmake -A "%ARCH%" ^
       -G "%GENERATOR%" ^
@@ -66,7 +66,7 @@ cmake -A "%ARCH%" ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
-      -DBoost_SOURCE=BUNDLED ^
+      -DBOOST_SOURCE=BUNDLED ^
       -DBrotli_SOURCE=BUNDLED ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
