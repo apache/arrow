@@ -26,7 +26,6 @@
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
     --file=arrow\ci\conda_env_cpp.yml ^
     --file=arrow\ci\conda_env_python.yml ^
-    "vs2015_runtime" ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -44,23 +43,15 @@ pushd arrow\cpp\build
 @rem conda-forge also results in a broken build so we use the BUNDLED
 @rem dependency resolution strategy for now
 
+@rem -DBoost_SOURCE=BUNDLED is required because boost-cpp package in
+@rem conda-forge stopped providing static library.
 cmake -A "%ARCH%" ^
       -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
-      -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_DEPENDENCY_SOURCE=CONDA ^
-      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
-      -DARROW_WITH_BZ2=OFF ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
-      -DARROW_WITH_LZ4=ON ^
-      -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
       -DARROW_DATASET=ON ^
+      -DARROW_DEPENDENCY_SOURCE=CONDA ^
       -DARROW_FLIGHT=ON ^
       -DARROW_GANDIVA=OFF ^
       -DARROW_LZ4_USE_SHARED=OFF ^
@@ -69,9 +60,19 @@ cmake -A "%ARCH%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_SNAPPY_USE_SHARED=OFF ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
+      -DARROW_WITH_BROTLI=ON ^
+      -DARROW_WITH_BZ2=OFF ^
+      -DARROW_WITH_LZ4=ON ^
+      -DARROW_WITH_SNAPPY=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DBoost_SOURCE=BUNDLED ^
       -DBrotli_SOURCE=BUNDLED ^
-      -Dzstd_SOURCE=BUNDLED ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -Dutf8proc_SOURCE=BUNDLED ^
+      -Dzstd_SOURCE=BUNDLED ^
       .. || exit /B
 cmake ^
   --build . ^
