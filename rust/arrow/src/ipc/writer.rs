@@ -175,47 +175,8 @@ impl<W: Write> FileWriter<W> {
         let mut fbb = FlatBufferBuilder::new();
         let dictionaries = fbb.create_vector(&self.dictionary_blocks);
         let record_batches = fbb.create_vector(&self.record_blocks);
-        // TODO: this is duplicated as we otherwise mutably borrow twice
-        let schema = {
-            let mut fields = vec![];
-            for field in self.schema.fields() {
-                let fb_field_name = fbb.create_string(field.name().as_str());
-                let field_type = ipc::convert::get_fb_field_type(
-                    field.data_type(),
-                    field.is_nullable(),
-                    &mut fbb,
-                );
-                let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
-                field_builder.add_name(fb_field_name);
-                field_builder.add_type_type(field_type.type_type);
-                field_builder.add_nullable(field.is_nullable());
-                match field_type.children {
-                    None => {}
-                    Some(children) => field_builder.add_children(children),
-                };
-                field_builder.add_type_(field_type.type_);
-                fields.push(field_builder.finish());
-            }
+        let schema = ipc::convert::schema_to_fb_offset(&mut fbb, &self.schema);
 
-            let mut custom_metadata = vec![];
-            for (k, v) in self.schema.metadata() {
-                let fb_key_name = fbb.create_string(k.as_str());
-                let fb_val_name = fbb.create_string(v.as_str());
-
-                let mut kv_builder = ipc::KeyValueBuilder::new(&mut fbb);
-                kv_builder.add_key(fb_key_name);
-                kv_builder.add_value(fb_val_name);
-                custom_metadata.push(kv_builder.finish());
-            }
-
-            let fb_field_list = fbb.create_vector(&fields);
-            let fb_metadata_list = fbb.create_vector(&custom_metadata);
-
-            let mut builder = ipc::SchemaBuilder::new(&mut fbb);
-            builder.add_fields(fb_field_list);
-            builder.add_custom_metadata(fb_metadata_list);
-            builder.finish()
-        };
         let root = {
             let mut footer_builder = ipc::FooterBuilder::new(&mut fbb);
             footer_builder.add_version(self.write_options.metadata_version);
