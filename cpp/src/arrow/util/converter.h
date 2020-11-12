@@ -98,8 +98,8 @@ class PrimitiveConverter : public BaseConverter {
  protected:
   Status Init(MemoryPool* pool) override {
     this->builder_ = std::make_shared<BuilderType>(this->type_, pool);
-    this->may_overflow_ =
-        is_base_binary_like(this->type_->id()) || is_fixed_size_binary(this->type_->id());
+    // Narrow variable-sized binary types may overflow
+    this->may_overflow_ = is_binary_like(this->type_->id());
     primitive_type_ = checked_cast<const ArrowType*>(this->type_.get());
     primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
@@ -125,7 +125,8 @@ class ListConverter : public BaseConverter {
     this->builder_ =
         std::make_shared<BuilderType>(pool, value_converter_->builder(), this->type_);
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
-    this->may_overflow_ = true;
+    // Narrow list types may overflow
+    this->may_overflow_ = sizeof(typename ArrowType::offset_type) < sizeof(int64_t);
     return Status::OK();
   }
 
@@ -268,6 +269,11 @@ class Chunker {
   Status AppendNull() {
     auto status = converter_->AppendNull();
     if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
+      if (converter_->builder()->length() == 0) {
+        // Builder length == 0 means the individual element is too large to append.
+        // In this case, no need to try again.
+        return status;
+      }
       ARROW_RETURN_NOT_OK(FinishChunk());
       return converter_->AppendNull();
     }
@@ -278,6 +284,9 @@ class Chunker {
   Status Append(InputType value) {
     auto status = converter_->Append(value);
     if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
+      if (converter_->builder()->length() == 0) {
+        return status;
+      }
       ARROW_RETURN_NOT_OK(FinishChunk());
       return Append(value);
     }
@@ -288,9 +297,9 @@ class Chunker {
   Status FinishChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, converter_->ToArray(length_));
     chunks_.push_back(chunk);
-    // reserve space for the remaining items, besides being an optimization it is also
-    // required if the converter's implementation relies on unsafe builder methods in
-    // conveter->Append()
+    // Reserve space for the remaining items.
+    // Besides being an optimization, it is also required if the converter's
+    // implementation relies on unsafe builder methods in converter->Append().
     auto remaining = reserved_ - length_;
     Reset();
     return Reserve(remaining);
