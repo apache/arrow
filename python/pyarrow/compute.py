@@ -34,6 +34,7 @@ from pyarrow._compute import (  # noqa
     SplitOptions,
     SplitPatternOptions,
     MinMaxOptions,
+    ModeOptions,
     PartitionNthOptions,
     SetLookupOptions,
     StrptimeOptions,
@@ -308,11 +309,11 @@ def sum(array):
     return call_function('sum', [array])
 
 
-def mode(array):
+def mode(array, n=1):
     """
-    Return the mode (most common value) of a passed numerical
-    (chunked) array. If there is more than one such value, only
-    the smallest is returned.
+    Return top-n most common values and number of times they occur in a passed
+    numerical (chunked) array, in descending order of occurance. If there are
+    more than one values with same count, smaller one is returned first.
 
     Parameters
     ----------
@@ -320,18 +321,21 @@ def mode(array):
 
     Returns
     -------
-    mode : pyarrow.StructScalar
+    An array of <input type "Mode", int64_t "Count"> structs
 
     Examples
     --------
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> arr = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
-    >>> pc.mode(arr)
+    >>> modes = pc.mode(arr, 2)
+    >>> modes[0]
     <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
-
+    >>> modes[1]
+    <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
     """
-    return call_function("mode", [array])
+    options = ModeOptions(n=n)
+    return call_function("mode", [array], options)
 
 
 def filter(data, mask, null_selection_behavior='drop'):

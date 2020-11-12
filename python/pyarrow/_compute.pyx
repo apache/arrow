@@ -706,6 +706,22 @@ cdef class _CountOptions(FunctionOptions):
                 .format(count_mode))
 
 
+cdef class _ModeOptions(FunctionOptions):
+    cdef:
+        CModeOptions mode_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.mode_options
+
+    def _set_options(self, n):
+        self.mode_options.n = n
+
+
+class ModeOptions(_ModeOptions):
+    def __init__(self, *, n=1):
+        self._set_options(n)
+
+
 class CountOptions(_CountOptions):
     def __init__(self, count_mode='count_non_null'):
         self._set_options(count_mode)
