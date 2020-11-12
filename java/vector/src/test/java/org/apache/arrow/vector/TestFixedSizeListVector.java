@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -429,7 +430,47 @@ public class TestFixedSizeListVector {
       assertTrue(Arrays.equals(values3, realValue3));
     }
   }
-  
+
+  @Test
+  public void testVectorWithNulls() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 4, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      List<Integer> values1 = new ArrayList<>();
+      values1.add(null);
+      values1.add(1);
+      values1.add(2);
+      values1.add(3);
+      List<Integer> values2 = new ArrayList<>();
+      values2.add(4);
+      values2.add(null);
+      values2.add(5);
+      values2.add(6);
+      List<Integer> values3 = new ArrayList<>();
+      values3.add(7);
+      values3.add(8);
+      values3.add(null);
+      values3.add(9);
+
+      //set some values
+      writeListVector(writer1, values1);
+      writeListVector(writer1, values2);
+      writeListVector(writer1, values3);
+      writer1.setValueCount(3);
+
+      assertEquals(3, vector1.getValueCount());
+
+      List realValue1 = (JsonStringArrayList) vector1.getObject(0);
+      assertEquals(values1, realValue1);
+      List realValue2 = (JsonStringArrayList) vector1.getObject(1);
+      assertEquals(values2, realValue2);
+      List realValue3 = (JsonStringArrayList) vector1.getObject(2);
+      assertEquals(values3, realValue3);
+    }
+  }
+
   private int[] convertListToIntArray(JsonStringArrayList list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
@@ -442,6 +483,18 @@ public class TestFixedSizeListVector {
     writer.startList();
     for (int v: values) {
       writer.integer().writeInt(v);
+    }
+    writer.endList();
+  }
+
+  private void writeListVector(UnionFixedSizeListWriter writer, List<Integer> values) throws Exception {
+    writer.startList();
+    for (Integer v: values) {
+      if (v == null) {
+        writer.writeNull();
+      } else {
+        writer.integer().writeInt(v);
+      }
     }
     writer.endList();
   }
