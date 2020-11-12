@@ -26,7 +26,7 @@
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
     --file=arrow\ci\conda_env_cpp.yml ^
     --file=arrow\ci\conda_env_python.yml ^
-    "vs2015_runtime<14.16" ^
+    "vs2015_runtime" ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
