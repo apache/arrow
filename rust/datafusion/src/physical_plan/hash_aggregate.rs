@@ -33,8 +33,8 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, Int16Array, Int32Array, Int64Array, Int8Array, StringArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     compute,
 };
@@ -261,7 +261,8 @@ fn group_aggregate_batch(
                 let accumulator_set = create_accumulators(aggr_expr)
                     .map_err(DataFusionError::into_arrow_external_error)?;
 
-                accumulators.insert(key.clone(), (accumulator_set, Box::new(vec![row as u32])));
+                accumulators
+                    .insert(key.clone(), (accumulator_set, Box::new(vec![row as u32])));
             }
             // 1.3
             Some((_, v)) => v.push(row as u32),
@@ -335,7 +336,8 @@ impl GroupedHashAggregateStream {
 }
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
-type Accumulators = HashMap<Vec<GroupByScalar>, (AccumulatorSet, Box<Vec<u32>>), RandomState>;
+type Accumulators =
+    HashMap<Vec<GroupByScalar>, (AccumulatorSet, Box<Vec<u32>>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
@@ -359,7 +361,11 @@ impl Stream for GroupedHashAggregateStream {
         // the expressions to evaluate the batch, one vec of expressions per aggregation
         let aggregate_expressions = match aggregate_expressions(&aggr_expr, &mode) {
             Ok(e) => e,
-            Err(e) => return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(e)))),
+            Err(e) => {
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
+            }
         };
 
         // mapping key -> (set of accumulators, indices of the key in the batch)
@@ -369,20 +375,20 @@ impl Stream for GroupedHashAggregateStream {
         //let mut accumulators: Accumulators = HashMap::default();
 
         // iterate over all input batches and update the accumulators
-        let future =
-            self.input
-                .as_mut()
-                .try_fold(Accumulators::default(), |accumulators, batch| async {
-                    group_aggregate_batch(
-                        &mode,
-                        &group_expr,
-                        &aggr_expr,
-                        batch,
-                        accumulators,
-                        &aggregate_expressions,
-                    )
-                    .map_err(DataFusionError::into_arrow_external_error)
-                });
+        let future = self.input.as_mut().try_fold(
+            Accumulators::default(),
+            |accumulators, batch| async {
+                group_aggregate_batch(
+                    &mode,
+                    &group_expr,
+                    &aggr_expr,
+                    batch,
+                    accumulators,
+                    &aggregate_expressions,
+                )
+                .map_err(DataFusionError::into_arrow_external_error)
+            },
+        );
 
         let future = future.map(|maybe_accumulators| {
             maybe_accumulators.map(|accumulators| {
@@ -404,7 +410,10 @@ impl RecordBatchStream for GroupedHashAggregateStream {
 }
 
 /// Evaluates expressions against a record batch.
-fn evaluate(expr: &Vec<Arc<dyn PhysicalExpr>>, batch: &RecordBatch) -> Result<Vec<ArrayRef>> {
+fn evaluate(
+    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    batch: &RecordBatch,
+) -> Result<Vec<ArrayRef>> {
     expr.iter()
         .map(|expr| expr.evaluate(&batch))
         .collect::<Result<Vec<_>>>()
@@ -421,7 +430,9 @@ fn evaluate_many(
 }
 
 /// uses `state_fields` to build a vec of expressions required to merge the AggregateExpr' accumulator's state.
-fn merge_expressions(expr: &Arc<dyn AggregateExpr>) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
+fn merge_expressions(
+    expr: &Arc<dyn AggregateExpr>,
+) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
     Ok(expr
         .state_fields()?
         .iter()
@@ -441,7 +452,9 @@ fn aggregate_expressions(
     mode: &AggregateMode,
 ) -> Result<Vec<Vec<Arc<dyn PhysicalExpr>>>> {
     match mode {
-        AggregateMode::Partial => Ok(aggr_expr.iter().map(|agg| agg.expressions()).collect()),
+        AggregateMode::Partial => {
+            Ok(aggr_expr.iter().map(|agg| agg.expressions()).collect())
+        }
         // in this mode, we build the merge expressions of the aggregation
         AggregateMode::Final => Ok(aggr_expr
             .iter()
@@ -527,12 +540,20 @@ impl Stream for HashAggregateStream {
 
         let accumulators = match create_accumulators(&self.aggr_expr) {
             Ok(e) => e,
-            Err(e) => return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(e)))),
+            Err(e) => {
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
+            }
         };
 
         let expressions = match aggregate_expressions(&self.aggr_expr, &self.mode) {
             Ok(e) => e,
-            Err(e) => return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(e)))),
+            Err(e) => {
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
+            }
         };
         let expressions = Arc::new(expressions);
 
@@ -604,7 +625,9 @@ fn create_batch_from_map(
             // 2.
             let mut groups = (0..num_group_expr)
                 .map(|i| match &k[i] {
-                    GroupByScalar::Int8(n) => Arc::new(Int8Array::from(vec![*n])) as ArrayRef,
+                    GroupByScalar::Int8(n) => {
+                        Arc::new(Int8Array::from(vec![*n])) as ArrayRef
+                    }
                     GroupByScalar::Int16(n) => Arc::new(Int16Array::from(vec![*n])),
                     GroupByScalar::Int32(n) => Arc::new(Int32Array::from(vec![*n])),
                     GroupByScalar::Int64(n) => Arc::new(Int64Array::from(vec![*n])),
@@ -637,7 +660,9 @@ fn create_batch_from_map(
     Ok(batch)
 }
 
-fn create_accumulators(aggr_expr: &Vec<Arc<dyn AggregateExpr>>) -> Result<AccumulatorSet> {
+fn create_accumulators(
+    aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
+) -> Result<AccumulatorSet> {
     aggr_expr
         .iter()
         .map(|expr| expr.create_accumulator())
@@ -657,8 +682,9 @@ fn finalize_aggregation(
                 .iter()
                 .map(|accumulator| accumulator.state())
                 .map(|value| {
-                    value
-                        .and_then(|e| Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>()))
+                    value.and_then(|e| {
+                        Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
+                    })
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(a.iter().flatten().cloned().collect::<Vec<_>>())
@@ -674,7 +700,11 @@ fn finalize_aggregation(
 }
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
-fn create_key(group_by_keys: &[ArrayRef], row: usize, vec: &mut Vec<GroupByScalar>) -> Result<()> {
+fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<GroupByScalar>,
+) -> Result<()> {
     for i in 0..group_by_keys.len() {
         let col = &group_by_keys[i];
         match col.data_type() {
@@ -768,10 +798,12 @@ mod tests {
     async fn aggregate() -> Result<()> {
         let (schema, batches) = some_data().unwrap();
 
-        let input: Arc<dyn ExecutionPlan> =
-            Arc::new(MemoryExec::try_new(&vec![batches.clone(), batches], schema, None).unwrap());
+        let input: Arc<dyn ExecutionPlan> = Arc::new(
+            MemoryExec::try_new(&vec![batches.clone(), batches], schema, None).unwrap(),
+        );
 
-        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> = vec![(col("a"), "a".to_string())];
+        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> =
+            vec![(col("a"), "a".to_string())];
 
         let aggregates: Vec<Arc<dyn AggregateExpr>> = vec![Arc::new(Avg::new(
             col("b"),
@@ -846,7 +878,11 @@ mod tests {
         assert_eq!(*a, UInt32Array::from(vec![2, 3, 4]));
         assert_eq!(
             *b,
-            Float64Array::from(vec![1.0, (2.0 + 3.0 + 2.0) / 3.0, (3.0 + 4.0 + 4.0) / 3.0])
+            Float64Array::from(vec![
+                1.0,
+                (2.0 + 3.0 + 2.0) / 3.0,
+                (3.0 + 4.0 + 4.0) / 3.0
+            ])
         );
 
         Ok(())
