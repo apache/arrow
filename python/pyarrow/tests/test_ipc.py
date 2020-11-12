@@ -19,6 +19,7 @@ from collections import UserList
 import io
 import pytest
 import socket
+import string
 import sys
 import threading
 import weakref
@@ -238,12 +239,15 @@ def test_stream_categorical_roundtrip(stream_fixture):
     assert_frame_equal(table.to_pandas(), df)
 
 
-def test_contiguous_buffers(stream_fixture, size=(5, 5)):
+def _check_contiguous_buffers(stream_fixture, rows, cols):
     stream_fixture.options = pa.ipc.IpcWriteOptions(alignment=1)
     stream_fixture.use_legacy_ipc_format = None
 
-    df = pd.DataFrame(np.random.randint(10, size=size), dtype=np.uint8)
-    batch = pa.RecordBatch.from_pandas(df)
+    df_in = pd.DataFrame(
+        np.random.randint(10, size=(rows, cols)),
+        dtype=np.uint8,
+        columns=list(string.ascii_letters[:cols]))
+    batch = pa.RecordBatch.from_pandas(df_in)
     with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
         wr.write_batch(batch)
 
@@ -258,12 +262,31 @@ def test_contiguous_buffers(stream_fixture, size=(5, 5)):
         __array_interface__ = dict(
             data=(address, False),
             typestr='u1',
-            shape=size)
+            shape=(cols, rows))
 
     actual = np.array(numpy_holder(), copy=False).T
     np.testing.assert_allclose(
-        df.values,
+        df_in.values,
         actual)
+
+    df_out = pd.DataFrame(
+        actual,
+        columns=table.schema.names)
+    pd.testing.assert_frame_equal(df_in, df_out)
+    assert np.byte_bounds(df_out.values)[0] == address, \
+        "zero-copy the entire dataframe"
+
+
+def test_contiguous_buffers_unaligned(stream_fixture):
+    _check_contiguous_buffers(stream_fixture, 5, 5)
+
+
+def test_contiguous_buffers_aligned(stream_fixture):
+    _check_contiguous_buffers(stream_fixture, 8, 8)
+
+
+def test_contiguous_buffers_notsquare(stream_fixture):
+    _check_contiguous_buffers(stream_fixture, 3, 7)
 
 
 def test_open_stream_from_buffer(stream_fixture):

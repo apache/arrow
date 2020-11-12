@@ -559,7 +559,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
   RETURN_NOT_OK(WriteMessage(*payload.metadata, options, dst, metadata_length));
 
 #ifndef NDEBUG
-  RETURN_NOT_OK(CheckAligned(dst));
+  RETURN_NOT_OK(CheckAligned(dst, options.alignment));
 #endif
 
   // Now write the buffers
@@ -571,7 +571,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
     // The buffer might be null if we are handling zero row lengths.
     if (buffer) {
       size = buffer->size();
-      padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+      padding = BitUtil::RoundUp(size, options.alignment) - size;
     }
 
     if (size > 0) {
@@ -584,7 +584,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
   }
 
 #ifndef NDEBUG
-  RETURN_NOT_OK(CheckAligned(dst));
+  RETURN_NOT_OK(CheckAligned(dst, options.alignment));
 #endif
 
   return Status::OK();
@@ -1081,7 +1081,7 @@ class StreamBookKeeper {
 
   Status UpdatePositionCheckAligned() {
     RETURN_NOT_OK(UpdatePosition());
-    DCHECK_EQ(0, position_ % 8) << "Stream is not aligned";
+    DCHECK_EQ(0, position_ % options_.alignment) << "Stream is not aligned";
     return Status::OK();
   }
 
