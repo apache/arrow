@@ -23,13 +23,13 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <limits>
-#include <memory>
-#include <utility>
-
 #include <arrow/buffer.h>  // for RBuffer definition below
 #include <arrow/result.h>
 #include <arrow/status.h>
+
+#include <limits>
+#include <memory>
+#include <utility>
 
 // forward declaration-only headers
 #include <arrow/c/abi.h>

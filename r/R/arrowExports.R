@@ -1268,6 +1268,10 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
 }
 
+vec_to_arrow <- function(x, s_type){
+    .Call(`_arrow_vec_to_arrow` , x, s_type)
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }
