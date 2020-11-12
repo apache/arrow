@@ -170,7 +170,6 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
 
     if (input.MayHaveNulls() && fill_value_scalar.is_valid) {
       BuilderType builder(input.type, ctx->memory_pool());
-      //
       KERNEL_RETURN_IF_ERROR(
           ctx, builder.ReserveData(input.buffers[2]->size() +
                                    fill_value.length() * input.GetNullCount()));
