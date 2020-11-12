@@ -140,7 +140,7 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
+| mode                     | Unary      | Numeric            | Struct  (2)           | :struct:`ModeOptions`                      |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -151,9 +151,14 @@ Aggregations
 
 Notes:
 
-* \(1) Output is a ``{"min": input type, "max": input type}`` Struct
+* \(1) Output is a ``{"min": input type, "max": input type}`` Struct.
 
-* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
+* \(2) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+  It contains the *N* most common elements in the input, in descending
+  order, where *N* is given in :member:`ModeOptions::n`.
+  If two values have the same count, the smallest one comes first.
+  Note that the output can have less than *N* elements if the input has
+  less than *N* distinct values.
 
 * \(3) Output is Int64, UInt64 or Float64, depending on the input type
 

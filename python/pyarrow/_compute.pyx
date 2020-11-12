@@ -711,6 +711,22 @@ class CountOptions(_CountOptions):
         self._set_options(count_mode)
 
 
+cdef class _ModeOptions(FunctionOptions):
+    cdef:
+        CModeOptions mode_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return &self.mode_options
+
+    def _set_options(self, n):
+        self.mode_options.n = n
+
+
+class ModeOptions(_ModeOptions):
+    def __init__(self, n=1):
+        self._set_options(n)
+
+
 cdef class _SetLookupOptions(FunctionOptions):
     cdef:
         unique_ptr[CSetLookupOptions] set_lookup_options

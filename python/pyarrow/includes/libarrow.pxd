@@ -1764,6 +1764,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMinMaxMode_EMIT_NULL \
             "arrow::compute::MinMaxOptions::EMIT_NULL"
 
+    cdef cppclass CModeOptions \
+            "arrow::compute::ModeOptions"(CFunctionOptions):
+        int64_t n
+
     cdef cppclass CMinMaxOptions \
             "arrow::compute::MinMaxOptions"(CFunctionOptions):
         CMinMaxMode null_handling

@@ -735,71 +735,65 @@ class TestPrimitiveModeKernel : public ::testing::Test {
  public:
   using ArrowType = T;
   using Traits = TypeTraits<ArrowType>;
-  using c_type = typename ArrowType::c_type;
-  using ModeType = typename Traits::ScalarType;
-  using CountType = typename TypeTraits<Int64Type>::ScalarType;
+  using CType = typename ArrowType::c_type;
 
-  void AssertModeIs(const Datum& array, c_type expected_mode, int64_t expected_count) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-    const StructScalar& value = out.scalar_as<StructScalar>();
+  void AssertModesAre(const Datum& array, const int n,
+                      const std::vector<CType>& expected_modes,
+                      const std::vector<int64_t>& expected_counts) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+    ASSERT_OK(out.make_array()->ValidateFull());
+    const StructArray out_array(out.array());
+    ASSERT_EQ(out_array.length(), expected_modes.size());
+    ASSERT_EQ(out_array.num_fields(), 2);
 
-    const auto& out_mode = checked_cast<const ModeType&>(*value.value[0]);
-    ASSERT_EQ(expected_mode, out_mode.value);
-
-    const auto& out_count = checked_cast<const CountType&>(*value.value[1]);
-    ASSERT_EQ(expected_count, out_count.value);
+    const CType* out_modes = out_array.field(0)->data()->GetValues<CType>(1);
+    const int64_t* out_counts = out_array.field(1)->data()->GetValues<int64_t>(1);
+    for (int i = 0; i < out_array.length(); ++i) {
+      // equal or nan equal
+      ASSERT_TRUE(
+          (expected_modes[i] == out_modes[i]) ||
+          (expected_modes[i] != expected_modes[i] && out_modes[i] != out_modes[i]));
+      ASSERT_EQ(expected_counts[i], out_counts[i]);
+    }
   }
 
-  void AssertModeIs(const std::string& json, c_type expected_mode,
+  void AssertModesAre(const std::string& json, const int n,
+                      const std::vector<CType>& expected_modes,
+                      const std::vector<int64_t>& expected_counts) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertModesAre(array, n, expected_modes, expected_counts);
+  }
+
+  void AssertModeIs(const Datum& array, CType expected_mode, int64_t expected_count) {
+    AssertModesAre(array, 1, {expected_mode}, {expected_count});
+  }
+
+  void AssertModeIs(const std::string& json, CType expected_mode,
                     int64_t expected_count) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertModeIs(array, expected_mode, expected_count);
   }
 
-  void AssertModeIs(const std::vector<std::string>& json, c_type expected_mode,
+  void AssertModeIs(const std::vector<std::string>& json, CType expected_mode,
                     int64_t expected_count) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertModeIs(chunked, expected_mode, expected_count);
   }
 
-  void AssertModeIsNull(const Datum& array) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-    const StructScalar& value = out.scalar_as<StructScalar>();
-
-    for (const auto& val : value.value) {
-      ASSERT_FALSE(val->is_valid);
-    }
+  void AssertModesEmpty(const Datum& array, int n) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+    ASSERT_OK(out.make_array()->ValidateFull());
+    ASSERT_EQ(out.array()->length, 0);
   }
 
-  void AssertModeIsNull(const std::string& json) {
+  void AssertModesEmpty(const std::string& json, int n = 1) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertModeIsNull(array);
+    AssertModesEmpty(array, n);
   }
 
-  void AssertModeIsNull(const std::vector<std::string>& json) {
+  void AssertModesEmpty(const std::vector<std::string>& json, int n = 1) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertModeIsNull(chunked);
-  }
-
-  void AssertModeIsNaN(const Datum& array, int64_t expected_count) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-    const StructScalar& value = out.scalar_as<StructScalar>();
-
-    const auto& out_mode = checked_cast<const ModeType&>(*value.value[0]);
-    ASSERT_NE(out_mode.value, out_mode.value);  // NaN != NaN
-
-    const auto& out_count = checked_cast<const CountType&>(*value.value[1]);
-    ASSERT_EQ(expected_count, out_count.value);
-  }
-
-  void AssertModeIsNaN(const std::string& json, int64_t expected_count) {
-    auto array = ArrayFromJSON(type_singleton(), json);
-    AssertModeIsNaN(array, expected_count);
-  }
-
-  void AssertModeIsNaN(const std::vector<std::string>& json, int64_t expected_count) {
-    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertModeIsNaN(chunked, expected_count);
+    AssertModesEmpty(chunked, n);
   }
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
@@ -824,12 +818,18 @@ TEST_F(TestBooleanModeKernel, Basics) {
   this->AssertModeIs("[false, false, true, true, true, false]", false, 3);
 
   this->AssertModeIs("[true, null, false, false, null, true, null, null, true]", true, 3);
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
   this->AssertModeIs({"[true, false]", "[true, true]", "[false, false]"}, false, 3);
   this->AssertModeIs({"[true, null]", "[]", "[null, false]"}, false, 1);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
+
+  this->AssertModesAre("[false, false, true, true, true, false]", 2, {false, true},
+                       {3, 3});
+  this->AssertModesAre("[true, null, false, false, null, true, null, null, true]", 100,
+                       {true, false}, {3, 2});
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"}, 4);
 }
 
 TYPED_TEST_SUITE(TestIntegerModeKernel, IntegralArrowTypes);
@@ -839,12 +839,16 @@ TYPED_TEST(TestIntegerModeKernel, Basics) {
   this->AssertModeIs("[127, 0, 127, 127, 0, 1, 0, 127]", 127, 4);
 
   this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
   this->AssertModeIs({"[5]", "[1, 1, 5]", "[5]"}, 5, 3);
   this->AssertModeIs({"[5]", "[1, 1, 5]", "[5, 1]"}, 1, 3);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
+
+  this->AssertModesAre("[127, 0, 127, 127, 0, 1, 0, 127]", 2, {127, 0}, {4, 3});
+  this->AssertModesAre("[null, null, 2, null, 1]", 3, {1, 2}, {1, 1});
+  this->AssertModesEmpty("[null, null, null]", 10);
 }
 
 TYPED_TEST_SUITE(TestFloatingModeKernel, RealArrowTypes);
@@ -857,16 +861,19 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
   this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
   this->AssertModeIs("[NaN, NaN, 1, null, 1]", 1, 2);
 
-  this->AssertModeIsNull("[null, null, null]");
-  this->AssertModeIsNull("[]");
+  this->AssertModesEmpty("[null, null, null]");
+  this->AssertModesEmpty("[]");
 
-  this->AssertModeIsNaN("[NaN, NaN, 1]", 2);
-  this->AssertModeIsNaN("[NaN, NaN, null]", 2);
-  this->AssertModeIsNaN("[NaN, NaN, NaN]", 3);
+  this->AssertModeIs("[NaN, NaN, 1]", NAN, 2);
+  this->AssertModeIs("[NaN, NaN, null]", NAN, 2);
+  this->AssertModeIs("[NaN, NaN, NaN]", NAN, 3);
 
   this->AssertModeIs({"[Inf, 100]", "[Inf, 100]", "[Inf]"}, INFINITY, 3);
-  this->AssertModeIsNull({"[null, null]", "[]", "[null]"});
-  this->AssertModeIsNaN({"[NaN, 1]", "[NaN, 1]", "[NaN]"}, 3);
+  this->AssertModeIs({"[NaN, 1]", "[NaN, 1]", "[NaN]"}, NAN, 3);
+  this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
+
+  this->AssertModesAre("[Inf, 100, Inf, 100, Inf]", 2, {INFINITY, 100}, {3, 2});
+  this->AssertModesAre("[NaN, NaN, 1, null, 1, 2, 2]", 3, {1, 2, NAN}, {2, 2, 2});
 }
 
 TEST_F(TestInt8ModeKernelValueRange, Basics) {
@@ -914,22 +921,21 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 
 template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
 void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
-  using ModeScalar = typename TypeTraits<ArrowType>::ScalarType;
-  using CountScalar = typename TypeTraits<Int64Type>::ScalarType;
-
   auto rand = random::RandomArrayGenerator(0x5487655);
   // 32K items (>= counting mode cutoff) within range, 10% null
   auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
 
   auto expected = NaiveMode<ArrowType>(*array);
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-  const StructScalar& value = out.scalar_as<StructScalar>();
+  ASSERT_OK(out.make_array()->ValidateFull());
+  const StructArray out_array(out.array());
+  ASSERT_EQ(out_array.length(), 1);
+  ASSERT_EQ(out_array.num_fields(), 2);
 
-  ASSERT_TRUE(value.is_valid);
-  const auto& out_mode = checked_cast<const ModeScalar&>(*value.value[0]);
-  const auto& out_count = checked_cast<const CountScalar&>(*value.value[1]);
-  ASSERT_EQ(out_mode.value, expected.mode);
-  ASSERT_EQ(out_count.value, expected.count);
+  const CTYPE* out_modes = out_array.field(0)->data()->GetValues<CTYPE>(1);
+  const int64_t* out_counts = out_array.field(1)->data()->GetValues<int64_t>(1);
+  ASSERT_EQ(out_modes[0], expected.mode);
+  ASSERT_EQ(out_counts[0], expected.count);
 }
 
 TEST_F(TestInt32ModeKernel, SmallValueRange) {

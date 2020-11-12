@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <queue>
 #include <unordered_map>
 
 #include "arrow/compute/api_aggregate.h"
@@ -27,6 +28,9 @@ namespace compute {
 namespace internal {
 
 namespace {
+
+constexpr char kModeFieldName[] = "mode";
+constexpr char kCountFieldName[] = "count";
 
 // {value:count} map
 template <typename CType>
@@ -165,23 +169,55 @@ struct ModeState {
     }
   }
 
-  std::pair<CType, int64_t> Finalize() {
-    CType mode = std::numeric_limits<CType>::min();
-    int64_t count = 0;
+  // find top-n value/count pairs with min-heap (priority queue with '>' comparator)
+  void Finalize(CType* modes, int64_t* counts, const int64_t n) {
+    DCHECK(n >= 1 && n <= this->DistinctValues());
 
-    for (const auto& value_count : this->value_counts) {
-      auto this_value = value_count.first;
-      auto this_count = value_count.second;
-      if (this_count > count || (this_count == count && this_value < mode)) {
-        count = this_count;
-        mode = this_value;
+    // mode 'greater than' comparator: larger count or same count with smaller value
+    using ValueCountPair = std::pair<CType, int64_t>;
+    auto mode_gt = [](const ValueCountPair& lhs, const ValueCountPair& rhs) {
+      const bool rhs_is_nan = rhs.first != rhs.first;  // nan as largest value
+      return lhs.second > rhs.second ||
+             (lhs.second == rhs.second && (lhs.first < rhs.first || rhs_is_nan));
+    };
+
+    // initialize min-heap with first n modes
+    std::vector<ValueCountPair> vector(n);
+    // push nan if exists
+    const bool has_nan = is_floating_type<ArrowType>::value && this->nan_count > 0;
+    if (has_nan) {
+      vector[0] = std::make_pair(static_cast<CType>(NAN), this->nan_count);
+    }
+    // push n or n-1 modes
+    auto it = this->value_counts.cbegin();
+    for (int i = has_nan; i < n; ++i) {
+      vector[i] = *it++;
+    }
+    // turn to min-heap
+    std::priority_queue<ValueCountPair, std::vector<ValueCountPair>, decltype(mode_gt)>
+        min_heap(std::move(mode_gt), std::move(vector));
+
+    // iterate and insert modes into min-heap
+    // - mode < heap top: ignore mode
+    // - mode > heap top: discard heap top, insert mode
+    for (; it != this->value_counts.cend(); ++it) {
+      if (mode_gt(*it, min_heap.top())) {
+        min_heap.pop();
+        min_heap.push(*it);
       }
     }
-    if (is_floating_type<ArrowType>::value && this->nan_count > count) {
-      count = this->nan_count;
-      mode = static_cast<CType>(NAN);
+
+    // pop modes from min-heap and insert into output array (in reverse order)
+    DCHECK_EQ(min_heap.size(), static_cast<size_t>(n));
+    for (int64_t i = n - 1; i >= 0; --i) {
+      std::tie(modes[i], counts[i]) = min_heap.top();
+      min_heap.pop();
     }
-    return std::make_pair(mode, count);
+  }
+
+  int64_t DistinctValues() const {
+    return this->value_counts.size() +
+           (is_floating_type<ArrowType>::value && this->nan_count > 0);
   }
 
   int64_t nan_count = 0;  // only make sense to floating types
@@ -192,8 +228,10 @@ template <typename ArrowType>
 struct ModeImpl : public ScalarAggregator {
   using ThisType = ModeImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using CType = typename ArrowType::c_type;
 
-  explicit ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
+  ModeImpl(const std::shared_ptr<DataType>& out_type, const ModeOptions& options)
+      : out_type(out_type), options(options) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     ArrayType array(batch[0].array());
@@ -205,24 +243,46 @@ struct ModeImpl : public ScalarAggregator {
     this->state.MergeFrom(std::move(other.state));
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
-    using ModeType = typename TypeTraits<ArrowType>::ScalarType;
-    using CountType = typename TypeTraits<Int64Type>::ScalarType;
+  static std::shared_ptr<ArrayData> MakeArrayData(
+      const std::shared_ptr<DataType>& data_type, int64_t n) {
+    auto data = ArrayData::Make(data_type, n, 0);
+    data->buffers.resize(2);
+    data->buffers[0] = nullptr;
+    data->buffers[1] = nullptr;
+    return data;
+  }
 
-    std::vector<std::shared_ptr<Scalar>> values;
-    auto mode_count = this->state.Finalize();
-    auto mode = mode_count.first;
-    auto count = mode_count.second;
-    if (count == 0) {
-      values = {std::make_shared<ModeType>(), std::make_shared<CountType>()};
-    } else {
-      values = {std::make_shared<ModeType>(mode), std::make_shared<CountType>(count)};
+  void Finalize(KernelContext* ctx, Datum* out) override {
+    const auto& mode_type = TypeTraits<ArrowType>::type_singleton();
+    const auto& count_type = int64();
+    const auto& out_type =
+        struct_({field(kModeFieldName, mode_type), field(kCountFieldName, count_type)});
+
+    int64_t n = this->options.n;
+    if (n > state.DistinctValues()) {
+      n = state.DistinctValues();
+    } else if (n < 0) {
+      n = 0;
     }
-    out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+
+    auto mode_data = this->MakeArrayData(mode_type, n);
+    auto count_data = this->MakeArrayData(count_type, n);
+    if (n > 0) {
+      KERNEL_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx,
+                             ctx->Allocate(n * sizeof(CType)));
+      KERNEL_ASSIGN_OR_RAISE(count_data->buffers[1], ctx,
+                             ctx->Allocate(n * sizeof(int64_t)));
+      CType* mode_buffer = mode_data->template GetMutableValues<CType>(1);
+      int64_t* count_buffer = count_data->template GetMutableValues<int64_t>(1);
+      this->state.Finalize(mode_buffer, count_buffer, n);
+    }
+
+    *out = Datum(ArrayData::Make(out_type, n, {nullptr}, {mode_data, count_data}, 0));
   }
 
   std::shared_ptr<DataType> out_type;
   ModeState<ArrowType> state;
+  ModeOptions options;
 };
 
 struct ModeInitState {
@@ -230,10 +290,11 @@ struct ModeInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
+  const ModeOptions& options;
 
   ModeInitState(KernelContext* ctx, const DataType& in_type,
-                const std::shared_ptr<DataType>& out_type)
-      : ctx(ctx), in_type(in_type), out_type(out_type) {}
+                const std::shared_ptr<DataType>& out_type, const ModeOptions& options)
+      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) { return Status::NotImplemented("No mode implemented"); }
 
@@ -244,7 +305,7 @@ struct ModeInitState {
   template <typename Type>
   enable_if_t<is_number_type<Type>::value || is_boolean_type<Type>::value, Status> Visit(
       const Type&) {
-    state.reset(new ModeImpl<Type>(out_type));
+    state.reset(new ModeImpl<Type>(out_type, options));
     return Status::OK();
   }
 
@@ -256,32 +317,36 @@ struct ModeInitState {
 
 std::unique_ptr<KernelState> ModeInit(KernelContext* ctx, const KernelInitArgs& args) {
   ModeInitState visitor(ctx, *args.inputs[0].type,
-                        args.kernel->signature->out_type().type());
+                        args.kernel->signature->out_type().type(),
+                        static_cast<const ModeOptions&>(*args.options));
   return visitor.Create();
 }
 
 void AddModeKernels(KernelInit init, const std::vector<std::shared_ptr<DataType>>& types,
                     ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    // array[T] -> scalar[struct<mode: T, count: int64_t>]
-    auto out_ty = struct_({field("mode", ty), field("count", int64())});
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
+    // array[T] -> array[struct<mode: T, count: int64_t>]
+    auto out_ty = struct_({field(kModeFieldName, ty), field(kCountFieldName, int64())});
+    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Array(out_ty));
     AddAggKernel(std::move(sig), init, func);
   }
 }
 
 const FunctionDoc mode_doc{
-    "Calculate the modal (most common) value of a numeric array",
-    ("This function returns both mode and count as a struct scalar,\n"
-     "with type `struct<mode: T, count: int64>`, where T is the input type.\n"
-     "If there is more than one such value, the smallest one is returned.\n"
+    "Calculate the modal (most common) values of a numeric array",
+    ("Returns top-n most common values and number of times they occur in an array.\n"
+     "Result is an array of `struct<mode: T, count: int64>`, where T is the input type.\n"
+     "Values with larger counts are returned before smaller counts.\n"
+     "If there are more than one values with same count, smaller one is returned first.\n"
      "Nulls are ignored.  If there are no non-null values in the array,\n"
-     "null is returned."),
-    {"array"}};
+     "empty array is returned."),
+    {"array"},
+    "ModeOptions"};
 
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels() {
-  auto func =
-      std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), &mode_doc);
+  static auto default_mode_options = ModeOptions::Defaults();
+  auto func = std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), &mode_doc,
+                                                        &default_mode_options);
   AddModeKernels(ModeInit, {boolean()}, func.get());
   AddModeKernels(ModeInit, NumericTypes(), func.get());
   return func;

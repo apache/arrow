@@ -76,6 +76,18 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   enum Mode null_handling;
 };
 
+/// \brief Control Mode kernel behavior
+///
+/// Returns top-n common values and counts.
+/// By default, returns the most common value and count.
+struct ARROW_EXPORT ModeOptions : public FunctionOptions {
+  explicit ModeOptions(int64_t n = 1) : n(n) {}
+
+  static ModeOptions Defaults() { return ModeOptions{}; }
+
+  int64_t n = 1;
+};
+
 /// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
 ///
 /// The divisor used in calculations is N - ddof, where N is the number of elements.
@@ -142,20 +154,24 @@ Result<Datum> MinMax(const Datum& value,
                      const MinMaxOptions& options = MinMaxOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the modal (most common) value of a numeric array
+/// \brief Calculate the modal (most common) values of a numeric array
 ///
-/// This function returns both mode and count as a struct scalar, with type
-/// struct<mode: T, count: int64>, where T is the input type.
-/// If there is more than one such value, the smallest one is returned.
+/// This function returns top-n most common values and number of times they occur as
+/// an array of `struct<mode: T, count: int64>`, where T is the input type.
+/// Values with larger counts are returned before smaller ones.
+/// If there are more than one values with same count, smaller value is returned first.
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ModeOptions for more information
 /// \param[in] ctx the function execution context, optional
-/// \return resulting datum as a struct<mode: T, count: int64> scalar
+/// \return resulting datum as an array of struct<mode: T, count: int64>
 ///
 /// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Mode(const Datum& value,
+                   const ModeOptions& options = ModeOptions::Defaults(),
+                   ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the standard deviation of a numeric array
 ///
