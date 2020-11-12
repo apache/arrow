@@ -21,6 +21,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::sync::Arc;
 
+use super::ColumnarValue;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
@@ -31,26 +32,28 @@ use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
-use arrow::compute::kernels::comparison::{eq_scalar, gt_scalar, gt_eq_scalar, lt_scalar, lt_eq_scalar, neq_scalar};
+use arrow::compute::kernels::comparison::{
+    eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
+};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
 };
 use arrow::compute::kernels::comparison::{
-    eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar, neq_utf8_scalar
+    eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
+    neq_utf8_scalar,
 };
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array, Date32Array
+        ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
 use compute::can_cast_types;
-use super::ColumnarValue;
 
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
@@ -94,7 +97,9 @@ impl PhysicalExpr for Column {
 
     /// Evaluate the expression
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        Ok(ColumnarValue::Array(batch.column(batch.schema().index_of(&self.name)?).clone()))
+        Ok(ColumnarValue::Array(
+            batch.column(batch.schema().index_of(&self.name)?).clone(),
+        ))
     }
 }
 
@@ -973,9 +978,11 @@ macro_rules! compute_utf8_op_scalar {
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
         if let ScalarValue::Utf8(Some(string_value)) = $RIGHT {
-            Ok(Arc::new(paste::expr! {[<$OP _utf8_scalar>]}(&ll, &string_value)?))
-        }
-        else {
+            Ok(Arc::new(paste::expr! {[<$OP _utf8_scalar>]}(
+                &ll,
+                &string_value,
+            )?))
+        } else {
             Err(DataFusionError::Internal(format!(
                 "compute_utf8_op_scalar failed to cast literal value {}",
                 $RIGHT
@@ -992,7 +999,10 @@ macro_rules! compute_op_scalar {
             .as_any()
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
-        Ok(Arc::new(paste::expr! {[<$OP _scalar>]}(&ll, $RIGHT.try_into()?)?))
+        Ok(Arc::new(paste::expr! {[<$OP _scalar>]}(
+            &ll,
+            $RIGHT.try_into()?,
+        )?))
     }};
 }
 
@@ -1065,10 +1075,10 @@ macro_rules! binary_array_op_scalar {
             DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
-            },
+            }
             DataType::Date32(DateUnit::Day) => {
                 compute_op_scalar!($LEFT, $RIGHT, $OP, Date32Array)
-            },
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1095,10 +1105,10 @@ macro_rules! binary_array_op {
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
-            },
+            }
             DataType::Date32(DateUnit::Day) => {
                 compute_op!($LEFT, $RIGHT, $OP, Date32Array)
-            },
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1390,9 +1400,7 @@ impl PhysicalExpr for BinaryExpr {
         if left_data_type != right_data_type {
             return Err(DataFusionError::Internal(format!(
                 "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                self.op,
-                left_data_type,
-                right_data_type
+                self.op, left_data_type, right_data_type
             )));
         }
 
@@ -1401,14 +1409,21 @@ impl PhysicalExpr for BinaryExpr {
                 // if left is array and right is literal - use scalar operations
                 let result: Result<ArrayRef> = match &self.op {
                     Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), lt),
-                    Operator::LtEq => binary_array_op_scalar!(array, scalar.clone(), lt_eq),
+                    Operator::LtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), lt_eq)
+                    }
                     Operator::Gt => binary_array_op_scalar!(array, scalar.clone(), gt),
-                    Operator::GtEq => binary_array_op_scalar!(array, scalar.clone(), gt_eq),
+                    Operator::GtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), gt_eq)
+                    }
                     Operator::Eq => binary_array_op_scalar!(array, scalar.clone(), eq),
-                    Operator::NotEq => binary_array_op_scalar!(array, scalar.clone(), neq),
+                    Operator::NotEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), neq)
+                    }
                     _ => Err(DataFusionError::Internal(format!(
-                        "Scalar values on right side of operator {} are not supported", self.op
-                    )))
+                        "Scalar values on right side of operator {} are not supported",
+                        self.op
+                    ))),
                 };
                 Some(result)
             }
@@ -1416,18 +1431,25 @@ impl PhysicalExpr for BinaryExpr {
                 // if right is literal and left is array - reverse operator and parameters
                 let result: Result<ArrayRef> = match &self.op {
                     Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), gt),
-                    Operator::LtEq => binary_array_op_scalar!(array, scalar.clone(), gt_eq),
+                    Operator::LtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), gt_eq)
+                    }
                     Operator::Gt => binary_array_op_scalar!(array, scalar.clone(), lt),
-                    Operator::GtEq => binary_array_op_scalar!(array, scalar.clone(), lt_eq),
+                    Operator::GtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), lt_eq)
+                    }
                     Operator::Eq => binary_array_op_scalar!(array, scalar.clone(), eq),
-                    Operator::NotEq => binary_array_op_scalar!(array, scalar.clone(), neq),
+                    Operator::NotEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), neq)
+                    }
                     _ => Err(DataFusionError::Internal(format!(
-                        "Scalar values on left side of operator {} are not supported", self.op
-                    )))
+                        "Scalar values on left side of operator {} are not supported",
+                        self.op
+                    ))),
                 };
                 Some(result)
             }
-            (_, _) => None
+            (_, _) => None,
         };
 
         if let Some(result) = scalar_result {
@@ -1438,9 +1460,12 @@ impl PhysicalExpr for BinaryExpr {
             // if both arrays - extract and continue execution
             (ColumnarValue::Array(left), ColumnarValue::Array(right)) => (left, right),
             // if both literals - not supported
-            (_, _) => return Err(DataFusionError::Internal(format!(
-                "Scalar values are currently not supported on both sides of operator {}", self.op
-            )))
+            (_, _) => {
+                return Err(DataFusionError::Internal(format!(
+                    "Scalar values are currently not supported on both sides of operator {}",
+                    self.op
+                )));
+            }
         };
 
         let result: Result<ArrayRef> = match &self.op {
@@ -1474,9 +1499,7 @@ impl PhysicalExpr for BinaryExpr {
                 } else {
                     return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                        self.op,
-                        left_data_type,
-                        right_data_type
+                        self.op, left_data_type, right_data_type
                     )));
                 }
             }
@@ -1533,16 +1556,21 @@ impl PhysicalExpr for NotExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => {
-                let array = array
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .ok_or(DataFusionError::Internal("boolean_op failed to downcast array".to_owned()))?;
-                    Ok(ColumnarValue::Array(Arc::new(arrow::compute::kernels::boolean::not(array)?)))
+                let array = array.as_any().downcast_ref::<BooleanArray>().ok_or(
+                    DataFusionError::Internal(
+                        "boolean_op failed to downcast array".to_owned(),
+                    ),
+                )?;
+                Ok(ColumnarValue::Array(Arc::new(
+                    arrow::compute::kernels::boolean::not(array)?,
+                )))
             }
             ColumnarValue::Scalar(scalar) => {
                 use std::convert::TryInto;
                 let bool_value: bool = scalar.try_into()?;
-                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(!bool_value))))
+                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(
+                    !bool_value,
+                ))))
             }
         }
     }
@@ -1601,12 +1629,12 @@ impl PhysicalExpr for IsNullExpr {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch)?;
         match arg {
-            ColumnarValue::Array(array) => {
-                Ok(ColumnarValue::Array(Arc::new(arrow::compute::is_null(&array)?)))
-            }
-            ColumnarValue::Scalar(scalar) => {
-                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(scalar.is_null()))))
-            }
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
+                arrow::compute::is_null(&array)?,
+            ))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(scalar.is_null())),
+            )),
         }
     }
 }
@@ -1646,12 +1674,12 @@ impl PhysicalExpr for IsNotNullExpr {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch)?;
         match arg {
-            ColumnarValue::Array(array) => {
-                Ok(ColumnarValue::Array(Arc::new(arrow::compute::is_not_null(&array)?)))
-            },
-            ColumnarValue::Scalar(scalar) => {
-                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(!scalar.is_null()))))
-            }
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
+                arrow::compute::is_not_null(&array)?,
+            ))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(!scalar.is_null())),
+            )),
         }
     }
 }
@@ -1698,9 +1726,10 @@ impl PhysicalExpr for CastExpr {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let value = self.expr.evaluate(batch)?;
         match value {
-            ColumnarValue::Array(array) => {
-                Ok(ColumnarValue::Array(kernels::cast::cast(&array, &self.cast_type)?))
-            }
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(kernels::cast::cast(
+                &array,
+                &self.cast_type,
+            )?)),
             ColumnarValue::Scalar(scalar) => {
                 let scalar_array = scalar.to_array();
                 let cast_array = kernels::cast::cast(&scalar_array, &self.cast_type)?;
@@ -1708,7 +1737,6 @@ impl PhysicalExpr for CastExpr {
                 Ok(ColumnarValue::Scalar(cast_scalar))
             }
         }
-        
     }
 }
 
@@ -1726,10 +1754,10 @@ pub fn cast(
         Ok(expr.clone())
     } else if can_cast_types(&expr_type, &cast_type) {
         Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if expr_type == DataType::Utf8 && cast_type == DataType::Date32(DateUnit::Day) {
+    } else if expr_type == DataType::Utf8 && cast_type == DataType::Date32(DateUnit::Day)
+    {
         Ok(Arc::new(CastExpr { expr, cast_type }))
-    } 
-    else {
+    } else {
         Err(DataFusionError::Internal(format!(
             "Unsupported CAST from {:?} to {:?}",
             expr_type, cast_type

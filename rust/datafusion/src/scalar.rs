@@ -68,7 +68,7 @@ pub enum ScalarValue {
     /// list of nested ScalarValue
     List(Option<Vec<ScalarValue>>, DataType),
     /// Date stored as a signed 32bit int
-    Date32(Option<i32>)
+    Date32(Option<i32>),
 }
 
 macro_rules! typed_cast {
@@ -168,8 +168,12 @@ impl ScalarValue {
     /// Converts a scalar value into an array of `size` rows.
     pub fn to_array_of_size(&self, size: usize) -> ArrayRef {
         match self {
-            ScalarValue::Boolean(e) => Arc::new(BooleanArray::from(vec![*e; size])) as ArrayRef,
-            ScalarValue::Float64(e) => Arc::new(Float64Array::from(vec![*e; size])) as ArrayRef,
+            ScalarValue::Boolean(e) => {
+                Arc::new(BooleanArray::from(vec![*e; size])) as ArrayRef
+            }
+            ScalarValue::Float64(e) => {
+                Arc::new(Float64Array::from(vec![*e; size])) as ArrayRef
+            }
             ScalarValue::Float32(e) => Arc::new(Float32Array::from(vec![*e; size])),
             ScalarValue::Int8(e) => Arc::new(Int8Array::from(vec![*e; size])),
             ScalarValue::Int16(e) => Arc::new(Int16Array::from(vec![*e; size])),
@@ -317,12 +321,13 @@ macro_rules! impl_try_from {
                     ScalarValue::$SCALAR(Some(inner_value)) => Ok(inner_value),
                     _ => Err(DataFusionError::Internal(format!(
                         "Cannot convert {:?} to {}",
-                        value, std::any::type_name::<Self>()
-                    )))
+                        value,
+                        std::any::type_name::<Self>()
+                    ))),
                 }
             }
         }
-    }
+    };
 }
 
 impl_try_from!(Int8, i8);
@@ -338,8 +343,9 @@ impl TryFrom<ScalarValue> for i32 {
             ScalarValue::Date32(Some(inner_value)) => Ok(inner_value),
             _ => Err(DataFusionError::Internal(format!(
                 "Cannot convert {:?} to {}",
-                value, std::any::type_name::<Self>()
-            )))
+                value,
+                std::any::type_name::<Self>()
+            ))),
         }
     }
 }

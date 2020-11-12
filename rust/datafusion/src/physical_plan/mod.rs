@@ -114,22 +114,22 @@ pub enum Distribution {
 pub enum ColumnarValue {
     /// Array of values
     Array(ArrayRef),
-    /// A single value 
-    Scalar(ScalarValue)
+    /// A single value
+    Scalar(ScalarValue),
 }
 
 impl ColumnarValue {
     fn data_type(&self) -> DataType {
         match self {
             ColumnarValue::Array(array_value) => array_value.data_type().clone(),
-            ColumnarValue::Scalar(scalar_value) => scalar_value.get_datatype()
+            ColumnarValue::Scalar(scalar_value) => scalar_value.get_datatype(),
         }
     }
 
     fn to_array(self, batch: &RecordBatch) -> ArrayRef {
         match self {
             ColumnarValue::Array(array) => array,
-            ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(batch.num_rows())
+            ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(batch.num_rows()),
         }
     }
 }

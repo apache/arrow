@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use futures::executor::block_on;
-use std::sync::Arc;
-use criterion::{criterion_group, criterion_main, Criterion};
 use arrow::{
     array::{Float32Array, Float64Array},
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
-use datafusion::{datasource::MemTable, error::Result};
+use criterion::{criterion_group, criterion_main, Criterion};
 use datafusion::prelude::ExecutionContext;
+use datafusion::{datasource::MemTable, error::Result};
+use futures::executor::block_on;
+use std::sync::Arc;
 
 async fn query(ctx: &mut ExecutionContext, sql: &str) {
     // execute the query
@@ -37,10 +37,7 @@ async fn query(ctx: &mut ExecutionContext, sql: &str) {
     }
 }
 
-fn create_context(
-    array_len: usize,
-    batch_size: usize,
-) -> Result<ExecutionContext> {
+fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContext> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
         Field::new("f32", DataType::Float32, false),
@@ -70,13 +67,17 @@ fn create_context(
     Ok(ctx)
 }
 
-fn criterion_benchmark(c: &mut Criterion) 
-{
+fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("filter_20_12", |b| {
         let array_len = 1_048_576; // 2^20
         let batch_size = 4096; // 2^12
         let mut ctx = create_context(array_len, batch_size).unwrap();
-        b.iter(|| block_on(query(&mut ctx, "select f32, f64 from t where f32 >= 250 and f64 > 250")))
+        b.iter(|| {
+            block_on(query(
+                &mut ctx,
+                "select f32, f64 from t where f32 >= 250 and f64 > 250",
+            ))
+        })
     });
 }
 

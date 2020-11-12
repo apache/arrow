@@ -29,7 +29,10 @@
 //! This module also has a set of coercion rules to improve user experience: if an argument i32 is passed
 //! to a function that supports f64, it is coerced to f64.
 
-use super::{ColumnarValue, PhysicalExpr, type_coercion::{coerce, data_types}};
+use super::{
+    type_coercion::{coerce, data_types},
+    ColumnarValue, PhysicalExpr,
+};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
