@@ -24,7 +24,8 @@
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+
+namespace {
 
 void AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
   checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
@@ -37,6 +38,19 @@ void AggregateMerge(KernelContext* ctx, KernelState&& src, KernelState* dst) {
 void AggregateFinalize(KernelContext* ctx, Datum* out) {
   checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, out);
 }
+
+}  // namespace
+
+void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
+                               AggregateFinalize);
+  // Set the simd level
+  kernel.simd_level = simd_level;
+  DCHECK_OK(func->AddKernel(kernel));
+}
+
+namespace aggregate {
 
 // ----------------------------------------------------------------------
 // Count implementation
@@ -137,15 +151,6 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
   return visitor.Create();
 }
 
-void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
-                               AggregateFinalize);
-  // Set the simd level
-  kernel.simd_level = simd_level;
-  DCHECK_OK(func->AddKernel(kernel));
-}
-
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -202,8 +207,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   // Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
-  aggregate::AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())),
-                          aggregate::CountInit, func.get());
+  AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())),
+               aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc);
@@ -263,10 +268,6 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
-
-  DCHECK_OK(registry->AddFunction(aggregate::AddModeAggKernels()));
-  DCHECK_OK(registry->AddFunction(aggregate::AddStddevAggKernels()));
-  DCHECK_OK(registry->AddFunction(aggregate::AddVarianceAggKernels()));
 }
 
 }  // namespace internal

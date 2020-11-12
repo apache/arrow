@@ -1,0 +1,287 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "bool_nullable",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "bool_nonnullable",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int8_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int8_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int16_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int16_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 16
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int32_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int32_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int64_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int64_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 64
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint8_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint8_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 8
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint16_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint16_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 16
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint32_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint32_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 32
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint64_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint64_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 64
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "float32_nullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "SINGLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float32_nonnullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "SINGLE"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "float64_nullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "DOUBLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float64_nonnullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "DOUBLE"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "binary_nullable",
+        "type": {
+          "name": "binary"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "binary_nonnullable",
+        "type": {
+          "name": "binary"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "utf8_nullable",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "utf8_nonnullable",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_19_nullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 19
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_19_nonnullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 19
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_120_nullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 120
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_120_nonnullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 120
+        },
+        "nullable": false,
+        "children": []
+      }
+    ]
+  },
+  "batches": []
+}

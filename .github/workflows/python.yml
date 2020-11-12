@@ -50,7 +50,7 @@ jobs:
           - ubuntu-16.04-python-3
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
-          - conda-python-3.6-pandas-latest
+          - conda-python-3.7-pandas-latest
           - centos-python-3.6-manylinux1
         include:
           - name: ubuntu-16.04-python-3
@@ -70,11 +70,11 @@ jobs:
             title: AMD64 Conda Python 3.6 Pandas 0.23
             python: 3.6
             pandas: 0.23
-          - name: conda-python-3.6-pandas-latest
-            cache: conda-python-3.6
+          - name: conda-python-3.7-pandas-latest
+            cache: conda-python-3.7
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.6 Pandas latest
-            python: 3.6
+            title: AMD64 Conda Python 3.7 Pandas latest
+            python: 3.7
             pandas: latest
           - name: centos-python-3.6-manylinux1
             cache: manylinux1

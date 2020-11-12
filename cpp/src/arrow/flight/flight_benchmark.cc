@@ -29,7 +29,6 @@
 
 #include <gflags/gflags.h>
 
-#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"

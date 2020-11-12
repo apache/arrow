@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"

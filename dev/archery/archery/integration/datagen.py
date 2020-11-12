@@ -1551,12 +1551,10 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS')     # TODO(ARROW-8716)
         .skip_category('Rust'),
 
-        generate_nested_case()
-        .skip_category('Rust'),
+        generate_nested_case(),
 
         generate_recursive_nested_case()
-        .skip_category('Go')  # TODO(ARROW-8453)
-        .skip_category('Rust'),
+        .skip_category('Go'),    # TODO(ARROW-8453)
 
         generate_nested_large_offsets_case()
         .skip_category('Go')
@@ -1571,12 +1569,11 @@ def get_generated_json_files(tempdir=None):
         generate_custom_metadata_case()
         .skip_category('Go')
         .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('Rust'),  # TODO(ARROW-10259)
 
         generate_duplicate_fieldnames_case()
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()

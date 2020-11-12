@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"

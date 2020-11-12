@@ -177,11 +177,7 @@ fn write_leaves(
             Ok(())
         }
         ArrowDataType::Dictionary(key_type, value_type) => {
-            use arrow_array::{
-                Int16DictionaryArray, Int32DictionaryArray, Int64DictionaryArray,
-                Int8DictionaryArray, PrimitiveArray, StringArray, UInt16DictionaryArray,
-                UInt32DictionaryArray, UInt64DictionaryArray, UInt8DictionaryArray,
-            };
+            use arrow_array::{PrimitiveArray, StringArray};
             use ArrowDataType::*;
             use ColumnWriter::*;
 
@@ -217,9 +213,10 @@ fn write_leaves(
                         .unwrap();
 
                     use std::convert::TryFrom;
-                    // This removes NULL values from the NullableIter, but
+                    // This removes NULL values from the keys, but
                     // they're encoded by the levels, so that's fine.
                     let materialized_values: Vec<_> = keys
+                        .into_iter()
                         .flatten()
                         .map(|key| {
                             usize::try_from(key).unwrap_or_else(|k| {
@@ -250,14 +247,14 @@ fn write_leaves(
             }
 
             dispatch_dictionary!(
-                Int8, Utf8, ByteArrayColumnWriter => Int8DictionaryArray, StringArray,
-                Int16, Utf8, ByteArrayColumnWriter => Int16DictionaryArray, StringArray,
-                Int32, Utf8, ByteArrayColumnWriter => Int32DictionaryArray, StringArray,
-                Int64, Utf8, ByteArrayColumnWriter => Int64DictionaryArray, StringArray,
-                UInt8, Utf8, ByteArrayColumnWriter => UInt8DictionaryArray, StringArray,
-                UInt16, Utf8, ByteArrayColumnWriter => UInt16DictionaryArray, StringArray,
-                UInt32, Utf8, ByteArrayColumnWriter => UInt32DictionaryArray, StringArray,
-                UInt64, Utf8, ByteArrayColumnWriter => UInt64DictionaryArray, StringArray,
+                Int8, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int8Type, StringArray,
+                Int16, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int16Type, StringArray,
+                Int32, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int32Type, StringArray,
+                Int64, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int64Type, StringArray,
+                UInt8, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt8Type, StringArray,
+                UInt16, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt16Type, StringArray,
+                UInt32, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt32Type, StringArray,
+                UInt64, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt64Type, StringArray,
             )?;
 
             row_group_writer.close_column(col_writer)?;
@@ -284,48 +281,40 @@ trait Materialize<K, V> {
     fn materialize(&self) -> Vec<Self::Output>;
 }
 
-macro_rules! materialize_string {
-    ($($k:ty,)*) => {
-        $(impl Materialize<$k, arrow_array::StringArray> for dyn Array {
-            type Output = ByteArray;
+impl<K> Materialize<K, arrow_array::StringArray> for dyn Array
+where
+    K: arrow::datatypes::ArrowDictionaryKeyType,
+{
+    type Output = ByteArray;
 
-            fn materialize(&self) -> Vec<Self::Output> {
-                use std::convert::TryFrom;
+    fn materialize(&self) -> Vec<Self::Output> {
+        use arrow::datatypes::ArrowNativeType;
 
-                let typed_array = self.as_any()
-                    .downcast_ref::<$k>()
-                    .expect("Unable to get dictionary array");
+        let typed_array = self
+            .as_any()
+            .downcast_ref::<arrow_array::DictionaryArray<K>>()
+            .expect("Unable to get dictionary array");
 
-                let keys = typed_array.keys();
+        let keys = typed_array.keys();
 
-                let value_buffer = typed_array.values();
-                let values = value_buffer
-                    .as_any()
-                    .downcast_ref::<arrow_array::StringArray>()
-                    .unwrap();
+        let value_buffer = typed_array.values();
+        let values = value_buffer
+            .as_any()
+            .downcast_ref::<arrow_array::StringArray>()
+            .unwrap();
 
-                // This removes NULL values from the NullableIter, but
-                // they're encoded by the levels, so that's fine.
-                keys
-                    .flatten()
-                    .map(|key| usize::try_from(key).unwrap_or_else(|k| panic!("key {} does not fit in usize", k)))
-                    .map(|key| values.value(key))
-                    .map(ByteArray::from)
-                    .collect()
-            }
-        })*
-    };
-}
-
-materialize_string! {
-    arrow_array::Int8DictionaryArray,
-    arrow_array::Int16DictionaryArray,
-    arrow_array::Int32DictionaryArray,
-    arrow_array::Int64DictionaryArray,
-    arrow_array::UInt8DictionaryArray,
-    arrow_array::UInt16DictionaryArray,
-    arrow_array::UInt32DictionaryArray,
-    arrow_array::UInt64DictionaryArray,
+        // This removes NULL values from the keys, but
+        // they're encoded by the levels, so that's fine.
+        keys.into_iter()
+            .flatten()
+            .map(|key| {
+                key.to_usize()
+                    .unwrap_or_else(|| panic!("key {:?} does not fit in usize", key))
+            })
+            .map(|key| values.value(key))
+            .map(ByteArray::from)
+            .collect()
+    }
 }
 
 fn write_dict<K, V, T>(
@@ -725,7 +714,7 @@ mod tests {
         // define schema
         let schema = Schema::new(vec![Field::new(
             "a",
-            DataType::List(Box::new(DataType::Int32)),
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
             false,
         )]);
 
@@ -738,11 +727,15 @@ mod tests {
             arrow::buffer::Buffer::from(&[0, 1, 3, 3, 6, 10].to_byte_slice());
 
         // Construct a list array from the above two
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(DataType::Int32)))
-            .len(5)
-            .add_buffer(a_value_offsets)
-            .add_child_data(a_values.data())
-            .build();
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "items",
+            DataType::Int32,
+            true,
+        ))))
+        .len(5)
+        .add_buffer(a_value_offsets)
+        .add_child_data(a_values.data())
+        .build();
         let a = ListArray::from(a_list_data);
 
         // build a record batch
@@ -819,8 +812,11 @@ mod tests {
         // define schema
         let struct_field_d = Field::new("d", DataType::Float64, true);
         let struct_field_f = Field::new("f", DataType::Float32, true);
-        let struct_field_g =
-            Field::new("g", DataType::List(Box::new(DataType::Int16)), false);
+        let struct_field_g = Field::new(
+            "g",
+            DataType::List(Box::new(Field::new("items", DataType::Int16, false))),
+            false,
+        );
         let struct_field_e = Field::new(
             "e",
             DataType::Struct(vec![struct_field_f.clone(), struct_field_g.clone()]),
@@ -918,17 +914,7 @@ mod tests {
             let expected_data = expected_batch.column(i).data();
             let actual_data = actual_batch.column(i).data();
 
-            assert_eq!(expected_data.data_type(), actual_data.data_type());
-            assert_eq!(expected_data.len(), actual_data.len());
-            assert_eq!(expected_data.null_count(), actual_data.null_count());
-            assert_eq!(expected_data.offset(), actual_data.offset());
-            assert_eq!(expected_data.buffers(), actual_data.buffers());
-            assert_eq!(expected_data.child_data(), actual_data.child_data());
-            // Null counts should be the same, not necessarily bitmaps
-            // A null bitmap is optional if an array has no nulls
-            if expected_data.null_count() != 0 {
-                assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
-            }
+            assert_eq!(expected_data, actual_data);
         }
     }
 
@@ -1205,7 +1191,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Binary support isn't correct yet - buffers don't match
     fn binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1216,7 +1201,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large binary support isn't correct yet - buffers don't match
     fn large_binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1254,11 +1238,15 @@ mod tests {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
             arrow::buffer::Buffer::from(&[0, 1, 3, 3, 6, 10].to_byte_slice());
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(DataType::Int32)))
-            .len(5)
-            .add_buffer(a_value_offsets)
-            .add_child_data(a_values.data())
-            .build();
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            DataType::Int32,
+            true,
+        ))))
+        .len(5)
+        .add_buffer(a_value_offsets)
+        .add_child_data(a_values.data())
+        .build();
 
         // I think this setup is incorrect because this should pass
         assert_eq!(a_list_data.null_count(), 1);
@@ -1275,12 +1263,15 @@ mod tests {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
             arrow::buffer::Buffer::from(&[0i64, 1, 3, 3, 6, 10].to_byte_slice());
-        let a_list_data =
-            ArrayData::builder(DataType::LargeList(Box::new(DataType::Int32)))
-                .len(5)
-                .add_buffer(a_value_offsets)
-                .add_child_data(a_values.data())
-                .build();
+        let a_list_data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
+            "large_item",
+            DataType::Int32,
+            true,
+        ))))
+        .len(5)
+        .add_buffer(a_value_offsets)
+        .add_child_data(a_values.data())
+        .build();
 
         // I think this setup is incorrect because this should pass
         assert_eq!(a_list_data.null_count(), 1);

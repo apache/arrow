@@ -202,7 +202,7 @@ impl<T: DataType> RecordReader<T> {
             let mut new_buffer = MutableBuffer::new(
                 size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
             );
-            new_buffer.resize(num_left_values * size_of::<i16>())?;
+            new_buffer.resize(num_left_values * size_of::<i16>());
 
             let mut new_def_levels = FatPtr::<i16>::with_offset(&mut new_buffer, 0);
             let new_def_levels = new_def_levels.to_slice_mut();
@@ -213,7 +213,7 @@ impl<T: DataType> RecordReader<T> {
             new_def_levels[0..num_left_values]
                 .copy_from_slice(&left_def_levels[0..num_left_values]);
 
-            def_levels_buf.resize(self.num_values * size_of::<i16>())?;
+            def_levels_buf.resize(self.num_values * size_of::<i16>());
             Some(new_buffer)
         } else {
             None
@@ -231,7 +231,7 @@ impl<T: DataType> RecordReader<T> {
             let mut new_buffer = MutableBuffer::new(
                 size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
             );
-            new_buffer.resize(num_left_values * size_of::<i16>())?;
+            new_buffer.resize(num_left_values * size_of::<i16>());
 
             let mut new_rep_levels = FatPtr::<i16>::with_offset(&mut new_buffer, 0);
             let new_rep_levels = new_rep_levels.to_slice_mut();
@@ -242,7 +242,7 @@ impl<T: DataType> RecordReader<T> {
             new_rep_levels[0..num_left_values]
                 .copy_from_slice(&left_rep_levels[0..num_left_values]);
 
-            rep_levels_buf.resize(self.num_values * size_of::<i16>())?;
+            rep_levels_buf.resize(self.num_values * size_of::<i16>());
 
             Some(new_buffer)
         } else {
@@ -258,7 +258,7 @@ impl<T: DataType> RecordReader<T> {
         // TODO: Optimize to reduce the copy
         let num_left_values = self.values_written - self.num_values;
         let mut new_buffer = MutableBuffer::new(max(MIN_BATCH_SIZE, num_left_values));
-        new_buffer.resize(num_left_values * T::get_type_size())?;
+        new_buffer.resize(num_left_values * T::get_type_size());
 
         let mut new_records =
             FatPtr::<T::T>::with_offset_and_size(&mut new_buffer, 0, T::get_type_size());
@@ -274,7 +274,7 @@ impl<T: DataType> RecordReader<T> {
             swap(&mut new_records[idx], &mut left_records[idx]);
         }
 
-        self.records.resize(self.num_values * T::get_type_size())?;
+        self.records.resize(self.num_values * T::get_type_size());
 
         Ok(replace(&mut self.records, new_buffer).freeze())
     }
@@ -331,14 +331,12 @@ impl<T: DataType> RecordReader<T> {
     fn read_one_batch(&mut self, batch_size: usize) -> Result<usize> {
         // Reserve spaces
         self.records
-            .reserve(self.records.len() + batch_size * T::get_type_size())?;
+            .reserve(self.records.len() + batch_size * T::get_type_size());
         if let Some(ref mut buf) = self.rep_levels {
-            buf.reserve(buf.len() + batch_size * size_of::<i16>())
-                .map(|_| ())?;
+            buf.reserve(buf.len() + batch_size * size_of::<i16>());
         }
         if let Some(ref mut buf) = self.def_levels {
-            buf.reserve(buf.len() + batch_size * size_of::<i16>())
-                .map(|_| ())?;
+            buf.reserve(buf.len() + batch_size * size_of::<i16>());
         }
 
         // Convert mutable buffer spaces to mutable slices
@@ -468,16 +466,16 @@ impl<T: DataType> RecordReader<T> {
     fn set_values_written(&mut self, new_values_written: usize) -> Result<()> {
         self.values_written = new_values_written;
         self.records
-            .resize(self.values_written * T::get_type_size())?;
+            .resize(self.values_written * T::get_type_size());
 
         let new_levels_len = self.values_written * size_of::<i16>();
 
         if let Some(ref mut buf) = self.rep_levels {
-            buf.resize(new_levels_len)?
+            buf.resize(new_levels_len)
         };
 
         if let Some(ref mut buf) = self.def_levels {
-            buf.resize(new_levels_len)?
+            buf.resize(new_levels_len)
         };
 
         Ok(())

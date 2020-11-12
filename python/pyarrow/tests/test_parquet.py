@@ -217,21 +217,21 @@ def test_set_data_page_size(use_legacy_dataset):
 @parametrize_legacy_dataset
 def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
-    df = alltypes_sample(size=10)
+    tables = []
+    batch = pa.RecordBatch.from_pandas(alltypes_sample(size=10))
+    tables.append(pa.Table.from_batches([batch] * 3))
+    df, _ = dataframe_with_lists()
+    batch = pa.RecordBatch.from_pandas(df)
+    tables.append(pa.Table.from_batches([batch] * 3))
 
     for data_page_version in ['1.0', '2.0']:
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
-
-        df, _ = dataframe_with_lists()
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
+        for use_dictionary in [True, False]:
+            for table in tables:
+                _check_roundtrip(
+                    table, version='2.0',
+                    use_legacy_dataset=use_legacy_dataset,
+                    data_page_version=data_page_version,
+                    use_dictionary=use_dictionary)
 
 
 @pytest.mark.pandas
@@ -836,6 +836,11 @@ def test_compression_level(use_legacy_dataset):
     # coincide with the default one in Arrow.
     _check_roundtrip(table, expected=table, compression="gzip",
                      compression_level=5,
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check that the user can provide a compression per column
+    _check_roundtrip(table, expected=table,
+                     compression={'a': "gzip", 'b': "snappy"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Check that the user can provide a compression level per column
@@ -2185,10 +2190,38 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
         pass
 
 
+@parametrize_legacy_dataset
+def test_read_s3fs(s3_example_s3fs, use_legacy_dataset):
+    fs, path = s3_example_s3fs
+    path = path + "/test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path, filesystem=fs)
+
+    result = _read_table(
+        path, filesystem=fs, use_legacy_dataset=use_legacy_dataset
+    )
+    assert result.equals(table)
+
+
+@parametrize_legacy_dataset
+def test_read_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
+    fs, directory = s3_example_s3fs
+    path = directory + "/test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path, filesystem=fs)
+
+    result = _read_table(
+        directory, filesystem=fs, use_legacy_dataset=use_legacy_dataset
+    )
+    assert result.equals(table)
+
+
 @pytest.mark.pandas
 @pytest.mark.s3
 @parametrize_legacy_dataset
-def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
+def test_read_partitioned_directory_s3fs_wrapper(
+    s3_example_s3fs, use_legacy_dataset
+):
     from pyarrow.filesystem import S3FSWrapper
 
     fs, path = s3_example_s3fs
@@ -2200,6 +2233,15 @@ def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
         path, filesystem=fs, use_legacy_dataset=use_legacy_dataset
     )
     dataset.read()
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
+    fs, path = s3_example_s3fs
+    _partition_test_for_filesystem(
+        fs, path, use_legacy_dataset=use_legacy_dataset
+    )
 
 
 def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
@@ -2245,32 +2287,34 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # part_table : a pyarrow.Table to write to each partition
     DEPTH = len(partition_spec)
 
+    pathsep = getattr(fs, "pathsep", getattr(fs, "sep", "/"))
+
     def _visit_level(base_dir, level, part_keys):
         name, values = partition_spec[level]
         for value in values:
             this_part_keys = part_keys + [(name, value)]
 
-            level_dir = fs._path_join(
+            level_dir = pathsep.join([
                 str(base_dir),
                 '{}={}'.format(name, value)
-            )
+            ])
             fs.mkdir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
-                file_path = fs._path_join(level_dir, guid())
+                file_path = pathsep.join([level_dir, guid()])
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
                 with fs.open(file_path, 'wb') as f:
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
 
-                file_success = fs._path_join(level_dir, '_SUCCESS')
+                file_success = pathsep.join([level_dir, '_SUCCESS'])
                 with fs.open(file_success, 'wb') as f:
                     pass
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
-                file_success = fs._path_join(level_dir, '_SUCCESS')
+                file_success = pathsep.join([level_dir, '_SUCCESS'])
                 with fs.open(file_success, 'wb') as f:
                     pass
 
@@ -2964,22 +3008,45 @@ def test_write_to_dataset_pathlib(tempdir, use_legacy_dataset):
         tempdir / "test2", use_legacy_dataset)
 
 
+# Those tests are failing - see ARROW-10370
+# @pytest.mark.pandas
+# @pytest.mark.s3
+# @parametrize_legacy_dataset
+# def test_write_to_dataset_pathlib_nonlocal(
+#     tempdir, s3_example_s3fs, use_legacy_dataset
+# ):
+#    # pathlib paths are only accepted for local files
+#    fs, _ = s3_example_s3fs
+
+#    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+#         _test_write_to_dataset_with_partitions(
+#             tempdir / "test1", use_legacy_dataset, filesystem=fs)
+
+#    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+#         _test_write_to_dataset_no_partitions(
+#             tempdir / "test2", use_legacy_dataset, filesystem=fs)
+
+
 @pytest.mark.pandas
-@pytest.mark.s3
 @parametrize_legacy_dataset
-def test_write_to_dataset_pathlib_nonlocal(
-    tempdir, s3_example_s3fs, use_legacy_dataset
+def test_write_to_dataset_with_partitions_s3fs(
+    s3_example_s3fs, use_legacy_dataset
 ):
-    # pathlib paths are only accepted for local files
-    fs, _ = s3_example_s3fs
+    fs, path = s3_example_s3fs
 
-    with pytest.raises(TypeError, match="path-like objects are only allowed"):
-        _test_write_to_dataset_with_partitions(
-            tempdir / "test1", use_legacy_dataset, filesystem=fs)
+    _test_write_to_dataset_with_partitions(
+        path, use_legacy_dataset, filesystem=fs)
 
-    with pytest.raises(TypeError, match="path-like objects are only allowed"):
-        _test_write_to_dataset_no_partitions(
-            tempdir / "test2", use_legacy_dataset, filesystem=fs)
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_no_partitions_s3fs(
+    s3_example_s3fs, use_legacy_dataset
+):
+    fs, path = s3_example_s3fs
+
+    _test_write_to_dataset_no_partitions(
+        path, use_legacy_dataset, filesystem=fs)
 
 
 @pytest.mark.pandas
@@ -3630,6 +3697,23 @@ def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
     fs, uri, path = s3_example_fs
 
     with pq.ParquetWriter(uri, table.schema, version='2.0') as writer:
+        writer.write_table(table)
+
+    result = _read_table(path, filesystem=fs).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    fs, directory = s3_example_s3fs
+    path = directory + "/test.parquet"
+
+    with pq.ParquetWriter(
+        path, table.schema, filesystem=fs, version='2.0'
+    ) as writer:
         writer.write_table(table)
 
     result = _read_table(path, filesystem=fs).to_pandas()
@@ -4339,3 +4423,19 @@ def test_parquet_dataset_new_filesystem(tempdir):
     dataset = pq.ParquetDataset('.', filesystem=filesystem)
     result = dataset.read()
     assert result.equals(table)
+
+
+def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
+    # ARROW-10462 ensure that on Windows we properly use posix-style paths
+    # as used by fsspec
+    fsspec = pytest.importorskip("fsspec")
+    filesystem = fsspec.filesystem('file')
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'data.parquet')
+
+    # pass a posix-style path (using "/" also on Windows)
+    path = str(tempdir).replace("\\", "/")
+    dataset = pq.ParquetDataset(path, filesystem=filesystem)
+    # ensure the piece path is also posix-style
+    expected = path + "/data.parquet"
+    assert dataset.pieces[0].path == expected

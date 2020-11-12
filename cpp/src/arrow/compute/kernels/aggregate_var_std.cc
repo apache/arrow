@@ -15,12 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include <cmath>
+
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/util/int128_internal.h"
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+namespace internal {
 
 namespace {
 
@@ -252,13 +256,11 @@ const FunctionDoc variance_doc{
     {"array"},
     "VarianceOptions"};
 
-}  // namespace
-
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
       "stddev", Arity::Unary(), &stddev_doc, &default_std_options);
-  AddVarStdKernels(StddevInit, internal::NumericTypes(), func.get());
+  AddVarStdKernels(StddevInit, NumericTypes(), func.get());
   return func;
 }
 
@@ -266,10 +268,17 @@ std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   static auto default_var_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
       "variance", Arity::Unary(), &variance_doc, &default_var_options);
-  AddVarStdKernels(VarianceInit, internal::NumericTypes(), func.get());
+  AddVarStdKernels(VarianceInit, NumericTypes(), func.get());
   return func;
 }
 
-}  // namespace aggregate
+}  // namespace
+
+void RegisterScalarAggregateVariance(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(AddVarianceAggKernels()));
+  DCHECK_OK(registry->AddFunction(AddStddevAggKernels()));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

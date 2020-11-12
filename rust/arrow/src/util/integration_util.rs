@@ -24,6 +24,7 @@ use serde_json::{Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
+use crate::error::Result;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
@@ -31,6 +32,7 @@ use crate::record_batch::{RecordBatch, RecordBatchReader};
 pub struct ArrowJson {
     pub schema: ArrowJsonSchema,
     pub batches: Vec<ArrowJsonBatch>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dictionaries: Option<Vec<ArrowJsonDictionaryBatch>>,
 }
 
@@ -39,7 +41,52 @@ pub struct ArrowJson {
 /// Fields are left as JSON `Value` as they vary by `DataType`
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ArrowJsonSchema {
-    pub fields: Vec<Value>,
+    pub fields: Vec<ArrowJsonField>,
+}
+
+/// Fields are left as JSON `Value` as they vary by `DataType`
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ArrowJsonField {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub field_type: Value,
+    pub nullable: bool,
+    pub children: Vec<ArrowJsonField>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dictionary: Option<ArrowJsonFieldDictionary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Value>,
+}
+
+impl From<&Field> for ArrowJsonField {
+    fn from(field: &Field) -> Self {
+        Self {
+            name: field.name().to_string(),
+            field_type: field.data_type().to_json(),
+            nullable: field.is_nullable(),
+            children: vec![],
+            dictionary: None, // TODO: not enough info
+            metadata: None,   // TODO(ARROW-10259)
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ArrowJsonFieldDictionary {
+    pub id: i64,
+    #[serde(rename = "indexType")]
+    pub index_type: DictionaryIndexType,
+    #[serde(rename = "isOrdered")]
+    pub is_ordered: bool,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct DictionaryIndexType {
+    pub name: String,
+    #[serde(rename = "isSigned")]
+    pub is_signed: bool,
+    #[serde(rename = "bitWidth")]
+    pub bit_width: i64,
 }
 
 /// A struct that partially reads the Arrow JSON record batch
@@ -53,8 +100,8 @@ pub struct ArrowJsonBatch {
 #[derive(Deserialize, Serialize, Debug)]
 #[allow(non_snake_case)]
 pub struct ArrowJsonDictionaryBatch {
-    id: i64,
-    data: ArrowJsonBatch,
+    pub id: i64,
+    pub data: ArrowJsonBatch,
 }
 
 /// A struct that partially reads the Arrow JSON column/array
@@ -97,9 +144,39 @@ impl ArrowJsonSchema {
         for i in 0..field_len {
             let json_field = &self.fields[i];
             let field = schema.field(i);
-            assert_eq!(json_field, &field.to_json());
+            if !json_field.equals_field(field) {
+                return false;
+            }
         }
         true
+    }
+}
+
+impl ArrowJsonField {
+    /// Compare the Arrow JSON field with the Arrow `Field`
+    fn equals_field(&self, field: &Field) -> bool {
+        // convert to a field
+        match self.to_arrow_field() {
+            Ok(self_field) => {
+                assert_eq!(&self_field, field, "Arrow fields not the same");
+                true
+            }
+            Err(e) => {
+                eprintln!(
+                    "Encountered error while converting JSON field to Arrow field: {:?}",
+                    e
+                );
+                false
+            }
+        }
+    }
+
+    /// Convert to an Arrow Field
+    /// TODO: convert to use an Into
+    fn to_arrow_field(&self) -> Result<Field> {
+        // a bit regressive, but we have to convert the field to JSON in order to convert it
+        let field = serde_json::to_value(self)?;
+        Field::from(&field)
     }
 }
 
@@ -218,8 +295,9 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<BinaryArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Utf8 => {
-                        let arr = arr.as_any().downcast_ref::<StringArray>().unwrap();
+                    DataType::LargeBinary => {
+                        let arr =
+                            arr.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::FixedSizeBinary(_) => {
@@ -227,8 +305,21 @@ impl ArrowJsonBatch {
                             arr.as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
+                    DataType::Utf8 => {
+                        let arr = arr.as_any().downcast_ref::<StringArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::LargeUtf8 => {
+                        let arr =
+                            arr.as_any().downcast_ref::<LargeStringArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::List(_) => {
                         let arr = arr.as_any().downcast_ref::<ListArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::LargeList(_) => {
+                        let arr = arr.as_any().downcast_ref::<LargeListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::FixedSizeList(_, _) => {
@@ -375,9 +466,9 @@ impl ArrowJsonBatch {
 /// Convert an Arrow JSON column/array into a vector of `Value`
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
-        DataType::List(dt) => json_from_list_col(col, &**dt),
-        DataType::FixedSizeList(dt, list_size) => {
-            json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
+        DataType::List(field) => json_from_list_col(col, field.data_type()),
+        DataType::FixedSizeList(field, list_size) => {
+            json_from_fixed_size_list_col(col, field.data_type(), *list_size as usize)
         }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         DataType::Int64
@@ -474,7 +565,7 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
         })
         .collect();
     let inner = match data_type {
-        DataType::List(ref dt) => json_from_col(child, &**dt),
+        DataType::List(ref field) => json_from_col(child, field.data_type()),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(
             child.validity.as_ref().unwrap().as_slice(),
@@ -511,8 +602,8 @@ fn json_from_fixed_size_list_col(
     // get the inner array
     let child = &col.children.clone().expect("list type must have children")[0];
     let inner = match data_type {
-        DataType::List(ref dt) => json_from_col(child, &**dt),
-        DataType::FixedSizeList(ref dt, _) => json_from_col(child, &**dt),
+        DataType::List(ref field) => json_from_col(child, field.data_type()),
+        DataType::FixedSizeList(ref field, _) => json_from_col(child, field.data_type()),
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(
             child.validity.as_ref().unwrap().as_slice(),
@@ -577,13 +668,13 @@ mod tests {
                     "nullable": true,
                     "children": [
                         {
-                            "name": "item",
+                            "name": "custom_item",
                             "type": {
                                 "name": "int",
                                 "isSigned": true,
                                 "bitWidth": 32
                             },
-                            "nullable": true,
+                            "nullable": false,
                             "children": []
                         }
                     ]
@@ -595,7 +686,15 @@ mod tests {
             Field::new("c1", DataType::Int32, true),
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::Utf8, true),
-            Field::new("c4", DataType::List(Box::new(DataType::Int32)), true),
+            Field::new(
+                "c4",
+                DataType::List(Box::new(Field::new(
+                    "custom_item",
+                    DataType::Int32,
+                    false,
+                ))),
+                true,
+            ),
         ]);
         assert!(json_schema.equals_schema(&schema));
     }
@@ -661,7 +760,11 @@ mod tests {
                 true,
             ),
             Field::new("utf8s", DataType::Utf8, true),
-            Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
+            Field::new(
+                "lists",
+                DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+                true,
+            ),
             Field::new(
                 "structs",
                 DataType::Struct(vec![
@@ -735,7 +838,8 @@ mod tests {
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)

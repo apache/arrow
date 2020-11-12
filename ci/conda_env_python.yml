@@ -16,6 +16,7 @@
 # under the License.
 
 # don't add pandas here, because it is not a mandatory test dependency
+boto3  # not a direct dependency of s3fs, but needed for our s3fs fixture
 cffi
 cython
 cloudpickle
@@ -26,5 +27,6 @@ pytest
 pytest-faulthandler
 pytest-lazy-fixture
 pytz
+s3fs>=0.4
 setuptools
 setuptools_scm

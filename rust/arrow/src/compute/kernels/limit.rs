@@ -110,7 +110,8 @@ mod tests {
         bit_util::set_bit(&mut null_bits, 8);
 
         // Construct a list array from the above two
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(9)
             .add_buffer(value_offsets)

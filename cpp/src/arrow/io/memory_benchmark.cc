@@ -17,7 +17,6 @@
 
 #include <iostream>
 
-#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"

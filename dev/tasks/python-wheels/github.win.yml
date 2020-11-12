@@ -1,0 +1,100 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  build:
+    name: "Build wheel for Windows"
+    runs-on: windows-2016
+    env:
+      ARCH: "x64"
+      GENERATOR: Visual Studio 15 2017
+      PYTHON_VERSION: "{{ python_version }}"
+      PYARROW_VERSION: {{ arrow.no_rc_version }}
+    steps:
+      - name: Checkout Arrow
+        shell: bash
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow config core.symlinks true
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: cd arrow && ci/scripts/util_checkout.sh
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "{{ python_version }}"
+      - name: Set up Miniconda
+        shell: bash
+        run: |
+          echo "c:\\Miniconda\\condabin" >> $GITHUB_PATH
+      - name: Build wheel
+        shell: bash
+        run: |
+          arrow/dev/tasks/python-wheels/win-build.bat
+      - name: Prepare artifacts
+        # the artifacts must be uploaded from a directory relative to the build root
+        shell: bash
+        run: |
+          mv arrow/python/dist/ wheels/
+      {% if arrow.branch == 'master' %}
+      - name: Upload to gemfury
+        shell: bash
+        run: |
+          conda.bat install -y curl
+          WHEEL_PATH=$(echo wheels/*.whl)
+          curl.exe \
+            -F "package=@${WHEEL_PATH}" \
+            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
+        env:
+          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+      {% endif %}
+      - name: Set up Crossbow
+        shell: bash
+        run: |
+          pip install \
+            click \
+            github3.py \
+            jinja2 \
+            jira \
+            pygit2 \
+            ruamel.yaml \
+            setuptools_scm \
+            toolz
+      - name: Upload artifacts
+        shell: bash
+        run: |
+          python arrow/dev/tasks/crossbow.py \
+            --queue-path . \
+            --queue-remote {{ queue_remote_url }} \
+            upload-artifacts \
+            --pattern "wheels/*.whl" \
+            --sha {{ task.branch }} \
+            --tag {{ task.tag }}
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}

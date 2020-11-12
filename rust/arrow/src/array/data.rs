@@ -21,10 +21,22 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
 use crate::util::bit_util;
+use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
+
+use super::equal::equal;
+
+#[inline]
+fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
+    if let Some(ref buf) = null_bit_buffer {
+        len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset, len))
+            .unwrap()
+    } else {
+        0
+    }
+}
 
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
@@ -35,13 +47,13 @@ pub struct ArrayData {
     data_type: DataType,
 
     /// The number of elements in this array data
-    pub(crate) len: usize,
+    len: usize,
 
     /// The number of null elements in this array data
-    pub(crate) null_count: usize,
+    null_count: usize,
 
-    /// The offset into this array data
-    pub(crate) offset: usize,
+    /// The offset into this array data, in number of items
+    offset: usize,
 
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
@@ -70,18 +82,7 @@ impl ArrayData {
         child_data: Vec<ArrayDataRef>,
     ) -> Self {
         let null_count = match null_count {
-            None => {
-                if let Some(ref buf) = null_bit_buffer {
-                    len.checked_sub(bit_util::count_set_bits_offset(
-                        buf.data(),
-                        offset,
-                        len,
-                    ))
-                    .unwrap()
-                } else {
-                    0
-                }
-            }
+            None => count_nulls(null_bit_buffer.as_ref(), offset, len),
             Some(null_count) => null_count,
         };
         let null_bitmap = null_bit_buffer.map(Bitmap::from);
@@ -121,7 +122,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(i);
+            return !b.is_set(self.offset + i);
         }
         false
     }
@@ -140,7 +141,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(i);
+            return b.is_set(self.offset + i);
         }
         true
     }
@@ -207,61 +208,47 @@ impl ArrayData {
 
         size
     }
+
+    /// Creates a zero-copy slice of itself. This creates a new [ArrayData]
+    /// with a different offset, len and a shifted null bitmap.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `offset + length > self.len()`.
+    pub fn slice(&self, offset: usize, length: usize) -> ArrayData {
+        assert!((offset + length) <= self.len());
+
+        let mut new_data = self.clone();
+
+        new_data.len = length;
+        new_data.offset = offset + self.offset;
+
+        new_data.null_count =
+            count_nulls(new_data.null_buffer(), new_data.offset, new_data.len);
+
+        new_data
+    }
+
+    /// Returns the `buffer` as a slice of type `T` starting at self.offset
+    /// # Panics
+    /// This function panics if:
+    /// * the buffer is not byte-aligned with type T, or
+    /// * the datatype is `Boolean` (it corresponds to a bit-packed buffer where the offset is not applicable)
+    #[inline]
+    pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
+        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
+        if values.0.len() != 0 || values.2.len() != 0 {
+            panic!("The buffer is not byte-aligned with its interpretation")
+        };
+        assert_ne!(self.data_type, DataType::Boolean);
+        &values.1[self.offset..]
+    }
 }
 
 impl PartialEq for ArrayData {
     fn eq(&self, other: &Self) -> bool {
-        assert_eq!(
-            self.data_type(),
-            other.data_type(),
-            "Data types not the same"
-        );
-        assert_eq!(self.len(), other.len(), "Lengths not the same");
-        // TODO: when adding tests for this, test that we can compare with arrays that have offsets
-        assert_eq!(self.offset(), other.offset(), "Offsets not the same");
-        assert_eq!(self.null_count(), other.null_count());
-        // compare buffers excluding padding
-        let self_buffers = self.buffers();
-        let other_buffers = other.buffers();
-        assert_eq!(self_buffers.len(), other_buffers.len());
-        self_buffers.iter().zip(other_buffers).for_each(|(s, o)| {
-            compare_buffer_regions(
-                s,
-                self.offset(), // TODO mul by data length
-                o,
-                other.offset(), // TODO mul by data len
-            );
-        });
-        // assert_eq!(self.buffers(), other.buffers());
-
-        assert_eq!(self.child_data(), other.child_data());
-        // null arrays can skip the null bitmap, thus only compare if there are no nulls
-        if self.null_count() != 0 || other.null_count() != 0 {
-            compare_buffer_regions(
-                self.null_buffer().unwrap(),
-                self.offset(),
-                other.null_buffer().unwrap(),
-                other.offset(),
-            )
-        }
-        true
+        equal(self, other)
     }
-}
-
-/// A helper to compare buffer regions of 2 buffers.
-/// Compares the length of the shorter buffer.
-fn compare_buffer_regions(
-    left: &Buffer,
-    left_offset: usize,
-    right: &Buffer,
-    right_offset: usize,
-) {
-    // for convenience, we assume that the buffer lengths are only unequal if one has padding,
-    // so we take the shorter length so we can discard the padding from the longer length
-    let shorter_len = left.len().min(right.len());
-    let s_sliced = left.bit_slice(left_offset, shorter_len);
-    let o_sliced = right.bit_slice(right_offset, shorter_len);
-    assert_eq!(s_sliced, o_sliced);
 }
 
 /// Builder for `ArrayData` type
@@ -354,6 +341,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::buffer::Buffer;
+    use crate::datatypes::ToByteSlice;
     use crate::util::bit_util;
 
     #[test]
@@ -369,16 +357,16 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        let v = vec![0, 1, 2, 3];
         let child_arr_data = Arc::new(ArrayData::new(
             DataType::Int32,
-            10,
+            5,
             Some(0),
             None,
             0,
-            vec![],
+            vec![Buffer::from([1i32, 2, 3, 4, 5].to_byte_slice())],
             vec![],
         ));
+        let v = vec![0, 1, 2, 3];
         let b1 = Buffer::from(&v[..]);
         let arr_data = ArrayData::builder(DataType::Int32)
             .len(20)
@@ -434,5 +422,35 @@ mod tests {
             .build();
         assert!(arr_data.null_buffer().is_some());
         assert_eq!(&bit_v, arr_data.null_buffer().unwrap().data());
+    }
+
+    #[test]
+    fn test_slice() {
+        let mut bit_v: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut bit_v, 0);
+        bit_util::set_bit(&mut bit_v, 3);
+        bit_util::set_bit(&mut bit_v, 10);
+        let data = ArrayData::builder(DataType::Int32)
+            .len(16)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .build();
+        let data = data.as_ref();
+        let new_data = data.slice(1, 15);
+        assert_eq!(data.len() - 1, new_data.len());
+        assert_eq!(1, new_data.offset());
+        assert_eq!(data.null_count(), new_data.null_count());
+
+        // slice of a slice (removes one null)
+        let new_data = new_data.slice(1, 14);
+        assert_eq!(data.len() - 2, new_data.len());
+        assert_eq!(2, new_data.offset());
+        assert_eq!(data.null_count() - 1, new_data.null_count());
+    }
+
+    #[test]
+    fn test_equality() {
+        let int_data = ArrayData::builder(DataType::Int32).build();
+        let float_data = ArrayData::builder(DataType::Float32).build();
+        assert_ne!(int_data, float_data);
     }
 }

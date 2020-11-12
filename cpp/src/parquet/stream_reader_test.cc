@@ -25,7 +25,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/io/api.h"
+#include "arrow/io/file.h"
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
 

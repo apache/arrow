@@ -70,7 +70,7 @@ struct BufferData {
 
 impl PartialEq for BufferData {
     fn eq(&self, other: &BufferData) -> bool {
-        if self.capacity != other.capacity {
+        if self.len != other.len {
             return false;
         }
 
@@ -414,6 +414,7 @@ where
 
     let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result
         .write_all(rem)
@@ -448,6 +449,7 @@ where
 
     let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
     let rem = op(left_chunks.remainder_bits());
+    // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
     result
         .write_all(rem)
@@ -617,6 +619,12 @@ impl MutableBuffer {
         }
     }
 
+    /// creates a new [MutableBuffer] where every bit is initialized to `0`
+    pub fn new_null(len: usize) -> Self {
+        let num_bytes = bit_util::ceil(len, 8);
+        MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
+    }
+
     /// Set the bits in the range of `[0, end)` to 0 (if `val` is false), or 1 (if `val`
     /// is true). Also extend the length of this buffer to be `end`.
     ///
@@ -649,7 +657,7 @@ impl MutableBuffer {
     /// also ensure the new capacity will be a multiple of 64 bytes.
     ///
     /// Returns the new capacity for this buffer.
-    pub fn reserve(&mut self, capacity: usize) -> Result<usize> {
+    pub fn reserve(&mut self, capacity: usize) -> usize {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
@@ -658,7 +666,7 @@ impl MutableBuffer {
             self.data = new_data as *mut u8;
             self.capacity = new_capacity;
         }
-        Ok(self.capacity)
+        self.capacity
     }
 
     /// Resizes the buffer so that the `len` will equal to the `new_len`.
@@ -668,9 +676,9 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
-    pub fn resize(&mut self, new_len: usize) -> Result<()> {
+    pub fn resize(&mut self, new_len: usize) -> () {
         if new_len > self.len {
-            self.reserve(new_len)?;
+            self.reserve(new_len);
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
@@ -681,7 +689,6 @@ impl MutableBuffer {
             }
         }
         self.len = new_len;
-        Ok(())
     }
 
     /// Returns whether this buffer is empty or not.
@@ -837,7 +844,7 @@ mod tests {
     #[test]
     fn test_buffer_data_equality() {
         let buf1 = Buffer::from(&[0, 1, 2, 3, 4]);
-        let mut buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
+        let buf2 = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(buf1, buf2);
 
         // slice with same offset should still preserve equality
@@ -846,12 +853,20 @@ mod tests {
         let buf4 = buf2.slice(2);
         assert_eq!(buf3, buf4);
 
+        // Different capacities should still preserve equality
+        let mut buf2 = MutableBuffer::new(65);
+        buf2.write_all(&[0, 1, 2, 3, 4])
+            .expect("write should be OK");
+
+        let buf2 = buf2.freeze();
+        assert_eq!(buf1, buf2);
+
         // unequal because of different elements
-        buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
+        let buf2 = Buffer::from(&[0, 0, 2, 3, 4]);
         assert_ne!(buf1, buf2);
 
         // unequal because of different length
-        buf2 = Buffer::from(&[0, 1, 2, 3]);
+        let buf2 = Buffer::from(&[0, 1, 2, 3]);
         assert_ne!(buf1, buf2);
     }
 
@@ -1012,11 +1027,11 @@ mod tests {
         assert_eq!(64, buf.capacity());
 
         // Reserving a smaller capacity should have no effect.
-        let mut new_cap = buf.reserve(10).expect("reserve should be OK");
+        let mut new_cap = buf.reserve(10);
         assert_eq!(64, new_cap);
         assert_eq!(64, buf.capacity());
 
-        new_cap = buf.reserve(100).expect("reserve should be OK");
+        new_cap = buf.reserve(100);
         assert_eq!(128, new_cap);
         assert_eq!(128, buf.capacity());
     }
@@ -1027,23 +1042,23 @@ mod tests {
         assert_eq!(64, buf.capacity());
         assert_eq!(0, buf.len());
 
-        buf.resize(20).expect("resize should be OK");
+        buf.resize(20);
         assert_eq!(64, buf.capacity());
         assert_eq!(20, buf.len());
 
-        buf.resize(10).expect("resize should be OK");
+        buf.resize(10);
         assert_eq!(64, buf.capacity());
         assert_eq!(10, buf.len());
 
-        buf.resize(100).expect("resize should be OK");
+        buf.resize(100);
         assert_eq!(128, buf.capacity());
         assert_eq!(100, buf.len());
 
-        buf.resize(30).expect("resize should be OK");
+        buf.resize(30);
         assert_eq!(64, buf.capacity());
         assert_eq!(30, buf.len());
 
-        buf.resize(0).expect("resize should be OK");
+        buf.resize(0);
         assert_eq!(0, buf.capacity());
         assert_eq!(0, buf.len());
     }
@@ -1075,7 +1090,7 @@ mod tests {
         buf.write_all(&[0xbb])?;
         assert_eq!(buf, buf2);
 
-        buf2.reserve(65)?;
+        buf2.reserve(65);
         assert!(buf != buf2);
 
         Ok(())

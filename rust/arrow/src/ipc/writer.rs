@@ -180,8 +180,11 @@ impl<W: Write> FileWriter<W> {
             let mut fields = vec![];
             for field in self.schema.fields() {
                 let fb_field_name = fbb.create_string(field.name().as_str());
-                let field_type =
-                    ipc::convert::get_fb_field_type(field.data_type(), &mut fbb);
+                let field_type = ipc::convert::get_fb_field_type(
+                    field.data_type(),
+                    field.is_nullable(),
+                    &mut fbb,
+                );
                 let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
                 field_builder.add_name(fb_field_name);
                 field_builder.add_type_type(field_type.type_type);

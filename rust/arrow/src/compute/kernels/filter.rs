@@ -112,7 +112,7 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
     }
 
     fn null_buffer(&mut self) -> Buffer {
-        self.target_buffer.resize(self.target_index).unwrap();
+        self.target_buffer.resize(self.target_index);
         // use mem::replace to detach self.target_buffer from self so that it can be returned
         let target_buffer = mem::replace(&mut self.target_buffer, MutableBuffer::new(0));
         target_buffer.freeze()
@@ -149,7 +149,7 @@ fn filter_array_impl(
     let filter_u64 = &filter_context.filter_u64;
     let data_bytes = data_array.data_ref().buffers()[0].data();
     let mut target_buffer = MutableBuffer::new(filtered_count * value_size);
-    target_buffer.resize(filtered_count * value_size)?;
+    target_buffer.resize(filtered_count * value_size);
     let target_bytes = target_buffer.data_mut();
     let mut target_byte_index: usize = 0;
     let mut null_bit_setter = get_null_bit_setter(data_array);
@@ -488,7 +488,7 @@ impl FilterContext {
                     key_type, value_type
                 )))
             }
-            DataType::List(dt) => match &**dt {
+            DataType::List(dt) => match dt.data_type() {
                 DataType::UInt8 => {
                     filter_primitive_item_list_array!(self, array, UInt8Type, ListArray, ListBuilder)
                 }
@@ -601,7 +601,7 @@ impl FilterContext {
                     )))
                 }
             }
-            DataType::LargeList(dt) => match &**dt {
+            DataType::LargeList(dt) => match dt.data_type() {
                 DataType::UInt8 => {
                     filter_primitive_item_list_array!(self, array, UInt8Type, LargeListArray, LargeListBuilder)
                 }
@@ -1052,10 +1052,7 @@ mod tests {
         // but keys are filtered
         assert_eq!(2, d.len());
         assert_eq!(true, d.is_null(0));
-        assert_eq!(
-            "world",
-            values.value(d.keys().nth(1).unwrap().unwrap() as usize)
-        );
+        assert_eq!("world", values.value(d.keys().value(1) as usize));
     }
 
     #[test]
@@ -1085,7 +1082,8 @@ mod tests {
 
         let value_offsets = Buffer::from(&[0i64, 3, 6, 8, 8].to_byte_slice());
 
-        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)

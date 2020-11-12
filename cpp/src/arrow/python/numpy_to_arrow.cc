@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"

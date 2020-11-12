@@ -89,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref list_data_type) | LargeList(ref list_data_type) => {
+        List(ref list_field) | LargeList(ref list_field) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -99,7 +99,7 @@ fn create_array(
             buffer_index += 2;
             let triple = create_array(
                 nodes,
-                list_data_type,
+                list_field.data_type(),
                 data,
                 buffers,
                 dictionaries,
@@ -111,7 +111,7 @@ fn create_array(
 
             create_list_array(list_node, data_type, &list_buffers[..], triple.0)
         }
-        FixedSizeList(ref list_data_type, _) => {
+        FixedSizeList(ref list_field, _) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..=buffer_index]
                 .iter()
@@ -121,7 +121,7 @@ fn create_array(
             buffer_index += 1;
             let triple = create_array(
                 nodes,
-                list_data_type,
+                list_field.data_type(),
                 data,
                 buffers,
                 dictionaries,
@@ -352,6 +352,19 @@ fn create_list_array(
     child_array: ArrayRef,
 ) -> ArrayRef {
     if let DataType::List(_) = *data_type {
+        let null_count = field_node.null_count() as usize;
+        let mut builder = ArrayData::builder(data_type.clone())
+            .len(field_node.length() as usize)
+            .buffers(buffers[1..2].to_vec())
+            .offset(0)
+            .child_data(vec![child_array.data()]);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(buffers[0].clone())
+        }
+        make_array(builder.build())
+    } else if let DataType::LargeList(_) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
@@ -599,11 +612,18 @@ impl<R: Read + Seek> FileReader<R> {
         let mut dictionaries_by_field = vec![None; schema.fields().len()];
         for block in footer.dictionaries().unwrap() {
             // read length from end of offset
-            // TODO: ARROW-9848: dictionary metadata has not been tested
-            let meta_len = block.metaDataLength() - 4;
+            let mut message_size: [u8; 4] = [0; 4];
+            reader.seek(SeekFrom::Start(block.offset() as u64))?;
+            reader.read_exact(&mut message_size)?;
+            let footer_len = if message_size == CONTINUATION_MARKER {
+                reader.read_exact(&mut message_size)?;
+                i32::from_le_bytes(message_size)
+            } else {
+                i32::from_le_bytes(message_size)
+            };
 
-            let mut block_data = vec![0; meta_len as usize];
-            reader.seek(SeekFrom::Start(block.offset() as u64 + 4))?;
+            let mut block_data = vec![0; footer_len as usize];
+
             reader.read_exact(&mut block_data)?;
 
             let message = ipc::get_root_as_message(&block_data[..]);
@@ -627,10 +647,11 @@ impl<R: Read + Seek> FileReader<R> {
                         &mut dictionaries_by_field,
                     )?;
                 }
-                _ => {
-                    return Err(ArrowError::IoError(
-                        "Expecting DictionaryBatch in dictionary blocks.".to_string(),
-                    ))
+                t => {
+                    return Err(ArrowError::IoError(format!(
+                        "Expecting DictionaryBatch in dictionary blocks, found {:?}.",
+                        t
+                    )));
                 }
             };
         }

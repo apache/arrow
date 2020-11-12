@@ -21,13 +21,12 @@ use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
 use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
-#[cfg(feature = "simd")]
 use crate::datatypes::*;
-use crate::error::Result;
-#[cfg(feature = "simd")]
-use num::One;
+use crate::error::{ArrowError, Result};
+use num::{One, ToPrimitive, Zero};
 #[cfg(feature = "simd")]
 use std::cmp::min;
+use std::ops::Add;
 
 /// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
@@ -100,41 +99,55 @@ pub(super) fn compare_option_bitmap(
 /// Where a list array has indices `[0,2,5,10]`, taking indices of `[2,0]` returns
 /// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
 /// elements)
-pub(super) fn take_value_indices_from_list(
+pub(super) fn take_value_indices_from_list<IndexType, OffsetType>(
     values: &ArrayRef,
-    indices: &UInt32Array,
-) -> (UInt32Array, Vec<i32>) {
+    indices: &PrimitiveArray<IndexType>,
+) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType::Native>)>
+where
+    IndexType: ArrowNumericType,
+    IndexType::Native: ToPrimitive,
+    OffsetType: ArrowNumericType,
+    OffsetType::Native: OffsetSizeTrait + Add + Zero + One,
+    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType::Native>>>,
+{
     // TODO: benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
-    let list: &ListArray = values.as_any().downcast_ref::<ListArray>().unwrap();
-    let offsets: Vec<u32> = (0..=list.len())
-        .map(|i| list.value_offset(i) as u32)
-        .collect();
+    let list = values
+        .as_any()
+        .downcast_ref::<GenericListArray<OffsetType::Native>>()
+        .unwrap();
+    let offsets: Vec<OffsetType::Native> =
+        (0..=list.len()).map(|i| list.value_offset(i)).collect();
+
     let mut new_offsets = Vec::with_capacity(indices.len());
     let mut values = Vec::new();
-    let mut current_offset = 0;
+    let mut current_offset = OffsetType::Native::zero();
     // add first offset
-    new_offsets.push(0);
+    new_offsets.push(OffsetType::Native::zero());
     // compute the value indices, and set offsets accordingly
     for i in 0..indices.len() {
         if indices.is_valid(i) {
-            let ix = indices.value(i) as usize;
+            let ix = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
             let start = offsets[ix];
             let end = offsets[ix + 1];
-            current_offset += (end - start) as i32;
+            current_offset = current_offset + (end - start);
             new_offsets.push(current_offset);
+
+            let mut curr = start;
+
             // if start == end, this slot is empty
-            if start != end {
-                // type annotation needed to guide compiler a bit
-                let mut offsets: Vec<Option<u32>> =
-                    (start..end).map(Some).collect::<Vec<Option<u32>>>();
-                values.append(&mut offsets);
+            while curr < end {
+                values.push(Some(curr));
+                curr = curr + OffsetType::Native::one();
             }
         } else {
             new_offsets.push(current_offset);
         }
     }
-    (UInt32Array::from(values), new_offsets)
+
+    Ok((PrimitiveArray::<OffsetType>::from(values), new_offsets))
 }
 
 /// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
@@ -285,31 +298,56 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_take_value_index_from_list() {
-        let value_data = Int32Array::from((0..10).collect::<Vec<i32>>()).data();
-        let value_offsets = Buffer::from(&[0, 2, 5, 10].to_byte_slice());
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
+    fn build_list<P, S>(
+        list_data_type: DataType,
+        values: PrimitiveArray<P>,
+        offsets: Vec<S>,
+    ) -> ArrayRef
+    where
+        P: ArrowPrimitiveType,
+        S: OffsetSizeTrait,
+    {
+        let value_data = values.data();
+        let value_offsets = Buffer::from(&offsets[..].to_byte_slice());
         let list_data = ArrayData::builder(list_data_type)
-            .len(3)
+            .len(offsets.len() - 1)
             .add_buffer(value_offsets)
             .add_child_data(value_data)
             .build();
-        let array = Arc::new(ListArray::from(list_data)) as ArrayRef;
-        let index = UInt32Array::from(vec![2, 0]);
-        let (indexed, offsets) = take_value_indices_from_list(&array, &index);
-        assert_eq!(vec![0, 5, 7], offsets);
-        let data = UInt32Array::from(vec![
-            Some(5),
-            Some(6),
-            Some(7),
-            Some(8),
-            Some(9),
-            Some(0),
-            Some(1),
-        ])
-        .data();
-        assert_eq!(data, indexed.data());
+        let array = Arc::new(GenericListArray::<S>::from(list_data)) as ArrayRef;
+        array
+    }
+
+    #[test]
+    fn test_take_value_index_from_list() {
+        let list = build_list(
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            vec![0i32, 2i32, 5i32, 10i32],
+        );
+        let indices = UInt32Array::from(vec![2, 0]);
+
+        let (indexed, offsets) =
+            take_value_indices_from_list::<_, Int32Type>(&list, &indices).unwrap();
+
+        assert_eq!(indexed, Int32Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
+        assert_eq!(offsets, vec![0, 5, 7]);
+    }
+
+    #[test]
+    fn test_take_value_index_from_large_list() {
+        let list = build_list(
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
+            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            vec![0i64, 2i64, 5i64, 10i64],
+        );
+        let indices = UInt32Array::from(vec![2, 0]);
+
+        let (indexed, offsets) =
+            take_value_indices_from_list::<_, Int64Type>(&list, &indices).unwrap();
+
+        assert_eq!(indexed, Int64Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
+        assert_eq!(offsets, vec![0, 5, 7]);
     }
 
     #[test]

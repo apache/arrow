@@ -29,13 +29,14 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"

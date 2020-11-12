@@ -28,7 +28,10 @@ use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
     UInt32Builder, UInt64Builder, UInt8Builder,
 };
-use arrow::{array::ArrayRef, datatypes::DataType};
+use arrow::{
+    array::ArrayRef,
+    datatypes::{DataType, Field},
+};
 
 use crate::error::{DataFusionError, Result};
 
@@ -124,7 +127,7 @@ impl ScalarValue {
             ScalarValue::Utf8(_) => DataType::Utf8,
             ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
             ScalarValue::List(_, data_type) => {
-                DataType::List(Box::new(data_type.clone()))
+                DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
         }
     }
@@ -212,7 +215,7 @@ impl ScalarValue {
                         Some(scalar_vec)
                     }
                 };
-                ScalarValue::List(value, *nested_type.clone())
+                ScalarValue::List(value, nested_type.data_type().clone())
             }
             other => {
                 return Err(DataFusionError::NotImplemented(format!(
@@ -309,7 +312,7 @@ impl TryFrom<&DataType> for ScalarValue {
             &DataType::Utf8 => ScalarValue::Utf8(None),
             &DataType::LargeUtf8 => ScalarValue::LargeUtf8(None),
             &DataType::List(ref nested_type) => {
-                ScalarValue::List(None, *nested_type.clone())
+                ScalarValue::List(None, nested_type.data_type().clone())
             }
             _ => {
                 return Err(DataFusionError::NotImplemented(format!(

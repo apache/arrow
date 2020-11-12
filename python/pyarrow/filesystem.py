@@ -443,14 +443,6 @@ def _ensure_filesystem(fs):
     # If the arrow filesystem was subclassed, assume it supports the full
     # interface and return it
     if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ == 'S3FileSystem':
-                return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ == 'LocalFileSystem':
-                return LocalFileSystem._get_instance()
-
         if "fsspec" in sys.modules:
             fsspec = sys.modules["fsspec"]
             if isinstance(fs, fsspec.AbstractFileSystem):
@@ -458,6 +450,10 @@ def _ensure_filesystem(fs):
                 # pyarrow.filesystem.FileSystem, still allow fsspec
                 # filesystems (which should be compatible with our legacy fs)
                 return fs
+
+        for mro in inspect.getmro(fs_type):
+            if mro.__name__ == 'S3FileSystem':
+                return S3FSWrapper(fs)
 
         raise OSError('Unrecognized filesystem: {}'.format(fs_type))
     else:

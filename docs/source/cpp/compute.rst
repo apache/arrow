@@ -609,6 +609,8 @@ Sorts and partitions
 
 In these functions, nulls are considered greater than any other value
 (they will be sorted or partitioned at the end of the array).
+Floating-point NaN values are considered greater than any other non-null
+value, but smaller than nulls.
 
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 | Function name         | Arity      | Input types             | Output type       | Options class                  | Notes       |
@@ -623,14 +625,14 @@ In these functions, nulls are considered greater than any other value
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 
 * \(1) The output is an array of indices into the input array, that define
-  a partial sort such that the *N*'th index points to the *N*'th element
-  in sorted order, and all indices before the *N*'th point to elements
-  less or equal to elements at or after the *N*'th (similar to
+  a partial non-stable sort such that the *N*'th index points to the *N*'th
+  element in sorted order, and all indices before the *N*'th point to
+  elements less or equal to elements at or after the *N*'th (similar to
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
 * \(2) The output is an array of indices into the input array, that define
-  a non-stable sort of the input array.
+  a stable sort of the input array.
 
 * \(3) Input values are ordered lexicographically as bytestrings (even
   for String arrays).

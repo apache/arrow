@@ -24,11 +24,9 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
 #include "arrow/datum.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"

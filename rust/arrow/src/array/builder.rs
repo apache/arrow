@@ -189,7 +189,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     ///
     /// assert!(builder.capacity() >= 20);
     /// ```
-    fn reserve(&mut self, n: usize) -> Result<()>;
+    fn reserve(&mut self, n: usize) -> ();
 
     /// Appends a value of type `T` into the builder,
     /// growing the internal buffer as needed.
@@ -292,32 +292,31 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         } else {
             (self.len + i) * mem::size_of::<T::Native>()
         };
-        self.buffer.resize(new_buffer_len)?;
+        self.buffer.resize(new_buffer_len);
         self.len += i;
         Ok(())
     }
 
     #[inline]
-    fn reserve(&mut self, n: usize) -> Result<()> {
+    fn reserve(&mut self, n: usize) {
         let new_capacity = self.len + n;
         if T::DATA_TYPE == DataType::Boolean {
             if new_capacity > self.capacity() {
                 let new_byte_capacity = bit_util::ceil(new_capacity, 8);
                 let existing_capacity = self.buffer.capacity();
-                let new_capacity = self.buffer.reserve(new_byte_capacity)?;
+                let new_capacity = self.buffer.reserve(new_byte_capacity);
                 self.buffer
                     .set_null_bits(existing_capacity, new_capacity - existing_capacity);
             }
         } else {
             let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
-            self.buffer.reserve(byte_capacity)?;
+            self.buffer.reserve(byte_capacity);
         }
-        Ok(())
     }
 
     #[inline]
     fn append(&mut self, v: T::Native) -> Result<()> {
-        self.reserve(1)?;
+        self.reserve(1);
         if T::DATA_TYPE == DataType::Boolean {
             if v != T::default_value() {
                 unsafe {
@@ -333,7 +332,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     #[inline]
     fn append_n(&mut self, n: usize, v: T::Native) -> Result<()> {
-        self.reserve(n)?;
+        self.reserve(n);
         if T::DATA_TYPE == DataType::Boolean {
             if n != 0 && v != T::default_value() {
                 unsafe {
@@ -356,7 +355,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn append_slice(&mut self, slice: &[T::Native]) -> Result<()> {
         let array_slots = slice.len();
-        self.reserve(array_slots)?;
+        self.reserve(array_slots);
 
         if T::DATA_TYPE == DataType::Boolean {
             for v in slice {
@@ -384,7 +383,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             debug_assert!(new_buffer_len >= self.buffer.len());
             let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
             self.len = 0;
-            buf.resize(new_buffer_len).unwrap();
+            buf.resize(new_buffer_len);
             buf.freeze()
         } else {
             let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
@@ -506,8 +505,8 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
             total_len += array.len();
         }
         // reserve memory
-        self.values_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.values_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
 
         let mul = T::get_bit_width() / 8;
         for array in data {
@@ -531,7 +530,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
 
             for i in 0..len {
                 // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
         Ok(())
@@ -713,8 +712,8 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.offsets_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.offsets_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
         // values_builder is allocated by the relevant builder, and is not allocated here
 
         // determine the latest offset on the builder
@@ -761,8 +760,7 @@ where
                 .append_slice(adjusted_offsets.as_slice())?;
 
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -775,7 +773,11 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::List(Box::new(self.values_builder.data_type()))
+        DataType::List(Box::new(Field::new(
+            "item",
+            self.values_builder.data_type(),
+            true,
+        )))
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -839,15 +841,19 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         self.offsets_builder.append(0).unwrap();
-        let data =
-            ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-                .len(len)
-                .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                .add_buffer(offset_buffer)
-                .add_child_data(values_data)
-                .null_bit_buffer(null_bit_buffer)
-                .build();
+        let data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            values_data.data_type().clone(),
+            true, // TODO: find a consistent way of getting this
+        ))))
+        .len(len)
+        .null_count(len - nulls)
+        .add_buffer(offset_buffer)
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
 
         ListArray::from(data)
     }
@@ -918,8 +924,8 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.offsets_builder.reserve(total_len)?;
-        self.bitmap_builder.reserve(total_len)?;
+        self.offsets_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
         // values_builder is allocated by the relevant builder, and is not allocated here
 
         // determine the latest offset on the builder
@@ -966,8 +972,7 @@ where
                 .append_slice(adjusted_offsets.as_slice())?;
 
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -980,7 +985,11 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::LargeList(Box::new(self.values_builder.data_type()))
+        DataType::LargeList(Box::new(Field::new(
+            "item",
+            self.values_builder.data_type(),
+            true,
+        )))
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1044,12 +1053,15 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         self.offsets_builder.append(0).unwrap();
-        let data = ArrayData::builder(DataType::LargeList(Box::new(
+        let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
+            "item",
             values_data.data_type().clone(),
-        )))
+            true,
+        ))))
         .len(len)
-        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .null_count(len - nulls)
         .add_buffer(offset_buffer)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
@@ -1121,7 +1133,7 @@ where
             total_len += array.len();
         }
         // reserve memory
-        self.bitmap_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len);
 
         // determine the latest offset on the builder
         for array in data {
@@ -1141,8 +1153,7 @@ where
             let sliced = child_array.slice(first_offset, offset_at_len - first_offset);
             self.values().append_data(&[sliced.data()])?;
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -1155,7 +1166,10 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::FixedSizeList(Box::new(self.values_builder.data_type()), self.list_len)
+        DataType::FixedSizeList(
+            Box::new(Field::new("item", self.values_builder.data_type(), true)),
+            self.list_len,
+        )
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1230,12 +1244,13 @@ where
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
+        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
         let data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(values_data.data_type().clone()),
+            Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
         ))
         .len(len)
-        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .null_count(len - nulls)
         .add_child_data(values_data)
         .null_bit_buffer(null_bit_buffer)
         .build();
@@ -1445,7 +1460,7 @@ fn append_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::List(Box::new(DataType::UInt8)),
+                    DataType::List(Box::new(Field::new("item", DataType::UInt8, true))),
                     array.len(),
                     None,
                     array.null_buffer().cloned(),
@@ -1497,7 +1512,11 @@ fn append_large_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::LargeList(Box::new(DataType::UInt8)),
+                    DataType::LargeList(Box::new(Field::new(
+                        "item",
+                        DataType::UInt8,
+                        true,
+                    ))),
                     array.len(),
                     None,
                     array.null_buffer().cloned(),
@@ -1595,7 +1614,10 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
                 vec![],
             )) as ArrayDataRef;
             let list_data = Arc::new(ArrayData::new(
-                DataType::FixedSizeList(Box::new(DataType::UInt8), self.builder.list_len),
+                DataType::FixedSizeList(
+                    Box::new(Field::new("item", DataType::UInt8, true)),
+                    self.builder.list_len,
+                ),
                 array.len(),
                 None,
                 array.null_buffer().cloned(),
@@ -1918,7 +1940,7 @@ impl ArrayBuilder for StructBuilder {
             }
             total_len += array.len();
         }
-        self.bitmap_builder.reserve(total_len)?;
+        self.bitmap_builder.reserve(total_len);
 
         for array in data {
             let len = array.len();
@@ -1937,8 +1959,7 @@ impl ArrayBuilder for StructBuilder {
                 builder.append_data(&[sliced.data()])?;
             }
             for i in 0..len {
-                // account for offset as `ArrayData` does not
-                self.bitmap_builder.append(array.is_valid(offset + i))?;
+                self.bitmap_builder.append(array.is_valid(i))?;
             }
         }
 
@@ -2300,7 +2321,7 @@ where
     ///
     /// ```
     /// use arrow::datatypes::Int16Type;
-    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
+    /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder, Int16Array};
     /// use std::convert::TryFrom;
     ///
     /// let dictionary_values = StringArray::from(vec![None, Some("abc"), Some("def")]);
@@ -2312,9 +2333,9 @@ where
     ///
     /// let dictionary_array = builder.finish();
     ///
-    /// let keys: Vec<Option<i16>> = dictionary_array.keys().collect();
+    /// let keys = dictionary_array.keys();
     ///
-    /// assert_eq!(keys, vec![Some(2), None, Some(1)]);
+    /// assert_eq!(keys, &Int16Array::from(vec![Some(2), None, Some(1)]));
     /// ```
     pub fn new_with_dictionary(
         keys_builder: PrimitiveBuilder<K>,
@@ -2502,16 +2523,16 @@ mod tests {
     fn test_reserve() {
         let mut b = UInt8BufferBuilder::new(2);
         assert_eq!(64, b.capacity());
-        b.reserve(64).unwrap();
+        b.reserve(64);
         assert_eq!(64, b.capacity());
-        b.reserve(65).unwrap();
+        b.reserve(65);
         assert_eq!(128, b.capacity());
 
         let mut b = Int32BufferBuilder::new(2);
         assert_eq!(16, b.capacity());
-        b.reserve(16).unwrap();
+        b.reserve(16);
         assert_eq!(16, b.capacity());
-        b.reserve(17).unwrap();
+        b.reserve(17);
         assert_eq!(32, b.capacity());
     }
 
@@ -3368,11 +3389,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Data type List(Int64) is not currently supported")]
+    #[should_panic(
+        expected = "Data type List(Field { name: \"item\", data_type: Int64, nullable: true, dict_id: 0, dict_is_ordered: false }) is not currently supported"
+    )]
     fn test_struct_array_builder_from_schema_unsupported_type() {
         let mut fields = Vec::new();
         fields.push(Field::new("f1", DataType::Int16, false));
-        let list_type = DataType::List(Box::new(DataType::Int64));
+        let list_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true)));
         fields.push(Field::new("f2", list_type, false));
 
         let _ = StructBuilder::from_fields(fields, 5);
@@ -3401,8 +3425,10 @@ mod tests {
         builder.append(22345678).unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &UInt8Array::from(vec![Some(0), None, Some(1)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
@@ -3413,7 +3439,6 @@ mod tests {
         assert_eq!(array.is_null(1), true);
         assert_eq!(array.is_null(2), false);
 
-        assert_eq!(aks, vec![Some(0), None, Some(1)]);
         assert_eq!(avs, &[12345678, 22345678]);
     }
 
@@ -3429,14 +3454,15 @@ mod tests {
         builder.append("abc").unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &Int8Array::from(vec![Some(0), None, Some(1), Some(1), Some(0)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
         let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
 
-        assert_eq!(aks, vec![Some(0), None, Some(1), Some(1), Some(0)]);
         assert_eq!(ava.value(0), "abc");
         assert_eq!(ava.value(1), "def");
     }
@@ -3457,14 +3483,15 @@ mod tests {
         builder.append("ghi").unwrap();
         let array = builder.finish();
 
-        // Keys are strongly typed.
-        let aks: Vec<_> = array.keys().collect();
+        assert_eq!(
+            array.keys(),
+            &Int8Array::from(vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)])
+        );
 
         // Values are polymorphic and so require a downcast.
         let av = array.values();
         let ava: &StringArray = av.as_any().downcast_ref::<StringArray>().unwrap();
 
-        assert_eq!(aks, vec![Some(2), None, Some(1), Some(1), Some(2), Some(3)]);
         assert_eq!(ava.is_valid(0), false);
         assert_eq!(ava.value(1), "def");
         assert_eq!(ava.value(2), "abc");
@@ -3526,7 +3553,7 @@ mod tests {
             array.slice(2, 0).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(Int32Array::from(vec![
+        let expected = Int32Array::from(vec![
             None,
             Some(1),
             None,
@@ -3535,14 +3562,15 @@ mod tests {
             None,
             Some(6),
             Some(7),
+            // array.data() end
             Some(3),
             None,
             None,
             Some(6),
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
 
         let mut builder = Float64Builder::new(64);
         builder.append_null()?;
@@ -3556,7 +3584,7 @@ mod tests {
             array.slice(2, 1).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(Float64Array::from(vec![
+        let expected = Float64Array::from(vec![
             None,
             Some(1.0),
             None,
@@ -3571,10 +3599,10 @@ mod tests {
             Some(6.0),
             Some(7.0),
             None,
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
         Ok(())
     }
 
@@ -3598,7 +3626,7 @@ mod tests {
             array.slice(2, 0).data(),
         ])?;
         let finished = builder.finish();
-        let expected = Arc::new(BooleanArray::from(vec![
+        let expected = BooleanArray::from(vec![
             None,
             Some(true),
             None,
@@ -3611,10 +3639,10 @@ mod tests {
             None,
             None,
             Some(false),
-        ])) as ArrayRef;
+        ]);
         assert_eq!(finished.len(), expected.len());
         assert_eq!(finished.null_count(), expected.null_count());
-        assert!(finished.equals(&(*expected)));
+        assert_eq!(finished, expected);
         Ok(())
     }
 
@@ -3667,7 +3695,7 @@ mod tests {
         let list_value_offsets =
             Buffer::from(&[0, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Int64)),
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             8,
             None,
             None,
@@ -3680,7 +3708,7 @@ mod tests {
             finished.data().buffers()[0].data(),
             expected_list.data().buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3753,7 +3781,7 @@ mod tests {
             &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
         );
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Int64)),
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
             12,
             None,
             None,
@@ -3770,7 +3798,7 @@ mod tests {
             finished.data().child_data()[0].buffers()[0].data(),
             expected_list.data().child_data()[0].buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3795,7 +3823,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         let list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Utf8)),
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             3,
             None,
             None,
@@ -3830,7 +3858,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataType::Utf8)),
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
             7,
             None,
             None, // is this correct?
@@ -3847,7 +3875,7 @@ mod tests {
             finished.data().child_data()[0].buffers()[0].data(),
             expected_list.data().child_data()[0].buffers()[0].data()
         );
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3918,7 +3946,10 @@ mod tests {
             Some(12),
         ]);
         let expected_list_data = ArrayData::new(
-            DataType::FixedSizeList(Box::new(DataType::UInt16), 2),
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt16, true)),
+                2,
+            ),
             12,
             None,
             None,
@@ -3928,7 +3959,7 @@ mod tests {
         );
         let expected_list =
             FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
-        assert!(expected_list.values().equals(&*finished.values()));
+        assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -3988,7 +4019,10 @@ mod tests {
             None,
         ]);
         let expected_list_data = ArrayData::new(
-            DataType::FixedSizeList(Box::new(DataType::UInt8), 2),
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt8, true)),
+                2,
+            ),
             12,
             None,
             None,
@@ -3999,7 +4033,7 @@ mod tests {
         let expected_list =
             FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
         let expected_list = FixedSizeBinaryArray::from(expected_list);
-        // assert!(expected_list.values().equals(&*finished.values()));
+        // assert_eq!(expected_list.values(), finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
         Ok(())
@@ -4073,10 +4107,10 @@ mod tests {
             true, true, true, false, true, false, true, false, true, false, true, false,
             true, false,
         ])) as ArrayRef;
-        let expected = Arc::new(StructArray::from(vec![(field1, f1), (field2, f2)]));
+        let expected = StructArray::from(vec![(field1, f1), (field2, f2)]);
         assert_eq!(arr2.data().child_data()[0], expected.data().child_data()[0]);
         assert_eq!(arr2.data().child_data()[1], expected.data().child_data()[1]);
-        assert!(arr2.equals(&*expected));
+        assert_eq!(arr2, expected);
 
         Ok(())
     }

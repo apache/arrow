@@ -20,6 +20,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_union.h"
 // TODO ipc shouldn't be included here
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/gtest_util.h"

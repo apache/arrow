@@ -114,7 +114,9 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
         DataType::Duration(TimeUnit::Nanosecond) => {
             concat_primitive::<DurationNanosecondType>(array_data_list)
         }
-        DataType::List(nested_type) => concat_list(array_data_list, *nested_type.clone()),
+        DataType::List(nested_field) => {
+            concat_list(array_data_list, nested_field.data_type())
+        }
         t => Err(ArrowError::ComputeError(format!(
             "Concat not supported for data type {:?}",
             t
@@ -145,7 +147,7 @@ where
 #[inline]
 fn concat_list(
     array_data_list: &[ArrayDataRef],
-    data_type: DataType,
+    data_type: &DataType,
 ) -> Result<ArrayRef> {
     match data_type {
         DataType::Int8 => concat_primitive_list::<Int8Type>(array_data_list),
@@ -218,12 +220,7 @@ mod tests {
             Some("baz"),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -266,12 +263,7 @@ mod tests {
             Some(1024),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -308,12 +300,7 @@ mod tests {
             Some(false),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -377,14 +364,9 @@ mod tests {
             Arc::new(builder_in3.finish()),
         ])?;
 
-        let array_expected = builder_expected.finish();
+        let array_expected = Arc::new(builder_expected.finish()) as ArrayRef;
 
-        assert!(
-            array_result.equals(&array_expected),
-            "expect {:#?} to be: {:#?}",
-            array_result,
-            &array_expected
-        );
+        assert_eq!(&array_result, &array_expected);
 
         Ok(())
     }

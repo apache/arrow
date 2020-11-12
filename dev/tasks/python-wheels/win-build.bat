@@ -20,34 +20,32 @@
 @rem Building Gandiva in the wheels is disabled for now to make the wheels
 @rem smaller.
 
-@rem --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+@rem --file=arrow\ci\conda_env_gandiva.yml ^
 
 @rem create conda environment for compiling
-call conda create -n wheel-build -q -y -c conda-forge ^
-    --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
+call conda.bat create -n wheel-build -q -y -c conda-forge ^
+    --file=arrow\ci\conda_env_cpp.yml ^
+    --file=arrow\ci\conda_env_python.yml ^
     "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
-
-@rem Cannot use conda_env_python.yml here because conda-forge has
-@rem ceased providing up-to-date packages for Python 3.5
-pip install -r %ARROW_SRC%\python\requirements-wheel-build.txt
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 echo %ARROW_HOME%
 
 @rem Build Arrow C++ libraries
-mkdir %ARROW_SRC%\cpp\build
-pushd %ARROW_SRC%\cpp\build
+mkdir arrow\cpp\build
+pushd arrow\cpp\build
 
 @rem ARROW-6938(wesm): bz2 is disabled on Windows because the build
 @rem currently selects the shared lib for linking. Using the zstd lib from
 @rem conda-forge also results in a broken build so we use the BUNDLED
 @rem dependency resolution strategy for now
 
-cmake -G "%GENERATOR%" ^
+cmake -A "%ARCH%" ^
+      -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -75,41 +73,47 @@ cmake -G "%GENERATOR%" ^
       -Dzstd_SOURCE=BUNDLED ^
       -Dutf8proc_SOURCE=BUNDLED ^
       .. || exit /B
-cmake --build . --target install --config Release || exit /B
+cmake ^
+  --build . ^
+  --config Release ^
+  --parallel %NUMBER_OF_PROCESSORS% ^
+  --target install || exit /B
 popd
 
 set PYARROW_BUILD_TYPE=Release
-set PYARROW_PARALLEL=8
+set PYARROW_BUNDLE_ARROW_CPP=1
+set PYARROW_CMAKE_GENERATOR=%GENERATOR%
+set PYARROW_CMAKE_OPTIONS=-A %ARCH%
 set PYARROW_INSTALL_TESTS=1
+set PYARROW_PARALLEL=%NUMBER_OF_PROCESSORS%
 set PYARROW_WITH_DATASET=1
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_GANDIVA=0
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
-set PYARROW_BUNDLE_ARROW_CPP=1
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
-pushd %ARROW_SRC%\python
+pushd arrow\python
 python setup.py bdist_wheel || exit /B
 popd
 
 call conda.bat deactivate
 
-set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
+set ARROW_TEST_DATA=arrow\testing\data
 
 @rem install the test dependencies
-%PYTHON_INTERPRETER% -m pip install -r %ARROW_SRC%\python\requirements-wheel-test.txt || exit /B
+python -m pip install -r arrow\python\requirements-wheel-test.txt || exit /B
 
 @rem install the produced wheel in a non-conda environment
-%PYTHON_INTERPRETER% -m pip install --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+python -m pip install --no-index --find-links=arrow\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-%PYTHON_INTERPRETER% -c "import pyarrow" || exit /B
-%PYTHON_INTERPRETER% -c "import pyarrow.parquet" || exit /B
-%PYTHON_INTERPRETER% -c "import pyarrow.flight" || exit /B
-%PYTHON_INTERPRETER% -c "import pyarrow.dataset" || exit /B
+python -c "import pyarrow" || exit /B
+python -c "import pyarrow.parquet" || exit /B
+python -c "import pyarrow.flight" || exit /B
+python -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests, but disable the cython because there is a linking
 @rem issue on python 3.8
 set PYARROW_TEST_CYTHON=OFF
-%PYTHON_INTERPRETER% -m pytest -rs --pyargs pyarrow || exit /B
+python -m pytest -rs --pyargs pyarrow || exit /B

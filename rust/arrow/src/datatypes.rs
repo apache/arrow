@@ -125,11 +125,11 @@ pub enum DataType {
     /// A variable-length string in Unicode with UFT-8 encoding and 64-bit offsets.
     LargeUtf8,
     /// A list of some logical data type with variable length.
-    List(Box<DataType>),
+    List(Box<Field>),
     /// A list of some logical data type with fixed length.
-    FixedSizeList(Box<DataType>, i32),
+    FixedSizeList(Box<Field>, i32),
     /// A list of some logical data type with variable length and 64-bit offsets.
-    LargeList(Box<DataType>),
+    LargeList(Box<Field>),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
@@ -191,8 +191,8 @@ pub struct Field {
     name: String,
     data_type: DataType,
     nullable: bool,
-    pub(crate) dict_id: i64,
-    pub(crate) dict_is_ordered: bool,
+    dict_id: i64,
+    dict_is_ordered: bool,
 }
 
 pub trait ArrowNativeType:
@@ -875,7 +875,8 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 
 impl DataType {
     /// Parse a data type from a JSON representation
-    fn from(json: &Value) -> Result<DataType> {
+    pub(crate) fn from(json: &Value) -> Result<DataType> {
+        let default_field = Field::new("", DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "null" => Ok(DataType::Null),
@@ -1009,17 +1010,17 @@ impl DataType {
                 },
                 Some(s) if s == "list" => {
                     // return a list with any type as its child isn't defined in the map
-                    Ok(DataType::List(Box::new(DataType::Boolean)))
+                    Ok(DataType::List(Box::new(default_field)))
                 }
                 Some(s) if s == "largelist" => {
                     // return a largelist with any type as its child isn't defined in the map
-                    Ok(DataType::LargeList(Box::new(DataType::Boolean)))
+                    Ok(DataType::LargeList(Box::new(default_field)))
                 }
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
                         Ok(DataType::FixedSizeList(
-                            Box::new(DataType::Boolean),
+                            Box::new(default_field),
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
@@ -1187,6 +1188,18 @@ impl Field {
         self.nullable
     }
 
+    /// Returns the dictionary ID
+    #[inline]
+    pub const fn dict_id(&self) -> i64 {
+        self.dict_id
+    }
+
+    /// Indicates whether this `Field`'s dictionary is ordered
+    #[inline]
+    pub const fn dict_is_ordered(&self) -> bool {
+        self.dict_is_ordered
+    }
+
     /// Parse a `Field` definition from a JSON representation
     pub fn from(json: &Value) -> Result<Self> {
         match *json {
@@ -1228,14 +1241,14 @@ impl Field {
                             }
                             match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
-                                        Self::from(&values[0])?.data_type,
+                                        Self::from(&values[0])?,
                                     )),
                                     DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        Self::from(&values[0])?.data_type,
+                                        Self::from(&values[0])?,
                                     )),
                                     DataType::FixedSizeList(_, int) => {
                                         DataType::FixedSizeList(
-                                            Box::new(Self::from(&values[0])?.data_type),
+                                            Box::new(Self::from(&values[0])?),
                                             int,
                                         )
                                     }
@@ -1327,18 +1340,9 @@ impl Field {
     pub fn to_json(&self) -> Value {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
-            DataType::List(dtype) => {
-                let item = Field::new("item", *dtype.clone(), self.nullable);
-                vec![item.to_json()]
-            }
-            DataType::LargeList(dtype) => {
-                let item = Field::new("item", *dtype.clone(), self.nullable);
-                vec![item.to_json()]
-            }
-            DataType::FixedSizeList(dtype, _) => {
-                let item = Field::new("item", *dtype.clone(), self.nullable);
-                vec![item.to_json()]
-            }
+            DataType::List(field) => vec![field.to_json()],
+            DataType::LargeList(field) => vec![field.to_json()],
+            DataType::FixedSizeList(field, _) => vec![field.to_json()],
             _ => vec![],
         };
         match self.data_type() {
@@ -1491,7 +1495,7 @@ impl fmt::Display for Field {
 pub struct Schema {
     pub(crate) fields: Vec<Field>,
     /// A map of key-value pairs containing additional meta data.
-    #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub(crate) metadata: HashMap<String, String>,
 }
 
@@ -1698,9 +1702,24 @@ impl Schema {
     }
 
     /// Parse a `metadata` definition from a JSON representation
+    /// The JSON can either be an Object or an Array of Objects
     fn from_metadata(json: &Value) -> Result<HashMap<String, String>> {
-        if let Value::Object(md) = json {
-            md.iter()
+        match json {
+            Value::Array(_) => {
+                let mut hashmap = HashMap::new();
+                let values: Vec<MetadataKeyValue> = serde_json::from_value(json.clone())
+                    .map_err(|_| {
+                        ArrowError::JsonError(
+                            "Unable to parse object into key-value pair".to_string(),
+                        )
+                    })?;
+                for meta in values {
+                    hashmap.insert(meta.key.clone(), meta.value);
+                }
+                Ok(hashmap)
+            }
+            Value::Object(md) => md
+                .iter()
                 .map(|(k, v)| {
                     if let Value::String(v) = v {
                         Ok((k.to_string(), v.to_string()))
@@ -1710,11 +1729,10 @@ impl Schema {
                         ))
                     }
                 })
-                .collect::<Result<_>>()
-        } else {
-            Err(ArrowError::ParseError(
+                .collect::<Result<_>>(),
+            _ => Err(ArrowError::ParseError(
                 "`metadata` field must be an object".to_string(),
-            ))
+            )),
         }
     }
 }
@@ -1735,6 +1753,11 @@ impl fmt::Display for Schema {
 /// A reference-counted reference to a [`Schema`](crate::datatypes::Schema).
 pub type SchemaRef = Arc<Schema>;
 
+#[derive(Deserialize)]
+struct MetadataKeyValue {
+    key: String,
+    value: String,
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1964,17 +1987,30 @@ mod tests {
                 ),
                 Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
-                Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
+                Field::new(
+                    "c21",
+                    DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+                    false,
+                ),
                 Field::new(
                     "c22",
-                    DataType::FixedSizeList(Box::new(DataType::Boolean), 5),
+                    DataType::FixedSizeList(
+                        Box::new(Field::new("bools", DataType::Boolean, false)),
+                        5,
+                    ),
                     false,
                 ),
                 Field::new(
                     "c23",
-                    DataType::List(Box::new(DataType::List(Box::new(DataType::Struct(
-                        vec![],
-                    ))))),
+                    DataType::List(Box::new(Field::new(
+                        "inner_list",
+                        DataType::List(Box::new(Field::new(
+                            "struct",
+                            DataType::Struct(vec![]),
+                            true,
+                        ))),
+                        false,
+                    ))),
                     true,
                 ),
                 Field::new(
@@ -2005,9 +2041,15 @@ mod tests {
                 Field::new("c33", DataType::LargeUtf8, true),
                 Field::new(
                     "c34",
-                    DataType::LargeList(Box::new(DataType::LargeList(Box::new(
-                        DataType::Struct(vec![]),
-                    )))),
+                    DataType::LargeList(Box::new(Field::new(
+                        "inner_large_list",
+                        DataType::LargeList(Box::new(Field::new(
+                            "struct",
+                            DataType::Struct(vec![]),
+                            false,
+                        ))),
+                        true,
+                    ))),
                     true,
                 ),
             ],
@@ -2213,7 +2255,7 @@ mod tests {
                         "children": [
                             {
                                 "name": "item",
-                                "nullable": false,
+                                "nullable": true,
                                 "type": {
                                     "name": "bool"
                                 },
@@ -2230,7 +2272,7 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
+                                "name": "bools",
                                 "nullable": false,
                                 "type": {
                                     "name": "bool"
@@ -2247,14 +2289,14 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
-                                "nullable": true,
+                                "name": "inner_list",
+                                "nullable": false,
                                 "type": {
                                     "name": "list"
                                 },
                                 "children": [
                                     {
-                                        "name": "item",
+                                        "name": "struct",
                                         "nullable": true,
                                         "type": {
                                             "name": "struct"
@@ -2387,15 +2429,15 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
+                                "name": "inner_large_list",
                                 "nullable": true,
                                 "type": {
                                     "name": "largelist"
                                 },
                                 "children": [
                                     {
-                                        "name": "item",
-                                        "nullable": true,
+                                        "name": "struct",
+                                        "nullable": false,
                                         "type": {
                                             "name": "struct"
                                         },

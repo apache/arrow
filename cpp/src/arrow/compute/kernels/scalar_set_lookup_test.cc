@@ -30,6 +30,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
