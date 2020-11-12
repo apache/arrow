@@ -26,10 +26,11 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::compute::kernels::aggregate::*;
+use arrow::util::test_util::seedable_rng;
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
     let mut builder = Float32Builder::new(size);
 
     for _ in 0..size {
