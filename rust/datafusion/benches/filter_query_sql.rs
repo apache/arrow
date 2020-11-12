@@ -68,9 +68,15 @@ fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContex
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("filter_20_12", |b| {
-        let array_len = 1_048_576; // 2^20
-        let batch_size = 4096; // 2^12
+    let array_len = 524_288; // 2^19
+    let batch_size = 4096; // 2^12
+
+    c.bench_function("filter_array", |b| {
+        let mut ctx = create_context(array_len, batch_size).unwrap();
+        b.iter(|| block_on(query(&mut ctx, "select f32, f64 from t where f32 >= f64")))
+    });
+
+    c.bench_function("filter_scalar", |b| {
         let mut ctx = create_context(array_len, batch_size).unwrap();
         b.iter(|| {
             block_on(query(
