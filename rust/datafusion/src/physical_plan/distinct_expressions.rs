@@ -24,7 +24,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field};
 
-use fnv::FnvHashSet;
+use std::collections::HashSet;
+use ahash::RandomState;
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::group_scalar::GroupByScalar;
@@ -93,7 +94,7 @@ impl AggregateExpr for DistinctCount {
 
     fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
         Ok(Box::new(DistinctCountAccumulator {
-            values: FnvHashSet::default(),
+            values: HashSet::default(),
             data_types: self.input_data_types.clone(),
             count_data_type: self.data_type.clone(),
         }))
@@ -102,7 +103,7 @@ impl AggregateExpr for DistinctCount {
 
 #[derive(Debug)]
 struct DistinctCountAccumulator {
-    values: FnvHashSet<DistinctScalarValues>,
+    values: HashSet<DistinctScalarValues, RandomState>,
     data_types: Vec<DataType>,
     count_data_type: DataType,
 }
@@ -164,11 +165,13 @@ impl Accumulator for DistinctCountAccumulator {
             .collect::<Vec<_>>();
 
         self.values.iter().for_each(|distinct_values| {
-            distinct_values.0.iter().enumerate().for_each(
-                |(col_index, distinct_value)| {
+            distinct_values
+                .0
+                .iter()
+                .enumerate()
+                .for_each(|(col_index, distinct_value)| {
                     cols_vec[col_index].push(ScalarValue::from(distinct_value));
-                },
-            )
+                })
         });
 
         Ok(cols_out)
@@ -193,8 +196,8 @@ mod tests {
 
     use arrow::array::ArrayRef;
     use arrow::array::{
-        Int16Array, Int32Array, Int64Array, Int8Array, ListArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        Int16Array, Int32Array, Int64Array, Int8Array, ListArray, UInt16Array, UInt32Array,
+        UInt64Array, UInt8Array,
     };
     use arrow::array::{Int32Builder, ListBuilder, UInt64Builder};
     use arrow::datatypes::DataType;
@@ -267,9 +270,7 @@ mod tests {
         states
     }
 
-    fn run_update_batch(
-        arrays: &Vec<ArrayRef>,
-    ) -> Result<(Vec<ScalarValue>, ScalarValue)> {
+    fn run_update_batch(arrays: &Vec<ArrayRef>) -> Result<(Vec<ScalarValue>, ScalarValue)> {
         let agg = DistinctCount::new(
             arrays
                 .iter()
@@ -306,9 +307,7 @@ mod tests {
         Ok((accum.state()?, accum.evaluate()?))
     }
 
-    fn run_merge_batch(
-        arrays: &Vec<ArrayRef>,
-    ) -> Result<(Vec<ScalarValue>, ScalarValue)> {
+    fn run_merge_batch(arrays: &Vec<ArrayRef>) -> Result<(Vec<ScalarValue>, ScalarValue)> {
         let agg = DistinctCount::new(
             arrays
                 .iter()
@@ -344,8 +343,7 @@ mod tests {
 
             let (states, result) = run_update_batch(&arrays)?;
 
-            let mut state_vec =
-                state_to_vec!(&states[0], $DATA_TYPE, $PRIM_TYPE).unwrap();
+            let mut state_vec = state_to_vec!(&states[0], $DATA_TYPE, $PRIM_TYPE).unwrap();
             state_vec.sort();
 
             assert_eq!(states.len(), 1);
@@ -413,8 +411,7 @@ mod tests {
 
     #[test]
     fn count_distinct_update_batch_empty() -> Result<()> {
-        let arrays =
-            vec![Arc::new(Int32Array::from(vec![] as Vec<Option<i32>>)) as ArrayRef];
+        let arrays = vec![Arc::new(Int32Array::from(vec![] as Vec<Option<i32>>)) as ArrayRef];
 
         let (states, result) = run_update_batch(&arrays)?;
 
