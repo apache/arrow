@@ -280,13 +280,14 @@ def s3fs(request, s3_connection, s3_server):
     )
     fs.create_dir(bucket)
 
-    return dict(
+    yield dict(
         fs=fs,
         pathfn=bucket.__add__,
         allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
+    fs.delete_dir(bucket)
 
 
 @pytest.fixture
@@ -362,19 +363,16 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
         client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
     )
     fs = PyFileSystem(FSSpecHandler(fs))
-    try:
-        fs.create_dir(bucket)
-    except IOError:
-        # BucketAlreadyOwnedByYou on second test
-        pass
+    fs.create_dir(bucket)
 
-    return dict(
+    yield dict(
         fs=fs,
         pathfn=bucket.__add__,
         allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=True,
     )
+    fs.delete_dir(bucket)
 
 
 @pytest.fixture(params=[
@@ -620,8 +618,12 @@ def test_get_file_info(fs, pathfn):
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
-    assert aaa_info.type == FileType.Directory
-    assert 'FileType.Directory' in repr(aaa_info)
+    if fs.type_name == "py::fsspec+s3":
+        # s3fs doesn't create empty directories
+        assert aaa_info.type == FileType.NotFound
+    else:
+        assert aaa_info.type == FileType.Directory
+        assert 'FileType.Directory' in repr(aaa_info)
     assert aaa_info.size is None
     check_mtime_or_absent(aaa_info)
 
