@@ -39,7 +39,7 @@ namespace internal {
 
 namespace {
 
-struct ArrayDataValidator {
+struct ValidateArrayImpl {
   const ArrayData& data;
 
   Status Validate() { return ValidateWithType(*data.type); }
@@ -113,8 +113,8 @@ struct ArrayDataValidator {
 
       if (field_data.length < data.length + data.offset) {
         return Status::Invalid("Struct child array #", i,
-                               " has length smaller than struct array (",
-                               field_data.length, " != ", data.length + data.offset, ")");
+                               " has length smaller than expected for struct array (",
+                               field_data.length, " < ", data.length + data.offset, ")");
       }
 
       const auto& field_type = type.field(i)->type();
@@ -141,8 +141,8 @@ struct ArrayDataValidator {
       if (type.mode() == UnionMode::SPARSE &&
           field_data.length < data.length + data.offset) {
         return Status::Invalid("Sparse union child array #", i,
-                               " has length smaller than union array (",
-                               field_data.length, " != ", data.length + data.offset, ")");
+                               " has length smaller than expected for union array (",
+                               field_data.length, " < ", data.length + data.offset, ")");
       }
 
       const auto& field_type = type.field(i)->type();
@@ -376,7 +376,7 @@ Status ValidateArray(const ArrayData& data) {
                            type.ToString());
   }
 
-  ArrayDataValidator validator{data};
+  ValidateArrayImpl validator{data};
   return validator.Validate();
 }
 
@@ -450,7 +450,7 @@ struct BoundsChecker {
   }
 };
 
-struct ArrayDataFullValidator {
+struct ValidateArrayFullImpl {
   const ArrayData& data;
 
   Status Validate() { return ValidateWithType(*data.type); }
@@ -631,7 +631,7 @@ struct ArrayDataFullValidator {
 
 ARROW_EXPORT
 Status ValidateArrayFull(const ArrayData& data) {
-  return ArrayDataFullValidator{data}.Validate();
+  return ValidateArrayFullImpl{data}.Validate();
 }
 
 ARROW_EXPORT
