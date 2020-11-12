@@ -506,7 +506,7 @@ impl From<ArrayDataRef> for DecimalArray {
         assert_eq!(
             data.buffers().len(),
             1,
-            "BinaryArray data should contain 1 buffer only (values)"
+            "DecimalArray data should contain 1 buffer only (values)"
         );
         let value_data = data.buffers()[0].raw_data();
         let (precision, scale) = match data.data_type() {
@@ -521,6 +521,35 @@ impl From<ArrayDataRef> for DecimalArray {
             scale,
             length,
         }
+    }
+}
+
+/// Creates a `FixedSizeBinaryArray` from `FixedSizeList<u8>` array
+impl From<FixedSizeListArray> for DecimalArray {
+    fn from(v: FixedSizeListArray) -> Self {
+        assert_eq!(
+            v.data_ref().child_data()[0].child_data().len(),
+            0,
+            "DecimalArray can only be created from list array of u8 values \
+             (i.e. FixedSizeList<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data_ref().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "DecimalArray can only be created from FixedSizeList<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(DataType::Decimal(23, 6))
+            .len(v.len())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
+            builder = builder
+                .null_count(v.data_ref().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
     }
 }
 
@@ -547,12 +576,12 @@ impl Array for DecimalArray {
         &self.data
     }
 
-    /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeBinaryArray].
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [DecimalArray].
     fn get_buffer_memory_size(&self) -> usize {
         self.data.get_buffer_memory_size()
     }
 
-    /// Returns the total number of bytes of memory occupied physically by this [FixedSizeBinaryArray].
+    /// Returns the total number of bytes of memory occupied physically by this [DecimalArray].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
     }
@@ -923,9 +952,26 @@ mod tests {
             .len(2)
             .add_buffer(Buffer::from(&values[..]))
             .build();
-        let fixed_size_binary_array = DecimalArray::from(array_data);
-        assert_eq!(8_887_000_000, fixed_size_binary_array.value(0));
-        assert_eq!(-8_887_000_000, fixed_size_binary_array.value(1));
-        assert_eq!(10, fixed_size_binary_array.value_length());
+        let decimal_array = DecimalArray::from(array_data);
+        assert_eq!(8_887_000_000, decimal_array.value(0));
+        assert_eq!(-8_887_000_000, decimal_array.value(1));
+        assert_eq!(10, decimal_array.value_length());
+    }
+
+    #[test]
+    fn test_decimal_array_fmt_debug() {
+        let values: [u8; 20] = [
+            0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75,
+            36, 64,
+        ];
+        let array_data = ArrayData::builder(DataType::Decimal(23, 6))
+            .len(2)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let arr = DecimalArray::from(array_data);
+        assert_eq!(
+            "DecimalArray<23, 6>\n[\n  8887000000,\n  -8887000000,\n]",
+            format!("{:?}", arr)
+        );
     }
 }

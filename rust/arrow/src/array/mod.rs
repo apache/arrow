@@ -208,6 +208,7 @@ pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::DecimalBuilder;
 pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::LargeBinaryBuilder;

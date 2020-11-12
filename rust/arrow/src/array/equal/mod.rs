@@ -230,7 +230,7 @@ mod tests {
         array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
         FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray, Int32Builder,
         ListBuilder, NullArray, PrimitiveBuilder, StringArray, StringDictionaryBuilder,
-        StringOffsetSizeTrait, StructArray,
+        StringOffsetSizeTrait, StructArray, DecimalBuilder
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::datatypes::Int16Type;
@@ -598,6 +598,78 @@ mod tests {
             None,
             None,
             Some(b"arrow"),
+            None,
+            None,
+        ]);
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(0, 5);
+        let b_slice = b.slice(0, 5);
+        test_equal(&a_slice, &b_slice, false);
+
+        let a_slice = a.slice(4, 1);
+        let b_slice = b.slice(4, 1);
+        test_equal(&a_slice, &b_slice, true);
+    }
+
+    fn create_decimal_array<U: AsRef<[u8]>, T: AsRef<[Option<U>]>>(
+        data: T,
+    ) -> ArrayDataRef {
+        let mut builder = DecimalBuilder::new(20, 10);
+
+        for d in data.as_ref() {
+            if let Some(v) = d {
+                builder.append_value(v.as_ref()).unwrap();
+            } else {
+                builder.append_null().unwrap();
+            }
+        }
+        builder.finish().data()
+    }
+
+    #[test]
+    fn test_decimal_equal() {
+        let a = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64])]);
+        let b = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64])]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some([0, 0, 0, 0, 0, 3, 17, 180, 219, 192]), Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64])]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    // Test the case where null_count > 0
+    #[test]
+    fn test_decimal_null() {
+        let a = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), None, Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64])]);
+        let b = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), None, Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64])]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64]), None]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+
+        let b = create_decimal_array(&[Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]), None, Some([0, 0, 0, 0, 0, 3, 17, 180, 219, 192])]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    #[test]
+    fn test_decimal_offsets() {
+        // Test the case where offset != 0
+        let a = create_decimal_array(&[
+            Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]),
+            None,
+            None,
+            Some([255, 255, 255, 255, 255, 253, 238, 75, 36, 64]),
+            None,
+            None,
+        ]);
+        let b = create_decimal_array(&[
+            Some([0, 0, 0, 0, 0, 2, 17, 180, 219, 192]),
+            None,
+            None,
+            Some([0, 0, 0, 0, 0, 3, 17, 180, 219, 192]),
             None,
             None,
         ]);

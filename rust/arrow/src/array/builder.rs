@@ -1285,6 +1285,11 @@ pub struct FixedSizeBinaryBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
 }
 
+#[derive(Debug)]
+pub struct DecimalBuilder {
+    builder: FixedSizeListBuilder<UInt8Builder>,
+}
+
 impl ArrayBuilder for BinaryBuilder {
     /// Returns the builder as a non-mutable `Any` reference.
     fn as_any(&self) -> &Any {
@@ -1663,6 +1668,92 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
     }
 }
 
+impl ArrayBuilder for DecimalBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Decimal arrays should have 1 buffer".to_string(),
+                ));
+            }
+        }
+        for array in data {
+            // convert string to FixedSizeList<u8> to reuse list's append
+            let int_data = &array.buffers()[0];
+            let int_data = Arc::new(ArrayData::new(
+                DataType::UInt8,
+                int_data.len(),
+                None,
+                None,
+                0,
+                vec![int_data.clone()],
+                vec![],
+            )) as ArrayDataRef;
+            let list_data = Arc::new(ArrayData::new(
+                DataType::FixedSizeList(
+                    Box::new(Field::new("item", DataType::UInt8, true)),
+                    self.builder.list_len,
+                ),
+                array.len(),
+                None,
+                array.null_buffer().cloned(),
+                array.offset(),
+                vec![],
+                vec![int_data],
+            ));
+            self.builder.append_data(&[list_data])?;
+        }
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Decimal(23, 6)
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.builder.len()
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.builder.is_empty()
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
+}
+
 impl BinaryBuilder {
     /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
@@ -1882,6 +1973,43 @@ impl FixedSizeBinaryBuilder {
     }
 }
 
+impl DecimalBuilder {
+    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
+    /// array
+    pub fn new(capacity: usize, byte_width: i32) -> Self {
+        let values_builder = UInt8Builder::new(capacity);
+        Self {
+            builder: FixedSizeListBuilder::new(values_builder, byte_width),
+        }
+    }
+
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
+        if self.builder.value_length() != value.len() as i32 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Byte slice does not have the same length as DecimalBuilder value lengths".to_string()
+            ));
+        }
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)
+    }
+
+    /// Append a null value to the array.
+    pub fn append_null(&mut self) -> Result<()> {
+        let length: usize = self.builder.value_length() as usize;
+        self.builder.values().append_slice(&vec![0u8; length][..])?;
+        self.builder.append(false)
+    }
+
+    /// Builds the `DecimalArray` and reset this builder.
+    pub fn finish(&mut self) -> DecimalArray {
+        DecimalArray::from(self.builder.finish())
+    }
+}
+
 /// Array builder for Struct types.
 ///
 /// Note that callers should make sure that methods of all the child field builders are
@@ -2023,6 +2151,9 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
         DataType::Binary => Box::new(BinaryBuilder::new(capacity)),
         DataType::FixedSizeBinary(len) => {
             Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
+        }
+        DataType::Decimal(precision, _) => {
+            Box::new(DecimalBuilder::new(capacity, (10.0_f64.powi(*precision as i32).log2() / 8.0).ceil() as i32))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
         DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
