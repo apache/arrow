@@ -73,7 +73,7 @@ class FutureWaiterImpl : public FutureWaiter {
     }
   }
 
-  ~FutureWaiterImpl() {
+  ~FutureWaiterImpl() override {
     for (auto future : futures_) {
       future->RemoveWaiter(this);
     }
@@ -174,9 +174,9 @@ FutureWaiterImpl* GetConcreteWaiter(FutureWaiter* waiter) {
 
 }  // namespace
 
-FutureWaiter::FutureWaiter() {}
+FutureWaiter::FutureWaiter() = default;
 
-FutureWaiter::~FutureWaiter() {}
+FutureWaiter::~FutureWaiter() = default;
 
 std::unique_ptr<FutureWaiter> FutureWaiter::Make(Kind kind,
                                                  std::vector<FutureImpl*> futures) {
@@ -275,6 +275,12 @@ ConcreteFutureImpl* GetConcreteFuture(FutureImpl* future) {
 
 std::unique_ptr<FutureImpl> FutureImpl::Make() {
   return std::unique_ptr<FutureImpl>(new ConcreteFutureImpl());
+}
+
+std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {
+  std::unique_ptr<ConcreteFutureImpl> ptr(new ConcreteFutureImpl());
+  ptr->state_ = state;
+  return std::move(ptr);
 }
 
 FutureImpl::FutureImpl() : state_(FutureState::PENDING) {}

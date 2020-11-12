@@ -270,7 +270,7 @@ Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* st
   // }
 
   ARROW_ASSIGN_OR_RAISE(auto pool, ThreadPool::Make(FLAGS_num_threads));
-  std::vector<Future<Status>> tasks;
+  std::vector<Future<>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
     ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));
     tasks.push_back(std::move(task));
