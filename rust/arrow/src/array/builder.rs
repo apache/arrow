@@ -334,13 +334,13 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.reserve(n);
         if T::DATA_TYPE == DataType::Boolean {
             if n != 0 && v != T::default_value() {
-                unsafe {
-                    bit_util::set_bits_raw(
+                let data = unsafe {
+                    std::slice::from_raw_parts_mut(
                         self.buffer.raw_data_mut(),
-                        self.len,
-                        self.len + n,
+                        self.buffer.capacity(),
                     )
-                }
+                };
+                (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
             }
             self.len += n;
         } else {
