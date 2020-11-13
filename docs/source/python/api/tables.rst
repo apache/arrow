@@ -29,6 +29,7 @@ Factory Functions
    :toctree: ../generated/
 
    chunked_array
+   combine_chunks
    concat_tables
    record_batch
    table
