@@ -509,19 +509,22 @@ fn write_array_data(
         offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
     });
 
-    // recursively write out nested structures
-    array_data.child_data().iter().for_each(|data_ref| {
-        // write the nested data (e.g list data)
-        offset = write_array_data(
-            data_ref,
-            &mut buffers,
-            &mut arrow_data,
-            &mut nodes,
-            offset,
-            data_ref.len(),
-            data_ref.null_count(),
-        );
-    });
+    if !matches!(array_data.data_type(), DataType::Dictionary(_, _)) {
+        // recursively write out nested structures
+        array_data.child_data().iter().for_each(|data_ref| {
+            // write the nested data (e.g list data)
+            offset = write_array_data(
+                data_ref,
+                &mut buffers,
+                &mut arrow_data,
+                &mut nodes,
+                offset,
+                data_ref.len(),
+                data_ref.null_count(),
+            );
+        });
+    }
+
     offset
 }
 
