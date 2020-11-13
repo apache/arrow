@@ -190,15 +190,6 @@ std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args)
   return ::arrow::internal::make_unique<BooleanAnyImpl>();
 }
 
-void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
-                               AggregateFinalize);
-  // Set the simd level
-  kernel.simd_level = simd_level;
-  DCHECK_OK(func->AddKernel(kernel));
-}
-
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -324,9 +315,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   // any
   func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), &any_doc);
-  auto sig =
-      KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
-  aggregate::AddBasicAggKernels(std::move(sig), aggregate::AnyInit, func.get());
+  aggregate::AddBasicAggKernels(aggregate::AnyInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
 }
