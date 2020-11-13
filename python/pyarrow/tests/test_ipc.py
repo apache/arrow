@@ -29,13 +29,12 @@ import numpy as np
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ
 
-
 try:
+    from pandas.core.internals import Block, BlockManager
     from pandas.testing import assert_frame_equal, assert_series_equal
     import pandas as pd
 except ImportError:
     pass
-
 
 # TODO(wesm): The IPC tests depend a lot on pandas currently, so all excluded
 # when it is not installed
@@ -104,7 +103,6 @@ class FileFormatFixture(IpcFixture):
 
 
 class StreamFormatFixture(IpcFixture):
-
     # ARROW-6474, for testing writing old IPC protocol with 4-byte prefix
     use_legacy_ipc_format = False
     # ARROW-9395, for testing writing old metadata version
@@ -239,6 +237,14 @@ def test_stream_categorical_roundtrip(stream_fixture):
     assert_frame_equal(table.to_pandas(), df)
 
 
+class NumpyHolder:
+    def __init__(self, address, typestr, rows, cols):
+        self.__array_interface__ = dict(
+            data=(address, False),
+            typestr=typestr,
+            shape=(cols, rows))
+
+
 def _check_contiguous_buffers(stream_fixture, rows, cols):
     stream_fixture.options = pa.ipc.IpcWriteOptions(alignment=1)
     stream_fixture.use_legacy_ipc_format = None
@@ -258,13 +264,9 @@ def _check_contiguous_buffers(stream_fixture, rows, cols):
         c.chunks[0].buffers()[1].address
         for c in table.columns)
 
-    class numpy_holder:
-        __array_interface__ = dict(
-            data=(address, False),
-            typestr='u1',
-            shape=(cols, rows))
-
-    actual = np.array(numpy_holder(), copy=False).T
+    actual = np.array(
+        NumpyHolder(address, 'u1', rows, cols),
+        copy=False).T
     np.testing.assert_allclose(
         df_in.values,
         actual)
@@ -287,6 +289,65 @@ def test_contiguous_buffers_aligned(stream_fixture):
 
 def test_contiguous_buffers_notsquare(stream_fixture):
     _check_contiguous_buffers(stream_fixture, 3, 7)
+
+
+def test_contiguous_buffers_mixed_types(stream_fixture):
+    stream_fixture.options = pa.ipc.IpcWriteOptions(alignment=1)
+    stream_fixture.use_legacy_ipc_format = None
+
+    df_in = pd.concat(
+        objs=[
+            pd.DataFrame(
+                np.random.randint(10, size=(5, 3)),
+                dtype=np.uint32,
+                columns=list('abc')),
+            pd.DataFrame(
+                np.random.uniform(size=(5, 3)),
+                dtype=np.float32,
+                columns=list('ABC')),
+        ], axis=1)
+    batch = pa.RecordBatch.from_pandas(df_in)
+    with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
+        wr.write_batch(batch)
+
+    table = pa.ipc.open_stream(
+        pa.BufferReader(
+            stream_fixture.get_source())).read_all()
+    address1 = table.column(0).chunks[0].buffers()[1].address
+    address2 = table.column(3).chunks[0].buffers()[1].address
+
+    ints = np.array(
+        NumpyHolder(
+            address1,
+            'u4',
+            5,
+            3),
+        copy=False)
+    floats = np.array(
+        NumpyHolder(
+            address2,
+            'f4',
+            5,
+            3),
+        copy=False)
+
+    df_out = pd.DataFrame(
+        BlockManager.from_blocks(
+            blocks=[
+                Block(ints, range(0, 3)),
+                Block(floats, range(3, 6)),
+            ],
+            axes=[
+                table.schema.names,
+                range(5),
+            ]))
+    pd.testing.assert_frame_equal(df_in, df_out)
+
+    assert df_out._data.is_consolidated()
+    assert np.byte_bounds(df_out._data.blocks[0].values)[0] == address1, \
+        "zero-copy the ints"
+    assert np.byte_bounds(df_out._data.blocks[1].values)[0] == address2, \
+        "zero-copy the floats"
 
 
 def test_open_stream_from_buffer(stream_fixture):
@@ -628,8 +689,8 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return(self._schema, self._table if self._do_read_all
-               else self._batches)
+        return (self._schema, self._table if self._do_read_all
+        else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
