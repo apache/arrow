@@ -29,12 +29,14 @@ import numpy as np
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ
 
+
 try:
     from pandas.core.internals import Block, BlockManager
     from pandas.testing import assert_frame_equal, assert_series_equal
     import pandas as pd
 except ImportError:
     pass
+
 
 # TODO(wesm): The IPC tests depend a lot on pandas currently, so all excluded
 # when it is not installed
@@ -103,6 +105,7 @@ class FileFormatFixture(IpcFixture):
 
 
 class StreamFormatFixture(IpcFixture):
+
     # ARROW-6474, for testing writing old IPC protocol with 4-byte prefix
     use_legacy_ipc_format = False
     # ARROW-9395, for testing writing old metadata version
@@ -689,8 +692,8 @@ class StreamReaderServer(threading.Thread):
             connection.close()
 
     def get_result(self):
-        return (self._schema, self._table if self._do_read_all
-        else self._batches)
+        return(self._schema, self._table if self._do_read_all
+               else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
