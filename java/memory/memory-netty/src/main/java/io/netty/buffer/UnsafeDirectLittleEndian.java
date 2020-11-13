@@ -167,66 +167,6 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   }
 
   @Override
-  public short readShort() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 2) {
-      throw new IndexOutOfBoundsException();
-    }
-    short value = getShort(wrapped.readerIndex);
-    wrapped.readerIndex += 2;
-    return value;
-  }
-
-  @Override
-  public int readInt() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 4) {
-      throw new IndexOutOfBoundsException();
-    }
-    int value = getInt(wrapped.readerIndex);
-    wrapped.readerIndex += 4;
-    return value;
-  }
-
-  @Override
-  public long readLong() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 8) {
-      throw new IndexOutOfBoundsException();
-    }
-    long value = getLong(wrapped.readerIndex);
-    wrapped.readerIndex += 8;
-    return value;
-  }
-
-  @Override
-  public char readChar() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 2) {
-      throw new IndexOutOfBoundsException();
-    }
-    char value = getChar(wrapped.readerIndex);
-    wrapped.readerIndex += 2;
-    return value;
-  }
-
-  @Override
-  public float readFloat() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 4) {
-      throw new IndexOutOfBoundsException();
-    }
-    float value = getFloat(wrapped.readerIndex);
-    wrapped.readerIndex += 4;
-    return value;
-  }
-
-  @Override
-  public double readDouble() {
-    if (wrapped.readerIndex > wrapped.writerIndex - 8) {
-      throw new IndexOutOfBoundsException();
-    }
-    double value = getDouble(wrapped.readerIndex);
-    wrapped.readerIndex += 8;
-    return value;
-  }
-
-  @Override
   public ByteBuf writeShort(int value) {
     wrapped.ensureWritable(2);
     setShort_(wrapped.writerIndex, value);

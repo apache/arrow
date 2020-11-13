@@ -74,25 +74,4 @@ public class TestUnsafeDirectLittleEndian {
       e.printStackTrace();
     }
   }
-
-  @Test
-  public void testPrimitiveWriteRead() {
-    ByteBuf byteBuf = Unpooled.directBuffer(32);
-    UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));
-
-    unsafeDirect.clear();
-    unsafeDirect.writeShort(-2); // 0xFFFE
-    unsafeDirect.writeChar(65533); // 0xFFFD
-    unsafeDirect.writeInt(-66052); // 0xFFFE FDFC
-    unsafeDirect.writeLong(-4295098372L); // 0xFFFF FFFE FFFD FFFC
-    unsafeDirect.writeFloat(1.23F);
-    unsafeDirect.writeDouble(1.234567D);
-
-    assertEquals(-2, unsafeDirect.readShort());
-    assertEquals((char) 65533, unsafeDirect.readChar());
-    assertEquals(-66052, unsafeDirect.readInt());
-    assertEquals(-4295098372L, unsafeDirect.readLong());
-    assertEquals(1.23F, unsafeDirect.readFloat(), 0.0);
-    assertEquals(1.234567D, unsafeDirect.readDouble(), 0.0);
-  }
 }
