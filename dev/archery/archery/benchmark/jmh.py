@@ -38,7 +38,6 @@ class JavaMicrobenchmarkHarnessCommand(Maven):
     """
 
     def __init__(self, build, benchmark_filter=None):
-        #self.performance_dir = build.binaries_dir + "/performance"
         self.benchmark_filter = benchmark_filter
         self.build = build
         self.maven = Maven()
@@ -47,9 +46,8 @@ class JavaMicrobenchmarkHarnessCommand(Maven):
         argv = []
         if self.benchmark_filter:
             argv.append("-Dbenchmark.filter={}".format(self.benchmark_filter))
-        #result = self.maven.run(*argv, cwd=self.performance_dir,
-        #                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        result = self.build.list(*argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = self.build.list(
+            *argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         """ Extract benchmark names from output. Assume the following output
           ...
@@ -86,7 +84,6 @@ class JavaMicrobenchmarkHarnessCommand(Maven):
                     "-Dbenchmark.filter={}".format(self.benchmark_filter)
                 )
 
-            #self.maven.run(*argv, cwd=self.performance_dir, check=True)
             self.build.benchmark(*argv, check=True)
             return json.load(out)
 
@@ -100,18 +97,18 @@ class JavaMicrobenchmarkHarnessObservation:
         self.name = benchmark
         self.primaryMetric = primaryMetric
         self.score = primaryMetric["score"]
-        self.scoreUnit =  primaryMetric["scoreUnit"]
+        self.scoreUnit = primaryMetric["scoreUnit"]
         self.forks = forks
         self.warmups = warmupIterations
         self.runs = measurementIterations
         self.counters = {
-            "mode" : counters["mode"],
-            "threads" : counters["threads"],
-            "warmups" : warmupIterations,
-            "warmupTime" : counters["warmupTime"],
-            "measurements" : measurementIterations,
-            "measurementTime" : counters["measurementTime"],
-            "jvmArgs" : counters["jvmArgs"]
+            "mode": counters["mode"],
+            "threads": counters["threads"],
+            "warmups": warmupIterations,
+            "warmupTime": counters["warmupTime"],
+            "measurements": measurementIterations,
+            "measurementTime": counters["measurementTime"],
+            "jvmArgs": counters["jvmArgs"]
         }
 
     @property
@@ -161,6 +158,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
         def group_key(x):
             return x.name
 
-        benchmarks = map(lambda x: JavaMicrobenchmarkHarnessObservation(**x), payload)
+        benchmarks = map(
+            lambda x: JavaMicrobenchmarkHarnessObservation(**x), payload)
         groups = groupby(sorted(benchmarks, key=group_key), group_key)
         return [cls(k, list(bs)) for k, bs in groups]

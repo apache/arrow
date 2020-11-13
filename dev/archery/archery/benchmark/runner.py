@@ -239,7 +239,8 @@ class JavaBenchmarkRunner(BenchmarkRunner):
         # update .m2 directory, which installs target jars
         self.build.build()
 
-        suite_cmd = JavaMicrobenchmarkHarnessCommand(self.build, self.benchmark_filter)
+        suite_cmd = JavaMicrobenchmarkHarnessCommand(
+            self.build, self.benchmark_filter)
 
         # Ensure there will be data
         benchmark_names = suite_cmd.list_benchmarks()
