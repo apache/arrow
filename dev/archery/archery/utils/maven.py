@@ -65,7 +65,7 @@ class MavenDefinition:
         """" Return the arguments to maven invocation for build. """
         arguments = self.build_definitions + [
             "-B", "-DskipTests", "-Drat.skip=true",
-            "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer."\
+            "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer."
             "Slf4jMavenTransferListener=warn",
             "-T", "2C", "install"
         ]
@@ -105,7 +105,7 @@ class MavenDefinition:
         """" Return the arguments to maven invocation for benchmark """
         arguments = self.benchmark_definitions + [
             "-Dskip.perf.benchmarks=false", "-Dbenchmark.fork=1",
-            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false"\
+            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false"
             "-Darrow.enable_unsafe_memory_access=true\"",
             "install"
         ]
