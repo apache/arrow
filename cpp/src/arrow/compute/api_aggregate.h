@@ -163,7 +163,7 @@ Result<Datum> MinMax(const Datum& value,
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
 
-/// \since 2.0.0
+/// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Any(const Datum& value, ExecContext* ctx = NULLPTR);
