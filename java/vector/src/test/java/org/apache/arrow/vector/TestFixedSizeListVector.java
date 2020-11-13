@@ -17,8 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -404,7 +406,7 @@ public class TestFixedSizeListVector {
   }
 
   @Test
-  public void testZeroWidthVector() throws Exception {
+  public void testZeroWidthVector() {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 0, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
@@ -418,21 +420,23 @@ public class TestFixedSizeListVector {
       writeListVector(writer1, values1);
       writeListVector(writer1, values2);
       writeListVector(writer1, values3);
-      writer1.setValueCount(3);
+      vector1.setNull(3);
+      writer1.setValueCount(4);
 
-      assertEquals(3, vector1.getValueCount());
+      assertEquals(4, vector1.getValueCount());
 
       int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
-      assertTrue(Arrays.equals(values1, realValue1));
+      assertArrayEquals(values1, realValue1);
       int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
-      assertTrue(Arrays.equals(values2, realValue2));
+      assertArrayEquals(values2, realValue2);
       int[] realValue3 = convertListToIntArray((JsonStringArrayList) vector1.getObject(2));
-      assertTrue(Arrays.equals(values3, realValue3));
+      assertArrayEquals(values3, realValue3);
+      assertNull(vector1.getObject(3));
     }
   }
 
   @Test
-  public void testVectorWithNulls() throws Exception {
+  public void testVectorWithNulls() {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 4, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
@@ -479,7 +483,7 @@ public class TestFixedSizeListVector {
     return values;
   }
 
-  private void writeListVector(UnionFixedSizeListWriter writer, int[] values) throws Exception {
+  private void writeListVector(UnionFixedSizeListWriter writer, int[] values) {
     writer.startList();
     for (int v: values) {
       writer.integer().writeInt(v);
@@ -487,7 +491,7 @@ public class TestFixedSizeListVector {
     writer.endList();
   }
 
-  private void writeListVector(UnionFixedSizeListWriter writer, List<Integer> values) throws Exception {
+  private void writeListVector(UnionFixedSizeListWriter writer, List<Integer> values) {
     writer.startList();
     for (Integer v: values) {
       if (v == null) {
