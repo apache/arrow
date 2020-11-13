@@ -30,6 +30,7 @@ call conda.bat create -n wheel-build -q -y -c conda-forge ^
 
 call conda.bat activate wheel-build
 
+set CONDA_PREFIX_CMAKE_STYLE=%CONDA_PREFIX:\=/%
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 echo %ARROW_HOME%
@@ -45,7 +46,6 @@ pushd arrow\cpp\build
 
 @rem -DARROW_DEPENDENCY_SOURCE=BUNDLED is required because recent
 @rem conda-forge packages don't provide static library.
-SET
 cmake -A "%ARCH%" ^
       -G "%GENERATOR%" ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -68,7 +68,7 @@ cmake -A "%ARCH%" ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DOPENSSL_ROOT_DIR=C:/Miniconda/envs/wheel-build/Library ^
+      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX_CMAKE_STYLE%/Library ^
       .. || exit /B
 cmake ^
   --build . ^
