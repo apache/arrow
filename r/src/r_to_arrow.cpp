@@ -115,6 +115,7 @@ class RValue {
   static bool IsNull(RObject* obj) { return obj->null; }
 
   // TODO: generalise
+
   static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
                                  RObject* value) {
     // TODO: handle conversion from other types
@@ -125,15 +126,39 @@ class RValue {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
+
+  static Result<double> Convert(const DoubleType*, const RConversionOptions&,
+                                RObject* value) {
+    // TODO: handle conversion from other types
+    if (value->rtype == FLOAT64) {
+      return *reinterpret_cast<double*>(value->data);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
 };
 
-template <class VisitorFunc>
-inline Status VisitVector_Int32(SEXP x, R_xlen_t size, VisitorFunc&& func) {
-  RObject obj{INT32, nullptr, false};
-  cpp11::integers values(x);
-  for (int value : values) {
+template <typename T>
+bool is_NA(T value);
+
+template <>
+bool is_NA<int>(int value) {
+  return value == NA_INTEGER;
+}
+
+template <>
+bool is_NA<double>(double value) {
+  return ISNA(value);
+}
+
+template <RVectorType rtype, typename T, class VisitorFunc>
+inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+  RObject obj{rtype, nullptr, false};
+  cpp11::r_vector<T> values(x);
+  for (T value : values) {
     obj.data = reinterpret_cast<void*>(&value);
-    obj.null = value == NA_INTEGER;
+    obj.null = is_NA<T>(value);
     RETURN_NOT_OK(func(&obj));
   }
   return Status::OK();
@@ -145,7 +170,11 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
 
   switch (rtype) {
     case INT32:
-      return VisitVector_Int32(x, size, std::forward<VisitorFunc>(func));
+      return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
+    case FLOAT64:
+      return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
     default:
       break;
   }
@@ -177,10 +206,12 @@ class RPrimitiveConverter<T, enable_if_null<T>>
 // Temporary (this only handles int32 for now)
 template <typename T>
 class RPrimitiveConverter<
-    T, enable_if_t<!std::is_same<T, Int32Type>::value &&
-                   (is_boolean_type<T>::value || is_number_type<T>::value ||
-                    is_decimal_type<T>::value || is_date_type<T>::value ||
-                    is_time_type<T>::value)>> : public PrimitiveConverter<T, RConverter> {
+    T,
+    enable_if_t<
+        !std::is_same<T, Int32Type>::value && !std::is_same<T, DoubleType>::value &&
+        (is_boolean_type<T>::value || is_number_type<T>::value ||
+         is_decimal_type<T>::value || is_date_type<T>::value || is_time_type<T>::value)>>
+    : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RObject* value) {
     return Status::NotImplemented("conversion to fixed size binary not yet implemented");
@@ -188,7 +219,8 @@ class RPrimitiveConverter<
 };
 
 template <typename T>
-class RPrimitiveConverter<T, enable_if_t<std::is_same<T, Int32Type>::value>>
+class RPrimitiveConverter<T, enable_if_t<std::is_same<T, Int32Type>::value ||
+                                         std::is_same<T, DoubleType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RObject* value) {
