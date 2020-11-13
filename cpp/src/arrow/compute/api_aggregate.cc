@@ -46,7 +46,7 @@ Result<Datum> Any(const Datum& value, ExecContext* ctx) {
 }
 
 Result<Datum> Mode(const Datum& value, const ModeOptions& options, ExecContext* ctx) {
-  return CallFunction("mode", {value}, ctx);
+  return CallFunction("mode", {value}, &options, ctx);
 }
 
 Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,
