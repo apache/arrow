@@ -105,6 +105,15 @@ def test_chunked_array_construction():
     assert pa.chunked_array([[]], type=pa.string()).type == pa.string()
 
 
+def test_combine_chunks():
+    # ARROW-77363
+    arr = pa.array([1, 2])
+    chunked_arr = pa.chunked_array([arr, arr])
+    res = chunked_arr.combine_chunks()
+    expected = pa.array([1, 2, 1, 2])
+    assert res.equals(expected)
+
+
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],

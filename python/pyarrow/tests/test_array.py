@@ -2669,15 +2669,6 @@ def test_concat_array_invalid_type():
         pa.concat_arrays(arr)
 
 
-def test_combine_chunks():
-    # ARROW-77363
-    arr = pa.array([1, 2])
-    chunked_arr = pa.chunked_array([arr, arr])
-    res = chunked_arr.combine_chunks()
-    expected = pa.array([1, 2, 1, 2])
-    assert res.equals(expected)
-
-
 @pytest.mark.pandas
 def test_to_pandas_timezone():
     # https://issues.apache.org/jira/browse/ARROW-6652
