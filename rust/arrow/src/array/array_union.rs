@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains the `UnionArray` and `UnionBuilder` types.
+//! Contains the `UnionArray` type.
 //!
 //! Each slot in a `UnionArray` can have a value chosen from a number of types.  Each of the
 //! possible types are named like the fields of a [`StructArray`](crate::array::StructArray).
@@ -73,23 +73,18 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::array::{
-    builder::{builder_to_mutable_buffer, mutable_buffer_to_builder, BufferBuilderTrait},
-    make_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
-    BooleanBufferBuilder, BufferBuilder, Int32BufferBuilder, Int8BufferBuilder,
-};
-use crate::buffer::{Buffer, MutableBuffer};
+use crate::array::{make_array, Array, ArrayData, ArrayDataRef, ArrayRef};
+use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
 use crate::util::bit_util;
 use core::fmt;
 use std::any::Any;
-use std::collections::HashMap;
 use std::mem;
 use std::mem::size_of;
 
-/// An Array that can represent slots of varying types
+/// An Array that can represent slots of varying types.
 pub struct UnionArray {
     data: ArrayDataRef,
     boxed_fields: Vec<ArrayRef>,
@@ -351,281 +346,6 @@ impl fmt::Debug for UnionArray {
     }
 }
 
-/// `FieldData` is a helper struct to track the state of the fields in the `UnionBuilder`.
-#[derive(Debug)]
-struct FieldData {
-    /// The type id for this field
-    type_id: i8,
-    /// The Arrow data type represented in the `values_buffer`, which is untyped
-    data_type: DataType,
-    /// A buffer containing the values for this field in raw bytes
-    values_buffer: Option<MutableBuffer>,
-    ///  The number of array slots represented by the buffer
-    slots: usize,
-    /// The number of null array slots in this child array
-    null_count: usize,
-    /// A builder for the bitmap if required (for Sparse Unions)
-    bitmap_builder: Option<BooleanBufferBuilder>,
-}
-
-impl FieldData {
-    /// Creates a new `FieldData`.
-    fn new(
-        type_id: i8,
-        data_type: DataType,
-        bitmap_builder: Option<BooleanBufferBuilder>,
-    ) -> Self {
-        Self {
-            type_id,
-            data_type,
-            // TODO: Should `MutableBuffer` implement `Default`?
-            values_buffer: Some(MutableBuffer::new(1)),
-            slots: 0,
-            null_count: 0,
-            bitmap_builder,
-        }
-    }
-
-    /// Appends a single value to this `FieldData`'s `values_buffer`.
-    fn append_to_values_buffer<T: ArrowPrimitiveType>(
-        &mut self,
-        v: T::Native,
-    ) -> Result<()> {
-        let values_buffer = self
-            .values_buffer
-            .take()
-            .expect("Values buffer was never created");
-        let mut builder: BufferBuilder<T> =
-            mutable_buffer_to_builder(values_buffer, self.slots);
-        builder.append(v)?;
-        let mutable_buffer = builder_to_mutable_buffer(builder);
-        self.values_buffer = Some(mutable_buffer);
-
-        self.slots += 1;
-        if let Some(b) = &mut self.bitmap_builder {
-            b.append(true)?
-        };
-        Ok(())
-    }
-
-    /// Appends a null to this `FieldData`.
-    fn append_null<T: ArrowPrimitiveType>(&mut self) -> Result<()> {
-        if let Some(b) = &mut self.bitmap_builder {
-            let values_buffer = self
-                .values_buffer
-                .take()
-                .expect("Values buffer was never created");
-            let mut builder: BufferBuilder<T> =
-                mutable_buffer_to_builder(values_buffer, self.slots);
-            builder.advance(1)?;
-            let mutable_buffer = builder_to_mutable_buffer(builder);
-            self.values_buffer = Some(mutable_buffer);
-            self.slots += 1;
-            self.null_count += 1;
-            b.append(false)?;
-        };
-        Ok(())
-    }
-
-    /// Appends a null to this `FieldData` when the type is not known at compile time.
-    ///
-    /// As the main `append` method of `UnionBuilder` is generic, we need a way to append null
-    /// slots to the fields that are not being appended to in the case of sparse unions.  This
-    /// method solves this problem by appending dynamically based on `DataType`.
-    ///
-    /// Note, this method does **not** update the length of the `UnionArray` (this is done by the
-    /// main append operation) and assumes that it is called from a method that is generic over `T`
-    /// where `T` satisfies the bound `ArrowPrimitiveType`.
-    fn append_null_dynamic(&mut self) -> Result<()> {
-        match self.data_type {
-            DataType::Null => unimplemented!(),
-            DataType::Boolean => self.append_null::<BooleanType>()?,
-            DataType::Int8 => self.append_null::<Int8Type>()?,
-            DataType::Int16 => self.append_null::<Int16Type>()?,
-            DataType::Int32
-            | DataType::Date32(_)
-            | DataType::Time32(_)
-            | DataType::Interval(IntervalUnit::YearMonth) => {
-                self.append_null::<Int32Type>()?
-            }
-            DataType::Int64
-            | DataType::Timestamp(_, _)
-            | DataType::Date64(_)
-            | DataType::Time64(_)
-            | DataType::Interval(IntervalUnit::DayTime)
-            | DataType::Duration(_) => self.append_null::<Int64Type>()?,
-            DataType::UInt8 => self.append_null::<UInt8Type>()?,
-            DataType::UInt16 => self.append_null::<UInt16Type>()?,
-            DataType::UInt32 => self.append_null::<UInt32Type>()?,
-            DataType::UInt64 => self.append_null::<UInt64Type>()?,
-            DataType::Float32 => self.append_null::<Float32Type>()?,
-            DataType::Float64 => self.append_null::<Float64Type>()?,
-            _ => unreachable!("All cases of types that satisfy the trait bounds over T are covered above."),
-        };
-        Ok(())
-    }
-}
-
-/// Builder type for creating a new `UnionArray`.
-#[derive(Debug)]
-pub struct UnionBuilder {
-    /// The current number of slots in the array
-    len: usize,
-    /// Maps field names to `FieldData` instances which track the builders for that field
-    fields: HashMap<String, FieldData>,
-    /// Builder to keep track of type ids
-    type_id_builder: Int8BufferBuilder,
-    /// Builder to keep track of offsets (`None` for sparse unions)
-    value_offset_builder: Option<Int32BufferBuilder>,
-    /// Optional builder for null slots
-    bitmap_builder: Option<BooleanBufferBuilder>,
-}
-
-impl UnionBuilder {
-    /// Creates a new dense array builder.
-    pub fn new_dense(capacity: usize) -> Self {
-        Self {
-            len: 0,
-            fields: HashMap::default(),
-            type_id_builder: Int8BufferBuilder::new(capacity),
-            value_offset_builder: Some(Int32BufferBuilder::new(capacity)),
-            bitmap_builder: None,
-        }
-    }
-
-    /// Creates a new sparse array builder.
-    pub fn new_sparse(capacity: usize) -> Self {
-        Self {
-            len: 0,
-            fields: HashMap::default(),
-            type_id_builder: Int8BufferBuilder::new(capacity),
-            value_offset_builder: None,
-            bitmap_builder: None,
-        }
-    }
-
-    /// Appends a null to this builder.
-    pub fn append_null(&mut self) -> Result<()> {
-        if self.bitmap_builder.is_none() {
-            let mut builder = BooleanBufferBuilder::new(self.len + 1);
-            for _ in 0..self.len {
-                builder.append(true)?;
-            }
-            self.bitmap_builder = Some(builder)
-        }
-        self.bitmap_builder
-            .as_mut()
-            .expect("Cannot be None")
-            .append(false)?;
-
-        self.type_id_builder.append(i8::default())?;
-
-        // Handle sparse union
-        if self.value_offset_builder.is_none() {
-            for (_, fd) in self.fields.iter_mut() {
-                fd.append_null_dynamic()?;
-            }
-        }
-        self.len += 1;
-        Ok(())
-    }
-
-    /// Appends a value to this builder.
-    pub fn append<T: ArrowPrimitiveType>(
-        &mut self,
-        type_name: &str,
-        v: T::Native,
-    ) -> Result<()> {
-        let type_name = type_name.to_string();
-
-        let mut field_data = match self.fields.remove(&type_name) {
-            Some(data) => data,
-            None => match self.value_offset_builder {
-                Some(_) => FieldData::new(self.fields.len() as i8, T::DATA_TYPE, None),
-                None => {
-                    let mut fd = FieldData::new(
-                        self.fields.len() as i8,
-                        T::DATA_TYPE,
-                        Some(BooleanBufferBuilder::new(1)),
-                    );
-                    for _ in 0..self.len {
-                        fd.append_null::<T>()?;
-                    }
-                    fd
-                }
-            },
-        };
-        self.type_id_builder.append(field_data.type_id)?;
-
-        match &mut self.value_offset_builder {
-            // Dense Union
-            Some(offset_builder) => {
-                offset_builder.append(field_data.slots as i32)?;
-            }
-            // Sparse Union
-            None => {
-                for (name, fd) in self.fields.iter_mut() {
-                    if name != &type_name {
-                        fd.append_null_dynamic()?;
-                    }
-                }
-            }
-        }
-        field_data.append_to_values_buffer::<T>(v)?;
-        self.fields.insert(type_name, field_data);
-
-        // Update the bitmap builder if it exists
-        if let Some(b) = &mut self.bitmap_builder {
-            b.append(true)?;
-        }
-        self.len += 1;
-        Ok(())
-    }
-
-    /// Builds this builder creating a new `UnionArray`.
-    pub fn build(mut self) -> Result<UnionArray> {
-        let type_id_buffer = self.type_id_builder.finish();
-        let value_offsets_buffer = self.value_offset_builder.map(|mut b| b.finish());
-        let mut children = Vec::new();
-        for (
-            name,
-            FieldData {
-                type_id,
-                data_type,
-                values_buffer,
-                slots,
-                bitmap_builder,
-                null_count,
-            },
-        ) in self.fields.into_iter()
-        {
-            let buffer = values_buffer
-                .expect("The `values_buffer` should only ever be None inside the `append` method.")
-                .freeze();
-            let arr_data_builder = ArrayDataBuilder::new(data_type.clone())
-                .add_buffer(buffer)
-                .null_count(null_count)
-                .len(slots);
-            //                .build();
-            let arr_data_ref = match bitmap_builder {
-                Some(mut bb) => arr_data_builder.null_bit_buffer(bb.finish()).build(),
-                None => arr_data_builder.build(),
-            };
-            let array_ref = make_array(arr_data_ref);
-            children.push((type_id, (Field::new(&name, data_type, false), array_ref)))
-        }
-
-        children.sort_by(|a, b| {
-            a.0.partial_cmp(&b.0)
-                .expect("This will never be None as type ids are always i8 values.")
-        });
-        let children: Vec<_> = children.into_iter().map(|(_, b)| b).collect();
-        let bitmap = self.bitmap_builder.map(|mut b| b.finish());
-
-        UnionArray::try_new(type_id_buffer, value_offsets_buffer, children, bitmap)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -637,7 +357,7 @@ mod tests {
     use crate::datatypes::{DataType, Field, ToByteSlice};
 
     #[test]
-    fn test_dense_union_i32() {
+    fn test_dense_i32() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<Int32Type>("b", 2).unwrap();
@@ -706,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_union_mixed() {
+    fn test_dense_mixed() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", false).unwrap();
@@ -770,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_union_mixed_with_nulls() {
+    fn test_dense_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", false).unwrap();
@@ -834,7 +554,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_union_mixed_with_nulls_and_offset() {
+    fn test_dense_mixed_with_nulls_and_offset() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", false).unwrap();
@@ -873,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_union_mixed_with_str() {
+    fn test_dense_mixed_with_str() {
         let string_array = StringArray::from(vec!["foo", "bar", "baz"]);
         let int_array = Int32Array::from(vec![5, 6]);
         let float_array = Float64Array::from(vec![10.0]);
@@ -965,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_union_i32() {
+    fn test_sparse_i32() {
         let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<Int32Type>("b", 2).unwrap();
@@ -1017,7 +737,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_union_mixed() {
+    fn test_sparse_mixed() {
         let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", true).unwrap();
@@ -1094,7 +814,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_union_mixed_with_nulls() {
+    fn test_sparse_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", true).unwrap();
@@ -1155,7 +875,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_union_mixed_with_nulls_and_offset() {
+    fn test_sparse_mixed_with_nulls_and_offset() {
         let mut builder = UnionBuilder::new_sparse(7);
         builder.append::<Int32Type>("a", 1).unwrap();
         builder.append::<BooleanType>("b", true).unwrap();
