@@ -219,7 +219,7 @@ Status ChunkedArray::ValidateFull() const {
   RETURN_NOT_OK(Validate());
   for (size_t i = 0; i < chunks_.size(); ++i) {
     const Array& chunk = *chunks_[i];
-    const Status st = internal::ValidateArrayData(chunk);
+    const Status st = internal::ValidateArrayFull(chunk);
     if (!st.ok()) {
       return Status::Invalid("In chunk ", i, ": ", st.ToString());
     }
