@@ -37,5 +37,5 @@ class ARROW_FLIGHT_EXPORT ClientCookieMiddlewareFactory : public ClientMiddlewar
   std::unique_ptr<Impl> impl_;
 };
 
-} a // namespace flight
+}  // namespace flight
 }  // namespace arrow

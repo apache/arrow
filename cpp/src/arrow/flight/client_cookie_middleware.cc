@@ -20,10 +20,15 @@
 // Platform-specific defines
 #include "arrow/flight/platform.h"
 
+#include "arrow/util/make_unique.h"
+
+#include <map>
+#include <mutex>
+#include <string>
+
 namespace {
-  class Cookie {
-   public:
-    static Cookie parse(const util::string_view& cookie_value) {
+  struct Cookie {
+    static Cookie parse(const arrow::util::string_view& cookie_value) {
       // Parse the cookie string. If the cookie has an expiration, record it.
       // If the cookie has a max-age, calculate the current time + max_age and set that as the expiration.
       return Cookie();
@@ -40,15 +45,34 @@ namespace {
       return "";
     }
 
-   private:
     std::string cookie_name_;
     std::string cookie_value_;
     time_t expiration_time_;
     bool is_v1_cookie_;
   };
+} // end of anonymous namespace
 
+namespace arrow {
+
+namespace flight {
+
+using CookieCache = std::map<std::string, Cookie>;
+
+class ClientCookieMiddlewareFactory::Impl {
+ public:
+  void StartCall(const CallInfo& info,
+                            std::unique_ptr<ClientMiddleware>* middleware) {
+    ARROW_UNUSED(info);
+    *middleware = internal::make_unique<ClientCookieMiddleware>(*this);
+  }
+ private:
   class ClientCookieMiddleware : public ClientMiddleware {
    public:
+    // This is public so that it can be used with make_unique.
+    ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl) :
+     factory_impl_(factory_impl) {
+    }
+
     void SendingHeaders(AddCallHeaders* outgoing_headers) override {
       const std::string& cookie_string = factory_impl_.GetValidCookiesAsString();
       if (!cookie_string.empty()) {
@@ -57,56 +81,45 @@ namespace {
     }
 
     void ReceivedHeaders(const CallHeaders& incoming_headers) override {
-      const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+      const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& cookie_header_values =
         incoming_headers.equal_range("Set-Cookie");
-      for (auto it = iter_pair.first; it != iter_pair.second; ++it) {
-        // Alternatively we can send every cookie to the factory in one call to reduce
-        // the amount of locking (by sending the interval of Set-Cookie values).
-        const util::string_view& value = (*iter_pair.first).second;
-        factory_impl_.UpdateCachedCookie(value);
-      }
-
-      factory_impl_.DiscardExpiredCookies();
+      factory_impl_.UpdateCachedCookies(cookie_header_values);
     }
 
     void CallCompleted(const Status& status) override {
     }
    private:
     ClientCookieMiddlewareFactory::Impl& factory_impl_;
-    ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl) :
-     factory_impl_(factory_impl) {
-    }
   };
-} // end of anonymous namespace
 
-namespace arrow {
+  // Retrieve the cached cookie values as a string.
+  //
+  // @return a string that can be used in a Cookie header representing the cookies that have been cached.
+  std::string GetValidCookiesAsString() {
+    const std::lock_guard<std::mutex> guard(mutex_);
 
-namespace flight {
-
-using CookieCache = std::map<std::string, std::string>;
-
-class ClientCookieMiddlewareFactory::Impl {
- public:
-  void StartCall(const CallInfo& info,
-                            std::unique_ptr<ClientMiddleware>* middleware) {
-    ARROW_UNUSED(info);
-    std::unique_ptr<ClientCookieMiddleware> cookie_middleware = std::make_shared<ClientCookieMiddleware>();
-    cookie_middleware->impl_ = std::make_shared(*this);
-    *middleware = std::move(cookie_middleware);
-  }
- private:
-  std::string GetValidCookiesAsString() const {
+    DiscardExpiredCookies();
     return "";
   }
 
-  void UpdateCachedCookie(const util::string_view& cookie_value) {
-    std::lock_guard<std::mutex> guard(mutex_);
+  // Updates the cache of cookies with new Set-Cookie header values.
+  //
+  // @param header_values The range representing header values.
+  void UpdateCachedCookies(const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& header_values) {
+    const std::lock_guard<std::mutex> guard(mutex_);
 
-    // Parse the Set-Cookie header values here
+    for (auto it = header_values.first; it != header_values.second; ++it) {
+      const util::string_view& value = header_values.first->second;
+      Cookie cookie = Cookie::parse(value);
+      cookie_cache_.insert({cookie.cookie_name_, cookie});
+    }
+
+    DiscardExpiredCookies();
   }
 
+  // Removes cookies that are marked as expired from the cache.
   void DiscardExpiredCookies() {
-    std::lock_guard<std::mutex> guard(mutex_);
+    const std::lock_guard<std::mutex> guard(mutex_);
 
     for (auto it = cookie_cache_.begin(); it != cookie_cache_.end(); ) {
       if (it->second.IsExpired()) {
@@ -117,12 +130,13 @@ class ClientCookieMiddlewareFactory::Impl {
     }
   }
 
+  // The cached cookies. Access should be protected by mutex_.
   CookieCache cookie_cache_;
   std::mutex mutex_;
 };
 
 ClientCookieMiddlewareFactory::ClientCookieMiddlewareFactory() :
- impl_(std::make_shared<>()) {
+ impl_(internal::make_unique<ClientCookieMiddlewareFactory::Impl>()) {
 }
 
 }  // namespace flight
