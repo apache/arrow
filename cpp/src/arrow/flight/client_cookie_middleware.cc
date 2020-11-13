@@ -46,6 +46,37 @@ namespace {
     time_t expiration_time_;
     bool is_v1_cookie_;
   };
+
+  class ClientCookieMiddleware : public ClientMiddleware {
+   public:
+    void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+      const std::string& cookie_string = factory_impl_.GetValidCookiesAsString();
+      if (!cookie_string.empty()) {
+        outgoing_headers->AddHeader("Cookie", cookie_string);
+      }
+    }
+
+    void ReceivedHeaders(const CallHeaders& incoming_headers) override {
+      const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+        incoming_headers.equal_range("Set-Cookie");
+      for (auto it = iter_pair.first; it != iter_pair.second; ++it) {
+        // Alternatively we can send every cookie to the factory in one call to reduce
+        // the amount of locking (by sending the interval of Set-Cookie values).
+        const util::string_view& value = (*iter_pair.first).second;
+        factory_impl_.UpdateCachedCookie(value);
+      }
+
+      factory_impl_.DiscardExpiredCookies();
+    }
+
+    void CallCompleted(const Status& status) override {
+    }
+   private:
+    ClientCookieMiddlewareFactory::Impl& factory_impl_;
+    ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl) :
+     factory_impl_(factory_impl) {
+    }
+  };
 } // end of anonymous namespace
 
 namespace arrow {
@@ -54,38 +85,7 @@ namespace flight {
 
 using CookieCache = std::map<std::string, std::string>;
 
-class ClientCookieMiddleware::Impl {
- public:
-  void SendingHeaders(AddCallHeaders* outgoing_headers) {
-    const std::string& cookie_string = factory_impl_.GetValidCookiesAsString();
-    if (!cookie_string.empty()) {
-      outgoing_headers->AddHeader("Cookie", cookie_string);
-    }
-  }
-
-  void ReceivedHeaders(const CallHeaders& incoming_headers) {
-    const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-      incoming_headers.equal_range("Set-Cookie");
-    for (auto it = iter_pair.first; it != iter_pair.second; ++it) {
-      // Alternatively we can send every cookie to the factory in one call to reduce
-      // the amount of locking (by sending the interval of Set-Cookie values).
-      const util::string_view& value = (*iter_pair.first).second;
-      factory_impl_.UpdateCachedCookie(value);
-    }
-
-    factory_impl_.DiscardExpiredCookies();
-  }
-
-  void CallCompleted(const Status& status) {
-  }
- private:
-  Factory::Impl factory_impl_;
-  Impl(Factory::Impl& factory_impl) :
-   factory_impl_(factory_impl) {
-   }
-};
-
-class ClientCookieMiddleware::Factory::Impl {
+class ClientCookieMiddlewareFactory::Impl {
  public:
   void StartCall(const CallInfo& info,
                             std::unique_ptr<ClientMiddleware>* middleware) {
@@ -121,24 +121,8 @@ class ClientCookieMiddleware::Factory::Impl {
   std::mutex mutex_;
 };
 
-void ClientCookieMiddleware::SendingHeaders(AddCallHeaders* outgoing_headers) {
-  impl_->SendingHeaders(outgoing_headers);
-}
-
-void ClientCookieMiddleware::ReceivedHeaders(const CallHeaders& incoming_headers) {
-  impl_->ReceivedHeaders(incoming_headers);
-}
-
-void ClientCookieMiddleware::CallCompleted(const Status& status) {
-  impl_->CallCompleted(status);
-}
-
-ClientCookieMiddleware::ClientCookieMiddleware() {
-}
-
-ClientCookieMiddleware::Factory::Factory() :
+ClientCookieMiddlewareFactory::ClientCookieMiddlewareFactory() :
  impl_(std::make_shared<>()) {
-
 }
 
 }  // namespace flight

@@ -27,29 +27,15 @@ namespace arrow {
 namespace flight {
 
 /// \brief Client-side middleware for sending/receiving HTTP cookies.
-class ARROW_FLIGHT_EXPORT ClientCookieMiddleware : public ClientMiddleware {
+class ARROW_FLIGHT_EXPORT ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
  public:
-  void SendingHeaders(AddCallHeaders* outgoing_headers) override;
-
-  void ReceivedHeaders(const CallHeaders& incoming_headers) override;
-
-  void CallCompleted(const Status& status) override;
-
-  class Factory : public ClientMiddlewareFactory {
-   public:
-     void StartCall(const CallInfo& info,
-                            std::unique_ptr<ClientMiddleware>* middleware) override;
-   private:
-     Factory();
-     class Impl;
-     std::unique_ptr<Factory::Impl> impl_;
-  };
-
+  ClientCookieMiddlewareFactory();
+  void StartCall(const CallInfo& info,
+                        std::unique_ptr<ClientMiddleware>* middleware) override;
  private:
-  ClientCookieMiddleware();
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace flight
+} a // namespace flight
 }  // namespace arrow
