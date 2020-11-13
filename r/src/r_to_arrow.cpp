@@ -52,7 +52,9 @@ struct RConversionOptions {
   int64_t size;
 };
 
-using RConverter = Converter<SEXP, RConversionOptions>;
+struct RObject {};
+
+using RConverter = Converter<RObject*, RConversionOptions>;
 
 // TODO: this needs various versions as what python does:
 // class PyPrimitiveConverter<T, enable_if_null<T>>
@@ -79,7 +81,10 @@ using RConverter = Converter<SEXP, RConversionOptions>;
 template <typename T, typename Enable = void>
 class RPrimitiveConverter : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(SEXP value) { return Status::OK(); }
+  Status Append(RObject* value) {
+    Rprintf("T = %s\n", arrow::util::nameof<T>().c_str());
+    return Status::OK();
+  }
 };
 
 template <typename T>
@@ -98,7 +103,7 @@ class RListConverter;
 template <typename U, typename Enable = void>
 class RDictionaryConverter : public DictionaryConverter<U, RConverter> {
  public:
-  Status Append(SEXP value) { return Status::OK(); }
+  Status Append(RObject* value) { return Status::OK(); }
 };
 
 class RStructConverter;
@@ -121,7 +126,7 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Append(SEXP value) { return Status::OK(); }
+  Status Append(RObject* value) { return Status::OK(); }
 };
 
 template <>
@@ -130,8 +135,16 @@ struct RConverterTrait<StructType> {
 };
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
- public:
-  Status Append(SEXP value) { return Status::OK(); }
+public:
+  Status Append(RObject* value) override {
+    return Status::OK();
+  }
+
+protected:
+Status Init(MemoryPool* pool) override {
+  RETURN_NOT_OK((StructConverter<RConverter, RConverterTrait>::Init(pool)));
+  return Status::OK();
+}
 };
 
 template <>
@@ -157,7 +170,8 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
       options.type, options, gc_memory_pool()));
 
   StopIfNotOk(converter->Reserve(options.size));
-  StopIfNotOk(converter->Append(x));
+  // TODO: iterate and call Append on each value
+  // StopIfNotOk(converter->Append(x));
   return ValueOrStop(converter->ToArray());
 }
 
