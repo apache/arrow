@@ -56,7 +56,8 @@ class MavenDefinition:
         """
         self.source = os.path.abspath(source)
         self.build_definitions = build_definitions if build_definitions else []
-        self.benchmark_definitions = benchmark_definitions if benchmark_definitions else []
+        self.benchmark_definitions =\
+            benchmark_definitions if benchmark_definitions else []
         self.env = env
 
     @property
@@ -64,7 +65,8 @@ class MavenDefinition:
         """" Return the arguments to maven invocation for build. """
         arguments = self.build_definitions + [
             "-B", "-DskipTests", "-Drat.skip=true",
-            "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn",
+            "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer."\
+            "Slf4jMavenTransferListener=warn",
             "-T", "2C", "install"
         ]
         return arguments
@@ -103,7 +105,8 @@ class MavenDefinition:
         """" Return the arguments to maven invocation for benchmark """
         arguments = self.benchmark_definitions + [
             "-Dskip.perf.benchmarks=false", "-Dbenchmark.fork=1",
-            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false -Darrow.enable_unsafe_memory_access=true\"",
+            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false"\
+            "-Darrow.enable_unsafe_memory_access=true\"",
             "install"
         ]
         return arguments
@@ -191,7 +194,7 @@ class MavenBuild(Maven):
         if not MavenBuild.is_build_dir(path):
             raise ValueError("Not a valid MavenBuild path: {}".format(path))
 
-        return MavenBuild(path, definition=none)
+        return MavenBuild(path, definition=None)
 
     def __repr__(self):
         return ("MavenBuild["

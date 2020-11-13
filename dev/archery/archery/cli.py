@@ -451,9 +451,9 @@ def benchmark_list_cpp(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @benchmark.command(name="list_java")
 @click.pass_context
 def benchmark_list_java(ctx, rev_or_path, src, preserve, output, language,
-                        java_home, java_options, build_extras, benchmark_extras,
-                        cmake_extras, cc, cxx, cxx_flags, cpp_package_prefix,
-                        **kwargs):
+                        java_home, java_options, build_extras,
+                        benchmark_extras, cmake_extras, cc, cxx, cxx_flags,
+                        cpp_package_prefix, **kwargs):
     """ List java benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
@@ -461,7 +461,8 @@ def benchmark_list_java(ctx, rev_or_path, src, preserve, output, language,
 
         conf = JavaBenchmarkRunner.default_configuration(
             java_home=java_home, java_options=java_options,
-            build_extras=build_extras, benchmark_extras=benchmark_extras, **kwargs)
+            build_extras=build_extras, benchmark_extras=benchmark_extras,
+            **kwargs)
 
         runner_base = JavaBenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
@@ -556,7 +557,8 @@ def benchmark_run_java(ctx, rev_or_path, src, preserve, output, language,
 
         conf = JavaBenchmarkRunner.default_configuration(
             java_home=java_home, java_options=java_options,
-            build_extras=build_extras, benchmark_extras=benchmark_extras, **kwargs)
+            build_extras=build_extras, benchmark_extras=benchmark_extras,
+            **kwargs)
 
         runner_base = JavaBenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
@@ -700,8 +702,8 @@ def benchmark_diff_cpp(ctx, src, preserve, output, language, cmake_extras,
 @benchmark.command(name="diff_java")
 @click.pass_context
 def benchmark_diff_java(ctx, src, preserve, output, language,
-                        java_home, java_options, build_extras, benchmark_extras,
-                        suite_filter, benchmark_filter,
+                        java_home, java_options, build_extras,
+                        benchmark_extras, suite_filter, benchmark_filter,
                         repetitions, threshold, contender, baseline,
                         cmake_extras, cc, cxx, cxx_flags, cpp_package_prefix,
                         **kwargs):

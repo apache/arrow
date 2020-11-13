@@ -292,7 +292,6 @@ class JavaBenchmarkRunner(BenchmarkRunner):
         Otherwise, it assumes `rev_or_path` is a revision and clone/checkout
         the given revision and create a fresh MavenBuild.
         """
-        build = None
         if StaticBenchmarkRunner.is_json_result(rev_or_path):
             return StaticBenchmarkRunner.from_json(rev_or_path, **kwargs)
         elif MavenBuild.is_build_dir(rev_or_path):
