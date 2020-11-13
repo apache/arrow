@@ -30,6 +30,7 @@ Factory Functions
 
    chunked_array
    combine_chunks
+   concat_arrays
    concat_tables
    record_batch
    table
