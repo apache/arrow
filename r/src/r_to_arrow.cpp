@@ -137,6 +137,17 @@ class RValue {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
+
+  static Result<uint8_t> Convert(const UInt8Type*, const RConversionOptions&,
+                                 RObject* value) {
+    // TODO: handle conversion from other types
+    if (value->rtype == UINT8) {
+      return *reinterpret_cast<uint8_t*>(value->data);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
 };
 
 template <typename T>
@@ -150,6 +161,11 @@ bool is_NA<int>(int value) {
 template <>
 bool is_NA<double>(double value) {
   return ISNA(value);
+}
+
+template <>
+bool is_NA<uint8_t>(uint8_t value) {
+  return false;
 }
 
 template <RVectorType rtype, typename T, class VisitorFunc>
@@ -169,6 +185,9 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   RVectorType rtype = GetVectorType(x);
 
   switch (rtype) {
+    case UINT8:
+      return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
     case INT32:
       return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
@@ -209,6 +228,7 @@ class RPrimitiveConverter<
     T,
     enable_if_t<
         !std::is_same<T, Int32Type>::value && !std::is_same<T, DoubleType>::value &&
+        !std::is_same<T, UInt8Type>::value &&
         (is_boolean_type<T>::value || is_number_type<T>::value ||
          is_decimal_type<T>::value || is_date_type<T>::value || is_time_type<T>::value)>>
     : public PrimitiveConverter<T, RConverter> {
@@ -220,7 +240,8 @@ class RPrimitiveConverter<
 
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, Int32Type>::value ||
-                                         std::is_same<T, DoubleType>::value>>
+                                         std::is_same<T, DoubleType>::value ||
+                                         std::is_same<T, UInt8Type>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RObject* value) {
