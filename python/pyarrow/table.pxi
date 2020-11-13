@@ -309,7 +309,7 @@ cdef class ChunkedArray(_PandasConvertible):
             flattened = GetResultValue(self.chunked_array.Flatten(pool))
 
         return [pyarrow_wrap_chunked_array(col) for col in flattened]
-    
+
     def combine_chunks(self, MemoryPool memory_pool=None):
         """
         Flatten this ChunkedArray into a single non-chunked array.

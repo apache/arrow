@@ -2668,6 +2668,7 @@ def test_concat_array_invalid_type():
     with pytest.raises(TypeError, match="should contain Array objects"):
         pa.concat_arrays(arr)
 
+
 def test_combine_chunks():
     # ARROW-77363
     arr = pa.array([1, 2])
@@ -2675,6 +2676,7 @@ def test_combine_chunks():
     res = chunked_arr.combine_chunks()
     expected = pa.array([1, 2, 1, 2])
     assert res.equals(expected)
+
 
 @pytest.mark.pandas
 def test_to_pandas_timezone():
