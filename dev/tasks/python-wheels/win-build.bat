@@ -26,6 +26,7 @@
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
     --file=arrow\ci\conda_env_cpp.yml ^
     --file=arrow\ci\conda_env_python.yml ^
+    libprotobuf-static ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -45,6 +46,9 @@ pushd arrow\cpp\build
 
 @rem -DARROW_DEPENDENCY_SOURCE=BUNDLED is required because recent
 @rem conda-forge packages don't provide static library.
+@rem
+@rem We can't use bundled protobuf (v3.12.1) because it causes build
+@rem error.
 cmake -A "%ARCH%" ^
       -G "%GENERATOR%" ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -56,9 +60,9 @@ cmake -A "%ARCH%" ^
       -DARROW_GANDIVA=OFF ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_OPENSSL_USE_SHARED=OFF ^
+      -DARROW_PROTOBUF_USE_SHARED=OFF ^
       -DARROW_PARQUET=ON ^
       -DARROW_PYTHON=ON ^
-      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DARROW_WITH_BROTLI=ON ^
       -DARROW_WITH_BZ2=OFF ^
       -DARROW_WITH_LZ4=ON ^
@@ -68,6 +72,7 @@ cmake -A "%ARCH%" ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
+      -DProtobuf_SOURCE=CONDA ^
       .. || exit /B
 cmake ^
   --build . ^
