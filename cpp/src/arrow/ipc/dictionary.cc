@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/validate.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -191,13 +192,12 @@ struct DictionaryMemo::Impl {
       // corrupted data.  Full validation is necessary for certain types
       // (for example nested dictionaries).
       for (const auto& data : *data_vector) {
-        // This explicit test is required to avoid crashing later
         if (HasUnresolvedNestedDict(*data)) {
           return Status::NotImplemented(
               "Encountered delta dictionary with an unresolved nested dictionary");
         }
+        RETURN_NOT_OK(::arrow::internal::ValidateArrayFull(*data));
         to_combine.push_back(MakeArray(data));
-        RETURN_NOT_OK(to_combine.back()->ValidateFull());
       }
       ARROW_ASSIGN_OR_RAISE(auto combined_dict, Concatenate(to_combine, pool));
       *data_vector = {combined_dict->data()};

@@ -19,7 +19,6 @@ use std::any::Any;
 use std::borrow::Borrow;
 use std::convert::From;
 use std::fmt;
-use std::io::Write;
 use std::iter::{FromIterator, IntoIterator};
 use std::mem;
 use std::sync::Arc;
@@ -309,9 +308,9 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
         iter.enumerate().for_each(|(i, item)| {
             if let Some(a) = item.borrow() {
                 bit_util::set_bit(null_slice, i);
-                val_buf.write_all(a.to_byte_slice()).unwrap();
+                val_buf.extend_from_slice(a.to_byte_slice());
             } else {
-                val_buf.write_all(&null).unwrap();
+                val_buf.extend_from_slice(&null);
             }
         });
 
@@ -406,11 +405,9 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
             for (i, v) in data.iter().enumerate() {
                 if let Some(n) = v {
                     bit_util::set_bit(null_slice, i);
-                    // unwrap() in the following should be safe here since we've
-                    // made sure enough space is allocated for the values.
-                    val_buf.write_all(&n.to_byte_slice()).unwrap();
+                    val_buf.extend_from_slice(&n.to_byte_slice());
                 } else {
-                    val_buf.write_all(&null).unwrap();
+                    val_buf.extend_from_slice(&null);
                 }
             }
         }

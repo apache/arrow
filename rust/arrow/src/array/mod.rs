@@ -89,6 +89,7 @@ mod array_list;
 mod array_primitive;
 mod array_string;
 mod array_struct;
+mod array_union;
 mod builder;
 mod cast;
 mod data;
@@ -98,7 +99,6 @@ mod iterator;
 mod null;
 mod ord;
 mod raw_pointer;
-mod union;
 
 use crate::datatypes::*;
 
@@ -121,8 +121,8 @@ pub use self::array_primitive::PrimitiveArray;
 pub use self::array_string::LargeStringArray;
 pub use self::array_string::StringArray;
 pub use self::array_struct::StructArray;
+pub use self::array_union::UnionArray;
 pub use self::null::NullArray;
-pub use self::union::UnionArray;
 
 pub use self::array::make_array;
 
@@ -218,7 +218,7 @@ pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
-pub use self::union::UnionBuilder;
+pub use self::builder::UnionBuilder;
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;
