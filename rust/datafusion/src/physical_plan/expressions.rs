@@ -30,7 +30,7 @@ use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
-use arrow::compute::kernels::boolean::{and, or, nullif};
+use arrow::compute::kernels::boolean::{and, nullif, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
@@ -48,9 +48,9 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        Array, ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
@@ -1535,7 +1535,6 @@ pub fn binary(
     Ok(Arc::new(BinaryExpr::new(l, op, r)))
 }
 
-
 /// Invoke a compute kernel on a primitive array and a Boolean Array
 macro_rules! compute_bool_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
@@ -1565,7 +1564,7 @@ macro_rules! primitive_bool_array_op {
             DataType::UInt64 => compute_bool_array_op!($LEFT, $RIGHT, $OP, UInt64Array),
             DataType::Float32 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Float64Array),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for NULLIF/primitive/boolean operator",
                 other
             ))),
@@ -1580,7 +1579,7 @@ macro_rules! primitive_bool_array_op {
 ///
 pub fn nullif_func(args: &[ArrayRef]) -> Result<ArrayRef> {
     if args.len() != 2 {
-        return Err(ExecutionError::General(format!(
+        return Err(DataFusionError::Internal(format!(
             "{:?} args were supplied but NULLIF takes exactly two args",
             args.len(),
         )));
@@ -1609,7 +1608,6 @@ pub static SUPPORTED_NULLIF_TYPES: &'static [DataType] = &[
     DataType::Float32,
     DataType::Float64,
 ];
-
 
 /// Not expression
 #[derive(Debug)]

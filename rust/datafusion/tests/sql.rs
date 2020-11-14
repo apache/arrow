@@ -508,12 +508,12 @@ async fn csv_query_avg_multi_batch() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn csv_query_nullif_divide_by_0() -> Result<()> {
+#[tokio::test]
+async fn csv_query_nullif_divide_by_0() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT c8/nullif(c7, 0) FROM aggregate_test_100";
-    let actual = execute(&mut ctx, sql).join("\n");
+    let actual = execute(&mut ctx, sql).await[0].join("\n");
     let expected = "1722\n92\n46\n679\n165\n146\n149\n93\n2211\n6495\n307\n139\n253\n123\n21\n84\n98\n13\n230\n\
        277\n1\n986\n414\n144\n210\n0\n172\n165\n25\n97\n335\n558\n350\n369\n511\n245\n345\n8\n139\n55\n318\n2614\n\
        1792\n16\n345\n123\n176\n1171\n20\n199\n147\n115\n335\n23\n847\n94\n315\n391\n176\n282\n459\n197\n978\n281\n\

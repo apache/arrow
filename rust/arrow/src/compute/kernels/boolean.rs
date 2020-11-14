@@ -273,7 +273,7 @@ where
 
     // Construct new array with same values but modified null bitmap
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         left.len(),
         Some(left.len()),
         modified_null_buffer,

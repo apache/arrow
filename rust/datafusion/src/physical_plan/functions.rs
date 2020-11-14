@@ -279,7 +279,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
         }
-        BuiltinScalarFunction::NullIf => Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec()),
+        BuiltinScalarFunction::NullIf => {
+            Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
+        }
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
