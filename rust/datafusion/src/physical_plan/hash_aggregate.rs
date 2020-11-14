@@ -21,15 +21,17 @@ use std::any::Any;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures::stream::{Stream, StreamExt, TryStreamExt};
-use futures::FutureExt;
+use futures::{
+    stream::{Stream, StreamExt},
+    Future,
+};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-use arrow::error::Result as ArrowResult;
+use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
@@ -38,6 +40,7 @@ use arrow::{
     },
     compute,
 };
+use pin_project_lite::pin_project;
 
 use fnv::FnvHashMap;
 
@@ -214,13 +217,13 @@ Example: average
 * Once all N record batches arrive, `merge` is performed, which builds a RecordBatch with N rows and 2 columns.
 * Finally, `get_value` returns an array with one entry computed from the state
 */
-struct GroupedHashAggregateStream {
-    mode: AggregateMode,
-    schema: SchemaRef,
-    group_expr: Vec<Arc<dyn PhysicalExpr>>,
-    aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: SendableRecordBatchStream,
-    finished: bool,
+pin_project! {
+    struct GroupedHashAggregateStream {
+        schema: SchemaRef,
+        #[pin]
+        output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
+        finished: bool,
+    }
 }
 
 fn group_aggregate_batch(
@@ -315,6 +318,41 @@ fn group_aggregate_batch(
     Ok(accumulators)
 }
 
+async fn compute_grouped_hash_aggregate(
+    mode: AggregateMode,
+    schema: SchemaRef,
+    group_expr: Vec<Arc<dyn PhysicalExpr>>,
+    aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+    mut input: SendableRecordBatchStream,
+) -> ArrowResult<RecordBatch> {
+    // the expressions to evaluate the batch, one vec of expressions per aggregation
+    let aggregate_expressions = aggregate_expressions(&aggr_expr, &mode)
+        .map_err(DataFusionError::into_arrow_external_error)?;
+
+    // mapping key -> (set of accumulators, indices of the key in the batch)
+    // * the indexes are updated at each row
+    // * the accumulators are updated at the end of each batch
+    // * the indexes are `clear`ed at the end of each batch
+    //let mut accumulators: Accumulators = FnvHashMap::default();
+
+    // iterate over all input batches and update the accumulators
+    let mut accumulators = Accumulators::default();
+    while let Some(batch) = input.next().await {
+        let batch = batch?;
+        accumulators = group_aggregate_batch(
+            &mode,
+            &group_expr,
+            &aggr_expr,
+            batch,
+            accumulators,
+            &aggregate_expressions,
+        )
+        .map_err(DataFusionError::into_arrow_external_error)?;
+    }
+
+    create_batch_from_map(&mode, &accumulators, group_expr.len(), &schema)
+}
+
 impl GroupedHashAggregateStream {
     /// Create a new HashAggregateStream
     pub fn new(
@@ -324,12 +362,24 @@ impl GroupedHashAggregateStream {
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
     ) -> Self {
+        let (tx, rx) = futures::channel::oneshot::channel();
+
+        let schema_clone = schema.clone();
+        tokio::spawn(async move {
+            let result = compute_grouped_hash_aggregate(
+                mode,
+                schema_clone,
+                group_expr,
+                aggr_expr,
+                input,
+            )
+            .await;
+            tx.send(result)
+        });
+
         GroupedHashAggregateStream {
-            mode,
             schema,
-            group_expr,
-            aggr_expr,
-            input,
+            output: rx,
             finished: false,
         }
     }
@@ -342,63 +392,30 @@ impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         if self.finished {
             return Poll::Ready(None);
         }
 
-        // return single batch
-        self.finished = true;
+        // is the output ready?
+        let this = self.project();
+        let output_poll = this.output.poll(cx);
 
-        let mode = self.mode.clone();
-        let group_expr = self.group_expr.clone();
-        let aggr_expr = self.aggr_expr.clone();
-        let schema = self.schema.clone();
+        match output_poll {
+            Poll::Ready(result) => {
+                *this.finished = true;
 
-        // the expressions to evaluate the batch, one vec of expressions per aggregation
-        let aggregate_expressions = match aggregate_expressions(&aggr_expr, &mode) {
-            Ok(e) => e,
-            Err(e) => {
-                return Poll::Ready(Some(Err(
-                    DataFusionError::into_arrow_external_error(e),
-                )))
+                // check for error in receiving channel and unwrap actual result
+                let result = match result {
+                    Err(e) => Err(ArrowError::ExternalError(Box::new(e))), // error receiving
+                    Ok(result) => result,
+                };
+                Poll::Ready(Some(result))
             }
-        };
-
-        // mapping key -> (set of accumulators, indices of the key in the batch)
-        // * the indexes are updated at each row
-        // * the accumulators are updated at the end of each batch
-        // * the indexes are `clear`ed at the end of each batch
-        //let mut accumulators: Accumulators = FnvHashMap::default();
-
-        // iterate over all input batches and update the accumulators
-        let future = self.input.as_mut().try_fold(
-            Accumulators::default(),
-            |accumulators, batch| async {
-                group_aggregate_batch(
-                    &mode,
-                    &group_expr,
-                    &aggr_expr,
-                    batch,
-                    accumulators,
-                    &aggregate_expressions,
-                )
-                .map_err(DataFusionError::into_arrow_external_error)
-            },
-        );
-
-        let future = future.map(|maybe_accumulators| {
-            maybe_accumulators.map(|accumulators| {
-                create_batch_from_map(&mode, &accumulators, group_expr.len(), &schema)
-            })?
-        });
-
-        // send the stream to the heap, so that it outlives this function.
-        let mut combined = Box::pin(future.into_stream());
-
-        combined.poll_next_unpin(cx)
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -462,12 +479,41 @@ fn aggregate_expressions(
     }
 }
 
-struct HashAggregateStream {
+pin_project! {
+    struct HashAggregateStream {
+        schema: SchemaRef,
+        #[pin]
+        output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
+        finished: bool,
+    }
+}
+
+async fn compute_hash_aggregate(
     mode: AggregateMode,
     schema: SchemaRef,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: SendableRecordBatchStream,
-    finished: bool,
+    mut input: SendableRecordBatchStream,
+) -> ArrowResult<RecordBatch> {
+    let mut accumulators = create_accumulators(&aggr_expr)
+        .map_err(DataFusionError::into_arrow_external_error)?;
+
+    let expressions = aggregate_expressions(&aggr_expr, &mode)
+        .map_err(DataFusionError::into_arrow_external_error)?;
+
+    let expressions = Arc::new(expressions);
+
+    // 1 for each batch, update / merge accumulators with the expressions' values
+    // future is ready when all batches are computed
+    while let Some(batch) = input.next().await {
+        let batch = batch?;
+        accumulators = aggregate_batch(&mode, &batch, accumulators, &expressions)
+            .map_err(DataFusionError::into_arrow_external_error)?;
+    }
+
+    // 2. convert values to a record batch
+    finalize_aggregation(&accumulators, &mode)
+        .map(|columns| RecordBatch::try_new(schema.clone(), columns))
+        .map_err(DataFusionError::into_arrow_external_error)?
 }
 
 impl HashAggregateStream {
@@ -478,11 +524,18 @@ impl HashAggregateStream {
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
     ) -> Self {
+        let (tx, rx) = futures::channel::oneshot::channel();
+
+        let schema_clone = schema.clone();
+        tokio::spawn(async move {
+            let result =
+                compute_hash_aggregate(mode, schema_clone, aggr_expr, input).await;
+            tx.send(result)
+        });
+
         HashAggregateStream {
-            mode,
             schema,
-            aggr_expr,
-            input,
+            output: rx,
             finished: false,
         }
     }
@@ -527,65 +580,31 @@ impl Stream for HashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         if self.finished {
             return Poll::Ready(None);
         }
 
-        // return single batch
-        self.finished = true;
+        // is the output ready?
+        let this = self.project();
+        let output_poll = this.output.poll(cx);
 
-        let accumulators = match create_accumulators(&self.aggr_expr) {
-            Ok(e) => e,
-            Err(e) => {
-                return Poll::Ready(Some(Err(
-                    DataFusionError::into_arrow_external_error(e),
-                )))
+        match output_poll {
+            Poll::Ready(result) => {
+                *this.finished = true;
+
+                // check for error in receiving channel and unwrap actual result
+                let result = match result {
+                    Err(e) => Err(ArrowError::ExternalError(Box::new(e))), // error receiving
+                    Ok(result) => result,
+                };
+
+                Poll::Ready(Some(result))
             }
-        };
-
-        let expressions = match aggregate_expressions(&self.aggr_expr, &self.mode) {
-            Ok(e) => e,
-            Err(e) => {
-                return Poll::Ready(Some(Err(
-                    DataFusionError::into_arrow_external_error(e),
-                )))
-            }
-        };
-        let expressions = Arc::new(expressions);
-
-        let mode = self.mode;
-        let schema = self.schema();
-
-        // 1 for each batch, update / merge accumulators with the expressions' values
-        // future is ready when all batches are computed
-        let future = self
-            .input
-            .as_mut()
-            .try_fold(
-                // pass the expressions on every fold to handle closures' mutability
-                (accumulators, expressions),
-                |(acc, expr), batch| async move {
-                    aggregate_batch(&mode, &batch, acc, &expr)
-                        .map_err(DataFusionError::into_arrow_external_error)
-                        .map(|agg| (agg, expr))
-                },
-            )
-            // pick the accumulators (disregard the expressions)
-            .map(|e| e.map(|e| e.0));
-
-        let future = future.map(|maybe_accumulators| {
-            maybe_accumulators.map(|accumulators| {
-                // 2. convert values to a record batch
-                finalize_aggregation(&accumulators, &mode)
-                    .map_err(DataFusionError::into_arrow_external_error)
-                    .and_then(|columns| RecordBatch::try_new(schema.clone(), columns))
-            })?
-        });
-
-        Box::pin(future.into_stream()).poll_next_unpin(cx)
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
