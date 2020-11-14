@@ -116,3 +116,7 @@ harness = false
 [[bench]]
 name = "equal"
 harness = false
+
+[[bench]]
+name = "array_slice"
+harness = false
