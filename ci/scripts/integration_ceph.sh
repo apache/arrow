@@ -92,6 +92,10 @@ ceph osd tree
 
 export CEPH_CONF="/etc/ceph/ceph.conf"
 mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
+mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
+cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
+
+debug/arrow-cls-cls-arrow-test
 
 popd

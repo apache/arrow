@@ -113,7 +113,7 @@ static int read_and_scan(cls_method_context_t hctx, ceph::buffer::list* in,
   return 0;
 }
 
-CLS_INIT(arrow) {
+void __cls_init() {
   CLS_LOG(0, "loading cls_arrow");
 
   cls_register("arrow", &h_class);
