@@ -230,6 +230,8 @@ impl UnionArray {
     pub fn value_offset(&self, index: usize) -> i32 {
         assert!(index - self.offset() < self.len());
         if self.is_dense() {
+            // In format v4 unions had their own validity bitmap and offsets are compressed by omitting null values
+            // Starting with v5 unions don't have a validity bitmap and it's possible to directly index into the offsets buffer
             let valid_slots = match self.data.null_buffer() {
                 Some(b) => b.count_set_bits_offset(0, index),
                 None => index,
