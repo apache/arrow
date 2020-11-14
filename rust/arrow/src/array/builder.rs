@@ -602,7 +602,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = len - null_bit_buffer.count_set_bits();
         let mut builder = ArrayData::builder(T::DATA_TYPE)
             .len(len)
             .add_buffer(self.values_builder.finish());
@@ -619,7 +619,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     pub fn finish_dict(&mut self, values: ArrayRef) -> DictionaryArray<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = len - null_bit_buffer.count_set_bits();
         let data_type = DataType::Dictionary(
             Box::new(T::DATA_TYPE),
             Box::new(values.data_type().clone()),
@@ -831,7 +831,7 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::List(Box::new(Field::new(
             "item",
@@ -1043,7 +1043,7 @@ where
 
         let offset_buffer = self.offsets_builder.finish();
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
             "item",
@@ -1234,7 +1234,7 @@ where
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let nulls = bit_util::count_set_bits(null_bit_buffer.data());
+        let nulls = null_bit_buffer.count_set_bits();
         let data = ArrayData::builder(DataType::FixedSizeList(
             Box::new(Field::new("item", values_data.data_type().clone(), true)),
             self.list_len,
@@ -2134,7 +2134,7 @@ impl StructBuilder {
         }
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = self.len - bit_util::count_set_bits(null_bit_buffer.data());
+        let null_count = self.len - null_bit_buffer.count_set_bits();
         let mut builder = ArrayData::builder(DataType::Struct(self.fields.clone()))
             .len(self.len)
             .child_data(child_data);

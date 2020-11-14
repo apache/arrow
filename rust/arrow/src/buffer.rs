@@ -270,6 +270,22 @@ impl Buffer {
         BitChunks::new(&self, offset, len)
     }
 
+    /// Returns the number of 1-bits in `data`
+    pub fn count_set_bits(&self) -> usize {
+        let len_in_bits = self.len() * 8;
+        self.count_set_bits_offset(0, len_in_bits)
+    }
+
+    /// Returns the number of 1-bits in `data`, starting from `offset` with `length` bits
+    /// inspected. Note that both `offset` and `length` are measured in bits.
+    pub fn count_set_bits_offset(&self, offset: usize, len: usize) -> usize {
+        let chunks = self.bit_chunks(offset, len);
+        let mut count = chunks.iter().map(|c| c.count_ones() as usize).sum();
+        count += chunks.remainder_bits().count_ones() as usize;
+
+        count
+    }
+
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
@@ -806,7 +822,6 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-    use crate::util::bit_util;
     use std::ptr::null_mut;
     use std::thread;
 
@@ -908,11 +923,11 @@ mod tests {
     fn test_with_bitset() {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         let buf = mut_buf.freeze();
-        assert_eq!(512, bit_util::count_set_bits(buf.data()));
+        assert_eq!(512, buf.count_set_bits());
     }
 
     #[test]
@@ -920,12 +935,12 @@ mod tests {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
-        assert_eq!(256, bit_util::count_set_bits(buf.data()));
+        assert_eq!(256, buf.count_set_bits());
     }
 
     #[test]

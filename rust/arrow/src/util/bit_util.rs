@@ -22,19 +22,6 @@ use packed_simd::u8x64;
 
 const BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
-const POPCOUNT_TABLE: [u8; 256] = [
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4,
-    3, 4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5,
-    3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4,
-    3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4,
-    3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5,
-    3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4,
-    3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7,
-    6, 7, 7, 8,
-];
-
 /// Returns the nearest number that is `>=` than `num` and is a multiple of 64
 #[inline]
 pub fn round_upto_multiple_of_64(num: usize) -> usize {
@@ -99,45 +86,6 @@ pub unsafe fn unset_bit_raw(data: *mut u8, i: usize) {
     *data.add(i >> 3) ^= BIT_MASK[i & 7];
 }
 
-/// Returns the number of 1-bits in `data`
-#[inline]
-pub fn count_set_bits(data: &[u8]) -> usize {
-    let mut count: usize = 0;
-    for u in data {
-        count += POPCOUNT_TABLE[*u as usize] as usize;
-    }
-    count
-}
-
-/// Returns the number of 1-bits in `data`, starting from `offset` with `length` bits
-/// inspected. Note that both `offset` and `length` are measured in bits.
-#[inline]
-pub fn count_set_bits_offset(data: &[u8], offset: usize, length: usize) -> usize {
-    let bit_end = offset + length;
-    assert!(bit_end <= (data.len() << 3));
-
-    let byte_start = std::cmp::min(round_upto_power_of_2(offset, 8), bit_end);
-    let num_bytes = (bit_end - byte_start) >> 3;
-
-    let mut result = 0;
-
-    for i in offset..byte_start {
-        if get_bit(data, i) {
-            result += 1;
-        }
-    }
-    for i in 0..num_bytes {
-        result += POPCOUNT_TABLE[data[(byte_start >> 3) + i] as usize] as usize;
-    }
-    for i in (byte_start + (num_bytes << 3))..bit_end {
-        if get_bit(data, i) {
-            result += 1;
-        }
-    }
-
-    result
-}
-
 /// Returns the ceil of `value`/`divisor`
 #[inline]
 pub fn ceil(value: usize, divisor: usize) -> usize {
@@ -172,6 +120,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+    use crate::buffer::Buffer;
     use crate::util::test_util::seedable_rng;
     use rand::Rng;
 
@@ -324,28 +273,53 @@ mod tests {
 
     #[test]
     fn test_count_bits_slice() {
-        assert_eq!(0, count_set_bits(&[0b00000000]));
-        assert_eq!(8, count_set_bits(&[0b11111111]));
-        assert_eq!(3, count_set_bits(&[0b00001101]));
-        assert_eq!(6, count_set_bits(&[0b01001001, 0b01010010]));
+        assert_eq!(0, Buffer::from(&[0b00000000]).count_set_bits());
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits());
+        assert_eq!(3, Buffer::from(&[0b00001101]).count_set_bits());
+        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_set_bits());
+        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_set_bits());
     }
 
     #[test]
     fn test_count_bits_offset_slice() {
-        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0, 8));
-        assert_eq!(3, count_set_bits_offset(&[0b11111111], 0, 3));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3, 5));
-        assert_eq!(1, count_set_bits_offset(&[0b11111111], 3, 1));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8, 0));
-        assert_eq!(2, count_set_bits_offset(&[0b01010101], 0, 3));
-        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 16));
-        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 10));
-        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 3, 10));
-        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8, 8));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11, 5));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16, 0));
-        assert_eq!(2, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 5));
-        assert_eq!(4, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 9));
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 8));
+        assert_eq!(3, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 3));
+        assert_eq!(5, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 5));
+        assert_eq!(1, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 1));
+        assert_eq!(0, Buffer::from(&[0b11111111]).count_set_bits_offset(8, 0));
+        assert_eq!(2, Buffer::from(&[0b01010101]).count_set_bits_offset(0, 3));
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 16)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 10)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(3, 10)
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(8, 8)
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(11, 5)
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(16, 0)
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 5)
+        );
+        assert_eq!(
+            4,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
+        );
     }
 
     #[test]
