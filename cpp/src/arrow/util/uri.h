@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -90,6 +91,9 @@ class ARROW_EXPORT Uri {
 /// Percent-encode the input string, for use e.g. as a URI query parameter.
 ARROW_EXPORT
 std::string UriEscape(const std::string& s);
+
+ARROW_EXPORT
+std::string UriUnescape(const arrow::util::string_view s);
 
 }  // namespace internal
 }  // namespace arrow
