@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -95,6 +96,9 @@ std::string UriEscape(const std::string& s);
 /// "127.0.0.1", or "[::1]".
 ARROW_EXPORT
 std::string UriEncodeHost(const std::string& host);
+
+ARROW_EXPORT
+std::string UriUnescape(const arrow::util::string_view s);
 
 }  // namespace internal
 }  // namespace arrow

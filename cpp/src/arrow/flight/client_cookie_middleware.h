@@ -31,7 +31,8 @@ class ARROW_FLIGHT_EXPORT ClientCookieMiddlewareFactory : public ClientMiddlewar
  public:
   ClientCookieMiddlewareFactory();
   void StartCall(const CallInfo& info,
-                        std::unique_ptr<ClientMiddleware>* middleware) override;
+                 std::unique_ptr<ClientMiddleware>* middleware) override;
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
