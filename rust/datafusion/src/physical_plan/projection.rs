@@ -18,7 +18,7 @@
 //! Defines the projection execution plan. A projection determines which columns or expressions
 //! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
 //! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
-//! projection expressions.
+//! projection expressions. `SELECT` without `FROM` will only evaluate expressions.
 
 use std::any::Any;
 use std::pin::Pin;
@@ -26,8 +26,11 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::error::{DataFusionError, Result};
+use crate::physical_plan::empty::EmptyExec;
+use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
-use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::array::NullArray;
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
@@ -114,12 +117,31 @@ impl ExecutionPlan for ProjectionExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        let input = if self.input.as_any().downcast_ref::<EmptyExec>().is_some() {
+            placeholder_stream(self.schema.clone())?
+        } else {
+            self.input.execute(partition).await?
+        };
+
         Ok(Box::pin(ProjectionStream {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
-            input: self.input.execute(partition).await?,
+            input,
         }))
     }
+}
+
+// Makes a stream only contains one null element
+fn placeholder_stream(schema: Arc<Schema>) -> Result<SendableRecordBatchStream> {
+    let data = vec![RecordBatch::try_new(
+        Arc::new(Schema::new(vec![Field::new(
+            "placeholder",
+            DataType::Null,
+            true,
+        )])),
+        vec![Arc::new(NullArray::new(1))],
+    )?];
+    Ok(Box::pin(MemoryStream::try_new(data, schema, None)?))
 }
 
 fn batch_project(
