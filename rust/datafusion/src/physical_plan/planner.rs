@@ -287,9 +287,13 @@ impl DefaultPhysicalPlanner {
                     ctx_state.config.concurrency,
                 )?))
             }
-            LogicalPlan::EmptyRelation { schema } => {
-                Ok(Arc::new(EmptyExec::new(Arc::new(schema.as_ref().clone()))))
-            }
+            LogicalPlan::EmptyRelation {
+                produce_one_row,
+                schema,
+            } => Ok(Arc::new(EmptyExec::new(
+                *produce_one_row,
+                Arc::new(schema.as_ref().clone()),
+            ))),
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
                 let input = self.create_physical_plan(input, ctx_state)?;
