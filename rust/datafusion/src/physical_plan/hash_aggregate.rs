@@ -762,6 +762,7 @@ mod tests {
 
     use super::*;
     use crate::physical_plan::expressions::{col, Avg};
+
     use crate::physical_plan::merge::MergeExec;
     use crate::physical_plan::{common, memory::MemoryExec};
 
@@ -820,26 +821,9 @@ mod tests {
 
         let result = common::collect(partial_aggregate.execute(0).await?).await?;
 
-        let keys = result[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<UInt32Array>()
-            .unwrap();
-        assert_eq!(*keys, UInt32Array::from(vec![2, 3, 4]));
-
-        let ns = result[0]
-            .column(1)
-            .as_any()
-            .downcast_ref::<UInt64Array>()
-            .unwrap();
-        assert_eq!(*ns, UInt64Array::from(vec![2, 3, 3]));
-
-        let sums = result[0]
-            .column(2)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(*sums, Float64Array::from(vec![2.0, 7.0, 11.0]));
+        let mut rows = crate::test::format_batch(&result[0]);
+        rows.sort();
+        assert_eq!(rows, vec!["2,2,2.0", "3,3,7.0", "4,3,11.0"]);
 
         let merge = Arc::new(MergeExec::new(partial_aggregate));
 
@@ -864,25 +848,12 @@ mod tests {
         assert_eq!(batch.num_columns(), 2);
         assert_eq!(batch.num_rows(), 3);
 
-        let a = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<UInt32Array>()
-            .unwrap();
-        let b = batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
+        let mut rows = crate::test::format_batch(&batch);
+        rows.sort();
 
-        assert_eq!(*a, UInt32Array::from(vec![2, 3, 4]));
         assert_eq!(
-            *b,
-            Float64Array::from(vec![
-                1.0,
-                (2.0 + 3.0 + 2.0) / 3.0,
-                (3.0 + 4.0 + 4.0) / 3.0
-            ])
+            rows,
+            vec!["2,1.0", "3,2.3333333333333335", "4,3.6666666666666665"]
         );
 
         Ok(())
