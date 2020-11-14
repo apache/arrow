@@ -99,7 +99,7 @@ fn compute_slices(filter: &BooleanArray) -> (Vec<(usize, usize)>, usize) {
 pub fn build_filter<'a>(filter: &'a BooleanArray) -> Result<Filter<'a>> {
     let (chunks, filter_count) = compute_slices(filter);
     Ok(Box::new(move |array: &ArrayData| {
-        let mut mutable = MutableArrayData::new(array, filter_count);
+        let mut mutable = MutableArrayData::new(array, false, filter_count);
         chunks
             .iter()
             .for_each(|(start, end)| mutable.extend(*start, *end));
