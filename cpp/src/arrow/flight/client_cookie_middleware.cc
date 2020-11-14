@@ -119,7 +119,8 @@ namespace {
           const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
           if (arrow::internal::ParseTimestampStrptime(cookie_attr_value.c_str(), cookie_attr_value.size(),
               COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
-            cookie.expiration_time_ = std::chrono::system_clock::now() + std::chrono::seconds(seconds);
+
+            cookie.expiration_time_ = std::chrono::system_clock::from_time_t(static_cast<time_t>(seconds));
           }
         }
       }
@@ -162,7 +163,7 @@ class ClientCookieMiddlewareFactory::Impl {
   class ClientCookieMiddleware : public ClientMiddleware {
    public:
     // This is public so that it can be used with make_unique.
-    ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl) :
+    explicit ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl) :
      factory_impl_(factory_impl) {
     }
 
