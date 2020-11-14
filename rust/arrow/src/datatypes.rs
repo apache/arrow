@@ -41,7 +41,6 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -377,20 +376,8 @@ impl ArrowNativeType for f64 {
 #[derive(Debug)]
 pub struct BooleanType {}
 
-impl ArrowPrimitiveType for BooleanType {
-    type Native = bool;
-    const DATA_TYPE: DataType = DataType::Boolean;
-
-    fn get_bit_width() -> usize {
-        1
-    }
-
-    /// # Safety
-    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
-    /// size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        bit_util::get_bit_raw(raw_ptr as *const u8, i)
-    }
+impl BooleanType {
+    pub const DATA_TYPE: DataType = DataType::Boolean;
 }
 
 macro_rules! make_type {

@@ -29,7 +29,7 @@ use std::sync::Arc;
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::combine_option_bitmap;
-use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
+use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
@@ -61,7 +61,7 @@ macro_rules! compare_op {
             vec![result.finish()],
             vec![],
         );
-        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+        Ok(BooleanArray::from(Arc::new(data)))
     }};
 }
 
@@ -82,7 +82,7 @@ macro_rules! compare_op_scalar {
             vec![result.finish()],
             vec![],
         );
-        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+        Ok(BooleanArray::from(Arc::new(data)))
     }};
 }
 
@@ -152,7 +152,7 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 fn is_like_pattern(c: char) -> bool {
@@ -203,7 +203,7 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
@@ -248,7 +248,7 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
@@ -294,7 +294,7 @@ pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
@@ -402,7 +402,7 @@ where
         vec![result.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Helper function to perform boolean lambda function on values from an array and a scalar value using
@@ -453,7 +453,7 @@ where
         vec![result.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Perform `left == right` operation on two arrays.
@@ -703,7 +703,7 @@ where
         vec![bool_buf.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Checks if a `GenericListArray` contains a value in the `GenericStringArray`
@@ -761,7 +761,7 @@ where
         vec![bool_buf.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 // create a buffer and fill it with valid bits

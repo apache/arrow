@@ -49,6 +49,20 @@ impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
     }
 }
 
+/// Implement array equals for numeric type
+impl JsonEqual for BooleanArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            Value::Null => self.is_null(i),
+            v => self.is_valid(i) && Some(v) == self.value(i).into_json_value().as_ref(),
+        })
+    }
+}
+
 impl<T: ArrowPrimitiveType> PartialEq<Value> for PrimitiveArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {

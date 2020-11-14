@@ -58,7 +58,7 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(ArrayBuilder::finish(&mut builder))
         }
         DataType::Boolean => {
-            let mut builder = PrimitiveArray::<BooleanType>::builder(0);
+            let mut builder = BooleanArray::builder(0);
             builder.append_data(array_data_list)?;
             Ok(ArrayBuilder::finish(&mut builder))
         }
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn test_concat_boolean_primitive_arrays() -> Result<()> {
         let arr = concat(&[
-            Arc::new(PrimitiveArray::<BooleanType>::from(vec![
+            Arc::new(BooleanArray::from(vec![
                 Some(true),
                 Some(true),
                 Some(false),
@@ -279,7 +279,7 @@ mod tests {
                 None,
                 Some(false),
             ])) as ArrayRef,
-            Arc::new(PrimitiveArray::<BooleanType>::from(vec![
+            Arc::new(BooleanArray::from(vec![
                 None,
                 Some(false),
                 Some(true),
@@ -287,7 +287,7 @@ mod tests {
             ])) as ArrayRef,
         ])?;
 
-        let expected_output = Arc::new(PrimitiveArray::<BooleanType>::from(vec![
+        let expected_output = Arc::new(BooleanArray::from(vec![
             Some(true),
             Some(true),
             Some(false),

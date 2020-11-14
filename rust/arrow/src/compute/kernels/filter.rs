@@ -230,6 +230,46 @@ macro_rules! filter_dictionary_array {
     }};
 }
 
+macro_rules! filter_boolean_item_list_array {
+    ($context:expr, $array:expr, $list_type:ident, $list_builder_type:ident) => {{
+        let input_array = $array.as_any().downcast_ref::<$list_type>().unwrap();
+        let values_builder = BooleanBuilder::new($context.filtered_count);
+        let mut builder = $list_builder_type::new(values_builder);
+        for i in 0..$context.filter_u64.len() {
+            // foreach u64 batch
+            let filter_batch = $context.filter_u64[i];
+            if filter_batch == 0 {
+                // if batch == 0, all items are filtered out, so skip entire batch
+                continue;
+            }
+            for j in 0..64 {
+                // foreach bit in batch:
+                if (filter_batch & $context.filter_mask[j]) != 0 {
+                    let data_index = (i * 64) + j;
+                    if input_array.is_null(data_index) {
+                        builder.append(false)?;
+                    } else {
+                        let this_inner_list = input_array.value(data_index);
+                        let inner_list = this_inner_list
+                            .as_any()
+                            .downcast_ref::<BooleanArray>()
+                            .unwrap();
+                        for k in 0..inner_list.len() {
+                            if inner_list.is_null(k) {
+                                builder.values().append_null()?;
+                            } else {
+                                builder.values().append_value(inner_list.value(k))?;
+                            }
+                        }
+                        builder.append(true)?;
+                    }
+                }
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
 macro_rules! filter_primitive_item_list_array {
     ($context:expr, $array:expr, $item_type:ident, $list_type:ident, $list_builder_type:ident) => {{
         let input_array = $array.as_any().downcast_ref::<$list_type>().unwrap();
@@ -522,7 +562,7 @@ impl FilterContext {
                     filter_primitive_item_list_array!(self, array, Float64Type, ListArray, ListBuilder)
                 }
                 DataType::Boolean => {
-                    filter_primitive_item_list_array!(self, array, BooleanType, ListArray, ListBuilder)
+                    filter_boolean_item_list_array!(self, array, ListArray, ListBuilder)
                 }
                 DataType::Date32(_) => {
                     filter_primitive_item_list_array!(self, array, Date32Type, ListArray, ListBuilder)
@@ -635,7 +675,7 @@ impl FilterContext {
                     filter_primitive_item_list_array!(self, array, Float64Type, LargeListArray, LargeListBuilder)
                 }
                 DataType::Boolean => {
-                    filter_primitive_item_list_array!(self, array, BooleanType, LargeListArray, LargeListBuilder)
+                    filter_boolean_item_list_array!(self, array, LargeListArray, LargeListBuilder)
                 }
                 DataType::Date32(_) => {
                     filter_primitive_item_list_array!(self, array, Date32Type, LargeListArray, LargeListBuilder)

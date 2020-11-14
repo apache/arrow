@@ -25,7 +25,7 @@ use crate::column::{page::PageReader, reader::ColumnReaderImpl};
 use crate::data_type::DataType;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
-use arrow::array::{BooleanBufferBuilder, BufferBuilderTrait};
+use arrow::array::BooleanBufferBuilder;
 use arrow::bitmap::Bitmap;
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::memory;
