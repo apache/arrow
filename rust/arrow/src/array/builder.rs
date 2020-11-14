@@ -23,7 +23,6 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
-use std::io::Write;
 use std::marker::PhantomData;
 use std::mem;
 use std::{convert::TryInto, sync::Arc};
@@ -325,7 +324,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             }
             self.len += 1;
         } else {
-            self.write_bytes(v.to_byte_slice(), 1)?;
+            self.write_bytes(v.to_byte_slice(), 1);
         }
         Ok(())
     }
@@ -335,18 +334,18 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.reserve(n);
         if T::DATA_TYPE == DataType::Boolean {
             if n != 0 && v != T::default_value() {
-                unsafe {
-                    bit_util::set_bits_raw(
+                let data = unsafe {
+                    std::slice::from_raw_parts_mut(
                         self.buffer.raw_data_mut(),
-                        self.len,
-                        self.len + n,
+                        self.buffer.capacity(),
                     )
-                }
+                };
+                (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
             }
             self.len += n;
         } else {
             for _ in 0..n {
-                self.write_bytes(v.to_byte_slice(), 1)?;
+                self.write_bytes(v.to_byte_slice(), 1);
             }
         }
         Ok(())
@@ -371,7 +370,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             }
             Ok(())
         } else {
-            self.write_bytes(slice.to_byte_slice(), array_slots)
+            Ok(self.write_bytes(slice.to_byte_slice(), array_slots))
         }
     }
 
@@ -397,18 +396,9 @@ impl<T: ArrowPrimitiveType> BufferBuilder<T> {
     /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the
     /// number array elements in the builder.  Also, converts the `io::Result`
     /// required by the `Write` trait to the Arrow `Result` type.
-    fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
-        let write_result = self.buffer.write(bytes);
-        // `io::Result` has many options one of which we use, so pattern matching is
-        // overkill here
-        if write_result.is_err() {
-            Err(ArrowError::MemoryError(
-                "Could not write to Buffer, not big enough".to_string(),
-            ))
-        } else {
-            self.len += len_added;
-            Ok(())
-        }
+    fn write_bytes(&mut self, bytes: &[u8], len_added: usize) {
+        self.buffer.extend_from_slice(bytes);
+        self.len += len_added;
     }
 }
 
@@ -525,7 +515,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
                 let sliced = array.buffers()[0].data();
                 // slice into data by factoring (offset and length) * byte width
                 self.values_builder
-                    .write_bytes(&sliced[(offset * mul)..((len + offset) * mul)], len)?;
+                    .write_bytes(&sliced[(offset * mul)..((len + offset) * mul)], len);
             }
 
             for i in 0..len {
@@ -2874,19 +2864,11 @@ mod tests {
     fn test_write_bytes_i32() {
         let mut b = Int32BufferBuilder::new(4);
         let bytes = [8, 16, 32, 64].to_byte_slice();
-        b.write_bytes(bytes, 4).unwrap();
+        b.write_bytes(bytes, 4);
         assert_eq!(4, b.len());
         assert_eq!(16, b.capacity());
         let buffer = b.finish();
         assert_eq!(16, buffer.len());
-    }
-
-    #[test]
-    #[should_panic(expected = "Could not write to Buffer, not big enough")]
-    fn test_write_too_many_bytes() {
-        let mut b = Int32BufferBuilder::new(0);
-        let bytes = [8, 16, 32, 64].to_byte_slice();
-        b.write_bytes(bytes, 4).unwrap();
     }
 
     #[test]
