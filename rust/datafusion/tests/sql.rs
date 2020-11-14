@@ -1399,3 +1399,22 @@ async fn query_on_string_dictionary() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn query_without_from() -> Result<()> {
+    // Test for SELECT <expression> without FROM.
+    // Should evaluate expressions in project position.
+    let mut ctx = ExecutionContext::new();
+
+    let sql = "SELECT 1";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"]];
+    assert_eq!(expected, actual);
+
+    let sql = "SELECT 1+2, 3/4, cos(0)";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["3", "0", "1"]];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
