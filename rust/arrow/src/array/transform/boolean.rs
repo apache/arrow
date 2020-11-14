@@ -38,3 +38,8 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
         },
     )
 }
+
+pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
+    let buffer = &mut mutable.buffers[0];
+    reserve_for_bits(buffer, mutable.len + len);
+}

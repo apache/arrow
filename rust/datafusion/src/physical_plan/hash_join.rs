@@ -285,7 +285,7 @@ fn build_batch_from_indices(
             .map(|array| array.as_ref())
             .collect::<Vec<_>>();
         let capacity = arrays.iter().map(|array| array.len()).sum();
-        let mut mutable = MutableArrayData::new(arrays, capacity);
+        let mut mutable = MutableArrayData::new(arrays, true, capacity);
 
         let array = if is_left {
             // build the array using the left
