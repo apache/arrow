@@ -1109,4 +1109,55 @@ mod tests {
         check_as_typed_data!(&[1f32, 3f32, 6f32], f32);
         check_as_typed_data!(&[1f64, 3f64, 6f64], f64);
     }
+
+    #[test]
+    fn test_count_bits_slice() {
+        assert_eq!(0, Buffer::from(&[0b00000000]).count_set_bits());
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits());
+        assert_eq!(3, Buffer::from(&[0b00001101]).count_set_bits());
+        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_set_bits());
+        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_set_bits());
+    }
+
+    #[test]
+    fn test_count_bits_offset_slice() {
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 8));
+        assert_eq!(3, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 3));
+        assert_eq!(5, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 5));
+        assert_eq!(1, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 1));
+        assert_eq!(0, Buffer::from(&[0b11111111]).count_set_bits_offset(8, 0));
+        assert_eq!(2, Buffer::from(&[0b01010101]).count_set_bits_offset(0, 3));
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 16)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 10)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(3, 10)
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(8, 8)
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(11, 5)
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(16, 0)
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 5)
+        );
+        assert_eq!(
+            4,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
+        );
+    }
 }

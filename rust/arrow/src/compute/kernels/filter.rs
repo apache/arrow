@@ -320,8 +320,7 @@ impl FilterContext {
         }
         let filter_mask: Vec<u64> = (0..64).map(|x| 1u64 << x).collect();
         let filter_buffer = &filter_array.data_ref().buffers()[0];
-        let filtered_count = filter_buffer
-            .count_set_bits_offset(0, filter_array.len());
+        let filtered_count = filter_buffer.count_set_bits_offset(0, filter_array.len());
 
         let filter_bytes = filter_buffer.data();
 

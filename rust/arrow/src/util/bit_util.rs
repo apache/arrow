@@ -120,7 +120,6 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
-    use crate::buffer::Buffer;
     use crate::util::test_util::seedable_rng;
     use rand::Rng;
 
@@ -269,57 +268,6 @@ mod tests {
         for i in 0..NUM_BYTES * 8 {
             assert_eq!(v.contains(&i), get_bit(&buffer[..], i));
         }
-    }
-
-    #[test]
-    fn test_count_bits_slice() {
-        assert_eq!(0, Buffer::from(&[0b00000000]).count_set_bits());
-        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits());
-        assert_eq!(3, Buffer::from(&[0b00001101]).count_set_bits());
-        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_set_bits());
-        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_set_bits());
-    }
-
-    #[test]
-    fn test_count_bits_offset_slice() {
-        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 8));
-        assert_eq!(3, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 3));
-        assert_eq!(5, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 5));
-        assert_eq!(1, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 1));
-        assert_eq!(0, Buffer::from(&[0b11111111]).count_set_bits_offset(8, 0));
-        assert_eq!(2, Buffer::from(&[0b01010101]).count_set_bits_offset(0, 3));
-        assert_eq!(
-            16,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 16)
-        );
-        assert_eq!(
-            10,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 10)
-        );
-        assert_eq!(
-            10,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(3, 10)
-        );
-        assert_eq!(
-            8,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(8, 8)
-        );
-        assert_eq!(
-            5,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(11, 5)
-        );
-        assert_eq!(
-            0,
-            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(16, 0)
-        );
-        assert_eq!(
-            2,
-            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 5)
-        );
-        assert_eq!(
-            4,
-            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
-        );
     }
 
     #[test]
