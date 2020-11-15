@@ -124,6 +124,9 @@
 //!
 //! The parquet implementation is on a [separate crate](https://crates.io/crates/parquet)
 
+#![cfg_attr(feature = "avx512", feature(stdsimd))]
+#![cfg_attr(feature = "avx512", feature(repr_simd))]
+#![cfg_attr(feature = "avx512", feature(avx512_target_feature))]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]
