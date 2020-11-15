@@ -37,6 +37,7 @@ use arrow::compute::kernels::comparison::{
 };
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
+    like_utf8_scalar, nlike_utf8_scalar
 };
 use arrow::compute::kernels::comparison::{
     eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
@@ -1021,6 +1022,18 @@ macro_rules! compute_op {
     }};
 }
 
+macro_rules! binary_string_array_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
+        match $LEFT.data_type() {
+            DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?}",
+                other
+            ))),
+        }
+    }};
+}
+
 macro_rules! binary_string_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         match $LEFT.data_type() {
@@ -1420,6 +1433,8 @@ impl PhysicalExpr for BinaryExpr {
                     Operator::NotEq => {
                         binary_array_op_scalar!(array, scalar.clone(), neq)
                     }
+                    Operator::Like => binary_string_array_op_scalar!(array, scalar.clone(), like),
+                    Operator::NotLike => binary_string_array_op_scalar!(array, scalar.clone(), nlike),
                     _ => Err(DataFusionError::Internal(format!(
                         "Scalar values on right side of operator {} are not supported",
                         self.op
