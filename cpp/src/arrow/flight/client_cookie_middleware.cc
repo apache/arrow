@@ -24,7 +24,6 @@
 #include <string>
 
 #include "arrow/flight/platform.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/value_parsing.h"
@@ -171,13 +170,12 @@ class ClientCookieMiddlewareFactory::Impl {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
-    *middleware = internal::make_unique<ClientCookieMiddleware>(*this);
+    *middleware = std::unique_ptr<ClientMiddleware>(new ClientCookieMiddleware(*this));
   }
 
  private:
   class ClientCookieMiddleware : public ClientMiddleware {
    public:
-    // This is public so that it can be used with make_unique.
     explicit ClientCookieMiddleware(ClientCookieMiddlewareFactory::Impl& factory_impl)
         : factory_impl_(factory_impl) {}
 
@@ -257,7 +255,7 @@ class ClientCookieMiddlewareFactory::Impl {
 };
 
 ClientCookieMiddlewareFactory::ClientCookieMiddlewareFactory()
-    : impl_(internal::make_unique<ClientCookieMiddlewareFactory::Impl>()) {}
+    : impl_(new ClientCookieMiddlewareFactory::Impl()) {}
 
 }  // namespace flight
 }  // namespace arrow
