@@ -21,6 +21,7 @@ from concurrent import futures
 from functools import partial, reduce
 
 import json
+from typing import Container, Iterable
 import numpy as np
 import os
 import re
@@ -114,7 +115,24 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), 
 
     Predicates may also be passed as List[Tuple]. This form is interpreted
     as a single conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation."""
+    use the (preferred) List[List[Tuple]] notation.
+
+    Each tuple has format: (``key``, ``op``, ``value``) and compares the
+    ``key`` with the ``value``.
+    The supported ``op`` are:  ``=`` or ``==``, ``!=``, ``<``, ``>``, ``<=``,
+    ``>=``, ``in`` and ``not in``. If the ``op`` is ``in`` or ``not in``, the
+    ``value`` must be an iterable such as a ``list``, a ``set`` or a ``tuple``.
+
+    Examples:
+
+    .. code-block:: python
+
+        ('x', '=', 0)
+        ('y', 'in', ['a', 'b', 'c'])
+        ('z', 'not in', {'a','b'})
+
+
+    """
 
 
 def _filters_to_expression(filters):
@@ -875,21 +893,34 @@ class ParquetPartitions:
         if p_column != f_column:
             return True
 
-        f_type = type(f_value)
+        p_value = self.levels[level].dictionary[p_value_index].as_py()
 
-        if isinstance(f_value, set):
+        if op in {'in', 'not in'}:
+            if not (isinstance(f_value, Container) and
+                    isinstance(f_value, Iterable)):
+                raise ValueError("Op '%s' requires an iterable such as list,"
+                                 " set or tuple", op)
             if not f_value:
-                raise ValueError("Cannot use empty set as filter value")
-            if op not in {'in', 'not in'}:
-                raise ValueError("Op '%s' not supported with set value",
-                                 op)
+                raise ValueError("Cannot use empty iterable as filter value")
+
             if len({type(item) for item in f_value}) != 1:
-                raise ValueError("All elements of set '%s' must be of"
+                raise ValueError("All elements of the iterable '%s' must be of"
                                  " same type", f_value)
             f_type = type(next(iter(f_value)))
 
-        p_value = f_type(self.levels[level]
-                         .dictionary[p_value_index].as_py())
+            p_value = f_type(p_value)
+
+            if op == 'in':
+                return p_value in f_value
+            else:
+                return p_value not in f_value
+
+        if not isinstance(f_value, str) and isinstance(f_value, Container):
+            raise ValueError("Op '%s' not supported with container "
+                             "(set, list or tuple) value", op)
+
+        f_type = type(f_value)
+        p_value = f_type(p_value)
 
         if op == "=" or op == "==":
             return p_value == f_value
@@ -903,10 +934,6 @@ class ParquetPartitions:
             return p_value <= f_value
         elif op == '>=':
             return p_value >= f_value
-        elif op == 'in':
-            return p_value in f_value
-        elif op == 'not in':
-            return p_value not in f_value
         else:
             raise ValueError("'%s' is not a valid operator in predicates.",
                              filter[1])
@@ -1241,6 +1268,8 @@ use_legacy_dataset : bool, default True
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
+                if not self.pieces:
+                    raise ValueError('No partition is found.')
                 self.schema = self.pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema

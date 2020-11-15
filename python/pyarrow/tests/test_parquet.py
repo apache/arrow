@@ -2066,6 +2066,19 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
     assert 'c' not in result_df['string'].values
     assert False not in result_df['boolean'].values
 
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('integer', 'in', [1]), ('string', 'in', ('a', 'b')),
+                 ('boolean', 'not in', {False})],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas().reset_index(drop=True))
+
+    assert 0 not in result_df['integer'].values
+    assert 'c' not in result_df['string'].values
+    assert False not in result_df['boolean'].values
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
