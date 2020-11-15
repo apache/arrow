@@ -1288,6 +1288,8 @@ pub struct FixedSizeBinaryBuilder {
 #[derive(Debug)]
 pub struct DecimalBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
+    precision: usize,
+    scale: usize
 }
 
 impl ArrayBuilder for BinaryBuilder {
@@ -1725,7 +1727,7 @@ impl ArrayBuilder for DecimalBuilder {
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::Decimal(23, 6)
+        DataType::Decimal(self.precision, self.scale)
     }
 
     /// Returns the builder as a mutable `Any` reference.
@@ -1976,10 +1978,13 @@ impl FixedSizeBinaryBuilder {
 impl DecimalBuilder {
     /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
     /// array
-    pub fn new(capacity: usize, byte_width: i32) -> Self {
+    pub fn new(capacity: usize, precision: usize, scale: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
+        let byte_width = (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32;
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
+            precision,
+            scale
         }
     }
 
@@ -1987,14 +1992,21 @@ impl DecimalBuilder {
     ///
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
-    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
-        if self.builder.value_length() != value.len() as i32 {
+    pub fn append_value(&mut self, value: i128) -> Result<()> {
+        let value_as_bytes = Self::from_i128_to_fixed_size_bytes(value, self.builder.value_length() as usize);
+        if self.builder.value_length() != value_as_bytes.len() as i32 {
             return Err(ArrowError::InvalidArgumentError(
                 "Byte slice does not have the same length as DecimalBuilder value lengths".to_string()
             ));
         }
-        self.builder.values().append_slice(value)?;
+        self.builder.values().append_slice(value_as_bytes.as_slice())?;
         self.builder.append(true)
+    }
+
+    fn from_i128_to_fixed_size_bytes(v: i128, size: usize) -> Vec<u8> {
+        let res = v.to_be_bytes();
+        let start_byte = 16 - size;
+        res[start_byte..16].to_vec()
     }
 
     /// Append a null value to the array.
@@ -2152,8 +2164,8 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
         DataType::FixedSizeBinary(len) => {
             Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
         }
-        DataType::Decimal(precision, _) => {
-            Box::new(DecimalBuilder::new(capacity, (10.0_f64.powi(*precision as i32).log2() / 8.0).ceil() as i32))
+        DataType::Decimal(precision, scale) => {
+            Box::new(DecimalBuilder::new(capacity, *precision, *scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
         DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
@@ -3315,6 +3327,28 @@ mod tests {
         assert_eq!(1, fixed_size_binary_array.null_count());
         assert_eq!(10, fixed_size_binary_array.value_offset(2));
         assert_eq!(5, fixed_size_binary_array.value_length());
+    }
+
+    #[test]
+    fn test_decimal_builder() {
+        let mut builder = DecimalBuilder::new(30, 23, 6);
+        let val_1 = 8_887_000_000;
+        let val_2 = -8_887_000_000; 
+
+        //  [b"hello", null, "arrow"]
+        builder.append_value(val_1).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(val_2).unwrap();
+        let decimal_array: DecimalArray = builder.finish();
+
+        assert_eq!(
+            &DataType::Decimal(23, 6),
+            decimal_array.data_type()
+        );
+        assert_eq!(3, decimal_array.len());
+        assert_eq!(1, decimal_array.null_count());
+        assert_eq!(20, decimal_array.value_offset(2));
+        assert_eq!(10, decimal_array.value_length());
     }
 
     #[test]
