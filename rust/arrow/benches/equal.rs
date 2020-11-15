@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Allowed because we use `arr == arr` in benchmarks
+#![allow(clippy::eq_op)]
+
 #[macro_use]
 extern crate criterion;
 use criterion::Criterion;

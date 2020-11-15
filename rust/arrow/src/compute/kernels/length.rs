@@ -102,36 +102,30 @@ mod tests {
 
     #[test]
     fn test_string() -> Result<()> {
-        cases()
-            .into_iter()
-            .map(|(input, len, expected)| {
-                let array = StringArray::from(input);
-                let result = length(&array)?;
-                assert_eq!(len, result.len());
-                let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
-                expected.iter().enumerate().for_each(|(i, value)| {
-                    assert_eq!(*value, result.value(i));
-                });
-                Ok(())
-            })
-            .collect::<Result<()>>()
+        cases().into_iter().try_for_each(|(input, len, expected)| {
+            let array = StringArray::from(input);
+            let result = length(&array)?;
+            assert_eq!(len, result.len());
+            let result = result.as_any().downcast_ref::<Int32Array>().unwrap();
+            expected.iter().enumerate().for_each(|(i, value)| {
+                assert_eq!(*value, result.value(i));
+            });
+            Ok(())
+        })
     }
 
     #[test]
     fn test_large_string() -> Result<()> {
-        cases()
-            .into_iter()
-            .map(|(input, len, expected)| {
-                let array = LargeStringArray::from(input);
-                let result = length(&array)?;
-                assert_eq!(len, result.len());
-                let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
-                expected.iter().enumerate().for_each(|(i, value)| {
-                    assert_eq!(*value as i64, result.value(i));
-                });
-                Ok(())
-            })
-            .collect::<Result<()>>()
+        cases().into_iter().try_for_each(|(input, len, expected)| {
+            let array = LargeStringArray::from(input);
+            let result = length(&array)?;
+            assert_eq!(len, result.len());
+            let result = result.as_any().downcast_ref::<Int64Array>().unwrap();
+            expected.iter().enumerate().for_each(|(i, value)| {
+                assert_eq!(*value as i64, result.value(i));
+            });
+            Ok(())
+        })
     }
 
     fn null_cases() -> Vec<(Vec<Option<&'static str>>, usize, Vec<Option<i32>>)> {
@@ -146,7 +140,7 @@ mod tests {
     fn null_string() -> Result<()> {
         null_cases()
             .into_iter()
-            .map(|(input, len, expected)| {
+            .try_for_each(|(input, len, expected)| {
                 let array = StringArray::from(input);
                 let result = length(&array)?;
                 assert_eq!(len, result.len());
@@ -156,14 +150,13 @@ mod tests {
                 assert_eq!(expected.data(), result.data());
                 Ok(())
             })
-            .collect::<Result<()>>()
     }
 
     #[test]
     fn null_large_string() -> Result<()> {
         null_cases()
             .into_iter()
-            .map(|(input, len, expected)| {
+            .try_for_each(|(input, len, expected)| {
                 let array = LargeStringArray::from(input);
                 let result = length(&array)?;
                 assert_eq!(len, result.len());
@@ -178,7 +171,6 @@ mod tests {
                 assert_eq!(expected.data(), result.data());
                 Ok(())
             })
-            .collect::<Result<()>>()
     }
 
     /// Tests that length is not valid for u64.

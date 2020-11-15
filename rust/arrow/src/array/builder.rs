@@ -188,7 +188,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     ///
     /// assert!(builder.capacity() >= 20);
     /// ```
-    fn reserve(&mut self, n: usize) -> ();
+    fn reserve(&mut self, n: usize);
 
     /// Appends a value of type `T` into the builder,
     /// growing the internal buffer as needed.
@@ -370,7 +370,8 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             }
             Ok(())
         } else {
-            Ok(self.write_bytes(slice.to_byte_slice(), array_slots))
+            self.write_bytes(slice.to_byte_slice(), array_slots);
+            Ok(())
         }
     }
 

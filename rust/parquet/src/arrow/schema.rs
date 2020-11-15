@@ -84,7 +84,7 @@ where
     (0..(parquet_schema.num_columns())).for_each(|i| {
         let p_type = parquet_schema.get_column_root(i);
         curr_name = p_type.get_basic_info().name();
-        if prev_name == "" {
+        if prev_name.is_empty() {
             // first index
             indices.push(i);
             prev_name = curr_name;

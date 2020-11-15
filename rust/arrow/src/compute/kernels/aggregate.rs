@@ -156,7 +156,7 @@ where
             let remainder = data_chunks.remainder();
 
             let bit_chunks = buffer.bit_chunks(array.offset(), array.len());
-            &data_chunks
+            data_chunks
                 .zip(bit_chunks.iter())
                 .for_each(|(chunk, mask)| {
                     chunk.iter().enumerate().for_each(|(i, value)| {

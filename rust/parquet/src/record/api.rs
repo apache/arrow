@@ -529,12 +529,7 @@ impl Field {
 
     /// Determines if this Row represents a primitive value.
     pub fn is_primitive(&self) -> bool {
-        match *self {
-            Field::Group(_) => false,
-            Field::ListInternal(_) => false,
-            Field::MapInternal(_) => false,
-            _ => true,
-        }
+        !matches!(*self, Field::Group(_) | Field::ListInternal(_) | Field::MapInternal(_))
     }
 
     /// Converts Parquet BOOLEAN type with logical type into `bool` value.
@@ -645,14 +640,14 @@ impl fmt::Display for Field {
             Field::UInt(value) => write!(f, "{}", value),
             Field::ULong(value) => write!(f, "{}", value),
             Field::Float(value) => {
-                if value > 1e19 || value < 1e-15 {
+                if !(1e-15..=1e19).contains(&value) {
                     write!(f, "{:E}", value)
                 } else {
                     write!(f, "{:?}", value)
                 }
             }
             Field::Double(value) => {
-                if value > 1e19 || value < 1e-15 {
+                if !(1e-15..=1e19).contains(&value) {
                     write!(f, "{:E}", value)
                 } else {
                     write!(f, "{:?}", value)

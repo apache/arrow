@@ -143,18 +143,12 @@ impl Type {
 
     /// Returns `true` if this type is a primitive type, `false` otherwise.
     pub fn is_primitive(&self) -> bool {
-        match *self {
-            Type::PrimitiveType { .. } => true,
-            _ => false,
-        }
+        matches!(*self, Type::PrimitiveType { .. })
     }
 
     /// Returns `true` if this type is a group type, `false` otherwise.
     pub fn is_group(&self) -> bool {
-        match *self {
-            Type::GroupType { .. } => true,
-            _ => false,
-        }
+        matches!(*self, Type::GroupType { .. })
     }
 
     /// Returns `true` if this type is the top-level schema type (message type).

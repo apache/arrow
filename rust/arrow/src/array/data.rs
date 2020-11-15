@@ -236,7 +236,7 @@ impl ArrayData {
     #[inline]
     pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
         let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
-        if values.0.len() != 0 || values.2.len() != 0 {
+        if !values.0.is_empty() || !values.2.is_empty() {
             panic!("The buffer is not byte-aligned with its interpretation")
         };
         assert_ne!(self.data_type, DataType::Boolean);

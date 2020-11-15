@@ -434,10 +434,8 @@ mod tests {
         // from Iterator<Option<&str>>
         let array2: StringArray = data.clone().into_iter().collect();
         // from Iterator<Option<String>>
-        let array3: StringArray = data
-            .into_iter()
-            .map(|x| x.map(|s| format!("{}", s)))
-            .collect();
+        let array3: StringArray =
+            data.into_iter().map(|x| x.map(|s| s.to_string())).collect();
 
         assert_eq!(array1, array2);
         assert_eq!(array2, array3);

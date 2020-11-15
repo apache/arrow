@@ -410,6 +410,7 @@ impl<T: DataType> ColumnReaderImpl<T> {
                 .expect("Decoder for dict should have been set")
         } else {
             // Search cache for data page decoder
+            #[allow(clippy::map_entry)]
             if !self.decoders.contains_key(&encoding) {
                 // Initialize decoder for this page
                 let data_decoder = get_decoder::<T>(self.descr.clone(), encoding)?;
