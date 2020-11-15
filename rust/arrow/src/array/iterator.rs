@@ -193,8 +193,7 @@ mod tests {
         let array = array.as_any().downcast_ref::<Int32Array>().unwrap();
 
         // to and from iter, with a +1
-        let result: Int32Array =
-            array.iter().map(|e| e.and_then(|e| Some(e + 1))).collect();
+        let result: Int32Array = array.iter().map(|e| e.map(|e| e + 1)).collect();
 
         let expected = Int32Array::from(vec![Some(1), None, Some(3), None, Some(5)]);
         assert_eq!(result, expected);

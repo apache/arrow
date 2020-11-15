@@ -398,7 +398,7 @@ mod tests {
                 false,
             ),
             (base.clone(), base.clone(), true),
-            (base.clone(), not_base.clone(), false),
+            (base, not_base, false),
         ]
     }
 

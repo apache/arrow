@@ -1128,11 +1128,19 @@ impl DataType {
     /// Returns true if this type is numeric: (UInt*, Unit*, or Float*)
     pub fn is_numeric(t: &DataType) -> bool {
         use DataType::*;
-        match t {
-            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Float32
-            | Float64 => true,
-            _ => false,
-        }
+        matches!(
+            t,
+            UInt8
+                | UInt16
+                | UInt32
+                | UInt64
+                | Int8
+                | Int16
+                | Int32
+                | Int64
+                | Float32
+                | Float64
+        )
     }
 }
 
@@ -2586,7 +2594,7 @@ mod tests {
         assert_eq!(Some(VNumber(Number::from(1))), 1u32.into_json_value());
         assert_eq!(Some(VNumber(Number::from(1))), 1u64.into_json_value());
         assert_eq!(
-            Some(VNumber(Number::from_f64(0.01 as f64).unwrap())),
+            Some(VNumber(Number::from_f64(0.01f64).unwrap())),
             0.01.into_json_value()
         );
         assert_eq!(

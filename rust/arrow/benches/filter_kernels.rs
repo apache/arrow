@@ -81,18 +81,9 @@ fn bench_filter_context_f32(data_array: &Float32Array, filter_context: &FilterCo
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let filter_array = create_bool_array(size, |i| match i % 2 {
-        0 => true,
-        _ => false,
-    });
-    let sparse_filter_array = create_bool_array(size, |i| match i % 8000 {
-        0 => true,
-        _ => false,
-    });
-    let dense_filter_array = create_bool_array(size, |i| match i % 8000 {
-        0 => false,
-        _ => true,
-    });
+    let filter_array = create_bool_array(size, |i| matches!(i % 2, 0));
+    let sparse_filter_array = create_bool_array(size, |i| matches!(i % 8000, 0));
+    let dense_filter_array = create_bool_array(size, |i| !matches!(i % 8000, 0));
 
     let filter_context = FilterContext::new(&filter_array).unwrap();
     let sparse_filter_context = FilterContext::new(&sparse_filter_array).unwrap();

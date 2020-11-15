@@ -76,8 +76,7 @@ fn struct_array_from_vec(
     let ints: ArrayRef = Arc::new(Int32Array::from(ints.clone()));
 
     criterion::black_box(
-        StructArray::try_from(vec![(field1.clone(), strings), (field2.clone(), ints)])
-            .unwrap(),
+        StructArray::try_from(vec![(field1, strings), (field2, ints)]).unwrap(),
     );
 }
 
