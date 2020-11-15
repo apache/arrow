@@ -30,6 +30,9 @@ namespace flight {
 class ARROW_FLIGHT_EXPORT ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   ClientCookieMiddlewareFactory();
+
+  ~ClientCookieMiddlewareFactory();
+
   void StartCall(const CallInfo& info,
                  std::unique_ptr<ClientMiddleware>* middleware) override;
 

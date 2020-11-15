@@ -257,5 +257,13 @@ class ClientCookieMiddlewareFactory::Impl {
 ClientCookieMiddlewareFactory::ClientCookieMiddlewareFactory()
     : impl_(new ClientCookieMiddlewareFactory::Impl()) {}
 
+ClientCookieMiddlewareFactory::~ClientCookieMiddlewareFactory() {
+}
+
+void ClientCookieMiddlewareFactory::StartCall(const CallInfo& info,
+    std::unique_ptr<ClientMiddleware>* middleware) {
+  impl_->StartCall(info, middleware);
+}
+
 }  // namespace flight
 }  // namespace arrow
