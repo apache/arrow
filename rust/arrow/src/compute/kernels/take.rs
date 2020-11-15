@@ -1057,7 +1057,7 @@ mod tests {
         let a = take(&array, &index, None).unwrap();
         let a: &StructArray = a.as_any().downcast_ref::<StructArray>().unwrap();
         assert_eq!(index.len(), a.len());
-        assert_eq!(0, a.null_count());
+        assert_eq!(2, a.null_count());
 
         let expected_bool_data =
             BooleanArray::from(vec![None, Some(true), Some(false), None, Some(true)])
@@ -1070,8 +1070,8 @@ mod tests {
         field_types.push(Field::new("b", DataType::Int32, true));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(5)
-            // TODO: see https://issues.apache.org/jira/browse/ARROW-5408 for why count != 2
-            .null_count(0)
+            .null_count(2)
+            .null_bit_buffer(Buffer::from([0b00010110]))
             .add_child_data(expected_bool_data)
             .add_child_data(expected_int_data)
             .build();
