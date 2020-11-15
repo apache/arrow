@@ -2975,8 +2975,6 @@ mod tests {
             Timestamp(TimeUnit::Microsecond, Some(tz_name.clone())),
             Timestamp(TimeUnit::Nanosecond, Some(tz_name.clone())),
             Date32(DateUnit::Day),
-            Date64(DateUnit::Day),
-            Date32(DateUnit::Millisecond),
             Date64(DateUnit::Millisecond),
             Time32(TimeUnit::Second),
             Time32(TimeUnit::Millisecond),
