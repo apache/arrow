@@ -848,7 +848,7 @@ mod tests {
                 .len(4)
                 .add_buffer(value_offsets)
                 .null_count(0)
-                .null_bit_buffer(Buffer::from([0b10111101, 0b00000000]))
+                .null_bit_buffer(Buffer::from([0b00001111]))
                 .add_child_data(value_data)
                 .build();
             let list_array = Arc::new($list_array_type::from(list_data)) as ArrayRef;
@@ -921,7 +921,7 @@ mod tests {
                 .len(4)
                 .add_buffer(value_offsets)
                 .null_count(1)
-                .null_bit_buffer(Buffer::from([0b01111101]))
+                .null_bit_buffer(Buffer::from([0b00001011]))
                 .add_child_data(value_data)
                 .build();
             let list_array = Arc::new($list_array_type::from(list_data)) as ArrayRef;
