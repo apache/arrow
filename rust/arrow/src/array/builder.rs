@@ -369,7 +369,8 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
             }
             Ok(())
         } else {
-            Ok(self.write_bytes(slice.to_byte_slice(), array_slots))
+            self.write_bytes(slice.to_byte_slice(), array_slots);
+            Ok(())
         }
     }
 

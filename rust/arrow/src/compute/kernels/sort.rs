@@ -468,7 +468,7 @@ pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
 /// Sort elements lexicographically from a list of `ArrayRef` into an unsigned integer
 /// (`UInt32Array`) of indices.
 pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
-    if columns.len() == 0 {
+    if columns.is_empty() {
         return Err(ArrowError::InvalidArgumentError(
             "Sort requires at least one column".to_string(),
         ));

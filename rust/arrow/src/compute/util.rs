@@ -314,8 +314,8 @@ mod tests {
             .add_buffer(value_offsets)
             .add_child_data(value_data)
             .build();
-        let array = Arc::new(GenericListArray::<S>::from(list_data)) as ArrayRef;
-        array
+
+        Arc::new(GenericListArray::<S>::from(list_data))
     }
 
     #[test]

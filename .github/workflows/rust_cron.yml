@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2020-04-22]
+        rust: [nightly-2020-11-14]
     env:
       RUST: ${{ matrix.rust }}
     steps:

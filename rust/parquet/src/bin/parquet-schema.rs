@@ -77,7 +77,7 @@ fn main() {
         Ok(parquet_reader) => {
             let metadata = parquet_reader.metadata();
             println!("Metadata for file: {}", &args[1]);
-            println!("");
+            println!();
             if verbose {
                 print_parquet_metadata(&mut std::io::stdout(), &metadata);
             } else {

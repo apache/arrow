@@ -32,7 +32,9 @@ pushd ${source_dir}
 
 rustup default ${rust}
 rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
-cargo install cargo-tarpaulin
+# 2020-11-15: There is a cargo-tarpaulin regression in 0.17.0
+# see https://github.com/xd009642/tarpaulin/issues/618
+cargo install --version 0.16.0 cargo-tarpaulin
 
 cargo tarpaulin --out Xml
 

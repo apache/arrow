@@ -413,7 +413,7 @@ mod tests {
             Err(ArrowError::InvalidArgumentError(e)) => {
                 assert!(e.starts_with("Array of field \"f2\" has length 4, but previous elements have length 3."));
             }
-            _ => assert!(false, "This test got an unexpected error type"),
+            _ => panic!("This test got an unexpected error type"),
         };
     }
 

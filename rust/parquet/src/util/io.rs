@@ -84,7 +84,7 @@ impl<R: ParquetReader> FileSource<R> {
             reader,
             start,
             end: start + length as u64,
-            buf: vec![0 as u8; DEFAULT_BUF_SIZE],
+            buf: vec![0_u8; DEFAULT_BUF_SIZE],
             buf_pos: 0,
             buf_cap: 0,
         }
@@ -262,7 +262,7 @@ mod tests {
         let mut file = get_test_file("alltypes_plain.parquet");
         let mut src = FileSource::new(&file, 0, 4);
 
-        file.seek(SeekFrom::Start(5 as u64))
+        file.seek(SeekFrom::Start(5_u64))
             .expect("File seek to a position");
 
         let bytes_read = src.read(&mut buf[..]).unwrap();

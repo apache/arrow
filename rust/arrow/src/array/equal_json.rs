@@ -162,10 +162,7 @@ impl JsonEqual for StructArray {
             return false;
         }
 
-        let all_object = json.iter().all(|v| match v {
-            Object(_) | JNull => true,
-            _ => false,
-        });
+        let all_object = json.iter().all(|v| matches!(v, Object(_) | JNull));
 
         if !all_object {
             return false;
