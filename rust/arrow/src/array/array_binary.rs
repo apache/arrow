@@ -499,6 +499,32 @@ impl DecimalArray {
     fn value_offset_at(&self, i: usize) -> i32 {
         self.length * i as i32
     }
+
+    pub fn from_fixed_size_list_array(v: FixedSizeListArray, precision: usize, scale: usize) -> Self {
+        assert_eq!(
+            v.data_ref().child_data()[0].child_data().len(),
+            0,
+            "DecimalArray can only be created from list array of u8 values \
+             (i.e. FixedSizeList<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data_ref().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "DecimalArray can only be created from FixedSizeList<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(DataType::Decimal(precision, scale))
+            .len(v.len())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
+            builder = builder
+                .null_count(v.data_ref().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
+    }
 }
 
 impl From<ArrayDataRef> for DecimalArray {
@@ -521,35 +547,6 @@ impl From<ArrayDataRef> for DecimalArray {
             scale,
             length,
         }
-    }
-}
-
-/// Creates a `FixedSizeBinaryArray` from `FixedSizeList<u8>` array
-impl From<FixedSizeListArray> for DecimalArray {
-    fn from(v: FixedSizeListArray) -> Self {
-        assert_eq!(
-            v.data_ref().child_data()[0].child_data().len(),
-            0,
-            "DecimalArray can only be created from list array of u8 values \
-             (i.e. FixedSizeList<PrimitiveArray<u8>>)."
-        );
-        assert_eq!(
-            v.data_ref().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "DecimalArray can only be created from FixedSizeList<u8> arrays, mismatched data types."
-        );
-
-        let mut builder = ArrayData::builder(DataType::Decimal(23, 6))
-            .len(v.len())
-            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data_ref().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
-        }
-
-        let data = builder.build();
-        Self::from(data)
     }
 }
 

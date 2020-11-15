@@ -2018,7 +2018,7 @@ impl DecimalBuilder {
 
     /// Builds the `DecimalArray` and reset this builder.
     pub fn finish(&mut self) -> DecimalArray {
-        DecimalArray::from(self.builder.finish())
+        DecimalArray::from_fixed_size_list_array(self.builder.finish(), self.precision, self.scale)
     }
 }
 
