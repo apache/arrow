@@ -320,7 +320,7 @@ mod tests {
     fn test_optimize_explain() -> Result<()> {
         let mut optimizer = TestOptimizer {};
 
-        let empty_plan = LogicalPlanBuilder::empty().build()?;
+        let empty_plan = LogicalPlanBuilder::empty(false).build()?;
         let schema = LogicalPlan::explain_schema();
 
         let optimized_explain = optimize_explain(

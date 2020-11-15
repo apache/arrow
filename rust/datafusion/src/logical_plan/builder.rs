@@ -41,9 +41,12 @@ impl LogicalPlanBuilder {
         Self { plan: plan.clone() }
     }
 
-    /// Create an empty relation
-    pub fn empty() -> Self {
+    /// Create an empty relation.
+    ///
+    /// `produce_one_row` set to true means this empty node needs to produce a placeholder row.
+    pub fn empty(produce_one_row: bool) -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
+            produce_one_row,
             schema: SchemaRef::new(Schema::empty()),
         })
     }
