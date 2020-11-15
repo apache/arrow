@@ -3346,13 +3346,10 @@ mod tests {
     #[test]
     fn test_decimal_builder() {
         let mut builder = DecimalBuilder::new(30, 23, 6);
-        let val_1 = 8_887_000_000;
-        let val_2 = -8_887_000_000;
 
-        //  [b"hello", null, "arrow"]
-        builder.append_value(val_1).unwrap();
+        builder.append_value(8_887_000_000).unwrap();
         builder.append_null().unwrap();
-        builder.append_value(val_2).unwrap();
+        builder.append_value(-8_887_000_000).unwrap();
         let decimal_array: DecimalArray = builder.finish();
 
         assert_eq!(&DataType::Decimal(23, 6), decimal_array.data_type());
