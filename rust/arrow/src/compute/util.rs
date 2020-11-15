@@ -21,12 +21,9 @@ use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
 use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
-use crate::datatypes::*;
-use crate::error::{ArrowError, Result};
-use num::{One, ToPrimitive, Zero};
+use crate::error::Result;
 #[cfg(feature = "simd")]
 use std::cmp::min;
-use std::ops::Add;
 
 /// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
@@ -92,62 +89,6 @@ pub(super) fn compare_option_bitmap(
             ))),
         },
     }
-}
-
-/// Takes/filters a list array's inner data using the offsets of the list array.
-///
-/// Where a list array has indices `[0,2,5,10]`, taking indices of `[2,0]` returns
-/// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
-/// elements)
-pub(super) fn take_value_indices_from_list<IndexType, OffsetType>(
-    values: &ArrayRef,
-    indices: &PrimitiveArray<IndexType>,
-) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType::Native>)>
-where
-    IndexType: ArrowNumericType,
-    IndexType::Native: ToPrimitive,
-    OffsetType: ArrowNumericType,
-    OffsetType::Native: OffsetSizeTrait + Add + Zero + One,
-    PrimitiveArray<OffsetType>: From<Vec<Option<OffsetType::Native>>>,
-{
-    // TODO: benchmark this function, there might be a faster unsafe alternative
-    // get list array's offsets
-    let list = values
-        .as_any()
-        .downcast_ref::<GenericListArray<OffsetType::Native>>()
-        .unwrap();
-    let offsets: Vec<OffsetType::Native> =
-        (0..=list.len()).map(|i| list.value_offset(i)).collect();
-
-    let mut new_offsets = Vec::with_capacity(indices.len());
-    let mut values = Vec::new();
-    let mut current_offset = OffsetType::Native::zero();
-    // add first offset
-    new_offsets.push(OffsetType::Native::zero());
-    // compute the value indices, and set offsets accordingly
-    for i in 0..indices.len() {
-        if indices.is_valid(i) {
-            let ix = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
-                ArrowError::ComputeError("Cast to usize failed".to_string())
-            })?;
-            let start = offsets[ix];
-            let end = offsets[ix + 1];
-            current_offset = current_offset + (end - start);
-            new_offsets.push(current_offset);
-
-            let mut curr = start;
-
-            // if start == end, this slot is empty
-            while curr < end {
-                values.push(Some(curr));
-                curr = curr + OffsetType::Native::one();
-            }
-        } else {
-            new_offsets.push(current_offset);
-        }
-    }
-
-    Ok((PrimitiveArray::<OffsetType>::from(values), new_offsets))
 }
 
 /// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
@@ -220,8 +161,8 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
+    use crate::{array::ArrayData, datatypes::ArrowPrimitiveType};
 
     fn make_data_with_null_bit_buffer(
         len: usize,
@@ -316,38 +257,6 @@ mod tests {
             .build();
         let array = Arc::new(GenericListArray::<S>::from(list_data)) as ArrayRef;
         array
-    }
-
-    #[test]
-    fn test_take_value_index_from_list() {
-        let list = build_list(
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i32, 2i32, 5i32, 10i32],
-        );
-        let indices = UInt32Array::from(vec![2, 0]);
-
-        let (indexed, offsets) =
-            take_value_indices_from_list::<_, Int32Type>(&list, &indices).unwrap();
-
-        assert_eq!(indexed, Int32Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
-        assert_eq!(offsets, vec![0, 5, 7]);
-    }
-
-    #[test]
-    fn test_take_value_index_from_large_list() {
-        let list = build_list(
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i64, 2i64, 5i64, 10i64],
-        );
-        let indices = UInt32Array::from(vec![2, 0]);
-
-        let (indexed, offsets) =
-            take_value_indices_from_list::<_, Int64Type>(&list, &indices).unwrap();
-
-        assert_eq!(indexed, Int64Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
-        assert_eq!(offsets, vec![0, 5, 7]);
     }
 
     #[test]
