@@ -26,14 +26,12 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     eprintln!("{:?}", args);
 
-    let arrow_stream_reader = StreamReader::try_new(io::stdin())?;
+    let mut arrow_stream_reader = StreamReader::try_new(io::stdin())?;
     let schema = arrow_stream_reader.schema();
 
     let mut writer = FileWriter::try_new(io::stdout(), &schema)?;
 
-    arrow_stream_reader
-        .map(|batch| writer.write(&batch?))
-        .collect::<Result<_>>()?;
+    arrow_stream_reader.try_for_each(|batch| writer.write(&batch?))?;
     writer.finish()?;
 
     eprintln!("Completed without error");
