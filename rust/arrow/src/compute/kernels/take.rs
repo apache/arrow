@@ -57,7 +57,38 @@ pub fn take(
     indices: &UInt32Array,
     options: Option<TakeOptions>,
 ) -> Result<ArrayRef> {
-    take_impl::<UInt32Type>(values, indices, options)
+    let options = options.unwrap_or_default();
+    if options.check_bounds {
+        let len = values.len();
+        for i in 0..indices.len() {
+            if indices.is_valid(i) {
+                let ix = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                    ArrowError::ComputeError("Cast to usize failed".to_string())
+                })?;
+                if ix >= len {
+                    return Err(ArrowError::ComputeError(
+                    format!("Array index out of bounds, cannot get item at index {} from {} entries", ix, len))
+                );
+                }
+            }
+        }
+    }
+
+    let data = values.data();
+    let mut mutable =
+        MutableArrayData::new(&data, indices.null_count() > 0, indices.len());
+
+    (0..indices.len()).for_each(|i| {
+        if indices.is_null(i) {
+            mutable.extend_nulls(1);
+        } else {
+            // not null => get index
+            // this is infalible as `usize` is the largest
+            let index = ToPrimitive::to_usize(&indices.value(i)).unwrap();
+            mutable.extend(index, index + 1);
+        }
+    });
+    Ok(make_array(Arc::new(mutable.freeze())))
 }
 
 fn take_impl<IndexType>(
@@ -999,7 +1030,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds: the len is 4 but the index is 1000")]
+    #[should_panic(expected = "index 1002 out of range for slice of length 4")]
     fn test_take_list_out_of_bounds() {
         // Construct a value array, [[0,0,0], [-1,-2,-1], [2,3]]
         let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 3]).data();
