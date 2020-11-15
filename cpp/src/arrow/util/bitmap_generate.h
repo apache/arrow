@@ -93,9 +93,8 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
     out_results[5] = g();
     out_results[6] = g();
     out_results[7] = g();
-    *cur++ = (out_results[0] | out_results[1] << 1 |
-              out_results[2] << 2 | out_results[3] << 3 |
-              out_results[4] << 4 | out_results[5] << 5 |
+    *cur++ = (out_results[0] | out_results[1] << 1 | out_results[2] << 2 |
+              out_results[3] << 3 | out_results[4] << 4 | out_results[5] << 5 |
               out_results[6] << 6 | out_results[7] << 7);
   }
 
