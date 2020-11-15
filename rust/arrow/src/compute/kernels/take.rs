@@ -73,16 +73,24 @@ pub fn take(
     let mut mutable =
         MutableArrayData::new(&data, indices.null_count() > 0, indices.len());
 
-    (0..indices.len()).for_each(|i| {
-        if indices.is_null(i) {
-            mutable.extend_nulls(1);
-        } else {
-            // not null => get index
-            // this is infalible as `usize` is the largest
+    if indices.null_count() > 0 {
+        (0..indices.len()).for_each(|i| {
+            if indices.is_null(i) {
+                mutable.push_null();
+            } else {
+                // not null => get index
+                // this is infalible as `usize` is the largest
+                let index = ToPrimitive::to_usize(&indices.value(i)).unwrap();
+                mutable.extend(index, index + 1);
+            }
+        });
+    } else {
+        (0..indices.len()).for_each(|i| {
             let index = ToPrimitive::to_usize(&indices.value(i)).unwrap();
             mutable.extend(index, index + 1);
-        }
-    });
+        });
+    }
+
     Ok(make_array(Arc::new(mutable.freeze())))
 }
 
