@@ -1996,7 +1996,7 @@ impl DecimalBuilder {
         let value_as_bytes = Self::from_i128_to_fixed_size_bytes(
             value,
             self.builder.value_length() as usize,
-        );
+        )?;
         if self.builder.value_length() != value_as_bytes.len() as i32 {
             return Err(ArrowError::InvalidArgumentError(
                 "Byte slice does not have the same length as DecimalBuilder value lengths".to_string()
@@ -2008,10 +2008,15 @@ impl DecimalBuilder {
         self.builder.append(true)
     }
 
-    fn from_i128_to_fixed_size_bytes(v: i128, size: usize) -> Vec<u8> {
+    fn from_i128_to_fixed_size_bytes(v: i128, size: usize) -> Result<Vec<u8>> {
+        if size > 16 {
+            return Err(ArrowError::InvalidArgumentError(
+                "DecimalBuilder only supports values up to 16 bytes.".to_string(),
+            ));
+        }
         let res = v.to_be_bytes();
         let start_byte = 16 - size;
-        res[start_byte..16].to_vec()
+        Ok(res[start_byte..16].to_vec())
     }
 
     /// Append a null value to the array.
