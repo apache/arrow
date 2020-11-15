@@ -86,3 +86,12 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     let offsets = vec![last_offset; len];
     offset_buffer.extend_from_slice(offsets.to_byte_slice());
 }
+
+pub(super) fn push_null<T: OffsetSizeTrait>(mutable: &mut _MutableArrayData) {
+    let mutable_offsets = mutable.buffer::<T>(0);
+    let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+
+    let offset_buffer = &mut mutable.buffers[0];
+
+    offset_buffer.extend_from_slice(last_offset.to_byte_slice());
+}

@@ -43,3 +43,8 @@ pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
     let buffer = &mut mutable.buffers[0];
     reserve_for_bits(buffer, mutable.len + len);
 }
+
+pub(super) fn push_null(mutable: &mut _MutableArrayData) {
+    let buffer = &mut mutable.buffers[0];
+    reserve_for_bits(buffer, mutable.len + 1);
+}

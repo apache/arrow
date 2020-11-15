@@ -34,6 +34,7 @@ type ExtendNullBits<'a> = Box<Fn(&mut _MutableArrayData, usize, usize) -> () + '
 type Extend<'a> = Box<Fn(&mut _MutableArrayData, usize, usize) -> () + 'a>;
 
 type ExtendNulls = Box<Fn(&mut _MutableArrayData, usize) -> ()>;
+type PushNull = Box<Fn(&mut _MutableArrayData) -> ()>;
 
 /// A mutable [ArrayData] that knows how to freeze itself into an [ArrayData].
 /// This is just a data container.
@@ -163,6 +164,8 @@ pub struct MutableArrayData<'a> {
     // function used to extend nulls for buffers and child_data (depending on `DataType`).
     // this is does not rely on array and therefore has no lifetime.
     extend_nulls: ExtendNulls,
+
+    push_null: PushNull,
 }
 
 impl<'a> std::fmt::Debug for MutableArrayData<'a> {
@@ -276,6 +279,57 @@ impl<'a> MutableArrayData<'a> {
                 _ => unreachable!(),
             },
             DataType::Struct(_) => structure::extend_nulls,
+            DataType::Float16 => unreachable!(),
+            /*
+            DataType::Null => {}
+            DataType::FixedSizeBinary(_) => {}
+            DataType::FixedSizeList(_, _) => {}
+            DataType::Union(_) => {}
+            */
+            _ => {
+                todo!("Take and filter operations still not supported for this datatype")
+            }
+        };
+
+        let push_null = match &data_type {
+            DataType::Boolean => boolean::push_null,
+            DataType::UInt8 => primitive::push_null::<u8>,
+            DataType::UInt16 => primitive::push_null::<u16>,
+            DataType::UInt32 => primitive::push_null::<u32>,
+            DataType::UInt64 => primitive::push_null::<u64>,
+            DataType::Int8 => primitive::push_null::<i8>,
+            DataType::Int16 => primitive::push_null::<i16>,
+            DataType::Int32 => primitive::push_null::<i32>,
+            DataType::Int64 => primitive::push_null::<i64>,
+            DataType::Float32 => primitive::push_null::<f32>,
+            DataType::Float64 => primitive::push_null::<f64>,
+            DataType::Date32(_)
+            | DataType::Time32(_)
+            | DataType::Interval(IntervalUnit::YearMonth) => primitive::push_null::<i32>,
+
+            DataType::Date64(_)
+            | DataType::Time64(_)
+            | DataType::Timestamp(_, _)
+            | DataType::Duration(_)
+            | DataType::Interval(IntervalUnit::DayTime) => primitive::push_null::<i64>,
+            DataType::Utf8 | DataType::Binary => variable_size::push_null::<i32>,
+            DataType::LargeUtf8 | DataType::LargeBinary => {
+                variable_size::push_null::<i64>
+            }
+            DataType::List(_) => list::push_null::<i32>,
+            DataType::LargeList(_) => list::push_null::<i64>,
+            DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
+                DataType::UInt8 => primitive::push_null::<u8>,
+                DataType::UInt16 => primitive::push_null::<u16>,
+                DataType::UInt32 => primitive::push_null::<u32>,
+                DataType::UInt64 => primitive::push_null::<u64>,
+                DataType::Int8 => primitive::push_null::<i8>,
+                DataType::Int16 => primitive::push_null::<i16>,
+                DataType::Int32 => primitive::push_null::<i32>,
+                DataType::Int64 => primitive::push_null::<i64>,
+                _ => unreachable!(),
+            },
+            DataType::Struct(_) => structure::push_null,
             DataType::Float16 => unreachable!(),
             /*
             DataType::Null => {}
@@ -435,6 +489,7 @@ impl<'a> MutableArrayData<'a> {
             dictionary,
             extend_values: Box::new(extend_values),
             extend_null_bits,
+            push_null: Box::new(push_null),
             extend_nulls: Box::new(extend_nulls),
         }
     }
@@ -448,6 +503,13 @@ impl<'a> MutableArrayData<'a> {
         (self.extend_null_bits)(&mut self.data, start, len);
         (self.extend_values)(&mut self.data, start, len);
         self.data.len += len;
+    }
+
+    /// Extends this [MutableArrayData] with null elements, disregarding the bound array
+    pub fn push_null(&mut self) {
+        self.data.null_count += 1;
+        (self.push_null)(&mut self.data);
+        self.data.len += 1;
     }
 
     /// Extends this [MutableArrayData] with null elements, disregarding the bound array

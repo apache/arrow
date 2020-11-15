@@ -39,6 +39,10 @@ pub(super) fn extend_nulls<T: ArrowNativeType>(
     len: usize,
 ) {
     let buffer = &mut mutable.buffers[0];
-    let bytes = vec![0u8; len * size_of::<T>()];
-    buffer.extend_from_slice(&bytes);
+    buffer.extend(len * size_of::<T>());
+}
+
+pub(super) fn push_null<T: ArrowNativeType>(mutable: &mut _MutableArrayData) {
+    let buffer = &mut mutable.buffers[0];
+    buffer.extend(size_of::<T>());
 }

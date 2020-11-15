@@ -56,3 +56,10 @@ pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
         .iter_mut()
         .for_each(|child| child.extend_nulls(len))
 }
+
+pub(super) fn push_null(mutable: &mut _MutableArrayData) {
+    mutable
+        .child_data
+        .iter_mut()
+        .for_each(|child| child.push_null())
+}
