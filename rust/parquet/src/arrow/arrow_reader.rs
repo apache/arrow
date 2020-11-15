@@ -583,7 +583,7 @@ mod tests {
                 .next()
                 .map(|r| r.expect("Failed to read record batch!").into());
 
-            let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
+            let (start, end) = (i * 60_usize, (i + 1) * 60_usize);
 
             if start < max_len {
                 assert!(array.is_some());

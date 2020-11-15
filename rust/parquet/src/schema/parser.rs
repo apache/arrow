@@ -422,9 +422,9 @@ mod tests {
       }
     }
     ";
-        let mut iter = Tokenizer::from_str(schema);
+        let iter = Tokenizer::from_str(schema);
         let mut res = Vec::new();
-        while let Some(token) = iter.next() {
+        for token in iter {
             res.push(token);
         }
         assert_eq!(

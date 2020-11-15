@@ -388,7 +388,7 @@ impl<T: DataType> DictEncoder<T> {
 
         self.hash_table_size = new_size;
         self.mod_bitmask = (new_size - 1) as u32;
-        mem::replace(&mut self.hash_slots, new_hash_slots);
+        let _ = mem::replace(&mut self.hash_slots, new_hash_slots);
     }
 }
 
