@@ -1236,43 +1236,103 @@ mod tests {
 
     #[test]
     fn test_count_bits_offset_slice() {
-        assert_eq!(8, Buffer::from(&[0b11111111]).bit_slice().view(0, 8).count_ones());
-        assert_eq!(3, Buffer::from(&[0b11111111]).bit_slice().view(0, 3).count_ones());
-        assert_eq!(5, Buffer::from(&[0b11111111]).bit_slice().view(3, 5).count_ones());
-        assert_eq!(1, Buffer::from(&[0b11111111]).bit_slice().view(3, 1).count_ones());
-        assert_eq!(0, Buffer::from(&[0b11111111]).bit_slice().view(8, 0).count_ones());
-        assert_eq!(2, Buffer::from(&[0b01010101]).bit_slice().view(0, 3).count_ones());
-        assert_eq!(
-            16,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(0, 16).count_ones()
-        );
-        assert_eq!(
-            10,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(0, 10).count_ones()
-        );
-        assert_eq!(
-            10,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(3, 10).count_ones()
-        );
         assert_eq!(
             8,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(8, 8).count_ones()
+            Buffer::from(&[0b11111111])
+                .bit_slice()
+                .view(0, 8)
+                .count_ones()
+        );
+        assert_eq!(
+            3,
+            Buffer::from(&[0b11111111])
+                .bit_slice()
+                .view(0, 3)
+                .count_ones()
         );
         assert_eq!(
             5,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(11, 5).count_ones()
+            Buffer::from(&[0b11111111])
+                .bit_slice()
+                .view(3, 5)
+                .count_ones()
+        );
+        assert_eq!(
+            1,
+            Buffer::from(&[0b11111111])
+                .bit_slice()
+                .view(3, 1)
+                .count_ones()
         );
         assert_eq!(
             0,
-            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(16, 0).count_ones()
+            Buffer::from(&[0b11111111])
+                .bit_slice()
+                .view(8, 0)
+                .count_ones()
         );
         assert_eq!(
             2,
-            Buffer::from(&[0b01101101, 0b10101010]).bit_slice().view(7, 5).count_ones()
+            Buffer::from(&[0b01010101])
+                .bit_slice()
+                .view(0, 3)
+                .count_ones()
+        );
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(0, 16)
+                .count_ones()
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(0, 10)
+                .count_ones()
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(3, 10)
+                .count_ones()
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(8, 8)
+                .count_ones()
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(11, 5)
+                .count_ones()
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .bit_slice()
+                .view(16, 0)
+                .count_ones()
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010])
+                .bit_slice()
+                .view(7, 5)
+                .count_ones()
         );
         assert_eq!(
             4,
-            Buffer::from(&[0b01101101, 0b10101010]).bit_slice().view(7, 9).count_ones()
+            Buffer::from(&[0b01101101, 0b10101010])
+                .bit_slice()
+                .view(7, 9)
+                .count_ones()
         );
     }
 }

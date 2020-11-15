@@ -46,7 +46,7 @@ impl<'a> BufferBitSlice<'a> {
     ///
     /// Returns immutable view with the given offset in bits and length in bits.
     /// This view have zero-copy representation over the actual data.
-    #[inline(always)]
+    #[inline]
     pub fn view(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
         Self {
             buffer_data: self.buffer_data,
@@ -58,7 +58,7 @@ impl<'a> BufferBitSlice<'a> {
     /// Returns bit chunks in native 64-bit allocation size.
     /// Native representations in Arrow follows 64-bit convention.
     /// Chunks can still be reinterpreted in any primitive type lower than u64.
-    #[inline(always)]
+    #[inline]
     pub fn chunks<T>(&self) -> BufferBitChunksExact<T>
     where
         T: BitMemory,
@@ -156,7 +156,7 @@ impl<'a> BufferBitSliceMut<'a> {
     ///
     /// Returns mutable view with the given offset in bits and length in bits.
     /// This view have zero-copy representation over the actual data.
-    #[inline(always)]
+    #[inline]
     pub fn view(&'a mut self, offset_in_bits: usize, len_in_bits: usize) -> Self {
         Self {
             bit_slice: &mut self.bit_slice[offset_in_bits..offset_in_bits + len_in_bits],
