@@ -36,8 +36,8 @@ use arrow::compute::kernels::comparison::{
     eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
 };
 use arrow::compute::kernels::comparison::{
-    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
-    like_utf8_scalar, nlike_utf8_scalar
+    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, like_utf8_scalar, lt_eq_utf8, lt_utf8,
+    neq_utf8, nlike_utf8, nlike_utf8_scalar,
 };
 use arrow::compute::kernels::comparison::{
     eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
@@ -1433,8 +1433,12 @@ impl PhysicalExpr for BinaryExpr {
                     Operator::NotEq => {
                         binary_array_op_scalar!(array, scalar.clone(), neq)
                     }
-                    Operator::Like => binary_string_array_op_scalar!(array, scalar.clone(), like),
-                    Operator::NotLike => binary_string_array_op_scalar!(array, scalar.clone(), nlike),
+                    Operator::Like => {
+                        binary_string_array_op_scalar!(array, scalar.clone(), like)
+                    }
+                    Operator::NotLike => {
+                        binary_string_array_op_scalar!(array, scalar.clone(), nlike)
+                    }
                     _ => Err(DataFusionError::Internal(format!(
                         "Scalar values on right side of operator {} are not supported",
                         self.op
@@ -1471,17 +1475,8 @@ impl PhysicalExpr for BinaryExpr {
             return result.map(|a| ColumnarValue::Array(a));
         }
 
-        let (left, right) = match (left_value, right_value) {
-            // if both arrays - extract and continue execution
-            (ColumnarValue::Array(left), ColumnarValue::Array(right)) => (left, right),
-            // if both literals - not supported
-            (_, _) => {
-                return Err(DataFusionError::Internal(format!(
-                    "Scalar values are currently not supported on both sides of operator {}",
-                    self.op
-                )));
-            }
-        };
+        // if both arrays or both literals - extract arrays and continue execution
+        let (left, right) = (left_value.to_array(batch), right_value.to_array(batch));
 
         let result: Result<ArrayRef> = match &self.op {
             Operator::Like => binary_string_array_op!(left, right, like),
