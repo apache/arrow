@@ -266,8 +266,28 @@ impl Buffer {
         bitwise_unary_op_helper(&self, offset, len, |a| a)
     }
 
+    /// Returns a `BitChunks` instance which can be used to iterate over this buffers bits
+    /// in larger chunks and starting at arbitrary bit offsets.
+    /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
         BitChunks::new(&self, offset, len)
+    }
+
+    /// Returns the number of 1-bits in this buffer.
+    pub fn count_set_bits(&self) -> usize {
+        let len_in_bits = self.len() * 8;
+        // self.offset is already taken into consideration by the bit_chunks implementation
+        self.count_set_bits_offset(0, len_in_bits)
+    }
+
+    /// Returns the number of 1-bits in this buffer, starting from `offset` with `length` bits
+    /// inspected. Note that both `offset` and `length` are measured in bits.
+    pub fn count_set_bits_offset(&self, offset: usize, len: usize) -> usize {
+        let chunks = self.bit_chunks(offset, len);
+        let mut count = chunks.iter().map(|c| c.count_ones() as usize).sum();
+        count += chunks.remainder_bits().count_ones() as usize;
+
+        count
     }
 
     /// Returns an empty buffer.
@@ -806,7 +826,6 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-    use crate::util::bit_util;
     use std::ptr::null_mut;
     use std::thread;
 
@@ -908,11 +927,11 @@ mod tests {
     fn test_with_bitset() {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         let buf = mut_buf.freeze();
-        assert_eq!(512, bit_util::count_set_bits(buf.data()));
+        assert_eq!(512, buf.count_set_bits());
     }
 
     #[test]
@@ -920,12 +939,12 @@ mod tests {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
-        assert_eq!(256, bit_util::count_set_bits(buf.data()));
+        assert_eq!(256, buf.count_set_bits());
     }
 
     #[test]
@@ -1093,5 +1112,90 @@ mod tests {
         check_as_typed_data!(&[1u64, 3u64, 6u64], u64);
         check_as_typed_data!(&[1f32, 3f32, 6f32], f32);
         check_as_typed_data!(&[1f64, 3f64, 6f64], f64);
+    }
+
+    #[test]
+    fn test_count_bits() {
+        assert_eq!(0, Buffer::from(&[0b00000000]).count_set_bits());
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits());
+        assert_eq!(3, Buffer::from(&[0b00001101]).count_set_bits());
+        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_set_bits());
+        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_set_bits());
+    }
+
+    #[test]
+    fn test_count_bits_slice() {
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b00000000])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            3,
+            Buffer::from(&[0b11111111, 0b11111111, 0b00001101])
+                .slice(2)
+                .count_set_bits()
+        );
+        assert_eq!(
+            6,
+            Buffer::from(&[0b11111111, 0b01001001, 0b01010010])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111, 0b11111111, 0b11111111])
+                .slice(2)
+                .count_set_bits()
+        );
+    }
+
+    #[test]
+    fn test_count_bits_offset_slice() {
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 8));
+        assert_eq!(3, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 3));
+        assert_eq!(5, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 5));
+        assert_eq!(1, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 1));
+        assert_eq!(0, Buffer::from(&[0b11111111]).count_set_bits_offset(8, 0));
+        assert_eq!(2, Buffer::from(&[0b01010101]).count_set_bits_offset(0, 3));
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 16)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 10)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(3, 10)
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(8, 8)
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(11, 5)
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(16, 0)
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 5)
+        );
+        assert_eq!(
+            4,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
+        );
     }
 }

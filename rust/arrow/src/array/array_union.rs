@@ -78,7 +78,6 @@ use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
-use crate::util::bit_util;
 use core::fmt;
 use std::any::Any;
 use std::mem;
@@ -145,7 +144,7 @@ impl UnionArray {
         bitmap: Option<Buffer>,
     ) -> Result<Self> {
         let bitmap_data = bitmap.map(|b| {
-            let null_count = type_ids.len() - bit_util::count_set_bits(b.data());
+            let null_count = type_ids.len() - b.count_set_bits();
             (b, null_count)
         });
 
@@ -231,8 +230,10 @@ impl UnionArray {
     pub fn value_offset(&self, index: usize) -> i32 {
         assert!(index - self.offset() < self.len());
         if self.is_dense() {
+            // In format v4 unions had their own validity bitmap and offsets are compressed by omitting null values
+            // Starting with v5 unions don't have a validity bitmap and it's possible to directly index into the offsets buffer
             let valid_slots = match self.data.null_buffer() {
-                Some(b) => bit_util::count_set_bits_offset(b.data(), 0, index),
+                Some(b) => b.count_set_bits_offset(0, index),
                 None => index,
             };
             self.data().buffers()[1].data()[valid_slots * size_of::<i32>()] as i32
