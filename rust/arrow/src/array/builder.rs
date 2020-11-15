@@ -1289,7 +1289,7 @@ pub struct FixedSizeBinaryBuilder {
 pub struct DecimalBuilder {
     builder: FixedSizeListBuilder<UInt8Builder>,
     precision: usize,
-    scale: usize
+    scale: usize,
 }
 
 impl ArrayBuilder for BinaryBuilder {
@@ -1984,7 +1984,7 @@ impl DecimalBuilder {
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
             precision,
-            scale
+            scale,
         }
     }
 
@@ -1993,13 +1993,18 @@ impl DecimalBuilder {
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
     pub fn append_value(&mut self, value: i128) -> Result<()> {
-        let value_as_bytes = Self::from_i128_to_fixed_size_bytes(value, self.builder.value_length() as usize);
+        let value_as_bytes = Self::from_i128_to_fixed_size_bytes(
+            value,
+            self.builder.value_length() as usize,
+        );
         if self.builder.value_length() != value_as_bytes.len() as i32 {
             return Err(ArrowError::InvalidArgumentError(
                 "Byte slice does not have the same length as DecimalBuilder value lengths".to_string()
             ));
         }
-        self.builder.values().append_slice(value_as_bytes.as_slice())?;
+        self.builder
+            .values()
+            .append_slice(value_as_bytes.as_slice())?;
         self.builder.append(true)
     }
 
@@ -2018,7 +2023,11 @@ impl DecimalBuilder {
 
     /// Builds the `DecimalArray` and reset this builder.
     pub fn finish(&mut self) -> DecimalArray {
-        DecimalArray::from_fixed_size_list_array(self.builder.finish(), self.precision, self.scale)
+        DecimalArray::from_fixed_size_list_array(
+            self.builder.finish(),
+            self.precision,
+            self.scale,
+        )
     }
 }
 
@@ -3333,7 +3342,7 @@ mod tests {
     fn test_decimal_builder() {
         let mut builder = DecimalBuilder::new(30, 23, 6);
         let val_1 = 8_887_000_000;
-        let val_2 = -8_887_000_000; 
+        let val_2 = -8_887_000_000;
 
         //  [b"hello", null, "arrow"]
         builder.append_value(val_1).unwrap();
@@ -3341,10 +3350,7 @@ mod tests {
         builder.append_value(val_2).unwrap();
         let decimal_array: DecimalArray = builder.finish();
 
-        assert_eq!(
-            &DataType::Decimal(23, 6),
-            decimal_array.data_type()
-        );
+        assert_eq!(&DataType::Decimal(23, 6), decimal_array.data_type());
         assert_eq!(3, decimal_array.len());
         assert_eq!(1, decimal_array.null_count());
         assert_eq!(20, decimal_array.value_offset(2));

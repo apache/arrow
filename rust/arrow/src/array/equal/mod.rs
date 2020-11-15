@@ -20,9 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, FixedSizeBinaryArray, GenericBinaryArray,
-    GenericListArray, GenericStringArray, OffsetSizeTrait, PrimitiveArray,
-    StringOffsetSizeTrait, StructArray, DecimalArray
+    Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
+    GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
+    PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::datatypes::{ArrowPrimitiveType, DataType, IntervalUnit};
@@ -151,9 +151,7 @@ fn equal_values(
         DataType::FixedSizeBinary(_) => {
             fixed_binary_equal(lhs, rhs, lhs_start, rhs_start, len)
         }
-        DataType::Decimal(_, _) => {
-            decimal_equal(lhs, rhs, lhs_start, rhs_start, len)
-        }
+        DataType::Decimal(_, _) => decimal_equal(lhs, rhs, lhs_start, rhs_start, len),
         DataType::List(_) => list_equal::<i32>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::LargeList(_) => list_equal::<i64>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::FixedSizeList(_, _) => {
@@ -228,9 +226,9 @@ mod tests {
 
     use crate::array::{
         array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
-        FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray, Int32Builder,
-        ListBuilder, NullArray, PrimitiveBuilder, StringArray, StringDictionaryBuilder,
-        StringOffsetSizeTrait, StructArray, DecimalBuilder
+        DecimalBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray,
+        Int32Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+        StringDictionaryBuilder, StringOffsetSizeTrait, StructArray,
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::datatypes::Int16Type;
@@ -615,9 +613,7 @@ mod tests {
         test_equal(&a_slice, &b_slice, true);
     }
 
-    fn create_decimal_array(
-        data: &[Option<i128>],
-    ) -> ArrayDataRef {
+    fn create_decimal_array(data: &[Option<i128>]) -> ArrayDataRef {
         let mut builder = DecimalBuilder::new(20, 23, 6);
 
         for d in data {

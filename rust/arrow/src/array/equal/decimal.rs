@@ -27,7 +27,9 @@ pub(super) fn decimal_equal(
     len: usize,
 ) -> bool {
     let size = match lhs.data_type() {
-        DataType::Decimal(p, _) => (10.0_f64.powi(*p as i32).log2() / 8.0).ceil() as usize,
+        DataType::Decimal(p, _) => {
+            (10.0_f64.powi(*p as i32).log2() / 8.0).ceil() as usize
+        }
         _ => unreachable!(),
     };
 

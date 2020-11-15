@@ -506,7 +506,11 @@ impl DecimalArray {
         self.length * i as i32
     }
 
-    pub fn from_fixed_size_list_array(v: FixedSizeListArray, precision: usize, scale: usize) -> Self {
+    pub fn from_fixed_size_list_array(
+        v: FixedSizeListArray,
+        precision: usize,
+        scale: usize,
+    ) -> Self {
         assert_eq!(
             v.data_ref().child_data()[0].child_data().len(),
             0,

@@ -332,7 +332,10 @@ impl JsonEqual for DecimalArray {
 
         (0..self.len()).all(|i| match json[i] {
             JString(s) => {
-                self.is_valid(i) && (s.parse::<i128>().map_or_else(|_| false, |v| v == self.value(i)))
+                self.is_valid(i)
+                    && (s
+                        .parse::<i128>()
+                        .map_or_else(|_| false, |v| v == self.value(i)))
             }
             JNull => self.is_null(i),
             _ => false,
