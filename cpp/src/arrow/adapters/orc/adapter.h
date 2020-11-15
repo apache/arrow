@@ -147,6 +147,29 @@ class ARROW_EXPORT ORCFileReader {
 class ARROW_EXPORT ORCFileWriter {
  public:
   ~ORCFileWriter();
+  /// \brief Creates a new ORC writer.
+  ///
+  /// \param[in] file the file to write into
+  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[out] writer the returned writer object
+  /// \return Status
+  static Status Open(Schema& schema,
+                    const std::shared_ptr<io::FileOutputStream>& file, 
+                    std::unique_ptr<ORCFileWriter>* writer,
+                    liborc::WriterOptions options);
+
+  /// \brief Write a table
+  ///
+  /// \param[in] file the file to write into
+  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[out] writer the returned writer object
+  /// \return Status
+  Status Write(const std::shared_ptr<Table> table, uint64_t batchSize);
+
+  private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+    ORCFileWriter();
 };
 
 }  // namespace orc
