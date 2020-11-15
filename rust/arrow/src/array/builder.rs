@@ -1980,7 +1980,7 @@ impl DecimalBuilder {
     /// array
     pub fn new(capacity: usize, precision: usize, scale: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
-        let byte_width = (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32;
+        let byte_width = DecimalArray::calc_fixed_byte_size(precision);
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
             precision,

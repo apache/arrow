@@ -466,12 +466,18 @@ impl DecimalArray {
     }
 
     fn from_bytes_to_i128(b: &[u8]) -> i128 {
+        assert!(b.len() <= 16, "DecimalArray supports only up to size 16");
         let first_bit = b[0] & 128u8 == 128u8;
         let mut result = if first_bit { [255u8; 16] } else { [0u8; 16] };
         for (i, v) in b.iter().enumerate() {
             result[i + (16 - b.len())] = *v;
         }
         i128::from_be_bytes(result)
+    }
+
+    /// Returns the byte size per value for Decimal arrays with a given precision
+    pub fn calc_fixed_byte_size(precision: usize) -> i32 {
+        (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32
     }
 
     /// Returns the offset for the element at index `i`.
@@ -539,7 +545,7 @@ impl From<ArrayDataRef> for DecimalArray {
             DataType::Decimal(precision, scale) => (*precision, *scale),
             _ => panic!("Expected data type to be Decimal"),
         };
-        let length = (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32;
+        let length = Self::calc_fixed_byte_size(precision);
         Self {
             data,
             value_data: RawPtrBox::new(value_data),
