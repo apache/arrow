@@ -274,7 +274,7 @@ impl Buffer {
     /// This method can be used to get bit views for bit operations on the immutable view over the buffer.
     #[inline]
     pub fn bit_slice(&self) -> BufferBitSlice {
-        BufferBitSlice::new(self.data.data())
+        BufferBitSlice::new(self.data())
     }
 
     /// Count one bits in this buffer
@@ -903,7 +903,6 @@ unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-
     use std::ptr::null_mut;
     use std::thread;
 
@@ -1190,5 +1189,90 @@ mod tests {
         check_as_typed_data!(&[1u64, 3u64, 6u64], u64);
         check_as_typed_data!(&[1f32, 3f32, 6f32], f32);
         check_as_typed_data!(&[1f64, 3f64, 6f64], f64);
+    }
+
+    #[test]
+    fn test_count_bits() {
+        assert_eq!(0, Buffer::from(&[0b00000000]).count_ones());
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_ones());
+        assert_eq!(3, Buffer::from(&[0b00001101]).count_ones());
+        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_ones());
+        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_ones());
+    }
+
+    #[test]
+    fn test_count_bits_slice() {
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b00000000])
+                .slice(1)
+                .count_ones()
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .slice(1)
+                .count_ones()
+        );
+        assert_eq!(
+            3,
+            Buffer::from(&[0b11111111, 0b11111111, 0b00001101])
+                .slice(2)
+                .count_ones()
+        );
+        assert_eq!(
+            6,
+            Buffer::from(&[0b11111111, 0b01001001, 0b01010010])
+                .slice(1)
+                .count_ones()
+        );
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111, 0b11111111, 0b11111111])
+                .slice(2)
+                .count_ones()
+        );
+    }
+
+    #[test]
+    fn test_count_bits_offset_slice() {
+        assert_eq!(8, Buffer::from(&[0b11111111]).bit_slice().view(0, 8).count_ones());
+        assert_eq!(3, Buffer::from(&[0b11111111]).bit_slice().view(0, 3).count_ones());
+        assert_eq!(5, Buffer::from(&[0b11111111]).bit_slice().view(3, 5).count_ones());
+        assert_eq!(1, Buffer::from(&[0b11111111]).bit_slice().view(3, 1).count_ones());
+        assert_eq!(0, Buffer::from(&[0b11111111]).bit_slice().view(8, 0).count_ones());
+        assert_eq!(2, Buffer::from(&[0b01010101]).bit_slice().view(0, 3).count_ones());
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(0, 16).count_ones()
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(0, 10).count_ones()
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(3, 10).count_ones()
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(8, 8).count_ones()
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(11, 5).count_ones()
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111]).bit_slice().view(16, 0).count_ones()
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010]).bit_slice().view(7, 5).count_ones()
+        );
+        assert_eq!(
+            4,
+            Buffer::from(&[0b01101101, 0b10101010]).bit_slice().view(7, 9).count_ones()
+        );
     }
 }

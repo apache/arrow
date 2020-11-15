@@ -23,7 +23,9 @@ use std::sync::Arc;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
-use arrow::datatypes::SchemaRef;
+use arrow::array::NullArray;
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::record_batch::RecordBatch;
 
 use super::SendableRecordBatchStream;
 
@@ -32,13 +34,17 @@ use async_trait::async_trait;
 /// Execution plan for empty relation (produces no rows)
 #[derive(Debug)]
 pub struct EmptyExec {
+    produce_one_row: bool,
     schema: SchemaRef,
 }
 
 impl EmptyExec {
     /// Create a new EmptyExec
-    pub fn new(schema: SchemaRef) -> Self {
-        EmptyExec { schema }
+    pub fn new(produce_one_row: bool, schema: SchemaRef) -> Self {
+        EmptyExec {
+            produce_one_row,
+            schema,
+        }
     }
 }
 
@@ -71,7 +77,7 @@ impl ExecutionPlan for EmptyExec {
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match children.len() {
-            0 => Ok(Arc::new(EmptyExec::new(self.schema.clone()))),
+            0 => Ok(Arc::new(EmptyExec::new(false, self.schema.clone()))),
             _ => Err(DataFusionError::Internal(
                 "EmptyExec wrong number of children".to_string(),
             )),
@@ -87,7 +93,20 @@ impl ExecutionPlan for EmptyExec {
             )));
         }
 
-        let data = vec![];
+        // Makes a stream only contains one null element if needed
+        let data = if self.produce_one_row {
+            vec![RecordBatch::try_new(
+                Arc::new(Schema::new(vec![Field::new(
+                    "placeholder",
+                    DataType::Null,
+                    true,
+                )])),
+                vec![Arc::new(NullArray::new(1))],
+            )?]
+        } else {
+            vec![]
+        };
+
         Ok(Box::pin(MemoryStream::try_new(
             data,
             self.schema.clone(),
@@ -106,7 +125,7 @@ mod tests {
     async fn empty() -> Result<()> {
         let schema = test::aggr_test_schema();
 
-        let empty = EmptyExec::new(schema.clone());
+        let empty = EmptyExec::new(false, schema.clone());
         assert_eq!(empty.schema(), schema);
 
         // we should have no results
@@ -120,7 +139,7 @@ mod tests {
     #[test]
     fn with_new_children() -> Result<()> {
         let schema = test::aggr_test_schema();
-        let empty = EmptyExec::new(schema.clone());
+        let empty = EmptyExec::new(false, schema.clone());
 
         let empty2 = empty.with_new_children(vec![])?;
         assert_eq!(empty.schema(), empty2.schema());
@@ -136,11 +155,25 @@ mod tests {
     #[tokio::test]
     async fn invalid_execute() -> Result<()> {
         let schema = test::aggr_test_schema();
-        let empty = EmptyExec::new(schema.clone());
+        let empty = EmptyExec::new(false, schema.clone());
 
         // ask for the wrong partition
         assert!(empty.execute(1).await.is_err());
         assert!(empty.execute(20).await.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn produce_one_row() -> Result<()> {
+        let schema = test::aggr_test_schema();
+        let empty = EmptyExec::new(true, schema);
+
+        let iter = empty.execute(0).await?;
+        let batches = common::collect(iter).await?;
+
+        // should have one item
+        assert_eq!(batches.len(), 1);
+
         Ok(())
     }
 }

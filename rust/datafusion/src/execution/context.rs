@@ -142,12 +142,12 @@ impl ExecutionContext {
                             .schema(&schema)
                             .has_header(*has_header),
                     )?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 FileType::Parquet => {
                     self.register_parquet(name, location)?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(

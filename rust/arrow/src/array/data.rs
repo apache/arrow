@@ -23,7 +23,6 @@ use std::sync::Arc;
 
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
-
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
 use super::equal::equal;

@@ -209,7 +209,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
     fn from_join_to_plan(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
         if from.len() == 0 {
-            return Ok(LogicalPlanBuilder::empty().build()?);
+            return Ok(LogicalPlanBuilder::empty(true).build()?);
         }
         if from.len() != 1 {
             return Err(DataFusionError::NotImplemented(
