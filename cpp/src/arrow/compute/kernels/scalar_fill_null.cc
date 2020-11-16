@@ -37,6 +37,8 @@ namespace {
 template <typename Type, typename Enable = void>
 struct FillNullFunctor {};
 
+// Numeric inputs
+
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
   using T = typename TypeTraits<Type>::CType;
@@ -83,6 +85,8 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
     }
   }
 };
+
+// Boolean input
 
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
@@ -131,6 +135,8 @@ struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
   }
 };
 
+// Null input
+
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_null_type<Type>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -139,19 +145,7 @@ struct FillNullFunctor<Type, enable_if_t<is_null_type<Type>::value>> {
   }
 };
 
-void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
-  auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
-    for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature =
-          KernelSignature::Make({InputType::Array(ty), InputType::Scalar(ty)}, ty);
-      kernel.exec = GenerateTypeAgnosticPrimitive<FillNullFunctor>(*ty);
-      DCHECK_OK(func->AddKernel(kernel));
-    }
-  };
-  AddKernels(NumericTypes());
-  AddKernels(TemporalTypes());
-  AddKernels({boolean(), null()});
-}
+// Binary-like input
 
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
@@ -168,11 +162,12 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     // null count 0 unless we explicitly propagate it below.
     DCHECK(output->buffers[0] == nullptr);
 
-    if (input.MayHaveNulls() && fill_value_scalar.is_valid) {
+    const int64_t null_count = input.GetNullCount();
+
+    if (null_count > 0 && fill_value_scalar.is_valid) {
       BuilderType builder(input.type, ctx->memory_pool());
-      KERNEL_RETURN_IF_ERROR(
-          ctx, builder.ReserveData(input.buffers[2]->size() +
-                                   fill_value.length() * input.GetNullCount()));
+      KERNEL_RETURN_IF_ERROR(ctx, builder.ReserveData(input.buffers[2]->size() +
+                                                      fill_value.length() * null_count));
       KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
       KERNEL_RETURN_IF_ERROR(ctx, VisitArrayDataInline<Type>(
@@ -196,6 +191,20 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     }
   }
 };
+
+void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
+  auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
+    for (const std::shared_ptr<DataType>& ty : types) {
+      kernel.signature =
+          KernelSignature::Make({InputType::Array(ty), InputType::Scalar(ty)}, ty);
+      kernel.exec = GenerateTypeAgnosticPrimitive<FillNullFunctor>(*ty);
+      DCHECK_OK(func->AddKernel(kernel));
+    }
+  };
+  AddKernels(NumericTypes());
+  AddKernels(TemporalTypes());
+  AddKernels({boolean(), null()});
+}
 
 void AddBinaryFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
