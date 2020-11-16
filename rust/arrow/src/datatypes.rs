@@ -579,10 +579,17 @@ where
     /// Writes a SIMD result back to a slice
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 
+    /// Combine two vector masks using a bitwise and operation
     fn mask_and(left: Self::SimdMask, right: Self::SimdMask) -> Self::SimdMask;
 
+    /// Returns the identity value for a `min` aggregation.
+    /// This is the highest value representable by a type or positive infinity for float types.
+    /// For any non-NaN input value `x`, the expression `if x < identity x else identity` will return a value equal to `x`
     fn identity_for_min_op() -> Self::Native;
 
+    /// Returns the identity value for a `max` aggregation.
+    /// This is the lowest value representable by a type or negative infinity for float types.
+    /// For any non-NaN input value `x`, the expression `if x > identity x else identity` will return a value equal to `x`
     fn identity_for_max_op() -> Self::Native;
 }
 
