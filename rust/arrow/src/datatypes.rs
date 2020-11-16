@@ -778,14 +778,17 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
 
+            #[inline]
             fn mask_and(left: Self::SimdMask, right: Self::SimdMask) -> Self::SimdMask {
                 left & right
             }
 
+            #[inline]
             fn identity_for_min_op() -> Self::Native {
                 $max_value
             }
 
+            #[inline]
             fn identity_for_max_op() -> Self::Native {
                 $min_value
             }

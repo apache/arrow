@@ -66,6 +66,7 @@ where
 }
 
 /// Returns the maximum value in the array, according to the natural order.
+#[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")))]
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
@@ -186,11 +187,11 @@ mod simd {
     use crate::datatypes::ArrowNumericType;
     use std::marker::PhantomData;
     use std::ops::Add;
-    use std::ops::BitAnd;
 
     pub(super) trait SimdAggregate<T: ArrowNumericType> {
         fn init_accumulator_scalar() -> T::Native;
 
+        #[inline]
         fn init_accumulator_chunk() -> T::Simd {
             T::init(Self::init_accumulator_scalar())
         }
@@ -204,6 +205,7 @@ mod simd {
 
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native);
 
+        #[inline]
         fn reduce(accumulator: T::Simd) -> T::Native {
             // reduce by first writing to a temporary and then use scalar operations
             // this should be about the same performance as extracting individual lanes
@@ -221,7 +223,7 @@ mod simd {
     }
 
     pub(super) struct SumAggregate<T: ArrowNumericType> {
-        default_value: T::Native,
+        phantom: PhantomData<T>,
     }
 
     impl<T: ArrowNumericType> SimdAggregate<T> for SumAggregate<T>
@@ -253,7 +255,7 @@ mod simd {
     }
 
     pub(super) struct MinAggregate<T: ArrowNumericType> {
-        default_value: T::Native,
+        phantom: PhantomData<T>,
     }
 
     impl<T: ArrowNumericType> SimdAggregate<T> for MinAggregate<T>
@@ -283,6 +285,42 @@ mod simd {
 
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
             if value < *accumulator {
+                *accumulator = value
+            }
+        }
+    }
+
+    pub(super) struct MaxAggregate<T: ArrowNumericType> {
+        phantom: PhantomData<T>,
+    }
+
+    impl<T: ArrowNumericType> SimdAggregate<T> for MaxAggregate<T>
+        where
+            T::Native: PartialOrd,
+    {
+        fn init_accumulator_scalar() -> T::Native {
+            T::identity_for_max_op()
+        }
+
+        fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd) {
+            let cmp_mask = T::gt(chunk, *accumulator);
+
+            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
+        }
+
+        fn accumulate_chunk_nullable(
+            accumulator: &mut T::Simd,
+            chunk: T::Simd,
+            vecmask: T::SimdMask,
+        ) {
+            let cmp_mask = T::gt(chunk, *accumulator);
+            let blend_mask = T::mask_and(vecmask, cmp_mask);
+
+            *accumulator = T::mask_select(blend_mask, chunk, *accumulator);
+        }
+
+        fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
+            if value > *accumulator {
                 *accumulator = value
             }
         }
@@ -376,6 +414,16 @@ where
     use simd::*;
 
     simd::simd_aggregation::<T, MinAggregate<T>>(&array)
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+    where
+        T::Native: PartialOrd,
+{
+    use simd::*;
+
+    simd::simd_aggregation::<T, MaxAggregate<T>>(&array)
 }
 
 #[cfg(test)]

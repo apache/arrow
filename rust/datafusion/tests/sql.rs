@@ -349,7 +349,7 @@ async fn csv_query_avg_sqrt() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["0.6706002946036462"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -363,7 +363,7 @@ async fn csv_query_custom_udf_with_cast() -> Result<()> {
     let sql = "SELECT avg(custom_sqrt(c11)) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["0.6584408483418833"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -1432,6 +1432,6 @@ where
                 l.as_ref().parse::<f64>().unwrap(),
                 r.as_str().parse::<f64>().unwrap(),
             );
-            assert!((l - r).abs() <= f64::EPSILON);
+            assert!((l - r).abs() <= 2.0 * f64::EPSILON);
         });
 }
