@@ -35,6 +35,12 @@ TEST(UriEscape, Basics) {
   ASSERT_EQ(UriEscape("/El Niño/"), "%2FEl%20Ni%C3%B1o%2F");
 }
 
+TEST(UriEncodeHost, Basics) {
+  ASSERT_EQ(UriEncodeHost("::1"), "[::1]");
+  ASSERT_EQ(UriEscape("arrow.apache.org"), "arrow.apache.org");
+  ASSERT_EQ(UriEscape("192.168.1.1"), "192.168.1.1");
+}
+
 TEST(Uri, Empty) {
   Uri uri;
   ASSERT_EQ(uri.scheme(), "");
