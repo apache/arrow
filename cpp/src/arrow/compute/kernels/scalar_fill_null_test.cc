@@ -154,5 +154,15 @@ TEST_F(TestFillNullKernel, FillNullTimeStamp) {
   CheckFillNull(time64_type, "[2, 1, 6, null]", Datum(scalar2), "[2, 1, 6, 6]");
 }
 
+TEST_F(TestFillNullKernel, FillNullString) {
+  auto type = large_utf8();
+  auto scalar = std::make_shared<LargeStringScalar>("arrow");
+  // no nulls
+  CheckFillNull(type, R"(["foo", "bar"])", Datum(scalar), R"(["foo", "bar"])");
+  // some nulls
+  CheckFillNull(type, R"(["foo", "bar", null])", Datum(scalar),
+                R"(["foo", "bar", "arrow"])");
+}
+
 }  // namespace compute
 }  // namespace arrow

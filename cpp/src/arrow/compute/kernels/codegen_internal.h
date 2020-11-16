@@ -1058,6 +1058,22 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   }
 }
 
+// similar to GenerateTypeAgnosticPrimitive, but for variable types
+template <template <typename...> class Generator>
+ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return Generator<BinaryType>::Exec;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return Generator<LargeBinaryType>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for base binary types. Generates
 // a single kernel for binary/string and large binary / large string. If your
 // kernel implementation needs access to the specific type at compile time,

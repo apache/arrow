@@ -947,7 +947,7 @@ struct SplitBaseTransform {
       if (input.is_valid) {
         result->is_valid = true;
         BuilderType builder(input.type, ctx->memory_pool());
-        util::string_view s = static_cast<util::string_view>(*input.value);
+        util::string_view s(*input.value);
         KERNEL_RETURN_IF_ERROR(ctx, Split(s, &builder));
         KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&result->value));
       }
