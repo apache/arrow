@@ -20,7 +20,6 @@ extern crate criterion;
 use criterion::Criterion;
 
 use rand::{distributions::Alphanumeric, Rng};
-use std::sync::Arc;
 
 extern crate arrow;
 
