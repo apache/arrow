@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
-
-#include "arrow/util/decimal.h"
-#include "arrow/io/api.h"
-#include "arrow/api.h"
 #include "arrow/adapters/orc/adapter.h"
-#include "arrow/adapters/orc/adapter_util.h"
-#include "arrow/type.h"
-#include "arrow/array.h"
-
 
 #include <gtest/gtest.h>
+
 #include <orc/OrcFile.hh>
+#include <string>
+
+#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/api.h"
+#include "arrow/array.h"
+#include "arrow/io/api.h"
+#include "arrow/type.h"
+#include "arrow/util/decimal.h"
 
 namespace liborc = orc;
 
@@ -66,17 +66,15 @@ class MemoryOutputStream : public liborc::OutputStream {
 
 class MemoryOutputStreamV2 : public adapters::orc::ArrowOutputFile {
  public:
-  MemoryOutputStreamV2(ssize_t capacity)
-      : ArrowOutputFile(nullptr), data_(capacity) {
-
-      }
+  explicit MemoryOutputStreamV2(ssize_t capacity)
+      : ArrowOutputFile(nullptr), data_(capacity) {}
 
   void write(const void* buf, size_t size) {
     memcpy(data_.data() + get_length(), buf, size);
     set_length(get_length() + size);
   }
 
-  const std::string& getName() const { 
+  const std::string& getName() const {
     static const std::string filename("MemoryOutputStreamV2");
     return filename;
   }
@@ -115,8 +113,10 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
   auto writer = CreateWriter(stripe_size, *type, &mem_stream);
   auto batch = writer->createRowBatch(stripe_row_count);
   auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  auto long_batch = internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
-  auto str_batch = internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[1]);
+  auto long_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
+  auto str_batch =
+      internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[1]);
   int64_t accumulated = 0;
 
   for (uint64_t j = 0; j < stripe_count; ++j) {
@@ -190,7 +190,7 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
   }
 }
-//WriteORC tests
+// WriteORC tests
 // TEST(TestAdapterWriteNumerical, writeBoolEmpty0) {
 //   BooleanBuilder builder;
 //   std::shared_ptr<Array> array;
@@ -199,33 +199,33 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
 //   MemoryOutputStreamV2 file(DEFAULT_SMALL_MEM_STREAM_SIZE);
 //   std::unique_ptr<adapters::orc::ORCFileWriter>* writer;
 //   ORCFileWriter::Open(table->schema().get(),
-//                     const std::shared_ptr<io::FileOutputStream>& file,        
+//                     const std::shared_ptr<io::FileOutputStream>& file,
 //                     std::shared_ptr<liborc::WriterOptions> options,
 //                     std::shared_ptr<ArrowWriterOptions> arrow_options,
 //                     std::unique_ptr<ORCFileWriter>* writer
 //                     )
 // }
-//Bool
+// Bool
 TEST(TestAdapterWriteNumerical, writeBoolEmpty) {
   BooleanBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -245,21 +245,21 @@ TEST(TestAdapterWriteNumerical, writeBoolNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -282,21 +282,21 @@ TEST(TestAdapterWriteNumerical, writeBoolAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -320,21 +320,21 @@ TEST(TestAdapterWriteNumerical, writeBooleanMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -356,21 +356,21 @@ TEST(TestAdapterWriteNumerical, writeBoolChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, boolean());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -402,21 +402,21 @@ TEST(TestAdapterWriteNumerical, writeBooleanChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:boolean>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:boolean>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = boolean().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -435,27 +435,27 @@ TEST(TestAdapterWriteNumerical, writeBooleanChunkedMixed) {
   writer->close();
 }
 
-//Int8
+// Int8
 TEST(TestAdapterWriteNumerical, writeInt8Empty) {
   Int8Builder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -475,21 +475,21 @@ TEST(TestAdapterWriteNumerical, writeInt8NoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -512,21 +512,21 @@ TEST(TestAdapterWriteNumerical, writeInt8AllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -550,21 +550,21 @@ TEST(TestAdapterWriteNumerical, writeInt8Mixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -586,21 +586,21 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, int8());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -632,21 +632,21 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:tinyint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int8().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -665,27 +665,27 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMixed) {
   writer->close();
 }
 
-//Int16
+// Int16
 TEST(TestAdapterWriteNumerical, writeInt16Empty) {
   Int16Builder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -705,21 +705,21 @@ TEST(TestAdapterWriteNumerical, writeInt16NoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -742,21 +742,21 @@ TEST(TestAdapterWriteNumerical, writeInt16AllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -780,21 +780,21 @@ TEST(TestAdapterWriteNumerical, writeInt16Mixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -816,21 +816,21 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, int16());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -862,21 +862,21 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:smallint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:smallint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int16().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -895,7 +895,7 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMixed) {
   writer->close();
 }
 
-//Int32
+// Int32
 TEST(TestAdapterWriteNumerical, writeInt32Empty) {
   Int32Builder builder;
   std::shared_ptr<Array> array;
@@ -903,19 +903,18 @@ TEST(TestAdapterWriteNumerical, writeInt32Empty) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -937,19 +936,18 @@ TEST(TestAdapterWriteNumerical, writeInt32NoNulls) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -974,19 +972,18 @@ TEST(TestAdapterWriteNumerical, writeInt32AllNulls) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1012,19 +1009,18 @@ TEST(TestAdapterWriteNumerical, writeInt32Mixed) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1048,19 +1044,18 @@ TEST(TestAdapterWriteNumerical, writeInt32ChunkedEmpty) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1094,19 +1089,18 @@ TEST(TestAdapterWriteNumerical, writeInt32ChunkedMixed) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1125,27 +1119,27 @@ TEST(TestAdapterWriteNumerical, writeInt32ChunkedMixed) {
   writer->close();
 }
 
-//Int64
+// Int64
 TEST(TestAdapterWriteNumerical, writeInt64Empty) {
   Int64Builder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1165,21 +1159,21 @@ TEST(TestAdapterWriteNumerical, writeInt64NoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1202,21 +1196,21 @@ TEST(TestAdapterWriteNumerical, writeInt64AllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1240,21 +1234,21 @@ TEST(TestAdapterWriteNumerical, writeInt64Mixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1276,21 +1270,21 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, int64());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1322,21 +1316,21 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:bigint>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:bigint>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = int64().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1355,27 +1349,27 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMixed) {
   writer->close();
 }
 
-//Float
+// Float
 TEST(TestAdapterWriteNumerical, writeFloatEmpty) {
   FloatBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1395,21 +1389,21 @@ TEST(TestAdapterWriteNumerical, writeFloatNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1432,21 +1426,21 @@ TEST(TestAdapterWriteNumerical, writeFloatAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1470,21 +1464,21 @@ TEST(TestAdapterWriteNumerical, writeFloatMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1506,21 +1500,21 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, float32());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1552,21 +1546,21 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:float>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:float>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1585,27 +1579,27 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMixed) {
   writer->close();
 }
 
-//Double
+// Double
 TEST(TestAdapterWriteNumerical, writeDoubleEmpty) {
   DoubleBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1625,21 +1619,21 @@ TEST(TestAdapterWriteNumerical, writeDoubleNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1662,21 +1656,21 @@ TEST(TestAdapterWriteNumerical, writeDoubleAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1700,21 +1694,21 @@ TEST(TestAdapterWriteNumerical, writeDoubleMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1736,21 +1730,21 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, float64());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1782,21 +1776,21 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:double>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:double>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::DoubleVectorBatch *x =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
   DataType* arrowType = float64().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -1815,15 +1809,15 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
   writer->close();
 }
 
-//Decimal
+// Decimal
 // TEST(TestAdapterWriteNumerical, writeDecimalEmpty) {
 //   Decimal128Builder builder(decimal(38, 6));
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
 //   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:decimal>"));
-//   liborc::WriterOptions options;
-//   ORC_UNIQUE_PTR<liborc::Writer> writer =
+//   ORC_UNIQUE_PTR<liborc::Type>
+//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
+//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
 //     createWriter(*schema, &mem_stream, options);
 //   uint64_t batchSize = 1024;
 //   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
@@ -1835,8 +1829,8 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   DataType* arrowType = decimal(38, 6).get();
 //   int64_t arrowOffset = 0;
 //   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
-//   if (!st.ok()) {
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+//   array.get()); if (!st.ok()) {
 //     FAIL() << "ORC ColumnBatch not successfully filled";
 //   }
 //   EXPECT_EQ(x->numElements, 0);
@@ -1855,9 +1849,9 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
 //   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:decimal>"));
-//   liborc::WriterOptions options;
-//   ORC_UNIQUE_PTR<liborc::Writer> writer =
+//   ORC_UNIQUE_PTR<liborc::Type>
+//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
+//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
 //     createWriter(*schema, &mem_stream, options);
 //   uint64_t batchSize = 1024;
 //   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
@@ -1869,8 +1863,8 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   DataType* arrowType = decimal(38, 6).get();
 //   int64_t arrowOffset = 0;
 //   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
-//   if (!st.ok()) {
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+//   array.get()); if (!st.ok()) {
 //     FAIL() << "ORC ColumnBatch not successfully filled";
 //   }
 //   EXPECT_EQ(x->numElements, 4);
@@ -1892,9 +1886,9 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
 //   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:decimal>"));
-//   liborc::WriterOptions options;
-//   ORC_UNIQUE_PTR<liborc::Writer> writer =
+//   ORC_UNIQUE_PTR<liborc::Type>
+//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
+//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
 //     createWriter(*schema, &mem_stream, options);
 //   uint64_t batchSize = 1024;
 //   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
@@ -1906,8 +1900,8 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   DataType* arrowType = decimal(38, 6).get();
 //   int64_t arrowOffset = 0;
 //   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
-//   if (!st.ok()) {
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+//   array.get()); if (!st.ok()) {
 //     FAIL() << "ORC ColumnBatch not successfully filled";
 //   }
 //   EXPECT_EQ(x->numElements, 3);
@@ -1930,9 +1924,9 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   std::shared_ptr<Array> array;
 //   (void)(builder.Finish(&array));
 //   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:decimal>"));
-//   liborc::WriterOptions options;
-//   ORC_UNIQUE_PTR<liborc::Writer> writer =
+//   ORC_UNIQUE_PTR<liborc::Type>
+//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
+//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
 //     createWriter(*schema, &mem_stream, options);
 //   uint64_t batchSize = 1024;
 //   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
@@ -1944,8 +1938,8 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   DataType* arrowType = float64().get();
 //   int64_t arrowOffset = 0;
 //   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
-//   if (!st.ok()) {
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+//   array.get()); if (!st.ok()) {
 //     FAIL() << "ORC ColumnBatch not successfully filled";
 //   }
 //   EXPECT_EQ(x->numElements, 5);
@@ -1963,29 +1957,29 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 //   writer->close();
 // }
 
-//Binary formats
+// Binary formats
 
-//String
+// String
 TEST(TestAdapterWriteBinary, writeStringEmpty) {
   StringBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2005,21 +1999,21 @@ TEST(TestAdapterWriteBinary, writeStringNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2046,21 +2040,21 @@ TEST(TestAdapterWriteBinary, writeStringAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2084,21 +2078,21 @@ TEST(TestAdapterWriteBinary, writeStringMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2119,27 +2113,27 @@ TEST(TestAdapterWriteBinary, writeStringMixed) {
   writer->close();
 }
 
-//LargeString
+// LargeString
 TEST(TestAdapterWriteBinary, writeLargeStringEmpty) {
   LargeStringBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2159,21 +2153,21 @@ TEST(TestAdapterWriteBinary, writeLargeStringNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2200,21 +2194,21 @@ TEST(TestAdapterWriteBinary, writeLargeStringAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2238,21 +2232,21 @@ TEST(TestAdapterWriteBinary, writeLargeStringMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:string>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:string>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_utf8().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2273,27 +2267,27 @@ TEST(TestAdapterWriteBinary, writeLargeStringMixed) {
   writer->close();
 }
 
-//Binary
+// Binary
 TEST(TestAdapterWriteBinary, writeBinaryEmpty) {
   BinaryBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2306,7 +2300,7 @@ TEST(TestAdapterWriteBinary, writeBinaryEmpty) {
 }
 TEST(TestAdapterWriteBinary, writeBinaryNoNulls) {
   BinaryBuilder builder;
-  char a[] = "\xf4", b[] = "\x22\x0e",c[] = "",d[] = "\xff\x66\xbf\x5b";
+  char a[] = "\xf4", b[] = "\x22\x0e", c[] = "", d[] = "\xff\x66\xbf\x5b";
   (void)(builder.Append(a));
   (void)(builder.Append(b));
   (void)(builder.Append(c));
@@ -2314,21 +2308,21 @@ TEST(TestAdapterWriteBinary, writeBinaryNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2355,21 +2349,21 @@ TEST(TestAdapterWriteBinary, writeBinaryAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2394,21 +2388,21 @@ TEST(TestAdapterWriteBinary, writeBinaryMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2429,27 +2423,27 @@ TEST(TestAdapterWriteBinary, writeBinaryMixed) {
   writer->close();
 }
 
-//LargeBinary
+// LargeBinary
 TEST(TestAdapterWriteBinary, writeLargeBinaryEmpty) {
   LargeBinaryBuilder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2462,7 +2456,7 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryEmpty) {
 }
 TEST(TestAdapterWriteBinary, writeLargeBinaryNoNulls) {
   LargeBinaryBuilder builder;
-  char a[] = "\xf4", b[] = "\x22\x0e",c[] = "",d[] = "\xff\x66\xbf\x5b";
+  char a[] = "\xf4", b[] = "\x22\x0e", c[] = "", d[] = "\xff\x66\xbf\x5b";
   (void)(builder.Append(a));
   (void)(builder.Append(b));
   (void)(builder.Append(c));
@@ -2470,21 +2464,21 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2511,21 +2505,21 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2550,21 +2544,21 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = large_binary().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2585,27 +2579,27 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
   writer->close();
 }
 
-//FixedSizeBinary
+// FixedSizeBinary
 TEST(TestAdapterWriteBinary, writeFixedSizeBinaryEmpty) {
   FixedSizeBinaryBuilder builder(fixed_size_binary(4));
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(4).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2621,21 +2615,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroEmpty) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(0).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2654,21 +2648,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroNoNulls) {
   (void)(builder.Append(b));
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(0).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2690,21 +2684,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroMixed) {
   (void)(builder.AppendNull());
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(0).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2731,21 +2725,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroAllNulls) {
   (void)(builder.AppendNull());
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(0).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2766,7 +2760,8 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroAllNulls) {
 }
 TEST(TestAdapterWriteBinary, writeFixedSizeBinaryNoNulls) {
   FixedSizeBinaryBuilder builder(fixed_size_binary(4));
-  char a[] = "\xf4\xd2\x21\x39", b[] = "\x22\x0e\x09\xaa",c[] = "\x34\x01\x43\x42",d[] = "\xff\x66\xbf\x5b";
+  char a[] = "\xf4\xd2\x21\x39", b[] = "\x22\x0e\x09\xaa", c[] = "\x34\x01\x43\x42",
+       d[] = "\xff\x66\xbf\x5b";
   (void)(builder.Append(a));
   (void)(builder.Append(b));
   (void)(builder.Append(c));
@@ -2774,21 +2769,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryNoNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(4).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2815,21 +2810,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryAllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(1).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2854,21 +2849,21 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:binary>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StringVectorBatch *x =
-    internal::checked_cast<liborc::StringVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
   DataType* arrowType = fixed_size_binary(2).get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2889,8 +2884,8 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
   writer->close();
 }
 
-//Nested types
-//Struct
+// Nested types
+// Struct
 TEST(TestAdapterWriteNested, writeStructEmpty) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -2911,26 +2906,25 @@ TEST(TestAdapterWriteNested, writeStructEmpty) {
 
   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 0, children);
 
-
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StructVectorBatch *x =
-    internal::checked_cast<liborc::StructVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->fields[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->fields[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -2947,7 +2941,6 @@ TEST(TestAdapterWriteNested, writeStructEmpty) {
   writer->close();
 }
 TEST(TestAdapterWriteNested, writeStructNoNulls) {
-
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -2978,24 +2971,24 @@ TEST(TestAdapterWriteNested, writeStructNoNulls) {
   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StructVectorBatch *x =
-    internal::checked_cast<liborc::StructVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->fields[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->fields[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3026,7 +3019,6 @@ TEST(TestAdapterWriteNested, writeStructNoNulls) {
   writer->close();
 }
 TEST(TestAdapterWriteNested, writeStructMixed1) {
-
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -3057,24 +3049,24 @@ TEST(TestAdapterWriteNested, writeStructMixed1) {
   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StructVectorBatch *x =
-    internal::checked_cast<liborc::StructVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->fields[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->fields[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3134,9 +3126,9 @@ TEST(TestAdapterWriteNested, writeStructMixed2) {
   children.push_back(array1);
   children.push_back(array2);
 
-  uint8_t bitmap = 14;//00001110
+  uint8_t bitmap = 14;  // 00001110
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
@@ -3146,24 +3138,24 @@ TEST(TestAdapterWriteNested, writeStructMixed2) {
   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children, buffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StructVectorBatch *x =
-    internal::checked_cast<liborc::StructVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->fields[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->fields[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3228,9 +3220,9 @@ TEST(TestAdapterWriteNested, writeStructMixed3) {
   children.push_back(array1);
   children.push_back(array2);
 
-  uint8_t bitmap = 14;//00001110
+  uint8_t bitmap = 14;  // 00001110
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
@@ -3240,24 +3232,24 @@ TEST(TestAdapterWriteNested, writeStructMixed3) {
   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children, buffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::StructVectorBatch *x =
-    internal::checked_cast<liborc::StructVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->fields[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->fields[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3289,7 +3281,7 @@ TEST(TestAdapterWriteNested, writeStructMixed3) {
   writer->close();
 }
 
-//List
+// List
 TEST(TestAdapterWriteNested, writeListNoNulls) {
   auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3319,22 +3311,22 @@ TEST(TestAdapterWriteNested, writeListNoNulls) {
   array = ListArray::FromArrays(*offsetsArray, *valuesArray).ValueOrDie();
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3396,22 +3388,22 @@ TEST(TestAdapterWriteNested, writeListMixed1) {
   array = ListArray::FromArrays(*offsetsArray, *valuesArray).ValueOrDie();
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3480,34 +3472,35 @@ TEST(TestAdapterWriteNested, writeListMixed2) {
   (void)(valuesBuilder.AppendNull());
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  uint8_t bitmap = 13;//00001101
+  uint8_t bitmap = 13;  // 00001101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<ListArray>(sharedPtrArrowType, 4, offsetsBuffer, valuesArray, bitmapBuffer);
+  auto array = std::make_shared<ListArray>(sharedPtrArrowType, 4, offsetsBuffer,
+                                           valuesArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3578,34 +3571,35 @@ TEST(TestAdapterWriteNested, writeListMixed3) {
   (void)(valuesBuilder.AppendNull());
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  uint8_t bitmap = 13;//00001101
+  uint8_t bitmap = 13;  // 00001101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<ListArray>(sharedPtrArrowType, 4, offsetsBuffer, valuesArray, bitmapBuffer);
+  auto array = std::make_shared<ListArray>(sharedPtrArrowType, 4, offsetsBuffer,
+                                           valuesArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3645,12 +3639,12 @@ TEST(TestAdapterWriteNested, writeListMixed3) {
   writer->close();
 }
 
-//LargeList
+// LargeList
 TEST(TestAdapterWriteNested, writeLargeListNoNulls) {
   auto sharedPtrArrowType = large_list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
 
-  Int32Builder valuesBuilder; 
+  Int32Builder valuesBuilder;
   Int64Builder offsetsBuilder;
   std::shared_ptr<Array> valuesArray, offsetsArray;
   (void)(valuesBuilder.Append(1));
@@ -3676,22 +3670,22 @@ TEST(TestAdapterWriteNested, writeLargeListNoNulls) {
   array = LargeListArray::FromArrays(*offsetsArray, *valuesArray).ValueOrDie();
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3754,22 +3748,22 @@ TEST(TestAdapterWriteNested, writeLargeListMixed1) {
   array = LargeListArray::FromArrays(*offsetsArray, *valuesArray).ValueOrDie();
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3838,34 +3832,35 @@ TEST(TestAdapterWriteNested, writeLargeListMixed2) {
   (void)(valuesBuilder.AppendNull());
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  uint8_t bitmap = 13;//00001101
+  uint8_t bitmap = 13;  // 00001101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<LargeListArray>(sharedPtrArrowType, 4, offsetsBuffer, valuesArray, bitmapBuffer);
+  auto array = std::make_shared<LargeListArray>(sharedPtrArrowType, 4, offsetsBuffer,
+                                                valuesArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -3936,34 +3931,35 @@ TEST(TestAdapterWriteNested, writeLargeListMixed3) {
   (void)(valuesBuilder.AppendNull());
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  uint8_t bitmap = 13;//00001101
+  uint8_t bitmap = 13;  // 00001101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<LargeListArray>(sharedPtrArrowType, 4, offsetsBuffer, valuesArray, bitmapBuffer);
+  auto array = std::make_shared<LargeListArray>(sharedPtrArrowType, 4, offsetsBuffer,
+                                                valuesArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4003,7 +3999,7 @@ TEST(TestAdapterWriteNested, writeLargeListMixed3) {
   writer->close();
 }
 
-//FixedSizeList
+// FixedSizeList
 TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4012,25 +4008,27 @@ TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   std::shared_ptr<Array> valuesArray;
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  std::shared_ptr<FixedSizeListArray> array = std::static_pointer_cast<FixedSizeListArray>(FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4062,25 +4060,27 @@ TEST(TestAdapterWriteNested, writeFixedSizeListAllNulls) {
   (void)(valuesBuilder.AppendNull());
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  std::shared_ptr<FixedSizeListArray> array = std::static_pointer_cast<FixedSizeListArray>(FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4118,22 +4118,22 @@ TEST(TestAdapterWriteNested, writeFixedSizeListZeroLength) {
   auto array = std::make_shared<FixedSizeListArray>(sharedPtrArrowType, 3, valuesArray);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4171,25 +4171,27 @@ TEST(TestAdapterWriteNested, writeFixedSizeListNoNulls) {
   (void)(valuesBuilder.Append(12));
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  std::shared_ptr<FixedSizeListArray> array = std::static_pointer_cast<FixedSizeListArray>(FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4244,25 +4246,27 @@ TEST(TestAdapterWriteNested, writeFixedSizeListMixed1) {
   (void)(valuesBuilder.Append(12));
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  std::shared_ptr<FixedSizeListArray> array = std::static_pointer_cast<FixedSizeListArray>(FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4327,34 +4331,35 @@ TEST(TestAdapterWriteNested, writeFixedSizeListMixed2) {
   (void)(valuesBuilder.Append(12));
   (void)(valuesBuilder.Finish(&valuesArray));
 
-  uint8_t bitmap = 13;//00001101
+  uint8_t bitmap = 13;  // 00001101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<FixedSizeListArray>(sharedPtrArrowType, 4, valuesArray, bitmapBuffer);
+  auto array = std::make_shared<FixedSizeListArray>(sharedPtrArrowType, 4, valuesArray,
+                                                    bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::ListVectorBatch *x =
-    internal::checked_cast<liborc::ListVectorBatch *>(root->fields[0]);
-  liborc::LongVectorBatch *a =
-    internal::checked_cast<liborc::LongVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4403,7 +4408,7 @@ TEST(TestAdapterWriteNested, writeFixedSizeListMixed2) {
   writer->close();
 }
 
-//Map
+// Map
 TEST(TestAdapterWriteNested, writeMapEmpty) {
   auto sharedPtrArrowType = map(utf8(), utf8());
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4416,27 +4421,28 @@ TEST(TestAdapterWriteNested, writeMapEmpty) {
   (void)(offsetsBuilder.Append(0));
   (void)(offsetsBuilder.Finish(&offsetsArray));
 
-  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
+  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(
+      MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::MapVectorBatch *x =
-    internal::checked_cast<liborc::MapVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->keys).get());
-  liborc::StringVectorBatch *b =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::StringVectorBatch* b =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4481,27 +4487,28 @@ TEST(TestAdapterWriteNested, writeMapNoNulls) {
   (void)(offsetsBuilder.Append(5));
   (void)(offsetsBuilder.Finish(&offsetsArray));
 
-  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
+  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(
+      MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::MapVectorBatch *x =
-    internal::checked_cast<liborc::MapVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->keys).get());
-  liborc::StringVectorBatch *b =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::StringVectorBatch* b =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4571,27 +4578,28 @@ TEST(TestAdapterWriteNested, writeMapMixed1) {
   (void)(offsetsBuilder.Append(5));
   (void)(offsetsBuilder.Finish(&offsetsArray));
 
-  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
+  std::shared_ptr<MapArray> array = std::static_pointer_cast<MapArray>(
+      MapArray::FromArrays(offsetsArray, keysArray, itemsArray).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::MapVectorBatch *x =
-    internal::checked_cast<liborc::MapVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->keys).get());
-  liborc::StringVectorBatch *b =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::StringVectorBatch* b =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4644,7 +4652,7 @@ TEST(TestAdapterWriteNested, writeMapMixed2) {
 
   StringBuilder keysBuilder, itemsBuilder;
   std::shared_ptr<Array> keysArray, itemsArray;
-  
+
   int32_t offsets[4] = {0, 1, 3, 5};
 
   BufferBuilder builder;
@@ -4668,36 +4676,37 @@ TEST(TestAdapterWriteNested, writeMapMixed2) {
   (void)(itemsBuilder.AppendNull());
   (void)(itemsBuilder.Finish(&itemsArray));
 
-  uint8_t bitmap = 5;//00000101
+  uint8_t bitmap = 5;  // 00000101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<MapArray>(sharedPtrArrowType, 3, offsetsBuffer, keysArray, itemsArray, bitmapBuffer);
+  auto array = std::make_shared<MapArray>(sharedPtrArrowType, 3, offsetsBuffer, keysArray,
+                                          itemsArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::MapVectorBatch *x =
-    internal::checked_cast<liborc::MapVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->keys).get());
-  liborc::StringVectorBatch *b =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::StringVectorBatch* b =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4753,7 +4762,7 @@ TEST(TestAdapterWriteNested, writeMapMixed3) {
 
   StringBuilder keysBuilder, itemsBuilder;
   std::shared_ptr<Array> keysArray, itemsArray;
-  
+
   int32_t offsets[4] = {0, 1, 3, 3};
 
   BufferBuilder builder;
@@ -4773,36 +4782,37 @@ TEST(TestAdapterWriteNested, writeMapMixed3) {
   (void)(itemsBuilder.Append("dsw7"));
   (void)(itemsBuilder.Finish(&itemsArray));
 
-  uint8_t bitmap = 5;//00000101
+  uint8_t bitmap = 5;  // 00000101
   auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()){
+  if (!maybeBuffer.ok()) {
     FAIL() << "Buffer not created successfully";
   }
   std::shared_ptr<Buffer> bitmapBuffer = *std::move(maybeBuffer);
   uint8_t* bufferData = bitmapBuffer->mutable_data();
   std::memcpy(bufferData, &bitmap, 1);
 
-  auto array = std::make_shared<MapArray>(sharedPtrArrowType, 3, offsetsBuffer, keysArray, itemsArray, bitmapBuffer);
+  auto array = std::make_shared<MapArray>(sharedPtrArrowType, 3, offsetsBuffer, keysArray,
+                                          itemsArray, bitmapBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:string>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::MapVectorBatch *x =
-    internal::checked_cast<liborc::MapVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->keys).get());
-  liborc::StringVectorBatch *b =
-    internal::checked_cast<liborc::StringVectorBatch *>((x->elements).get());
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::StringVectorBatch* b =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->elements).get());
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4844,9 +4854,8 @@ TEST(TestAdapterWriteNested, writeMapMixed3) {
   writer->close();
 }
 
-//DenseUnion
+// DenseUnion
 TEST(TestAdapterWriteNested, writeDenseUnionEmpty) {
-
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -4874,27 +4883,28 @@ TEST(TestAdapterWriteNested, writeDenseUnionEmpty) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 0, children, type_idsBuffer);
+  auto array =
+      std::make_shared<DenseUnionArray>(sharedPtrArrowType, 0, children, type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -4957,27 +4967,28 @@ TEST(TestAdapterWriteNested, writeDenseUnionNoNulls) {
     FAIL() << "The value_offsets buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer, valueOffsetsBuffer);
+  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children,
+                                                 type_idsBuffer, valueOffsetsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5063,27 +5074,28 @@ TEST(TestAdapterWriteNested, writeDenseUnionAllNulls) {
     FAIL() << "The value_offsets buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer, valueOffsetsBuffer);
+  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children,
+                                                 type_idsBuffer, valueOffsetsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5164,27 +5176,28 @@ TEST(TestAdapterWriteNested, writeDenseUnionMixed1) {
     FAIL() << "The value_offsets buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer, valueOffsetsBuffer);
+  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 8, children,
+                                                 type_idsBuffer, valueOffsetsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5286,31 +5299,32 @@ TEST(TestAdapterWriteNested, writeDenseUnionMixed2) {
     FAIL() << "The value_offsets buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 12, children, type_idsBuffer, valueOffsetsBuffer);
+  auto array = std::make_shared<DenseUnionArray>(sharedPtrArrowType, 12, children,
+                                                 type_idsBuffer, valueOffsetsBuffer);
 
-  //RecordProperty("Null count", array->null_count());
+  // RecordProperty("Null count", array->null_count());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int,c:double>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int,c:double>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
-  liborc::DoubleVectorBatch *c =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(x->children[2]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
+  liborc::DoubleVectorBatch* c =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(x->children[2]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5370,9 +5384,8 @@ TEST(TestAdapterWriteNested, writeDenseUnionMixed2) {
   writer->close();
 }
 
-//SparseUnion
+// SparseUnion
 TEST(TestAdapterWriteNested, writeSparseUnionEmpty) {
-
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
   xFields.push_back(std::make_shared<Field>("b", int32()));
@@ -5400,27 +5413,28 @@ TEST(TestAdapterWriteNested, writeSparseUnionEmpty) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 0, children, type_idsBuffer);
+  auto array =
+      std::make_shared<SparseUnionArray>(sharedPtrArrowType, 0, children, type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5474,27 +5488,28 @@ TEST(TestAdapterWriteNested, writeSparseUnionNoNulls) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
+  auto array =
+      std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5571,27 +5586,28 @@ TEST(TestAdapterWriteNested, writeSparseUnionAllNulls) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
+  auto array =
+      std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5663,27 +5679,28 @@ TEST(TestAdapterWriteNested, writeSparseUnionMixed1) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
+  auto array =
+      std::make_shared<SparseUnionArray>(sharedPtrArrowType, 8, children, type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5776,29 +5793,30 @@ TEST(TestAdapterWriteNested, writeSparseUnionMixed2) {
     FAIL() << "The type_ids buffer can not be constructed!";
   }
 
-  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 12, children, type_idsBuffer);
+  auto array = std::make_shared<SparseUnionArray>(sharedPtrArrowType, 12, children,
+                                                  type_idsBuffer);
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int,c:double>>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:uniontype<a:string,b:int,c:double>>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::UnionVectorBatch *x =
-    internal::checked_cast<liborc::UnionVectorBatch *>(root->fields[0]);
-  liborc::StringVectorBatch *a =
-    internal::checked_cast<liborc::StringVectorBatch *>(x->children[0]);
-  liborc::LongVectorBatch *b =
-    internal::checked_cast<liborc::LongVectorBatch *>(x->children[1]);
-  liborc::DoubleVectorBatch *c =
-    internal::checked_cast<liborc::DoubleVectorBatch *>(x->children[2]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::UnionVectorBatch* x =
+      internal::checked_cast<liborc::UnionVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>(x->children[0]);
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>(x->children[1]);
+  liborc::DoubleVectorBatch* c =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(x->children[2]);
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5858,28 +5876,28 @@ TEST(TestAdapterWriteNested, writeSparseUnionMixed2) {
   writer->close();
 }
 
-//Time-related
-//Date32
+// Time-related
+// Date32
 TEST(TestAdapterWriteTime, writeDate32Empty) {
   Date32Builder builder;
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5894,26 +5912,26 @@ TEST(TestAdapterWriteTime, writeDate32NoNulls) {
   Date32Builder builder;
   (void)(builder.Append(1));
   (void)(builder.Append(-2));
-  (void)(builder.Append(18582));//Nov 16th 2020
+  (void)(builder.Append(18582));  // Nov 16th 2020
   (void)(builder.Append(-4));
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5936,21 +5954,21 @@ TEST(TestAdapterWriteTime, writeDate32AllNulls) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -5974,21 +5992,21 @@ TEST(TestAdapterWriteTime, writeDate32Mixed) {
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowOffset = 0;
   int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize, array.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -6010,21 +6028,21 @@ TEST(TestAdapterWriteTime, writeDate32ChunkedEmpty) {
   ArrayVector av;
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, date32());
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }
@@ -6056,21 +6074,21 @@ TEST(TestAdapterWriteTime, writeDate32ChunkedMixed) {
   av.push_back(array4);
   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:date>"));
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:date>"));
   liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-    createWriter(*schema, &mem_stream, options);
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
   uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-    writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch *root =
-    internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-  liborc::LongVectorBatch *x =
-    internal::checked_cast<liborc::LongVectorBatch *>(root->fields[0]);
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
   DataType* arrowType = date32().get();
   int64_t arrowIndexOffset = 0;
   int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset, batchSize, carray.get());
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
   if (!st.ok()) {
     FAIL() << "ORC ColumnBatch not successfully filled";
   }

@@ -18,18 +18,17 @@
 #pragma once
 
 #include <cstdint>
-#include <sstream>
 #include <memory>
+#include <sstream>
 #include <vector>
 
-#include "arrow/io/interfaces.h"
 #include "arrow/io/file.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
-
 #include "orc/OrcFile.hh"
 
 namespace liborc = orc;
@@ -168,17 +167,14 @@ class ARROW_EXPORT ORCFileReader {
 };
 
 class ARROW_EXPORT ArrowWriterOptions {
-  public:
-    uint64_t batch_size_;
-    explicit ArrowWriterOptions(uint64_t batch_size)
-      :batch_size_(batch_size) {}
-    Status set_batch_size(uint64_t batch_size) {
-      batch_size_ = batch_size;
-      return Status::OK();
-    }
-    uint64_t get_batch_size() {
-      return batch_size_;
-    }
+ public:
+  uint64_t batch_size_;
+  explicit ArrowWriterOptions(uint64_t batch_size) : batch_size_(batch_size) {}
+  Status set_batch_size(uint64_t batch_size) {
+    batch_size_ = batch_size;
+    return Status::OK();
+  }
+  uint64_t get_batch_size() { return batch_size_; }
 };
 
 class ArrowOutputFile : public liborc::OutputStream {
@@ -186,9 +182,7 @@ class ArrowOutputFile : public liborc::OutputStream {
   explicit ArrowOutputFile(const std::shared_ptr<io::FileOutputStream>& file)
       : file_(file), length_(0) {}
 
-  uint64_t getLength() const override {
-    return length_;
-  }
+  uint64_t getLength() const override { return length_; }
 
   uint64_t getNaturalWriteSize() const override { return 128 * 1024; }
 
@@ -208,13 +202,9 @@ class ArrowOutputFile : public liborc::OutputStream {
     }
   }
 
-  int64_t get_length() {
-    return length_;
-  }
+  int64_t get_length() { return length_; }
 
-  void set_length(int64_t length) {
-    length_ = length;
-  }
+  void set_length(int64_t length) { length_ = length; }
 
  private:
   std::shared_ptr<io::FileOutputStream> file_;
@@ -223,7 +213,7 @@ class ArrowOutputFile : public liborc::OutputStream {
 
 /// \class ORCFileWriter
 /// \brief Write an Arrow Table or RecordBatch to an ORC file.
-class ARROW_EXPORT ORCFileWriter{
+class ARROW_EXPORT ORCFileWriter {
  public:
   ~ORCFileWriter();
   /// \brief Creates a new ORC writer.
@@ -234,24 +224,21 @@ class ARROW_EXPORT ORCFileWriter{
   /// \param[in] arrow_options ORC writer options
   /// \param[out] writer the returned writer object
   /// \return Status
-  static Status Open(Schema* schema,
-                    const std::shared_ptr<io::FileOutputStream>& file,        
-                    std::shared_ptr<liborc::WriterOptions> options,
-                    std::shared_ptr<ArrowWriterOptions> arrow_options,
-                    std::unique_ptr<ORCFileWriter>* writer
-                    );
+  static Status Open(Schema* schema, const std::shared_ptr<io::FileOutputStream>& file,
+                     std::shared_ptr<liborc::WriterOptions> options,
+                     std::shared_ptr<ArrowWriterOptions> arrow_options,
+                     std::unique_ptr<ORCFileWriter>* writer);
 
   /// \brief Write a table
   ///
-  /// \param[in] table the Arrow table from which data is extracted 
+  /// \param[in] table the Arrow table from which data is extracted
   /// \return Status
   Status Write(const std::shared_ptr<Table> table);
 
-  private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-    ORCFileWriter();
-    
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+  ORCFileWriter();
 };
 
 }  // namespace orc
