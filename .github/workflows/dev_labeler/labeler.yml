@@ -15,6 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"lang-c++":
+  - cpp/**/*
+
+lang-csharp:
+  - csharp/**/*
+
+lang-go:
+  - go/**/*
+
+lang-java:
+  - java/**/*
+
+lang-js:
+  - js/**/*
+
+lang-julia:
+  - julia/**/*
+
+lang-python:
+  - python/**/*
+
+lang-R:
+  - r/**/*
+
+lang-ruby:
+  - ruby/**/*
+
 lang-rust:
   - rust/**/*
 
