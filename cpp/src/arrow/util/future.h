@@ -86,13 +86,13 @@ constexpr struct ContinueFuture {
     R signal_to_complete_next = std::forward<F>(f)(std::forward<A>(a)...);
 
     struct MarkNextFinished {
-      void operator()() && { next.MarkFinished(signal_to_complete_next.get().result()); }
+      void operator()(const Result<typename R::ValueType>& result) && {
+        next.MarkFinished(result);
+      }
       N next;
-      WeakFuture<typename R::ValueType> signal_to_complete_next;
     };
 
-    signal_to_complete_next.impl_->AddCallback(MarkNextFinished{
-        std::move(next), WeakFuture<typename R::ValueType>(signal_to_complete_next)});
+    signal_to_complete_next.AddCallback(MarkNextFinished{std::move(next)});
   }
 } Continue;
 
@@ -350,6 +350,26 @@ class ARROW_MUST_USE_TYPE Future {
     return MakeFinished(E::ToResult(std::move(s)));
   }
 
+  /// \brief Consumer API: Register a callback to run when this future completes
+  template <typename OnComplete>
+  void AddCallback(OnComplete&& on_complete) const {
+    struct Callback {
+      void operator()() && {
+        auto self = weak_self.get();
+        std::move(on_complete)(*self.GetResult());
+      }
+
+      WeakFuture<T> weak_self;
+      OnComplete on_complete;
+    };
+
+    // We know impl_ will not be dangling when invoking callbacks because at least one
+    // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
+    // weak reference to impl_ here
+    impl_->AddCallback(
+        Callback{WeakFuture<T>(*this), std::forward<OnComplete>(on_complete)});
+  }
+
   /// \brief Consumer API: Register a continuation to run when this future completes
   ///
   /// The continuation will run in the same thread that called MarkFinished (whatever
@@ -394,9 +414,7 @@ class ARROW_MUST_USE_TYPE Future {
     auto next = ContinuedFuture::Make();
 
     struct Callback {
-      void operator()() && {
-        auto self = weak_self.get();
-        const auto& result = *self.GetResult();
+      void operator()(const Result<T>& result) && {
         if (ARROW_PREDICT_TRUE(result.ok())) {
           detail::Continue(std::move(next), std::move(on_success), result.ValueOrDie());
         } else {
@@ -404,17 +422,13 @@ class ARROW_MUST_USE_TYPE Future {
         }
       }
 
-      WeakFuture<T> weak_self;
       OnSuccess on_success;
       OnFailure on_failure;
       ContinuedFuture next;
     };
 
-    // We know impl_ will not be dangling when invoking callbacks because at least one
-    // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
-    // weak reference to impl_ here
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::forward<OnSuccess>(on_success),
-                                std::forward<OnFailure>(on_failure), next});
+    AddCallback(Callback{std::forward<OnSuccess>(on_success),
+                         std::forward<OnFailure>(on_failure), next});
 
     return next;
   }
@@ -436,19 +450,15 @@ class ARROW_MUST_USE_TYPE Future {
     auto next = ContinuedFuture::Make();
 
     struct Callback {
-      void operator()() && {
-        auto self = weak_self.get();
-        const auto& result = *self.GetResult();
+      void operator()(const Result<T>& result) && {
         detail::Continue(std::move(next), std::move(on_complete), result.status());
       }
 
-      WeakFuture<T> weak_self;
       OnComplete on_complete;
       ContinuedFuture next;
     };
 
-    impl_->AddCallback(
-        Callback{WeakFuture<T>(*this), std::forward<OnComplete>(on_complete), next});
+    AddCallback(Callback{std::forward<OnComplete>(on_complete), next});
 
     return next;
   }
