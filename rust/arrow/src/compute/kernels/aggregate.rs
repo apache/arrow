@@ -295,8 +295,8 @@ mod simd {
     }
 
     impl<T: ArrowNumericType> SimdAggregate<T> for MaxAggregate<T>
-        where
-            T::Native: PartialOrd,
+    where
+        T::Native: PartialOrd,
     {
         fn init_accumulator_scalar() -> T::Native {
             T::identity_for_max_op()
@@ -418,8 +418,8 @@ where
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T::Native: PartialOrd,
+where
+    T::Native: PartialOrd,
 {
     use simd::*;
 
