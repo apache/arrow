@@ -49,8 +49,6 @@ namespace arrow {
 ///   {"insert": false, "run_length": 0} // delete("o") then an empty run
 /// ]
 ///
-/// Diffing arrays containing nulls is not currently supported.
-///
 /// \param[in] base baseline for comparison
 /// \param[in] target an array of identical type to base whose elements differ from base's
 /// \param[in] pool memory to store the result will be allocated from this memory pool
@@ -58,6 +56,27 @@ namespace arrow {
 ARROW_EXPORT
 Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
                                           MemoryPool* pool = default_memory_pool());
+
+/// \brief Compare two array ranges, returning an edit script which expresses the
+/// difference between them
+///
+/// Same as Diff(), but only the ranges defined by the given offsets and lengths
+/// are compared.
+///
+/// \param[in] base baseline for comparison
+/// \param[in] target an array of identical type to base whose elements differ from base's
+/// \param[in] base_offset the start offset of the range to consider inside `base`
+/// \param[in] base_length the length of the range to consider inside `base`
+/// \param[in] target_offset the start offset of the range to consider inside `target`
+/// \param[in] target_length the length of the range to consider inside `target`
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return an edit script array which can be applied to base to produce target
+ARROW_EXPORT
+Result<std::shared_ptr<StructArray>> DiffRanges(const Array& base, const Array& target,
+                                                int64_t base_offset, int64_t base_length,
+                                                int64_t target_offset,
+                                                int64_t target_length,
+                                                MemoryPool* pool = default_memory_pool());
 
 /// \brief visitor interface for easy traversal of an edit script
 ///

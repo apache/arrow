@@ -110,8 +110,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   ///
   /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor,
-            typename Word =
-                typename internal::call_traits::argument_type<0, Visitor&&>::value_type>
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
   static int64_t VisitWords(const Bitmap (&bitmaps_arg)[N], Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 

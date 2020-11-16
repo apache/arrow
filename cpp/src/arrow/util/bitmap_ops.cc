@@ -429,6 +429,26 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
   return true;
 }
 
+bool OptionalBitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                          int64_t right_offset, int64_t length) {
+  if (left == nullptr && right == nullptr) {
+    return true;
+  } else if (left != nullptr && right != nullptr) {
+    return BitmapEquals(left, left_offset, right, right_offset, length);
+  } else if (left != nullptr) {
+    return CountSetBits(left, left_offset, length) == length;
+  } else {
+    return CountSetBits(right, right_offset, length) == length;
+  }
+}
+
+bool OptionalBitmapEquals(const std::shared_ptr<Buffer>& left, int64_t left_offset,
+                          const std::shared_ptr<Buffer>& right, int64_t right_offset,
+                          int64_t length) {
+  return OptionalBitmapEquals(left ? left->data() : nullptr, left_offset,
+                              right ? right->data() : nullptr, right_offset, length);
+}
+
 namespace {
 
 template <template <typename> class BitOp>

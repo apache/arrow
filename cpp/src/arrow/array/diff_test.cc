@@ -35,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -72,8 +73,12 @@ class DiffTest : public ::testing::Test {
  protected:
   DiffTest() : rng_(kSeed) {}
 
-  void DoDiff() {
-    auto edits = Diff(*base_, *target_, default_memory_pool());
+  void DoDiff() { DoDiffRanges(0, base_->length(), 0, target_->length()); }
+
+  void DoDiffRanges(int64_t base_offset, int64_t base_length, int64_t target_offset,
+                    int64_t target_length) {
+    auto edits = DiffRanges(*base_, *target_, base_offset, base_length, target_offset,
+                            target_length, default_memory_pool());
     ASSERT_OK(edits.status());
     edits_ = edits.ValueOrDie();
     ASSERT_OK(edits_->ValidateFull());
@@ -87,6 +92,26 @@ class DiffTest : public ::testing::Test {
     auto formatter = MakeUnifiedDiffFormatter(*base_->type(), out);
     ASSERT_OK(formatter.status());
     ASSERT_OK(formatter.ValueOrDie()(*edits_, *base_, *target_));
+  }
+
+  void AssertDiffRanges(int64_t base_offset, int64_t base_length, int64_t target_offset,
+                        int64_t target_length, const std::string& insert_json,
+                        const std::string& run_lengths_json) {
+    const auto expected_inserts = ArrayFromJSON(boolean(), insert_json);
+    const auto expected_run_lengths = ArrayFromJSON(int64(), run_lengths_json);
+    DoDiffRanges(base_offset, base_length, target_offset, target_length);
+    AssertArraysEqual(*expected_inserts, *insert_, /*verbose=*/true);
+    AssertArraysEqual(*expected_run_lengths, *run_lengths_, /*verbose=*/true);
+    // Slice base
+    base_ = base_->Slice(base_offset, base_length);
+    DoDiffRanges(0, base_length, target_offset, target_length);
+    AssertArraysEqual(*expected_inserts, *insert_, /*verbose=*/true);
+    AssertArraysEqual(*expected_run_lengths, *run_lengths_, /*verbose=*/true);
+    // Slice target
+    target_ = target_->Slice(target_offset, target_length);
+    DoDiffRanges(0, base_length, 0, target_length);
+    AssertArraysEqual(*expected_inserts, *insert_, /*verbose=*/true);
+    AssertArraysEqual(*expected_run_lengths, *run_lengths_, /*verbose=*/true);
   }
 
   // validate diff and assert that it formats as expected, both directly
@@ -105,11 +130,12 @@ class DiffTest : public ::testing::Test {
   }
 
   void AssertInsertIs(const std::string& insert_json) {
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(boolean(), insert_json), *insert_);
+    AssertArraysEqual(*ArrayFromJSON(boolean(), insert_json), *insert_, /*verbose=*/true);
   }
 
   void AssertRunLengthIs(const std::string& run_lengths_json) {
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(int64(), run_lengths_json), *run_lengths_);
+    AssertArraysEqual(*ArrayFromJSON(int64(), run_lengths_json), *run_lengths_,
+                      /*verbose=*/true);
   }
 
   void BaseAndTargetFromRandomFilter(std::shared_ptr<Array> values,
@@ -125,6 +151,56 @@ class DiffTest : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(out_datum, compute::Filter(values, target_filter));
     target_ = out_datum.make_array();
+  }
+
+  void TestBasicsWithUnions(UnionMode::type mode) {
+    ASSERT_OK_AND_ASSIGN(
+        auto type,
+        UnionType::Make({field("foo", utf8()), field("bar", int32())}, {2, 5}, mode));
+
+    // insert one
+    base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
+    DoDiff();
+    AssertInsertIs("[false, true]");
+    AssertRunLengthIs("[1, 2]");
+
+    // delete one
+    base_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+    DoDiff();
+    AssertInsertIs("[false, false]");
+    AssertRunLengthIs("[1, 2]");
+
+    // change one
+    base_ = ArrayFromJSON(type, R"([[5, 3], [2, "!"], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "3"], [2, "!"], [5, 13]])");
+    DoDiff();
+    AssertInsertIs("[false, false, true]");
+    AssertRunLengthIs("[0, 0, 2]");
+
+    // null out one
+    base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], null])");
+    DoDiff();
+    AssertInsertIs("[false, false, true]");
+    AssertRunLengthIs("[2, 0, 0]");
+  }
+
+  void TestRangesWithUnions(UnionMode::type mode) {
+    ASSERT_OK_AND_ASSIGN(
+        auto type,
+        UnionType::Make({field("foo", utf8()), field("bar", int32())}, {2, 5}, mode));
+
+    // insert one
+    base_ = ArrayFromJSON(type, R"([null, [2, "!"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13], [5, 9999]])");
+    AssertDiffRanges(1, 3, 0, 4, "[false, true]", "[1, 2]");
+
+    // delete one
+    base_ = ArrayFromJSON(type, R"([null, [2, "!"], [2, "?"], [5, 3], [5, 13]])");
+    target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13], [5, 9999]])");
+    AssertDiffRanges(1, 4, 0, 3, "[false, false]", "[1, 2]");
   }
 
   random::RandomArrayGenerator rng_;
@@ -152,6 +228,16 @@ TEST_F(DiffTest, Trivial) {
   DoDiff();
   AssertInsertIs("[false]");
   AssertRunLengthIs("[3]");
+}
+
+TEST_F(DiffTest, TrivialRanges) {
+  base_ = ArrayFromJSON(null(), "[null, null, null]");
+  target_ = ArrayFromJSON(null(), "[null, null, null, null]");
+  AssertDiffRanges(1, 2, 2, 1, "[false, false]", "[1, 0]");
+
+  base_ = ArrayFromJSON(int32(), "[1, 2, 3, 88]");
+  target_ = ArrayFromJSON(int32(), "[99, 1, 2, 3]");
+  AssertDiffRanges(0, 3, 1, 3, "[false]", "[3]");
 }
 
 TEST_F(DiffTest, Errors) {
@@ -219,6 +305,18 @@ TYPED_TEST(DiffTestWithNumeric, Basics) {
   this->AssertRunLengthIs("[0, 0, 0, 0, 5]");
 }
 
+TYPED_TEST(DiffTestWithNumeric, Ranges) {
+  // insert one
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[88, 1, 2, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, 3, null, 5, 99]");
+  this->AssertDiffRanges(1, 4, 0, 5, "[false, true]", "[2, 2]");
+
+  // delete one
+  this->base_ = ArrayFromJSON(this->type_singleton(), "[88, 1, 2, 3, null, 5]");
+  this->target_ = ArrayFromJSON(this->type_singleton(), "[1, 2, null, 5, 99]");
+  this->AssertDiffRanges(1, 5, 0, 4, "[false, false]", "[2, 2]");
+}
+
 TEST_F(DiffTest, CompareRandomInt64) {
   for (auto null_probability : {0.0, 0.25}) {
     auto values = this->rng_.Int64(1 << 10, 0, 127, null_probability);
@@ -251,6 +349,58 @@ TEST_F(DiffTest, CompareRandomStrings) {
   }
 }
 
+TEST_F(DiffTest, BasicsWithBooleans) {
+  // insert one
+  base_ = ArrayFromJSON(boolean(), R"([true, true, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, true, true])");
+  DoDiff();
+  AssertInsertIs("[false, true]");
+  AssertRunLengthIs("[1, 2]");
+
+  // delete one
+  base_ = ArrayFromJSON(boolean(), R"([true, false, true, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, true, true])");
+  DoDiff();
+  AssertInsertIs("[false, false]");
+  AssertRunLengthIs("[1, 2]");
+
+  // change one
+  base_ = ArrayFromJSON(boolean(), R"([false, false, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, true])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 2]");
+
+  // null out one
+  base_ = ArrayFromJSON(boolean(), R"([true, false, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, null])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[2, 0, 0]");
+}
+
+TEST_F(DiffTest, RangesWithBooleans) {
+  // insert one
+  base_ = ArrayFromJSON(boolean(), R"([null, true, true, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, true, true, false])");
+  AssertDiffRanges(1, 3, 0, 4, "[false, true]", "[1, 2]");
+
+  // delete one
+  base_ = ArrayFromJSON(boolean(), R"([null, true, false, true, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, true, true, false])");
+  AssertDiffRanges(1, 4, 0, 3, "[false, false]", "[1, 2]");
+
+  // change one
+  base_ = ArrayFromJSON(boolean(), R"([null, false, false, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, true, false])");
+  AssertDiffRanges(1, 3, 0, 3, "[false, false, true]", "[0, 0, 2]");
+
+  // null out one
+  base_ = ArrayFromJSON(boolean(), R"([null, true, false, true])");
+  target_ = ArrayFromJSON(boolean(), R"([true, false, null, false])");
+  AssertDiffRanges(1, 3, 0, 3, "[false, false, true]", "[2, 0, 0]");
+}
+
 TEST_F(DiffTest, BasicsWithStrings) {
   // insert one
   base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
@@ -281,6 +431,18 @@ TEST_F(DiffTest, BasicsWithStrings) {
   AssertRunLengthIs("[2, 0, 0]");
 }
 
+TEST_F(DiffTest, RangesWithStrings) {
+  // insert one
+  base_ = ArrayFromJSON(utf8(), R"([null, "give", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break", "ZZZ"])");
+  AssertDiffRanges(1, 3, 0, 4, "[false, true]", "[1, 2]");
+
+  // delete one
+  base_ = ArrayFromJSON(utf8(), R"([null, "give", "me", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "a", "break", "ZZZ"])");
+  AssertDiffRanges(1, 4, 0, 3, "[false, false]", "[1, 2]");
+}
+
 TEST_F(DiffTest, BasicsWithLists) {
   // insert one
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13]])");
@@ -309,6 +471,18 @@ TEST_F(DiffTest, BasicsWithLists) {
   DoDiff();
   AssertInsertIs("[false, false, true]");
   AssertRunLengthIs("[2, 0, 0]");
+}
+
+TEST_F(DiffTest, RangesWithLists) {
+  // insert one
+  base_ = ArrayFromJSON(list(int32()), R"([null, [2, 3, 1], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13], [9999]])");
+  AssertDiffRanges(1, 3, 0, 4, "[false, true]", "[1, 2]");
+
+  // delete one
+  base_ = ArrayFromJSON(list(int32()), R"([null, [2, 3, 1], [5, 9], [], [13]])");
+  target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13], [9999]])");
+  AssertDiffRanges(1, 4, 0, 3, "[false, false]", "[1, 2]");
 }
 
 TEST_F(DiffTest, BasicsWithStructs) {
@@ -345,37 +519,29 @@ TEST_F(DiffTest, BasicsWithStructs) {
   AssertRunLengthIs("[2, 0, 0]");
 }
 
-TEST_F(DiffTest, BasicsWithUnions) {
-  auto type = sparse_union({field("foo", utf8()), field("bar", int32())}, {2, 5});
+TEST_F(DiffTest, RangesWithStructs) {
+  auto type = struct_({field("foo", utf8()), field("bar", int32())});
 
   // insert one
-  base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
-  target_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
-  DoDiff();
-  AssertInsertIs("[false, true]");
-  AssertRunLengthIs("[1, 2]");
+  base_ = ArrayFromJSON(type, R"([null, {"foo": "!", "bar": 3}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(
+      type, R"([{"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}, {}])");
+  AssertDiffRanges(1, 3, 0, 4, "[false, true]", "[1, 2]");
 
   // delete one
-  base_ = ArrayFromJSON(type, R"([[2, "!"], [2, "?"], [5, 3], [5, 13]])");
-  target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
-  DoDiff();
-  AssertInsertIs("[false, false]");
-  AssertRunLengthIs("[1, 2]");
-
-  // change one
-  base_ = ArrayFromJSON(type, R"([[5, 3], [2, "!"], [5, 13]])");
-  target_ = ArrayFromJSON(type, R"([[2, "3"], [2, "!"], [5, 13]])");
-  DoDiff();
-  AssertInsertIs("[false, false, true]");
-  AssertRunLengthIs("[0, 0, 2]");
-
-  // null out one
-  base_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], [5, 13]])");
-  target_ = ArrayFromJSON(type, R"([[2, "!"], [5, 3], null])");
-  DoDiff();
-  AssertInsertIs("[false, false, true]");
-  AssertRunLengthIs("[2, 0, 0]");
+  base_ = ArrayFromJSON(
+      type, R"([null, {"foo": "!", "bar": 3}, {"foo": "?"}, {}, {"bar": 13}])");
+  target_ = ArrayFromJSON(type, R"([{"foo": "!", "bar": 3}, {}, {"bar": 13}, {}])");
+  AssertDiffRanges(1, 4, 0, 3, "[false, false]", "[1, 2]");
 }
+
+TEST_F(DiffTest, BasicsWithSparseUnions) { TestBasicsWithUnions(UnionMode::SPARSE); }
+
+TEST_F(DiffTest, BasicsWithDenseUnions) { TestBasicsWithUnions(UnionMode::DENSE); }
+
+TEST_F(DiffTest, RangesWithSparseUnions) { TestRangesWithUnions(UnionMode::SPARSE); }
+
+TEST_F(DiffTest, RangesWithDenseUnions) { TestRangesWithUnions(UnionMode::DENSE); }
 
 TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes

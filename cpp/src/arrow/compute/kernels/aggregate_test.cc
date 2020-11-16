@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 
 #include "arrow/testing/gtest_common.h"
