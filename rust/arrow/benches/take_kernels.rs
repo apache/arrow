@@ -41,7 +41,7 @@ where
     let array: PrimitiveArray<T> = seedable_rng()
         .sample_iter(&Standard)
         .take(size)
-        .map(|v| Some(v))
+        .map(Some)
         .collect();
 
     Arc::new(array) as ArrayRef
