@@ -28,7 +28,7 @@ use arrow::array::*;
 use arrow::compute::kernels::aggregate::*;
 use arrow::util::test_util::seedable_rng;
 
-fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
+fn create_array(size: usize, with_nulls: bool) -> Float32Array {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
     let mut rng = seedable_rng();
     let mut builder = Float32Builder::new(size);
@@ -40,10 +40,10 @@ fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
             builder.append_value(rng.gen()).unwrap();
         }
     }
-    Arc::new(builder.finish())
+    builder.finish()
 }
 
-fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
+fn create_string_array(size: usize, with_nulls: bool) -> StringArray {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
     let mut rng = seedable_rng();
     let mut builder = StringBuilder::new(size);
@@ -59,21 +59,18 @@ fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
             builder.append_value(&string).unwrap();
         }
     }
-    Arc::new(builder.finish())
+    builder.finish()
 }
 
-fn bench_sum(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
+fn bench_sum(arr_a: &Float32Array) {
     criterion::black_box(sum(&arr_a).unwrap());
 }
 
-fn bench_min(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
+fn bench_min(arr_a: &Float32Array) {
     criterion::black_box(min(&arr_a).unwrap());
 }
 
-fn bench_min_string(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<StringArray>().unwrap();
+fn bench_min_string(arr_a: &StringArray) {
     criterion::black_box(min_string(&arr_a).unwrap());
 }
 
