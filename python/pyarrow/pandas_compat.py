@@ -1180,15 +1180,21 @@ def _add_any_metadata(table, pandas_metadata):
         if idx != -1:
             if col_meta['pandas_type'] == 'datetimetz':
                 col = table[idx]
-                converted = col.to_pandas()
-                tz = col_meta['metadata']['timezone']
-                tz_aware_type = pa.timestamp('ns', tz=tz)
-                with_metadata = pa.Array.from_pandas(converted,
-                                                     type=tz_aware_type)
+                if not isinstance(col.type, pa.lib.TimestampType):
+                    continue
+                metadata = col_meta['metadata']
+                if not metadata:
+                    continue
+                metadata_tz = metadata.get('timezone')
+                if metadata_tz and metadata_tz != col.type.tz:
+                    converted = col.to_pandas()
+                    tz_aware_type = pa.timestamp('ns', tz=metadata_tz)
+                    with_metadata = pa.Array.from_pandas(converted,
+                                                         type=tz_aware_type)
 
-                modified_fields[idx] = pa.field(schema[idx].name,
-                                                tz_aware_type)
-                modified_columns[idx] = with_metadata
+                    modified_fields[idx] = pa.field(schema[idx].name,
+                                                    tz_aware_type)
+                    modified_columns[idx] = with_metadata
 
     if len(modified_columns) > 0:
         columns = []
