@@ -163,7 +163,7 @@ async fn main() -> Result<()> {
         .unwrap();
 
     // verify that the calculation is correct
-    assert_eq!(result.value(0), 8.0);
+    assert!((result.value(0) - 8.0).abs() < f64::EPSILON);
     println!("The geometric mean of [2,4,8,64] is {}", result.value(0));
 
     Ok(())
