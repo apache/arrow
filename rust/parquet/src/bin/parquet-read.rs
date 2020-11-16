@@ -79,7 +79,7 @@ fn main() {
 
     while all_records || start < end {
         match iter.next() {
-            Some(row) => println!("{}", row),
+            Some(row) => println!("{}", row.to_json_value()),
             None => break,
         }
         start += 1;
