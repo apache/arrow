@@ -780,12 +780,13 @@ mod tests {
     use arrow::array::Float64Array;
 
     use super::*;
+    use crate::physical_plan::common;
     use crate::physical_plan::expressions::{col, Avg};
 
     use crate::physical_plan::merge::MergeExec;
-    use crate::physical_plan::{common, memory::MemoryExec};
 
-    fn some_data() -> ArrowResult<(Arc<Schema>, Vec<RecordBatch>)> {
+    /// some mock data to aggregates
+    fn some_data() -> (Arc<Schema>, Vec<RecordBatch>) {
         // define a schema.
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::UInt32, false),
@@ -793,7 +794,7 @@ mod tests {
         ]));
 
         // define data.
-        Ok((
+        (
             schema.clone(),
             vec![
                 RecordBatch::try_new(
@@ -802,26 +803,22 @@ mod tests {
                         Arc::new(UInt32Array::from(vec![2, 3, 4, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),
                     ],
-                )?,
+                )
+                .unwrap(),
                 RecordBatch::try_new(
                     schema.clone(),
                     vec![
                         Arc::new(UInt32Array::from(vec![2, 3, 3, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),
                     ],
-                )?,
+                )
+                .unwrap(),
             ],
-        ))
+        )
     }
 
-    #[tokio::test]
-    async fn aggregate() -> Result<()> {
-        let (schema, batches) = some_data().unwrap();
-
-        let input: Arc<dyn ExecutionPlan> = Arc::new(
-            MemoryExec::try_new(&vec![batches.clone(), batches], schema, None).unwrap(),
-        );
-
+    /// build the aggregates on the data from some_data() and check the results
+    async fn check_aggregates(input: Arc<dyn ExecutionPlan>) -> Result<()> {
         let groups: Vec<(Arc<dyn PhysicalExpr>, String)> =
             vec![(col("a"), "a".to_string())];
 
@@ -878,7 +875,110 @@ mod tests {
                 "4,3.6666666666666665"  // 4, (3 + 4 + 4) / 3
             ]
         );
-
         Ok(())
+    }
+
+    /// Define a test source that can yield back to runtime before returning its first item ///
+
+    #[derive(Debug)]
+    struct TestYieldingExec {
+        /// True if this exec should yield back to runtime the first time it is polled
+        pub yield_first: bool,
+    }
+
+    #[async_trait]
+    impl ExecutionPlan for TestYieldingExec {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        fn schema(&self) -> SchemaRef {
+            some_data().0
+        }
+
+        fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+            vec![]
+        }
+
+        fn output_partitioning(&self) -> Partitioning {
+            Partitioning::UnknownPartitioning(1)
+        }
+
+        fn with_new_children(
+            &self,
+            _: Vec<Arc<dyn ExecutionPlan>>,
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            Err(DataFusionError::Internal(format!(
+                "Children cannot be replaced in {:?}",
+                self
+            )))
+        }
+
+        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
+            let stream;
+            if self.yield_first {
+                stream = TestYieldingStream::New;
+            } else {
+                stream = TestYieldingStream::Yielded;
+            }
+            Ok(Box::pin(stream))
+        }
+    }
+
+    /// A stream using the demo data. If inited as new, it will first yield to runtime before returning records
+    enum TestYieldingStream {
+        New,
+        Yielded,
+        ReturnedBatch1,
+        ReturnedBatch2,
+    }
+
+    impl Stream for TestYieldingStream {
+        type Item = ArrowResult<RecordBatch>;
+
+        fn poll_next(
+            mut self: std::pin::Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Option<Self::Item>> {
+            match &*self {
+                TestYieldingStream::New => {
+                    *(self.as_mut()) = TestYieldingStream::Yielded;
+                    cx.waker().wake_by_ref();
+                    Poll::Pending
+                }
+                TestYieldingStream::Yielded => {
+                    *(self.as_mut()) = TestYieldingStream::ReturnedBatch1;
+                    Poll::Ready(Some(Ok(some_data().1[0].clone())))
+                }
+                TestYieldingStream::ReturnedBatch1 => {
+                    *(self.as_mut()) = TestYieldingStream::ReturnedBatch2;
+                    Poll::Ready(Some(Ok(some_data().1[1].clone())))
+                }
+                TestYieldingStream::ReturnedBatch2 => Poll::Ready(None),
+            }
+        }
+    }
+
+    impl RecordBatchStream for TestYieldingStream {
+        fn schema(&self) -> SchemaRef {
+            some_data().0
+        }
+    }
+
+    //// Tests ////
+
+    #[tokio::test]
+    async fn aggregate_source_not_yielding() -> Result<()> {
+        let input: Arc<dyn ExecutionPlan> =
+            Arc::new(TestYieldingExec { yield_first: false });
+
+        check_aggregates(input).await
+    }
+
+    #[tokio::test]
+    async fn aggregate_source_with_yielding() -> Result<()> {
+        let input: Arc<dyn ExecutionPlan> =
+            Arc::new(TestYieldingExec { yield_first: true });
+
+        check_aggregates(input).await
     }
 }
