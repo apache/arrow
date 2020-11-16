@@ -411,19 +411,19 @@ Status FillTimestampBatch(const DataType* type, liborc::ColumnVectorBatch* cbatc
     } else {
       int64_t data = array->Value(arrowOffset);
       switch (std::static_pointer_cast<TimestampType>(array->type())->unit()) {
-        case TimeUnit::SECOND: {
+        case TimeUnit::type::SECOND: {
           batch->data[orcOffset] = data;
           batch->nanoseconds[orcOffset] = 0;
           break;
         }
-        case TimeUnit::MILLI: {
+        case TimeUnit::type::MILLI: {
           batch->data[orcOffset] =
               static_cast<int64_t>(std::floor(data / kOneSecondMillis));
           batch->nanoseconds[orcOffset] =
               (data - kOneSecondMillis * batch->data[orcOffset]) * kOneMilliNanos;
           break;
         }
-        case TimeUnit::MICRO: {
+        case TimeUnit::type::MICRO: {
           batch->data[orcOffset] =
               static_cast<int64_t>(std::floor(data / kOneSecondMicros));
           batch->nanoseconds[orcOffset] =

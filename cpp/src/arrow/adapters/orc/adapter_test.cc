@@ -3358,7 +3358,6 @@ TEST(TestAdapterWriteNested, writeListNoNulls) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeListMixed1) {
   auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3442,7 +3441,6 @@ TEST(TestAdapterWriteNested, writeListMixed1) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeListMixed2) {
   auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3544,7 +3542,6 @@ TEST(TestAdapterWriteNested, writeListMixed2) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeListMixed3) {
   auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3717,7 +3714,6 @@ TEST(TestAdapterWriteNested, writeLargeListNoNulls) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeLargeListMixed1) {
   auto sharedPtrArrowType = large_list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3802,7 +3798,6 @@ TEST(TestAdapterWriteNested, writeLargeListMixed1) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeLargeListMixed2) {
   auto sharedPtrArrowType = large_list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -3904,7 +3899,6 @@ TEST(TestAdapterWriteNested, writeLargeListMixed2) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeLargeListMixed3) {
   auto sharedPtrArrowType = large_list(std::make_shared<Field>("a", int32()));
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4045,7 +4039,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListAllNulls) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4106,7 +4099,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListAllNulls) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListZeroLength) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 0);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4150,7 +4142,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListZeroLength) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListNoNulls) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4225,7 +4216,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListNoNulls) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListMixed1) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4309,7 +4299,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListMixed1) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListMixed2) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4461,7 +4450,6 @@ TEST(TestAdapterWriteNested, writeMapEmpty) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeMapNoNulls) {
   auto sharedPtrArrowType = map(utf8(), utf8());
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4552,7 +4540,6 @@ TEST(TestAdapterWriteNested, writeMapNoNulls) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeMapMixed1) {
   auto sharedPtrArrowType = map(utf8(), utf8());
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4645,7 +4632,6 @@ TEST(TestAdapterWriteNested, writeMapMixed1) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeMapMixed2) {
   auto sharedPtrArrowType = map(utf8(), utf8());
   DataType* arrowType = sharedPtrArrowType.get();
@@ -4755,7 +4741,6 @@ TEST(TestAdapterWriteNested, writeMapMixed2) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeMapMixed3) {
   auto sharedPtrArrowType = map(utf8(), utf8());
   DataType* arrowType = sharedPtrArrowType.get();
@@ -6096,6 +6081,724 @@ TEST(TestAdapterWriteTime, writeDate32ChunkedMixed) {
   EXPECT_TRUE(x->hasNulls);
   EXPECT_EQ(x->data[1], 18585);
   EXPECT_EQ(x->data[3], 18473);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+
+// Date64
+TEST(TestAdapterWriteTime, writeDate64Empty) {
+  Date64Builder builder;
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowOffset, 0);
+  EXPECT_EQ(orcOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeDate64NoNulls) {
+  Date64Builder builder;
+  (void)(builder.Append(1605547708000));
+  (void)(builder.Append(1605547718500));
+  (void)(builder.Append(1605547720800));
+  (void)(builder.Append(1605547748500));
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 4);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(x->data[0], 1605547708);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[2], 1605547720);
+  EXPECT_EQ(x->data[3], 1605547748);
+  EXPECT_EQ(x->nanoseconds[0], 0);
+  EXPECT_EQ(x->nanoseconds[1], 500000000);
+  EXPECT_EQ(x->nanoseconds[2], 800000000);
+  EXPECT_EQ(x->nanoseconds[3], 500000000);
+  EXPECT_EQ(arrowOffset, 4);
+  EXPECT_EQ(orcOffset, 4);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeDate64AllNulls) {
+  Date64Builder builder;
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 3);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 0);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(arrowOffset, 3);
+  EXPECT_EQ(orcOffset, 3);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeDate64Mixed) {
+  Date64Builder builder;
+  (void)(builder.AppendNull());
+  (void)(builder.Append(1605547718500));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(1605547770009));
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605547770);
+  EXPECT_EQ(x->nanoseconds[1], 500000000);
+  EXPECT_EQ(x->nanoseconds[3], 9000000);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowOffset, 5);
+  EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeDate64ChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, date64());
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeDate64ChunkedMixed) {
+  Date64Builder builder0, builder1, builder2, builder3, builder4;
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1605547718999));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718900));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = date64().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 999000000);
+  EXPECT_EQ(x->nanoseconds[3], 900000000);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+
+// Timestamp
+TEST(TestAdapterWriteTime, writeTimestampEmpty) {
+  TimestampBuilder builder(timestamp(TimeUnit::type::SECOND), default_memory_pool());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::SECOND).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowOffset, 0);
+  EXPECT_EQ(orcOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampNoNulls) {
+  TimestampBuilder builder(timestamp(TimeUnit::type::MICRO), default_memory_pool());
+  (void)(builder.Append(1605547708000000));
+  (void)(builder.Append(1605547718500060));
+  (void)(builder.Append(1605547720800009));
+  (void)(builder.Append(1605547748999999));
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::MICRO).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 4);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(x->data[0], 1605547708);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[2], 1605547720);
+  EXPECT_EQ(x->data[3], 1605547748);
+  EXPECT_EQ(x->nanoseconds[0], 0);
+  EXPECT_EQ(x->nanoseconds[1], 500060000);
+  EXPECT_EQ(x->nanoseconds[2], 800009000);
+  EXPECT_EQ(x->nanoseconds[3], 999999000);
+  EXPECT_EQ(arrowOffset, 4);
+  EXPECT_EQ(orcOffset, 4);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampAllNulls) {
+  TimestampBuilder builder(timestamp(TimeUnit::type::MILLI), default_memory_pool());
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::MILLI).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 3);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 0);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(arrowOffset, 3);
+  EXPECT_EQ(orcOffset, 3);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampMixed) {
+  TimestampBuilder builder(timestamp(TimeUnit::type::NANO), default_memory_pool());
+  (void)(builder.AppendNull());
+  (void)(builder.Append(1605547718500999999));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(1605547770009999999));
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::NANO).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605547770);
+  EXPECT_EQ(x->nanoseconds[1], 500999999);
+  EXPECT_EQ(x->nanoseconds[3], 9999999);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowOffset, 5);
+  EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, timestamp(TimeUnit::type::NANO));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::NANO).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedMixedSecond) {
+  TimestampBuilder builder0(timestamp(TimeUnit::type::SECOND), default_memory_pool()),
+      builder1(timestamp(TimeUnit::type::SECOND), default_memory_pool()),
+      builder2(timestamp(TimeUnit::type::SECOND), default_memory_pool()),
+      builder3(timestamp(TimeUnit::type::SECOND), default_memory_pool()),
+      builder4(timestamp(TimeUnit::type::SECOND), default_memory_pool());
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1605547718));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::SECOND).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 0);
+  EXPECT_EQ(x->nanoseconds[3], 0);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedMixedMilli) {
+  TimestampBuilder builder0(timestamp(TimeUnit::type::MILLI), default_memory_pool()),
+      builder1(timestamp(TimeUnit::type::MILLI), default_memory_pool()),
+      builder2(timestamp(TimeUnit::type::MILLI), default_memory_pool()),
+      builder3(timestamp(TimeUnit::type::MILLI), default_memory_pool()),
+      builder4(timestamp(TimeUnit::type::MILLI), default_memory_pool());
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1605547718999));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718900));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::MILLI).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 999000000);
+  EXPECT_EQ(x->nanoseconds[3], 900000000);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedMixedMicro) {
+  TimestampBuilder builder0(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder1(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder2(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder3(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder4(timestamp(TimeUnit::type::MICRO), default_memory_pool());
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1605547718999999));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718900900));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::MICRO).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 999999000);
+  EXPECT_EQ(x->nanoseconds[3], 900900000);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedMixedNano) {
+  TimestampBuilder builder0(timestamp(TimeUnit::type::NANO), default_memory_pool()),
+      builder1(timestamp(TimeUnit::type::NANO), default_memory_pool()),
+      builder2(timestamp(TimeUnit::type::NANO), default_memory_pool()),
+      builder3(timestamp(TimeUnit::type::NANO), default_memory_pool()),
+      builder4(timestamp(TimeUnit::type::NANO), default_memory_pool());
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1605547718999999999));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718900900900));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::NANO).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1605547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 999999999);
+  EXPECT_EQ(x->nanoseconds[3], 900900900);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteTime, writeTimestampChunkedMixedMicroNewYork) {
+  TimestampBuilder builder0(timestamp(TimeUnit::type::MICRO, "America/New_York"),
+                            default_memory_pool()),
+      builder1(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder2(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder3(timestamp(TimeUnit::type::MICRO), default_memory_pool()),
+      builder4(timestamp(TimeUnit::type::MICRO), default_memory_pool());
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(1601547718999999));  // Daylight saving time on
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(1605947718900900));  // Daylight saving time off
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:timestamp>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::TimestampVectorBatch* x =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(root->fields[0]);
+  DataType* arrowType = timestamp(TimeUnit::type::MICRO, "America/New_York").get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1], 1601547718);
+  EXPECT_EQ(x->data[3], 1605947718);
+  EXPECT_EQ(x->nanoseconds[1], 999999000);
+  EXPECT_EQ(x->nanoseconds[3], 900900000);
   EXPECT_EQ(x->notNull[0], 0);
   EXPECT_EQ(x->notNull[1], 1);
   EXPECT_EQ(x->notNull[2], 0);
