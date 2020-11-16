@@ -34,7 +34,7 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import random_ascii, rands
+from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
 
 import pyarrow as pa
@@ -4238,3 +4238,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
             assert result[0].tzinfo is None
             expected = dt
         assert result[0] == expected
+
+
+def test_threaded_pandas_import():
+    invoke_script("pandas_threaded_import.py")
