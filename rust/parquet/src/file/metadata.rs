@@ -435,15 +435,14 @@ impl ColumnChunkMetaData {
 
     /// Returns the offset and length in bytes of the column chunk within the file
     pub fn byte_range(&self) -> (u64, u64) {
-        let col_start;
-        if self.has_dictionary_page() {
-            col_start = self.dictionary_page_offset().unwrap();
+        let col_start = if self.has_dictionary_page() {
+            self.dictionary_page_offset().unwrap()
         } else {
-            col_start = self.data_page_offset();
-        }
+            self.data_page_offset()
+        };
         let col_len = self.compressed_size();
         assert!(
-            col_start < 0 || col_len < 0,
+            col_start >= 0 && col_len >= 0,
             "column start and length should not be negative"
         );
         (col_start as u64, col_len as u64)
