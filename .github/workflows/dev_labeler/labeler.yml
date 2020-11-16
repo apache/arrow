@@ -18,6 +18,9 @@
 "lang-c++":
   - cpp/**/*
 
+lang-c-glib:
+  - c_glib/**/*
+
 lang-csharp:
   - csharp/**/*
 
