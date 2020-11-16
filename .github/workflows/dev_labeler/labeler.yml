@@ -50,3 +50,22 @@ lang-rust:
 
 datafusion:
   - rust/datafusion/**/*
+
+flight:
+  - cpp/src/arrow/flight/**/*
+  - r/R/flight.*
+  - rust/arrow-flight/**/*
+  - python/pyarrow/*flight.*
+
+gandiva:
+  - c_glib/gandiva-glib/**/*
+  - cpp/src/gandiva/**/*
+  - ruby/red-gandiva/**/*
+  - python/pyarrow/gandiva.*
+
+parquet:
+  - c_glib/parquet-glib/**/*
+  - cpp/src/parquet/**/*
+  - r/R/parquet.*
+  - ruby/red-parquet/**/*
+  - rust/parquet*/**/*
