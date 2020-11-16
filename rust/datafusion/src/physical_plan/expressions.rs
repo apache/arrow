@@ -1024,13 +1024,14 @@ macro_rules! compute_op {
 
 macro_rules! binary_string_array_op_scalar {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        match $LEFT.data_type() {
+        let result = match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
-        }
+        };
+        Some(result)
     }};
 }
 
@@ -1074,7 +1075,7 @@ macro_rules! binary_primitive_array_op {
 /// such as Utf8 strings.
 macro_rules! binary_array_op_scalar {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
-        match $LEFT.data_type() {
+        let result = match $LEFT.data_type() {
             DataType::Int8 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int8Array),
             DataType::Int16 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int16Array),
             DataType::Int32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int32Array),
@@ -1096,7 +1097,8 @@ macro_rules! binary_array_op_scalar {
                 "Unsupported data type {:?}",
                 other
             ))),
-        }
+        };
+        Some(result)
     }};
 }
 
@@ -1420,7 +1422,7 @@ impl PhysicalExpr for BinaryExpr {
         let scalar_result = match (&left_value, &right_value) {
             (ColumnarValue::Array(array), ColumnarValue::Scalar(scalar)) => {
                 // if left is array and right is literal - use scalar operations
-                let result: Result<ArrayRef> = match &self.op {
+                match &self.op {
                     Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), lt),
                     Operator::LtEq => {
                         binary_array_op_scalar!(array, scalar.clone(), lt_eq)
@@ -1439,16 +1441,13 @@ impl PhysicalExpr for BinaryExpr {
                     Operator::NotLike => {
                         binary_string_array_op_scalar!(array, scalar.clone(), nlike)
                     }
-                    _ => Err(DataFusionError::Internal(format!(
-                        "Scalar values on right side of operator {} are not supported",
-                        self.op
-                    ))),
-                };
-                Some(result)
+                    // if scalar operation is not supported - fallback to array implementation
+                    _ => None,
+                }
             }
             (ColumnarValue::Scalar(scalar), ColumnarValue::Array(array)) => {
                 // if right is literal and left is array - reverse operator and parameters
-                let result: Result<ArrayRef> = match &self.op {
+                match &self.op {
                     Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), gt),
                     Operator::LtEq => {
                         binary_array_op_scalar!(array, scalar.clone(), gt_eq)
@@ -1461,12 +1460,9 @@ impl PhysicalExpr for BinaryExpr {
                     Operator::NotEq => {
                         binary_array_op_scalar!(array, scalar.clone(), neq)
                     }
-                    _ => Err(DataFusionError::Internal(format!(
-                        "Scalar values on left side of operator {} are not supported",
-                        self.op
-                    ))),
-                };
-                Some(result)
+                    // if scalar operation is not supported - fallback to array implementation
+                    _ => None,
+                }
             }
             (_, _) => None,
         };
