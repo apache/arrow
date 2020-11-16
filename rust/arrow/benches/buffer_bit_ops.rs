@@ -39,8 +39,8 @@ fn bench_buffer_and(left: &Buffer, right: &Buffer) {
 }
 
 fn bit_ops_benchmark(c: &mut Criterion) {
-    let left = create_buffer(512);
-    let right = create_buffer(512);
+    let left = create_buffer(512 * 10);
+    let right = create_buffer(512 * 10);
     c.bench_function("buffer_bit_ops and", |b| {
         b.iter(|| bench_buffer_and(&left, &right))
     });
