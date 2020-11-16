@@ -63,6 +63,33 @@ class MemoryOutputStream : public liborc::OutputStream {
   uint64_t length_, natural_write_size_;
 };
 
+class MemoryOutputStreamV2 : public adapters::orc::ArrowOutputFile {
+ public:
+  MemoryOutputStreamV2()
+      : ArrowOutputFile(nullptr), data_(DEFAULT_MEM_STREAM_SIZE) {
+
+      }
+
+  void write(const void* buf, size_t size) {
+    memcpy(data_.data() + get_length(), buf, size);
+    set_length(get_length() + size);
+  }
+
+  const std::string& getName() const { 
+    static const std::string filename("MemoryOutputStreamV2");
+    return filename;
+  }
+
+  const char* getData() const { return data_.data(); }
+
+  void close() {}
+
+  void reset() { set_length(0); }
+
+ private:
+  std::vector<char> data_;
+};
+
 std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
                                              const liborc::Type& type,
                                              liborc::OutputStream* stream) {

@@ -18,15 +18,40 @@
 #pragma once
 
 #include <cstdint>
+#include <sstream>
 #include <memory>
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/io/file.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
+
+#include "orc/OrcFile.hh"
+
+namespace liborc = orc;
+
+#define ORC_THROW_NOT_OK(s)                   \
+  do {                                        \
+    Status _s = (s);                          \
+    if (!_s.ok()) {                           \
+      std::stringstream ss;                   \
+      ss << "Arrow error: " << _s.ToString(); \
+      throw liborc::ParseError(ss.str());     \
+    }                                         \
+  } while (0)
+
+#define ORC_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                             \
+  ORC_THROW_NOT_OK(status_name.status());                 \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ORC_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                           lhs, rexpr);
 
 namespace arrow {
 
@@ -142,34 +167,91 @@ class ARROW_EXPORT ORCFileReader {
   ORCFileReader();
 };
 
+class ARROW_EXPORT ArrowWriterOptions {
+  public:
+    uint64_t batch_size_;
+    explicit ArrowWriterOptions(uint64_t batch_size)
+      :batch_size_(batch_size) {}
+    Status set_batch_size(uint64_t batch_size) {
+      batch_size_ = batch_size;
+      return Status::OK();
+    }
+    uint64_t get_batch_size() {
+      return batch_size_;
+    }
+};
+
+class ArrowOutputFile : public liborc::OutputStream {
+ public:
+  explicit ArrowOutputFile(const std::shared_ptr<io::FileOutputStream>& file)
+      : file_(file), length_(0) {}
+
+  uint64_t getLength() const override {
+    return length_;
+  }
+
+  uint64_t getNaturalWriteSize() const override { return 128 * 1024; }
+
+  void write(const void* buf, size_t length) override {
+    ORC_THROW_NOT_OK(file_->Write(buf, static_cast<int64_t>(length)));
+    length_ += static_cast<int64_t>(length);
+  }
+
+  const std::string& getName() const override {
+    static const std::string filename("ArrowOutputFile");
+    return filename;
+  }
+
+  void close() override {
+    if (!file_->closed()) {
+      ORC_THROW_NOT_OK(file_->Close());
+    }
+  }
+
+  int64_t get_length() {
+    return length_;
+  }
+
+  void set_length(int64_t length) {
+    length_ = length;
+  }
+
+ private:
+  std::shared_ptr<io::FileOutputStream> file_;
+  int64_t length_;
+};
+
 /// \class ORCFileWriter
 /// \brief Write an Arrow Table or RecordBatch to an ORC file.
-class ARROW_EXPORT ORCFileWriter {
+class ARROW_EXPORT ORCFileWriter{
  public:
   ~ORCFileWriter();
   /// \brief Creates a new ORC writer.
   ///
+  /// \param[in] schema of the Arrow table
   /// \param[in] file the file to write into
-  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[in] options ORC writer options
+  /// \param[in] arrow_options ORC writer options
   /// \param[out] writer the returned writer object
   /// \return Status
-  static Status Open(Schema& schema,
-                    const std::shared_ptr<io::FileOutputStream>& file, 
-                    std::unique_ptr<ORCFileWriter>* writer,
-                    liborc::WriterOptions options);
+  static Status Open(Schema* schema,
+                    const std::shared_ptr<io::FileOutputStream>& file,        
+                    std::shared_ptr<liborc::WriterOptions> options,
+                    std::shared_ptr<ArrowWriterOptions> arrow_options,
+                    std::unique_ptr<ORCFileWriter>* writer
+                    );
 
   /// \brief Write a table
   ///
-  /// \param[in] file the file to write into
-  /// \param[in] pool a MemoryPool to use for buffer allocations
-  /// \param[out] writer the returned writer object
+  /// \param[in] table the Arrow table from which data is extracted 
   /// \return Status
-  Status Write(const std::shared_ptr<Table> table, uint64_t batchSize);
+  Status Write(const std::shared_ptr<Table> table);
 
   private:
     class Impl;
     std::unique_ptr<Impl> impl_;
     ORCFileWriter();
+    
 };
 
 }  // namespace orc

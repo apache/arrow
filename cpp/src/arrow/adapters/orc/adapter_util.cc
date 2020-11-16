@@ -939,9 +939,9 @@ Status GetORCType(const Schema* schema, std::unique_ptr<liborc::Type> out) {
     DataType* arrowChildType = field->type().get();
     std::unique_ptr<liborc::Type> orcSubtype;
     RETURN_NOT_OK(GetORCType(arrowChildType, std::move(orcSubtype)));
-    RETURN_NOT_OK(out->addStructField(fieldName, std::move(orcSubtype)));
+    out->addStructField(fieldName, std::move(orcSubtype));
   }
-  return Ststus::OK();
+  return Status::OK();
 }
 
 
