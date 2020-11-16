@@ -106,13 +106,9 @@ where
 
     if null_count == 0 {
         // optimized path for arrays without null values
-        n = m[0];
-
-        for item in &m[1..] {
-            if cmp(&n, item) {
-                n = *item
-            }
-        }
+        n = m[1..]
+            .iter()
+            .fold(m[0], |max, item| if cmp(&max, item) { *item } else { max });
     } else {
         n = T::default_value();
         let mut has_value = false;

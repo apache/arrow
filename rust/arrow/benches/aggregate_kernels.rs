@@ -43,7 +43,7 @@ fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     Arc::new(builder.finish())
 }
 
-fn create_string_array(size: usize, with_nulls: bool) -> &'static GenericStringArray<i32> {
+fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
     let mut rng = seedable_rng();
     let mut builder = StringBuilder::new(size);
@@ -59,7 +59,7 @@ fn create_string_array(size: usize, with_nulls: bool) -> &'static GenericStringA
             builder.append_value(&string).unwrap();
         }
     }
-    Arc::new(builder.finish().clone()).as_any().downcast_ref::<StringArray>().unwrap().clone()
+    Arc::new(builder.finish())
 }
 
 fn bench_sum(arr_a: &ArrayRef) {
@@ -72,8 +72,9 @@ fn bench_min(arr_a: &ArrayRef) {
     criterion::black_box(min(&arr_a).unwrap());
 }
 
-fn bench_min_string(arr_a: &StringArray) {
-    criterion::black_box(min_string(arr_a).unwrap());
+fn bench_min_string(arr_a: &ArrayRef) {
+    let arr_a = arr_a.as_any().downcast_ref::<StringArray>().unwrap();
+    criterion::black_box(min_string(&arr_a).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
