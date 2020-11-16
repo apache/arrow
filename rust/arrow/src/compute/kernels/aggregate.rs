@@ -189,22 +189,29 @@ mod simd {
     use std::ops::Add;
 
     pub(super) trait SimdAggregate<T: ArrowNumericType> {
+        /// Returns the identity value for this aggregation function
         fn init_accumulator_scalar() -> T::Native;
 
+        /// Returns a vector filled with the identity value for this aggregation function
         #[inline]
         fn init_accumulator_chunk() -> T::Simd {
             T::init(Self::init_accumulator_scalar())
         }
 
+        /// Updates the accumulator with the values of one chunk
         fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd);
+
+        /// Updates the accumulator with the values of one chunk according to the given vector mask
         fn accumulate_chunk_nullable(
             accumulator: &mut T::Simd,
             chunk: T::Simd,
             mask: T::SimdMask,
         );
 
+        /// Updates the accumulator with one value
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native);
 
+        /// Reduces the vector lanes of the accumulator to a single value
         #[inline]
         fn reduce(accumulator: T::Simd) -> T::Native {
             // reduce by first writing to a temporary and then use scalar operations
@@ -407,6 +414,7 @@ where
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+/// Returns the minimum value in the array, according to the natural order.
 pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
@@ -417,6 +425,7 @@ where
 }
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+/// Returns the maximum value in the array, according to the natural order.
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
