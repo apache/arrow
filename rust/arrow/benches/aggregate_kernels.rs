@@ -91,7 +91,7 @@ fn add_benchmark(c: &mut Criterion) {
     let arr_b = create_string_array(512, false);
     c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
 
-    let arr_b = create_string_array(512, false);
+    let arr_b = create_string_array(512, true);
     c.bench_function("min nulls string 512", |b| {
         b.iter(|| bench_min_string(&arr_b))
     });
