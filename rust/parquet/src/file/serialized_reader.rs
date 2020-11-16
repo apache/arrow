@@ -191,15 +191,8 @@ impl<'a, R: 'static + ChunkReader> RowGroupReader for SerializedRowGroupReader<'
     // TODO: fix PARQUET-816
     fn get_column_page_reader(&self, i: usize) -> Result<Box<PageReader>> {
         let col = self.metadata.column(i);
-        let col_start = if col.has_dictionary_page() {
-            col.dictionary_page_offset().unwrap()
-        } else {
-            col.data_page_offset()
-        };
-        let col_length = col.compressed_size();
-        let file_chunk = self
-            .chunk_reader
-            .get_read(col_start as u64, col_length as usize)?;
+        let (col_start, col_length) = col.byte_range();
+        let file_chunk = self.chunk_reader.get_read(col_start, col_length as usize)?;
         let page_reader = SerializedPageReader::new(
             file_chunk,
             col.num_values(),
