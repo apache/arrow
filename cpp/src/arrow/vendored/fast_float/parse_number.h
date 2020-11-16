@@ -10,6 +10,8 @@
 #include <limits>
 #include <system_error>
 
+#include "arrow/util/bit_util.h"
+
 namespace arrow_vendored {
 namespace fast_float {
 
@@ -108,6 +110,11 @@ from_chars_result from_chars(const char *first, const char *last,
   word |= uint64_t(am.power2) << binary_format<T>::mantissa_explicit_bits();
   word = pns.negative 
   ? word | (uint64_t(1) << binary_format<T>::sign_index()) : word;
+#if ARROW_LITTLE_ENDIAN == 0
+  if (std::is_same<T, float>::value) {
+    memcpy(&value, (char *)&word + 4, sizeof(T)); // extract value at offset 4-7 if float on big-endian
+  } else
+#endif
   memcpy(&value, &word, sizeof(T));
   return answer;
 }
