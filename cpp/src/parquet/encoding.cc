@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -135,13 +136,17 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         array.value_offset(array.length()) - array.value_offset(0);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
-    ::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
+    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
-          // XXX check length
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 4GB or more");
+          }
           UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          return Status::OK();
         },
-        []() {});
+        []() { return Status::OK(); }));
   }
 
   ::arrow::BufferBuilder sink_;
@@ -599,20 +604,28 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    ::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
+    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
-          // XXX check length
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 4GB or more");
+          }
           PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          return Status::OK();
         },
-        []() {});
+        []() { return Status::OK(); }));
   }
 
   template <typename ArrayType>
   void PutBinaryDictionaryArray(const ArrayType& array) {
+    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
     DCHECK_EQ(array.null_count(), 0);
     for (int64_t i = 0; i < array.length(); i++) {
       auto v = array.GetView(i);
+      if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
+        throw ParquetException("Parquet cannot store strings with size 4GB or more");
+      }
       dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
       int32_t unused_memo_index;
       PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(

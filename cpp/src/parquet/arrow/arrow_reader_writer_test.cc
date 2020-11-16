@@ -1190,11 +1190,16 @@ TEST_F(TestLargeBinaryParquetIO, Basics) {
   const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
   const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
 
+  // When the original Arrow schema isn't stored, a LargeBinary array
+  // is decoded as Binary (since there is no specific Parquet logical
+  // type for it).
   this->RoundTripSingleColumn(large_array, narrow_array,
                               default_arrow_writer_properties());
+
+  // When the original Arrow schema is stored, the LargeBinary array
+  // is read back as LargeBinary.
   const auto arrow_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
 }
 
@@ -1208,11 +1213,16 @@ TEST_F(TestLargeStringParquetIO, Basics) {
   const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
   const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
 
+  // When the original Arrow schema isn't stored, a LargeBinary array
+  // is decoded as Binary (since there is no specific Parquet logical
+  // type for it).
   this->RoundTripSingleColumn(large_array, narrow_array,
                               default_arrow_writer_properties());
+
+  // When the original Arrow schema is stored, the LargeBinary array
+  // is read back as LargeBinary.
   const auto arrow_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
 }
 

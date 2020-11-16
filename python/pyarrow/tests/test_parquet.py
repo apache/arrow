@@ -144,6 +144,19 @@ def test_large_binary_huge():
         del arr, table
 
 
+@pytest.mark.large_memory
+def test_large_binary_overflow():
+    s = b'x' * (1 << 32)
+    arr = pa.array([s], type=pa.large_binary())
+    table = pa.Table.from_arrays([arr], names=['strs'])
+    for use_dictionary in [False, True]:
+        writer = pa.BufferOutputStream()
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match="Parquet cannot store strings with size 4GB or more"):
+            _write_table(table, writer, use_dictionary=use_dictionary)
+
+
 @parametrize_legacy_dataset
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
