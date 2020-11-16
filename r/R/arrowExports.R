@@ -1316,10 +1316,6 @@ RecordBatch__schema <- function(x){
     .Call(`_arrow_RecordBatch__schema` , x)
 }
 
-RecordBatch__RenameColumns <- function(batch, names){
-    .Call(`_arrow_RecordBatch__RenameColumns` , batch, names)
-}
-
 RecordBatch__ReplaceSchemaMetadata <- function(x, metadata){
     .Call(`_arrow_RecordBatch__ReplaceSchemaMetadata` , x, metadata)
 }
@@ -1554,10 +1550,6 @@ Table__columns <- function(table){
 
 Table__ColumnNames <- function(table){
     .Call(`_arrow_Table__ColumnNames` , table)
-}
-
-Table__RenameColumns <- function(table, names){
-    .Call(`_arrow_Table__RenameColumns` , table, names)
 }
 
 Table__Slice1 <- function(table, offset){
