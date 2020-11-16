@@ -19,7 +19,7 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::Rng;
+use rand::{distributions::Alphanumeric, Rng};
 use std::sync::Arc;
 
 extern crate arrow;
@@ -43,6 +43,25 @@ fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     Arc::new(builder.finish())
 }
 
+fn create_string_array(size: usize, with_nulls: bool) -> ArrayRef {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = StringBuilder::new(size);
+
+    for _ in 0..size {
+        if with_nulls && rng.gen::<f32>() > 0.5 {
+            builder.append_null().unwrap();
+        } else {
+            let string = seedable_rng()
+                .sample_iter(&Alphanumeric)
+                .take(10)
+                .collect::<String>();
+            builder.append_value(&string).unwrap();
+        }
+    }
+    Arc::new(builder.finish())
+}
+
 fn bench_sum(arr_a: &ArrayRef) {
     let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
     criterion::black_box(sum(&arr_a).unwrap());
@@ -51,6 +70,11 @@ fn bench_sum(arr_a: &ArrayRef) {
 fn bench_min(arr_a: &ArrayRef) {
     let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
     criterion::black_box(min(&arr_a).unwrap());
+}
+
+fn bench_min_string(arr_a: &ArrayRef) {
+    let arr_a = arr_a.as_any().downcast_ref::<StringArray>().unwrap();
+    criterion::black_box(min_string(&arr_a).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
@@ -63,6 +87,14 @@ fn add_benchmark(c: &mut Criterion) {
 
     c.bench_function("sum nulls 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
+
+    let arr_b = create_string_array(512, false);
+    c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
+
+    let arr_b = create_string_array(512, false);
+    c.bench_function("min nulls string 512", |b| {
+        b.iter(|| bench_min_string(&arr_b))
+    });
 }
 
 criterion_group!(benches, add_benchmark);

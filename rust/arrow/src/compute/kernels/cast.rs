@@ -2740,14 +2740,14 @@ mod tests {
                     (Ok(_), false) => {
                         panic!("Was able to cast array from {:?} to {:?} but can_cast_types reported false",
                                array.data_type(), to_type)
-                    },
+                    }
                     (Err(e), true) => {
                         panic!("Was not able to cast array from {:?} to {:?} but can_cast_types reported true. \
                                 Error was {:?}",
                                array.data_type(), to_type, e)
-                    },
+                    }
                     // otherwise it was a match
-                    _=> {},
+                    _ => {}
                 };
             }
         }
