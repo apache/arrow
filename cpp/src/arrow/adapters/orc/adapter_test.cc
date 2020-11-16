@@ -1810,152 +1810,412 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMixed) {
 }
 
 // Decimal
-// TEST(TestAdapterWriteNumerical, writeDecimalEmpty) {
-//   Decimal128Builder builder(decimal(38, 6));
-//   std::shared_ptr<Array> array;
-//   (void)(builder.Finish(&array));
-//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type>
-//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
-//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
-//     createWriter(*schema, &mem_stream, options);
-//   uint64_t batchSize = 1024;
-//   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-//     writer->createRowBatch(batchSize);
-//   liborc::StructVectorBatch *root =
-//     internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-//   liborc::Decimal128VectorBatch *x =
-//     internal::checked_cast<liborc::Decimal128VectorBatch *>(root->fields[0]);
-//   DataType* arrowType = decimal(38, 6).get();
-//   int64_t arrowOffset = 0;
-//   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-//   array.get()); if (!st.ok()) {
-//     FAIL() << "ORC ColumnBatch not successfully filled";
-//   }
-//   EXPECT_EQ(x->numElements, 0);
-//   EXPECT_FALSE(x->hasNulls);
-//   EXPECT_EQ(arrowOffset, 0);
-//   EXPECT_EQ(orcOffset, 0);
-//   writer->add(*batch);
-//   writer->close();
-// }
-// TEST(TestAdapterWriteNumerical, writeDecimalNoNulls) {
-//   Decimal128Builder builder(decimal(38, 6));
-//   (void)(builder.Append(new Decimal128("1.5")));
-//   (void)(builder.Append(new Decimal128("2.6")));
-//   (void)(builder.Append(new Decimal128("3.7")));
-//   (void)(builder.Append(new Decimal128("4.8")));
-//   std::shared_ptr<Array> array;
-//   (void)(builder.Finish(&array));
-//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type>
-//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
-//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
-//     createWriter(*schema, &mem_stream, options);
-//   uint64_t batchSize = 1024;
-//   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-//     writer->createRowBatch(batchSize);
-//   liborc::StructVectorBatch *root =
-//     internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-//   liborc::Decimal128VectorBatch *x =
-//     internal::checked_cast<liborc::Decimal128VectorBatch *>(root->fields[0]);
-//   DataType* arrowType = decimal(38, 6).get();
-//   int64_t arrowOffset = 0;
-//   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-//   array.get()); if (!st.ok()) {
-//     FAIL() << "ORC ColumnBatch not successfully filled";
-//   }
-//   EXPECT_EQ(x->numElements, 4);
-//   EXPECT_FALSE(x->hasNulls);
-//   EXPECT_EQ(new Decimal128(x->values[0].toDecimalString(6)), new Decimal128("1.5")));
-//   EXPECT_EQ(new Decimal128(x->values[1].toDecimalString(6)), new Decimal128("2.6")));
-//   EXPECT_EQ(new Decimal128(x->values[2].toDecimalString(6)), new Decimal128("3.7")));
-//   EXPECT_EQ(new Decimal128(x->values[3].toDecimalString(6)), new Decimal128("4.8")));
-//   EXPECT_EQ(arrowOffset, 4);
-//   EXPECT_EQ(orcOffset, 4);
-//   writer->add(*batch);
-//   writer->close();
-// }
-// TEST(TestAdapterWriteNumerical, writeDecimalAllNulls) {
-//   Decimal32Builder builder(decimal(38, 6));
-//   (void)(builder.AppendNull());
-//   (void)(builder.AppendNull());
-//   (void)(builder.AppendNull());
-//   std::shared_ptr<Array> array;
-//   (void)(builder.Finish(&array));
-//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type>
-//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
-//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
-//     createWriter(*schema, &mem_stream, options);
-//   uint64_t batchSize = 1024;
-//   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-//     writer->createRowBatch(batchSize);
-//   liborc::StructVectorBatch *root =
-//     internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-//   liborc::Decimal128VectorBatch *x =
-//     internal::checked_cast<liborc::Decimal128VectorBatch *>(root->fields[0]);
-//   DataType* arrowType = decimal(38, 6).get();
-//   int64_t arrowOffset = 0;
-//   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-//   array.get()); if (!st.ok()) {
-//     FAIL() << "ORC ColumnBatch not successfully filled";
-//   }
-//   EXPECT_EQ(x->numElements, 3);
-//   EXPECT_TRUE(x->hasNulls);
-//   EXPECT_EQ(x->notNull[0], 0);
-//   EXPECT_EQ(x->notNull[1], 0);
-//   EXPECT_EQ(x->notNull[2], 0);
-//   EXPECT_EQ(arrowOffset, 3);
-//   EXPECT_EQ(orcOffset, 3);
-//   writer->add(*batch);
-//   writer->close();
-// }
-// TEST(TestAdapterWriteNumerical, writeDecimalMixed) {
-//   Decimal128Builder builder(decimal(38, 6));
-//   (void)(builder.AppendNull());
-//   (void)(builder.Append(new Decimal128("1.2")));
-//   (void)(builder.AppendNull());
-//   (void)(builder.Append(new Decimal128("2.3")));
-//   (void)(builder.AppendNull());
-//   std::shared_ptr<Array> array;
-//   (void)(builder.Finish(&array));
-//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-//   ORC_UNIQUE_PTR<liborc::Type>
-//   schema(liborc::Type::buildTypeFromString("struct<x:decimal>")); liborc::WriterOptions
-//   options; ORC_UNIQUE_PTR<liborc::Writer> writer =
-//     createWriter(*schema, &mem_stream, options);
-//   uint64_t batchSize = 1024;
-//   ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-//     writer->createRowBatch(batchSize);
-//   liborc::StructVectorBatch *root =
-//     internal::checked_cast<liborc::StructVectorBatch *>(batch.get());
-//   liborc::Decimal128VectorBatch *x =
-//     internal::checked_cast<liborc::Decimal128VectorBatch *>(root->fields[0]);
-//   DataType* arrowType = float64().get();
-//   int64_t arrowOffset = 0;
-//   int64_t orcOffset = 0;
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-//   array.get()); if (!st.ok()) {
-//     FAIL() << "ORC ColumnBatch not successfully filled";
-//   }
-//   EXPECT_EQ(x->numElements, 5);
-//   EXPECT_TRUE(x->hasNulls);
-//   EXPECT_EQ(new Decimal128(x->values[1].toDecimalString(6)), new Decimal128("1.2")));
-//   EXPECT_EQ(new Decimal128(x->values[3].toDecimalString(6)), new Decimal128("2.3")));
-//   EXPECT_EQ(x->notNull[0], 0);
-//   EXPECT_EQ(x->notNull[1], 1);
-//   EXPECT_EQ(x->notNull[2], 0);
-//   EXPECT_EQ(x->notNull[3], 1);
-//   EXPECT_EQ(x->notNull[4], 0);
-//   EXPECT_EQ(arrowOffset, 5);
-//   EXPECT_EQ(orcOffset, 5);
-//   writer->add(*batch);
-//   writer->close();
-// }
+TEST(TestAdapterWriteNumerical, writeDecimalEmpty) {
+  Decimal128Builder builder(decimal(38, 6));
+  std::shared_ptr<Decimal128Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,6)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 6).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowOffset, 0);
+  EXPECT_EQ(orcOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalEmptyZero) {
+  Decimal128Builder builder(decimal(38, 0));
+  std::shared_ptr<Decimal128Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,0)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 0).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowOffset, 0);
+  EXPECT_EQ(orcOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalNoNulls) {
+  Decimal128Builder builder(decimal(38, 6));
+  (void)(builder.Append(Decimal128("1.500000")));
+  (void)(builder.Append(Decimal128("2.600000")));
+  (void)(builder.Append(Decimal128("3.700000")));
+  (void)(builder.Append(Decimal128("4.860000")));
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,6)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 6).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 4);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(Decimal128(x->values[0].toDecimalString(6)), Decimal128("1.500000"));
+  EXPECT_EQ(Decimal128(x->values[1].toDecimalString(6)), Decimal128("2.600000"));
+  EXPECT_EQ(Decimal128(x->values[2].toDecimalString(6)), Decimal128("3.700000"));
+  EXPECT_EQ(Decimal128(x->values[3].toDecimalString(6)), Decimal128("4.860000"));
+  EXPECT_EQ(arrowOffset, 4);
+  EXPECT_EQ(orcOffset, 4);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalNoNullsZero) {
+  Decimal128Builder builder(decimal(38, 0));
+  (void)(builder.Append(Decimal128("15")));
+  (void)(builder.Append(Decimal128("-26")));
+  (void)(builder.Append(Decimal128("37")));
+  (void)(builder.Append(Decimal128("-48")));
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,0)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 0).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 4);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(Decimal128(x->values[0].toDecimalString(0)), Decimal128("15"));
+  EXPECT_EQ(Decimal128(x->values[1].toDecimalString(0)), Decimal128("-26"));
+  EXPECT_EQ(Decimal128(x->values[2].toDecimalString(0)), Decimal128("37"));
+  EXPECT_EQ(Decimal128(x->values[3].toDecimalString(0)), Decimal128("-48"));
+  EXPECT_EQ(arrowOffset, 4);
+  EXPECT_EQ(orcOffset, 4);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalAllNulls) {
+  Decimal128Builder builder(decimal(38, 2));
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,2)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 2).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 3);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 0);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(arrowOffset, 3);
+  EXPECT_EQ(orcOffset, 3);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalAllNullsZero) {
+  Decimal128Builder builder(decimal(38, 0));
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,0)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 0).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 3);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 0);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(arrowOffset, 3);
+  EXPECT_EQ(orcOffset, 3);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalMixed) {
+  Decimal128Builder builder(decimal(38, 4));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(Decimal128("-541.2000")));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(Decimal128("2.3000")));
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,4)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 4).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(Decimal128(x->values[1].toDecimalString(4)), Decimal128("-541.2000"));
+  EXPECT_EQ(Decimal128(x->values[3].toDecimalString(4)), Decimal128("2.3000"));
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowOffset, 5);
+  EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalMixedZero) {
+  Decimal128Builder builder(decimal(38, 0));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(Decimal128("-5412")));
+  (void)(builder.AppendNull());
+  (void)(builder.Append(Decimal128("23")));
+  (void)(builder.AppendNull());
+  std::shared_ptr<Array> array;
+  (void)(builder.Finish(&array));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,0)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 0).get();
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(Decimal128(x->values[1].toDecimalString(0)), Decimal128("-5412"));
+  EXPECT_EQ(Decimal128(x->values[3].toDecimalString(0)), Decimal128("23"));
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowOffset, 5);
+  EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, decimal(38, 4));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,4)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 4).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalChunkedEmptyZero) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, decimal(38, 0));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decimal(38,0)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::Decimal128VectorBatch* x =
+      internal::checked_cast<liborc::Decimal128VectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 0).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNumerical, writeDecimalChunkedMixed) {
+  Decimal128Builder builder0(decimal(38, 6)), builder1(decimal(38, 6)),
+      builder2(decimal(38, 6)), builder3(decimal(38, 6)), builder4(decimal(38, 6));
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(Decimal128("-541.200005")));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(Decimal128("2.300007")));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:decial(38,6)>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::DoubleVectorBatch* x =
+      internal::checked_cast<liborc::DoubleVectorBatch*>(root->fields[0]);
+  DataType* arrowType = decimal(38, 6).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(Decimal128(x->values[1].toDecimalString(6)), Decimal128("-541.200005"));
+  EXPECT_EQ(Decimal128(x->values[3].toDecimalString(6)), Decimal128("2.300007"));
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  EXPECT_EQ(arrowIndexOffset, 0);
+  EXPECT_EQ(arrowChunkOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
 
 // Binary formats
 
