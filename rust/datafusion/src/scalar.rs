@@ -19,11 +19,6 @@
 
 use std::{convert::TryFrom, fmt, sync::Arc};
 
-use arrow::{datatypes::DateUnit, array::{
-    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-    Int8Array, LargeStringArray, ListArray, StringArray, UInt16Array, UInt32Array, 
-    UInt64Array, UInt8Array, Date32Array
-}};
 use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
     UInt32Builder, UInt64Builder, UInt8Builder,
@@ -31,6 +26,14 @@ use arrow::array::{
 use arrow::{
     array::ArrayRef,
     datatypes::{DataType, Field},
+};
+use arrow::{
+    array::{
+        Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, LargeStringArray, ListArray, StringArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+    },
+    datatypes::DateUnit,
 };
 
 use crate::error::{DataFusionError, Result};
@@ -135,7 +138,7 @@ impl ScalarValue {
             ScalarValue::List(_, data_type) => {
                 DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
-            ScalarValue::Date32(_) => DataType::Date32(DateUnit::Day)
+            ScalarValue::Date32(_) => DataType::Date32(DateUnit::Day),
         }
     }
 
@@ -198,7 +201,7 @@ impl ScalarValue {
                 DataType::UInt64 => build_list!(UInt64Builder, UInt64, values, size),
                 _ => panic!("Unexpected DataType for list"),
             }),
-            ScalarValue::Date32(e) => Arc::new(Date32Array::from(vec![*e; size]))
+            ScalarValue::Date32(e) => Arc::new(Date32Array::from(vec![*e; size])),
         }
     }
 
@@ -234,7 +237,9 @@ impl ScalarValue {
                 };
                 ScalarValue::List(value, nested_type.data_type().clone())
             }
-            DataType::Date32(DateUnit::Day) => typed_cast!(array, index, Date32Array, Date32),
+            DataType::Date32(DateUnit::Day) => {
+                typed_cast!(array, index, Date32Array, Date32)
+            }
             other => {
                 return Err(DataFusionError::NotImplemented(format!(
                     "Can't create a scalar of array of type \"{:?}\"",
@@ -315,7 +320,7 @@ macro_rules! impl_try_from {
     ($SCALAR:ident, $NATIVE:ident) => {
         impl TryFrom<ScalarValue> for $NATIVE {
             type Error = DataFusionError;
-        
+
             fn try_from(value: ScalarValue) -> Result<Self> {
                 match value {
                     ScalarValue::$SCALAR(Some(inner_value)) => Ok(inner_value),
@@ -339,8 +344,8 @@ impl TryFrom<ScalarValue> for i32 {
 
     fn try_from(value: ScalarValue) -> Result<Self> {
         match value {
-            ScalarValue::Int32(Some(inner_value)) |
-            ScalarValue::Date32(Some(inner_value)) => Ok(inner_value),
+            ScalarValue::Int32(Some(inner_value))
+            | ScalarValue::Date32(Some(inner_value)) => Ok(inner_value),
             _ => Err(DataFusionError::Internal(format!(
                 "Cannot convert {:?} to {}",
                 value,
