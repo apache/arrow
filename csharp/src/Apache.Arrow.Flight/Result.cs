@@ -23,7 +23,8 @@ namespace Apache.Arrow.Flight
     public class Result
     {
         private readonly Protocol.Result _result;
-        public Result(Protocol.Result result)
+
+        internal Result(Protocol.Result result)
         {
             _result = result;
         }
@@ -52,7 +53,7 @@ namespace Apache.Arrow.Flight
 
         public byte[] ResultBytes => _result.Body.ToByteArray();
 
-        public Protocol.Result ToProtocol()
+        internal Protocol.Result ToProtocol()
         {
             return _result;
         }

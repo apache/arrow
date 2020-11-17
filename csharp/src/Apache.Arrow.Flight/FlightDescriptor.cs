@@ -63,11 +63,6 @@ namespace Apache.Arrow.Flight
             return new FlightDescriptor(paths);
         }
 
-        public static FlightDescriptor FromProtocol(Protocol.FlightDescriptor flightDescriptor)
-        {
-            return new FlightDescriptor(flightDescriptor);
-        }
-
 
         internal FlightDescriptor(Protocol.FlightDescriptor flightDescriptor)
         {
@@ -78,7 +73,7 @@ namespace Apache.Arrow.Flight
             _flightDescriptor = flightDescriptor;
         }
 
-        public Protocol.FlightDescriptor ToProtocol()
+        internal Protocol.FlightDescriptor ToProtocol()
         {
             return _flightDescriptor;
         }

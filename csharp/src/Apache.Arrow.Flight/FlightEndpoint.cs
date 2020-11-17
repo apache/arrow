@@ -40,7 +40,7 @@ namespace Apache.Arrow.Flight
 
         public IEnumerable<Location> Locations => _locations;
 
-        public Protocol.FlightEndpoint ToProtocol()
+        internal Protocol.FlightEndpoint ToProtocol()
         {
             var output = new Protocol.FlightEndpoint()
             {

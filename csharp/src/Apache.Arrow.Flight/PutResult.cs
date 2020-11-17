@@ -29,14 +29,14 @@ namespace Apache.Arrow.Flight
             ApplicationMetadata = metadata;
         }
 
-        public PutResult(Protocol.PutResult putResult)
+        internal PutResult(Protocol.PutResult putResult)
         {
             this.ApplicationMetadata = new ArrowBuffer(putResult.AppMetadata.Memory);
         }
 
         public ArrowBuffer ApplicationMetadata { get; }
 
-        public Protocol.PutResult ToProtocol()
+        internal Protocol.PutResult ToProtocol()
         {
             return new Protocol.PutResult()
             {

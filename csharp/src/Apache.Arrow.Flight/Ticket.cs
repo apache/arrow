@@ -52,7 +52,7 @@ namespace Apache.Arrow.Flight
 
         public byte[] TicketBytes => _ticket.Ticket_.ToByteArray();
 
-        public Protocol.Ticket ToProtocol()
+        internal Protocol.Ticket ToProtocol()
         {
             return _ticket;
         }

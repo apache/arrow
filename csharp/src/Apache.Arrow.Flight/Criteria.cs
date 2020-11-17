@@ -23,7 +23,8 @@ namespace Apache.Arrow.Flight
     public class Criteria
     {
         private readonly Protocol.Criteria _criteria;
-        public Criteria(Protocol.Criteria criteria)
+
+        internal Criteria(Protocol.Criteria criteria)
         {
             _criteria = criteria;
         }
@@ -57,7 +58,7 @@ namespace Apache.Arrow.Flight
             };
         }
 
-        public Protocol.Criteria ToProtocol()
+        internal Protocol.Criteria ToProtocol()
         {
             return _criteria;
         }

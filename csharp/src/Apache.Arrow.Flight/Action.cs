@@ -23,7 +23,7 @@ namespace Apache.Arrow.Flight
     public class Action
     {
         private readonly Protocol.Action _action;
-        public Action(Protocol.Action action)
+        internal Action(Protocol.Action action)
         {
             _action = action;
         }
@@ -63,7 +63,7 @@ namespace Apache.Arrow.Flight
 
         public ByteString Body => _action.Body;
 
-        public Protocol.Action ToProtocol()
+        internal Protocol.Action ToProtocol()
         {
             return _action;
         }

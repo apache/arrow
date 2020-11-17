@@ -58,7 +58,7 @@ namespace Apache.Arrow.Flight
 
         public override async Task<SchemaResult> GetSchema(Protocol.FlightDescriptor request, ServerCallContext context)
         {
-            var flightDescriptor = FlightDescriptor.FromProtocol(request);
+            var flightDescriptor = new FlightDescriptor(request);
             var schema = await _flightServer.GetSchema(flightDescriptor, context);
 
             return new SchemaResult()
@@ -69,7 +69,7 @@ namespace Apache.Arrow.Flight
 
         public override async Task<Protocol.FlightInfo> GetFlightInfo(Protocol.FlightDescriptor request, ServerCallContext context)
         {
-            var flightDescriptor = FlightDescriptor.FromProtocol(request);
+            var flightDescriptor = new FlightDescriptor(request);
             var flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context);
 
             return flightInfo.ToProtocol();

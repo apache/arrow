@@ -27,7 +27,7 @@ namespace Apache.Arrow.Flight
         private readonly FlightDescriptor _flightDescriptor;
         private readonly IList<FlightEndpoint> _flightEndpoints;
         
-        public FlightInfo(Protocol.FlightInfo flightInfo)
+        internal FlightInfo(Protocol.FlightInfo flightInfo)
         {
             _schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
             _flightDescriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
@@ -49,7 +49,7 @@ namespace Apache.Arrow.Flight
 
         public IEnumerable<FlightEndpoint> Endpoints => _flightEndpoints;
 
-        public Protocol.FlightInfo ToProtocol()
+        internal Protocol.FlightInfo ToProtocol()
         {
             var serializedSchema = SchemaWriter.SerializeSchema(_schema);
             var response = new Protocol.FlightInfo()

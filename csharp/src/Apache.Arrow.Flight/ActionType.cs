@@ -22,7 +22,7 @@ namespace Apache.Arrow.Flight
     public class ActionType
     {
         private readonly Protocol.ActionType _actionType;
-        public ActionType(Protocol.ActionType actionType)
+        internal ActionType(Protocol.ActionType actionType)
         {
             _actionType = actionType;
         }
@@ -39,7 +39,7 @@ namespace Apache.Arrow.Flight
         public string Type => _actionType.Type;
         public string Description => _actionType.Description;
 
-        public Protocol.ActionType ToProtocol()
+        internal Protocol.ActionType ToProtocol()
         {
             return _actionType;
         }

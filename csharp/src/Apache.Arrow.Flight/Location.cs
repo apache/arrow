@@ -22,7 +22,7 @@ namespace Apache.Arrow.Flight
     public class Location
     {
         private readonly Protocol.Location _location;
-        public Location(Protocol.Location location)
+        internal Location(Protocol.Location location)
         {
             _location = location;
         }
@@ -35,7 +35,7 @@ namespace Apache.Arrow.Flight
             };
         }
 
-        public Protocol.Location ToProtocol()
+        internal Protocol.Location ToProtocol()
         {
             return _location;
         }

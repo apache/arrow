@@ -31,7 +31,7 @@ namespace Apache.Arrow.Flight
     /// <summary>
     /// Handles writing record batches as flight data
     /// </summary>
-    public class FlightDataStream : ArrowStreamWriter
+    internal class FlightDataStream : ArrowStreamWriter
     {
         private readonly FlightDescriptor _flightDescriptor;
         private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;

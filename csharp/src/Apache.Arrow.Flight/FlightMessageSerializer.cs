@@ -23,7 +23,7 @@ using FlatBuffers;
 
 namespace Apache.Arrow.Flight
 {
-    public static class FlightMessageSerializer
+    internal static class FlightMessageSerializer
     {
         public static Schema DecodeSchema(ReadOnlyMemory<byte> buffer)
         {
