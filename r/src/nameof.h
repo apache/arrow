@@ -50,7 +50,7 @@ constexpr size_t search(char const* haystack, char const* needle) {
              : search(haystack + 1, needle) + 1;
 }
 
-const size_t typename_prefix = search(raw<void>(), "void");
+const size_t typename_prefix = search(raw<double>(), "double");
 
 template <typename T>
 size_t struct_class_prefix() {
@@ -65,9 +65,9 @@ size_t struct_class_prefix() {
 
 template <typename T>
 size_t typename_length() {
-  // raw_sizeof<T>() - raw_sizeof<void>() == (length of T's name) - strlen("void")
-  // (length of T's name) == raw_sizeof<T>() - raw_sizeof<void>() + strlen("void")
-  return raw_sizeof<T>() - raw_sizeof<void>() + 4;
+  // raw_sizeof<T>() - raw_sizeof<double>() == (length of T's name) - strlen("double")
+  // (length of T's name) == raw_sizeof<T>() - raw_sizeof<double>() + strlen("double")
+  return raw_sizeof<T>() - struct_class_prefix<T>() - raw_sizeof<double>() + 6;
 }
 
 template <typename T>
