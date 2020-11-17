@@ -42,6 +42,8 @@ enum class DecimalStatus {
 /// streams and boost.
 class ARROW_EXPORT BasicDecimal128 {
  public:
+  static constexpr int bit_width = 128;
+
   /// \brief Create a BasicDecimal128 from the two's complement representation.
   constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
       : low_bits_(low), high_bits_(high) {}
@@ -188,6 +190,8 @@ class ARROW_EXPORT BasicDecimal256 {
   }
 
  public:
+  static constexpr int bit_width = 256;
+
   /// \brief Create a BasicDecimal256 from the two's complement representation.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
       : little_endian_array_(little_endian_array) {}
@@ -242,8 +246,28 @@ class ARROW_EXPORT BasicDecimal256 {
     return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63);
   }
 
+  inline int64_t IsNegative() const {
+    return static_cast<int64_t>(little_endian_array_[3]) < 0;
+  }
+
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.
   BasicDecimal256& operator*=(const BasicDecimal256& right);
+
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
+  DecimalStatus Divide(const BasicDecimal256& divisor, BasicDecimal256* result,
+                       BasicDecimal256* remainder) const;
+  /// \brief In-place division.
+  BasicDecimal256& operator/=(const BasicDecimal256& right);
 
  private:
   std::array<uint64_t, 4> little_endian_array_;
@@ -277,5 +301,7 @@ ARROW_EXPORT inline bool operator>=(const BasicDecimal256& left,
 }
 
 ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
+ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 }  // namespace arrow
