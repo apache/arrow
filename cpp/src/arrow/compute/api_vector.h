@@ -59,13 +59,13 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
 };
 
 enum class SortOrder {
-  ASCENDING,
-  DESCENDING,
+  Ascending,
+  Descending,
 };
 
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 struct ARROW_EXPORT SortKey {
-  explicit SortKey(std::string name, SortOrder order = SortOrder::ASCENDING)
+  explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
       : name(name), order(order) {}
 
   /// The name of the sort key.
@@ -75,7 +75,7 @@ struct ARROW_EXPORT SortKey {
 };
 
 struct ARROW_EXPORT ArraySortOptions : public FunctionOptions {
-  explicit ArraySortOptions(SortOrder order = SortOrder::ASCENDING) : order(order) {}
+  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending) : order(order) {}
 
   SortOrder order;
 };
@@ -227,8 +227,8 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 /// "column1": [null, 1,    3, null, 2, 1],
 /// "column2": [   5, 3, null, null, 5, 5],
 /// } and options = {
-/// {"column1", SortOrder::ASCENDING},
-/// {"column2", SortOrder::DESCENDING},
+/// {"column1", SortOrder::Ascending},
+/// {"column2", SortOrder::Descending},
 /// }, the output will be [5, 1, 4, 2, 0, 3].
 ///
 /// \param[in] table table to sort

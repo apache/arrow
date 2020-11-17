@@ -64,7 +64,7 @@ class SortComparator {
       if (lhs_isnan) return false;
     }
     if (array.GetView(lhs) == array.GetView(rhs)) return lhs < rhs;
-    if (order == SortOrder::ASCENDING) {
+    if (order == SortOrder::Ascending) {
       return array.GetView(lhs) < array.GetView(rhs);
     } else {
       return array.GetView(lhs) > array.GetView(rhs);
@@ -251,7 +251,7 @@ class TestArraySortIndicesKernel : public TestBase {
   }
 
   virtual void AssertSortIndices(const std::string& values, const std::string& expected) {
-    AssertSortIndices(values, SortOrder::ASCENDING, expected);
+    AssertSortIndices(values, SortOrder::Ascending, expected);
   }
 };
 
@@ -277,19 +277,19 @@ TYPED_TEST(TestArraySortIndicesKernelForReal, SortReal) {
   this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
   this->AssertSortIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2,0,6,1,5,3,4]");
 
-  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::ASCENDING,
+  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Ascending,
                           "[1,4,2,5,0,3]");
-  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::DESCENDING,
+  this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Descending,
                           "[5,2,4,1,0,3]");
 
-  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::ASCENDING,
+  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Ascending,
                           "[3,4,0,1,2,5]");
-  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::DESCENDING,
+  this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Descending,
                           "[1,0,4,3,2,5]");
-  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::ASCENDING, "[4,1,3,0,2]");
-  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::DESCENDING, "[3,1,4,0,2]");
-  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::ASCENDING, "[1,2,0,3]");
-  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::DESCENDING, "[1,2,0,3]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending, "[4,1,3,0,2]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Descending, "[3,1,4,0,2]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending, "[1,2,0,3]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Descending, "[1,2,0,3]");
 }
 
 TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
@@ -299,14 +299,14 @@ TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
   this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0,1,2,3,4,5,6]");
   this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
 
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::ASCENDING,
+  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
                           "[2,0,6,1,5,3,4]");
-  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::DESCENDING,
+  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
                           "[3,4,5,1,6,0,2]");
 
-  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::ASCENDING,
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
                           "[1,4,2,5,0,3]");
-  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::DESCENDING,
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
                           "[5,2,4,1,0,3]");
 }
 
@@ -317,9 +317,9 @@ TYPED_TEST(TestArraySortIndicesKernelForStrings, SortStrings) {
   this->AssertSortIndices(R"(["foo", "bar", "baz"])", "[1,2,0]");
   this->AssertSortIndices(R"(["testing", "sort", "for", "strings"])", "[2, 1, 3, 0]");
 
-  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::ASCENDING,
+  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::Ascending,
                           "[2, 1, 3, 0]");
-  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::DESCENDING,
+  this->AssertSortIndices(R"(["c", "b", "a", "b"])", SortOrder::Descending,
                           "[0, 1, 3, 2]");
 }
 
@@ -376,7 +376,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandom, SortRandomValues) {
   length = 10;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::ASCENDING, SortOrder::DESCENDING}) {
+      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
         auto array = rand.Generate(length, null_probability);
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
         ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
@@ -400,7 +400,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCount, SortRandomValuesCount) {
   int range = 2000;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::ASCENDING, SortOrder::DESCENDING}) {
+      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
         auto array = rand.Generate(length, range, null_probability);
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
         ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
@@ -421,7 +421,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
   int length = 4000;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      for (auto order : {SortOrder::ASCENDING, SortOrder::DESCENDING}) {
+      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
         auto array = rand.Generate(length, null_probability);
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, SortIndices(*array, order));
         ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(array),
@@ -459,7 +459,7 @@ TEST_F(TestTableSortIndices, SortNull) {
                               "{\"a\": 1,    \"b\": 5}"
                               "]"});
   SortOptions options(
-      {SortKey("a", SortOrder::ASCENDING), SortKey("b", SortOrder::DESCENDING)});
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
   this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
 }
 
@@ -479,7 +479,7 @@ TEST_F(TestTableSortIndices, SortNaN) {
                               "{\"a\": 1,    \"b\": 5}"
                               "]"});
   SortOptions options(
-      {SortKey("a", SortOrder::ASCENDING), SortKey("b", SortOrder::DESCENDING)});
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
   this->AssertSortIndices(table, options, "[7, 1, 2, 5, 6, 4, 0, 3]");
 }
 
@@ -500,7 +500,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
         if (lhs_array_->IsNull(lhs_index_)) return false;
         status_ = lhs_array_->type()->Accept(this);
         if (compared_ == 0) continue;
-        if (sort_key.order == SortOrder::ASCENDING) {
+        if (sort_key.order == SortOrder::Ascending) {
           return compared_ < 0;
         } else {
           return compared_ > 0;
@@ -625,12 +625,12 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   auto n_sort_keys = 2;
   std::vector<SortKey> sort_keys;
   auto first_sort_key_order =
-      (distribution(engine) % 2) == 0 ? SortOrder::ASCENDING : SortOrder::DESCENDING;
+      (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
   sort_keys.emplace_back(first_sort_key_name, first_sort_key_order);
   for (int i = 1; i < n_sort_keys; ++i) {
     auto& column_name = column_names[distribution(engine) % column_names.size()];
     auto order =
-        (distribution(engine) % 2) == 0 ? SortOrder::ASCENDING : SortOrder::DESCENDING;
+        (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
     sort_keys.emplace_back(column_name, order);
   }
   SortOptions options(sort_keys);

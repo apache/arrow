@@ -77,7 +77,7 @@ static void TableSortIndicesInt64Count(benchmark::State& state) {
   auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
   std::vector<std::shared_ptr<Field>> fields = {{field("int64", int64())}};
   auto table = Table::Make(schema(fields), {values}, array_size);
-  SortOptions options({SortKey("int64", SortOrder::ASCENDING)});
+  SortOptions options({SortKey("int64", SortOrder::Ascending)});
 
   TableSortIndicesBenchmark(state, table, options);
 }
@@ -93,7 +93,7 @@ static void TableSortIndicesInt64Compare(benchmark::State& state) {
   auto values = rand.Int64(array_size, min, max, args.null_proportion);
   std::vector<std::shared_ptr<Field>> fields = {{field("int64", int64())}};
   auto table = Table::Make(schema(fields), {values}, array_size);
-  SortOptions options({SortKey("int64", SortOrder::ASCENDING)});
+  SortOptions options({SortKey("int64", SortOrder::Ascending)});
 
   TableSortIndicesBenchmark(state, table, options);
 }
@@ -114,8 +114,8 @@ static void TableSortIndicesInt64Int64(benchmark::State& state) {
   };
   auto table = Table::Make(schema(fields), {values1, values2}, array_size);
   SortOptions options({
-      SortKey("int64-1", SortOrder::ASCENDING),
-      SortKey("int64-2", SortOrder::ASCENDING),
+      SortKey("int64-1", SortOrder::Ascending),
+      SortKey("int64-2", SortOrder::Ascending),
   });
 
   TableSortIndicesBenchmark(state, table, options);

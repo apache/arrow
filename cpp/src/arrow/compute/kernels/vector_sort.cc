@@ -175,7 +175,7 @@ class ArrayCompareSorter {
     std::iota(indices_begin, indices_end, 0);
     auto nulls_begin =
         PartitionNulls<ArrayType, StablePartitioner>(indices_begin, indices_end, values);
-    if (options.order == SortOrder::ASCENDING) {
+    if (options.order == SortOrder::Ascending) {
       std::stable_sort(indices_begin, nulls_begin,
                        [&values](uint64_t left, uint64_t right) {
                          return values.GetView(left) < values.GetView(right);
@@ -227,7 +227,7 @@ class ArrayCountSorter {
     // first slot reserved for prefix sum
     std::vector<CounterType> counts(1 + value_range);
 
-    if (options.order == SortOrder::ASCENDING) {
+    if (options.order == SortOrder::Ascending) {
       VisitRawValuesInline(
           values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
       for (uint32_t i = 1; i <= value_range; ++i) {
@@ -499,7 +499,7 @@ class TableSorter : public TypeVisitor {
       } else {
         compared = -1;
       }
-      if (order == SortOrder::DESCENDING) {
+      if (order == SortOrder::Descending) {
         compared = -compared;
       }
       return compared;
@@ -568,7 +568,7 @@ class TableSorter : public TypeVisitor {
             return comparer.Compare(left, right, 1);
           } else {
             auto compared = value_left < value_right;
-            if (first_sort_key.order == SortOrder::ASCENDING) {
+            if (first_sort_key.order == SortOrder::Ascending) {
               return compared;
             } else {
               return !compared;
@@ -693,7 +693,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<std::shared_ptr<Array>> SortIndices(const Array& values,
                                              const SortOptions& options,
                                              ExecContext* ctx) const {
-    SortOrder order = SortOrder::ASCENDING;
+    SortOrder order = SortOrder::Ascending;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
     }
@@ -706,7 +706,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& values,
                                              const SortOptions& options,
                                              ExecContext* ctx) const {
-    SortOrder order = SortOrder::ASCENDING;
+    SortOrder order = SortOrder::Ascending;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
     }

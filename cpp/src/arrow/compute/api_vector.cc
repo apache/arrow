@@ -47,7 +47,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, ExecContext* ctx) {
-  return SortIndices(values, SortOrder::ASCENDING, ctx);
+  return SortIndices(values, SortOrder::Ascending, ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
