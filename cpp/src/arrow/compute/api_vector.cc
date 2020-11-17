@@ -46,10 +46,6 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> SortIndices(const Array& values, ExecContext* ctx) {
-  return SortIndices(values, SortOrder::Ascending, ctx);
-}
-
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
                                            ExecContext* ctx) {
   ArraySortOptions options(order);
@@ -150,7 +146,7 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
 }
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  return SortIndices(values, ctx);
+  return SortIndices(values, SortOrder::Ascending, ctx);
 }
 
 }  // namespace compute

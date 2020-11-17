@@ -180,23 +180,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an array in ascending
-/// order.
-///
-/// Perform an indirect sort of array. The output array will contain
-/// indices that would sort an array, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the output.
-///
-/// For example given values = [null, 1, 3.3, null, 2, 5.3], the output
-/// will be [1, 4, 2, 5, 0, 3]
-///
-/// \param[in] values array to sort
-/// \param[in] ctx the function execution context, optional
-/// \return offsets indices that would sort an array
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortIndices(const Array& values,
-                                           ExecContext* ctx = NULLPTR);
-
 /// \brief Returns the indices that would sort an array in the
 /// specified order.
 ///
@@ -213,7 +196,8 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values,
 /// \param[in] ctx the function execution context, optional
 /// \return offsets indices that would sort an array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
+Result<std::shared_ptr<Array>> SortIndices(const Array& values,
+                                           SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort a table in the
