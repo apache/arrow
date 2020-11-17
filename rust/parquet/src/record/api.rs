@@ -670,8 +670,13 @@ impl Field {
             Field::MapInternal(map) => Value::Object(
                 map.entries
                     .iter()
-                    .map(|(key, value)| {
-                        (key.to_json_value().to_string(), value.to_json_value())
+                    .map(|(key_field, value_field)| {
+                        let key_val = key_field.to_json_value();
+                        let key_str = key_val
+                            .as_str()
+                            .map(|s| s.to_owned())
+                            .unwrap_or_else(|| key_val.to_string());
+                        (key_str, value_field.to_json_value())
                     })
                     .collect(),
             ),
