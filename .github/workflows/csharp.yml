@@ -40,6 +40,10 @@ jobs:
       matrix:
         dotnet: ['3.0']
     steps:
+      - name: Setup .net core 2.2
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '2.2.103'
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
@@ -70,6 +74,10 @@ jobs:
       matrix:
         dotnet: ['3.0']
     steps:
+      - name: Setup .net core 2.2
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '2.2.103'
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
@@ -99,6 +107,10 @@ jobs:
       matrix:
         dotnet: ['3.0']
     steps:
+      - name: Setup .net core 2.2
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '2.2.103'
       - name: Install C#
         uses: actions/setup-dotnet@v1
         with:
