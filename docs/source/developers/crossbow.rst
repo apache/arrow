@@ -220,13 +220,13 @@ Run multiple builds:
 
 .. code:: bash
 
-   $ python crossbow.py submit debian-stretch conda-linux-gcc-py37
+   $ python crossbow.py submit debian-stretch conda-linux-gcc-py37-r40
    Repository: https://github.com/kszucs/arrow@tasks
    Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
    Version: 0.9.1.dev48+g810a7188.d20180414
    Pushed branches:
     - debian-stretch
-    - conda-linux-gcc-py37
+    - conda-linux-gcc-py37-r40
 
 Just render without applying or committing the changes:
 
