@@ -53,6 +53,10 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) const);
 
+  template <std::size_t I, typename F, typename R, typename... A>
+  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
+      R (F::*)(A...) &&);
+
   /// bool constant indicating whether F is a callable with more than one possible
   /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
@@ -103,7 +107,7 @@ class FnOnce<R(A...)> {
 
   R operator()(A... a) && {
     auto bye = std::move(impl_);
-    return bye->invoke(static_cast<A>(a)...);
+    return bye->invoke(static_cast<A&&>(a)...);
   }
 
  private:
@@ -115,7 +119,7 @@ class FnOnce<R(A...)> {
   template <typename Fn>
   struct FnImpl : Impl {
     explicit FnImpl(Fn fn) : fn_(std::move(fn)) {}
-    R invoke(A... a) override { return std::move(fn_)(static_cast<A>(a)...); }
+    R invoke(A... a) override { return std::move(fn_)(static_cast<A&&>(a)...); }
     Fn fn_;
   };
 

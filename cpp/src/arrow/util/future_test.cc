@@ -1361,4 +1361,27 @@ TYPED_TEST(FutureIteratorTest, ErrorsAsCompleted) { this->TestErrorsAsCompleted(
 
 TYPED_TEST(FutureIteratorTest, StressAsCompleted) { this->TestStressAsCompleted(); }
 
+namespace internal {
+TEST(FnOnceTest, MoveOnlyDataType) {
+  // ensuring this is valid guarantees we are making no unnecessary copies
+  FnOnce<int(const MoveOnlyDataType&, MoveOnlyDataType, std::string)> fn =
+      [](const MoveOnlyDataType& i0, MoveOnlyDataType i1, std::string copyable) {
+        return *i0.data + *i1.data;
+      };
+
+  using arg0 = call_traits::argument_type<0, decltype(fn)>;
+  using arg1 = call_traits::argument_type<1, decltype(fn)>;
+  using arg2 = call_traits::argument_type<2, decltype(fn)>;
+  static_assert(std::is_same<arg0, const MoveOnlyDataType&>::value, "");
+  static_assert(std::is_same<arg1, MoveOnlyDataType>::value, "");
+  static_assert(std::is_same<arg2, std::string>::value,
+                "should not add a && to the call type (demanding rvalue unnecessarily)");
+
+  MoveOnlyDataType i0{1}, i1{41};
+  std::string copyable = "";
+  ASSERT_EQ(std::move(fn)(i0, std::move(i1), copyable), 42);
+}
+
+}  // namespace internal
+
 }  // namespace arrow
