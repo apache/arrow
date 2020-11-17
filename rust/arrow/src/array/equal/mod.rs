@@ -611,6 +611,10 @@ mod tests {
         let a_slice = a.slice(4, 1);
         let b_slice = b.slice(4, 1);
         test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(3, 3);
+        let b_slice = b.slice(3, 3);
+        test_equal(&a_slice, &b_slice, false);
     }
 
     fn create_decimal_array(data: &[Option<i128>]) -> ArrayDataRef {
@@ -681,6 +685,10 @@ mod tests {
         let a_slice = a.slice(4, 1);
         let b_slice = b.slice(4, 1);
         test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(3, 3);
+        let b_slice = b.slice(3, 3);
+        test_equal(&a_slice, &b_slice, false);
 
         let a_slice = a.slice(1, 3);
         let b_slice = b.slice(1, 3);
