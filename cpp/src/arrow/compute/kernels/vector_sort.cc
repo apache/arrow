@@ -398,7 +398,7 @@ class TableSorter : public TypeVisitor {
         return Chunk(static_cast<ArrayType*>(chunks[0]), index);
       } else {
         int64_t offset = 0;
-        for (size_t i = 0; i < num_chunks; ++i) {
+        for (int i = 0; i < num_chunks; ++i) {
           if (index < offset + chunks[i]->length()) {
             return Chunk(static_cast<ArrayType*>(chunks[i]), index - offset);
           }
@@ -411,7 +411,7 @@ class TableSorter : public TypeVisitor {
     SortOrder order;
     DataType* type;
     int64_t null_count;
-    size_t num_chunks;
+    int num_chunks;
     std::vector<Array*> chunks;
   };
 
