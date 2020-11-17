@@ -204,8 +204,9 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values,
 /// specified order.
 ///
 /// Perform an indirect sort of table. The output array will contain
-/// indices that would sort a table, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the output.
+/// indices that would sort a table, which would be the same length as
+/// input. Nulls will be stably partitioned to the end of the output
+/// regardless of order.
 ///
 /// For example given table = {
 /// "column1": [null, 1,    3, null, 2, 1],
