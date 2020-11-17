@@ -68,7 +68,7 @@ struct ARROW_EXPORT SortKey {
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
       : name(name), order(order) {}
 
-  /// The name of the sort key.
+  /// The name of the sort column.
   std::string name;
   /// How to order by this sort key.
   SortOrder order;
