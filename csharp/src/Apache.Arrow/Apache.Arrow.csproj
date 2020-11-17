@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard1.5;netcoreapp2.1</TargetFrameworks>
@@ -7,10 +7,6 @@
     
     <Description>Apache Arrow is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware.</Description>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="Format\Flight.proto" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.13.0" />
@@ -25,10 +21,6 @@
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
 
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Protobuf Include="Format\Flight.proto" />
   </ItemGroup>
 
   <ItemGroup>

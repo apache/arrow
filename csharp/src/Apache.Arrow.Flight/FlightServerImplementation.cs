@@ -21,7 +21,7 @@ using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Flight.Writer;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Client
+namespace Apache.Arrow.Flight
 {
     public class FlightServerImplementation : FlightService.FlightServiceBase
     {

@@ -19,7 +19,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Client
+namespace Apache.Arrow.Flight
 {
     public interface IFlightServer
     {

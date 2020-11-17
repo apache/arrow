@@ -21,7 +21,7 @@ using Apache.Arrow.Flight.Writer;
 using Grpc.Core;
 using Grpc.Net.Client;
 
-namespace Apache.Arrow.Flight.Client
+namespace Apache.Arrow.Flight
 {
     public class FlightClient
     {
