@@ -65,6 +65,13 @@ groups:
   r:
     - test*-r-*
     - homebrew-r-autobrew
+    # r-conda tasks
+    - conda-linux-gcc-py36-cpu
+    - conda-linux-gcc-py37-cpu
+    - conda-osx-clang-py36
+    - conda-osx-clang-py37
+    - conda-win-vs2017-py36
+    - conda-win-vs2017-py37
 
   ruby:
     - test-*ruby*
