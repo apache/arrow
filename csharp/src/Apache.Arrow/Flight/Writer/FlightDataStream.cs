@@ -1,0 +1,90 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Apache.Arrow.Flatbuf;
+using Apache.Arrow.Flight.Protocol;
+using Apache.Arrow.Ipc;
+using FlatBuffers;
+using Google.Protobuf;
+using Grpc.Core;
+
+namespace Apache.Arrow.Flight
+{
+    /// <summary>
+    /// Handles writing record batches as flight data
+    /// </summary>
+    public class FlightDataStream : ArrowStreamWriter
+    {
+        private readonly FlightDescriptor _flightDescriptor;
+        private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;
+        private Protocol.FlightData _currentFlightData;
+        private bool _completed = false;
+
+        public FlightDataStream(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor, Schema schema)
+            : base(new MemoryStream(), schema)
+        {
+            _clientStreamWriter = clientStreamWriter;
+            _flightDescriptor = flightDescriptor;
+        }
+
+        private async Task SendSchema()
+        {
+            _currentFlightData = new Protocol.FlightData();
+
+            if(_flightDescriptor != null)
+            {
+                _currentFlightData.FlightDescriptor = _flightDescriptor.ToProtocol();
+            }
+
+            var offset = SerializeSchema(Schema);
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            await WriteMessageAsync(MessageHeader.Schema, offset, 0, cancellationTokenSource.Token);
+            await _clientStreamWriter.WriteAsync(_currentFlightData);
+            HasWrittenSchema = true;
+        }
+
+        private void ResetStream()
+        {
+            this.BaseStream.Position = 0;
+            this.BaseStream.SetLength(0);
+        }
+
+        public async Task Write(RecordBatch recordBatch)
+        {
+            if (!HasWrittenSchema)
+            {
+                await SendSchema();
+            }
+            ResetStream();
+
+            _currentFlightData = new Protocol.FlightData();
+
+            await WriteRecordBatchInternalAsync(recordBatch);
+
+            //Reset stream position
+            this.BaseStream.Position = 0;
+            var bodyData = await ByteString.FromStreamAsync(this.BaseStream);
+
+            _currentFlightData.DataBody = bodyData;
+            await _clientStreamWriter.WriteAsync(_currentFlightData);
+        }
+
+        private protected override ValueTask<long> WriteMessageAsync<T>(MessageHeader headerType, Offset<T> headerOffset, int bodyLength, CancellationToken cancellationToken)
+        {
+            Offset<Flatbuf.Message> messageOffset = Flatbuf.Message.CreateMessage(
+                Builder, CurrentMetadataVersion, headerType, headerOffset.Value,
+                bodyLength);
+
+            Builder.Finish(messageOffset.Value);
+
+            ReadOnlyMemory<byte> messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
+
+            _currentFlightData.DataHeader = ByteString.CopyFrom(messageData.Span);
+
+            return new ValueTask<long>(0);
+        }
+    }
+}
