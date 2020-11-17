@@ -681,6 +681,22 @@ mod tests {
         let a_slice = a.slice(4, 1);
         let b_slice = b.slice(4, 1);
         test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, false);
+
+        let b = create_decimal_array(&[
+            None,
+            None,
+            None,
+            Some(-8_887_000_000),
+            Some(-3_000),
+            None,
+        ]);
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, true);
     }
 
     /// Create a fixed size list of 2 value lengths
