@@ -376,6 +376,8 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
 
 class TableSorter : public TypeVisitor {
  private:
+  // Finds the target chunk and index in the target chunk from an
+  // index in ChunkedArray.
   struct ResolvedSortKey {
     ResolvedSortKey(const ChunkedArray& chunked_array, const SortOrder order)
         : order(order) {
@@ -387,21 +389,22 @@ class TableSorter : public TypeVisitor {
       }
     }
 
+    // Finds the target chunk and index in the target chunk from an
+    // index in ChunkedArray.
     template <typename ArrayType>
-    ArrayType* ResolveChunk(int64_t index, int64_t& chunk_index) const {
+    std::pair<ArrayType*, int64_t> ResolveChunk(int64_t index) const {
+      using Chunk = std::pair<ArrayType*, int64_t>;
       if (num_chunks == 1) {
-        chunk_index = index;
-        return static_cast<ArrayType*>(chunks[0]);
+        return Chunk(static_cast<ArrayType*>(chunks[0]), index);
       } else {
         int64_t offset = 0;
         for (size_t i = 0; i < num_chunks; ++i) {
           if (index < offset + chunks[i]->length()) {
-            chunk_index = index - offset;
-            return static_cast<ArrayType*>(chunks[i]);
+            return Chunk(static_cast<ArrayType*>(chunks[i]), index - offset);
           }
           offset += chunks[i]->length();
         }
-        return nullptr;
+        return Chunk(nullptr, 0);
       }
     }
 
@@ -474,10 +477,12 @@ class TableSorter : public TypeVisitor {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
       const auto& sort_key = sort_keys_[current_sort_key_index_];
       auto order = sort_key.order;
-      int64_t index_left = 0;
-      auto array_left = sort_key.ResolveChunk<ArrayType>(current_left_, index_left);
-      int64_t index_right = 0;
-      auto array_right = sort_key.ResolveChunk<ArrayType>(current_right_, index_right);
+      auto chunk_left = sort_key.ResolveChunk<ArrayType>(current_left_);
+      auto array_left = chunk_left.first;
+      auto index_left = chunk_left.second;
+      auto chunk_right = sort_key.ResolveChunk<ArrayType>(current_right_);
+      auto array_right = chunk_right.first;
+      auto index_right = chunk_right.second;
       if (sort_key.null_count > 0) {
         auto is_null_left = array_left->IsNull(index_left);
         auto is_null_right = array_right->IsNull(index_right);
@@ -555,26 +560,27 @@ class TableSorter : public TypeVisitor {
     const auto& first_sort_key = comparer.sort_keys()[0];
     auto nulls_begin = indices_end_;
     nulls_begin = PartitionNullsInternal<Type>(first_sort_key);
-    std::stable_sort(
-        indices_begin_, nulls_begin,
-        [&first_sort_key, &comparer](uint64_t left, uint64_t right) {
-          int64_t index_left = 0;
-          auto array_left = first_sort_key.ResolveChunk<ArrayType>(left, index_left);
-          int64_t index_right = 0;
-          auto array_right = first_sort_key.ResolveChunk<ArrayType>(right, index_right);
-          auto value_left = array_left->GetView(index_left);
-          auto value_right = array_right->GetView(index_right);
-          if (value_left == value_right) {
-            return comparer.Compare(left, right, 1);
-          } else {
-            auto compared = value_left < value_right;
-            if (first_sort_key.order == SortOrder::Ascending) {
-              return compared;
-            } else {
-              return !compared;
-            }
-          }
-        });
+    std::stable_sort(indices_begin_, nulls_begin,
+                     [&first_sort_key, &comparer](uint64_t left, uint64_t right) {
+                       auto chunk_left = first_sort_key.ResolveChunk<ArrayType>(left);
+                       auto array_left = chunk_left.first;
+                       auto index_left = chunk_left.second;
+                       auto chunk_right = first_sort_key.ResolveChunk<ArrayType>(right);
+                       auto array_right = chunk_right.first;
+                       auto index_right = chunk_right.second;
+                       auto value_left = array_left->GetView(index_left);
+                       auto value_right = array_right->GetView(index_right);
+                       if (value_left == value_right) {
+                         return comparer.Compare(left, right, 1);
+                       } else {
+                         auto compared = value_left < value_right;
+                         if (first_sort_key.order == SortOrder::Ascending) {
+                           return compared;
+                         } else {
+                           return !compared;
+                         }
+                       }
+                     });
     return Status::OK();
   }
 
@@ -588,9 +594,10 @@ class TableSorter : public TypeVisitor {
     StablePartitioner partitioner;
     auto nulls_begin =
         partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
-          int64_t index_chunk = 0;
-          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
-          return !chunk->IsNull(index_chunk);
+          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index);
+          auto array = chunk.first;
+          auto index_array = chunk.second;
+          return !array->IsNull(index_array);
         });
     auto& comparer = comparer_;
     std::stable_sort(nulls_begin, indices_end_,
@@ -607,25 +614,28 @@ class TableSorter : public TypeVisitor {
     StablePartitioner partitioner;
     if (first_sort_key.null_count == 0) {
       return partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
-        int64_t index_chunk = 0;
-        auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
-        return !std::isnan(chunk->GetView(index_chunk));
+        auto chunk = first_sort_key.ResolveChunk<ArrayType>(index);
+        auto array = chunk.first;
+        auto index_array = chunk.second;
+        return !std::isnan(array->GetView(index_array));
       });
     }
     auto nans_and_nulls_begin =
         partitioner(indices_begin_, indices_end_, [&first_sort_key](uint64_t index) {
-          int64_t index_chunk = 0;
-          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
-          return !chunk->IsNull(index_chunk) && !std::isnan(chunk->GetView(index_chunk));
+          auto chunk = first_sort_key.ResolveChunk<ArrayType>(index);
+          auto array = chunk.first;
+          auto index_array = chunk.second;
+          return !array->IsNull(index_array) && !std::isnan(array->GetView(index_array));
         });
     auto nulls_begin = nans_and_nulls_begin;
     if (first_sort_key.null_count < static_cast<int64_t>(indices_end_ - nulls_begin)) {
       // move Nulls after NaN
       nulls_begin = partitioner(
           nans_and_nulls_begin, indices_end_, [&first_sort_key](uint64_t index) {
-            int64_t index_chunk = 0;
-            auto chunk = first_sort_key.ResolveChunk<ArrayType>(index, index_chunk);
-            return !chunk->IsNull(index_chunk);
+            auto chunk = first_sort_key.ResolveChunk<ArrayType>(index);
+            auto array = chunk.first;
+            auto index_array = chunk.second;
+            return !array->IsNull(index_array);
           });
     }
     auto& comparer = comparer_;
