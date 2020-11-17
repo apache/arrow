@@ -34,6 +34,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -68,9 +69,10 @@ public class TestExampleServer {
   }
 
   @Test
+  @Ignore
   public void putStream() {
     BufferAllocator a = caseAllocator;
-    final int size = 1000;
+    final int size = 10;
 
     IntVector iv = new IntVector("c1", a);
 
