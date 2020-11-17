@@ -68,12 +68,12 @@ fn struct_array_values(
 
 fn struct_array_from_vec(
     field1: &str,
-    strings: &Vec<Option<&str>>,
+    strings: &[Option<&str>],
     field2: &str,
-    ints: &Vec<Option<i32>>,
+    ints: &[Option<i32>],
 ) {
-    let strings: ArrayRef = Arc::new(StringArray::from(strings.clone()));
-    let ints: ArrayRef = Arc::new(Int32Array::from(ints.clone()));
+    let strings: ArrayRef = Arc::new(StringArray::from(strings.to_owned()));
+    let ints: ArrayRef = Arc::new(Int32Array::from(ints.to_owned()));
 
     criterion::black_box(
         StructArray::try_from(vec![(field1, strings), (field2, ints)]).unwrap(),

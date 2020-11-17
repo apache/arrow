@@ -227,7 +227,7 @@ mod tests {
             .map(|e| {
                 e.and_then(|e| {
                     let mut a = e.to_string();
-                    a.push_str("b");
+                    a.push('b');
                     Some(a)
                 })
             })

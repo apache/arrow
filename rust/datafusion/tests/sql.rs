@@ -82,9 +82,9 @@ async fn nyc() -> Result<()> {
                 assert_eq!(projected_schema.field(0).name(), "passenger_count");
                 assert_eq!(projected_schema.field(1).name(), "fare_amount");
             }
-            _ => assert!(false),
+            _ => unreachable!(),
         },
-        _ => assert!(false),
+        _ => unreachable!(false),
     }
 
     Ok(())
