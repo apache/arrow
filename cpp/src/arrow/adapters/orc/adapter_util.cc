@@ -58,7 +58,7 @@ Status AppendStructBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cb
   auto builder = checked_cast<StructBuilder*>(abuilder);
   auto batch = checked_cast<liborc::StructVectorBatch*>(cbatch);
 
-  const uint8_t* valid_bytes = nullptr;
+  const uint8_t* valid_bytes = NULLPTR;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -109,7 +109,7 @@ Status AppendMapBatch(const liborc::Type* type, liborc::ColumnVectorBatch* cbatc
     int64_t start = batch->offsets[i];
     int64_t list_length = batch->offsets[i + 1] - start;
     if (list_length && (!has_nulls || batch->notNull[i])) {
-      RETURN_NOT_OK(struct_builder->AppendValues(list_length, nullptr));
+      RETURN_NOT_OK(struct_builder->AppendValues(list_length, NULLPTR));
       RETURN_NOT_OK(AppendBatch(keytype, keys, start, list_length,
                                 struct_builder->field_builder(0)));
       RETURN_NOT_OK(AppendBatch(valtype, vals, start, list_length,
@@ -128,7 +128,7 @@ Status AppendNumericBatch(liborc::ColumnVectorBatch* cbatch, int64_t offset,
   if (length == 0) {
     return Status::OK();
   }
-  const uint8_t* valid_bytes = nullptr;
+  const uint8_t* valid_bytes = NULLPTR;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -147,7 +147,7 @@ Status AppendNumericBatchCast(liborc::ColumnVectorBatch* cbatch, int64_t offset,
     return Status::OK();
   }
 
-  const uint8_t* valid_bytes = nullptr;
+  const uint8_t* valid_bytes = NULLPTR;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -170,7 +170,7 @@ Status AppendBoolBatch(liborc::ColumnVectorBatch* cbatch, int64_t offset, int64_
     return Status::OK();
   }
 
-  const uint8_t* valid_bytes = nullptr;
+  const uint8_t* valid_bytes = NULLPTR;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -193,7 +193,7 @@ Status AppendTimestampBatch(liborc::ColumnVectorBatch* cbatch, int64_t offset,
     return Status::OK();
   }
 
-  const uint8_t* valid_bytes = nullptr;
+  const uint8_t* valid_bytes = NULLPTR;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -276,7 +276,7 @@ Status AppendDecimalBatch(const liborc::Type* type, liborc::ColumnVectorBatch* c
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, ArrayBuilder* builder) {
-  if (type == nullptr) {
+  if (type == NULLPTR) {
     return Status::OK();
   }
   liborc::TypeKind kind = type->getKind();
@@ -334,14 +334,14 @@ Status FillNumericBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   auto batch = checked_cast<batch_type*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
       batch->data[orcOffset] = array->Value(arrowOffset);
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -356,14 +356,14 @@ Status FillNumericBatchCast(const DataType* type, liborc::ColumnVectorBatch* cba
   auto batch = checked_cast<batch_type*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
       batch->data[orcOffset] = static_cast<target_type>(array->Value(arrowOffset));
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -377,10 +377,9 @@ Status FillDate64Batch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
@@ -389,6 +388,7 @@ Status FillDate64Batch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
           static_cast<int64_t>(std::floor(miliseconds / kOneSecondMillis));
       batch->nanoseconds[orcOffset] =
           (miliseconds - kOneSecondMillis * batch->data[orcOffset]) * kOneMilliNanos;
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -402,14 +402,14 @@ Status FillTimestampBatch(const DataType* type, liborc::ColumnVectorBatch* cbatc
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
       int64_t data = array->Value(arrowOffset);
+      batch->notNull[orcOffset] = true;
       switch (std::static_pointer_cast<TimestampType>(array->type())->unit()) {
         case TimeUnit::type::SECOND: {
           batch->data[orcOffset] = data;
@@ -450,13 +450,13 @@ Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   auto batch = checked_cast<liborc::StringVectorBatch*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
+      batch->notNull[orcOffset] = true;
       std::string dataString = array->GetString(arrowOffset);
       int dataStringLength = dataString.length();
       if (batch->data[orcOffset]) delete batch->data[orcOffset];
@@ -476,14 +476,14 @@ Status FillFixedSizeBinaryBatch(const DataType* type, liborc::ColumnVectorBatch*
   auto batch = checked_cast<liborc::StringVectorBatch*>(cbatch);
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   int32_t byteWidth = array->byte_width();
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
+      batch->notNull[orcOffset] = true;
       std::string dataString = array->GetString(arrowOffset);
       if (batch->data[orcOffset]) delete batch->data[orcOffset];
       batch->data[orcOffset] = new char[byteWidth];
@@ -505,13 +505,13 @@ Status FillDecimalBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   // supported.
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
     } else {
+      batch->notNull[orcOffset] = true;
       uint8_t* rawInt128 = const_cast<uint8_t*>(array->GetValue(arrowOffset));
       uint64_t* lowerBits = reinterpret_cast<uint64_t*>(rawInt128);
       int64_t* higherBits = reinterpret_cast<int64_t*>(rawInt128 + 8);
@@ -530,14 +530,15 @@ Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   std::size_t size = type->fields().size();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   int64_t initArrowOffset = arrowOffset;
   // First fill fields of ColumnVectorBatch
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
+    } else {
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -561,16 +562,17 @@ Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   DataType* elementType = array->value_type().get();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
                                     array->value_offset(arrowOffset + 1) -
                                     array->value_offset(arrowOffset);
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
+    } else {
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -594,14 +596,15 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
   int64_t arrowLength = array->length();
   int32_t elementLength = array->value_length();  // Fixed length of each subarray
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
+    } else {
+      batch->notNull[orcOffset] = true;
     }
   }
   int64_t numProcessedSubarrays = orcOffset - initORCOffset;
@@ -628,16 +631,17 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   DataType* elementType = elementArray->type().get();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count()) batch->hasNulls = true;
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
                                     array->value_offset(arrowOffset + 1) -
                                     array->value_offset(arrowOffset);
     if (array->IsNull(arrowOffset)) {
       batch->notNull[orcOffset] = false;
+    } else {
+      batch->notNull[orcOffset] = true;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -665,12 +669,11 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   std::size_t size = type->fields().size();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t arrowEnd = arrowOffset + arrowLength;
   int64_t initORCOffset = orcOffset;
   int64_t initArrowOffset = arrowOffset;
   // First fill fields of ColumnVectorBatch
   // For the parent type no nulls exist
-  for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     int tag = array->child_id(arrowOffset);
     batch->tags[orcOffset] = tag;
     batch->offsets[orcOffset] = orcOffset;
@@ -686,18 +689,48 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   return Status::OK();
 }
 
+// Status FillDictionaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
+//                            int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
+//                            Array* parray) {
+//   auto array = checked_cast<FixedSizeListArray*>(parray);
+//   auto elementBatch = (batch->elements).get();
+//   DataType* elementType = array->value_type().get();
+//   int64_t arrowLength = array->length();
+//   int32_t elementLength = array->value_length();  // Fixed length of each subarray
+//   if (!arrowLength) return Status::OK();
+//   int64_t arrowEnd = arrowOffset + arrowLength;
+//   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+//   if (orcOffset == 0) batch->offsets[0] = 0;
+//   if (array->null_count()) batch->hasNulls = true;
+//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+//     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
+//     if (array->IsNull(arrowOffset)) {
+//       batch->notNull[orcOffset] = false;
+//     }
+//   }
+//   int64_t numProcessedSubarrays = orcOffset - initORCOffset;
+//   batch->numElements += numProcessedSubarrays;
+//   int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
+//           initSubarrayORCOffset = batch->offsets[initORCOffset];
+//   // Let the subbatch take care of itself. Don't manipulate it here.
+//   RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
+//                           initSubarrayORCOffset, elementLength * numProcessedSubarrays,
+//                           array->values().get()));
+//   return Status::OK();
+// }
+
 Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
                  int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
                  Array* parray) {
-  // Check for nullptr
-  if (type == nullptr) {
-    cbatch = nullptr;
+  // Check for NULLPTR
+  if (type == NULLPTR) {
+    cbatch = NULLPTR;
     return Status::OK();
   }
   Type::type kind = type->id();
   switch (kind) {
     case Type::type::NA:
-      cbatch = nullptr;  // Makes cbatch nullptr
+      cbatch = NULLPTR;  // Makes cbatch NULLPTR
       break;
     case Type::type::BOOL:
       return FillNumericBatchCast<BooleanArray, liborc::LongVectorBatch, int64_t>(
@@ -792,9 +825,9 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
 }
 
 Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
-  // When subselecting fields on read, liborc will set some nodes to nullptr,
-  // so we need to check for nullptr before progressing
-  if (type == nullptr) {
+  // When subselecting fields on read, liborc will set some nodes to NULLPTR,
+  // so we need to check for NULLPTR before progressing
+  if (type == NULLPTR) {
     *out = null();
     return Status::OK();
   }
@@ -901,8 +934,8 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
 }
 
 Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type> out) {
-  // Check for nullptr
-  if (type == nullptr) {
+  // Check for NULLPTR
+  if (type == NULLPTR) {
     out.reset();
     return Status::OK();
   }
@@ -912,7 +945,7 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type> out) {
 
   switch (kind) {
     case Type::type::NA:
-      out.reset();  // Makes out nullptr
+      out.reset();  // Makes out NULLPTR
       break;
     case Type::type::BOOL:
       out = liborc::createPrimitiveType(liborc::TypeKind::BOOLEAN);
