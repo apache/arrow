@@ -126,7 +126,7 @@ impl ColumnarValue {
         }
     }
 
-    fn to_array(self, batch: &RecordBatch) -> ArrayRef {
+    fn into_array(self, batch: &RecordBatch) -> ArrayRef {
         match self {
             ColumnarValue::Array(array) => array,
             ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(batch.num_rows()),

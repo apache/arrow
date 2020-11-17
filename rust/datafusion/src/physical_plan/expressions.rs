@@ -1474,7 +1474,7 @@ impl PhysicalExpr for BinaryExpr {
         }
 
         // if both arrays or both literals - extract arrays and continue execution
-        let (left, right) = (left_value.to_array(batch), right_value.to_array(batch));
+        let (left, right) = (left_value.into_array(batch), right_value.into_array(batch));
 
         let result: Result<ArrayRef> = match &self.op {
             Operator::Like => binary_string_array_op!(left, right, like),
@@ -1762,9 +1762,6 @@ pub fn cast(
         Ok(expr.clone())
     } else if can_cast_types(&expr_type, &cast_type) {
         Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if expr_type == DataType::Utf8 && cast_type == DataType::Date32(DateUnit::Day)
-    {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
     } else {
         Err(DataFusionError::Internal(format!(
             "Unsupported CAST from {:?} to {:?}",
@@ -1878,7 +1875,7 @@ mod tests {
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
-        let result = lt.evaluate(&batch)?.to_array(&batch);
+        let result = lt.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.len(), 5);
 
         let expected = vec![false, false, true, true, true];
@@ -1914,7 +1911,7 @@ mod tests {
         );
         assert_eq!("a < b OR a = b", format!("{}", expr));
 
-        let result = expr.evaluate(&batch)?.to_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.len(), 5);
 
         let expected = vec![true, true, false, true, false];
@@ -1940,7 +1937,7 @@ mod tests {
         let literal_expr = lit(ScalarValue::from(42i32));
         assert_eq!("42", format!("{}", literal_expr));
 
-        let literal_array = literal_expr.evaluate(&batch)?.to_array(&batch);
+        let literal_array = literal_expr.evaluate(&batch)?.into_array(&batch);
         let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
 
         // note that the contents of the literal array are unrelated to the batch contents except for the length of the array
@@ -1979,7 +1976,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $C_TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?.to_array(&batch);
+            let result = expression.evaluate(&batch)?.into_array(&batch);
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $C_TYPE);
@@ -2130,7 +2127,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?.to_array(&batch);
+        let result = expression.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2144,7 +2141,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?.to_array(&batch);
+        let result = expression.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2200,7 +2197,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?.to_array(&batch);
+            let result = expression.evaluate(&batch)?.into_array(&batch);
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $TYPE);
@@ -2757,7 +2754,7 @@ mod tests {
         let values = expr
             .iter()
             .map(|e| e.evaluate(batch))
-            .map(|r| r.map(|v| v.to_array(batch)))
+            .map(|r| r.map(|v| v.into_array(batch)))
             .collect::<Result<Vec<_>>>()?;
         accum.update_batch(&values)?;
         accum.evaluate()
@@ -2855,7 +2852,7 @@ mod tests {
     ) -> Result<()> {
         let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema, data)?;
-        let result = arithmetic_op.evaluate(&batch)?.to_array(&batch);
+        let result = arithmetic_op.evaluate(&batch)?.into_array(&batch);
 
         assert_array_eq::<T>(expected, result);
 
@@ -2890,7 +2887,7 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
 
-        let result = expr.evaluate(&batch)?.to_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -2919,7 +2916,7 @@ mod tests {
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?.to_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -2940,7 +2937,7 @@ mod tests {
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?.to_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
