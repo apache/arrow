@@ -46,7 +46,7 @@ std::shared_ptr<arrow::Array> ChunkedArray__chunk(
 // [[arrow::export]]
 cpp11::list ChunkedArray__chunks(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return cpp11::as_sexp(chunked_array->chunks());
+  return arrow::r::to_r_list(chunked_array->chunks());
 }
 
 // [[arrow::export]]

@@ -20,14 +20,12 @@
 array_expression <- function(FUN,
                              ...,
                              args = list(...),
-                             options = empty_named_list(),
-                             result_class = .guess_result_class(args[[1]])) {
+                             options = empty_named_list()) {
   structure(
     list(
       fun = FUN,
       args = args,
-      options = options,
-      result_class = result_class
+      options = options
     ),
     class = "array_expression"
   )
@@ -36,29 +34,22 @@ array_expression <- function(FUN,
 #' @export
 Ops.Array <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2, result_class = "Array")
+    expr <- build_array_expression(.Generic, e1, e2)
     eval_array_expression(expr)
   } else {
-    stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
   }
 }
 
 #' @export
-Ops.ChunkedArray <- function(e1, e2) {
-  if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
-    eval_array_expression(expr)
-  } else {
-    stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
-  }
-}
+Ops.ChunkedArray <- Ops.Array
 
 #' @export
 Ops.array_expression <- function(e1, e2) {
   if (.Generic == "!") {
-    build_array_expression(.Generic, e1, result_class = e1$result_class)
+    build_array_expression(.Generic, e1)
   } else {
-    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
+    build_array_expression(.Generic, e1, e2)
   }
 }
 
@@ -105,17 +96,6 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
-.guess_result_class <- function(arg) {
-  # HACK HACK HACK delete this when call_function returns an ArrowObject itself
-  if (inherits(arg, "ArrowObject")) {
-    return(class(arg)[1])
-  } else if (inherits(arg, "array_expression")) {
-    return(arg$result_class)
-  } else {
-    stop("Not implemented")
-  }
-}
-
 eval_array_expression <- function(x) {
   x$args <- lapply(x$args, function (a) {
     if (inherits(a, "array_expression")) {
@@ -124,8 +104,7 @@ eval_array_expression <- function(x) {
       a
     }
   })
-  ptr <- call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
-  shared_ptr(get(x$result_class), ptr)
+  call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
 #' @export
@@ -198,17 +177,17 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
 Expression$field_ref <- function(name) {
   assert_is(name, "character")
   assert_that(length(name) == 1)
-  shared_ptr(Expression, dataset___expr__field_ref(name))
+  dataset___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  shared_ptr(Expression, dataset___expr__scalar(Scalar$create(x)))
+  dataset___expr__scalar(Scalar$create(x))
 }
 Expression$compare <- function(OP, e1, e2) {
   comp_func <- comparison_function_map[[OP]]
   if (is.null(comp_func)) {
     stop(OP, " is not a supported comparison function", call. = FALSE)
   }
-  shared_ptr(Expression, comp_func(e1, e2))
+  comp_func(e1, e2)
 }
 
 comparison_function_map <- list(
@@ -220,19 +199,19 @@ comparison_function_map <- list(
   "<=" = dataset___expr__less_equal
 )
 Expression$in_ <- function(x, set) {
-  shared_ptr(Expression, dataset___expr__in(x, Array$create(set)))
+  dataset___expr__in(x, Array$create(set))
 }
 Expression$and <- function(e1, e2) {
-  shared_ptr(Expression, dataset___expr__and(e1, e2))
+  dataset___expr__and(e1, e2)
 }
 Expression$or <- function(e1, e2) {
-  shared_ptr(Expression, dataset___expr__or(e1, e2))
+  dataset___expr__or(e1, e2)
 }
 Expression$not <- function(e1) {
-  shared_ptr(Expression, dataset___expr__not(e1))
+  dataset___expr__not(e1)
 }
 Expression$is_valid <- function(e1) {
-  shared_ptr(Expression, dataset___expr__is_valid(e1))
+  dataset___expr__is_valid(e1)
 }
 
 #' @export
@@ -248,7 +227,7 @@ make_expression <- function(operator, e1, e2) {
     # In doesn't take Scalar, it takes Array
     return(Expression$in_(e1, e2))
   }
-  
+
   # Handle unary functions before touching e2
   if (operator == "is.na") {
     return(is.na(e1))

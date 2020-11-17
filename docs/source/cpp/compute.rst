@@ -140,7 +140,7 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
+| mode                     | Unary      | Numeric            | Struct  (2)           | :struct:`ModeOptions`                      |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -151,9 +151,14 @@ Aggregations
 
 Notes:
 
-* \(1) Output is a ``{"min": input type, "max": input type}`` Struct
+* \(1) Output is a ``{"min": input type, "max": input type}`` Struct.
 
-* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
+* \(2) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+  It contains the *N* most common elements in the input, in descending
+  order, where *N* is given in :member:`ModeOptions::n`.
+  If two values have the same count, the smallest one comes first.
+  Note that the output can have less than *N* elements if the input has
+  less than *N* distinct values.
 
 * \(3) Output is Int64, UInt64 or Float64, depending on the input type
 
@@ -431,17 +436,17 @@ Structural transforms
 
 .. XXX (this category is a bit of a hodgepodge)
 
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| Function name            | Arity      | Input types                           | Output type         | Notes   |
-+==========================+============+=======================================+=====================+=========+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal      | Boolean             | \(1)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                   | Boolean             | \(2)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                   | Boolean             | \(2)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                             | Int32 or Int64      | \(4)    |
-+--------------------------+------------+---------------------------------------+---------------------+---------+
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                                    | Output type         | Notes   |
++==========================+============+================================================+=====================+=========+
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| is_null                  | Unary      | Any                                            | Boolean             | \(2)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| is_valid                 | Unary      | Any                                            | Boolean             | \(2)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(4)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
@@ -609,6 +614,8 @@ Sorts and partitions
 
 In these functions, nulls are considered greater than any other value
 (they will be sorted or partitioned at the end of the array).
+Floating-point NaN values are considered greater than any other non-null
+value, but smaller than nulls.
 
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 | Function name         | Arity      | Input types             | Output type       | Options class                  | Notes       |
@@ -623,14 +630,14 @@ In these functions, nulls are considered greater than any other value
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
 
 * \(1) The output is an array of indices into the input array, that define
-  a partial sort such that the *N*'th index points to the *N*'th element
-  in sorted order, and all indices before the *N*'th point to elements
-  less or equal to elements at or after the *N*'th (similar to
+  a partial non-stable sort such that the *N*'th index points to the *N*'th
+  element in sorted order, and all indices before the *N*'th point to
+  elements less or equal to elements at or after the *N*'th (similar to
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
 * \(2) The output is an array of indices into the input array, that define
-  a non-stable sort of the input array.
+  a stable sort of the input array.
 
 * \(3) Input values are ordered lexicographically as bytestrings (even
   for String arrays).

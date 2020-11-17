@@ -56,6 +56,7 @@ fn record_batches_to_csv() {
     let file = File::create("target/bench_write_csv.csv").unwrap();
     let mut writer = csv::Writer::new(file);
     let batches = vec![&b, &b, &b, &b, &b, &b, &b, &b, &b, &b, &b];
+    #[allow(clippy::unit_arg)]
     criterion::black_box(for batch in batches {
         writer.write(batch).unwrap()
     });

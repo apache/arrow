@@ -37,51 +37,11 @@ DataType <- R6Class("DataType",
     Equals = function(other, ...) {
       inherits(other, "DataType") && DataType__Equals(self, other)
     },
-    num_children = function() {
-      DataType__num_children(self)
+    num_fields = function() {
+      DataType__num_fields(self)
     },
-    children = function() {
-      map(DataType__children_pointer(self), shared_ptr, class = Field)
-    },
-
-    ..dispatch = function() {
-      switch(names(Type)[self$id + 1],
-        "NA" = null(),
-        BOOL = boolean(),
-        UINT8 = uint8(),
-        INT8 = int8(),
-        UINT16 = uint16(),
-        INT16 = int16(),
-        UINT32 = uint32(),
-        INT32 = int32(),
-        UINT64 = uint64(),
-        INT64 = int64(),
-        HALF_FLOAT = float16(),
-        FLOAT = float32(),
-        DOUBLE = float64(),
-        STRING = utf8(),
-        BINARY = binary(),
-        FIXED_SIZE_BINARY = shared_ptr(FixedSizeBinary, self$pointer()),
-        DATE32 = date32(),
-        DATE64 = date64(),
-        TIMESTAMP = shared_ptr(Timestamp, self$pointer()),
-        TIME32 = shared_ptr(Time32, self$pointer()),
-        TIME64 = shared_ptr(Time64, self$pointer()),
-        INTERVAL = stop("Type INTERVAL not implemented yet"),
-        DECIMAL = shared_ptr(Decimal128Type, self$pointer()),
-        LIST = shared_ptr(ListType, self$pointer()),
-        STRUCT = shared_ptr(StructType, self$pointer()),
-        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
-        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
-        DICTIONARY = shared_ptr(DictionaryType, self$pointer()),
-        MAP = stop("Type MAP not implemented yet"),
-        EXTENSION = stop("Type EXTENSION not implemented yet"),
-        FIXED_SIZE_LIST = shared_ptr(FixedSizeListType, self$pointer()),
-        DURATION = stop("Type DURATION not implemented yet"),
-        LARGE_STRING = large_utf8(),
-        LARGE_BINARY = large_binary(),
-        LARGE_LIST = shared_ptr(LargeListType, self$pointer())
-      )
+    fields = function() {
+      DataType__fields(self)
     }
   ),
 
@@ -90,8 +50,6 @@ DataType <- R6Class("DataType",
     name = function() DataType__name(self)
   )
 )
-
-DataType$create <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
@@ -105,7 +63,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 type <- function(x) UseMethod("type")
 
 #' @export
-type.default <- function(x) DataType$create(Array__infer_type(x))
+type.default <- function(x) Array__infer_type(x)
 
 #' @export
 type.Array <- function(x) x$type
@@ -232,39 +190,39 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
 #' }
-int8 <- function() shared_ptr(Int8, Int8__initialize())
+int8 <- function() Int8__initialize()
 
 #' @rdname data-type
 #' @export
-int16 <- function() shared_ptr(Int16, Int16__initialize())
+int16 <- function() Int16__initialize()
 
 #' @rdname data-type
 #' @export
-int32 <- function() shared_ptr(Int32, Int32__initialize())
+int32 <- function() Int32__initialize()
 
 #' @rdname data-type
 #' @export
-int64 <- function() shared_ptr(Int64, Int64__initialize())
+int64 <- function() Int64__initialize()
 
 #' @rdname data-type
 #' @export
-uint8 <- function() shared_ptr(UInt8, UInt8__initialize())
+uint8 <- function() UInt8__initialize()
 
 #' @rdname data-type
 #' @export
-uint16 <- function() shared_ptr(UInt16, UInt16__initialize())
+uint16 <- function() UInt16__initialize()
 
 #' @rdname data-type
 #' @export
-uint32 <- function() shared_ptr(UInt32, UInt32__initialize())
+uint32 <- function() UInt32__initialize()
 
 #' @rdname data-type
 #' @export
-uint64 <- function() shared_ptr(UInt64, UInt64__initialize())
+uint64 <- function() UInt64__initialize()
 
 #' @rdname data-type
 #' @export
-float16 <- function() shared_ptr(Float16,  Float16__initialize())
+float16 <- function() Float16__initialize()
 
 #' @rdname data-type
 #' @export
@@ -272,7 +230,7 @@ halffloat <- float16
 
 #' @rdname data-type
 #' @export
-float32 <- function() shared_ptr(Float32, Float32__initialize())
+float32 <- function() Float32__initialize()
 
 #' @rdname data-type
 #' @export
@@ -280,11 +238,11 @@ float <- float32
 
 #' @rdname data-type
 #' @export
-float64 <- function() shared_ptr(Float64, Float64__initialize())
+float64 <- function() Float64__initialize()
 
 #' @rdname data-type
 #' @export
-boolean <- function() shared_ptr(Boolean, Boolean__initialize())
+boolean <- function() Boolean__initialize()
 
 #' @rdname data-type
 #' @export
@@ -292,29 +250,23 @@ bool <- boolean
 
 #' @rdname data-type
 #' @export
-utf8 <- function() shared_ptr(Utf8, Utf8__initialize())
+utf8 <- function() Utf8__initialize()
 
 #' @rdname data-type
 #' @export
-large_utf8 <- function() shared_ptr(LargeUtf8, LargeUtf8__initialize())
+large_utf8 <- function() LargeUtf8__initialize()
 
 #' @rdname data-type
 #' @export
-binary <- function() {
-  shared_ptr(Binary, Binary__initialize())
-}
+binary <- function() Binary__initialize()
 
 #' @rdname data-type
 #' @export
-large_binary <- function() {
-  shared_ptr(LargeBinary, LargeBinary__initialize())
-}
+large_binary <- function() LargeBinary__initialize()
 
 #' @rdname data-type
 #' @export
-fixed_size_binary <- function(byte_width) {
-  shared_ptr(FixedSizeBinary, FixedSizeBinary__initialize(byte_width))
-}
+fixed_size_binary <- function(byte_width) FixedSizeBinary__initialize(byte_width)
 
 #' @rdname data-type
 #' @export
@@ -322,11 +274,11 @@ string <- utf8
 
 #' @rdname data-type
 #' @export
-date32 <- function() shared_ptr(Date32, Date32__initialize())
+date32 <- function() Date32__initialize()
 
 #' @rdname data-type
 #' @export
-date64 <- function() shared_ptr(Date64, Date64__initialize())
+date64 <- function() Date64__initialize()
 
 #' @rdname data-type
 #' @export
@@ -335,7 +287,7 @@ time32 <- function(unit = c("ms", "s")) {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, valid_time32_units)
-  shared_ptr(Time32, Time32__initialize(unit))
+  Time32__initialize(unit)
 }
 
 valid_time32_units <- c(
@@ -371,12 +323,12 @@ time64 <- function(unit = c("ns", "us")) {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, valid_time64_units)
-  shared_ptr(Time64, Time64__initialize(unit))
+  Time64__initialize(unit)
 }
 
 #' @rdname data-type
 #' @export
-null <- function() shared_ptr(Null, Null__initialize())
+null <- function() Null__initialize()
 
 #' @rdname data-type
 #' @export
@@ -386,7 +338,7 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
   }
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
   assert_that(is.string(timezone))
-  shared_ptr(Timestamp, Timestamp__initialize(unit, timezone))
+  Timestamp__initialize(unit, timezone)
 }
 
 #' @rdname data-type
@@ -402,7 +354,7 @@ decimal <- function(precision, scale) {
   } else {
     stop('"scale" must be an integer', call. = FALSE)
   }
-  shared_ptr(Decimal128Type, Decimal128Type__initialize(precision, scale))
+  Decimal128Type__initialize(precision, scale)
 }
 
 as_type <- function(type, name = "type") {

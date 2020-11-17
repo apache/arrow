@@ -112,7 +112,7 @@ impl<'a> CopyNullBit for NullBitSetter<'a> {
     }
 
     fn null_buffer(&mut self) -> Buffer {
-        self.target_buffer.resize(self.target_index).unwrap();
+        self.target_buffer.resize(self.target_index);
         // use mem::replace to detach self.target_buffer from self so that it can be returned
         let target_buffer = mem::replace(&mut self.target_buffer, MutableBuffer::new(0));
         target_buffer.freeze()
@@ -149,7 +149,7 @@ fn filter_array_impl(
     let filter_u64 = &filter_context.filter_u64;
     let data_bytes = data_array.data_ref().buffers()[0].data();
     let mut target_buffer = MutableBuffer::new(filtered_count * value_size);
-    target_buffer.resize(filtered_count * value_size)?;
+    target_buffer.resize(filtered_count * value_size);
     let target_bytes = target_buffer.data_mut();
     let mut target_byte_index: usize = 0;
     let mut null_bit_setter = get_null_bit_setter(data_array);
@@ -319,15 +319,17 @@ impl FilterContext {
             ));
         }
         let filter_mask: Vec<u64> = (0..64).map(|x| 1u64 << x).collect();
-        let filter_bytes = filter_array.data_ref().buffers()[0].data();
-        let filtered_count =
-            bit_util::count_set_bits_offset(filter_bytes, 0, filter_array.len());
+        let filter_buffer = &filter_array.data_ref().buffers()[0];
+        let filtered_count = filter_buffer.count_set_bits_offset(0, filter_array.len());
+
+        let filter_bytes = filter_buffer.data();
 
         // transmute filter_bytes to &[u64]
         let mut u64_buffer = MutableBuffer::new(filter_bytes.len());
         // add to the resulting len so is is a multiple of the size of u64
         let pad_addional_len = (8 - filter_bytes.len() % 8) % 8;
-        u64_buffer.write_bytes(filter_bytes, pad_addional_len)?;
+        u64_buffer.extend_from_slice(filter_bytes);
+        u64_buffer.extend_from_slice(&vec![0; pad_addional_len]);
         let mut filter_u64 = u64_buffer.typed_data_mut::<u64>().to_owned();
 
         // mask of any bits outside of the given len

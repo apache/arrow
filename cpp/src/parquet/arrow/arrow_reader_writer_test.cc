@@ -29,11 +29,15 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/api.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -2469,6 +2473,17 @@ TEST(ArrowReadWrite, ListOfStructOfList1) {
   CheckSimpleRoundtrip(table, 2);
 }
 
+TEST(ArrowReadWrite, ListWithNoValues) {
+  using ::arrow::Buffer;
+  using ::arrow::field;
+
+  auto type = list(field("item", ::arrow::int32(), /*nullable=*/false));
+  auto array = ::arrow::ArrayFromJSON(type, "[null, []]");
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
 TEST(ArrowReadWrite, Map) {
   using ::arrow::field;
   using ::arrow::map;
@@ -3197,6 +3212,41 @@ TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
   // PARQUET-1402: parquet-mr writes files this way which tripped up
   // some business logic
   TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
+}
+
+TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
+  // ARROW-10493
+  std::vector<std::shared_ptr<::arrow::Field>> fields{
+      ::arrow::field("s", ::arrow::utf8(), /*nullable=*/true),
+      ::arrow::field("d", ::arrow::decimal128(4, 2), /*nullable=*/true),
+      ::arrow::field("b", ::arrow::boolean(), /*nullable=*/true),
+      ::arrow::field("i8", ::arrow::int8(), /*nullable=*/true),
+      ::arrow::field("i64", ::arrow::int64(), /*nullable=*/true)};
+  auto type = ::arrow::struct_(fields);
+  auto outer_array = ::arrow::ArrayFromJSON(
+      type,
+      R"([{"s": "abc", "d": "1.23", "b": true, "i8": 10, "i64": 11 },
+                                                {"s": "de", "d": "3.45", "b": true, "i8": 12, "i64": 13 },
+                                                {"s": "fghi", "d": "6.78", "b": false, "i8": 14, "i64": 15 },
+                                                {},
+                                                {"s": "jklmo", "d": "9.10", "b": true, "i8": 16, "i64": 17 },
+                                                null,
+                                                {"s": "p", "d": "11.12", "b": false, "i8": 18, "i64": 19 },
+                                                {"s": "qrst", "d": "13.14", "b": false, "i8": 20, "i64": 21 },
+                                                {},
+                                                {"s": "uvw", "d": "15.16", "b": true, "i8": 22, "i64": 23 },
+                                                {"s": "x", "d": "17.18", "b": false, "i8": 24, "i64": 25 },
+                                                {},
+                                                null])");
+
+  auto expected = Table::Make(
+      ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {outer_array});
+
+  auto write_props = WriterProperties::Builder().write_batch_size(4)->build();
+
+  std::shared_ptr<Table> actual;
+  DoRoundtrip(expected, /*row_group_size=*/outer_array->length(), &actual, write_props);
+  ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
 class TestArrowReaderAdHocSparkAndHvr

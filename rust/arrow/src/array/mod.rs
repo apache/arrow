@@ -83,6 +83,13 @@
 
 #[allow(clippy::module_inception)]
 mod array;
+mod array_binary;
+mod array_dictionary;
+mod array_list;
+mod array_primitive;
+mod array_string;
+mod array_struct;
+mod array_union;
 mod builder;
 mod cast;
 mod data;
@@ -91,7 +98,7 @@ mod equal_json;
 mod iterator;
 mod null;
 mod ord;
-mod union;
+mod raw_pointer;
 
 use crate::datatypes::*;
 
@@ -103,19 +110,19 @@ pub use self::data::ArrayData;
 pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
-pub use self::array::BinaryArray;
-pub use self::array::DictionaryArray;
-pub use self::array::FixedSizeBinaryArray;
-pub use self::array::FixedSizeListArray;
-pub use self::array::LargeBinaryArray;
-pub use self::array::LargeListArray;
-pub use self::array::LargeStringArray;
-pub use self::array::ListArray;
-pub use self::array::PrimitiveArray;
-pub use self::array::StringArray;
-pub use self::array::StructArray;
+pub use self::array_binary::BinaryArray;
+pub use self::array_binary::FixedSizeBinaryArray;
+pub use self::array_binary::LargeBinaryArray;
+pub use self::array_dictionary::DictionaryArray;
+pub use self::array_list::FixedSizeListArray;
+pub use self::array_list::LargeListArray;
+pub use self::array_list::ListArray;
+pub use self::array_primitive::PrimitiveArray;
+pub use self::array_string::LargeStringArray;
+pub use self::array_string::StringArray;
+pub use self::array_struct::StructArray;
+pub use self::array_union::UnionArray;
 pub use self::null::NullArray;
-pub use self::union::UnionArray;
 
 pub use self::array::make_array;
 
@@ -157,11 +164,12 @@ pub type DurationMillisecondArray = PrimitiveArray<DurationMillisecondType>;
 pub type DurationMicrosecondArray = PrimitiveArray<DurationMicrosecondType>;
 pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 
-pub use self::array::GenericBinaryArray;
-pub use self::array::GenericListArray;
-pub use self::array::GenericStringArray;
-pub use self::array::OffsetSizeTrait;
-pub use self::array::StringOffsetSizeTrait;
+pub use self::array_binary::BinaryOffsetSizeTrait;
+pub use self::array_binary::GenericBinaryArray;
+pub use self::array_list::GenericListArray;
+pub use self::array_list::OffsetSizeTrait;
+pub use self::array_string::GenericStringArray;
+pub use self::array_string::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 
@@ -210,7 +218,7 @@ pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
-pub use self::union::UnionBuilder;
+pub use self::builder::UnionBuilder;
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;

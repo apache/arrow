@@ -366,3 +366,15 @@ test_that("RecordBatch$Equals(check_metadata)", {
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
 })
+
+test_that("RecordBatch name assignment", {
+  rb <- record_batch(x = 1:10, y = 1:10)
+  expect_identical(names(rb), c("x", "y"))
+  names(rb) <- c("a", "b")
+  expect_identical(names(rb), c("a", "b"))
+  expect_error(names(rb) <- "f")
+  expect_error(names(rb) <- letters)
+  expect_error(names(rb) <- character(0))
+  expect_error(names(rb) <- NULL)
+  expect_error(names(rb) <- c(TRUE, FALSE))
+})

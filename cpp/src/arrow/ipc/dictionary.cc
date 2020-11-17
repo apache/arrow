@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/validate.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -142,6 +143,27 @@ int DictionaryFieldMapper::num_fields() const { return impl_->num_fields(); }
 // ----------------------------------------------------------------------
 // DictionaryMemo implementation
 
+namespace {
+
+bool HasUnresolvedNestedDict(const ArrayData& data) {
+  if (data.type->id() == Type::DICTIONARY) {
+    if (data.dictionary == nullptr) {
+      return true;
+    }
+    if (HasUnresolvedNestedDict(*data.dictionary)) {
+      return true;
+    }
+  }
+  for (const auto& child : data.child_data) {
+    if (HasUnresolvedNestedDict(*child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
 struct DictionaryMemo::Impl {
   // Map of dictionary id to dictionary array(s) (several in case of deltas)
   std::unordered_map<int64_t, ArrayDataVector> id_to_dictionary_;
@@ -169,10 +191,13 @@ struct DictionaryMemo::Impl {
       // We need to validate it, as concatenation can crash on invalid or
       // corrupted data.  Full validation is necessary for certain types
       // (for example nested dictionaries).
-      // XXX: this won't work if there are unresolved nested dictionaries.
       for (const auto& data : *data_vector) {
+        if (HasUnresolvedNestedDict(*data)) {
+          return Status::NotImplemented(
+              "Encountered delta dictionary with an unresolved nested dictionary");
+        }
+        RETURN_NOT_OK(::arrow::internal::ValidateArrayFull(*data));
         to_combine.push_back(MakeArray(data));
-        RETURN_NOT_OK(to_combine.back()->ValidateFull());
       }
       ARROW_ASSIGN_OR_RAISE(auto combined_dict, Concatenate(to_combine, pool));
       *data_vector = {combined_dict->data()};

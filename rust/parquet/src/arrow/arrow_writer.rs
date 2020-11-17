@@ -194,56 +194,54 @@ fn write_leaves(
                 );
             }
 
-            match (&**key_type, &**value_type, &mut col_writer) {
-                (UInt8, UInt32, Int32ColumnWriter(writer)) => {
-                    let typed_array = array
-                        .as_any()
-                        .downcast_ref::<arrow_array::UInt8DictionaryArray>()
-                        .expect("Unable to get dictionary array");
+            if let (UInt8, UInt32, Int32ColumnWriter(writer)) =
+                (&**key_type, &**value_type, &mut col_writer)
+            {
+                let typed_array = array
+                    .as_any()
+                    .downcast_ref::<arrow_array::UInt8DictionaryArray>()
+                    .expect("Unable to get dictionary array");
 
-                    let keys = typed_array.keys();
+                let keys = typed_array.keys();
 
-                    let value_buffer = typed_array.values();
-                    let value_array =
-                        arrow::compute::cast(&value_buffer, &ArrowDataType::Int32)?;
+                let value_buffer = typed_array.values();
+                let value_array =
+                    arrow::compute::cast(&value_buffer, &ArrowDataType::Int32)?;
 
-                    let values = value_array
-                        .as_any()
-                        .downcast_ref::<arrow_array::Int32Array>()
-                        .unwrap();
+                let values = value_array
+                    .as_any()
+                    .downcast_ref::<arrow_array::Int32Array>()
+                    .unwrap();
 
-                    use std::convert::TryFrom;
-                    // This removes NULL values from the keys, but
-                    // they're encoded by the levels, so that's fine.
-                    let materialized_values: Vec<_> = keys
-                        .into_iter()
-                        .flatten()
-                        .map(|key| {
-                            usize::try_from(key).unwrap_or_else(|k| {
-                                panic!("key {} does not fit in usize", k)
-                            })
-                        })
-                        .map(|key| values.value(key))
-                        .collect();
+                use std::convert::TryFrom;
+                // This removes NULL values from the keys, but
+                // they're encoded by the levels, so that's fine.
+                let materialized_values: Vec<_> = keys
+                    .into_iter()
+                    .flatten()
+                    .map(|key| {
+                        usize::try_from(key)
+                            .unwrap_or_else(|k| panic!("key {} does not fit in usize", k))
+                    })
+                    .map(|key| values.value(key))
+                    .collect();
 
-                    let materialized_primitive_array =
-                        PrimitiveArray::<arrow::datatypes::Int32Type>::from(
-                            materialized_values,
-                        );
+                let materialized_primitive_array =
+                    PrimitiveArray::<arrow::datatypes::Int32Type>::from(
+                        materialized_values,
+                    );
 
-                    writer.write_batch(
-                        get_numeric_array_slice::<Int32Type, _>(
-                            &materialized_primitive_array,
-                        )
-                        .as_slice(),
-                        Some(levels.definition.as_slice()),
-                        levels.repetition.as_deref(),
-                    )?;
-                    row_group_writer.close_column(col_writer)?;
+                writer.write_batch(
+                    get_numeric_array_slice::<Int32Type, _>(
+                        &materialized_primitive_array,
+                    )
+                    .as_slice(),
+                    Some(levels.definition.as_slice()),
+                    levels.repetition.as_deref(),
+                )?;
+                row_group_writer.close_column(col_writer)?;
 
-                    return Ok(());
-                }
-                _ => {}
+                return Ok(());
             }
 
             dispatch_dictionary!(
@@ -911,17 +909,7 @@ mod tests {
             let expected_data = expected_batch.column(i).data();
             let actual_data = actual_batch.column(i).data();
 
-            assert_eq!(expected_data.data_type(), actual_data.data_type());
-            assert_eq!(expected_data.len(), actual_data.len());
-            assert_eq!(expected_data.null_count(), actual_data.null_count());
-            assert_eq!(expected_data.offset(), actual_data.offset());
-            assert_eq!(expected_data.buffers(), actual_data.buffers());
-            assert_eq!(expected_data.child_data(), actual_data.child_data());
-            // Null counts should be the same, not necessarily bitmaps
-            // A null bitmap is optional if an array has no nulls
-            if expected_data.null_count() != 0 {
-                assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
-            }
+            assert_eq!(expected_data, actual_data);
         }
     }
 
@@ -1198,7 +1186,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Binary support isn't correct yet - buffers don't match
     fn binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1209,7 +1196,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large binary support isn't correct yet - buffers don't match
     fn large_binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();

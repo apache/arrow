@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"

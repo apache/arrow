@@ -25,15 +25,15 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/csv/column_decoder.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/inference_internal.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"

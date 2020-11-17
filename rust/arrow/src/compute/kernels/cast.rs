@@ -191,17 +191,16 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Time32(_), Time64(_)) => true,
         (Time64(TimeUnit::Microsecond), Time64(TimeUnit::Nanosecond)) => true,
         (Time64(TimeUnit::Nanosecond), Time64(TimeUnit::Microsecond)) => true,
-        (Time64(_), Time32(to_unit)) => match to_unit {
-            TimeUnit::Second => true,
-            TimeUnit::Millisecond => true,
-            _ => false,
-        },
+        (Time64(_), Time32(to_unit)) => {
+            matches!(to_unit, TimeUnit::Second | TimeUnit::Millisecond)
+        }
         (Timestamp(_, _), Int64) => true,
         (Int64, Timestamp(_, _)) => true,
         (Timestamp(_, _), Timestamp(_, _)) => true,
         (Timestamp(_, _), Date32(_)) => true,
         (Timestamp(_, _), Date64(_)) => true,
         // date64 to timestamp might not make sense,
+        (Int64, Duration(_)) => true,
         (Null, Int32) => true,
         (_, _) => false,
     }
@@ -751,6 +750,21 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         // date64 to timestamp might not make sense,
+        (Int64, Duration(to_unit)) => {
+            use TimeUnit::*;
+            match to_unit {
+                Second => cast_array_data::<DurationSecondType>(array, to_type.clone()),
+                Millisecond => {
+                    cast_array_data::<DurationMillisecondType>(array, to_type.clone())
+                }
+                Microsecond => {
+                    cast_array_data::<DurationMicrosecondType>(array, to_type.clone())
+                }
+                Nanosecond => {
+                    cast_array_data::<DurationNanosecondType>(array, to_type.clone())
+                }
+            }
+        }
 
         // null to primitive/flat types
         (Null, Int32) => Ok(Arc::new(Int32Array::from(vec![None; array.len()]))),
@@ -2726,14 +2740,14 @@ mod tests {
                     (Ok(_), false) => {
                         panic!("Was able to cast array from {:?} to {:?} but can_cast_types reported false",
                                array.data_type(), to_type)
-                    },
+                    }
                     (Err(e), true) => {
                         panic!("Was not able to cast array from {:?} to {:?} but can_cast_types reported true. \
                                 Error was {:?}",
                                array.data_type(), to_type, e)
-                    },
+                    }
                     // otherwise it was a match
-                    _=> {},
+                    _ => {}
                 };
             }
         }
@@ -2841,10 +2855,10 @@ mod tests {
         // Construct a list array from the above two
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         ListArray::from(list_data)
     }
@@ -2863,10 +2877,10 @@ mod tests {
         // Construct a list array from the above two
         let list_data_type =
             DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         LargeListArray::from(list_data)
     }
@@ -2887,7 +2901,7 @@ mod tests {
         );
         let list_data = ArrayData::builder(list_data_type)
             .len(5)
-            .add_child_data(value_data.clone())
+            .add_child_data(value_data)
             .build();
         FixedSizeListArray::from(list_data)
     }
@@ -2957,10 +2971,8 @@ mod tests {
             Timestamp(TimeUnit::Second, Some(tz_name.clone())),
             Timestamp(TimeUnit::Millisecond, Some(tz_name.clone())),
             Timestamp(TimeUnit::Microsecond, Some(tz_name.clone())),
-            Timestamp(TimeUnit::Nanosecond, Some(tz_name.clone())),
+            Timestamp(TimeUnit::Nanosecond, Some(tz_name)),
             Date32(DateUnit::Day),
-            Date64(DateUnit::Day),
-            Date32(DateUnit::Millisecond),
             Date64(DateUnit::Millisecond),
             Time32(TimeUnit::Second),
             Time32(TimeUnit::Millisecond),

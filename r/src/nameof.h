@@ -78,8 +78,15 @@ const char* typename_begin() {
 }  // namespace detail
 
 template <typename T>
-std::string nameof() {
-  return {detail::typename_begin<T>(), detail::typename_length<T>()};
+std::string nameof(bool strip_namespace = false) {
+  std::string name{detail::typename_begin<T>(), detail::typename_length<T>()};
+  if (strip_namespace) {
+    auto i = name.find_last_of("::");
+    if (i != std::string::npos) {
+      name = name.substr(i + 1);
+    }
+  }
+  return name;
 }
 
 }  // namespace util

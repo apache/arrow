@@ -76,7 +76,7 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
     return(Scalar$create(NA_real_))
   }
 
-  Scalar$create(call_function(FUN, a, options = list(na.rm = na.rm)))
+  call_function(FUN, a, options = list(na.rm = na.rm))
 }
 
 collect_arrays_from_dots <- function(dots) {
@@ -100,7 +100,7 @@ collect_arrays_from_dots <- function(dots) {
 
 #' @export
 unique.Array <- function(x, incomparables = FALSE, ...) {
-  Array$create(call_function("unique", x))
+  call_function("unique", x)
 }
 
 #' @export
@@ -127,16 +127,11 @@ match_arrow.Array <- function(x, table, ...) {
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
-  Array$create(call_function("index_in_meta_binary", x, table))
+  call_function("index_in_meta_binary", x, table)
 }
 
 #' @export
-match_arrow.ChunkedArray <- function(x, table, ...) {
-  if (!inherits(table, c("Array", "ChunkedArray"))) {
-    table <- Array$create(table)
-  }
-  shared_ptr(ChunkedArray, call_function("index_in_meta_binary", x, table))
-}
+match_arrow.ChunkedArray <- match_arrow.Array
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 
@@ -152,7 +147,5 @@ cast_options <- function(safe = TRUE,
                          allow_int_overflow = !safe,
                          allow_time_truncate = !safe,
                          allow_float_truncate = !safe) {
-  shared_ptr(CastOptions,
-    compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
-  )
+  compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
 }

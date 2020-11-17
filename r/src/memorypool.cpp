@@ -66,7 +66,7 @@ arrow::MemoryPool* gc_memory_pool() { return &g_pool; }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
-  return std::shared_ptr<GcMemoryPool>(&g_pool, [](...) {});
+  return std::shared_ptr<arrow::MemoryPool>(&g_pool, [](...) {});
 }
 
 // [[arrow::export]]

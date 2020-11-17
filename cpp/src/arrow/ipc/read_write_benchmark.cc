@@ -21,11 +21,12 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
+#include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
 
 namespace arrow {
 

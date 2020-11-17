@@ -79,7 +79,7 @@ open_dataset <- function(sources,
       x$schema <- schema
       x
     })
-    return(shared_ptr(UnionDataset, dataset___UnionDataset__create(sources, schema)))
+    return(dataset___UnionDataset__create(sources, schema))
   }
   factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
   # Default is _not_ to inspect/unify schemas
@@ -145,29 +145,19 @@ open_dataset <- function(sources,
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
 Dataset <- R6Class("Dataset", inherit = ArrowObject,
   public = list(
-    ..dispatch = function() {
-      type <- self$type
-      if (type == "union") {
-        shared_ptr(UnionDataset, self$pointer())
-      } else if (type == "filesystem") {
-        shared_ptr(FileSystemDataset, self$pointer())
-      } else {
-        self
-      }
-    },
     # @description
     # Start a new scan of the data
     # @return A [ScannerBuilder]
-    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
+    NewScan = function() dataset___Dataset__NewScan(self),
     ToString = function() self$schema$ToString()
   ),
   active = list(
     schema = function(schema) {
       if (missing(schema)) {
-        shared_ptr(Schema, dataset___Dataset__schema(self))
+        dataset___Dataset__schema(self)
       } else {
         assert_is(schema, "Schema")
-        invisible(shared_ptr(Dataset, dataset___Dataset__ReplaceSchema(self, schema)))
+        invisible(dataset___Dataset__ReplaceSchema(self, schema))
       }
     },
     metadata = function() self$schema$metadata,
@@ -212,12 +202,12 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     # @description
     # Return the format of files in this `Dataset`
     format = function() {
-      shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+      dataset___FileSystemDataset__format(self)
     },
     # @description
     # Return the filesystem of files in this `Dataset`
     filesystem = function() {
-      shared_ptr(FileSystem, dataset___FileSystemDataset__filesystem(self))$..dispatch()
+      dataset___FileSystemDataset__filesystem(self)
     },
     num_rows = function() {
       if (inherits(self$format, "ParquetFileFormat")) {
@@ -244,7 +234,7 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
     # @description
     # Return the UnionDataset's child `Dataset`s
     children = function() {
-      map(dataset___UnionDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
+      dataset___UnionDataset__children(self)
     }
   )
 )
@@ -257,7 +247,7 @@ InMemoryDataset$create <- function(x) {
   if (!inherits(x, "Table")) {
     x <- Table$create(x)
   }
-  shared_ptr(InMemoryDataset, dataset___InMemoryDataset__create(x))
+  dataset___InMemoryDataset__create(x)
 }
 
 
@@ -274,7 +264,7 @@ c.Dataset <- function(...) Dataset$create(list(...))
 head.Dataset <- function(x, n = 6L, ...) {
   assert_that(n > 0) # For now
   scanner <- Scanner$create(ensure_group_vars(x))
-  shared_ptr(Table, dataset___Scanner__head(scanner, n))
+  dataset___Scanner__head(scanner, n)
 }
 
 #' @export
@@ -284,7 +274,7 @@ tail.Dataset <- function(x, n = 6L, ...) {
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
   for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
-    for (batch in rev(shared_ptr(ScanTask, scan_task)$Execute())) {
+    for (batch in rev(scan_task$Execute())) {
       batch_num <- batch_num + 1
       result[[batch_num]] <- tail(batch, n)
       n <- n - nrow(batch)
@@ -321,7 +311,7 @@ take_dataset_rows <- function(x, i) {
   i <- sort(i) - 1L
   scanner <- Scanner$create(ensure_group_vars(x))
   for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
+    for (batch in scan_task$Execute()) {
       # Take all rows that are in this batch
       this_batch_nrows <- batch$num_rows
       in_this_batch <- i > -1L & i < this_batch_nrows

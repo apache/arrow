@@ -19,8 +19,8 @@
 
 #include "arrow/type.h"
 
-using ArrowType = arrow::DataType;
-using ArrowTypeId = arrow::Type;
+using ArrowType = ::arrow::DataType;
+using ArrowTypeId = ::arrow::Type;
 using ParquetType = parquet::Type;
 
 namespace parquet {

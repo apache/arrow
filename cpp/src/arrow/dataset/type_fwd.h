@@ -36,10 +36,11 @@ class ExecContext;
 namespace dataset {
 
 class Dataset;
+class DatasetFactory;
 using DatasetVector = std::vector<std::shared_ptr<Dataset>>;
 
 class UnionDataset;
-class DatasetFactory;
+class UnionDatasetFactory;
 
 class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
@@ -51,6 +52,7 @@ class FileFragment;
 class FileWriter;
 class FileWriteOptions;
 class FileSystemDataset;
+class FileSystemDatasetFactory;
 struct FileSystemDatasetWriteOptions;
 
 class InMemoryDataset;
@@ -77,6 +79,8 @@ const std::shared_ptr<Expression>& scalar(bool);
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;
+class DirectoryPartitioning;
+class HivePartitioning;
 
 struct ScanContext;
 

@@ -28,8 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/visibility.h"

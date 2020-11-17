@@ -2,7 +2,7 @@
 #include <cpp11.hpp>
 #include <cpp11/declarations.hpp>
 
-#include "./arrow_exports.h"
+#include "./arrow_types.h"
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
@@ -321,7 +321,7 @@ extern "C" SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_se
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::ArrayVector StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array);
+cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array);
 extern "C" SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
@@ -1410,7 +1410,7 @@ extern "C" SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP 
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::Dataset> dataset___UnionDataset__create(const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP schm_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const ds::DatasetVector&>::type datasets(datasets_sexp);
@@ -1426,7 +1426,7 @@ extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP s
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::InMemoryDataset> dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table);
+std::shared_ptr<ds::Dataset> dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
@@ -1441,7 +1441,7 @@ extern "C" SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::DatasetVector dataset___UnionDataset__children(const std::shared_ptr<ds::UnionDataset>& ds);
+cpp11::list dataset___UnionDataset__children(const std::shared_ptr<ds::UnionDataset>& ds);
 extern "C" SEXP _arrow_dataset___UnionDataset__children(SEXP ds_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::UnionDataset>&>::type ds(ds_sexp);
@@ -1564,7 +1564,7 @@ extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1582,7 +1582,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, S
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1599,7 +1599,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, S
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
@@ -1763,7 +1763,7 @@ extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1793,7 +1793,7 @@ extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_n
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Partitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1951,7 +1951,7 @@ extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner);
+cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner);
 extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
@@ -1981,7 +1981,7 @@ extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
+cpp11::list dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
 extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
@@ -2012,36 +2012,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-bool shared_ptr_is_null(SEXP xp);
-extern "C" SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type xp(xp_sexp);
-	return cpp11::as_sexp(shared_ptr_is_null(xp));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
-	Rf_error("Cannot call shared_ptr_is_null(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-bool unique_ptr_is_null(SEXP xp);
-extern "C" SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type xp(xp_sexp);
-	return cpp11::as_sexp(unique_ptr_is_null(xp));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
-	Rf_error("Cannot call unique_ptr_is_null(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2390,7 +2360,7 @@ extern "C" SEXP _arrow_Time64__initialize(SEXP unit_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP list__(SEXP x);
+std::shared_ptr<arrow::DataType> list__(SEXP x);
 extern "C" SEXP _arrow_list__(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
@@ -2405,7 +2375,7 @@ extern "C" SEXP _arrow_list__(SEXP x_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP large_list__(SEXP x);
+std::shared_ptr<arrow::DataType> large_list__(SEXP x);
 extern "C" SEXP _arrow_large_list__(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
@@ -2420,7 +2390,7 @@ extern "C" SEXP _arrow_large_list__(SEXP x_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP fixed_size_list__(SEXP x, int list_size);
+std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size);
 extern "C" SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
@@ -2497,31 +2467,31 @@ extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
-extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
+int DataType__num_fields(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_DataType__num_fields(SEXP type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	return cpp11::as_sexp(DataType__num_children(type));
+	return cpp11::as_sexp(DataType__num_fields(type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
-	Rf_error("Cannot call DataType__num_children(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_DataType__num_fields(SEXP type_sexp){
+	Rf_error("Cannot call DataType__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::writable::list DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
-extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
+cpp11::list DataType__fields(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_DataType__fields(SEXP type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	return cpp11::as_sexp(DataType__children_pointer(type));
+	return cpp11::as_sexp(DataType__fields(type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
-	Rf_error("Cannot call DataType__children_pointer(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_DataType__fields(SEXP type_sexp){
+	Rf_error("Cannot call DataType__fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3490,7 +3460,7 @@ extern "C" SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+cpp11::list fs___FileSystem__GetTargetInfos_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
@@ -3506,7 +3476,7 @@ extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_se
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
+cpp11::list fs___FileSystem__GetTargetInfos_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
@@ -5132,12 +5102,12 @@ extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP array_ptr_sexp, SEXP sc
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Pointer<ArrowArray> array_ptr, arrow::r::Pointer<ArrowSchema> schema_ptr);
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Pointer<struct ArrowArray> array_ptr, arrow::r::Pointer<struct ArrowSchema> schema_ptr);
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::Input<arrow::r::Pointer<ArrowArray>>::type array_ptr(array_ptr_sexp);
-	arrow::r::Input<arrow::r::Pointer<ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array_ptr(array_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
 	ExportRecordBatch(batch, array_ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11
@@ -5195,6 +5165,22 @@ extern "C" SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> RecordBatch__RenameColumns(const std::shared_ptr<arrow::RecordBatch>& batch, const std::vector<std::string>& names);
+extern "C" SEXP _arrow_RecordBatch__RenameColumns(SEXP batch_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
+	return cpp11::as_sexp(RecordBatch__RenameColumns(batch, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatch__RenameColumns(SEXP batch_sexp, SEXP names_sexp){
+	Rf_error("Cannot call RecordBatch__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
@@ -5211,7 +5197,7 @@ extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP meta
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
+cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
@@ -5448,7 +5434,7 @@ extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
+std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
@@ -5463,7 +5449,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
+cpp11::list ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
@@ -5569,7 +5555,7 @@ extern "C" SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
+cpp11::list ipc___RecordBatchFileReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
@@ -5871,7 +5857,7 @@ extern "C" SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::Field>> Schema__fields(const std::shared_ptr<arrow::Schema>& schema);
+cpp11::list Schema__fields(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__fields(SEXP schema_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
@@ -6087,7 +6073,7 @@ extern "C" SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(const std::shared_ptr<arrow::Table>& table);
+cpp11::list Table__columns(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__columns(SEXP table_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
@@ -6112,6 +6098,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
 	Rf_error("Cannot call Table__ColumnNames(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__RenameColumns(const std::shared_ptr<arrow::Table>& table, const std::vector<std::string>& names);
+extern "C" SEXP _arrow_Table__RenameColumns(SEXP table_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
+	return cpp11::as_sexp(Table__RenameColumns(table, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__RenameColumns(SEXP table_sexp, SEXP names_sexp){
+	Rf_error("Cannot call Table__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6213,6 +6215,58 @@ extern "C" SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__RemoveColumn(const std::shared_ptr<arrow::Table>& table, R_xlen_t i);
+extern "C" SEXP _arrow_Table__RemoveColumn(SEXP table_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
+	return cpp11::as_sexp(Table__RemoveColumn(table, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__RemoveColumn(SEXP table_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Table__RemoveColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__AddColumn(const std::shared_ptr<arrow::Table>& table, R_xlen_t i, const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::ChunkedArray>& column);
+extern "C" SEXP _arrow_Table__AddColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type column(column_sexp);
+	return cpp11::as_sexp(Table__AddColumn(table, i, field, column));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__AddColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+	Rf_error("Cannot call Table__AddColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__SetColumn(const std::shared_ptr<arrow::Table>& table, R_xlen_t i, const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::ChunkedArray>& column);
+extern "C" SEXP _arrow_Table__SetColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type column(column_sexp);
+	return cpp11::as_sexp(Table__SetColumn(table, i, field, column));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__SetColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
+	Rf_error("Cannot call Table__SetColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__SelectColumns(const std::shared_ptr<arrow::Table>& table, const std::vector<int>& indices);
 extern "C" SEXP _arrow_Table__SelectColumns(SEXP table_sexp, SEXP indices_sexp){
 BEGIN_CPP11
@@ -6304,6 +6358,30 @@ extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 }
 #endif
 
+# if defined(ARROW_R_WITH_ARROW)
+extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
+  BEGIN_CPP11
+  arrow::r::r6_reset_pointer<arrow::Table>(r6);
+  END_CPP11
+  return R_NilValue;
+}
+# else
+extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
+  Rf_error("Cannot call _arrow_Table__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+# endif
+# if defined(ARROW_R_WITH_ARROW)
+extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
+  BEGIN_CPP11
+  arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
+  END_CPP11
+  return R_NilValue;
+}
+# else
+extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
+  Rf_error("Cannot call _arrow_RecordBatch__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+# endif
 
 extern "C" SEXP _arrow_available() {
 return Rf_ScalarLogical(
@@ -6456,8 +6534,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
-		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
-		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
 		{ "_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0}, 
 		{ "_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0}, 
@@ -6489,8 +6565,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
 		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
-		{ "_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1}, 
-		{ "_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1}, 
+		{ "_arrow_DataType__num_fields", (DL_FUNC) &_arrow_DataType__num_fields, 1}, 
+		{ "_arrow_DataType__fields", (DL_FUNC) &_arrow_DataType__fields, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
 		{ "_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1}, 
 		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1}, 
@@ -6659,6 +6735,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
+		{ "_arrow_RecordBatch__RenameColumns", (DL_FUNC) &_arrow_RecordBatch__RenameColumns, 2}, 
 		{ "_arrow_RecordBatch__ReplaceSchemaMetadata", (DL_FUNC) &_arrow_RecordBatch__ReplaceSchemaMetadata, 2}, 
 		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
 		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
@@ -6718,18 +6795,24 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__field", (DL_FUNC) &_arrow_Table__field, 2}, 
 		{ "_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1}, 
 		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1}, 
+		{ "_arrow_Table__RenameColumns", (DL_FUNC) &_arrow_Table__RenameColumns, 2}, 
 		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
 		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
 		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 3}, 
 		{ "_arrow_Table__Validate", (DL_FUNC) &_arrow_Table__Validate, 1}, 
 		{ "_arrow_Table__ValidateFull", (DL_FUNC) &_arrow_Table__ValidateFull, 1}, 
 		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
+		{ "_arrow_Table__RemoveColumn", (DL_FUNC) &_arrow_Table__RemoveColumn, 2}, 
+		{ "_arrow_Table__AddColumn", (DL_FUNC) &_arrow_Table__AddColumn, 4}, 
+		{ "_arrow_Table__SetColumn", (DL_FUNC) &_arrow_Table__SetColumn, 4}, 
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
+		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}
 };
 

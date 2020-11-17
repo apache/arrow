@@ -22,6 +22,8 @@ namespace arrow {
 template <typename T>
 class Future;
 
+class TimestampParser;
+
 namespace internal {
 
 class Executor;
@@ -29,4 +31,27 @@ class TaskGroup;
 class ThreadPool;
 
 }  // namespace internal
+
+struct Compression {
+  /// \brief Compression algorithm
+  enum type {
+    UNCOMPRESSED,
+    SNAPPY,
+    GZIP,
+    BROTLI,
+    ZSTD,
+    LZ4,
+    LZ4_FRAME,
+    LZO,
+    BZ2,
+    LZ4_HADOOP
+  };
+};
+
+namespace util {
+class Compressor;
+class Decompressor;
+class Codec;
+}  // namespace util
+
 }  // namespace arrow

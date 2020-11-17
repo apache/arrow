@@ -457,7 +457,7 @@ allow_truncated_timestamps : bool, default False
     'ms', do not raise an exception.
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
 write_statistics : bool or list
     Specify if we should write statistics in general (default is True) or only
     for some columns.
@@ -546,7 +546,11 @@ schema : arrow Schema
                 # TODO deprecate
                 sink = self.file_handle = filesystem.open(path, 'wb')
             else:
-                sink = self.file_handle = filesystem.open_output_stream(path)
+                # ARROW-10480: do not auto-detect compression.  While
+                # a filename like foo.parquet.gz is nonconforming, it
+                # shouldn't implicitly apply compression.
+                sink = self.file_handle = filesystem.open_output_stream(
+                    path, compression=None)
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)

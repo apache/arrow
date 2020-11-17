@@ -49,20 +49,6 @@
 #' @name FileFormat
 #' @export
 FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
-  public = list(
-    ..dispatch = function() {
-      type <- self$type
-      if (type == "parquet") {
-        shared_ptr(ParquetFileFormat, self$pointer())
-      } else if (type == "ipc") {
-        shared_ptr(IpcFileFormat, self$pointer())
-      } else if (type == "csv") {
-        shared_ptr(CsvFileFormat, self$pointer())
-      } else {
-        self
-      }
-    }
-  ),
   active = list(
     # @description
     # Return the `FileFormat`'s type
@@ -78,7 +64,7 @@ FileFormat$create <- function(format, ...) {
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
-    shared_ptr(IpcFileFormat, dataset___IpcFileFormat__Make())
+    dataset___IpcFileFormat__Make()
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -99,8 +85,7 @@ ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
 ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
                                      buffer_size = 8196,
                                      dict_columns = character(0)) {
-  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
-    use_buffered_stream, buffer_size, dict_columns))
+ dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns)
 }
 
 #' @usage NULL
@@ -115,7 +100,7 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...)) {
-  shared_ptr(CsvFileFormat, dataset___CsvFileFormat__Make(opts))
+  dataset___CsvFileFormat__Make(opts)
 }
 
 csv_file_format_parse_options <- function(...) {
@@ -163,6 +148,6 @@ FileWriteOptions$create <- function(format, ...) {
   if (!inherits(format, "FileFormat")) {
     format <- FileFormat$create(format)
   }
-  options <- shared_ptr(FileWriteOptions, dataset___FileFormat__DefaultWriteOptions(format))
+  options <- dataset___FileFormat__DefaultWriteOptions(format)
   options$update(...)
 }

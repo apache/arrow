@@ -40,8 +40,6 @@ inline bool IsFutureFinished(FutureState state) { return state != FutureState::P
 // Type-erased helpers
 
 class FutureWaiter;
-template <typename T>
-class Future;
 
 class ARROW_EXPORT FutureImpl {
  public:
@@ -52,10 +50,10 @@ class ARROW_EXPORT FutureImpl {
   FutureState state() { return state_.load(); }
 
   static std::unique_ptr<FutureImpl> Make();
+  static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
 
  protected:
   FutureImpl();
-  ARROW_DISALLOW_COPY_AND_ASSIGN(FutureImpl);
 
   // Future API
   void MarkFinished();
@@ -67,12 +65,15 @@ class ARROW_EXPORT FutureImpl {
   inline FutureState SetWaiter(FutureWaiter* w, int future_num);
   inline void RemoveWaiter(FutureWaiter* w);
 
-  std::atomic<FutureState> state_;
+  std::atomic<FutureState> state_{FutureState::PENDING};
+
+  // Type erased storage for arbitrary results
+  // XXX small objects could be stored alongside state_ instead of boxed in a pointer
+  using Storage = std::unique_ptr<void, void (*)(void*)>;
+  Storage result_{NULLPTR, NULLPTR};
 
   template <typename T>
   friend class Future;
-  template <typename T>
-  friend class FutureStorage;
   friend class FutureWaiter;
   friend class FutureWaiterImpl;
 };
@@ -107,7 +108,7 @@ class ARROW_EXPORT FutureWaiter {
   static std::vector<FutureImpl*> ExtractFutures(const std::vector<FutureType>& futures) {
     std::vector<FutureImpl*> base_futures(futures.size());
     for (int i = 0; i < static_cast<int>(futures.size()); ++i) {
-      base_futures[i] = futures[i].impl_;
+      base_futures[i] = futures[i].impl_.get();
     }
     return base_futures;
   }
@@ -118,7 +119,7 @@ class ARROW_EXPORT FutureWaiter {
       const std::vector<FutureType*>& futures) {
     std::vector<FutureImpl*> base_futures(futures.size());
     for (int i = 0; i < static_cast<int>(futures.size()); ++i) {
-      base_futures[i] = futures[i]->impl_;
+      base_futures[i] = futures[i]->impl_.get();
     }
     return base_futures;
   }
@@ -132,96 +133,21 @@ class ARROW_EXPORT FutureWaiter {
   friend class ConcreteFutureImpl;
 };
 
-// ---------------------------------------------------------------------
-// An intermediate class for storing Future results
+namespace detail {
 
-class FutureStorageBase {
- public:
-  FutureStorageBase() : impl_(FutureImpl::Make()) {}
-
- protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(FutureStorageBase);
-  std::unique_ptr<FutureImpl> impl_;
+struct Empty {
+  static Result<Empty> ToResult(Status s) {
+    if (ARROW_PREDICT_TRUE(s.ok())) {
+      return Empty{};
+    }
+    return s;
+  }
 
   template <typename T>
-  friend class Future;
+  using EnableIfSame = typename std::enable_if<std::is_same<Empty, T>::value>::type;
 };
 
-template <typename T>
-class FutureStorage : public FutureStorageBase {
- public:
-  static constexpr bool HasValue = true;
-
-  Status status() const { return result_.status(); }
-
-  void MarkFinished(Result<T> result) {
-    result_ = std::move(result);
-    if (ARROW_PREDICT_TRUE(result_.ok())) {
-      impl_->MarkFinished();
-    } else {
-      impl_->MarkFailed();
-    }
-  }
-
-  template <typename Func>
-  void ExecuteAndMarkFinished(Func&& func) {
-    MarkFinished(func());
-  }
-
- protected:
-  Result<T> result_;
-  friend class Future<T>;
-};
-
-// A Future<void> just stores a Status (always ok for now, but that could change
-// if we implement cancellation).
-template <>
-class FutureStorage<void> : public FutureStorageBase {
- public:
-  static constexpr bool HasValue = false;
-
-  Status status() const { return status_; }
-
-  void MarkFinished(Status st = Status::OK()) {
-    status_ = std::move(st);
-    impl_->MarkFinished();
-  }
-
-  template <typename Func>
-  void ExecuteAndMarkFinished(Func&& func) {
-    func();
-    MarkFinished();
-  }
-
- protected:
-  Status status_;
-};
-
-// A Future<Status> just stores a Status.
-template <>
-class FutureStorage<Status> : public FutureStorageBase {
- public:
-  static constexpr bool HasValue = false;
-
-  Status status() const { return status_; }
-
-  void MarkFinished(Status st) {
-    status_ = std::move(st);
-    if (ARROW_PREDICT_TRUE(status_.ok())) {
-      impl_->MarkFinished();
-    } else {
-      impl_->MarkFailed();
-    }
-  }
-
-  template <typename Func>
-  void ExecuteAndMarkFinished(Func&& func) {
-    MarkFinished(func());
-  }
-
- protected:
-  Status status_;
-};
+}  // namespace detail
 
 // ---------------------------------------------------------------------
 // Public API
@@ -237,13 +163,10 @@ class FutureStorage<Status> : public FutureStorageBase {
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, or wait on multiple Futures at once (using WaitForAll,
 /// WaitForAny or AsCompletedIterator).
-template <typename T>
+template <typename T = detail::Empty>
 class Future {
-  static constexpr bool HasValue = FutureStorage<T>::HasValue;
-  template <typename U>
-  using EnableResult = typename std::enable_if<HasValue, Result<U>>::type;
-
  public:
+  using ValueType = T;
   static constexpr double kInfinity = FutureImpl::kInfinity;
 
   // The default constructor creates an invalid Future.  Use Future::Make()
@@ -253,7 +176,7 @@ class Future {
 
   // Consumer API
 
-  bool is_valid() const { return storage_ != NULLPTR; }
+  bool is_valid() const { return impl_ != NULLPTR; }
 
   /// \brief Return the Future's current state
   ///
@@ -265,28 +188,24 @@ class Future {
   }
 
   /// \brief Wait for the Future to complete and return its Result
-  ///
-  /// This function is not available on Future<void> and Future<Status>.
-  /// For these specializations, please call status() instead.
-  template <typename U = T>
-  const Result<T>& result(EnableResult<U>* = NULLPTR) const& {
-    CheckValid();
+  const Result<ValueType>& result() const& {
     Wait();
-    return storage_->result_;
+    return *GetResult();
   }
-
-  template <typename U = T>
-  Result<T> result(EnableResult<U>* = NULLPTR) && {
-    CheckValid();
+  Result<ValueType>&& result() && {
     Wait();
-    return std::move(storage_->result_);
+    return std::move(*GetResult());
   }
 
   /// \brief Wait for the Future to complete and return its Status
-  Status status() const {
-    CheckValid();
-    Wait();
-    return storage_->status();
+  const Status& status() const { return result().status(); }
+
+  /// \brief Future<T> is convertible to Future<>, which views only the
+  /// Status of the original. Marking the returned Future Finished is not supported.
+  explicit operator Future<>() const {
+    Future<> status_future;
+    status_future.impl_ = impl_;
+    return status_future;
   }
 
   /// \brief Wait for the Future to complete
@@ -310,39 +229,17 @@ class Future {
     return impl_->Wait(seconds);
   }
 
-  /// If a Result<Future> holds an error instead of a Future, construct a finished Future
-  /// holding that error.
-  static Future DeferNotOk(Result<Future> maybe_future) {
-    if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
-      return MakeFinished(std::move(maybe_future).status());
-    }
-    return std::move(maybe_future).MoveValueUnsafe();
-  }
-
   // Producer API
-
-  /// \brief Producer API: execute function and mark Future finished
-  ///
-  /// The function's return value is used to set the Future's result.
-  /// The function can have the following return types:
-  /// - `T`
-  /// - `Result<T>`, if T is neither `void` nor `Status`
-  template <typename Func>
-  void ExecuteAndMarkFinished(Func&& func) {
-    storage_->ExecuteAndMarkFinished(std::forward<Func>(func));
-  }
 
   /// \brief Producer API: mark Future finished
   ///
-  /// The arguments are used to set the Future's result.
-  /// This function accepts the following signatures:
-  /// - `(T val)`, if T is neither `void` nor `Status`
-  /// - `(Result<T> val)`, if T is neither `void` nor `Status`
-  /// - `(Status st)`, if T is `void` or `Status`
-  /// - `()`, if T is `void`
-  template <typename... Args>
-  void MarkFinished(Args&&... args) {
-    storage_->MarkFinished(std::forward<Args>(args)...);
+  /// The Future's result is set to `res`.
+  void MarkFinished(Result<ValueType> res) { DoMarkFinished(std::move(res)); }
+
+  /// \brief Mark a Future<> completed with the provided Status.
+  template <typename E = ValueType>
+  detail::Empty::EnableIfSame<E> MarkFinished(Status s = Status::OK()) {
+    return DoMarkFinished(E::ToResult(std::move(s)));
   }
 
   /// \brief Producer API: instantiate a valid Future
@@ -350,23 +247,48 @@ class Future {
   /// The Future's state is initialized with PENDING.
   static Future Make() {
     Future fut;
-    fut.storage_ = std::make_shared<FutureStorage<T>>();
-    fut.impl_ = fut.storage_->impl_.get();
+    fut.impl_ = FutureImpl::Make();
     return fut;
   }
 
   /// \brief Producer API: instantiate a finished Future
-  ///
-  /// The given arguments are passed to MarkFinished().
-  template <typename... Args>
-  static Future MakeFinished(Args&&... args) {
-    // TODO we can optimize this by directly creating a finished FutureImpl
-    auto fut = Make();
-    fut.MarkFinished(std::forward<Args>(args)...);
+  static Future MakeFinished(Result<ValueType> res) {
+    Future fut;
+    if (ARROW_PREDICT_TRUE(res.ok())) {
+      fut.impl_ = FutureImpl::MakeFinished(FutureState::SUCCESS);
+    } else {
+      fut.impl_ = FutureImpl::MakeFinished(FutureState::FAILURE);
+    }
+    fut.SetResult(std::move(res));
     return fut;
   }
 
+  /// \brief Make a finished Future<> with the provided Status.
+  template <typename E = ValueType, typename = detail::Empty::EnableIfSame<E>>
+  static Future<> MakeFinished(Status s = Status::OK()) {
+    return MakeFinished(E::ToResult(std::move(s)));
+  }
+
  protected:
+  Result<ValueType>* GetResult() const {
+    return static_cast<Result<ValueType>*>(impl_->result_.get());
+  }
+
+  void SetResult(Result<ValueType> res) {
+    impl_->result_ = {new Result<ValueType>(std::move(res)),
+                      [](void* p) { delete static_cast<Result<ValueType>*>(p); }};
+  }
+
+  void DoMarkFinished(Result<ValueType> res) {
+    SetResult(std::move(res));
+
+    if (ARROW_PREDICT_TRUE(GetResult()->ok())) {
+      impl_->MarkFinished();
+    } else {
+      impl_->MarkFailed();
+    }
+  }
+
   void CheckValid() const {
 #ifndef NDEBUG
     if (!is_valid()) {
@@ -375,11 +297,23 @@ class Future {
 #endif
   }
 
-  std::shared_ptr<FutureStorage<T>> storage_;
-  FutureImpl* impl_ = NULLPTR;
+  std::shared_ptr<FutureImpl> impl_;
 
   friend class FutureWaiter;
+
+  template <typename U>
+  friend class Future;
 };
+
+/// If a Result<Future> holds an error instead of a Future, construct a finished Future
+/// holding that error.
+template <typename T>
+static Future<T> DeferNotOk(Result<Future<T>> maybe_future) {
+  if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
+    return Future<T>::MakeFinished(std::move(maybe_future).status());
+  }
+  return std::move(maybe_future).MoveValueUnsafe();
+}
 
 /// \brief Wait for all the futures to end, or for the given timeout to expire.
 ///

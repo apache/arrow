@@ -17,10 +17,7 @@
 
 use super::*;
 use crate::datatypes::*;
-use array::{
-    Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericListArray,
-    GenericStringArray, OffsetSizeTrait, StringOffsetSizeTrait,
-};
+use array::Array;
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
@@ -165,10 +162,7 @@ impl JsonEqual for StructArray {
             return false;
         }
 
-        let all_object = json.iter().all(|v| match v {
-            Object(_) | JNull => true,
-            _ => false,
-        });
+        let all_object = json.iter().all(|v| matches!(v, Object(_) | JNull));
 
         if !all_object {
             return false;
@@ -536,6 +530,8 @@ mod tests {
         "#,
         )
         .unwrap();
+        println!("{:?}", arrow_array);
+        println!("{:?}", json_array);
         assert!(arrow_array.eq(&json_array));
         assert!(json_array.eq(&arrow_array));
 

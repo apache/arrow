@@ -16,10 +16,8 @@
 // under the License.
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -31,8 +29,6 @@
 
 #include "arrow/array.h"
 #include "arrow/array/diff.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"

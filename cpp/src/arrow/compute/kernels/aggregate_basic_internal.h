@@ -29,16 +29,6 @@ namespace arrow {
 namespace compute {
 namespace aggregate {
 
-struct ScalarAggregator : public KernelState {
-  virtual void Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
-  virtual void MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
-  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
-};
-
-void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
-
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -57,10 +47,6 @@ void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func);
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
-
-std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels();
-std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels();
-std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels();
 
 // ----------------------------------------------------------------------
 // Sum implementation

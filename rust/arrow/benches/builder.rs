@@ -23,9 +23,10 @@ use std::mem::size_of;
 
 use criterion::*;
 use rand::distributions::Standard;
-use rand::{thread_rng, Rng};
 
 use arrow::array::*;
+use arrow::util::test_util::seedable_rng;
+use rand::Rng;
 
 // Build arrays with 512k elements.
 const BATCH_SIZE: usize = 8 << 10;
@@ -51,7 +52,7 @@ fn bench_primitive(c: &mut Criterion) {
 }
 
 fn bench_bool(c: &mut Criterion) {
-    let data: Vec<bool> = thread_rng()
+    let data: Vec<bool> = seedable_rng()
         .sample_iter(&Standard)
         .take(BATCH_SIZE)
         .collect();

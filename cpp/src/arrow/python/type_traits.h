@@ -28,8 +28,7 @@
 
 #include <numpy/halffloat.h>
 
-#include "arrow/builder.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

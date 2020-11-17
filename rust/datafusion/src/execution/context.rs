@@ -142,12 +142,12 @@ impl ExecutionContext {
                             .schema(&schema)
                             .has_header(*has_header),
                     )?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 FileType::Parquet => {
                     self.register_parquet(name, location)?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(
@@ -1074,12 +1074,15 @@ mod tests {
         let batch = &results[0];
         assert_eq!(batch.num_rows(), 3);
         assert_eq!(batch.num_columns(), 10);
+        let mut result = test::format_batch(&batch);
+        result.sort_unstable();
+
         assert_eq!(
-            test::format_batch(&batch),
+            result,
             vec![
                 "a,3,2,2,2,2,2,2,2,2",
-                "c,3,2,2,2,2,2,2,2,2",
                 "b,1,1,1,1,1,1,1,1,1",
+                "c,3,2,2,2,2,2,2,2,2",
             ],
         );
 
@@ -1102,12 +1105,14 @@ mod tests {
         let batch = &results[0];
         assert_eq!(batch.num_rows(), 3);
         assert_eq!(batch.num_columns(), 10);
+        let mut result = test::format_batch(&batch);
+        result.sort_unstable();
         assert_eq!(
-            test::format_batch(&batch),
+            result,
             vec![
                 "a,5,3,3,3,3,3,3,3,3",
-                "c,1,1,1,1,1,1,1,1,1",
                 "b,5,4,4,4,4,4,4,4,4",
+                "c,1,1,1,1,1,1,1,1,1",
             ],
         );
 

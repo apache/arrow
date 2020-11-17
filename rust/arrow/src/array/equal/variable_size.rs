@@ -57,7 +57,11 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
     let lhs_values = &lhs.buffers()[1].data()[lhs.offset()..];
     let rhs_values = &rhs.buffers()[1].data()[rhs.offset()..];
 
-    if lhs.null_count() == 0 && rhs.null_count() == 0 {
+    if lhs.null_count() == 0
+        && rhs.null_count() == 0
+        && !lhs_values.is_empty()
+        && !rhs_values.is_empty()
+    {
         offset_value_equal(
             lhs_values,
             rhs_values,

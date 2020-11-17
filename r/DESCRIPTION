@@ -38,6 +38,7 @@ RoxygenNote: 7.1.1
 VignetteBuilder: knitr
 Suggests:
     decor,
+    distro,
     dplyr,
     hms,
     knitr,

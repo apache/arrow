@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/json/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

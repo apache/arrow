@@ -38,14 +38,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 // -------- RecordBatchStreamReader
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
+std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::RecordBatchReader> reader;
   return ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream));
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(
+cpp11::list ipc___RecordBatchStreamReader__batches(
     const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> res;
 
@@ -57,7 +56,7 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__
     res.push_back(batch);
   }
 
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 // -------- RecordBatchFileReader
@@ -86,7 +85,6 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
   return ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file));
 }
 
@@ -117,7 +115,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(
+cpp11::list ipc___RecordBatchFileReader__batches(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   auto n = reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> res(n);
@@ -126,7 +124,7 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__ba
     res[i] = ValueOrStop(reader->ReadRecordBatch(i));
   }
 
-  return res;
+  return arrow::r::to_r_list(res);
 }
 
 #endif

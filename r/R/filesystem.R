@@ -108,10 +108,7 @@ FileSelector <- R6Class("FileSelector",
 )
 
 FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = FALSE) {
-  shared_ptr(
-    FileSelector,
-    fs___FileSelector__create(clean_path_rel(base_dir), allow_not_found, recursive)
-  )
+  fs___FileSelector__create(clean_path_rel(base_dir), allow_not_found, recursive)
 }
 
 #' @title FileSystem classes
@@ -203,31 +200,11 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @export
 FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
   public = list(
-    ..dispatch = function() {
-      type_name <- self$type_name
-      if (type_name == "local") {
-        shared_ptr(LocalFileSystem, self$pointer())
-      } else if (type_name == "s3") {
-        shared_ptr(S3FileSystem, self$pointer())
-      } else if (type_name == "subtree") {
-        shared_ptr(SubTreeFileSystem, self$pointer())
-      } else {
-        self
-      }
-    },
     GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
-        map(
-          fs___FileSystem__GetTargetInfos_FileSelector(self, x),
-          shared_ptr,
-          class = FileInfo
-        )
+        fs___FileSystem__GetTargetInfos_FileSelector(self, x)
       } else if (is.character(x)){
-        map(
-          fs___FileSystem__GetTargetInfos_Paths(self, clean_path_rel(x)),
-          shared_ptr,
-          class = FileInfo
-        )
+        fs___FileSystem__GetTargetInfos_Paths(self, clean_path_rel(x))
       } else {
         abort("incompatible type for FileSystem$GetFileInfo()")
       }
@@ -262,16 +239,16 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     },
 
     OpenInputStream = function(path) {
-      shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, clean_path_rel(path)))
+      fs___FileSystem__OpenInputStream(self, clean_path_rel(path))
     },
     OpenInputFile = function(path) {
-      shared_ptr(RandomAccessFile, fs___FileSystem__OpenInputFile(self, clean_path_rel(path)))
+      fs___FileSystem__OpenInputFile(self, clean_path_rel(path))
     },
     OpenOutputStream = function(path) {
-      shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, clean_path_rel(path)))
+      fs___FileSystem__OpenOutputStream(self, clean_path_rel(path))
     },
     OpenAppendStream = function(path) {
-      shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
+      fs___FileSystem__OpenAppendStream(self, clean_path_rel(path))
     },
 
     # Friendlier R user interface
@@ -293,9 +270,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
 )
 FileSystem$from_uri <- function(uri) {
   assert_that(is.string(uri))
-  out <- fs___FileSystemFromUri(uri)
-  out$fs <- shared_ptr(FileSystem, out$fs)$..dispatch()
-  out
+  fs___FileSystemFromUri(uri)
 }
 
 get_path_and_filesystem <- function(x, filesystem = NULL) {
@@ -326,7 +301,7 @@ is_url <- function(x) is.string(x) && grepl("://", x)
 #' @export
 LocalFileSystem <- R6Class("LocalFileSystem", inherit = FileSystem)
 LocalFileSystem$create <- function() {
-  shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
+  fs___LocalFileSystem__create()
 }
 
 #' @usage NULL
@@ -369,7 +344,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     }
   }
   args <- c(modifyList(default_s3_options, args), anonymous = anonymous)
-  shared_ptr(S3FileSystem, exec(fs___S3FileSystem__create, !!!args))
+  exec(fs___S3FileSystem__create, !!!args)
 }
 
 default_s3_options <- list(
@@ -429,17 +404,14 @@ s3_bucket <- function(bucket, ...) {
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
   active = list(
     base_fs = function() {
-      shared_ptr(FileSystem, fs___SubTreeFileSystem__base_fs(self))$..dispatch()
+      fs___SubTreeFileSystem__base_fs(self)
     },
     base_path = function() fs___SubTreeFileSystem__base_path(self)
   )
 )
 SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
   fs_and_path <- get_path_and_filesystem(base_path, base_fs)
-  shared_ptr(
-    SubTreeFileSystem,
-    fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
-  )
+  fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
 }
 
 #' @export

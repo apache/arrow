@@ -300,7 +300,7 @@ Status Array::Validate() const { return internal::ValidateArray(*this); }
 
 Status Array::ValidateFull() const {
   RETURN_NOT_OK(internal::ValidateArray(*this));
-  return internal::ValidateArrayData(*this);
+  return internal::ValidateArrayFull(*this);
 }
 
 }  // namespace arrow

@@ -311,7 +311,7 @@ pub(crate) fn build_field<'a: 'b, 'b>(
     field: &Field,
 ) -> WIPOffset<ipc::Field<'b>> {
     let fb_field_name = fbb.create_string(field.name().as_str());
-    let field_type = get_fb_field_type(field.data_type(), fbb);
+    let field_type = get_fb_field_type(field.data_type(), field.is_nullable(), fbb);
 
     let fb_dictionary = if let Dictionary(index_type, _) = field.data_type() {
         Some(get_fb_dictionary(
@@ -342,6 +342,7 @@ pub(crate) fn build_field<'a: 'b, 'b>(
 /// Get the IPC type of a data type
 pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
     data_type: &DataType,
+    is_nullable: bool,
     fbb: &mut FlatBufferBuilder<'a>,
 ) -> FBFieldType<'b> {
     // some IPC implementations expect an empty list for child data, instead of a null value.
@@ -558,7 +559,8 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             // struct's fields are children
             let mut children = vec![];
             for field in fields {
-                let inner_types = get_fb_field_type(field.data_type(), fbb);
+                let inner_types =
+                    get_fb_field_type(field.data_type(), field.is_nullable(), fbb);
                 let field_name = fbb.create_string(field.name());
                 children.push(ipc::Field::create(
                     fbb,
@@ -583,7 +585,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
             // In this library, the dictionary "type" is a logical construct. Here we
             // pass through to the value type, as we've already captured the index
             // type in the DictionaryEncoding metadata in the parent field
-            get_fb_field_type(value_type, fbb)
+            get_fb_field_type(value_type, is_nullable, fbb)
         }
         t => unimplemented!("Type {:?} not supported", t),
     }

@@ -33,7 +33,7 @@ RUN wget -q -O - https://github.com/google/flatbuffers/archive/v${flatbuffers}.t
     cd / && \
     rm -rf flatbuffers-${flatbuffers}
 
-ARG rust=nightly-2020-04-22
+ARG rust=nightly-2020-11-14
 
 # freeze the version for deterministic builds
 RUN rustup default ${rust} && \

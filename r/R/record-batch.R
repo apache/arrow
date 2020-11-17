@@ -72,27 +72,28 @@
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
-    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
+    column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
       assert_that(is.string(name))
-      shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
+      RecordBatch__GetColumnByName(self, name)
     },
     SelectColumns = function(indices) {
-      shared_ptr(RecordBatch, RecordBatch__SelectColumns(self, indices))
+      RecordBatch__SelectColumns(self, indices)
     },
     RemoveColumn = function(i){
-      shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
+      RecordBatch__RemoveColumn(self, i)
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        shared_ptr(RecordBatch, RecordBatch__Slice1(self, offset))
+        RecordBatch__Slice1(self, offset)
       } else {
-        shared_ptr(RecordBatch, RecordBatch__Slice2(self, offset, length))
+        RecordBatch__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -103,14 +104,14 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      shared_ptr(RecordBatch, call_function("take", self, i))
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_that(is.Array(i, "bool"))
-      shared_ptr(RecordBatch, call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),
@@ -119,14 +120,20 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_is(target_schema, "Schema")
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
-      shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
+
+      RecordBatch__cast(self, target_schema, options)
+    },
+
+    invalidate = function() {
+      .Call(`_arrow_RecordBatch__Reset`, self)
+      super$invalidate()
     }
   ),
 
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
-    schema = function() shared_ptr(Schema, RecordBatch__schema(self)),
+    schema = function() RecordBatch__schema(self),
     metadata = function(new) {
       if (missing(new)) {
         # Get the metadata (from the schema)
@@ -137,11 +144,11 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
         out <- RecordBatch__ReplaceSchemaMetadata(self, new)
         # ReplaceSchemaMetadata returns a new object but we're modifying in place,
         # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out)
+        self$set_pointer(out$pointer())
         self
       }
     },
-    columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
+    columns = function() RecordBatch__columns(self)
   )
 )
 
@@ -156,8 +163,9 @@ RecordBatch$create <- function(..., schema = NULL) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
+
   # TODO: should this also assert that they're all Arrays?
-  shared_ptr(RecordBatch, RecordBatch__from_arrays(schema, arrays))
+  RecordBatch__from_arrays(schema, arrays)
 }
 
 RecordBatch$from_message <- function(obj, schema) {
@@ -168,9 +176,9 @@ RecordBatch$from_message <- function(obj, schema) {
     on.exit(obj$close())
   }
   if (inherits(obj, "InputStream")) {
-    shared_ptr(RecordBatch, ipc___ReadRecordBatch__InputStream__Schema(obj, schema))
+    ipc___ReadRecordBatch__InputStream__Schema(obj, schema)
   } else {
-    shared_ptr(RecordBatch, ipc___ReadRecordBatch__Message__Schema(obj, schema))
+    ipc___ReadRecordBatch__Message__Schema(obj, schema)
   }
 }
 
@@ -196,6 +204,9 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
+
+#' @export
+`names<-.RecordBatch` <- function(x, value) x$RenameColumns(value)
 
 #' @importFrom methods as
 #' @export

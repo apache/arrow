@@ -17,7 +17,6 @@
 
 
 import os
-import inspect
 import posixpath
 import sys
 import urllib.parse
@@ -319,6 +318,10 @@ class DaskFileSystem(FileSystem):
     """
 
     def __init__(self, fs):
+        warnings.warn(
+            "The pyarrow.filesystem.DaskFileSystem/S3FSWrapper are deprecated "
+            "as of pyarrow 3.0.0, and will be removed in a future version.",
+            DeprecationWarning, stacklevel=2)
         self.fs = fs
 
     @implements(FileSystem.isdir)
@@ -443,10 +446,6 @@ def _ensure_filesystem(fs):
     # If the arrow filesystem was subclassed, assume it supports the full
     # interface and return it
     if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ == 'S3FileSystem':
-                return S3FSWrapper(fs)
-
         if "fsspec" in sys.modules:
             fsspec = sys.modules["fsspec"]
             if isinstance(fs, fsspec.AbstractFileSystem):

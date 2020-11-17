@@ -512,14 +512,6 @@ dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, p
     invisible(.Call(`_arrow_dataset___Dataset__Write` , file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
 }
 
-shared_ptr_is_null <- function(xp){
-    .Call(`_arrow_shared_ptr_is_null` , xp)
-}
-
-unique_ptr_is_null <- function(xp){
-    .Call(`_arrow_unique_ptr_is_null` , xp)
-}
-
 Int8__initialize <- function(){
     .Call(`_arrow_Int8__initialize` )
 }
@@ -644,12 +636,12 @@ DataType__Equals <- function(lhs, rhs){
     .Call(`_arrow_DataType__Equals` , lhs, rhs)
 }
 
-DataType__num_children <- function(type){
-    .Call(`_arrow_DataType__num_children` , type)
+DataType__num_fields <- function(type){
+    .Call(`_arrow_DataType__num_fields` , type)
 }
 
-DataType__children_pointer <- function(type){
-    .Call(`_arrow_DataType__children_pointer` , type)
+DataType__fields <- function(type){
+    .Call(`_arrow_DataType__fields` , type)
 }
 
 DataType__id <- function(type){
@@ -1324,6 +1316,10 @@ RecordBatch__schema <- function(x){
     .Call(`_arrow_RecordBatch__schema` , x)
 }
 
+RecordBatch__RenameColumns <- function(batch, names){
+    .Call(`_arrow_RecordBatch__RenameColumns` , batch, names)
+}
+
 RecordBatch__ReplaceSchemaMetadata <- function(x, metadata){
     .Call(`_arrow_RecordBatch__ReplaceSchemaMetadata` , x, metadata)
 }
@@ -1560,6 +1556,10 @@ Table__ColumnNames <- function(table){
     .Call(`_arrow_Table__ColumnNames` , table)
 }
 
+Table__RenameColumns <- function(table, names){
+    .Call(`_arrow_Table__RenameColumns` , table, names)
+}
+
 Table__Slice1 <- function(table, offset){
     .Call(`_arrow_Table__Slice1` , table, offset)
 }
@@ -1582,6 +1582,18 @@ Table__ValidateFull <- function(table){
 
 Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
+}
+
+Table__RemoveColumn <- function(table, i){
+    .Call(`_arrow_Table__RemoveColumn` , table, i)
+}
+
+Table__AddColumn <- function(table, i, field, column){
+    .Call(`_arrow_Table__AddColumn` , table, i, field, column)
+}
+
+Table__SetColumn <- function(table, i, field, column){
+    .Call(`_arrow_Table__SetColumn` , table, i, field, column)
 }
 
 Table__SelectColumns <- function(table, indices){

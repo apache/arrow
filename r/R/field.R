@@ -49,7 +49,7 @@ Field <- R6Class("Field", inherit = ArrowObject,
       Field__nullable(self)
     },
     type = function() {
-      DataType$create(Field__type(self))
+      Field__type(self)
     }
   )
 )
@@ -57,7 +57,7 @@ Field$create <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  shared_ptr(Field, Field__initialize(enc2utf8(name), type, TRUE))
+  Field__initialize(enc2utf8(name), type, TRUE)
 }
 
 #' @param name field name

@@ -41,8 +41,8 @@ Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecConte
   return CallFunction("min_max", {value}, &options, ctx);
 }
 
-Result<Datum> Mode(const Datum& value, ExecContext* ctx) {
-  return CallFunction("mode", {value}, ctx);
+Result<Datum> Mode(const Datum& value, const ModeOptions& options, ExecContext* ctx) {
+  return CallFunction("mode", {value}, &options, ctx);
 }
 
 Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,

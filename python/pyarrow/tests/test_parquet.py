@@ -217,21 +217,21 @@ def test_set_data_page_size(use_legacy_dataset):
 @parametrize_legacy_dataset
 def test_chunked_table_write(use_legacy_dataset):
     # ARROW-232
-    df = alltypes_sample(size=10)
+    tables = []
+    batch = pa.RecordBatch.from_pandas(alltypes_sample(size=10))
+    tables.append(pa.Table.from_batches([batch] * 3))
+    df, _ = dataframe_with_lists()
+    batch = pa.RecordBatch.from_pandas(df)
+    tables.append(pa.Table.from_batches([batch] * 3))
 
     for data_page_version in ['1.0', '2.0']:
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
-
-        df, _ = dataframe_with_lists()
-        batch = pa.RecordBatch.from_pandas(df)
-        table = pa.Table.from_batches([batch] * 3)
-        _check_roundtrip(
-            table, version='2.0', use_legacy_dataset=use_legacy_dataset,
-            data_page_version=data_page_version)
+        for use_dictionary in [True, False]:
+            for table in tables:
+                _check_roundtrip(
+                    table, version='2.0',
+                    use_legacy_dataset=use_legacy_dataset,
+                    data_page_version=data_page_version,
+                    use_dictionary=use_dictionary)
 
 
 @pytest.mark.pandas
@@ -2223,9 +2223,14 @@ def test_read_partitioned_directory_s3fs_wrapper(
     s3_example_s3fs, use_legacy_dataset
 ):
     from pyarrow.filesystem import S3FSWrapper
+    import s3fs
+
+    if s3fs.__version__ >= LooseVersion("0.5"):
+        pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
 
     fs, path = s3_example_s3fs
-    wrapper = S3FSWrapper(fs)
+    with pytest.warns(DeprecationWarning):
+        wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, path)
 
     # Check that we can auto-wrap
@@ -4439,3 +4444,15 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
+
+
+def test_parquet_compression_roundtrip(tempdir):
+    # ARROW-10480: ensure even with nonstandard Parquet file naming
+    # conventions, writing and then reading a file works. In
+    # particular, ensure that we don't automatically double-compress
+    # the stream due to auto-detecting the extension in the filename
+    table = pa.table([pa.array(range(4))], names=["ints"])
+    path = tempdir / "arrow-10480.pyarrow.gz"
+    pq.write_table(table, path, compression="GZIP")
+    result = pq.read_table(path)
+    assert result.equals(table)

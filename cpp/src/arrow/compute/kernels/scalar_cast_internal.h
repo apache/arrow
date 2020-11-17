@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export

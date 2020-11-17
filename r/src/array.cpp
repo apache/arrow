@@ -22,6 +22,29 @@
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
 
+namespace cpp11 {
+
+const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>& array) {
+  auto type = array->type_id();
+  switch (type) {
+    case arrow::Type::DICTIONARY:
+      return "DictionaryArray";
+    case arrow::Type::STRUCT:
+      return "StructArray";
+    case arrow::Type::LIST:
+      return "ListArray";
+    case arrow::Type::LARGE_LIST:
+      return "LargeListArray";
+    case arrow::Type::FIXED_SIZE_LIST:
+      return "FixedSizeListArray";
+
+    default:
+      return "Array";
+  }
+}
+
+}  // namespace cpp11
+
 void arrow::r::validate_slice_offset(R_xlen_t offset, int64_t len) {
   if (offset == NA_INTEGER) {
     cpp11::stop("Slice 'offset' cannot be NA");
@@ -176,9 +199,8 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 }
 
 // [[arrow::export]]
-arrow::ArrayVector StructArray__Flatten(
-    const std::shared_ptr<arrow::StructArray>& array) {
-  return ValueOrStop(array->Flatten());
+cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array) {
+  return arrow::r::to_r_list(ValueOrStop(array->Flatten()));
 }
 
 // [[arrow::export]]

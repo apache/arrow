@@ -44,10 +44,10 @@
 ArrayData <- R6Class("ArrayData",
   inherit = ArrowObject,
   active = list(
-    type = function() DataType$create(ArrayData__get_type(self)),
+    type = function() ArrayData__get_type(self),
     length = function() ArrayData__get_length(self),
     null_count = function() ArrayData__get_null_count(self),
     offset = function() ArrayData__get_offset(self),
-    buffers = function() map(ArrayData__buffers(self), shared_ptr, class = Buffer)
+    buffers = function() ArrayData__buffers(self)
   )
 )

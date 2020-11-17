@@ -37,8 +37,8 @@ DictionaryType <- R6Class("DictionaryType",
     }
   ),
   active = list(
-    index_type = function() DataType$create(DictionaryType__index_type(self)),
-    value_type = function() DataType$create(DictionaryType__value_type(self)),
+    index_type = function() DictionaryType__index_type(self),
+    value_type = function() DictionaryType__value_type(self),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
@@ -48,7 +48,7 @@ DictionaryType$create <- function(index_type = int32(),
                                   ordered = FALSE) {
   assert_is(index_type, "DataType")
   assert_is(value_type, "DataType")
-  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
+  DictionaryType__initialize(index_type, value_type, ordered)
 }
 
 #' Create a dictionary type
