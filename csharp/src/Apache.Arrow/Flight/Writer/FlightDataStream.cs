@@ -36,7 +36,6 @@ namespace Apache.Arrow.Flight
         private readonly FlightDescriptor _flightDescriptor;
         private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;
         private Protocol.FlightData _currentFlightData;
-        private bool _completed = false;
 
         public FlightDataStream(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor, Schema schema)
             : base(new MemoryStream(), schema)
