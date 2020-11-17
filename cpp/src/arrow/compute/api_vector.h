@@ -58,14 +58,14 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
   static TakeOptions Defaults() { return BoundsCheck(); }
 };
 
-enum SortOrder {
+enum class SortOrder {
   ASCENDING,
   DESCENDING,
 };
 
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 struct ARROW_EXPORT SortKey {
-  explicit SortKey(std::string name, SortOrder order = ASCENDING)
+  explicit SortKey(std::string name, SortOrder order = SortOrder::ASCENDING)
       : name(name), order(order) {}
 
   /// The name of the sort key.
