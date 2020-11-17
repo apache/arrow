@@ -433,6 +433,9 @@ class TableSorter : public TypeVisitor {
 
     const std::vector<ResolvedSortKey>& sort_keys() { return sort_keys_; }
 
+    // Returns true if the left-th value should be ordered before the
+    // right-th value, false otherwise. The start_sort_key_index-th
+    // sort key and subsequent sort keys are used for comparison.
     bool Compare(uint64_t left, uint64_t right, size_t start_sort_key_index) {
       current_left_ = left;
       current_right_ = right;
