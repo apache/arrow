@@ -1000,7 +1000,7 @@ macro_rules! compute_op_scalar {
             .as_any()
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
-        // generate the scalar function name, such as lt_scalar, from the $OP parameter 
+        // generate the scalar function name, such as lt_scalar, from the $OP parameter
         // (which could have a value of lt) and the suffix _scalar
         Ok(Arc::new(paste::expr! {[<$OP _scalar>]}(
             &ll,
