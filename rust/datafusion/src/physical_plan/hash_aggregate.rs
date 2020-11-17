@@ -721,7 +721,7 @@ fn finalize_aggregation(
 }
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
-fn create_key(
+pub(crate) fn create_key(
     group_by_keys: &[ArrayRef],
     row: usize,
     vec: &mut Vec<GroupByScalar>,
