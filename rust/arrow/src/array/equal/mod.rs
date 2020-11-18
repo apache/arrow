@@ -602,6 +602,10 @@ mod tests {
         let a_slice = a.slice(4, 1);
         let b_slice = b.slice(4, 1);
         test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(3, 1);
+        let b_slice = b.slice(3, 1);
+        test_equal(&a_slice, &b_slice, false);
     }
 
     /// Create a fixed size list of 2 value lengths
