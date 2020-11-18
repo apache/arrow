@@ -185,7 +185,7 @@ impl<'a> BufferBitSliceMut<'a> {
     }
 
     ///
-    /// Converts the bit view into the Buffer.
+    /// Converts the bit view into a Buffer.
     /// Buffer is always byte-aligned and well-aligned.
     #[inline]
     pub fn as_buffer(&self) -> Buffer {
