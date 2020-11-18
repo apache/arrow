@@ -288,6 +288,7 @@ where
 mod tests {
     use super::*;
     use crate::array::{ArrayRef, Int32Array};
+    use crate::datatypes::Int32Type;
 
     #[test]
     fn test_bool_array_and() {
@@ -647,6 +648,24 @@ mod tests {
         assert_eq!(&None, res.data_ref().null_bitmap());
     }
 
+    fn assert_array_eq<T: ArrowNumericType>(
+        expected: PrimitiveArray<T>,
+        actual: ArrayRef,
+    ) {
+        let actual = actual
+            .as_any()
+            .downcast_ref::<PrimitiveArray<T>>()
+            .expect("Actual array should unwrap to type of expected array");
+
+        for i in 0..expected.len() {
+            if expected.is_null(i) {
+                assert!(actual.is_null(i));
+            } else {
+                assert_eq!(expected.value(i), actual.value(i));
+            }
+        }
+    }
+
     #[test]
     fn test_nullif_int_array() {
         let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9)]);
@@ -663,7 +682,7 @@ mod tests {
             // comp true, slot 2 turned into null
             Some(9),
         ]);
-        
-        assert_eq!(expected, res)
+
+        assert_array_eq::<Int32Type>(expected, Arc::new(res));
     }
 }

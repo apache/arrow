@@ -3226,10 +3226,19 @@ mod tests {
     }
 
     #[test]
-    #[rustfmt::skip]
     fn nullif_int32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![Some(1), Some(2), None, None, Some(3), None, None, Some(4), Some(5)]);
+        let a = Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(4),
+            Some(5),
+        ]);
         let a = Arc::new(a);
         let a_len = a.len();
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![a.clone()])?;
@@ -3239,43 +3248,46 @@ mod tests {
 
         let result = nullif_func(&[a.clone(), lit_array])?;
 
-        // Results should be: Some(1), None, None, None, Some(3), None
         assert_eq!(result.len(), a_len);
 
-        let result = result
-            .as_any()
-            .downcast_ref::<Int32Array>()
-            .expect("failed to downcast to Int32Array");
-
-        assert_eq!(1, result.value(0));
-        assert_eq!(true, result.is_null(1));    // 2==2, slot 1 turned into null
-        assert_eq!(true, result.is_null(2));
-        assert_eq!(true, result.is_null(3));
-        assert_eq!(3, result.value(4));
-        assert_eq!(true, result.is_null(5));
-        assert_eq!(true, result.is_null(6));
-        assert_eq!(5, result.value(8));
+        let expected = Int32Array::from(vec![
+            Some(1),
+            None,
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(4),
+            Some(5),
+        ]);
+        assert_array_eq::<Int32Type>(expected, result);
         Ok(())
     }
 
     #[test]
-    #[rustfmt::skip]
     // Ensure that arrays with no nulls can also invoke NULLIF() correctly
     fn nullif_int32_nonulls() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let a = Int32Array::from(vec![1, 3, 10, 7, 8, 1, 2, 4, 5]);
         let a = Arc::new(a);
         let a_len = a.len();
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![a.clone()])?;
 
-        let literal_expr = lit(ScalarValue::Int32(Some(1)));
-        let lit_array = literal_expr.evaluate(&batch)?;
+        let lit_array = Arc::new(Int32Array::from(vec![1; a.len()]));
 
         let result = nullif_func(&[a.clone(), lit_array])?;
         assert_eq!(result.len(), a_len);
 
-        let expected = Int32Array::from(vec![None, Some(3), Some(10), Some(7),
-                                             Some(8), None, Some(2), Some(4), Some(5)]);
+        let expected = Int32Array::from(vec![
+            None,
+            Some(3),
+            Some(10),
+            Some(7),
+            Some(8),
+            None,
+            Some(2),
+            Some(4),
+            Some(5),
+        ]);
         assert_array_eq::<Int32Type>(expected, result);
         Ok(())
     }
