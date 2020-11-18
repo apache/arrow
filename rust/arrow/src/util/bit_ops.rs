@@ -23,7 +23,11 @@ use bitvec::slice::ChunksExact;
 use std::fmt::Debug;
 
 ///
-/// Immutable bit slice representation of buffer data
+/// Immutable bit slice view of `Buffer` data. 
+///
+/// `BufferBitSlice` does not own any underlying data, but rather wraps references 
+/// to the underlying data in a `Buffer` and has methods for addressing and interacting with 
+/// individual bits
 #[derive(Debug)]
 pub struct BufferBitSlice<'a> {
     buffer_data: &'a [u8],
