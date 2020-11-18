@@ -273,7 +273,9 @@ where
 
     // Count the number of set bits (non-null), so we can pass in correct null_count
     // TODO: use count_set_bits_offset
-    let num_null_bits = modified_null_buffer.clone().map(|buf| left.len() - buf.count_set_bits());
+    let num_null_bits = modified_null_buffer
+        .clone()
+        .map(|buf| left.len() - buf.count_set_bits());
 
     // Construct new array with same values but modified null bitmap
     let data = ArrayData::new(
