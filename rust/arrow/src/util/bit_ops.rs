@@ -91,7 +91,7 @@ impl<'a> BufferBitSlice<'a> {
         let offset_size_in_bits = 8 * std::mem::size_of::<T>();
         let chunks_exact = self.bit_slice.chunks_exact(offset_size_in_bits);
         let remainder_bits = chunks_exact.remainder();
-        let remainder: T = if remainder_bits.len() == 0 {
+        let remainder: T = if remainder_bits.is_empty() {
             T::default()
         } else {
             remainder_bits.load::<T>()
@@ -136,7 +136,7 @@ impl<'a> BufferBitSlice<'a> {
     /// Get bits in this view as vector of booleans
     #[inline]
     pub fn typed_bits(&self) -> Vec<bool> {
-        self.bit_slice.iter().map(|e| *e).collect()
+        self.bit_slice.iter().copied().collect()
     }
 
     ///
@@ -238,7 +238,7 @@ impl<'a> BufferBitSliceMut<'a> {
     /// Get bits in this view as vector of booleans
     #[inline]
     pub fn typed_bits(&self) -> Vec<bool> {
-        self.bit_slice.iter().map(|e| *e).collect()
+        self.bit_slice.iter().copied().collect()
     }
 
     ///
@@ -347,21 +347,23 @@ mod tests_bit_slices_little_endian {
     #[test]
     fn test_bit_slice_iter_unaligned() {
         let input: &[u8] = &[
-            0b00000000, 0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000,
-            0b00100000, 0b01000000, 0b11111111,
+            0b11110000, 0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000,
+            0b00100000, 0b01000000, 0b11111010,
         ];
         let buffer: Buffer = Buffer::from(input);
 
+        // After the 4th bit get a bit slice of 64 bits.
         let bit_slice = buffer.bit_slice().slicing(4, 64);
         let chunks = bit_slice.chunks::<u64>();
 
+        // 64 bits perfectly fits.
         assert_eq!(0, chunks.remainder_bit_len());
         assert_eq!(0, chunks.remainder_bits());
 
         let result = chunks.interpret().collect::<Vec<u64>>();
 
         assert_eq!(
-            vec![0b1111_01000000_00100000_00010000_00001000_00000100_00000010_00000001_0000],
+            vec![0b1010_01000000_00100000_00010000_00001000_00000100_00000010_00000001_1111],
             result
         );
     }
@@ -374,9 +376,11 @@ mod tests_bit_slices_little_endian {
         ];
         let buffer: Buffer = Buffer::from(input);
 
+        // After the 4th bit get a bit slice of 66 bits.
         let bit_slice = buffer.bit_slice().slicing(4, 66);
         let chunks = bit_slice.chunks::<u64>();
 
+        // 66 bits doesn't fit into 64 bits primitive type, so there are 2 remainder bits.
         assert_eq!(2, chunks.remainder_bit_len());
         assert_eq!(0b00000011, chunks.remainder_bits());
 

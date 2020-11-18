@@ -159,7 +159,7 @@ where
 
             let buffer_chunk_iter = buffer_chunks.interpret();
 
-            &data_chunks
+            data_chunks
                 .zip(buffer_chunk_iter)
                 .for_each(|(chunk, mask)| {
                     chunk.iter().enumerate().for_each(|(i, value)| {
