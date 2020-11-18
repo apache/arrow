@@ -2845,72 +2845,81 @@ mod arrow_numeric_type_tests {
     use packed_simd::*;
     use FromCast;
 
+    /// calculate the expected mask by iterating over all bits
+    macro_rules! expected_mask {
+        ($T:ty, $MASK:expr) => {{
+            let mask = $MASK;
+            // simd width of all types is currently 64 bytes -> 512 bits
+            let lanes = 64 / std::mem::size_of::<$T>();
+            // translate each set bit into a value of all ones (-1) of the correct type
+            (0..lanes)
+                .map(|i| (if (mask & (1 << i)) != 0 { -1 } else { 0 }))
+                .collect::<Vec<$T>>()
+        }};
+    }
+
     #[test]
     fn test_mask_f64() {
-        let mask = Float64Type::mask_from_u64(0b10101010);
+        let mask = 0b10101010;
+        let actual = Float64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[-1, 0, -1, 0, -1, 0, -1, 0]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u64() {
-        let mask = Int64Type::mask_from_u64(0b01010101);
+        let mask = 0b01010101;
+        let actual = Int64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[0, -1, 0, -1, 0, -1, 0, -1]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_f32() {
-        let mask = Float32Type::mask_from_u64(0b10101010_10101010);
+        let mask = 0b10101010_10101010;
+        let actual = Float32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i32() {
-        let mask = Int32Type::mask_from_u64(0b01010101_01010101);
+        let mask = 0b01010101_01010101;
+        let actual = Int32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u16() {
-        let mask = UInt16Type::mask_from_u64(0b01010101_01010101_10101010_10101010);
+        let mask = 0b01010101_01010101_10101010_10101010;
+        let actual = UInt16Type::mask_from_u64(mask);
+        let expected = expected_mask!(i16, mask);
+        dbg!(&expected);
+        let expected =
+            m16x32::from_cast(i16x32::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m16x32::from_cast(i16x32::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i8() {
-        let mask = Int8Type::mask_from_u64(
-            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010,
-        );
+        let mask =
+            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010;
+        let actual = Int8Type::mask_from_u64(mask);
+        let expected = expected_mask!(i8, mask);
+        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-            -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 }
