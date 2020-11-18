@@ -30,10 +30,6 @@
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
 #endif
 
-#ifdef ARROW_UTIL_PARALLEL_H
-#error "arrow/util/parallel.h is an internal header"
-#endif
-
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
