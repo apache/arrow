@@ -157,7 +157,7 @@ where
 
             let buffer_remainder_bits: u64 = buffer_chunks.remainder_bits();
 
-            let buffer_chunk_iter = buffer_chunks.interpret();
+            let buffer_chunk_iter = buffer_chunks.to_native_iter();
 
             data_chunks
                 .zip(buffer_chunk_iter)
@@ -225,7 +225,7 @@ where
             let remainder_bits = bit_chunks.remainder_bits();
 
             data_chunks
-                .zip(bit_chunks.interpret())
+                .zip(bit_chunks.to_native_iter())
                 .for_each(|(chunk, mut mask)| {
                     // split chunks further into slices corresponding to the vector length
                     // the compiler is able to unroll this inner loop and remove bounds checks
