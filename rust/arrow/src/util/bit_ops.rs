@@ -178,7 +178,7 @@ impl<'a> BufferBitSliceMut<'a> {
     }
 
     ///
-    /// Count zeros in the given bit view
+    /// Set given bit at the position to a given value
     #[inline]
     pub fn set_bit(&mut self, index: usize, value: bool) {
         unsafe { self.bit_slice.set_unchecked(index, value) }
