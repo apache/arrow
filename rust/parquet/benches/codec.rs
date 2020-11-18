@@ -55,12 +55,8 @@ fn get_pages_bytes(col_idx: usize) -> Vec<u8> {
     let f_reader = get_f_reader();
     let rg_reader = f_reader.get_row_group(0).unwrap();
     let mut pg_reader = rg_reader.get_column_page_reader(col_idx).unwrap();
-    loop {
-        if let Some(p) = pg_reader.get_next_page().unwrap() {
-            data.extend_from_slice(p.buffer().data());
-        } else {
-            break;
-        }
+    while let Some(p) = pg_reader.get_next_page().unwrap() {
+        data.extend_from_slice(p.buffer().data());
     }
     data
 }
