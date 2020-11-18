@@ -1444,14 +1444,14 @@ async fn query_scalar_minus_array() -> Result<()> {
     Ok(())
 }
 
-fn assert_float_eq<T>(expected: &Vec<Vec<T>>, received: &Vec<Vec<String>>)
+fn assert_float_eq<T>(expected: &[Vec<T>], received: &[Vec<String>])
 where
     T: AsRef<str>,
 {
     expected
-        .into_iter()
+        .iter()
         .flatten()
-        .zip(received.into_iter().flatten())
+        .zip(received.iter().flatten())
         .for_each(|(l, r)| {
             let (l, r) = (
                 l.as_ref().parse::<f64>().unwrap(),
