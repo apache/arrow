@@ -152,7 +152,7 @@ where
             let data_chunks = data.chunks_exact(64);
             let remainder = data_chunks.remainder();
 
-            let buffer_slice = buffer.bit_slice().view(array.offset(), array.len());
+            let buffer_slice = buffer.bit_slice().slicing(array.offset(), array.len());
             let buffer_chunks = buffer_slice.chunks::<u64>();
 
             let buffer_remainder_bits: u64 = buffer_chunks.remainder_bits();
@@ -220,7 +220,7 @@ where
             let data_chunks = data.chunks_exact(64);
             let remainder = data_chunks.remainder();
 
-            let bit_slice = buffer.bit_slice().view(array.offset(), array.len());
+            let bit_slice = buffer.bit_slice().slicing(array.offset(), array.len());
             let bit_chunks = bit_slice.chunks::<u64>();
             let remainder_bits = bit_chunks.remainder_bits();
 

@@ -264,7 +264,7 @@ impl Buffer {
             self.slice(offset_in_bits / 8)
         } else {
             self.bit_slice()
-                .view(offset_in_bits, len_in_bits)
+                .slicing(offset_in_bits, len_in_bits)
                 .as_buffer()
         }
     }
@@ -434,10 +434,10 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_slice = left.bit_slice().view(left_offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().slicing(left_offset_in_bits, len_in_bits);
     let left_chunks = left_slice.chunks::<u64>();
 
-    let right_slice = right.bit_slice().view(right_offset_in_bits, len_in_bits);
+    let right_slice = right.bit_slice().slicing(right_offset_in_bits, len_in_bits);
     let right_chunks = right_slice.chunks::<u64>();
 
     let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
@@ -475,7 +475,7 @@ where
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
-    let left_slice = left.bit_slice().view(offset_in_bits, len_in_bits);
+    let left_slice = left.bit_slice().slicing(offset_in_bits, len_in_bits);
     let left_chunks = left_slice.chunks::<u64>();
 
     let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
@@ -757,9 +757,9 @@ impl MutableBuffer {
     /// This is useful when one wants to clear (or set) the bits and then manipulate
     /// the buffer directly (e.g., modifying the buffer by holding a mutable reference
     /// from `data_mut()`).
-    pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
+    pub fn with_bitset(mut self, end: usize, initial_value: bool) -> Self {
         assert!(end <= self.capacity);
-        let v = if val { 255 } else { 0 };
+        let v = if initial_value { 0xFF_u8 } else { 0x00_u8 };
         unsafe {
             std::ptr::write_bytes(self.data, v, end);
             self.len = end;
@@ -1328,98 +1328,98 @@ mod tests {
             8,
             Buffer::from(&[0b11111111])
                 .bit_slice()
-                .view(0, 8)
+                .slicing(0, 8)
                 .count_ones()
         );
         assert_eq!(
             3,
             Buffer::from(&[0b11111111])
                 .bit_slice()
-                .view(0, 3)
+                .slicing(0, 3)
                 .count_ones()
         );
         assert_eq!(
             5,
             Buffer::from(&[0b11111111])
                 .bit_slice()
-                .view(3, 5)
+                .slicing(3, 5)
                 .count_ones()
         );
         assert_eq!(
             1,
             Buffer::from(&[0b11111111])
                 .bit_slice()
-                .view(3, 1)
+                .slicing(3, 1)
                 .count_ones()
         );
         assert_eq!(
             0,
             Buffer::from(&[0b11111111])
                 .bit_slice()
-                .view(8, 0)
+                .slicing(8, 0)
                 .count_ones()
         );
         assert_eq!(
             2,
             Buffer::from(&[0b01010101])
                 .bit_slice()
-                .view(0, 3)
+                .slicing(0, 3)
                 .count_ones()
         );
         assert_eq!(
             16,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(0, 16)
+                .slicing(0, 16)
                 .count_ones()
         );
         assert_eq!(
             10,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(0, 10)
+                .slicing(0, 10)
                 .count_ones()
         );
         assert_eq!(
             10,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(3, 10)
+                .slicing(3, 10)
                 .count_ones()
         );
         assert_eq!(
             8,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(8, 8)
+                .slicing(8, 8)
                 .count_ones()
         );
         assert_eq!(
             5,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(11, 5)
+                .slicing(11, 5)
                 .count_ones()
         );
         assert_eq!(
             0,
             Buffer::from(&[0b11111111, 0b11111111])
                 .bit_slice()
-                .view(16, 0)
+                .slicing(16, 0)
                 .count_ones()
         );
         assert_eq!(
             2,
             Buffer::from(&[0b01101101, 0b10101010])
                 .bit_slice()
-                .view(7, 5)
+                .slicing(7, 5)
                 .count_ones()
         );
         assert_eq!(
             4,
             Buffer::from(&[0b01101101, 0b10101010])
                 .bit_slice()
-                .view(7, 9)
+                .slicing(7, 9)
                 .count_ones()
         );
     }

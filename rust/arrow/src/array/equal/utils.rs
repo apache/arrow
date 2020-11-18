@@ -32,7 +32,7 @@ pub(super) fn equal_bits(
         BufferBitSlice::new(lhs_values),
         BufferBitSlice::new(rhs_values),
     );
-    lhs.view(lhs_start, len) == rhs.view(rhs_start, len)
+    lhs.slicing(lhs_start, len) == rhs.slicing(rhs_start, len)
 }
 
 #[inline]

@@ -233,7 +233,7 @@ impl UnionArray {
             // In format v4 unions had their own validity bitmap and offsets are compressed by omitting null values
             // Starting with v5 unions don't have a validity bitmap and it's possible to directly index into the offsets buffer
             let valid_slots = match self.data.null_buffer() {
-                Some(b) => b.bit_slice().view(0, index).count_ones(),
+                Some(b) => b.bit_slice().slicing(0, index).count_ones(),
                 None => index,
             };
             self.data().buffers()[1].data()[valid_slots * size_of::<i32>()] as i32

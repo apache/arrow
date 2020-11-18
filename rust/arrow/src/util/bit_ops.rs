@@ -30,7 +30,6 @@ use std::fmt::Debug;
 /// individual bits
 #[derive(Debug)]
 pub struct BufferBitSlice<'a> {
-    buffer_data: &'a [u8],
     bit_slice: &'a BitSlice<LocalBits, u8>,
 }
 
@@ -42,7 +41,6 @@ impl<'a> BufferBitSlice<'a> {
         let bit_slice = BitSlice::<LocalBits, _>::from_slice(buffer_data).unwrap();
 
         BufferBitSlice {
-            buffer_data,
             bit_slice: &bit_slice,
         }
     }
@@ -51,15 +49,38 @@ impl<'a> BufferBitSlice<'a> {
     /// Returns immutable view with the given offset in bits and length in bits.
     /// This view have zero-copy representation over the actual data.
     #[inline]
-    pub fn view(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
+    pub fn slicing(&self, offset_in_bits: usize, len_in_bits: usize) -> Self {
         Self {
-            buffer_data: self.buffer_data,
             bit_slice: &self.bit_slice[offset_in_bits..offset_in_bits + len_in_bits],
         }
     }
 
     ///
-    /// Returns bit chunks in native 64-bit allocation size.
+    /// Returns bit chunks in given byte width.
+    /// This can be u64(native Arrow byte representation size) or any other unsigned primitive like:
+    /// u8, u16, u32, u128 and usize.
+    ///
+    /// This method is generic over the given primitives to enable user to filter out
+    /// any upper/lower nibble/s which is not used like:
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use arrow::buffer::Buffer;
+    /// let input: &[u8] = &[
+    ///     0b11111111, 0b00000000, 0b11111111, 0b00000000,
+    ///     0b11111111, 0b00000000, 0b11111111, 0b00000000,
+    /// ];
+    ///
+    /// let buffer: Buffer = Buffer::from(input);
+    /// let bit_slice = buffer.bit_slice();
+    /// // Interpret bit slice as u8
+    /// let chunks = bit_slice.chunks::<u8>();
+    ///
+    /// // Filter out null bytes for compression
+    /// let bytes = chunks.interpret().filter(|e| *e != 0x00_u8).collect::<Vec<u8>>();
+    /// assert_eq!(bytes.len(), 4);
+    /// ```
     /// Native representations in Arrow follows 64-bit convention.
     /// Chunks can still be reinterpreted in any primitive type lower than u64.
     #[inline]
@@ -164,7 +185,7 @@ impl<'a> BufferBitSliceMut<'a> {
     /// Returns mutable view with the given offset in bits and length in bits.
     /// This view have zero-copy representation over the actual data.
     #[inline]
-    pub fn view(&'a mut self, offset_in_bits: usize, len_in_bits: usize) -> Self {
+    pub fn slicing(&'a mut self, offset_in_bits: usize, len_in_bits: usize) -> Self {
         Self {
             bit_slice: &mut self.bit_slice[offset_in_bits..offset_in_bits + len_in_bits],
         }
@@ -331,7 +352,7 @@ mod tests_bit_slices_little_endian {
         ];
         let buffer: Buffer = Buffer::from(input);
 
-        let bit_slice = buffer.bit_slice().view(4, 64);
+        let bit_slice = buffer.bit_slice().slicing(4, 64);
         let chunks = bit_slice.chunks::<u64>();
 
         assert_eq!(0, chunks.remainder_bit_len());
@@ -353,7 +374,7 @@ mod tests_bit_slices_little_endian {
         ];
         let buffer: Buffer = Buffer::from(input);
 
-        let bit_slice = buffer.bit_slice().view(4, 66);
+        let bit_slice = buffer.bit_slice().slicing(4, 66);
         let chunks = bit_slice.chunks::<u64>();
 
         assert_eq!(2, chunks.remainder_bit_len());
@@ -374,7 +395,7 @@ mod tests_bit_slices_little_endian {
 
         // remainder contains bits from both bytes
         // result should be the highest 2 bits from first byte followed by lowest 5 bits of second bytes
-        let bit_slice = buffer.bit_slice().view(6, 7);
+        let bit_slice = buffer.bit_slice().slicing(6, 7);
         let chunks = bit_slice.chunks::<u64>();
 
         assert_eq!(7, chunks.remainder_bit_len());
@@ -389,7 +410,7 @@ mod tests_bit_slices_little_endian {
         ];
         let buffer: Buffer = Buffer::from(input);
 
-        let bit_slice = buffer.bit_slice().view(2, 63);
+        let bit_slice = buffer.bit_slice().slicing(2, 63);
         let chunks = bit_slice.chunks::<u64>();
 
         assert_eq!(63, chunks.remainder_bit_len());
@@ -407,7 +428,7 @@ mod tests_bit_slices_little_endian {
         let buffer = Buffer::from(buffer_slice);
 
         // Let's get the whole buffer.
-        let bit_slice = buffer.bit_slice().view(0, buffer_slice.len() * 8);
+        let bit_slice = buffer.bit_slice().slicing(0, buffer_slice.len() * 8);
         // Let's also get a chunked bits as u8, not u64 this time...
         let chunks = bit_slice.chunks::<u8>();
 

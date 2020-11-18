@@ -633,8 +633,6 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let _not_both_null_bitmap = not_both_null_bit_buffer.data();
-
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
 
     // if both array slots are valid, check if list contains primitive

@@ -322,7 +322,7 @@ impl FilterContext {
         let filter_mask: Vec<u64> = (0..64).map(|x| 1u64 << x).collect();
         let filter_bytes = filter_array.data_ref().buffers()[0].data();
         let filtered_count = BufferBitSlice::new(filter_bytes)
-            .view(0, filter_array.len())
+            .slicing(0, filter_array.len())
             .count_ones();
 
         // transmute filter_bytes to &[u64]

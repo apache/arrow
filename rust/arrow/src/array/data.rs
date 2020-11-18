@@ -30,7 +30,7 @@ use super::equal::equal;
 #[inline]
 fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
     if let Some(ref buf) = null_bit_buffer {
-        let ones = buf.bit_slice().view(offset, len).count_ones();
+        let ones = buf.bit_slice().slicing(offset, len).count_ones();
         len.checked_sub(ones).unwrap()
     } else {
         0
