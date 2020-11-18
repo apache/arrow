@@ -284,10 +284,11 @@ mod simd {
             chunk: T::Simd,
             vecmask: T::SimdMask,
         ) {
-            let cmp_mask = T::lt(chunk, *accumulator);
-            let blend_mask = T::mask_and(vecmask, cmp_mask);
+            let identity = Self::init_accumulator_chunk();
+            let blended = T::mask_select(vecmask, chunk, identity);
+            let cmp_mask = T::lt(blended, *accumulator);
 
-            *accumulator = T::mask_select(blend_mask, chunk, *accumulator);
+            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
         }
 
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
@@ -320,10 +321,11 @@ mod simd {
             chunk: T::Simd,
             vecmask: T::SimdMask,
         ) {
-            let cmp_mask = T::gt(chunk, *accumulator);
-            let blend_mask = T::mask_and(vecmask, cmp_mask);
+            let identity = Self::init_accumulator_chunk();
+            let blended = T::mask_select(vecmask, chunk, identity);
+            let cmp_mask = T::gt(blended, *accumulator);
 
-            *accumulator = T::mask_select(blend_mask, chunk, *accumulator);
+            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
         }
 
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
@@ -381,7 +383,8 @@ mod simd {
 
                         A::accumulate_chunk_nullable(&mut chunk_acc, chunk, vecmask);
 
-                        mask = mask >> T::lanes();
+                        // skip the shift and avoid overflow for u8 type, which uses 64 lanes.
+                        mask = mask >> (T::lanes() % 64);
                     });
                 });
 
@@ -439,6 +442,7 @@ where
 mod tests {
     use super::*;
     use crate::array::*;
+    use crate::compute::add;
 
     #[test]
     fn test_primitive_array_sum() {
@@ -465,24 +469,137 @@ mod tests {
     }
 
     #[test]
-    fn test_buffer_array_min_max() {
+    fn test_primitive_array_sum_large_64() {
+        let a: Int64Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(i) } else { None })
+            .collect();
+        let b: Int64Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(0) } else { Some(i) })
+            .collect();
+        // create an array that actually has non-zero values at the invalid indices
+        let c = add(&a, &b).unwrap();
+        assert_eq!(Some((1..=100).filter(|i| i % 3 == 0).sum()), sum(&c));
+    }
+
+    #[test]
+    fn test_primitive_array_sum_large_32() {
+        let a: Int32Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(i) } else { None })
+            .collect();
+        let b: Int32Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(0) } else { Some(i) })
+            .collect();
+        // create an array that actually has non-zero values at the invalid indices
+        let c = add(&a, &b).unwrap();
+        assert_eq!(Some((1..=100).filter(|i| i % 3 == 0).sum()), sum(&c));
+    }
+
+    #[test]
+    fn test_primitive_array_sum_large_16() {
+        let a: Int16Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(i) } else { None })
+            .collect();
+        let b: Int16Array = (1..=100)
+            .map(|i| if i % 3 == 0 { Some(0) } else { Some(i) })
+            .collect();
+        // create an array that actually has non-zero values at the invalid indices
+        let c = add(&a, &b).unwrap();
+        assert_eq!(Some((1..=100).filter(|i| i % 3 == 0).sum()), sum(&c));
+    }
+
+    #[test]
+    fn test_primitive_array_sum_large_8() {
+        // include fewer values than other large tests so the result does not overflow the u8
+        let a: UInt8Array = (1..=100)
+            .map(|i| if i % 33 == 0 { Some(i) } else { None })
+            .collect();
+        let b: UInt8Array = (1..=100)
+            .map(|i| if i % 33 == 0 { Some(0) } else { Some(i) })
+            .collect();
+        // create an array that actually has non-zero values at the invalid indices
+        let c = add(&a, &b).unwrap();
+        assert_eq!(Some((1..=100).filter(|i| i % 33 == 0).sum()), sum(&c));
+    }
+
+    #[test]
+    fn test_primitive_array_min_max() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
     }
 
     #[test]
-    fn test_buffer_array_min_max_with_nulls() {
+    fn test_primitive_array_min_max_with_nulls() {
         let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
     }
 
     #[test]
-    fn test_buffer_min_max_1() {
+    fn test_primitive_min_max_1() {
         let a = Int32Array::from(vec![None, None, Some(5), Some(2)]);
         assert_eq!(Some(2), min(&a));
         assert_eq!(Some(5), max(&a));
+    }
+
+    #[test]
+    fn test_primitive_min_max_float_large_nonnull_array() {
+        let a: Float64Array = (0..256).map(|i| Some((i + 1) as f64)).collect();
+        // min/max are on boundaries of chunked data
+        assert_eq!(Some(1.0), min(&a));
+        assert_eq!(Some(256.0), max(&a));
+
+        // max is last value in remainder after chunking
+        let a: Float64Array = (0..255).map(|i| Some((i + 1) as f64)).collect();
+        assert_eq!(Some(255.0), max(&a));
+
+        // max is first value in remainder after chunking
+        let a: Float64Array = (0..257).map(|i| Some((i + 1) as f64)).collect();
+        assert_eq!(Some(257.0), max(&a));
+    }
+
+    #[test]
+    fn test_primitive_min_max_float_large_nullable_array() {
+        let a: Float64Array = (0..256)
+            .map(|i| {
+                if (i + 1) % 3 == 0 {
+                    None
+                } else {
+                    Some((i + 1) as f64)
+                }
+            })
+            .collect();
+        // min/max are on boundaries of chunked data
+        assert_eq!(Some(1.0), min(&a));
+        assert_eq!(Some(256.0), max(&a));
+
+        let a: Float64Array = (0..256)
+            .map(|i| {
+                if i == 0 || i == 255 {
+                    None
+                } else {
+                    Some((i + 1) as f64)
+                }
+            })
+            .collect();
+        // boundaries of chunked data are null
+        assert_eq!(Some(2.0), min(&a));
+        assert_eq!(Some(255.0), max(&a));
+
+        let a: Float64Array = (0..256)
+            .map(|i| if i != 100 { None } else { Some((i) as f64) })
+            .collect();
+        // a single non-null value somewhere in the middle
+        assert_eq!(Some(100.0), min(&a));
+        assert_eq!(Some(100.0), max(&a));
+
+        // max is last value in remainder after chunking
+        let a: Float64Array = (0..255).map(|i| Some((i + 1) as f64)).collect();
+        assert_eq!(Some(255.0), max(&a));
+
+        // max is first value in remainder after chunking
+        let a: Float64Array = (0..257).map(|i| Some((i + 1) as f64)).collect();
+        assert_eq!(Some(257.0), max(&a));
     }
 
     #[test]

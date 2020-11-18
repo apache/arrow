@@ -579,9 +579,6 @@ where
     /// Writes a SIMD result back to a slice
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 
-    /// Combine two vector masks using a bitwise and operation
-    fn mask_and(left: Self::SimdMask, right: Self::SimdMask) -> Self::SimdMask;
-
     /// Returns the identity value for a `min` aggregation.
     /// This is the highest value representable by a type or positive infinity for float types.
     /// For any non-NaN input value `x`, the expression `if x < identity x else identity` will return a value equal to `x`
@@ -631,7 +628,7 @@ macro_rules! make_numeric_type {
             fn mask_from_u64(mask: u64) -> Self::SimdMask {
                 match Self::lanes() {
                     8 => {
-                        let vecidx = i64x8::new(128, 64, 32, 16, 8, 4, 2, 1);
+                        let vecidx = i64x8::new(1, 2, 4, 8, 16, 32, 64, 128);
 
                         let vecmask = i64x8::splat((mask & 0xFF) as i64);
                         let vecmask = (vecidx & vecmask).eq(vecidx);
@@ -640,8 +637,8 @@ macro_rules! make_numeric_type {
                     }
                     16 => {
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -653,8 +650,8 @@ macro_rules! make_numeric_type {
                         let tmp = &mut [0_i16; 32];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -675,8 +672,8 @@ macro_rules! make_numeric_type {
                         let tmp = &mut [0_i8; 64];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -783,11 +780,6 @@ macro_rules! make_numeric_type {
             #[inline]
             fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
-            }
-
-            #[inline]
-            fn mask_and(left: Self::SimdMask, right: Self::SimdMask) -> Self::SimdMask {
-                left & right
             }
 
             #[inline]

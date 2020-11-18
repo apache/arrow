@@ -53,16 +53,23 @@ fn bench_min(arr_a: &ArrayRef) {
     criterion::black_box(min(&arr_a).unwrap());
 }
 
+fn bench_max(arr_a: &ArrayRef) {
+    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
+    criterion::black_box(max(&arr_a).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
     let arr_a = create_array(512, false);
 
     c.bench_function("sum 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("max 512", |b| b.iter(|| bench_max(&arr_a)));
 
     let arr_a = create_array(512, true);
 
     c.bench_function("sum nulls 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("max nulls 512", |b| b.iter(|| bench_max(&arr_a)));
 }
 
 criterion_group!(benches, add_benchmark);
