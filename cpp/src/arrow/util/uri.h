@@ -91,5 +91,10 @@ class ARROW_EXPORT Uri {
 ARROW_EXPORT
 std::string UriEscape(const std::string& s);
 
+/// Encode a host for use within a URI, such as "localhost",
+/// "127.0.0.1", or "[::1]".
+ARROW_EXPORT
+std::string UriEncodeHost(const std::string& host);
+
 }  // namespace internal
 }  // namespace arrow

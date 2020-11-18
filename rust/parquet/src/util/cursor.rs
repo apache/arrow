@@ -79,6 +79,11 @@ impl SliceableCursor {
     pub fn len(&self) -> u64 {
         self.length as u64
     }
+
+    /// return true if the cursor is empty (self.len() == 0)
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Implementation inspired by std::io::Cursor

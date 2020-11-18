@@ -98,6 +98,12 @@ identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_
 #### start distro ####
 
 distro <- function() {
+  # The code in this script is a (potentially stale) copy of the distro package
+  if (requireNamespace("distro", quietly = TRUE)) {
+    # Use the version from the package, which may be updated from this
+    return(distro::distro())
+  }
+
   out <- lsb_release()
   if (is.null(out)) {
     out <- os_release()

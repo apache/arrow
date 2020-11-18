@@ -15,8 +15,57 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"lang-c++":
+  - cpp/**/*
+
+lang-c-glib:
+  - c_glib/**/*
+
+lang-csharp:
+  - csharp/**/*
+
+lang-go:
+  - go/**/*
+
+lang-java:
+  - java/**/*
+
+lang-js:
+  - js/**/*
+
+lang-julia:
+  - julia/**/*
+
+lang-python:
+  - python/**/*
+
+lang-R:
+  - r/**/*
+
+lang-ruby:
+  - ruby/**/*
+
 lang-rust:
   - rust/**/*
 
 datafusion:
   - rust/datafusion/**/*
+
+flight:
+  - cpp/src/arrow/flight/**/*
+  - r/R/flight.*
+  - rust/arrow-flight/**/*
+  - python/pyarrow/*flight.*
+
+gandiva:
+  - c_glib/gandiva-glib/**/*
+  - cpp/src/gandiva/**/*
+  - ruby/red-gandiva/**/*
+  - python/pyarrow/gandiva.*
+
+parquet:
+  - c_glib/parquet-glib/**/*
+  - cpp/src/parquet/**/*
+  - r/R/parquet.*
+  - ruby/red-parquet/**/*
+  - rust/parquet*/**/*

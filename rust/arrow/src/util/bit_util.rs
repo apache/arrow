@@ -287,6 +287,22 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "avx512"))]
+    fn test_bitwise_and_avx512() {
+        use crate::buffer::avx512_bin_and;
+
+        let buf1 = [0b00110011u8; 64];
+        let buf2 = [0b11110000u8; 64];
+        let mut buf3 = [0b00000000; 64];
+        unsafe {
+            avx512_bin_and(&buf1, &buf2, &mut buf3);
+        };
+        for i in buf3.iter() {
+            assert_eq!(&0b00110000u8, i);
+        }
+    }
+
+    #[test]
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     fn test_bitwise_and_simd() {
         let buf1 = [0b00110011u8; 64];

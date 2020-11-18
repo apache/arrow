@@ -174,8 +174,10 @@ from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)
 
 # Exceptions
-from pyarrow.lib import (ArrowException,
+from pyarrow.lib import (ArrowCapacityError,
+                         ArrowException,
                          ArrowKeyError,
+                         ArrowIndexError,
                          ArrowInvalid,
                          ArrowIOError,
                          ArrowMemoryError,

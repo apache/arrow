@@ -63,9 +63,9 @@ pacman \
   --sync \
   "${packages[@]}"
 
-echo "::set-env name=ARROW_USE_CCACHE::ON"
-echo "::set-env name=CCACHE_COMPILERCHECK::content"
-echo "::set-env name=CCACHE_COMPRESS::1"
-echo "::set-env name=CCACHE_COMPRESSLEVEL::6"
-echo "::set-env name=CCACHE_MAXSIZE::500M"
-echo "::set-env name=CCACHE_DIR::$(cygpath --absolute --windows ccache)"
+echo "ARROW_USE_CCACHE=ON" >> $GITHUB_ENV
+echo "CCACHE_COMPILERCHECK=content" >> $GITHUB_ENV
+echo "CCACHE_COMPRESS=1" >> $GITHUB_ENV
+echo "CCACHE_COMPRESSLEVEL=6" >> $GITHUB_ENV
+echo "CCACHE_MAXSIZE=500M" >> $GITHUB_ENV
+echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV

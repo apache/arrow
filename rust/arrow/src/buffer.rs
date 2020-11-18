@@ -36,7 +36,7 @@ use crate::memory;
 use crate::util::bit_chunk_iterator::BitChunks;
 use crate::util::bit_util;
 use crate::util::bit_util::ceil;
-#[cfg(feature = "simd")]
+#[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
@@ -473,6 +473,23 @@ where
     result.freeze()
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx512"))]
+const AVX512_U8X64_LANES: usize = 64;
+
+#[cfg(all(target_arch = "x86_64", feature = "avx512"))]
+#[target_feature(enable = "avx512f")]
+pub(super) unsafe fn avx512_bin_and(left: &[u8], right: &[u8], res: &mut [u8]) {
+    use core::arch::x86_64::{__m512i, _mm512_and_si512, _mm512_loadu_ps};
+
+    let l: __m512i = std::mem::transmute(_mm512_loadu_ps(left.as_ptr() as *const _));
+    let r: __m512i = std::mem::transmute(_mm512_loadu_ps(right.as_ptr() as *const _));
+    let f = _mm512_and_si512(l, r);
+    let s = &f as *const __m512i as *const u8;
+    let d = res.get_unchecked_mut(0) as *mut _ as *mut u8;
+    std::ptr::copy_nonoverlapping(s, d, std::mem::size_of::<__m512i>());
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "avx512"))]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -480,25 +497,43 @@ pub(super) fn buffer_bin_and(
     right_offset_in_bits: usize,
     len_in_bits: usize,
 ) -> Buffer {
-    // SIMD implementation if available and byte-aligned
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     if left_offset_in_bits % 8 == 0
         && right_offset_in_bits % 8 == 0
         && len_in_bits % 8 == 0
     {
-        return bitwise_bin_op_simd_helper(
-            &left,
-            left_offset_in_bits / 8,
-            &right,
-            right_offset_in_bits / 8,
-            len_in_bits / 8,
-            |a, b| a & b,
-            |a, b| a & b,
-        );
-    }
-    // Default implementation
-    #[allow(unreachable_code)]
-    {
+        let len = len_in_bits / 8;
+        let left_offset = left_offset_in_bits / 8;
+        let right_offset = right_offset_in_bits / 8;
+
+        let mut result = MutableBuffer::new(len).with_bitset(len, false);
+
+        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut right_chunks =
+            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+
+        result_chunks
+            .borrow_mut()
+            .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+            .for_each(|(res, (left, right))| unsafe {
+                avx512_bin_and(left, right, res);
+            });
+
+        result_chunks
+            .into_remainder()
+            .iter_mut()
+            .zip(
+                left_chunks
+                    .remainder()
+                    .iter()
+                    .zip(right_chunks.remainder().iter()),
+            )
+            .for_each(|(res, (left, right))| {
+                *res = *left & *right;
+            });
+
+        result.freeze()
+    } else {
         bitwise_bin_op_helper(
             &left,
             left_offset_in_bits,
@@ -508,6 +543,60 @@ pub(super) fn buffer_bin_and(
             |a, b| a & b,
         )
     }
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
+        bitwise_bin_op_simd_helper(
+            &left,
+            left_offset_in_bits / 8,
+            &right,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
+            |a, b| a & b,
+            |a, b| a & b,
+        )
+    } else {
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a & b,
+        )
+    }
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(any(feature = "simd", feature = "avx512"))
+))]
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    bitwise_bin_op_helper(
+        &left,
+        left_offset_in_bits,
+        right,
+        right_offset_in_bits,
+        len_in_bits,
+        |a, b| a & b,
+    )
 }
 
 pub(super) fn buffer_bin_or(
@@ -691,7 +780,7 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
-    pub fn resize(&mut self, new_len: usize) -> () {
+    pub fn resize(&mut self, new_len: usize) {
         if new_len > self.len {
             self.reserve(new_len);
         } else {

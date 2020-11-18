@@ -21,31 +21,36 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::sync::Arc;
 
+use super::ColumnarValue;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
-use arrow::array::{
-    Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-    Int8Builder, LargeStringArray, StringBuilder, UInt16Builder, UInt32Builder,
-    UInt64Builder, UInt8Builder,
-};
+use arrow::array::LargeStringArray;
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
-    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
+    eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
+};
+use arrow::compute::kernels::comparison::{
+    eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, like_utf8_scalar, lt_eq_utf8, lt_utf8,
+    neq_utf8, nlike_utf8, nlike_utf8_scalar,
+};
+use arrow::compute::kernels::comparison::{
+    eq_utf8_scalar, gt_eq_utf8_scalar, gt_utf8_scalar, lt_eq_utf8_scalar, lt_utf8_scalar,
+    neq_utf8_scalar,
 };
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
-use arrow::datatypes::{DataType, Schema, TimeUnit};
+use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
-        Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
-        UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
@@ -92,8 +97,10 @@ impl PhysicalExpr for Column {
     }
 
     /// Evaluate the expression
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        Ok(batch.column(batch.schema().index_of(&self.name)?).clone())
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Array(
+            batch.column(batch.schema().index_of(&self.name)?).clone(),
+        ))
     }
 }
 
@@ -964,6 +971,44 @@ macro_rules! compute_utf8_op {
     }};
 }
 
+/// Invoke a compute kernel on a data array and a scalar value
+macro_rules! compute_utf8_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
+        let ll = $LEFT
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        if let ScalarValue::Utf8(Some(string_value)) = $RIGHT {
+            Ok(Arc::new(paste::expr! {[<$OP _utf8_scalar>]}(
+                &ll,
+                &string_value,
+            )?))
+        } else {
+            Err(DataFusionError::Internal(format!(
+                "compute_utf8_op_scalar failed to cast literal value {}",
+                $RIGHT
+            )))
+        }
+    }};
+}
+
+/// Invoke a compute kernel on a data array and a scalar value
+macro_rules! compute_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
+        use std::convert::TryInto;
+        let ll = $LEFT
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        // generate the scalar function name, such as lt_scalar, from the $OP parameter
+        // (which could have a value of lt) and the suffix _scalar
+        Ok(Arc::new(paste::expr! {[<$OP _scalar>]}(
+            &ll,
+            $RIGHT.try_into()?,
+        )?))
+    }};
+}
+
 /// Invoke a compute kernel on a pair of arrays
 macro_rules! compute_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
@@ -976,6 +1021,19 @@ macro_rules! compute_op {
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
+    }};
+}
+
+macro_rules! binary_string_array_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
+        let result = match $LEFT.data_type() {
+            DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?}",
+                other
+            ))),
+        };
+        Some(result)
     }};
 }
 
@@ -1015,6 +1073,37 @@ macro_rules! binary_primitive_array_op {
     }};
 }
 
+/// The binary_array_op_scalar macro includes types that extend beyond the primitive,
+/// such as Utf8 strings.
+macro_rules! binary_array_op_scalar {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
+        let result = match $LEFT.data_type() {
+            DataType::Int8 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int8Array),
+            DataType::Int16 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int16Array),
+            DataType::Int32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int32Array),
+            DataType::Int64 => compute_op_scalar!($LEFT, $RIGHT, $OP, Int64Array),
+            DataType::UInt8 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt8Array),
+            DataType::UInt16 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt16Array),
+            DataType::UInt32 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt32Array),
+            DataType::UInt64 => compute_op_scalar!($LEFT, $RIGHT, $OP, UInt64Array),
+            DataType::Float32 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float32Array),
+            DataType::Float64 => compute_op_scalar!($LEFT, $RIGHT, $OP, Float64Array),
+            DataType::Utf8 => compute_utf8_op_scalar!($LEFT, $RIGHT, $OP, StringArray),
+            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
+                compute_op_scalar!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
+            }
+            DataType::Date32(DateUnit::Day) => {
+                compute_op_scalar!($LEFT, $RIGHT, $OP, Date32Array)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?}",
+                other
+            ))),
+        };
+        Some(result)
+    }};
+}
+
 /// The binary_array_op macro includes types that extend beyond the primitive,
 /// such as Utf8 strings.
 macro_rules! binary_array_op {
@@ -1033,6 +1122,9 @@ macro_rules! binary_array_op {
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
+            }
+            DataType::Date32(DateUnit::Day) => {
+                compute_op!($LEFT, $RIGHT, $OP, Date32Array)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
@@ -1316,19 +1408,75 @@ impl PhysicalExpr for BinaryExpr {
         Ok(self.left.nullable(input_schema)? || self.right.nullable(input_schema)?)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        let left = self.left.evaluate(batch)?;
-        let right = self.right.evaluate(batch)?;
-        if left.data_type() != right.data_type() {
-            // this should have been captured during planning
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        let left_value = self.left.evaluate(batch)?;
+        let right_value = self.right.evaluate(batch)?;
+        let left_data_type = left_value.data_type();
+        let right_data_type = right_value.data_type();
+
+        if left_data_type != right_data_type {
             return Err(DataFusionError::Internal(format!(
                 "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                self.op,
-                left.data_type(),
-                right.data_type()
+                self.op, left_data_type, right_data_type
             )));
         }
-        match &self.op {
+
+        let scalar_result = match (&left_value, &right_value) {
+            (ColumnarValue::Array(array), ColumnarValue::Scalar(scalar)) => {
+                // if left is array and right is literal - use scalar operations
+                match &self.op {
+                    Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), lt),
+                    Operator::LtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), lt_eq)
+                    }
+                    Operator::Gt => binary_array_op_scalar!(array, scalar.clone(), gt),
+                    Operator::GtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), gt_eq)
+                    }
+                    Operator::Eq => binary_array_op_scalar!(array, scalar.clone(), eq),
+                    Operator::NotEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), neq)
+                    }
+                    Operator::Like => {
+                        binary_string_array_op_scalar!(array, scalar.clone(), like)
+                    }
+                    Operator::NotLike => {
+                        binary_string_array_op_scalar!(array, scalar.clone(), nlike)
+                    }
+                    // if scalar operation is not supported - fallback to array implementation
+                    _ => None,
+                }
+            }
+            (ColumnarValue::Scalar(scalar), ColumnarValue::Array(array)) => {
+                // if right is literal and left is array - reverse operator and parameters
+                match &self.op {
+                    Operator::Lt => binary_array_op_scalar!(array, scalar.clone(), gt),
+                    Operator::LtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), gt_eq)
+                    }
+                    Operator::Gt => binary_array_op_scalar!(array, scalar.clone(), lt),
+                    Operator::GtEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), lt_eq)
+                    }
+                    Operator::Eq => binary_array_op_scalar!(array, scalar.clone(), eq),
+                    Operator::NotEq => {
+                        binary_array_op_scalar!(array, scalar.clone(), neq)
+                    }
+                    // if scalar operation is not supported - fallback to array implementation
+                    _ => None,
+                }
+            }
+            (_, _) => None,
+        };
+
+        if let Some(result) = scalar_result {
+            return result.map(|a| ColumnarValue::Array(a));
+        }
+
+        // if both arrays or both literals - extract arrays and continue execution
+        let (left, right) = (left_value.into_array(batch), right_value.into_array(batch));
+
+        let result: Result<ArrayRef> = match &self.op {
             Operator::Like => binary_string_array_op!(left, right, like),
             Operator::NotLike => binary_string_array_op!(left, right, nlike),
             Operator::Lt => binary_array_op!(left, right, lt),
@@ -1342,7 +1490,7 @@ impl PhysicalExpr for BinaryExpr {
             Operator::Multiply => binary_primitive_array_op!(left, right, multiply),
             Operator::Divide => binary_primitive_array_op!(left, right, divide),
             Operator::And => {
-                if left.data_type() == &DataType::Boolean {
+                if left_data_type == DataType::Boolean {
                     boolean_op!(left, right, and)
                 } else {
                     return Err(DataFusionError::Internal(format!(
@@ -1354,21 +1502,20 @@ impl PhysicalExpr for BinaryExpr {
                 }
             }
             Operator::Or => {
-                if left.data_type() == &DataType::Boolean {
+                if left_data_type == DataType::Boolean {
                     boolean_op!(left, right, or)
                 } else {
                     return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
-                        self.op,
-                        left.data_type(),
-                        right.data_type()
+                        self.op, left_data_type, right_data_type
                     )));
                 }
             }
             Operator::Modulus => Err(DataFusionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             )),
-        }
+        };
+        result.map(|a| ColumnarValue::Array(a))
     }
 }
 
@@ -1403,6 +1550,7 @@ impl fmt::Display for NotExpr {
         write!(f, "NOT {}", self.arg)
     }
 }
+
 impl PhysicalExpr for NotExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         return Ok(DataType::Boolean);
@@ -1412,13 +1560,27 @@ impl PhysicalExpr for NotExpr {
         self.arg.nullable(input_schema)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch)?;
-        let arg = arg
-            .as_any()
-            .downcast_ref::<BooleanArray>()
-            .expect("boolean_op failed to downcast array");
-        return Ok(Arc::new(arrow::compute::kernels::boolean::not(arg)?));
+        match arg {
+            ColumnarValue::Array(array) => {
+                let array = array.as_any().downcast_ref::<BooleanArray>().ok_or(
+                    DataFusionError::Internal(
+                        "boolean_op failed to downcast array".to_owned(),
+                    ),
+                )?;
+                Ok(ColumnarValue::Array(Arc::new(
+                    arrow::compute::kernels::boolean::not(array)?,
+                )))
+            }
+            ColumnarValue::Scalar(scalar) => {
+                use std::convert::TryInto;
+                let bool_value: bool = scalar.try_into()?;
+                Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(
+                    !bool_value,
+                ))))
+            }
+        }
     }
 }
 
@@ -1472,9 +1634,16 @@ impl PhysicalExpr for IsNullExpr {
         Ok(false)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch)?;
-        return Ok(Arc::new(arrow::compute::is_null(&arg)?));
+        match arg {
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
+                arrow::compute::is_null(&array)?,
+            ))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(scalar.is_null())),
+            )),
+        }
     }
 }
 
@@ -1510,9 +1679,16 @@ impl PhysicalExpr for IsNotNullExpr {
         Ok(false)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch)?;
-        return Ok(Arc::new(arrow::compute::is_not_null(&arg)?));
+        match arg {
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
+                arrow::compute::is_not_null(&array)?,
+            ))),
+            ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
+                ScalarValue::Boolean(Some(!scalar.is_null())),
+            )),
+        }
     }
 }
 
@@ -1555,9 +1731,20 @@ impl PhysicalExpr for CastExpr {
         self.expr.nullable(input_schema)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let value = self.expr.evaluate(batch)?;
-        Ok(kernels::cast::cast(&value, &self.cast_type)?)
+        match value {
+            ColumnarValue::Array(array) => Ok(ColumnarValue::Array(kernels::cast::cast(
+                &array,
+                &self.cast_type,
+            )?)),
+            ColumnarValue::Scalar(scalar) => {
+                let scalar_array = scalar.to_array();
+                let cast_array = kernels::cast::cast(&scalar_array, &self.cast_type)?;
+                let cast_scalar = ScalarValue::try_from_array(&cast_array, 0)?;
+                Ok(ColumnarValue::Scalar(cast_scalar))
+            }
+        }
     }
 }
 
@@ -1596,24 +1783,6 @@ impl Literal {
     }
 }
 
-/// Build array containing the same literal value repeated. This is necessary because the Arrow
-/// memory model does not have the concept of a scalar value currently.
-macro_rules! build_literal_array {
-    ($BATCH:ident, $BUILDER:ident, $VALUE:expr) => {{
-        let mut builder = $BUILDER::new($BATCH.num_rows());
-        if $VALUE.is_none() {
-            for _ in 0..$BATCH.num_rows() {
-                builder.append_null()?;
-            }
-        } else {
-            for _ in 0..$BATCH.num_rows() {
-                builder.append_value($VALUE.unwrap())?;
-            }
-        }
-        Ok(Arc::new(builder.finish()))
-    }};
-}
-
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
@@ -1629,46 +1798,8 @@ impl PhysicalExpr for Literal {
         Ok(self.value.is_null())
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        match &self.value {
-            ScalarValue::Int8(value) => build_literal_array!(batch, Int8Builder, *value),
-            ScalarValue::Int16(value) => {
-                build_literal_array!(batch, Int16Builder, *value)
-            }
-            ScalarValue::Int32(value) => {
-                build_literal_array!(batch, Int32Builder, *value)
-            }
-            ScalarValue::Int64(value) => {
-                build_literal_array!(batch, Int64Builder, *value)
-            }
-            ScalarValue::UInt8(value) => {
-                build_literal_array!(batch, UInt8Builder, *value)
-            }
-            ScalarValue::UInt16(value) => {
-                build_literal_array!(batch, UInt16Builder, *value)
-            }
-            ScalarValue::UInt32(value) => {
-                build_literal_array!(batch, UInt32Builder, *value)
-            }
-            ScalarValue::UInt64(value) => {
-                build_literal_array!(batch, UInt64Builder, *value)
-            }
-            ScalarValue::Float32(value) => {
-                build_literal_array!(batch, Float32Builder, *value)
-            }
-            ScalarValue::Float64(value) => {
-                build_literal_array!(batch, Float64Builder, *value)
-            }
-            ScalarValue::Utf8(value) => build_literal_array!(
-                batch,
-                StringBuilder,
-                value.as_ref().and_then(|e| Some(&*e))
-            ),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported literal type {:?}",
-                other
-            ))),
-        }
+    fn evaluate(&self, _batch: &RecordBatch) -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Scalar(self.value.clone()))
     }
 }
 
@@ -1689,8 +1820,18 @@ pub struct PhysicalSortExpr {
 impl PhysicalSortExpr {
     /// evaluate the sort expression into SortColumn that can be passed into arrow sort kernel
     pub fn evaluate_to_sort_column(&self, batch: &RecordBatch) -> Result<SortColumn> {
+        let value_to_sort = self.expr.evaluate(batch)?;
+        let array_to_sort = match value_to_sort {
+            ColumnarValue::Array(array) => array,
+            ColumnarValue::Scalar(scalar) => {
+                return Err(DataFusionError::Internal(format!(
+                    "Sort operation is not applicable to scalar value {}",
+                    scalar
+                )));
+            }
+        };
         Ok(SortColumn {
-            values: self.expr.evaluate(batch)?,
+            values: array_to_sort,
             options: Some(self.options),
         })
     }
@@ -1734,7 +1875,7 @@ mod tests {
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
-        let result = lt.evaluate(&batch)?;
+        let result = lt.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.len(), 5);
 
         let expected = vec![false, false, true, true, true];
@@ -1770,7 +1911,7 @@ mod tests {
         );
         assert_eq!("a < b OR a = b", format!("{}", expr));
 
-        let result = expr.evaluate(&batch)?;
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.len(), 5);
 
         let expected = vec![true, true, false, true, false];
@@ -1796,7 +1937,7 @@ mod tests {
         let literal_expr = lit(ScalarValue::from(42i32));
         assert_eq!("42", format!("{}", literal_expr));
 
-        let literal_array = literal_expr.evaluate(&batch)?;
+        let literal_array = literal_expr.evaluate(&batch)?.into_array(&batch);
         let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
 
         // note that the contents of the literal array are unrelated to the batch contents except for the length of the array
@@ -1835,7 +1976,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $C_TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?;
+            let result = expression.evaluate(&batch)?.into_array(&batch);
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $C_TYPE);
@@ -1955,7 +2096,7 @@ mod tests {
 
         // build dictionary
         let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
-        let values_builder = StringBuilder::new(10);
+        let values_builder = arrow::array::StringBuilder::new(10);
         let mut dict_builder = StringDictionaryBuilder::new(keys_builder, values_builder);
 
         dict_builder.append("one")?;
@@ -1986,7 +2127,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?;
+        let result = expression.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2000,7 +2141,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?;
+        let result = expression.evaluate(&batch)?.into_array(&batch);
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2056,7 +2197,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?;
+            let result = expression.evaluate(&batch)?.into_array(&batch);
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $TYPE);
@@ -2613,6 +2754,7 @@ mod tests {
         let values = expr
             .iter()
             .map(|e| e.evaluate(batch))
+            .map(|r| r.map(|v| v.into_array(batch)))
             .collect::<Result<Vec<_>>>()?;
         accum.update_batch(&values)?;
         accum.evaluate()
@@ -2710,7 +2852,7 @@ mod tests {
     ) -> Result<()> {
         let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema, data)?;
-        let result = arithmetic_op.evaluate(&batch)?;
+        let result = arithmetic_op.evaluate(&batch)?.into_array(&batch);
 
         assert_array_eq::<T>(expected, result);
 
@@ -2745,7 +2887,7 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
 
-        let result = expr.evaluate(&batch)?;
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -2774,7 +2916,7 @@ mod tests {
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?;
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -2795,7 +2937,7 @@ mod tests {
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?;
+        let result = expr.evaluate(&batch)?.into_array(&batch);
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
