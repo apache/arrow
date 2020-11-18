@@ -191,21 +191,6 @@ impl FlightService for FlightServiceImpl {
 
         let (mut response_tx, response_rx) = mpsc::channel(10);
 
-        let stream_result = response_tx
-            .send(Ok(PutResult {
-                app_metadata: flight_data.app_metadata.clone(),
-            }))
-            .await;
-        if let Err(e) = stream_result {
-            response_tx
-                .send(Err(Status::internal(format!(
-                    "Could not send PutResult: {:?}",
-                    e
-                ))))
-                .await
-                .expect("Error sending error");
-        }
-
         let uploaded_chunks = self.uploaded_chunks.clone();
 
         tokio::spawn(async move {
