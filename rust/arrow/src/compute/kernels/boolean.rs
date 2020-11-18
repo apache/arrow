@@ -654,12 +654,16 @@ mod tests {
             BooleanArray::from(vec![Some(false), None, Some(true), Some(false), None]);
         let res = nullif(&a, &comp).unwrap();
 
-        assert_eq!(15, res.value(0));
-        assert_eq!(true, res.is_null(1));
-        assert_eq!(true, res.is_null(2)); // comp true, slot 2 turned into null
-        assert_eq!(1, res.value(3));
-        // Even though comp array / right is null, should still pass through original value
-        assert_eq!(9, res.value(4));
-        assert_eq!(false, res.is_null(4)); // comp true, slot 2 turned into null
+        let expected = Int32Array::from(vec![
+            Some(15),
+            None,
+            None, // comp true, slot 2 turned into null
+            Some(1),
+            // Even though comp array / right is null, should still pass through original value
+            // comp true, slot 2 turned into null
+            Some(9),
+        ]);
+        
+        assert_eq!(expected, res)
     }
 }
