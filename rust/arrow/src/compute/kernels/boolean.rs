@@ -24,7 +24,7 @@
 
 use std::sync::Arc;
 
-use crate::array::{Array, ArrayData, ArrayRef, BooleanArray};
+use crate::array::{Array, ArrayData, BooleanArray};
 use crate::buffer::{
     buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer, MutableBuffer,
 };
@@ -111,7 +111,22 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-pub fn is_null(input: &ArrayRef) -> Result<BooleanArray> {
+/// Returns a non-null [BooleanArray] with whether each value of the array is null.
+/// # Error
+/// This function never errors.
+/// # Example
+/// ```rust
+/// # use arrow::error::Result;
+/// use arrow::array::BooleanArray;
+/// use arrow::compute::kernels::boolean::is_null;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(false), Some(true), None]);
+/// let a_is_null = is_null(&a)?;
+/// assert_eq!(a_is_null, BooleanArray::from(vec![false, false, true]));
+/// # Ok(())
+/// # }
+/// ```
+pub fn is_null(input: &Array) -> Result<BooleanArray> {
     let len = input.len();
 
     let output = match input.data_ref().null_buffer() {
@@ -130,7 +145,22 @@ pub fn is_null(input: &ArrayRef) -> Result<BooleanArray> {
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
-pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
+/// Returns a non-null [BooleanArray] with whether each value of the array is not null.
+/// # Error
+/// This function never errors.
+/// # Example
+/// ```rust
+/// # use arrow::error::Result;
+/// use arrow::array::BooleanArray;
+/// use arrow::compute::kernels::boolean::is_not_null;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(false), Some(true), None]);
+/// let a_is_not_null = is_not_null(&a)?;
+/// assert_eq!(a_is_not_null, BooleanArray::from(vec![true, true, false]));
+/// # Ok(())
+/// # }
+/// ```
+pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
     let len = input.len();
 
     let output = match input.data_ref().null_buffer() {
@@ -152,7 +182,7 @@ pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::array::Int32Array;
+    use crate::array::{ArrayRef, Int32Array};
 
     #[test]
     fn test_bool_array_and() {
@@ -298,7 +328,7 @@ mod tests {
     fn test_nonnull_array_is_null() {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4]));
 
-        let res = is_null(&a).unwrap();
+        let res = is_null(a.as_ref()).unwrap();
 
         assert_eq!(4, res.len());
         assert_eq!(0, res.null_count());
@@ -311,12 +341,10 @@ mod tests {
 
     #[test]
     fn test_nonnull_array_with_offset_is_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![
-            1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1,
-        ]));
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1]);
         let a = a.slice(8, 4);
 
-        let res = is_null(&a).unwrap();
+        let res = is_null(a.as_ref()).unwrap();
 
         assert_eq!(4, res.len());
         assert_eq!(0, res.null_count());
@@ -329,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_nonnull_array_is_not_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4]));
+        let a = Int32Array::from(vec![1, 2, 3, 4]);
 
         let res = is_not_null(&a).unwrap();
 
@@ -344,12 +372,10 @@ mod tests {
 
     #[test]
     fn test_nonnull_array_with_offset_is_not_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![
-            1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1,
-        ]));
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1]);
         let a = a.slice(8, 4);
 
-        let res = is_not_null(&a).unwrap();
+        let res = is_not_null(a.as_ref()).unwrap();
 
         assert_eq!(4, res.len());
         assert_eq!(0, res.null_count());
@@ -362,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_nullable_array_is_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), None, Some(3), None]));
+        let a = Int32Array::from(vec![Some(1), None, Some(3), None]);
 
         let res = is_null(&a).unwrap();
 
@@ -377,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_nullable_array_with_offset_is_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+        let a = Int32Array::from(vec![
             None,
             None,
             None,
@@ -395,10 +421,10 @@ mod tests {
             Some(4),
             None,
             None,
-        ]));
+        ]);
         let a = a.slice(8, 4);
 
-        let res = is_null(&a).unwrap();
+        let res = is_null(a.as_ref()).unwrap();
 
         assert_eq!(4, res.len());
         assert_eq!(0, res.null_count());
@@ -411,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_nullable_array_is_not_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), None, Some(3), None]));
+        let a = Int32Array::from(vec![Some(1), None, Some(3), None]);
 
         let res = is_not_null(&a).unwrap();
 
@@ -426,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_nullable_array_with_offset_is_not_null() {
-        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+        let a = Int32Array::from(vec![
             None,
             None,
             None,
@@ -444,10 +470,10 @@ mod tests {
             Some(4),
             None,
             None,
-        ]));
+        ]);
         let a = a.slice(8, 4);
 
-        let res = is_not_null(&a).unwrap();
+        let res = is_not_null(a.as_ref()).unwrap();
 
         assert_eq!(4, res.len());
         assert_eq!(0, res.null_count());
