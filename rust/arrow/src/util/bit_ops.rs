@@ -78,7 +78,7 @@ impl<'a> BufferBitSlice<'a> {
     /// let chunks = bit_slice.chunks::<u8>();
     ///
     /// // Filter out null bytes for compression
-    /// let bytes = chunks.to_native_iter().filter(|e| *e != 0x00_u8).collect::<Vec<u8>>();
+    /// let bytes = chunks.into_native_iter().filter(|e| *e != 0x00_u8).collect::<Vec<u8>>();
     /// assert_eq!(bytes.len(), 4);
     /// ```
     /// Native representations in Arrow follows 64-bit convention.
@@ -299,7 +299,7 @@ where
     ///
     /// Returns an iterator which interprets underlying chunk's view's bits as given type.
     #[inline(always)]
-    pub fn to_native_iter(self) -> impl Iterator<Item = T> + 'a
+    pub fn into_native_iter(self) -> impl Iterator<Item = T> + 'a
     where
         T: BitMemory,
     {
@@ -339,7 +339,7 @@ mod tests_bit_slices_little_endian {
         let buffer: Buffer = Buffer::from(input);
 
         let bit_slice = buffer.bit_slice();
-        let result = bit_slice.chunks().to_native_iter().collect::<Vec<u64>>();
+        let result = bit_slice.chunks().into_native_iter().collect::<Vec<u64>>();
 
         assert_eq!(vec![0x0706050403020100], result);
     }
@@ -360,7 +360,7 @@ mod tests_bit_slices_little_endian {
         assert_eq!(0, chunks.remainder_bit_len());
         assert_eq!(0, chunks.remainder_bits());
 
-        let result = chunks.to_native_iter().collect::<Vec<u64>>();
+        let result = chunks.into_native_iter().collect::<Vec<u64>>();
 
         assert_eq!(
             vec![0b1010_01000000_00100000_00010000_00001000_00000100_00000010_00000001_1111],
@@ -384,7 +384,7 @@ mod tests_bit_slices_little_endian {
         assert_eq!(2, chunks.remainder_bit_len());
         assert_eq!(0b00000011, chunks.remainder_bits());
 
-        let result = chunks.to_native_iter().collect::<Vec<u64>>();
+        let result = chunks.into_native_iter().collect::<Vec<u64>>();
 
         assert_eq!(
             vec![0b1111_01000000_00100000_00010000_00001000_00000100_00000010_00000001_0000],
@@ -436,7 +436,7 @@ mod tests_bit_slices_little_endian {
         // Let's also get a chunked bits as u8, not u64 this time...
         let chunks = bit_slice.chunks::<u8>();
 
-        let result = chunks.to_native_iter().collect::<Vec<_>>();
+        let result = chunks.into_native_iter().collect::<Vec<_>>();
         assert_eq!(buffer_slice.to_vec(), result);
     }
 }

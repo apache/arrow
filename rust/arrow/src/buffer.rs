@@ -444,8 +444,8 @@ where
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
     let rem = &rem.to_ne_bytes()[0..remainder_bytes];
 
-    let left_chunk_iter = left_chunks.to_native_iter();
-    let right_chunk_iter = right_chunks.to_native_iter();
+    let left_chunk_iter = left_chunks.into_native_iter();
+    let right_chunk_iter = right_chunks.into_native_iter();
 
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 
@@ -482,7 +482,7 @@ where
     let rem = op(left_chunks.remainder_bits());
     let rem = &rem.to_ne_bytes()[0..remainder_bytes];
 
-    let left_chunk_iter = left_chunks.to_native_iter();
+    let left_chunk_iter = left_chunks.into_native_iter();
 
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
 

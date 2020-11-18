@@ -157,7 +157,7 @@ where
 
             let buffer_remainder_bits: u64 = buffer_chunks.remainder_bits();
 
-            let buffer_chunk_iter = buffer_chunks.to_native_iter();
+            let buffer_chunk_iter = buffer_chunks.into_native_iter();
 
             data_chunks
                 .zip(buffer_chunk_iter)
@@ -224,9 +224,8 @@ where
             let bit_chunks = bit_slice.chunks::<u64>();
             let remainder_bits = bit_chunks.remainder_bits();
 
-            data_chunks
-                .zip(bit_chunks.to_native_iter())
-                .for_each(|(chunk, mut mask)| {
+            data_chunks.zip(bit_chunks.into_native_iter()).for_each(
+                |(chunk, mut mask)| {
                     // split chunks further into slices corresponding to the vector length
                     // the compiler is able to unroll this inner loop and remove bounds checks
                     // since the outer chunk size (64) is always a multiple of the number of lanes
@@ -240,7 +239,8 @@ where
 
                         mask = mask >> T::lanes();
                     });
-                });
+                },
+            );
 
             remainder.iter().enumerate().for_each(|(i, value)| {
                 if remainder_bits & (1 << i) != 0 {
