@@ -141,7 +141,10 @@ impl<'a> From<&'a [u8]> for BufferBitSlice<'a> {
 }
 
 ///
-/// Mutable bit slice representation of buffer data
+/// Mutable bit slice view of buffer data
+///
+/// `BufferBitSliceMut` does not own any underlying data, but rather 
+/// has methods for addressing and interacting with individual bits.
 #[derive(Debug)]
 pub struct BufferBitSliceMut<'a> {
     bit_slice: &'a mut BitSlice<LocalBits, u8>,
