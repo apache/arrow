@@ -110,6 +110,30 @@ pub enum Distribution {
     SinglePartition,
 }
 
+/// Represents the result from an expression
+pub enum ColumnarValue {
+    /// Array of values
+    Array(ArrayRef),
+    /// A single value
+    Scalar(ScalarValue),
+}
+
+impl ColumnarValue {
+    fn data_type(&self) -> DataType {
+        match self {
+            ColumnarValue::Array(array_value) => array_value.data_type().clone(),
+            ColumnarValue::Scalar(scalar_value) => scalar_value.get_datatype(),
+        }
+    }
+
+    fn into_array(self, batch: &RecordBatch) -> ArrayRef {
+        match self {
+            ColumnarValue::Array(array) => array,
+            ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(batch.num_rows()),
+        }
+    }
+}
+
 /// Expression that can be evaluated against a RecordBatch
 /// A Physical expression knows its type, nullability and how to evaluate itself.
 pub trait PhysicalExpr: Send + Sync + Display + Debug {
@@ -118,7 +142,7 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
     /// Determine whether this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue>;
 }
 
 /// An aggregate expression that:
