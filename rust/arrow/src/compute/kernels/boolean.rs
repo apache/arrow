@@ -271,11 +271,15 @@ where
         None => right_combo_buffer,
     };
 
+    // Count the number of set bits (non-null), so we can pass in correct null_count
+    // TODO: use count_set_bits_offset
+    let num_null_bits = modified_null_buffer.clone().map(|buf| left.len() - buf.count_set_bits());
+
     // Construct new array with same values but modified null bitmap
     let data = ArrayData::new(
         T::DATA_TYPE,
         left.len(),
-        Some(left.len()),
+        num_null_bits,
         modified_null_buffer,
         left.offset(),
         left_data.buffers().to_vec(),
@@ -288,7 +292,6 @@ where
 mod tests {
     use super::*;
     use crate::array::{ArrayRef, Int32Array};
-    use crate::datatypes::Int32Type;
 
     #[test]
     fn test_bool_array_and() {
@@ -648,24 +651,6 @@ mod tests {
         assert_eq!(&None, res.data_ref().null_bitmap());
     }
 
-    fn assert_array_eq<T: ArrowNumericType>(
-        expected: PrimitiveArray<T>,
-        actual: ArrayRef,
-    ) {
-        let actual = actual
-            .as_any()
-            .downcast_ref::<PrimitiveArray<T>>()
-            .expect("Actual array should unwrap to type of expected array");
-
-        for i in 0..expected.len() {
-            if expected.is_null(i) {
-                assert!(actual.is_null(i));
-            } else {
-                assert_eq!(expected.value(i), actual.value(i));
-            }
-        }
-    }
-
     #[test]
     fn test_nullif_int_array() {
         let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9)]);
@@ -683,6 +668,6 @@ mod tests {
             Some(9),
         ]);
 
-        assert_array_eq::<Int32Type>(expected, Arc::new(res));
+        assert_eq!(expected, res);
     }
 }
