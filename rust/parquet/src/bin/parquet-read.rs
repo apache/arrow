@@ -50,6 +50,17 @@ extern crate parquet;
 use std::{env, fs::File, path::Path, process};
 
 use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::record::Row;
+
+#[cfg(feature = "json_output")]
+fn print_row(row: &Row) {
+    println!("{}", row.to_json_value())
+}
+
+#[cfg(not(feature = "json_output"))]
+fn print_row(row: &Row) {
+    println!("{}", row.to_string())
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -79,7 +90,7 @@ fn main() {
 
     while all_records || start < end {
         match iter.next() {
-            Some(row) => println!("{}", row.to_json_value()),
+            Some(row) => print_row(&row),
             None => break,
         }
         start += 1;

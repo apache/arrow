@@ -26,6 +26,7 @@ use crate::basic::{LogicalType, Type as PhysicalType};
 use crate::data_type::{ByteArray, Decimal, Int96};
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
+#[cfg(feature = "json_output")]
 use serde_json::Value;
 
 /// Macro as a shortcut to generate 'not yet implemented' panic error.
@@ -77,6 +78,7 @@ impl Row {
         }
     }
 
+    #[cfg(feature = "json_output")]
     pub fn to_json_value(&self) -> Value {
         Value::Object(
             self.fields
@@ -635,6 +637,7 @@ impl Field {
         }
     }
 
+    #[cfg(feature = "json_output")]
     pub fn to_json_value(&self) -> Value {
         match &self {
             Field::Null => Value::Null,
