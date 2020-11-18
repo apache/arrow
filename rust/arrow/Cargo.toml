@@ -44,7 +44,6 @@ rand = "0.7"
 csv = "1.1"
 num = "0.3"
 regex = "1.3"
-lazy_static = "1.4"
 packed_simd = { version = "0.3.4", optional = true, package = "packed_simd_2" }
 chrono = "0.4"
 flatbuffers = "0.6"

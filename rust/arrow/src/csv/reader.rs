@@ -40,8 +40,6 @@
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
-use lazy_static::lazy_static;
-use regex::{Regex, RegexBuilder};
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -60,13 +58,8 @@ use crate::{
 
 use self::csv_crate::{Error, StringRecord, StringRecordsIntoIter};
 
-lazy_static! {
-    static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
-    static ref INTEGER_RE: Regex = Regex::new(r"^-?(\d+)$").unwrap();
-    static ref BOOLEAN_RE: Regex = RegexBuilder::new(r"^(true)$|^(false)$")
-        .case_insensitive(true)
-        .build()
-        .unwrap();
+fn all_digit(string: &str) -> bool {
+    string.chars().all(|c| c.is_ascii_digit())
 }
 
 /// Infer the data type of a record
@@ -77,15 +70,20 @@ fn infer_field_schema(string: &str) -> DataType {
         return DataType::Utf8;
     }
     // match regex in a particular order
-    if BOOLEAN_RE.is_match(string) {
-        DataType::Boolean
-    } else if DECIMAL_RE.is_match(string) {
-        DataType::Float64
-    } else if INTEGER_RE.is_match(string) {
-        DataType::Int64
-    } else {
-        DataType::Utf8
+    let lower = string.to_ascii_lowercase();
+    if lower == "true" || lower == "false" {
+        return DataType::Boolean;
     }
+    let skip_minus = if string.starts_with('-') { 1 } else { 0 };
+    let mut parts = string[skip_minus..].split('.');
+    let (left, right) = (parts.next(), parts.next());
+    let left_is_number = left.map_or(false, all_digit);
+    if left_is_number && right.map_or(false, all_digit) {
+        return DataType::Float64;
+    } else if left_is_number {
+        return DataType::Int64;
+    }
+    DataType::Utf8
 }
 
 /// Infer the schema of a CSV file by reading through the first n records of the file,
@@ -888,7 +886,7 @@ mod tests {
                     format!("{:?}", e)
                 ),
                 Ok(_) => panic!("should have failed"),
-            }
+            },
             None => panic!("should have failed"),
         }
     }
