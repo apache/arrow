@@ -43,70 +43,70 @@ use parquet::{basic::Compression, compression::*, file::reader::*};
 const TEST_FILE: &str = "10k-v2.parquet";
 
 fn get_f_reader() -> SerializedFileReader<File> {
-  let mut path_buf = env::current_dir().unwrap();
-  path_buf.push("data");
-  path_buf.push(TEST_FILE);
-  let file = File::open(path_buf.as_path()).unwrap();
-  SerializedFileReader::new(file).unwrap()
+    let mut path_buf = env::current_dir().unwrap();
+    path_buf.push("data");
+    path_buf.push(TEST_FILE);
+    let file = File::open(path_buf.as_path()).unwrap();
+    SerializedFileReader::new(file).unwrap()
 }
 
 fn get_pages_bytes(col_idx: usize) -> Vec<u8> {
-  let mut data: Vec<u8> = Vec::new();
-  let f_reader = get_f_reader();
-  let rg_reader = f_reader.get_row_group(0).unwrap();
-  let mut pg_reader = rg_reader.get_column_page_reader(col_idx).unwrap();
-  loop {
-    if let Some(p) = pg_reader.get_next_page().unwrap() {
-      data.extend_from_slice(p.buffer().data());
-    } else {
-      break;
+    let mut data: Vec<u8> = Vec::new();
+    let f_reader = get_f_reader();
+    let rg_reader = f_reader.get_row_group(0).unwrap();
+    let mut pg_reader = rg_reader.get_column_page_reader(col_idx).unwrap();
+    loop {
+        if let Some(p) = pg_reader.get_next_page().unwrap() {
+            data.extend_from_slice(p.buffer().data());
+        } else {
+            break;
+        }
     }
-  }
-  data
+    data
 }
 
 macro_rules! compress {
-  ($fname:ident, $codec:expr, $col_idx:expr) => {
-    #[bench]
-    fn $fname(bench: &mut Bencher) {
-      lazy_static! {
-        static ref DATA: Vec<u8> = { get_pages_bytes($col_idx) };
-      }
+    ($fname:ident, $codec:expr, $col_idx:expr) => {
+        #[bench]
+        fn $fname(bench: &mut Bencher) {
+            lazy_static! {
+                static ref DATA: Vec<u8> = { get_pages_bytes($col_idx) };
+            }
 
-      let mut codec = create_codec($codec).unwrap().unwrap();
-      let mut v = vec![];
-      bench.bytes = DATA.len() as u64;
-      bench.iter(|| {
-        codec.compress(&DATA[..], &mut v).unwrap();
-      })
-    }
-  };
+            let mut codec = create_codec($codec).unwrap().unwrap();
+            let mut v = vec![];
+            bench.bytes = DATA.len() as u64;
+            bench.iter(|| {
+                codec.compress(&DATA[..], &mut v).unwrap();
+            })
+        }
+    };
 }
 
 macro_rules! decompress {
-  ($fname:ident, $codec:expr, $col_idx:expr) => {
-    #[bench]
-    fn $fname(bench: &mut Bencher) {
-      lazy_static! {
-        static ref COMPRESSED_PAGES: Vec<u8> = {
-          let mut codec = create_codec($codec).unwrap().unwrap();
-          let raw_data = get_pages_bytes($col_idx);
-          let mut v = vec![];
-          codec.compress(&raw_data[..], &mut v).unwrap();
-          v
-        };
-      }
+    ($fname:ident, $codec:expr, $col_idx:expr) => {
+        #[bench]
+        fn $fname(bench: &mut Bencher) {
+            lazy_static! {
+                static ref COMPRESSED_PAGES: Vec<u8> = {
+                    let mut codec = create_codec($codec).unwrap().unwrap();
+                    let raw_data = get_pages_bytes($col_idx);
+                    let mut v = vec![];
+                    codec.compress(&raw_data[..], &mut v).unwrap();
+                    v
+                };
+            }
 
-      let mut codec = create_codec($codec).unwrap().unwrap();
-      let f_reader = get_f_reader();
-      let rg_reader = f_reader.get_row_group(0).unwrap();
-      bench.bytes = rg_reader.metadata().total_byte_size() as u64;
-      bench.iter(|| {
-        let mut v = Vec::new();
-        let _ = codec.decompress(&COMPRESSED_PAGES[..], &mut v).unwrap();
-      })
-    }
-  };
+            let mut codec = create_codec($codec).unwrap().unwrap();
+            let f_reader = get_f_reader();
+            let rg_reader = f_reader.get_row_group(0).unwrap();
+            bench.bytes = rg_reader.metadata().total_byte_size() as u64;
+            bench.iter(|| {
+                let mut v = Vec::new();
+                let _ = codec.decompress(&COMPRESSED_PAGES[..], &mut v).unwrap();
+            })
+        }
+    };
 }
 
 compress!(compress_brotli_binary, Compression::BROTLI, 0);
