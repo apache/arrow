@@ -48,7 +48,7 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array,
+        Array, ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
         Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
         UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
@@ -3227,7 +3227,6 @@ mod tests {
 
     #[test]
     fn nullif_int32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let a = Int32Array::from(vec![
             Some(1),
             Some(2),
@@ -3241,10 +3240,8 @@ mod tests {
         ]);
         let a = Arc::new(a);
         let a_len = a.len();
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![a.clone()])?;
 
-        let literal_expr = lit(ScalarValue::Int32(Some(2)));
-        let lit_array = literal_expr.evaluate(&batch)?;
+        let lit_array = Arc::new(Int32Array::from(vec![2; a.len()]));
 
         let result = nullif_func(&[a.clone(), lit_array])?;
 
