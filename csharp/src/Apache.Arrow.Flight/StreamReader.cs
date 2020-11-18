@@ -43,7 +43,7 @@ namespace Apache.Arrow.Flight
 
         public async Task<bool> MoveNext(CancellationToken cancellationToken)
         {
-            var moveNextResult = await _inputStream.MoveNext(cancellationToken);
+            var moveNextResult = await _inputStream.MoveNext(cancellationToken).ConfigureAwait(false);
             if (moveNextResult)
             {
                 Current = _convertFunction(_inputStream.Current);

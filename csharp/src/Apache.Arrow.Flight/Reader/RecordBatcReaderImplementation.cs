@@ -43,7 +43,7 @@ namespace Apache.Arrow.Flight
         {
             if (!HasReadSchema)
             {
-                await ReadSchema();
+                await ReadSchema().ConfigureAwait(false);
             }
             return _flightDescriptor;
         }
@@ -55,7 +55,7 @@ namespace Apache.Arrow.Flight
                 return Schema;
             }
 
-            var moveNextResult = await _flightDataStream.MoveNext();
+            var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
 
             if (!moveNextResult)
             {
@@ -87,9 +87,9 @@ namespace Apache.Arrow.Flight
         {
             if (!HasReadSchema)
             {
-                await ReadSchema();
+                await ReadSchema().ConfigureAwait(false);
             }
-            var moveNextResult = await _flightDataStream.MoveNext();
+            var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
             if (moveNextResult)
             {
                 var header = _flightDataStream.Current.DataHeader.Memory;

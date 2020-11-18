@@ -44,7 +44,7 @@ namespace Apache.Arrow.Flight.Writer
                 return;
             }
 
-            await _clientStreamWriter.CompleteAsync();
+            await _clientStreamWriter.CompleteAsync().ConfigureAwait(false);
             _completed = true;
         }
     }

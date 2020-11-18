@@ -35,7 +35,7 @@ namespace Apache.Arrow.Flight
         {
             var readStream = new RecordBatchStreamReader(requestStream);
             var writeStream = new StreamWriter<PutResult, Protocol.PutResult>(responseStream, putResult => putResult.ToProtocol());
-            await _flightServer.DoPut(readStream, writeStream, context);
+            await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
         }
 
         public override Task DoGet(Protocol.Ticket request, IServerStreamWriter<FlightData> responseStream, ServerCallContext context)
@@ -59,7 +59,7 @@ namespace Apache.Arrow.Flight
         public override async Task<SchemaResult> GetSchema(Protocol.FlightDescriptor request, ServerCallContext context)
         {
             var flightDescriptor = new FlightDescriptor(request);
-            var schema = await _flightServer.GetSchema(flightDescriptor, context);
+            var schema = await _flightServer.GetSchema(flightDescriptor, context).ConfigureAwait(false);
 
             return new SchemaResult()
             {
@@ -70,7 +70,7 @@ namespace Apache.Arrow.Flight
         public override async Task<Protocol.FlightInfo> GetFlightInfo(Protocol.FlightDescriptor request, ServerCallContext context)
         {
             var flightDescriptor = new FlightDescriptor(request);
-            var flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context);
+            var flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context).ConfigureAwait(false);
 
             return flightInfo.ToProtocol();
         }

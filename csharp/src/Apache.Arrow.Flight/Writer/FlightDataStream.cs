@@ -55,8 +55,8 @@ namespace Apache.Arrow.Flight
 
             var offset = SerializeSchema(Schema);
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            await WriteMessageAsync(MessageHeader.Schema, offset, 0, cancellationTokenSource.Token);
-            await _clientStreamWriter.WriteAsync(_currentFlightData);
+            await WriteMessageAsync(MessageHeader.Schema, offset, 0, cancellationTokenSource.Token).ConfigureAwait(false);
+            await _clientStreamWriter.WriteAsync(_currentFlightData).ConfigureAwait(false);
             HasWrittenSchema = true;
         }
 
@@ -80,10 +80,10 @@ namespace Apache.Arrow.Flight
 
             //Reset stream position
             this.BaseStream.Position = 0;
-            var bodyData = await ByteString.FromStreamAsync(this.BaseStream);
+            var bodyData = await ByteString.FromStreamAsync(this.BaseStream).ConfigureAwait(false);
 
             _currentFlightData.DataBody = bodyData;
-            await _clientStreamWriter.WriteAsync(_currentFlightData);
+            await _clientStreamWriter.WriteAsync(_currentFlightData).ConfigureAwait(false);
         }
 
         private protected override ValueTask<long> WriteMessageAsync<T>(MessageHeader headerType, Offset<T> headerOffset, int bodyLength, CancellationToken cancellationToken)
