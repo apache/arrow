@@ -105,7 +105,7 @@ impl<'a> BufferBitSlice<'a> {
 
     ///
     /// Converts the bit view into a Buffer.
-    /// Buffer is always byte-aligned and well-aligned.
+    /// Buffer is always byte-aligned and it's pointer is aligned to size of u64.
     #[inline]
     pub fn as_buffer(&self) -> Buffer {
         Buffer::from(self.bit_slice.as_slice())
@@ -207,7 +207,7 @@ impl<'a> BufferBitSliceMut<'a> {
 
     ///
     /// Converts the bit view into a Buffer.
-    /// Buffer is always byte-aligned and well-aligned.
+    /// Buffer is always byte-aligned and it's pointer is aligned to size of u64.
     #[inline]
     pub fn as_buffer(&self) -> Buffer {
         Buffer::from(self.bit_slice.as_slice())
