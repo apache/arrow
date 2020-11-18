@@ -319,51 +319,16 @@ def _ensure_single_source(path, filesystem=None):
     FileNotFoundError
         If the referenced file or directory doesn't exist.
     """
-    from pyarrow.fs import (
-        FileSystem, LocalFileSystem, FileType, FileSelector, _ensure_filesystem
-    )
+    from pyarrow.fs import FileType, FileSelector, _resolve_filesystem_and_path
 
-    path = _stringify_path(path)
-
-    # if filesystem is not given try to automatically determine one
-    # first check if the file exists as a local (relative) file path
-    # if not then try to parse the path as an URI
-    file_info = None
-    if filesystem is None:
-        filesystem = LocalFileSystem()
-        try:
-            file_info = filesystem.get_file_info([path])[0]
-        except OSError:
-            file_info = None
-            exists_locally = False
-        else:
-            exists_locally = (file_info.type != FileType.NotFound)
-
-        # if the file or directory doesn't exists locally, then assume that
-        # the path is an URI describing the file system as well
-        if not exists_locally:
-            try:
-                filesystem, path = FileSystem.from_uri(path)
-            except ValueError as e:
-                # ARROW-8213: neither an URI nor a locally existing path,
-                # so assume that local path was given and propagate a nicer
-                # file not found error instead of a more confusing scheme
-                # parsing error
-                if "empty scheme" not in str(e):
-                    raise
-            else:
-                # unset file_info to query it again from the new filesystem
-                file_info = None
-
-    # construct a filesystem if it is a valid URI
-    filesystem = _ensure_filesystem(filesystem)
+    # at this point we already checked that `path` is a path-like
+    filesystem, path = _resolve_filesystem_and_path(path, filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
     path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
-    if file_info is None:
-        file_info = filesystem.get_file_info([path])[0]
+    file_info = filesystem.get_file_info(path)
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
