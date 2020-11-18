@@ -91,7 +91,7 @@ use async_trait::async_trait;
 async fn exec_sql(ctx: &mut ExecutionContext, sql: &str) -> Result<String> {
     let df = ctx.sql(sql)?;
     let batches = df.collect().await?;
-    pretty_format_batches(&batches).map_err(|e| DataFusionError::ArrowError(e))
+    pretty_format_batches(&batches).map_err(DataFusionError::ArrowError)
 }
 
 /// Create a test table.
@@ -494,7 +494,7 @@ impl Stream for TopKReader {
 
         // take this as immutable
         let k = self.k;
-        let schema = self.schema().clone();
+        let schema = self.schema();
 
         let top_values = self
             .input

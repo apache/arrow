@@ -761,6 +761,16 @@ def test_large_binary_value(ty):
     assert len(buf) == len(s) * nrepeats
 
 
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.binary(), pa.string()])
+def test_string_too_large(ty):
+    # Construct a binary array with a single value larger than 4GB
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz"
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    with pytest.raises(pa.ArrowCapacityError):
+        pa.array([b"foo", s * nrepeats, None, b"bar"], type=ty)
+
+
 def test_sequence_bytes():
     u1 = b'ma\xc3\xb1ana'
 

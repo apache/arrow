@@ -252,6 +252,8 @@ impl Field {
     }
 }
 
+#[allow(clippy::enum_variant_names)]
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 enum Type {
     Array(Box<Type>),

@@ -15,18 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: PR labeler
-on:
-  pull_request_target:
-    types: [opened, reopened]
+# This file is called from a test in test_pandas.py.
 
-jobs:
-  assign-rust-labels:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Assign Github labels
-      uses: actions/labeler@2.2.0
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        configuration-path: .github/workflows/dev_labeler/labeler.yml
-        sync-labels: true
+from concurrent.futures import ThreadPoolExecutor
+import faulthandler
+import sys
+
+import pyarrow as pa
+
+num_threads = 60
+timeout = 10  # seconds
+
+
+def thread_func(i):
+    pa.array([i]).to_pandas()
+
+
+def main():
+    # In case of import deadlock, crash after a finite timeout
+    faulthandler.dump_traceback_later(timeout, exit=True)
+    with ThreadPoolExecutor(num_threads) as pool:
+        assert "pandas" not in sys.modules  # pandas is imported lazily
+        list(pool.map(thread_func, range(num_threads)))
+        assert "pandas" in sys.modules
+
+
+if __name__ == "__main__":
+    main()

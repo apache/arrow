@@ -822,7 +822,8 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   const std::string scheme = location.scheme();
   if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
     std::stringstream address;
-    address << location.uri_->host() << ':' << location.uri_->port_text();
+    address << arrow::internal::UriEncodeHost(location.uri_->host()) << ':'
+            << location.uri_->port_text();
 
     std::shared_ptr<grpc::ServerCredentials> creds;
     if (scheme == kSchemeGrpcTls) {

@@ -130,6 +130,7 @@ fn batch_project(
     expressions
         .iter()
         .map(|expr| expr.evaluate(&batch))
+        .map(|r| r.map(|v| v.into_array(batch)))
         .collect::<Result<Vec<_>>>()
         .map_or_else(
             |e| Err(DataFusionError::into_arrow_external_error(e)),

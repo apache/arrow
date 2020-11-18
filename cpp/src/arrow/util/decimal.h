@@ -227,6 +227,23 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     return std::move(out);
   }
 
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \return the pair of the quotient and the remainder
+  Result<std::pair<Decimal256, Decimal256>> Divide(const Decimal256& divisor) const {
+    std::pair<Decimal256, Decimal256> result;
+    auto dstatus = BasicDecimal256::Divide(divisor, &result.first, &result.second);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(result);
+  }
+
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);
 

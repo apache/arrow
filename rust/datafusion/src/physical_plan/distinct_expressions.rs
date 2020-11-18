@@ -24,7 +24,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field};
 
-use fnv::FnvHashSet;
+use ahash::RandomState;
+use std::collections::HashSet;
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::group_scalar::GroupByScalar;
@@ -93,7 +94,7 @@ impl AggregateExpr for DistinctCount {
 
     fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
         Ok(Box::new(DistinctCountAccumulator {
-            values: FnvHashSet::default(),
+            values: HashSet::default(),
             data_types: self.input_data_types.clone(),
             count_data_type: self.data_type.clone(),
         }))
@@ -102,7 +103,7 @@ impl AggregateExpr for DistinctCount {
 
 #[derive(Debug)]
 struct DistinctCountAccumulator {
-    values: FnvHashSet<DistinctScalarValues>,
+    values: HashSet<DistinctScalarValues, RandomState>,
     data_types: Vec<DataType>,
     count_data_type: DataType,
 }

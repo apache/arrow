@@ -32,19 +32,20 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
     if null_count == array.len() {
         return None;
     }
-    let mut n = "";
-    let mut has_value = false;
     let data = array.data();
-
+    let mut n;
     if null_count == 0 {
-        for i in 0..data.len() {
+        n = array.value(0);
+        for i in 1..data.len() {
             let item = array.value(i);
-            if !has_value || cmp(&n, item) {
-                has_value = true;
+            if cmp(&n, item) {
                 n = item;
             }
         }
     } else {
+        n = "";
+        let mut has_value = false;
+
         for i in 0..data.len() {
             let item = array.value(i);
             if data.is_valid(i) && (!has_value || cmp(&n, item)) {
@@ -105,13 +106,9 @@ where
 
     if null_count == 0 {
         // optimized path for arrays without null values
-        n = m[0];
-
-        for item in &m[1..] {
-            if cmp(&n, item) {
-                n = *item
-            }
-        }
+        n = m[1..]
+            .iter()
+            .fold(m[0], |max, item| if cmp(&max, item) { *item } else { max });
     } else {
         n = T::default_value();
         let mut has_value = false;
