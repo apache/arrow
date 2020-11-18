@@ -25,7 +25,7 @@ use super::{
 pub(super) fn build_extend(array: &ArrayData) -> Extend {
     let values = array.buffers()[0].data();
     Box::new(
-        move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
             let buffer = &mut mutable.buffers[0];
             reserve_for_bits(buffer, mutable.len + len);
             set_bits(

@@ -27,7 +27,10 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
     if array.null_count() == 0 {
         // fast case where we can copy regions without nullability checks
         Box::new(
-            move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+            move |mutable: &mut _MutableArrayData,
+                  index: usize,
+                  start: usize,
+                  len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
                 let last_offset = mutable_offsets[mutable_offsets.len() - 1];
                 // offsets
@@ -38,6 +41,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 );
 
                 mutable.child_data[0].extend(
+                    index,
                     offsets[start].to_usize().unwrap(),
                     offsets[start + len].to_usize().unwrap(),
                 )
@@ -46,7 +50,10 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
     } else {
         // nulls present: append item by item, ignoring null entries
         Box::new(
-            move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+            move |mutable: &mut _MutableArrayData,
+                  index: usize,
+                  start: usize,
+                  len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
                 let mut last_offset = mutable_offsets[mutable_offsets.len() - 1];
 
@@ -62,6 +69,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
 
                         // append value
                         child.extend(
+                            index,
                             offsets[i].to_usize().unwrap(),
                             offsets[i + 1].to_usize().unwrap(),
                         );

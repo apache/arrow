@@ -42,7 +42,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
     if array.null_count() == 0 {
         // fast case where we can copy regions without null issues
         Box::new(
-            move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+            move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
                 let last_offset = mutable_offsets[mutable_offsets.len() - 1];
                 // offsets
@@ -59,7 +59,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
         )
     } else {
         Box::new(
-            move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+            move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
                 let mut last_offset = mutable_offsets[mutable_offsets.len() - 1];
 

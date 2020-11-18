@@ -24,7 +24,7 @@ use super::{Extend, _MutableArrayData};
 pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
     let values = &array.buffers()[0].data()[array.offset() * size_of::<T>()..];
     Box::new(
-        move |mutable: &mut _MutableArrayData, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
             let start = start * size_of::<T>();
             let len = len * size_of::<T>();
             let bytes = &values[start..start + len];

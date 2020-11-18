@@ -30,7 +30,7 @@ mod variable_size;
 type ExtendNullBits<'a> = Box<Fn(&mut _MutableArrayData, usize, usize) + 'a>;
 // function that extends `[start..start+len]` to the mutable array.
 // this is dynamic because different data_types influence how buffers and childs are extended.
-type Extend<'a> = Box<Fn(&mut _MutableArrayData, usize, usize) + 'a>;
+type Extend<'a> = Box<Fn(&mut _MutableArrayData, usize, usize, usize) + 'a>;
 
 /// A mutable [ArrayData] that knows how to freeze itself into an [ArrayData].
 /// This is just a data container.
@@ -121,14 +121,16 @@ fn build_extend_nulls(array: &ArrayData) -> ExtendNullBits {
 /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]).data();
 /// // Create a new `MutableArrayData` from an array and with a capacity.
 /// // Capacity here is equivalent to `Vec::with_capacity`
-/// let mut mutable = MutableArrayData::new(&array, 4);
-/// mutable.extend(1, 3); // extend from the slice [1..3], [2,3]
-/// mutable.extend(0, 3); // extend from the slice [0..3], [1,2,3]
+/// let arrays = vec![array.as_ref()];
+/// let mut mutable = MutableArrayData::new(arrays, 4);
+/// mutable.extend(0, 1, 3); // extend from the slice [1..3], [2,3]
+/// mutable.extend(0, 0, 3); // extend from the slice [0..3], [1,2,3]
 /// // `.freeze()` to convert `MutableArrayData` into a `ArrayData`.
 /// let new_array = Int32Array::from(Arc::new(mutable.freeze()));
 /// assert_eq!(Int32Array::from(vec![2, 3, 1, 2, 3]), new_array);
 /// ```
 pub struct MutableArrayData<'a> {
+    arrays: Vec<&'a ArrayData>,
     // The attributes in [_MutableArrayData] cannot be in [MutableArrayData] due to
     // mutability invariants (interior mutability):
     // [MutableArrayData] contains a function that can only mutate [_MutableArrayData], not
@@ -142,10 +144,10 @@ pub struct MutableArrayData<'a> {
 
     // the function used to extend values. This function's lifetime is bound to the array
     // because it reads values from it.
-    extend_values: Extend<'a>,
+    extend_values: Vec<Extend<'a>>,
     // the function used to extend nulls. This function's lifetime is bound to the array
     // because it reads nulls from it.
-    extend_nulls: ExtendNullBits<'a>,
+    extend_nulls: Vec<ExtendNullBits<'a>>,
 }
 
 impl<'a> std::fmt::Debug for MutableArrayData<'a> {
@@ -157,14 +159,39 @@ impl<'a> std::fmt::Debug for MutableArrayData<'a> {
     }
 }
 
-impl<'a> MutableArrayData<'a> {
-    /// returns a new [MutableArrayData] with capacity to `capacity` slots and specialized to create an
-    /// [ArrayData] from `array`
-    pub fn new(array: &'a ArrayData, capacity: usize) -> Self {
-        let data_type = array.data_type();
-        use crate::datatypes::*;
-        let extend_values = match &data_type {
-            DataType::Boolean => boolean::build_extend(array),
+fn build_extend<'a>(array: &'a ArrayData) -> Extend<'a> {
+    use crate::datatypes::*;
+    match array.data_type() {
+        DataType::Boolean => boolean::build_extend(array),
+        DataType::UInt8 => primitive::build_extend::<u8>(array),
+        DataType::UInt16 => primitive::build_extend::<u16>(array),
+        DataType::UInt32 => primitive::build_extend::<u32>(array),
+        DataType::UInt64 => primitive::build_extend::<u64>(array),
+        DataType::Int8 => primitive::build_extend::<i8>(array),
+        DataType::Int16 => primitive::build_extend::<i16>(array),
+        DataType::Int32 => primitive::build_extend::<i32>(array),
+        DataType::Int64 => primitive::build_extend::<i64>(array),
+        DataType::Float32 => primitive::build_extend::<f32>(array),
+        DataType::Float64 => primitive::build_extend::<f64>(array),
+        DataType::Date32(_)
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => {
+            primitive::build_extend::<i32>(array)
+        }
+        DataType::Date64(_)
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::DayTime) => {
+            primitive::build_extend::<i64>(array)
+        }
+        DataType::Utf8 | DataType::Binary => variable_size::build_extend::<i32>(array),
+        DataType::LargeUtf8 | DataType::LargeBinary => {
+            variable_size::build_extend::<i64>(array)
+        }
+        DataType::List(_) => list::build_extend::<i32>(array),
+        DataType::LargeList(_) => list::build_extend::<i64>(array),
+        DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
             DataType::UInt8 => primitive::build_extend::<u8>(array),
             DataType::UInt16 => primitive::build_extend::<u16>(array),
             DataType::UInt32 => primitive::build_extend::<u32>(array),
@@ -173,51 +200,26 @@ impl<'a> MutableArrayData<'a> {
             DataType::Int16 => primitive::build_extend::<i16>(array),
             DataType::Int32 => primitive::build_extend::<i32>(array),
             DataType::Int64 => primitive::build_extend::<i64>(array),
-            DataType::Float32 => primitive::build_extend::<f32>(array),
-            DataType::Float64 => primitive::build_extend::<f64>(array),
-            DataType::Date32(_)
-            | DataType::Time32(_)
-            | DataType::Interval(IntervalUnit::YearMonth) => {
-                primitive::build_extend::<i32>(array)
-            }
-            DataType::Date64(_)
-            | DataType::Time64(_)
-            | DataType::Timestamp(_, _)
-            | DataType::Duration(_)
-            | DataType::Interval(IntervalUnit::DayTime) => {
-                primitive::build_extend::<i64>(array)
-            }
-            DataType::Utf8 | DataType::Binary => {
-                variable_size::build_extend::<i32>(array)
-            }
-            DataType::LargeUtf8 | DataType::LargeBinary => {
-                variable_size::build_extend::<i64>(array)
-            }
-            DataType::List(_) => list::build_extend::<i32>(array),
-            DataType::LargeList(_) => list::build_extend::<i64>(array),
-            DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
-                DataType::UInt8 => primitive::build_extend::<u8>(array),
-                DataType::UInt16 => primitive::build_extend::<u16>(array),
-                DataType::UInt32 => primitive::build_extend::<u32>(array),
-                DataType::UInt64 => primitive::build_extend::<u64>(array),
-                DataType::Int8 => primitive::build_extend::<i8>(array),
-                DataType::Int16 => primitive::build_extend::<i16>(array),
-                DataType::Int32 => primitive::build_extend::<i32>(array),
-                DataType::Int64 => primitive::build_extend::<i64>(array),
-                _ => unreachable!(),
-            },
-            DataType::Float16 => unreachable!(),
-            /*
-            DataType::Null => {}
-            DataType::FixedSizeBinary(_) => {}
-            DataType::FixedSizeList(_, _) => {}
-            DataType::Struct(_) => {}
-            DataType::Union(_) => {}
-            */
-            _ => {
-                todo!("Take and filter operations still not supported for this datatype")
-            }
-        };
+            _ => unreachable!(),
+        },
+        DataType::Float16 => unreachable!(),
+        /*
+        DataType::Null => {}
+        DataType::FixedSizeBinary(_) => {}
+        DataType::FixedSizeList(_, _) => {}
+        DataType::Struct(_) => {}
+        DataType::Union(_) => {}
+        */
+        _ => todo!("Take and filter operations still not supported for this datatype"),
+    }
+}
+
+impl<'a> MutableArrayData<'a> {
+    /// returns a new [MutableArrayData] with capacity to `capacity` slots and specialized to create an
+    /// [ArrayData] from `array`
+    pub fn new(arrays: Vec<&'a ArrayData>, capacity: usize) -> Self {
+        let data_type = arrays[0].data_type();
+        use crate::datatypes::*;
 
         let buffers = match &data_type {
             DataType::Boolean => {
@@ -315,7 +317,11 @@ impl<'a> MutableArrayData<'a> {
             | DataType::Interval(_)
             | DataType::FixedSizeBinary(_) => vec![],
             DataType::List(_) | DataType::LargeList(_) => {
-                vec![MutableArrayData::new(&array.child_data()[0], capacity)]
+                let childs = arrays
+                    .iter()
+                    .map(|array| array.child_data()[0].as_ref())
+                    .collect::<Vec<_>>();
+                vec![MutableArrayData::new(childs, capacity)]
             }
             // the dictionary type just appends keys and clones the values.
             DataType::Dictionary(_, _) => vec![],
@@ -326,14 +332,19 @@ impl<'a> MutableArrayData<'a> {
         };
 
         let dictionary = match &data_type {
-            DataType::Dictionary(_, _) => Some(array.child_data()[0].clone()),
+            DataType::Dictionary(_, _) => Some(arrays[0].child_data()[0].clone()),
             _ => None,
         };
 
-        let extend_nulls = build_extend_nulls(array);
+        let extend_nulls = arrays
+            .iter()
+            .map(|array| build_extend_nulls(array))
+            .collect();
 
         let null_bytes = bit_util::ceil(capacity, 8);
         let null_buffer = MutableBuffer::new(null_bytes).with_bitset(null_bytes, false);
+
+        let extend_values = arrays.iter().map(|array| build_extend(array)).collect();
 
         let data = _MutableArrayData {
             data_type: data_type.clone(),
@@ -344,9 +355,10 @@ impl<'a> MutableArrayData<'a> {
             child_data,
         };
         Self {
+            arrays: arrays.to_vec(),
             data,
             dictionary,
-            extend_values: Box::new(extend_values),
+            extend_values,
             extend_nulls,
         }
     }
@@ -355,10 +367,10 @@ impl<'a> MutableArrayData<'a> {
     /// and for a size of `len`.
     /// # Panic
     /// This function panics if the range is out of bounds, i.e. if `start + len >= array.len()`.
-    pub fn extend(&mut self, start: usize, end: usize) {
+    pub fn extend(&mut self, index: usize, start: usize, end: usize) {
         let len = end - start;
-        (self.extend_nulls)(&mut self.data, start, len);
-        (self.extend_values)(&mut self.data, start, len);
+        (self.extend_nulls[index])(&mut self.data, start, len);
+        (self.extend_values[index])(&mut self.data, index, start, len);
         self.data.len += len;
     }
 
@@ -383,8 +395,9 @@ mod tests {
     #[test]
     fn test_primitive() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]).data();
-        let mut a = MutableArrayData::new(&b, 3);
-        a.extend(0, 2);
+        let arrays = vec![b.as_ref()];
+        let mut a = MutableArrayData::new(arrays, 3);
+        a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
         let expected = UInt8Array::from(vec![Some(1), Some(2)]);
@@ -396,8 +409,9 @@ mod tests {
     fn test_primitive_offset() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
         let b = b.slice(1, 2).data();
-        let mut a = MutableArrayData::new(&b, 2);
-        a.extend(0, 2);
+        let arrays = vec![b.as_ref()];
+        let mut a = MutableArrayData::new(arrays, 2);
+        a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
         let expected = UInt8Array::from(vec![Some(2), Some(3)]);
@@ -409,8 +423,9 @@ mod tests {
     fn test_primitive_null_offset() {
         let b = UInt8Array::from(vec![Some(1), None, Some(3)]);
         let b = b.slice(1, 2).data();
-        let mut a = MutableArrayData::new(&b, 2);
-        a.extend(0, 2);
+        let arrays = vec![b.as_ref()];
+        let mut a = MutableArrayData::new(arrays, 2);
+        a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
         let expected = UInt8Array::from(vec![None, Some(3)]);
@@ -428,9 +443,10 @@ mod tests {
         builder.values().append_slice(&[6, 7, 8])?;
         builder.append(true)?;
         let array = builder.finish().data();
+        let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(&array, 0);
-        mutable.extend(0, 1);
+        let mut mutable = MutableArrayData::new(arrays, 0);
+        mutable.extend(0, 0, 1);
 
         let result = mutable.freeze();
         let array = ListArray::from(Arc::new(result));
@@ -451,10 +467,11 @@ mod tests {
     fn test_variable_sized_nulls() {
         let array =
             StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(&array, 0);
+        let mut mutable = MutableArrayData::new(arrays, 0);
 
-        mutable.extend(1, 3);
+        mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
         let result = StringArray::from(Arc::new(result));
@@ -471,9 +488,11 @@ mod tests {
             StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
         let array = array.slice(1, 3);
 
-        let mut mutable = MutableArrayData::new(&array, 0);
+        let arrays = vec![&array];
 
-        mutable.extend(0, 3);
+        let mut mutable = MutableArrayData::new(arrays, 0);
+
+        mutable.extend(0, 0, 3);
 
         let result = mutable.freeze();
         let result = StringArray::from(Arc::new(result));
@@ -486,10 +505,11 @@ mod tests {
     fn test_bool() {
         let array =
             BooleanArray::from(vec![Some(false), Some(true), None, Some(false)]).data();
+        let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(&array, 0);
+        let mut mutable = MutableArrayData::new(arrays, 0);
 
-        mutable.extend(1, 3);
+        mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
         let result = BooleanArray::from(Arc::new(result));
@@ -522,10 +542,11 @@ mod tests {
             &["a", "b", "c"],
             &[Some("a"), Some("b"), None, Some("c")],
         );
+        let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(&array, 0);
+        let mut mutable = MutableArrayData::new(arrays, 0);
 
-        mutable.extend(1, 3);
+        mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
         let result = DictionaryArray::from(Arc::new(result));
