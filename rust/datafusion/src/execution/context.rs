@@ -53,6 +53,7 @@ use crate::sql::{
 };
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
+use parquet::arrow::ArrowWriter;
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -386,6 +387,37 @@ impl ExecutionContext {
                 .try_collect()
                 .await
                 .map_err(|e| DataFusionError::from(e))?;
+        }
+        Ok(())
+    }
+
+    /// Execute a query and write the results to a partitioned Parquet file
+    pub async fn write_parquet(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        path: String,
+    ) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_owned();
+        fs::create_dir(&path)?;
+
+        for i in 0..plan.output_partitioning().partition_count() {
+            let path = path.clone();
+            let plan = plan.clone();
+            let filename = format!("part-{}.parquet", i);
+            let path = Path::new(&path).join(&filename);
+            let file = fs::File::create(path)?;
+            let mut writer =
+                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
+            let stream = plan.execute(i).await?;
+
+            stream
+                .map(|batch| writer.write(&batch?))
+                .try_collect()
+                .await
+                .map_err(|e| DataFusionError::from(e))?;
+
+            writer.close()?;
         }
         Ok(())
     }
