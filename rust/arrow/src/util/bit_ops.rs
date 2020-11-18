@@ -23,10 +23,10 @@ use bitvec::slice::ChunksExact;
 use std::fmt::Debug;
 
 ///
-/// Immutable bit slice view of `Buffer` data. 
+/// Immutable bit slice view of `Buffer` data.
 ///
-/// `BufferBitSlice` does not own any underlying data, but rather wraps references 
-/// to the underlying data in a `Buffer` and has methods for addressing and interacting with 
+/// `BufferBitSlice` does not own any underlying data, but rather wraps references
+/// to the underlying data in a `Buffer` and has methods for addressing and interacting with
 /// individual bits
 #[derive(Debug)]
 pub struct BufferBitSlice<'a> {
@@ -164,7 +164,7 @@ impl<'a> From<&'a [u8]> for BufferBitSlice<'a> {
 ///
 /// Mutable bit slice view of buffer data
 ///
-/// `BufferBitSliceMut` does not own any underlying data, but rather 
+/// `BufferBitSliceMut` does not own any underlying data, but rather
 /// has methods for addressing and interacting with individual bits.
 #[derive(Debug)]
 pub struct BufferBitSliceMut<'a> {
@@ -266,7 +266,7 @@ impl<'a> From<&'a mut [u8]> for BufferBitSliceMut<'a> {
 ///
 /// Exact chunk view over the bit slice
 ///
-/// The view is represented as some number of aligned T-sized chunks, 
+/// The view is represented as some number of aligned T-sized chunks,
 /// followed by some number of remainder bits
 #[derive(Clone, Debug)]
 pub struct BufferBitChunksExact<'a, T>
