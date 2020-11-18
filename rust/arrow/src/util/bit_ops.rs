@@ -244,6 +244,9 @@ impl<'a> From<&'a mut [u8]> for BufferBitSliceMut<'a> {
 
 ///
 /// Exact chunk view over the bit slice
+///
+/// The view is represented as some number of aligned T-sized chunks, 
+/// followed by some number of remainder bits
 #[derive(Clone, Debug)]
 pub struct BufferBitChunksExact<'a, T>
 where
