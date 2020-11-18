@@ -443,6 +443,33 @@ Status FillTimestampBatch(const DataType* type, liborc::ColumnVectorBatch* cbatc
 }
 
 template <class array_type>
+Status FillStringBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
+                       int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
+                       Array* parray) {
+  auto array = checked_cast<array_type*>(parray);
+  auto batch = checked_cast<liborc::StringVectorBatch*>(cbatch);
+  int64_t arrowLength = array->length();
+  if (!arrowLength) return Status::OK();
+  int64_t initORCOffset = orcOffset;
+  if (array->null_count()) batch->hasNulls = true;
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
+    if (array->IsNull(arrowOffset)) {
+      batch->notNull[orcOffset] = false;
+    } else {
+      batch->notNull[orcOffset] = true;
+      std::string dataString = array->GetString(arrowOffset);
+      int dataStringLength = dataString.length();
+      if (batch->data[orcOffset]) delete batch->data[orcOffset];
+      batch->data[orcOffset] = new char[dataStringLength + 1];  // Include null
+      memcpy(batch->data[orcOffset], dataString.c_str(), dataStringLength + 1);
+      batch->length[orcOffset] = dataStringLength;
+    }
+  }
+  batch->numElements += orcOffset - initORCOffset;
+  return Status::OK();
+}
+
+template <class array_type>
 Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
                        int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
                        Array* parray) {
@@ -460,7 +487,7 @@ Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
       std::string dataString = array->GetString(arrowOffset);
       int dataStringLength = dataString.length();
       if (batch->data[orcOffset]) delete batch->data[orcOffset];
-      batch->data[orcOffset] = new char[dataStringLength];
+      batch->data[orcOffset] = new char[dataStringLength];  // Include null
       memcpy(batch->data[orcOffset], dataString.c_str(), dataStringLength);
       batch->length[orcOffset] = dataStringLength;
     }
@@ -764,10 +791,10 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
       return FillBinaryBatch<LargeBinaryArray>(type, cbatch, arrowOffset, orcOffset,
                                                length, parray);
     case Type::type::STRING:
-      return FillBinaryBatch<StringArray>(type, cbatch, arrowOffset, orcOffset, length,
+      return FillStringBatch<StringArray>(type, cbatch, arrowOffset, orcOffset, length,
                                           parray);
     case Type::type::LARGE_STRING:
-      return FillBinaryBatch<LargeStringArray>(type, cbatch, arrowOffset, orcOffset,
+      return FillStringBatch<LargeStringArray>(type, cbatch, arrowOffset, orcOffset,
                                                length, parray);
     case Type::type::FIXED_SIZE_BINARY:
       return FillFixedSizeBinaryBatch(type, cbatch, arrowOffset, orcOffset, length,
