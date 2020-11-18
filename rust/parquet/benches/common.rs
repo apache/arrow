@@ -33,7 +33,7 @@ macro_rules! gen_random_ints {
       let mut values = Vec::with_capacity(total);
       let mut rng = thread_rng();
       for _ in 0..total {
-        values.push(rng.gen_range::<i32>(0, $limit));
+        values.push(rng.gen_range(0, $limit));
       }
       let bytes = values.len() * ::std::mem::size_of::<i32>();
       (bytes, values)
@@ -61,7 +61,7 @@ pub fn gen_test_strs(total: usize) -> (usize, Vec<ByteArray>) {
   let mut rnd = rand::thread_rng();
   let mut values = Vec::new();
   for _ in 0..total {
-    let idx = rnd.gen_range::<usize>(0, 10);
+    let idx = rnd.gen_range(0, 10);
     values.push(ByteArray::from(words[idx]));
   }
   let bytes = values.iter().fold(0, |acc, w| acc + w.len());
@@ -73,5 +73,5 @@ pub fn col_desc(type_length: i32, primitive_ty: Type) -> ColumnDescriptor {
     .with_length(type_length)
     .build()
     .unwrap();
-  ColumnDescriptor::new(Rc::new(ty), None, 0, 0, ColumnPath::new(vec![]))
+  ColumnDescriptor::new(Rc::new(ty), 0, 0, ColumnPath::new(vec![]))
 }

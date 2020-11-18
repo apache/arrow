@@ -105,7 +105,7 @@ fn bench_decoding<T: DataType>(
   num_values: usize,
   batch_size: usize,
   buffer: ByteBufferPtr,
-  mut decoder: Box<Decoder<T>>,
+  mut decoder: Box<dyn Decoder<T>>,
 )
 {
   bench.bytes = buffer.len() as u64;

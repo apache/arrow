@@ -42,18 +42,18 @@ use parquet::{basic::Compression, compression::*, file::reader::*};
 // filled with random values.
 const TEST_FILE: &str = "10k-v2.parquet";
 
-fn get_rg_reader() -> Box<RowGroupReader> {
+fn get_f_reader() -> SerializedFileReader<File> {
   let mut path_buf = env::current_dir().unwrap();
   path_buf.push("data");
   path_buf.push(TEST_FILE);
   let file = File::open(path_buf.as_path()).unwrap();
-  let f_reader = SerializedFileReader::new(file).unwrap();
-  f_reader.get_row_group(0).unwrap()
+  SerializedFileReader::new(file).unwrap()
 }
 
 fn get_pages_bytes(col_idx: usize) -> Vec<u8> {
   let mut data: Vec<u8> = Vec::new();
-  let rg_reader = get_rg_reader();
+  let f_reader = get_f_reader();
+  let rg_reader = f_reader.get_row_group(0).unwrap();
   let mut pg_reader = rg_reader.get_column_page_reader(col_idx).unwrap();
   loop {
     if let Some(p) = pg_reader.get_next_page().unwrap() {
@@ -98,7 +98,8 @@ macro_rules! decompress {
       }
 
       let mut codec = create_codec($codec).unwrap().unwrap();
-      let rg_reader = get_rg_reader();
+      let f_reader = get_f_reader();
+      let rg_reader = f_reader.get_row_group(0).unwrap();
       bench.bytes = rg_reader.metadata().total_byte_size() as u64;
       bench.iter(|| {
         let mut v = Vec::new();

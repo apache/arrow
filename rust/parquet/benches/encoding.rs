@@ -70,7 +70,7 @@ fn bench_encoding<T: DataType>(
   bench: &mut Bencher,
   bytes: usize,
   values: Vec<T::T>,
-  mut encoder: Box<Encoder<T>>,
+  mut encoder: Box<dyn Encoder<T>>,
 )
 {
   bench.bytes = bytes as u64;
