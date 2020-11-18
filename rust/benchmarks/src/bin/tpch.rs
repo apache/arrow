@@ -19,21 +19,21 @@
 
 use std::path::PathBuf;
 use std::process;
+use std::sync::Arc;
 use std::time::Instant;
 
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
-use datafusion::error::Result;
-use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
-
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::{CsvFile, MemTable, TableProvider};
-use datafusion::physical_plan::csv::CsvReadOptions;
+use datafusion::error::{DataFusionError, Result};
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
+use datafusion::physical_plan::csv::{CsvExec, CsvReadOptions};
+
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "Benchmarks", about = "Apache Arrow Rust Benchmarks.")]
-struct TpchOpt {
+struct BenchmarkOpt {
     /// Query number
     #[structopt(short, long)]
     query: usize,
@@ -67,11 +67,38 @@ struct TpchOpt {
     mem_table: bool,
 }
 
+#[derive(Debug, StructOpt)]
+struct ConvertOpt {
+    /// Path to csv files
+    #[structopt(parse(from_os_str), required = true, short = "i", long = "input")]
+    input_path: PathBuf,
+
+    /// Output path
+    #[structopt(parse(from_os_str), required = true, short = "o", long = "output")]
+    output_path: PathBuf,
+
+    /// Output file format: `csv` or `parquet`
+    #[structopt(short = "f", long = "format")]
+    file_format: String,
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "TPC-H", about = "TPC-H Benchmarks.")]
+enum TpchOpt {
+    Benchmark(BenchmarkOpt),
+    Convert(ConvertOpt),
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opt = TpchOpt::from_args();
-    println!("Running benchmarks with the following options: {:?}", opt);
+    match TpchOpt::from_args() {
+        TpchOpt::Benchmark(opt) => benchmark(opt).await,
+        TpchOpt::Convert(opt) => convert_tbl(opt).await,
+    }
+}
 
+async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
+    println!("Running benchmarks with the following options: {:?}", opt);
     let config = ExecutionConfig::new()
         .with_concurrency(opt.concurrency)
         .with_batch_size(opt.batch_size);
@@ -177,6 +204,33 @@ async fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Resu
     if debug {
         pretty::print_batches(&result)?;
     }
+    Ok(())
+}
+
+async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
+    let schema = lineitem_schema();
+
+    let path = format!("{}/lineitem.tbl", opt.input_path.to_str().unwrap());
+    let options = CsvReadOptions::new()
+        .schema(&schema)
+        .delimiter(b'|')
+        .file_extension(".tbl");
+
+    let ctx = ExecutionContext::new();
+    let csv = Arc::new(CsvExec::try_new(&path, options, None, 4096)?);
+    let output_path = opt.output_path.to_str().unwrap().to_owned();
+
+    match opt.file_format.as_str() {
+        "csv" => ctx.write_csv(csv, output_path).await?,
+        "parquet" => ctx.write_parquet(csv, output_path).await?,
+        other => {
+            return Err(DataFusionError::NotImplemented(format!(
+                "Invalid output format: {}",
+                other
+            )))
+        }
+    }
+
     Ok(())
 }
 
