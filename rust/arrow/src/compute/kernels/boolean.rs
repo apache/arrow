@@ -75,18 +75,62 @@ where
 
 /// Performs `AND` operation on two arrays. If either left or right value is null then the
 /// result is also null.
+/// # Error
+/// This function errors when the arrays have different lengths.
+/// # Example
+/// ```rust
+/// use arrow::array::BooleanArray;
+/// use arrow::error::Result;
+/// use arrow::compute::kernels::boolean::and;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(false), Some(true), None]);
+/// let b = BooleanArray::from(vec![Some(true), Some(true), Some(false)]);
+/// let and_ab = and(&a, &b)?;
+/// assert_eq!(and_ab, BooleanArray::from(vec![Some(false), Some(true), None]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, buffer_bin_and)
 }
 
 /// Performs `OR` operation on two arrays. If either left or right value is null then the
 /// result is also null.
+/// # Error
+/// This function errors when the arrays have different lengths.
+/// # Example
+/// ```rust
+/// use arrow::array::BooleanArray;
+/// use arrow::error::Result;
+/// use arrow::compute::kernels::boolean::or;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(false), Some(true), None]);
+/// let b = BooleanArray::from(vec![Some(true), Some(true), Some(false)]);
+/// let or_ab = or(&a, &b)?;
+/// assert_eq!(or_ab, BooleanArray::from(vec![Some(true), Some(true), None]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, buffer_bin_or)
 }
 
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
+/// # Error
+/// This function never errors. It returns an error for consistency.
+/// # Example
+/// ```rust
+/// use arrow::array::BooleanArray;
+/// use arrow::error::Result;
+/// use arrow::compute::kernels::boolean::not;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(false), Some(true), None]);
+/// let not_a = not(&a)?;
+/// assert_eq!(not_a, BooleanArray::from(vec![Some(true), Some(false), None]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     let left_offset = left.offset();
     let len = left.len();
