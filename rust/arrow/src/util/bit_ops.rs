@@ -363,7 +363,7 @@ mod tests_bit_slices_little_endian {
         let result = chunks.into_native_iter().collect::<Vec<u64>>();
 
         assert_eq!(
-            vec![0b1010_01000000_00100000_00010000_00001000_00000100_00000010_00000001_1111],
+            vec![0b1010_0100_0000_0010_0000_0001_0000_0000_1000_0000_0100_0000_0010_0000_0001_1111],
             result
         );
     }
@@ -387,7 +387,7 @@ mod tests_bit_slices_little_endian {
         let result = chunks.into_native_iter().collect::<Vec<u64>>();
 
         assert_eq!(
-            vec![0b1111_01000000_00100000_00010000_00001000_00000100_00000010_00000001_0000],
+            vec![0b1111_0100_0000_0010_0000_0001_0000_0000_1000_0000_0100_0000_0010_0000_0001_0000],
             result
         );
     }
@@ -419,7 +419,7 @@ mod tests_bit_slices_little_endian {
 
         assert_eq!(63, chunks.remainder_bit_len());
         assert_eq!(
-            0b1000000_00111111_11000000_00111111_11000000_00111111_11000000_00111111,
+            0b100_0000_0011_1111_1100_0000_0011_1111_1100_0000_0011_1111_1100_0000_0011_1111,
             chunks.remainder_bits()
         );
     }
