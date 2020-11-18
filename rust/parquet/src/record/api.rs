@@ -651,10 +651,10 @@ impl Field {
             Field::UInt(n) => Value::Number(serde_json::Number::from(*n)),
             Field::ULong(n) => Value::Number(serde_json::Number::from(*n)),
             Field::Float(n) => serde_json::Number::from_f64(*n as f64)
-                .map(|n| Value::Number(n))
+                .map(Value::Number)
                 .unwrap_or(Value::Null),
             Field::Double(n) => serde_json::Number::from_f64(*n)
-                .map(|n| Value::Number(n))
+                .map(Value::Number)
                 .unwrap_or(Value::Null),
             Field::Decimal(n) => Value::String(convert_decimal_to_string(&n)),
             Field::Str(s) => Value::String(s.to_owned()),
