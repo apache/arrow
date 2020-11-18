@@ -171,7 +171,7 @@ impl<'a> BufferBitSliceMut<'a> {
     }
 
     ///
-    /// Set given bit at the position to a given value
+    /// Sets all bits in this slice to the given value
     #[inline]
     pub fn set_bit_all(&mut self, value: bool) {
         self.bit_slice.set_all(value)
