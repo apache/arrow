@@ -66,6 +66,7 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
   /// \brief IPC writer options, if applicable for the call.
   ipc::IpcWriteOptions write_options;
 
+  /// \brief Metadata for client to add to context.
   std::vector<std::pair<std::string, std::string>> metadata;
 };
 
