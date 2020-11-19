@@ -51,7 +51,9 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # protoc requires libprotoc.so.18 libprotobuf.so.18
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotoc.so.18
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotobuf.so.18
-  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)
+  mkdir -p ${ARROW_HOME}/lib
+  cp lib*.so.18 ${ARROW_HOME}/lib
+  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
   bintray_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"

@@ -155,6 +155,34 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
     Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
 }
 
+pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    let null_bit_buffer = left.data().null_buffer().cloned();
+    let re_pattern = right.replace("%", ".*").replace("_", ".");
+    let re = Regex::new(&re_pattern).map_err(|e| {
+        ArrowError::ComputeError(format!(
+            "Unable to build regex from LIKE pattern: {}",
+            e
+        ))
+    })?;
+
+    let mut result = BooleanBufferBuilder::new(left.len());
+    for i in 0..left.len() {
+        let haystack = left.value(i);
+        result.append(re.is_match(haystack))?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
 pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
     let mut map = HashMap::new();
     if left.len() != right.len() {
@@ -185,6 +213,34 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
             map.get(pat).unwrap()
         };
 
+        result.append(!re.is_match(haystack))?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    let null_bit_buffer = left.data().null_buffer().cloned();
+    let re_pattern = right.replace("%", ".*").replace("_", ".");
+    let re = Regex::new(&re_pattern).map_err(|e| {
+        ArrowError::ComputeError(format!(
+            "Unable to build regex from LIKE pattern: {}",
+            e
+        ))
+    })?;
+
+    let mut result = BooleanBufferBuilder::new(left.len());
+    for i in 0..left.len() {
+        let haystack = left.value(i);
         result.append(!re.is_match(haystack))?;
     }
 
@@ -1081,12 +1137,26 @@ mod tests {
         like_utf8,
         vec![true, true, true, false]
     );
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "%ar%",
+        like_utf8_scalar,
+        vec![true, true, false, false]
+    );
     test_utf8!(
         test_utf8_array_nlike,
         vec!["arrow", "arrow", "arrow", "arrow"],
         vec!["arrow", "ar%", "%ro%", "foo"],
         nlike_utf8,
         vec![false, false, false, true]
+    );
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "%ar%",
+        nlike_utf8_scalar,
+        vec![false, false, true, true]
     );
 
     test_utf8!(
