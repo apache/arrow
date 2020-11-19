@@ -433,6 +433,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
   }
 }
 
+// Test basic cases for chunked array.
 class TestChunkedArraySortIndices : public ::testing::Test {
  protected:
   void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
@@ -465,13 +466,17 @@ TEST_F(TestChunkedArraySortIndices, SortNaN) {
   this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
 }
 
+// Base class for testing against random chunked array.
 template <typename Type>
 class TestChunkedArrayRandomBase : public TestBase {
  protected:
+  // Generates a chunk. This should be implemented in subclasses.
   virtual std::shared_ptr<Array> GenerateArray(int length, double null_probability) = 0;
 
+  // All tests uses this.
   void TestSortIndices(int length) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
+    // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
         for (auto num_chunks : {1, 5, 10}) {
@@ -482,6 +487,7 @@ class TestChunkedArrayRandomBase : public TestBase {
           }
           ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
           ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_array, order));
+          // Concatenates chunks to use existing ValidateSorted() for array.
           ASSERT_OK_AND_ASSIGN(auto concatenated_array, Concatenate(arrays));
           ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(concatenated_array),
                                     *checked_pointer_cast<UInt64Array>(offsets), order);
@@ -535,6 +541,7 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
 TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(4000); }
 
+// Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {
  protected:
   void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
@@ -587,18 +594,24 @@ TEST_F(TestTableSortIndices, SortNaN) {
   this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
+// For random table tests.
 using RandomParam = std::tuple<std::string, double>;
 class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
+  // Compares two records in the same table.
   class Comparator : public TypeVisitor {
    public:
+    // Returns true if the left record is less or equals to the right
+    // record, false otherwise.
+    //
+    // This supports null and NaN.
     bool operator()(const Table& table, const SortOptions& options, uint64_t lhs,
                     uint64_t rhs) {
       lhs_ = lhs;
       rhs_ = rhs;
       for (const auto& sort_key : options.sort_keys) {
         auto chunked_array = table.GetColumnByName(sort_key.name);
-        lhs_array_ = findTargetArray(chunked_array, lhs, lhs_index_);
-        rhs_array_ = findTargetArray(chunked_array, rhs, rhs_index_);
+        lhs_array_ = FindTargetArray(chunked_array, lhs, lhs_index_);
+        rhs_array_ = FindTargetArray(chunked_array, rhs, rhs_index_);
         if (rhs_array_->IsNull(rhs_index_) && lhs_array_->IsNull(lhs_index_)) continue;
         if (rhs_array_->IsNull(rhs_index_)) return true;
         if (lhs_array_->IsNull(lhs_index_)) return false;
@@ -636,7 +649,9 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
 #undef VISIT
 
    private:
-    std::shared_ptr<Array> findTargetArray(std::shared_ptr<ChunkedArray> chunked_array,
+    // Finds the target chunk and index in the target chunk from an
+    // index in chunked array.
+    std::shared_ptr<Array> FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array,
                                            int64_t i, int64_t& chunk_index) {
       int64_t offset = 0;
       for (auto& chunk : chunked_array->chunks()) {
@@ -649,6 +664,11 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       return nullptr;
     }
 
+    // Compares two values in the same chunked array. Values are never
+    // null but may be NaN.
+    //
+    // Returns true if the left value is less or equals to the right
+    // value, false otherwise.
     template <typename Type>
     int CompareType() {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
@@ -681,6 +701,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   };
 
  public:
+  // Validates the sorted indexes are really sorted.
   void Validate(const Table& table, const SortOptions& options, UInt64Array& offsets) {
     ASSERT_OK(offsets.ValidateFull());
     Comparator comparator;
