@@ -263,26 +263,23 @@ async fn upload_data(
         .expect("No response received")
         .expect("Invalid response received");
 
-    tokio::spawn(async move {
-        for (counter, batch) in original_data.iter().enumerate() {
-            let metadata = counter.to_string().into_bytes();
+    for (counter, batch) in original_data.iter().enumerate() {
+        let metadata = counter.to_string().into_bytes();
 
-            let mut batch = FlightData::from(batch);
-            batch.flight_descriptor = Some(descriptor.clone());
-            batch.app_metadata = metadata.clone();
+        let mut batch = FlightData::from(batch);
+        batch.flight_descriptor = Some(descriptor.clone());
+        batch.app_metadata = metadata.clone();
 
-            upload_tx.send(batch).await?;
-            let r = resp
-                .next()
-                .await
-                .expect("No response received")
-                .expect("Invalid response received");
-            assert_eq!(metadata, r.app_metadata);
-        }
+        upload_tx.send(batch).await?;
+        let r = resp
+            .next()
+            .await
+            .expect("No response received")
+            .expect("Invalid response received");
+        assert_eq!(metadata, r.app_metadata);
+    }
 
-        Ok(())
-    })
-    .await?
+    Ok(())
 }
 
 async fn verify_data(
