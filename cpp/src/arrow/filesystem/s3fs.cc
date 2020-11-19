@@ -608,7 +608,7 @@ class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::
 // See https://github.com/aws/aws-sdk-cpp/issues/64 for an alternative but
 // functionally similar recipe.
 Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
-  return [=]() { return new StringViewStream(data, nbytes); };
+  return [=]() { return Aws::New<StringViewStream>("", data, nbytes); };
 }
 
 Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
