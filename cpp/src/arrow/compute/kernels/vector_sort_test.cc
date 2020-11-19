@@ -273,41 +273,43 @@ TYPED_TEST(TestArraySortIndicesKernelForReal, SortReal) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3.4, 2.6, 6.3]", "[1, 0, 2]");
-  this->AssertSortIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0,1,2,3,4,5,6]");
-  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
-  this->AssertSortIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2,0,6,1,5,3,4]");
+  this->AssertSortIndices("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0, 1, 2, 3, 4, 5, 6]");
+  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
+  this->AssertSortIndices("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]");
 
   this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Ascending,
-                          "[1,4,2,5,0,3]");
+                          "[1, 4, 2, 5, 0, 3]");
   this->AssertSortIndices("[null, 1, 3.3, null, 2, 5.3]", SortOrder::Descending,
-                          "[5,2,4,1,0,3]");
+                          "[5, 2, 4, 1, 0, 3]");
 
   this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Ascending,
-                          "[3,4,0,1,2,5]");
+                          "[3, 4, 0, 1, 2, 5]");
   this->AssertSortIndices("[3, 4, NaN, 1, 2, null]", SortOrder::Descending,
-                          "[1,0,4,3,2,5]");
-  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending, "[4,1,3,0,2]");
-  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Descending, "[3,1,4,0,2]");
-  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending, "[1,2,0,3]");
-  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Descending, "[1,2,0,3]");
+                          "[1, 0, 4, 3, 2, 5]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Ascending, "[4, 1, 3, 0, 2]");
+  this->AssertSortIndices("[NaN, 2, NaN, 3, 1]", SortOrder::Descending,
+                          "[3, 1, 4, 0, 2]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Ascending, "[1, 2, 0, 3]");
+  this->AssertSortIndices("[null, NaN, NaN, null]", SortOrder::Descending,
+                          "[1, 2, 0, 3]");
 }
 
 TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
-  this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0,1,2,3,4,5,6]");
-  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6,5,4,3,2,1,0]");
+  this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]");
+  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
 
   this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
-                          "[2,0,6,1,5,3,4]");
+                          "[2, 0, 6, 1, 5, 3, 4]");
   this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
-                          "[3,4,5,1,6,0,2]");
+                          "[3, 4, 5, 1, 6, 0, 2]");
 
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
-                          "[1,4,2,5,0,3]");
+                          "[1, 4, 2, 5, 0, 3]");
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
-                          "[5,2,4,1,0,3]");
+                          "[5, 2, 4, 1, 0, 3]");
 }
 
 TYPED_TEST(TestArraySortIndicesKernelForStrings, SortStrings) {
@@ -333,11 +335,13 @@ class TestArraySortIndicesKernelForInt8 : public TestArraySortIndicesKernel<Arro
 TYPED_TEST_SUITE(TestArraySortIndicesKernelForInt8, Int8Type);
 
 TYPED_TEST(TestArraySortIndicesKernelForUInt8, SortUInt8) {
-  this->AssertSortIndices("[255, null, 0, 255, 10, null, 128, 0]", "[2,7,4,6,0,3,1,5]");
+  this->AssertSortIndices("[255, null, 0, 255, 10, null, 128, 0]",
+                          "[2, 7, 4, 6, 0, 3, 1, 5]");
 }
 
 TYPED_TEST(TestArraySortIndicesKernelForInt8, SortInt8) {
-  this->AssertSortIndices("[null, 10, 127, 0, -128, -128, null]", "[4,5,3,1,2,0,6]");
+  this->AssertSortIndices("[null, 10, 127, 0, -128, -128, null]",
+                          "[4, 5, 3, 1, 2, 0, 6]");
 }
 
 template <typename ArrowType>
