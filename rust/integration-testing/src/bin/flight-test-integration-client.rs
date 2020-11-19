@@ -254,29 +254,31 @@ async fn upload_data(
     schema_flight_data.flight_descriptor = Some(descriptor.clone());
     upload_tx.send(schema_flight_data).await?;
 
-    let resp = client.do_put(Request::new(upload_rx)).await?;
-    let mut resp = resp.into_inner();
-
-    let r = resp
-        .next()
-        .await
-        .expect("No response received")
-        .expect("Invalid response received");
+    let mut upload_rx_container = Some(upload_rx);
+    let mut resp = None;
 
     for (counter, batch) in original_data.iter().enumerate() {
         let metadata = counter.to_string().into_bytes();
 
         let mut batch = FlightData::from(batch);
-        batch.flight_descriptor = Some(descriptor.clone());
         batch.app_metadata = metadata.clone();
 
         upload_tx.send(batch).await?;
-        let r = resp
-            .next()
-            .await
-            .expect("No response received")
-            .expect("Invalid response received");
-        assert_eq!(metadata, r.app_metadata);
+
+        if let Some(upload_rx) = upload_rx_container.take() {
+            let outer = client.do_put(Request::new(upload_rx)).await?;
+            let inner = outer.into_inner();
+            resp = Some(inner);
+        }
+
+        if let Some(inner) = resp.as_mut() {
+            let r = inner
+                .next()
+                .await
+                .expect("No response received")
+                .expect("Invalid response received");
+            assert_eq!(metadata, r.app_metadata);
+        }
     }
 
     Ok(())
