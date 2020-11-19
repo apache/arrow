@@ -12,6 +12,10 @@ import org.apache.arrow.util.AutoCloseables;
 
 import java.io.IOException;
 
+/**
+ * Java server for running integration tests - this is currently setup to run
+ * against the cpp test 'flight-test-integration-client-header-auth'.
+ */
 public class Auth2IntegrationServer {
   private static final int PORT = 31337;
   private static final String USERNAME_1 = "flight1";

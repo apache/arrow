@@ -45,6 +45,7 @@ const std::string BASIC_PREFIX = "Basic ";
 namespace arrow {
 namespace flight {
 
+// TODO: Need to add documentation in this file.
 void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context, 
                                              const std::string& username, 
                                              const std::string& password);
