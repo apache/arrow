@@ -65,11 +65,13 @@ void TestValidCredentials() {
 
   // Authenticate credentials and retreive token.
   std::pair<std::string, std::string> bearer_token = std::make_pair("", "");
-  ABORT_NOT_OK(client->AuthenticateBasicToken(FLAGS_username, FLAGS_password, &bearer_token));
+  ABORT_NOT_OK(
+    client->AuthenticateBasicToken(FLAGS_username, FLAGS_password, &bearer_token));
 
   // Validate token was received.
   if (bearer_token == std::make_pair(std::string(""), std::string(""))) {
-    std::cout << "Testing valid credentials was unsuccessful: Failed to get token from basic authentication." << std::endl;
+    std::cout << "Testing valid credentials was unsuccessful: "
+              << "Failed to get token from basic authentication." << std::endl;
     return;
   }
 
@@ -97,14 +99,16 @@ void TestInvalidCredentials() {
   // Authenticate credentials and retreive token.
   std::pair<std::string, std::string> bearer_token = std::make_pair("", "");
   EXPECT_EQ(arrow::StatusCode::IOError,
-    client->AuthenticateBasicToken(FLAGS_username_invalid, FLAGS_password_invalid, &bearer_token).code());
+    client->AuthenticateBasicToken(
+      FLAGS_username_invalid, FLAGS_password_invalid, &bearer_token).code());
 
   // Validate token was received.
   if (bearer_token != std::make_pair(std::string(""), std::string(""))) {
-    std::cout << "Testing invalid credentials was unsuccessful: Obtained token from basic authentication when using invalid credentials." << std::endl;
-    return;
+    std::cout << "Testing invalid credentials was unsuccessful: "
+              << "Obtained token from basic authentication when using "
+              << "invalid credentials." << std::endl;
   }
-  
+
   std::cout << "Testing invalid credentials was successful." << std::endl;
 }
 
