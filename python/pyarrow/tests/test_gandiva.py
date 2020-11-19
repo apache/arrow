@@ -351,14 +351,14 @@ def test_filter_project():
     filter = gandiva.make_filter(table.schema, filter_condition)
 
     # Build a projector for the expressions.
-    projector = gandiva.make_projector_with_mode(
-        table.schema, [expr], "UINT32", mpool)
+    projector = gandiva.make_projector(
+        table.schema, [expr], mpool, "UINT32")
 
     # Evaluate filter
     selection_vector = filter.evaluate(table.to_batches()[0], mpool)
 
     # Evaluate project
-    r, = projector.evaluate_with_selection(
+    r, = projector.evaluate(
         table.to_batches()[0], selection_vector)
 
     exp = pa.array([1, -21, None], pa.int32())
