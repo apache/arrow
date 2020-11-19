@@ -698,6 +698,8 @@ We provide a simplified memory-efficient layout for the Null data type
 where all values are null. In this case no memory buffers are
 allocated.
 
+.. _dictionary-encoded-layout:
+
 Dictionary-encoded Layout
 -------------------------
 
@@ -1053,7 +1055,7 @@ the dictionaries can be properly interpreted: ::
 
 The dictionary ``id`` in the message metadata can be referenced one or more times
 in the schema, so that dictionaries can even be used for multiple fields. See
-the :doc:`Layout` document for more about the semantics of
+the :ref:`dictionary-encoded-layout` section for more about the semantics of
 dictionary-encoded data.
 
 The dictionary ``isDelta`` flag allows existing dictionaries to be

@@ -519,6 +519,20 @@ class TestConvertMetadata:
             result = table_subset2.to_pandas()
             tm.assert_frame_equal(result, df[['a']].reset_index(drop=True))
 
+    def test_to_pandas_column_subset_multiindex(self):
+        # ARROW-10122
+        df = pd.DataFrame(
+            {"first": list(range(5)),
+             "second": list(range(5)),
+             "value": np.arange(5)}
+        )
+        table = pa.Table.from_pandas(df.set_index(["first", "second"]))
+
+        subset = table.select(["first", "value"])
+        result = subset.to_pandas()
+        expected = df[["first", "value"]].set_index("first")
+        tm.assert_frame_equal(result, expected)
+
     def test_empty_list_metadata(self):
         # Create table with array of empty lists, forced to have type
         # list(string) in pyarrow

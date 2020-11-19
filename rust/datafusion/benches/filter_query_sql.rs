@@ -15,39 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#[macro_use]
-extern crate criterion;
-use criterion::Criterion;
-
-use std::sync::{Arc, Mutex};
-
-use tokio::runtime::Runtime;
-
-extern crate arrow;
-extern crate datafusion;
-
 use arrow::{
     array::{Float32Array, Float64Array},
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
-use datafusion::error::Result;
+use criterion::{criterion_group, criterion_main, Criterion};
+use datafusion::prelude::ExecutionContext;
+use datafusion::{datasource::MemTable, error::Result};
+use futures::executor::block_on;
+use std::sync::Arc;
 
-use datafusion::datasource::MemTable;
-use datafusion::execution::context::ExecutionContext;
-
-fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
-    let rt = Runtime::new().unwrap();
-
+async fn query(ctx: &mut ExecutionContext, sql: &str) {
     // execute the query
-    let df = ctx.lock().unwrap().sql(&sql).unwrap();
-    rt.block_on(df.collect()).unwrap();
+    let df = ctx.sql(&sql).unwrap();
+    let results = df.collect().await.unwrap();
+
+    // display the relation
+    for _batch in results {
+        // println!("num_rows: {}", _batch.num_rows());
+    }
 }
 
-fn create_context(
-    array_len: usize,
-    batch_size: usize,
-) -> Result<Arc<Mutex<ExecutionContext>>> {
+fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContext> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
         Field::new("f32", DataType::Float32, false),
@@ -74,36 +64,26 @@ fn create_context(
     let provider = MemTable::new(schema, vec![batches])?;
     ctx.register_table("t", Box::new(provider));
 
-    Ok(Arc::new(Mutex::new(ctx)))
+    Ok(ctx)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let array_len = 1048576; // 2^20
-    let batch_size = 512; // 2^9
-    let ctx = create_context(array_len, batch_size).unwrap();
-    c.bench_function("sqrt_20_9", |b| {
-        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
-    });
-
-    let array_len = 1048576; // 2^20
+    let array_len = 524_288; // 2^19
     let batch_size = 4096; // 2^12
-    let ctx = create_context(array_len, batch_size).unwrap();
-    c.bench_function("sqrt_20_12", |b| {
-        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
+
+    c.bench_function("filter_array", |b| {
+        let mut ctx = create_context(array_len, batch_size).unwrap();
+        b.iter(|| block_on(query(&mut ctx, "select f32, f64 from t where f32 >= f64")))
     });
 
-    let array_len = 4194304; // 2^22
-    let batch_size = 4096; // 2^12
-    let ctx = create_context(array_len, batch_size).unwrap();
-    c.bench_function("sqrt_22_12", |b| {
-        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
-    });
-
-    let array_len = 4194304; // 2^22
-    let batch_size = 16384; // 2^14
-    let ctx = create_context(array_len, batch_size).unwrap();
-    c.bench_function("sqrt_22_14", |b| {
-        b.iter(|| query(ctx.clone(), "SELECT sqrt(f32) FROM t"))
+    c.bench_function("filter_scalar", |b| {
+        let mut ctx = create_context(array_len, batch_size).unwrap();
+        b.iter(|| {
+            block_on(query(
+                &mut ctx,
+                "select f32, f64 from t where f32 >= 250 and f64 > 250",
+            ))
+        })
     });
 }
 

@@ -50,14 +50,14 @@ parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"
 sqlparser = "0.6.1"
 clap = "2.33"
 rustyline = {version = "6.0", optional = true}
-crossbeam = "0.7"
-paste = "0.1"
+crossbeam = "0.8"
+paste = "^1.0"
 num_cpus = "1.13.0"
 chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
-pin-project-lite= "^0.1.1"
-tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+pin-project-lite= "^0.2.0"
+tokio = { version = "0.3", features = ["macros", "rt", "rt-multi-thread"] }
 
 [dev-dependencies]
 rand = "0.7"
@@ -77,4 +77,8 @@ harness = false
 
 [[bench]]
 name = "math_query_sql"
+harness = false
+
+[[bench]]
+name = "filter_query_sql"
 harness = false
