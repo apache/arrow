@@ -70,8 +70,7 @@ fn infer_field_schema(string: &str) -> DataType {
         return DataType::Utf8;
     }
     // match regex in a particular order
-    let lower = string.to_ascii_lowercase();
-    if lower == "true" || lower == "false" {
+    if string.eq_ignore_ascii_case("true") || string.eq_ignore_ascii_case("false") {
         return DataType::Boolean;
     }
     let skip_minus = if string.starts_with('-') { 1 } else { 0 };
