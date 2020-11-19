@@ -81,9 +81,9 @@ fn infer_field_schema(string: &str) -> DataType {
         (Some(left), Some(right)) if all_digit(left) && all_digit(right) => {
             let no_remainder = parts.next().is_none();
             if no_remainder {
-                return DataType::Float64;
+                DataType::Float64
             } else {
-                return DataType::Utf8;
+                DataType::Utf8
             }
         }
         _ => DataType::Utf8,
