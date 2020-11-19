@@ -229,8 +229,7 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter:
-        Buffered<Skip<Take<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
+    record_iter: Buffered<Skip<Take<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
     /// Current line number
     line_number: usize,
 }
@@ -369,6 +368,24 @@ impl<R: Read> Iterator for Reader<R> {
     }
 }
 
+trait Parser: ArrowPrimitiveType {
+    fn parse(string: &str) -> Option<Self::Native> {
+        string.parse::<Self::Native>().ok()
+    }
+}
+
+impl Parser for BooleanType {
+    fn parse(string: &str) -> Option<bool> {
+        if string.eq_ignore_ascii_case("false") {
+            return Some(false);
+        }
+        if string.eq_ignore_ascii_case("true") {
+            return Some(true);
+        }
+        None
+    }
+}
+
 /// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
 fn parse(
     rows: &[StringRecord],
@@ -387,39 +404,17 @@ fn parse(
             let i = *i;
             let field = &fields[i];
             match field.data_type() {
-                &DataType::Boolean => {
-                    build_primitive_array::<BooleanType>(line_number, rows, i)
-                }
-                &DataType::Int8 => {
-                    build_primitive_array::<Int8Type>(line_number, rows, i)
-                }
-                &DataType::Int16 => {
-                    build_primitive_array::<Int16Type>(line_number, rows, i)
-                }
-                &DataType::Int32 => {
-                    build_primitive_array::<Int32Type>(line_number, rows, i)
-                }
-                &DataType::Int64 => {
-                    build_primitive_array::<Int64Type>(line_number, rows, i)
-                }
-                &DataType::UInt8 => {
-                    build_primitive_array::<UInt8Type>(line_number, rows, i)
-                }
-                &DataType::UInt16 => {
-                    build_primitive_array::<UInt16Type>(line_number, rows, i)
-                }
-                &DataType::UInt32 => {
-                    build_primitive_array::<UInt32Type>(line_number, rows, i)
-                }
-                &DataType::UInt64 => {
-                    build_primitive_array::<UInt64Type>(line_number, rows, i)
-                }
-                &DataType::Float32 => {
-                    build_primitive_array::<Float32Type>(line_number, rows, i)
-                }
-                &DataType::Float64 => {
-                    build_primitive_array::<Float64Type>(line_number, rows, i)
-                }
+                &DataType::Boolean => build_primitive_array::<BooleanType>(line_number, rows, i),
+                &DataType::Int8 => build_primitive_array::<Int8Type>(line_number, rows, i),
+                &DataType::Int16 => build_primitive_array::<Int16Type>(line_number, rows, i),
+                &DataType::Int32 => build_primitive_array::<Int32Type>(line_number, rows, i),
+                &DataType::Int64 => build_primitive_array::<Int64Type>(line_number, rows, i),
+                &DataType::UInt8 => build_primitive_array::<UInt8Type>(line_number, rows, i),
+                &DataType::UInt16 => build_primitive_array::<UInt16Type>(line_number, rows, i),
+                &DataType::UInt32 => build_primitive_array::<UInt32Type>(line_number, rows, i),
+                &DataType::UInt64 => build_primitive_array::<UInt64Type>(line_number, rows, i),
+                &DataType::Float32 => build_primitive_array::<Float32Type>(line_number, rows, i),
+                &DataType::Float64 => build_primitive_array::<Float64Type>(line_number, rows, i),
                 &DataType::Utf8 => {
                     let mut builder = StringBuilder::new(rows.len());
                     for row in rows.iter() {
@@ -438,16 +433,46 @@ fn parse(
         })
         .collect();
 
-    let projected_fields: Vec<Field> =
-        projection.iter().map(|i| fields[*i].clone()).collect();
+    let projected_fields: Vec<Field> = projection.iter().map(|i| fields[*i].clone()).collect();
 
     let projected_schema = Arc::new(Schema::new(projected_fields));
 
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
+impl Parser for Float32Type {
+    fn parse(string: &str) -> Option<f32> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+impl Parser for Float64Type {
+    fn parse(string: &str) -> Option<f64> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+
+impl Parser for UInt64Type {}
+
+impl Parser for UInt32Type {}
+
+impl Parser for UInt16Type {}
+
+impl Parser for UInt8Type {}
+
+impl Parser for Int64Type {}
+
+impl Parser for Int32Type {}
+
+impl Parser for Int16Type {}
+
+impl Parser for Int8Type {}
+
+fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
+    T::parse(string)
+}
+
 // parses a specific column (col_idx) into an Arrow Array.
-fn build_primitive_array<T: ArrowPrimitiveType>(
+fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
     line_number: usize,
     rows: &[StringRecord],
     col_idx: usize,
@@ -460,14 +485,11 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if T::DATA_TYPE == DataType::Boolean {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
+
+                    let parsed = parse_item::<T>(s);
                     match parsed {
-                        Ok(e) => Ok(Some(e)),
-                        Err(_) => Err(ArrowError::ParseError(format!(
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
                             // TODO: we should surface the underlying error here.
                             "Error while parsing value {} for column {} at line {}",
                             s,
@@ -683,8 +705,7 @@ mod tests {
             Field::new("lng", DataType::Float64, false),
         ]);
 
-        let file_with_headers =
-            File::open("test/data/uk_cities_with_headers.csv").unwrap();
+        let file_with_headers = File::open("test/data/uk_cities_with_headers.csv").unwrap();
         let file_without_headers = File::open("test/data/uk_cities.csv").unwrap();
         let both_files = file_with_headers
             .chain(Cursor::new("\n".to_string()))
@@ -888,7 +909,7 @@ mod tests {
                     format!("{:?}", e)
                 ),
                 Ok(_) => panic!("should have failed"),
-            }
+            },
             None => panic!("should have failed"),
         }
     }
