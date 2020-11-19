@@ -76,11 +76,10 @@ fn infer_field_schema(string: &str) -> DataType {
     }
     let skip_minus = if string.starts_with('-') { 1 } else { 0 };
     let mut parts = string[skip_minus..].splitn(3, '.');
-    let (left, right) = (parts.next(), parts.next());
 
-    match (left, right) {
-        (Some(l), None) if all_digit(l) => DataType::Int64,
-        (Some(l), Some(r)) if all_digit(l) && all_digit(r) => {
+    match (parts.next(), parts.next()) {
+        (Some(left), None) if all_digit(left) => DataType::Int64,
+        (Some(left), Some(right)) if all_digit(left) && all_digit(right) => {
             let no_remainder = parts.next().is_none();
             if no_remainder {
                 return DataType::Float64;
