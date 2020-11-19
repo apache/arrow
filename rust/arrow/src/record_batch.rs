@@ -100,7 +100,7 @@ impl RecordBatch {
                 ));
             }
             // list types can have different names, but we only need the data types to be the same
-            if column.data_type().cmp_type(schema.field(i).data_type()) {
+            if !column.data_type().cmp_type(schema.field(i).data_type()) {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}",
                     schema.field(i).data_type(),
