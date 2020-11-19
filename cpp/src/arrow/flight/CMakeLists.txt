@@ -123,6 +123,7 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
+    client_header_auth_middleware.cc
     types.cc)
 
 add_arrow_lib(arrow_flight
@@ -213,10 +214,16 @@ if(ARROW_BUILD_INTEGRATION)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::gtest)
 
+  add_executable(flight-test-integration-client-header-auth test_integration_client_header_auth.cc)
+  target_link_libraries(flight-test-integration-client-header-auth ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
+
   add_dependencies(arrow_flight flight-test-integration-client
-                   flight-test-integration-server)
+                   flight-test-integration-server
+                   flight-test-integration-client-header-auth)
   add_dependencies(arrow-integration flight-test-integration-client
-                   flight-test-integration-server)
+                   flight-test-integration-server
+                   flight-test-integration-client-header-auth)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
