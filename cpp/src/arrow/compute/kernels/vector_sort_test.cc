@@ -20,8 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -372,8 +372,6 @@ TYPED_TEST(TestArraySortIndicesKernelRandom, SortRandomValues) {
   Random<TypeParam> rand(0x5487655);
   int times = 5;
   int length = 1000;
-  times = 1;
-  length = 10;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
@@ -431,6 +429,108 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
   }
 }
 
+class TestChunkedArraySortIndices : public ::testing::Test {
+ protected:
+  void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
+                         SortOrder order, const std::shared_ptr<Array> expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*chunked_array, order));
+    AssertArraysEqual(*expected, *actual);
+  }
+
+  void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
+                         SortOrder order, const std::string expected) {
+    AssertSortIndices(chunked_array, order, ArrayFromJSON(uint64(), expected));
+  }
+};
+
+TEST_F(TestChunkedArraySortIndices, SortNull) {
+  auto chunked_array = ChunkedArrayFromJSON(uint8(), {
+                                                         "[null, 1]",
+                                                         "[3, null, 2]",
+                                                         "[1]",
+                                                     });
+  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 5, 4, 2, 0, 3]");
+}
+
+TEST_F(TestChunkedArraySortIndices, SortNaN) {
+  auto chunked_array = ChunkedArrayFromJSON(float32(), {
+                                                           "[null, 1]",
+                                                           "[3, null, NaN]",
+                                                           "[NaN, 1]",
+                                                       });
+  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
+}
+
+template <typename Type>
+class TestChunkedArrayRandomBase : public TestBase {
+ protected:
+  virtual std::shared_ptr<Array> GenerateArray(int length, double null_probability) = 0;
+
+  void TestSortIndices(int length) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+      for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
+        for (auto num_chunks : {1, 5, 10}) {
+          std::vector<std::shared_ptr<Array>> arrays;
+          for (int i = 0; i < num_chunks; ++i) {
+            auto array = this->GenerateArray(length, null_probability);
+            arrays.push_back(array);
+          }
+          ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
+          ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_array, order));
+          ASSERT_OK_AND_ASSIGN(auto concatenated_array, Concatenate(arrays));
+          ValidateSorted<ArrayType>(*checked_pointer_cast<ArrayType>(concatenated_array),
+                                    *checked_pointer_cast<UInt64Array>(offsets), order);
+        }
+      }
+    }
+  }
+};
+
+// Long array with big value range: std::stable_sort
+template <typename Type>
+class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
+ public:
+  void SetUp() { this->rand_.reset(new Random<Type>(0x5487655)); }
+
+  void TearDown() { this->rand_.release(); }
+
+ protected:
+  std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
+    return rand_->Generate(length, null_probability);
+  }
+
+ private:
+  std::unique_ptr<Random<Type>> rand_;
+};
+TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
+TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(4000); }
+
+// Long array with small value range: counting sort
+// - length >= 1024(CountCompareSorter::countsort_min_len_)
+// - range  <= 4096(CountCompareSorter::countsort_max_range_)
+template <typename Type>
+class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
+ public:
+  void SetUp() {
+    range_ = 2000;
+    rand_.reset(new RandomRange<Type>(0x5487655));
+  }
+
+  void TearDown() { rand_.release(); }
+
+ protected:
+  std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
+    return rand_->Generate(length, range_, null_probability);
+  }
+
+ private:
+  int range_;
+  std::unique_ptr<RandomRange<Type>> rand_;
+};
+TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
+TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(4000); }
+
 class TestTableSortIndices : public ::testing::Test {
  protected:
   void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
@@ -474,13 +574,13 @@ TEST_F(TestTableSortIndices, SortNaN) {
                               "{\"a\": 3,    \"b\": null},"
                               "{\"a\": null, \"b\": null},"
                               "{\"a\": NaN,  \"b\": null},"
-                              "{\"a\": NaN,  \"b\": 5},"
                               "{\"a\": NaN,  \"b\": NaN},"
+                              "{\"a\": NaN,  \"b\": 5},"
                               "{\"a\": 1,    \"b\": 5}"
                               "]"});
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  this->AssertSortIndices(table, options, "[7, 1, 2, 5, 6, 4, 0, 3]");
+  this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
 using RandomParam = std::tuple<std::string, double>;
@@ -622,7 +722,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   auto table = Table::Make(schema(fields), columns, length);
   std::default_random_engine engine(seed);
   std::uniform_int_distribution<> distribution(0);
-  auto n_sort_keys = 2;
+  auto n_sort_keys = 5;
   std::vector<SortKey> sort_keys;
   auto first_sort_key_order =
       (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;

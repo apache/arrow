@@ -84,16 +84,13 @@ struct TableSortIndicesArgs {
 
   // Extract args
   explicit TableSortIndicesArgs(benchmark::State& state)
-    : num_records(state.range(0)),
-      null_proportion(ComputeNullProportion(state.range(1))),
-      num_columns(state.range(2)),
-      num_chunks(state.range(3)),
-      state_(state) {
-  }
+      : num_records(state.range(0)),
+        null_proportion(ComputeNullProportion(state.range(1))),
+        num_columns(state.range(2)),
+        num_chunks(state.range(3)),
+        state_(state) {}
 
-  ~TableSortIndicesArgs() {
-    state_.SetItemsProcessed(state_.iterations() * num_records);
-  }
+  ~TableSortIndicesArgs() { state_.SetItemsProcessed(state_.iterations() * num_records); }
 
  private:
   double ComputeNullProportion(int64_t inverse_null_proportion) {
@@ -121,15 +118,15 @@ static void TableSortIndicesInt64(benchmark::State& state, int64_t min, int64_t 
     sort_keys.emplace_back(name, order);
     std::vector<std::shared_ptr<Array>> arrays;
     if ((args.num_records % args.num_chunks) != 0) {
-      Status::Invalid("The number of chunks (", args.num_chunks, ") must be "
-                      "a multiple of the number of records (", args.num_records, ")").Abort();
+      Status::Invalid("The number of chunks (", args.num_chunks,
+                      ") must be "
+                      "a multiple of the number of records (",
+                      args.num_records, ")")
+          .Abort();
     }
     auto num_records_in_array = args.num_records / args.num_chunks;
     for (int64_t j = 0; j < args.num_chunks; ++j) {
-      arrays.push_back(rand.Int64(num_records_in_array,
-                                  min,
-                                  max,
-                                  args.null_proportion));
+      arrays.push_back(rand.Int64(num_records_in_array, min, max, args.null_proportion));
     }
     ASSIGN_OR_ABORT(auto chunked_array, ChunkedArray::Make(arrays, int64()));
     columns.push_back(chunked_array);
@@ -145,8 +142,7 @@ static void TableSortIndicesInt64Narrow(benchmark::State& state) {
 }
 
 static void TableSortIndicesInt64Wide(benchmark::State& state) {
-  TableSortIndicesInt64(state,
-                        std::numeric_limits<int64_t>::min(),
+  TableSortIndicesInt64(state, std::numeric_limits<int64_t>::min(),
                         std::numeric_limits<int64_t>::max());
 }
 
@@ -166,21 +162,21 @@ BENCHMARK(ArraySortIndicesInt64Wide)
 
 BENCHMARK(TableSortIndicesInt64Narrow)
     ->ArgsProduct({
-        {1 << 20},     // the number of records
-        {100, 0},      // inverse null proportion
-        {16, 8, 2, 1}, // the number of columns
-        {32, 4, 1},    // the number of chunks
-      })
+        {1 << 20},      // the number of records
+        {100, 0},       // inverse null proportion
+        {16, 8, 2, 1},  // the number of columns
+        {32, 4, 1},     // the number of chunks
+    })
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(TableSortIndicesInt64Wide)
     ->ArgsProduct({
-        {1 << 20},     // the number of records
-        {100, 0},      // inverse null proportion
-        {16, 8, 2, 1}, // the number of columns
-        {32, 4, 1},    // the number of chunks
-      })
+        {1 << 20},      // the number of records
+        {100, 0},       // inverse null proportion
+        {16, 8, 2, 1},  // the number of columns
+        {32, 4, 1},     // the number of chunks
+    })
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 

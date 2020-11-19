@@ -185,18 +185,40 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 ///
 /// Perform an indirect sort of array. The output array will contain
 /// indices that would sort an array, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the output.
+/// as input. Nulls will be stably partitioned to the end of the output
+/// regardless of order.
 ///
-/// For example given values = [null, 1, 3.3, null, 2, 5.3] and order
+/// For example given array = [null, 1, 3.3, null, 2, 5.3] and order
 /// = SortOrder::DESCENDING, the output will be [5, 2, 4, 1, 0,
 /// 3].
 ///
-/// \param[in] values array to sort
+/// \param[in] array array to sort
 /// \param[in] order ascending or descending
 /// \param[in] ctx the function execution context, optional
 /// \return offsets indices that would sort an array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortIndices(const Array& values,
+Result<std::shared_ptr<Array>> SortIndices(const Array& array,
+                                           SortOrder order = SortOrder::Ascending,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Returns the indices that would sort a chunked array in the
+/// specified order.
+///
+/// Perform an indirect sort of chunked array. The output array will
+/// contain indices that would sort a chunked array, which would be
+/// the same length as input. Nulls will be stably partitioned to the
+/// end of the output regardless of order.
+///
+/// For example given chunked_array = [[null, 1], [3.3], [null, 2,
+/// 5.3]] and order = SortOrder::DESCENDING, the output will be [5, 2,
+/// 4, 1, 0, 3].
+///
+/// \param[in] chunked_array chunked array to sort
+/// \param[in] order ascending or descending
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
@@ -209,8 +231,8 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values,
 /// regardless of order.
 ///
 /// For example given table = {
-/// "column1": [null, 1,    3, null, 2, 1],
-/// "column2": [   5, 3, null, null, 5, 5],
+/// "column1": [[null,   1], [   3, null, 2, 1]],
+/// "column2": [[   5], [3,   null, null, 5, 5]],
 /// } and options = {
 /// {"column1", SortOrder::Ascending},
 /// {"column2", SortOrder::Descending},
