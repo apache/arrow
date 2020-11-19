@@ -143,6 +143,7 @@
     clippy::type_complexity
 )]
 
+mod arch;
 pub mod array;
 pub mod bitmap;
 pub mod buffer;

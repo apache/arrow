@@ -28,7 +28,7 @@ fn create_buffer(size: usize) -> Buffer {
     let mut result = MutableBuffer::new(size).with_bitset(size, false);
 
     for i in 0..size {
-        result.data_mut()[i] = 0b01010101;
+        result.data_mut()[i] = 0b01010101 << i << (i % 4);
     }
 
     result.freeze()
@@ -38,11 +38,20 @@ fn bench_buffer_and(left: &Buffer, right: &Buffer) {
     criterion::black_box((left & right).unwrap());
 }
 
+fn bench_buffer_or(left: &Buffer, right: &Buffer) {
+    criterion::black_box((left | right).unwrap());
+}
+
 fn bit_ops_benchmark(c: &mut Criterion) {
     let left = create_buffer(512 * 10);
     let right = create_buffer(512 * 10);
+
     c.bench_function("buffer_bit_ops and", |b| {
         b.iter(|| bench_buffer_and(&left, &right))
+    });
+
+    c.bench_function("buffer_bit_ops or", |b| {
+        b.iter(|| bench_buffer_or(&left, &right))
     });
 }
 
