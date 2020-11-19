@@ -337,7 +337,7 @@ mod tests {
             None,
             0,
             vec![offsets.data_ref().buffers()[0].clone()],
-            vec![child_data_ref.clone()],
+            vec![child_data_ref],
         ));
 
         let list_array = Arc::new(ListArray::from(array_data));
