@@ -630,10 +630,10 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     Status status() const { return status_; }
 
 #define VISIT(TYPE)                               \
-    Status Visit(const TYPE##Type& type) override {     \
-      compared_ = CompareType<TYPE##Type>();            \
-      return Status::OK();                              \
-    }
+  Status Visit(const TYPE##Type& type) override { \
+    compared_ = CompareType<TYPE##Type>();        \
+    return Status::OK();                          \
+  }
 
     VISIT(Int8)
     VISIT(Int16)
@@ -652,8 +652,8 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
    private:
     // Finds the target chunk and index in the target chunk from an
     // index in chunked array.
-    const Array* FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array,
-                                           int64_t i, int64_t& chunk_index) {
+    const Array* FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array, int64_t i,
+                                 int64_t& chunk_index) {
       int64_t offset = 0;
       for (auto& chunk : chunked_array->chunks()) {
         if (i < offset + chunk->length()) {
