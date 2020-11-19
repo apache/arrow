@@ -1638,7 +1638,7 @@ impl PhysicalExpr for IsNullExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
-                arrow::compute::is_null(&array)?,
+                arrow::compute::is_null(array.as_ref())?,
             ))),
             ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
                 ScalarValue::Boolean(Some(scalar.is_null())),
@@ -1683,7 +1683,7 @@ impl PhysicalExpr for IsNotNullExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
-                arrow::compute::is_not_null(&array)?,
+                arrow::compute::is_not_null(array.as_ref())?,
             ))),
             ColumnarValue::Scalar(scalar) => Ok(ColumnarValue::Scalar(
                 ScalarValue::Boolean(Some(!scalar.is_null())),
