@@ -252,7 +252,6 @@ async fn upload_data(
 
     let mut schema_flight_data = FlightData::from(&*schema);
     schema_flight_data.flight_descriptor = Some(descriptor.clone());
-    schema_flight_data.app_metadata = "hello".as_bytes().to_vec();
     upload_tx.send(schema_flight_data).await?;
 
     let resp = client.do_put(Request::new(upload_rx)).await?;
@@ -263,8 +262,6 @@ async fn upload_data(
         .await
         .expect("No response received")
         .expect("Invalid response received");
-
-    assert_eq!(r.app_metadata, "hello".as_bytes());
 
     tokio::spawn(async move {
         for (counter, batch) in original_data.iter().enumerate() {
