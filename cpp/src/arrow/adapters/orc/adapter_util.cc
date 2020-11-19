@@ -469,7 +469,7 @@ Status FillStringBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   return Status::OK();
 }
 
-template <class array_type>
+template <class array_type, class offset_type>
 Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
                        int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
                        Array* parray) {
@@ -484,12 +484,12 @@ Status FillBinaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
       batch->notNull[orcOffset] = false;
     } else {
       batch->notNull[orcOffset] = true;
-      std::string dataString = array->GetString(arrowOffset);
-      int dataStringLength = dataString.length();
+      offset_type dataLength = 0;
+      const uint8_t* data = array->GetValue(arrowOffset, &dataLength);
       if (batch->data[orcOffset]) delete batch->data[orcOffset];
-      batch->data[orcOffset] = new char[dataStringLength];  // Include null
-      memcpy(batch->data[orcOffset], dataString.c_str(), dataStringLength);
-      batch->length[orcOffset] = dataStringLength;
+      batch->data[orcOffset] = new char[dataLength];  // Do not include null
+      memcpy(batch->data[orcOffset], data, dataLength);
+      batch->length[orcOffset] = dataLength;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -511,11 +511,11 @@ Status FillFixedSizeBinaryBatch(const DataType* type, liborc::ColumnVectorBatch*
       batch->notNull[orcOffset] = false;
     } else {
       batch->notNull[orcOffset] = true;
-      std::string dataString = array->GetString(arrowOffset);
+      const uint8_t* data = array->GetValue(arrowOffset);
       if (batch->data[orcOffset]) delete batch->data[orcOffset];
-      batch->data[orcOffset] = new char[byteWidth];
-      memcpy(batch->data[orcOffset], array->GetString(arrowOffset).c_str(), byteWidth);
-      batch->length[orcOffset] = static_cast<int64_t>(byteWidth);
+      batch->data[orcOffset] = new char[byteWidth];  // Do not include null
+      memcpy(batch->data[orcOffset], data, byteWidth);
+      batch->length[orcOffset] = byteWidth;
     }
   }
   batch->numElements += orcOffset - initORCOffset;
@@ -725,11 +725,10 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
 //   int64_t arrowLength = array->length();
 //   int32_t elementLength = array->value_length();  // Fixed length of each subarray
 //   if (!arrowLength) return Status::OK();
-//   int64_t arrowEnd = arrowOffset + arrowLength;
 //   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
 //   if (orcOffset == 0) batch->offsets[0] = 0;
 //   if (array->null_count()) batch->hasNulls = true;
-//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+//   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
 //     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
 //     if (array->IsNull(arrowOffset)) {
 //       batch->notNull[orcOffset] = false;
@@ -785,11 +784,11 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
       return FillNumericBatch<NumericArray<arrow::DoubleType>, liborc::DoubleVectorBatch>(
           type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::BINARY:
-      return FillBinaryBatch<BinaryArray>(type, cbatch, arrowOffset, orcOffset, length,
-                                          parray);
+      return FillBinaryBatch<BinaryArray, int32_t>(type, cbatch, arrowOffset, orcOffset,
+                                                   length, parray);
     case Type::type::LARGE_BINARY:
-      return FillBinaryBatch<LargeBinaryArray>(type, cbatch, arrowOffset, orcOffset,
-                                               length, parray);
+      return FillBinaryBatch<LargeBinaryArray, int64_t>(type, cbatch, arrowOffset,
+                                                        orcOffset, length, parray);
     case Type::type::STRING:
       return FillStringBatch<StringArray>(type, cbatch, arrowOffset, orcOffset, length,
                                           parray);

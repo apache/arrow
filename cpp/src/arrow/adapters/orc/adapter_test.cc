@@ -3742,11 +3742,11 @@ TEST(TestAdapterWriteBinary, writeBinaryEmpty) {
 }
 TEST(TestAdapterWriteBinary, writeBinaryNoNulls) {
   BinaryBuilder builder;
-  char a[] = "\xf4", b[] = "\x22\x0e", c[] = "", d[] = "\xff\x66\xbf\x5b";
-  (void)(builder.Append(a));
-  (void)(builder.Append(b));
-  (void)(builder.Append(c));
-  (void)(builder.Append(d));
+  char a[] = "\x00", b[] = "\x00\x0e", c[] = "", d[] = "\xff\x00\xbf\x5b";
+  (void)(builder.Append(a, 1));
+  (void)(builder.Append(b, 2));
+  (void)(builder.Append(c, 0));
+  (void)(builder.Append(d, 4));
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
@@ -3770,10 +3770,13 @@ TEST(TestAdapterWriteBinary, writeBinaryNoNulls) {
   }
   EXPECT_EQ(x->numElements, 4);
   EXPECT_FALSE(x->hasNulls);
-  EXPECT_STREQ(x->data[0], a);
-  EXPECT_STREQ(x->data[1], b);
-  EXPECT_STREQ(x->data[2], c);
-  EXPECT_STREQ(x->data[3], d);
+  EXPECT_EQ(x->data[0][0], '\x00');
+  EXPECT_EQ(x->data[1][0], '\x00');
+  EXPECT_EQ(x->data[1][1], '\x0e');
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\x00');
+  EXPECT_EQ(x->data[3][2], '\xbf');
+  EXPECT_EQ(x->data[3][3], '\x5b');
   EXPECT_EQ(x->length[0], 1);
   EXPECT_EQ(x->length[1], 2);
   EXPECT_EQ(x->length[2], 0);
@@ -3823,9 +3826,9 @@ TEST(TestAdapterWriteBinary, writeBinaryMixed) {
   BinaryBuilder builder;
   char a[] = "", b[] = "\xff\xfe";
   (void)(builder.AppendNull());
-  (void)(builder.Append(a));
+  (void)(builder.Append(a, 0));
   (void)(builder.AppendNull());
-  (void)(builder.Append(b));
+  (void)(builder.Append(b, 2));
   (void)(builder.AppendNull());
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
@@ -3850,8 +3853,8 @@ TEST(TestAdapterWriteBinary, writeBinaryMixed) {
   }
   EXPECT_EQ(x->numElements, 5);
   EXPECT_TRUE(x->hasNulls);
-  EXPECT_STREQ(x->data[1], a);
-  EXPECT_STREQ(x->data[3], b);
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\xfe');
   EXPECT_EQ(x->length[1], 0);
   EXPECT_EQ(x->length[3], 2);
   EXPECT_EQ(x->notNull[0], 0);
@@ -3861,6 +3864,177 @@ TEST(TestAdapterWriteBinary, writeBinaryMixed) {
   EXPECT_EQ(x->notNull[4], 0);
   EXPECT_EQ(arrowOffset, 5);
   EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeBinaryChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av, binary());
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeBinaryChunkedMixed) {
+  BinaryBuilder builder0, builder1, builder2, builder3, builder4;
+  char a[] = "", b[] = "\x00\xfe";
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(a, 0));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(b, 2));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[3][0], '\x00');
+  EXPECT_EQ(x->data[3][1], '\xfe');
+  EXPECT_EQ(x->length[1], 0);
+  EXPECT_EQ(x->length[3], 2);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeBinaryChunkedMultibatch) {
+  uint64_t totalLength = 100;
+  BinaryBuilder builder0, builder1, builder2, builder3, builder4;
+  char a[2];
+  for (char i = 0; i < 50; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder1.Append(a, 2));
+    } else
+      (void)(builder1.AppendNull());
+  }
+  for (char i = 50; i < 100; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder3.Append(a, 2));
+    } else
+      (void)(builder3.AppendNull());
+  }
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 29;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  uint64_t resultOffset = 0;
+  while (resultOffset < totalLength - batchSize) {
+    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                         batchSize, carray.get());
+    if (!st.ok()) {
+      FAIL() << "ORC ColumnBatch not successfully filled";
+    }
+    writer->add(*batch);
+    EXPECT_EQ(x->numElements, batchSize);
+    EXPECT_TRUE(x->hasNulls);
+    for (uint64_t i = 0; i < batchSize; i++) {
+      if ((i + resultOffset) % 2) {
+        a[0] = i + resultOffset;
+        a[1] = i + resultOffset;
+        EXPECT_TRUE(x->notNull[i]);
+        EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+        EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+        EXPECT_EQ(x->length[i], 2);
+      } else
+        EXPECT_FALSE(x->notNull[i]);
+    }
+    resultOffset = resultOffset + batchSize;
+    batch->clear();
+  }
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  uint64_t lastBatchSize = totalLength - resultOffset;
+  EXPECT_EQ(x->numElements, lastBatchSize);
+  EXPECT_TRUE(x->hasNulls);
+  for (uint64_t i = 0; i < lastBatchSize; i++) {
+    if ((i + resultOffset) % 2) {
+      a[0] = i + resultOffset;
+      a[1] = i + resultOffset;
+      EXPECT_TRUE(x->notNull[i]);
+      EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+      EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+      EXPECT_EQ(x->length[i], 2);
+    } else
+      EXPECT_FALSE(x->notNull[i]);
+  }
   writer->add(*batch);
   writer->close();
 }
@@ -3898,11 +4072,11 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryEmpty) {
 }
 TEST(TestAdapterWriteBinary, writeLargeBinaryNoNulls) {
   LargeBinaryBuilder builder;
-  char a[] = "\xf4", b[] = "\x22\x0e", c[] = "", d[] = "\xff\x66\xbf\x5b";
-  (void)(builder.Append(a));
-  (void)(builder.Append(b));
-  (void)(builder.Append(c));
-  (void)(builder.Append(d));
+  char a[] = "\x00", b[] = "\x00\x0e", c[] = "", d[] = "\xff\x00\xbf\x5b";
+  (void)(builder.Append(a, 1));
+  (void)(builder.Append(b, 2));
+  (void)(builder.Append(c, 0));
+  (void)(builder.Append(d, 4));
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
@@ -3926,10 +4100,13 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryNoNulls) {
   }
   EXPECT_EQ(x->numElements, 4);
   EXPECT_FALSE(x->hasNulls);
-  EXPECT_STREQ(x->data[0], a);
-  EXPECT_STREQ(x->data[1], b);
-  EXPECT_STREQ(x->data[2], c);
-  EXPECT_STREQ(x->data[3], d);
+  EXPECT_EQ(x->data[0][0], '\x00');
+  EXPECT_EQ(x->data[1][0], '\x00');
+  EXPECT_EQ(x->data[1][1], '\x0e');
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\x00');
+  EXPECT_EQ(x->data[3][2], '\xbf');
+  EXPECT_EQ(x->data[3][3], '\x5b');
   EXPECT_EQ(x->length[0], 1);
   EXPECT_EQ(x->length[1], 2);
   EXPECT_EQ(x->length[2], 0);
@@ -3979,9 +4156,9 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
   LargeBinaryBuilder builder;
   char a[] = "", b[] = "\xff\xfe";
   (void)(builder.AppendNull());
-  (void)(builder.Append(a));
+  (void)(builder.Append(a, 0));
   (void)(builder.AppendNull());
-  (void)(builder.Append(b));
+  (void)(builder.Append(b, 2));
   (void)(builder.AppendNull());
   std::shared_ptr<Array> array;
   (void)(builder.Finish(&array));
@@ -4006,8 +4183,8 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
   }
   EXPECT_EQ(x->numElements, 5);
   EXPECT_TRUE(x->hasNulls);
-  EXPECT_STREQ(x->data[1], a);
-  EXPECT_STREQ(x->data[3], b);
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\xfe');
   EXPECT_EQ(x->length[1], 0);
   EXPECT_EQ(x->length[3], 2);
   EXPECT_EQ(x->notNull[0], 0);
@@ -4017,6 +4194,178 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryMixed) {
   EXPECT_EQ(x->notNull[4], 0);
   EXPECT_EQ(arrowOffset, 5);
   EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, large_binary());
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = large_binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedMixed) {
+  LargeBinaryBuilder builder0, builder1, builder2, builder3, builder4;
+  char a[] = "", b[] = "\x00\xfe";
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(a, 0));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(b, 2));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = large_binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[3][0], '\x00');
+  EXPECT_EQ(x->data[3][1], '\xfe');
+  EXPECT_EQ(x->length[1], 0);
+  EXPECT_EQ(x->length[3], 2);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedMultibatch) {
+  uint64_t totalLength = 100;
+  LargeBinaryBuilder builder0, builder1, builder2, builder3, builder4;
+  char a[2];
+  for (char i = 0; i < 50; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder1.Append(a, 2));
+    } else
+      (void)(builder1.AppendNull());
+  }
+  for (char i = 50; i < 100; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder3.Append(a, 2));
+    } else
+      (void)(builder3.AppendNull());
+  }
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 29;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = large_binary().get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  uint64_t resultOffset = 0;
+  while (resultOffset < totalLength - batchSize) {
+    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                         batchSize, carray.get());
+    if (!st.ok()) {
+      FAIL() << "ORC ColumnBatch not successfully filled";
+    }
+    writer->add(*batch);
+    EXPECT_EQ(x->numElements, batchSize);
+    EXPECT_TRUE(x->hasNulls);
+    for (uint64_t i = 0; i < batchSize; i++) {
+      if ((i + resultOffset) % 2) {
+        a[0] = i + resultOffset;
+        a[1] = i + resultOffset;
+        EXPECT_TRUE(x->notNull[i]);
+        EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+        EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+        EXPECT_EQ(x->length[i], 2);
+      } else
+        EXPECT_FALSE(x->notNull[i]);
+    }
+    resultOffset = resultOffset + batchSize;
+    batch->clear();
+  }
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  uint64_t lastBatchSize = totalLength - resultOffset;
+  EXPECT_EQ(x->numElements, lastBatchSize);
+  EXPECT_TRUE(x->hasNulls);
+  for (uint64_t i = 0; i < lastBatchSize; i++) {
+    if ((i + resultOffset) % 2) {
+      a[0] = i + resultOffset;
+      a[1] = i + resultOffset;
+      EXPECT_TRUE(x->notNull[i]);
+      EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+      EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+      EXPECT_EQ(x->length[i], 2);
+    } else
+      EXPECT_FALSE(x->notNull[i]);
+  }
   writer->add(*batch);
   writer->close();
 }
@@ -4202,8 +4551,8 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroAllNulls) {
 }
 TEST(TestAdapterWriteBinary, writeFixedSizeBinaryNoNulls) {
   FixedSizeBinaryBuilder builder(fixed_size_binary(4));
-  char a[] = "\xf4\xd2\x21\x39", b[] = "\x22\x0e\x09\xaa", c[] = "\x34\x01\x43\x42",
-       d[] = "\xff\x66\xbf\x5b";
+  char a[] = "\xf4\x00\x21\x39", b[] = "\x22\x0e\x00\xaa", c[] = "\x00\x01\x43\x42",
+       d[] = "\xff\x66\xbf\x00";
   (void)(builder.Append(a));
   (void)(builder.Append(b));
   (void)(builder.Append(c));
@@ -4231,10 +4580,22 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryNoNulls) {
   }
   EXPECT_EQ(x->numElements, 4);
   EXPECT_FALSE(x->hasNulls);
-  EXPECT_STREQ(x->data[0], a);
-  EXPECT_STREQ(x->data[1], b);
-  EXPECT_STREQ(x->data[2], c);
-  EXPECT_STREQ(x->data[3], d);
+  EXPECT_EQ(x->data[0][0], '\xf4');
+  EXPECT_EQ(x->data[0][1], '\x00');
+  EXPECT_EQ(x->data[0][2], '\x21');
+  EXPECT_EQ(x->data[0][3], '\x39');
+  EXPECT_EQ(x->data[1][0], '\x22');
+  EXPECT_EQ(x->data[1][1], '\x0e');
+  EXPECT_EQ(x->data[1][2], '\x00');
+  EXPECT_EQ(x->data[1][3], '\xaa');
+  EXPECT_EQ(x->data[2][0], '\x00');
+  EXPECT_EQ(x->data[2][1], '\x01');
+  EXPECT_EQ(x->data[2][2], '\x43');
+  EXPECT_EQ(x->data[2][3], '\x42');
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\x66');
+  EXPECT_EQ(x->data[3][2], '\xbf');
+  EXPECT_EQ(x->data[3][3], '\x00');
   EXPECT_EQ(x->length[0], 4);
   EXPECT_EQ(x->length[1], 4);
   EXPECT_EQ(x->length[2], 4);
@@ -4282,7 +4643,7 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryAllNulls) {
 }
 TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
   FixedSizeBinaryBuilder builder(fixed_size_binary(2));
-  char a[] = "\xa2\x34", b[] = "\xff\xfe";
+  char a[] = "\x00\xff", b[] = "\xff\x00";
   (void)(builder.AppendNull());
   (void)(builder.Append(a));
   (void)(builder.AppendNull());
@@ -4311,8 +4672,10 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
   }
   EXPECT_EQ(x->numElements, 5);
   EXPECT_TRUE(x->hasNulls);
-  EXPECT_STREQ(x->data[1], a);
-  EXPECT_STREQ(x->data[3], b);
+  EXPECT_EQ(x->data[1][0], '\x00');
+  EXPECT_EQ(x->data[1][1], '\xff');
+  EXPECT_EQ(x->data[3][0], '\xff');
+  EXPECT_EQ(x->data[3][1], '\x00');
   EXPECT_EQ(x->length[1], 2);
   EXPECT_EQ(x->length[3], 2);
   EXPECT_EQ(x->notNull[0], 0);
@@ -4322,6 +4685,345 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryMixed) {
   EXPECT_EQ(x->notNull[4], 0);
   EXPECT_EQ(arrowOffset, 5);
   EXPECT_EQ(orcOffset, 5);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, fixed_size_binary(2));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(2).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedEmpty) {
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, fixed_size_binary(0));
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(0).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedMixed) {
+  FixedSizeBinaryBuilder builder0(fixed_size_binary(2)), builder1(fixed_size_binary(2)),
+      builder2(fixed_size_binary(2)), builder3(fixed_size_binary(2)),
+      builder4(fixed_size_binary(2));
+  char a[] = "\x00\x00", b[] = "\x00\xfe";
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(a));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(b));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(2).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->data[1][0], '\x00');
+  EXPECT_EQ(x->data[1][1], '\x00');
+  EXPECT_EQ(x->data[3][0], '\x00');
+  EXPECT_EQ(x->data[3][1], '\xfe');
+  EXPECT_EQ(x->length[1], 2);
+  EXPECT_EQ(x->length[3], 2);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedMixed) {
+  FixedSizeBinaryBuilder builder0(fixed_size_binary(0)), builder1(fixed_size_binary(0)),
+      builder2(fixed_size_binary(0)), builder3(fixed_size_binary(0)),
+      builder4(fixed_size_binary(0));
+  char a[] = "", b[] = "";
+  (void)(builder1.AppendNull());
+  (void)(builder1.Append(a));
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(b));
+  (void)(builder3.AppendNull());
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(0).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 5);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(x->length[1], 0);
+  EXPECT_EQ(x->length[3], 0);
+  EXPECT_EQ(x->notNull[0], 0);
+  EXPECT_EQ(x->notNull[1], 1);
+  EXPECT_EQ(x->notNull[2], 0);
+  EXPECT_EQ(x->notNull[3], 1);
+  EXPECT_EQ(x->notNull[4], 0);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedMultibatch) {
+  uint64_t totalLength = 100;
+  FixedSizeBinaryBuilder builder0(fixed_size_binary(2)), builder1(fixed_size_binary(2)),
+      builder2(fixed_size_binary(2)), builder3(fixed_size_binary(2)),
+      builder4(fixed_size_binary(2));
+  char a[2];
+  for (char i = 0; i < 50; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder1.Append(a));
+    } else
+      (void)(builder1.AppendNull());
+  }
+  for (char i = 50; i < 100; i++) {
+    if (i % 2) {
+      a[0] = i;
+      a[1] = i;
+      (void)(builder3.Append(a));
+    } else
+      (void)(builder3.AppendNull());
+  }
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 100;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(2).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  uint64_t resultOffset = 0;
+  while (resultOffset < totalLength - batchSize) {
+    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                         batchSize, carray.get());
+    if (!st.ok()) {
+      FAIL() << "ORC ColumnBatch not successfully filled";
+    }
+    writer->add(*batch);
+    EXPECT_EQ(x->numElements, batchSize);
+    EXPECT_TRUE(x->hasNulls);
+    for (uint64_t i = 0; i < batchSize; i++) {
+      if ((i + resultOffset) % 2) {
+        a[0] = i + resultOffset;
+        a[1] = i + resultOffset;
+        EXPECT_TRUE(x->notNull[i]);
+        EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+        EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+        EXPECT_EQ(x->length[i], 2);
+      } else
+        EXPECT_FALSE(x->notNull[i]);
+    }
+    resultOffset = resultOffset + batchSize;
+    batch->clear();
+  }
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  uint64_t lastBatchSize = totalLength - resultOffset;
+  EXPECT_EQ(x->numElements, lastBatchSize);
+  EXPECT_TRUE(x->hasNulls);
+  for (uint64_t i = 0; i < lastBatchSize; i++) {
+    if ((i + resultOffset) % 2) {
+      a[0] = i + resultOffset;
+      a[1] = i + resultOffset;
+      EXPECT_TRUE(x->notNull[i]);
+      EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
+      EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
+      EXPECT_EQ(x->length[i], 2);
+    } else
+      EXPECT_FALSE(x->notNull[i]);
+  }
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedMultibatch) {
+  uint64_t totalLength = 100;
+  FixedSizeBinaryBuilder builder0(fixed_size_binary(0)), builder1(fixed_size_binary(0)),
+      builder2(fixed_size_binary(0)), builder3(fixed_size_binary(0)),
+      builder4(fixed_size_binary(0));
+  for (char i = 0; i < 50; i++) {
+    if (i % 2) {
+      (void)(builder1.Append(""));
+    } else
+      (void)(builder1.AppendNull());
+  }
+  for (char i = 50; i < 100; i++) {
+    if (i % 2) {
+      (void)(builder3.Append(""));
+    } else
+      (void)(builder3.AppendNull());
+  }
+  std::shared_ptr<Array> array0, array1, array2, array3, array4;
+  (void)(builder0.Finish(&array0));
+  (void)(builder1.Finish(&array1));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Finish(&array3));
+  (void)(builder4.Finish(&array4));
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:binary>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StringVectorBatch* x =
+      internal::checked_cast<liborc::StringVectorBatch*>(root->fields[0]);
+  DataType* arrowType = fixed_size_binary(0).get();
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  uint64_t resultOffset = 0;
+  while (resultOffset < totalLength - batchSize) {
+    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                         batchSize, carray.get());
+    if (!st.ok()) {
+      FAIL() << "ORC ColumnBatch not successfully filled";
+    }
+    writer->add(*batch);
+    EXPECT_EQ(x->numElements, batchSize);
+    EXPECT_TRUE(x->hasNulls);
+    for (uint64_t i = 0; i < batchSize; i++) {
+      if ((i + resultOffset) % 2) {
+        EXPECT_TRUE(x->notNull[i]);
+        EXPECT_EQ(x->length[i], 0);
+      } else
+        EXPECT_FALSE(x->notNull[i]);
+    }
+    resultOffset = resultOffset + batchSize;
+    batch->clear();
+  }
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  uint64_t lastBatchSize = totalLength - resultOffset;
+  EXPECT_EQ(x->numElements, lastBatchSize);
+  EXPECT_TRUE(x->hasNulls);
+  for (uint64_t i = 0; i < lastBatchSize; i++) {
+    if ((i + resultOffset) % 2) {
+      EXPECT_TRUE(x->notNull[i]);
+      EXPECT_EQ(x->length[i], 0);
+    } else
+      EXPECT_FALSE(x->notNull[i]);
+  }
   writer->add(*batch);
   writer->close();
 }
