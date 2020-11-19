@@ -31,6 +31,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
@@ -629,10 +630,10 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     Status status() const { return status_; }
 
 #define VISIT(TYPE)                               \
-  Status Visit(const TYPE##Type& type) override { \
-    compared_ = CompareType<TYPE##Type>();        \
-    return Status::OK();                          \
-  }
+    Status Visit(const TYPE##Type& type) override {     \
+      compared_ = CompareType<TYPE##Type>();            \
+      return Status::OK();                              \
+    }
 
     VISIT(Int8)
     VISIT(Int16)
@@ -651,13 +652,13 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
    private:
     // Finds the target chunk and index in the target chunk from an
     // index in chunked array.
-    std::shared_ptr<Array> FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array,
+    const Array* FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array,
                                            int64_t i, int64_t& chunk_index) {
       int64_t offset = 0;
       for (auto& chunk : chunked_array->chunks()) {
         if (i < offset + chunk->length()) {
           chunk_index = i - offset;
-          return chunk;
+          return chunk.get();
         }
         offset += chunk->length();
       }
@@ -672,8 +673,8 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     template <typename Type>
     int CompareType() {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
-      auto lhs_value = checked_pointer_cast<ArrayType>(lhs_array_)->GetView(lhs_index_);
-      auto rhs_value = checked_pointer_cast<ArrayType>(rhs_array_)->GetView(rhs_index_);
+      auto lhs_value = checked_cast<const ArrayType*>(lhs_array_)->GetView(lhs_index_);
+      auto rhs_value = checked_cast<const ArrayType*>(rhs_array_)->GetView(rhs_index_);
       if (is_floating_type<Type>::value) {
         const bool lhs_isnan = lhs_value != lhs_value;
         const bool rhs_isnan = rhs_value != rhs_value;
@@ -691,10 +692,10 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     }
 
     int64_t lhs_;
-    std::shared_ptr<Array> lhs_array_;
+    const Array* lhs_array_;
     int64_t lhs_index_;
     int64_t rhs_;
-    std::shared_ptr<Array> rhs_array_;
+    const Array* rhs_array_;
     int64_t rhs_index_;
     int compared_;
     Status status_;
