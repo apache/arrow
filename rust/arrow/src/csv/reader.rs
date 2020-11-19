@@ -75,11 +75,16 @@ fn infer_field_schema(string: &str) -> DataType {
         return DataType::Boolean;
     }
     let skip_minus = if string.starts_with('-') { 1 } else { 0 };
-    let mut parts = string[skip_minus..].split('.');
+    let mut parts = string[skip_minus..].splitn(3, '.');
     let (left, right) = (parts.next(), parts.next());
     let left_is_number = left.map_or(false, all_digit);
     if left_is_number && right.map_or(false, all_digit) {
-        return DataType::Float64;
+        let no_remainder = parts.next().is_none();
+        if no_remainder {
+            return DataType::Float64;
+        } else {
+            return DataType::Utf8;
+        }
     } else if left_is_number {
         return DataType::Int64;
     }
