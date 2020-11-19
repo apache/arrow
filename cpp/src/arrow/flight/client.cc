@@ -105,7 +105,7 @@ struct ClientRpc {
               std::chrono::system_clock::now() + options.timeout);
       context.set_deadline(deadline);
     }
-    for (auto metadata: options.metadata) {
+    for (auto metadata : options.metadata) {
       context.AddMetadata(metadata.first, metadata.second);
     }
   }
@@ -998,7 +998,8 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status AuthenticateBasicToken(std::string username, std::string password, std::pair<std::string, std::string>* bearer_token) {
+  Status AuthenticateBasicToken(std::string username, std::string password,
+                                std::pair<std::string, std::string>* bearer_token) {
     // Add bearer token factory to middleware so it can intercept the bearer token.
     middleware.push_back(std::make_shared<ClientBearerTokenFactory>(bearer_token));
     ClientRpc rpc({});
@@ -1227,7 +1228,7 @@ Status FlightClient::Authenticate(const FlightCallOptions& options,
 }
 
 Status FlightClient::AuthenticateBasicToken(
-    std::string username, std::string password, 
+    std::string username, std::string password,
     std::pair<std::string, std::string>* bearer_token) {
   return impl_->AuthenticateBasicToken(username, password, bearer_token);
 }

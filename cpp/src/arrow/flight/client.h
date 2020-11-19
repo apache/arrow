@@ -194,10 +194,12 @@ class ARROW_FLIGHT_EXPORT FlightClient {
                       std::unique_ptr<ClientAuthHandler> auth_handler);
 
   /// \brief Authenticate to the server using the given handler.
-  /// \param[in] options Per-RPC options
-  /// \param[in] auth_handler The authentication mechanism to use
+  /// \param[in] username Username to use
+  /// \param[in] password Password to use
+  /// \param[in] bearer_token Bearer token retreived if applicable
   /// \return Status OK if the client authenticated successfully
-  Status AuthenticateBasicToken(std::string username, std::string password, std::pair<std::string, std::string>* bearer_token);
+  Status AuthenticateBasicToken(std::string username, std::string password, 
+                                std::pair<std::string, std::string>* bearer_token);
 
   /// \brief Perform the indicated action, returning an iterator to the stream
   /// of results, if any

@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include "client_middleware.h"
-#include "client_auth.h"
-#include "client.h"
+#include "arrow/flight/client_middleware.h"
+#include "arrow/flight/client_auth.h"
+#include "arrow/flight/client.h"
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -45,11 +45,14 @@ const std::string BASIC_PREFIX = "Basic ";
 namespace arrow {
 namespace flight {
 
-void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username, const std::string& password);
+void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context, 
+                                             const std::string& username, 
+                                             const std::string& password);
 
 class ARROW_FLIGHT_EXPORT ClientBearerTokenMiddleware : public ClientMiddleware {
  public:
-  explicit ClientBearerTokenMiddleware(std::pair<std::string, std::string>* bearer_token_);
+  explicit ClientBearerTokenMiddleware(
+    std::pair<std::string, std::string>* bearer_token_);
 
   void SendingHeaders(AddCallHeaders* outgoing_headers);
   void ReceivedHeaders(const CallHeaders& incoming_headers);
@@ -61,11 +64,12 @@ class ARROW_FLIGHT_EXPORT ClientBearerTokenMiddleware : public ClientMiddleware 
 
 class ARROW_FLIGHT_EXPORT ClientBearerTokenFactory : public ClientMiddlewareFactory {
  public:
-  explicit ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_) : bearer_token(bearer_token_) {}
+  explicit ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_)
+    : bearer_token(bearer_token_) {}
 
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware);
   void Reset();
-  
+
  private:
   std::pair<std::string, std::string>* bearer_token;
 };
