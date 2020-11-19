@@ -159,28 +159,22 @@ module Arrow
     #       [4, false],
     #     ]
     #     Arrow::Table.new(schema, raw_records)
-    def initialize(*args)
-      n_args = args.size
-      case n_args
-      when 1
-        raw_table_converter = RawTableConverter.new(args[0])
-        schema = raw_table_converter.schema
-        values = raw_table_converter.values
-      when 2
-        schema = args[0]
-        schema = Schema.new(schema) unless schema.is_a?(Schema)
-        values = args[1]
-        case values[0]
+    def initialize(first, second = nil)
+      if second
+        schema = first.is_a?(Schema) ? first : Schema.new(first)
+        values = case second[0]
         when ::Array
-          values = [RecordBatch.new(schema, values)]
+          [RecordBatch.new(schema, second)]
         when Column
-          values = values.collect(&:data)
+          second.collect(&:data)
         end
-      else
-        message = "wrong number of arguments (given #{n_args}, expected 1..2)"
-        raise ArgumentError, message
+        return initialize_raw(schema, values)
       end
-      initialize_raw(schema, values)
+      raw_table_converter = RawTableConverter.new(first)
+      initialize_raw(
+        raw_table_converter.schema,
+        raw_table_converter.values,
+      )
     end
 
     def each_record_batch
