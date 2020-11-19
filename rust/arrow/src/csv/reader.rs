@@ -369,24 +369,6 @@ impl<R: Read> Iterator for Reader<R> {
     }
 }
 
-trait Parser: ArrowPrimitiveType {
-    fn parse(string: &str) -> Option<Self::Native> {
-        string.parse::<Self::Native>().ok()
-    }
-}
-
-impl Parser for BooleanType {
-    fn parse(string: &str) -> Option<bool> {
-        if string.eq_ignore_ascii_case("false") {
-            return Some(false);
-        }
-        if string.eq_ignore_ascii_case("true") {
-            return Some(true);
-        }
-        None
-    }
-}
-
 /// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
 fn parse(
     rows: &[StringRecord],
@@ -462,6 +444,24 @@ fn parse(
     let projected_schema = Arc::new(Schema::new(projected_fields));
 
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
+}
+
+trait Parser: ArrowPrimitiveType {
+    fn parse(string: &str) -> Option<Self::Native> {
+        string.parse::<Self::Native>().ok()
+    }
+}
+
+impl Parser for BooleanType {
+    fn parse(string: &str) -> Option<bool> {
+        if string.eq_ignore_ascii_case("false") {
+            return Some(false);
+        }
+        if string.eq_ignore_ascii_case("true") {
+            return Some(true);
+        }
+        None
+    }
 }
 
 impl Parser for Float32Type {
