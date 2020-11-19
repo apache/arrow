@@ -118,6 +118,9 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
+        LogicalPlan::Join { .. } => {
+            vec![]
+        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -139,6 +142,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Filter { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
+        LogicalPlan::Join { left, right, .. } => vec![left, right],
         LogicalPlan::Limit { input, .. } => vec![input],
         LogicalPlan::Extension { node } => node.inputs(),
         // plans without inputs
@@ -179,6 +183,20 @@ pub fn from_plan(
         LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
             expr: expr.clone(),
             input: Arc::new(inputs[0].clone()),
+        }),
+        LogicalPlan::Join {
+            join_type,
+            left_keys,
+            right_keys,
+            schema,
+            ..
+        } => Ok(LogicalPlan::Join {
+            left: Arc::new(inputs[0].clone()),
+            right: Arc::new(inputs[1].clone()),
+            join_type: join_type.clone(),
+            left_keys: left_keys.clone(),
+            right_keys: right_keys.clone(),
+            schema: schema.clone(),
         }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,

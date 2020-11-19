@@ -287,6 +287,11 @@ impl DefaultPhysicalPlanner {
                     ctx_state.config.concurrency,
                 )?))
             }
+            LogicalPlan::Join { .. } => {
+                // TODO once https://github.com/apache/arrow/pull/8709 is merged we can
+                // create the physical operator here
+                todo!()
+            }
             LogicalPlan::EmptyRelation {
                 produce_one_row,
                 schema,

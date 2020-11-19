@@ -312,6 +312,7 @@ fn optimize_plan(
         | LogicalPlan::Filter { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
+        | LogicalPlan::Join { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Extension { .. } => {
             let expr = utils::expressions(plan);

@@ -27,7 +27,8 @@ use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 
 use super::{
-    col, exprlist_to_fields, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
+    TableSource,
 };
 
 /// Builder for logical plans
@@ -178,6 +179,37 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Sort {
             expr,
             input: Arc::new(self.plan.clone()),
+        }))
+    }
+
+    /// Apply a join
+    pub fn join(
+        &self,
+        right: Arc<LogicalPlan>,
+        join_type: JoinType,
+        left_keys: Vec<&str>,
+        right_keys: Vec<&str>,
+    ) -> Result<Self> {
+        //TODO reconcile this with the logic in https://github.com/apache/arrow/pull/8709
+        let mut fields = vec![];
+        self.plan
+            .schema()
+            .fields()
+            .iter()
+            .for_each(|f| fields.push(f.to_owned()));
+        right
+            .schema()
+            .fields()
+            .iter()
+            .for_each(|f| fields.push(f.to_owned()));
+
+        Ok(Self::from(&LogicalPlan::Join {
+            left: Arc::new(self.plan.clone()),
+            right,
+            left_keys: left_keys.iter().map(|k| k.to_string()).collect(),
+            right_keys: right_keys.iter().map(|k| k.to_string()).collect(),
+            join_type,
+            schema: Arc::new(Schema::new(fields)),
         }))
     }
 

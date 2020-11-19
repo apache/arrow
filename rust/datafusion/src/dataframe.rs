@@ -19,7 +19,7 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan};
+use crate::logical_plan::{Expr, FunctionRegistry, JoinType, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
@@ -145,6 +145,29 @@ pub trait DataFrame {
     /// # }
     /// ```
     fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
+
+    /// Join this DataFrame with another DataFrame using the specified columns as join keys
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let left = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let right = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let join = left.join(right, JoinType::Inner, vec!["a", "b"], vec!["a", "b"])?;
+    /// let batches = join.collect().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn join(
+        &self,
+        right: Arc<dyn DataFrame>,
+        join_type: JoinType,
+        left_cols: Vec<&str>,
+        right_cols: Vec<&str>,
+    ) -> Result<Arc<dyn DataFrame>>;
 
     /// Executes this DataFrame and collects all results into a vector of RecordBatch.
     ///
