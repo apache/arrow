@@ -1142,6 +1142,44 @@ impl DataType {
                 | Float64
         )
     }
+
+    /// Compares this data type with another data type only based on the data type
+    /// including nested data types, but not based on other values.
+    pub fn cmp_type(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DataType::List(f1), DataType::List(f2)) => {
+                f1.data_type().cmp_type(f2.data_type())
+            }
+            (DataType::FixedSizeList(f1, _), DataType::FixedSizeList(f2, _)) => {
+                f1.data_type().cmp_type(f2.data_type())
+            }
+            (DataType::LargeList(f1), DataType::LargeList(f2)) => {
+                f1.data_type().cmp_type(f2.data_type())
+            }
+            (DataType::Struct(f1), DataType::Struct(f2)) => {
+                if f1.len() == f2.len() {
+                    f1.iter()
+                        .enumerate()
+                        .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
+                } else {
+                    false
+                }
+            }
+            (DataType::Union(f1), DataType::Union(f2)) => {
+                if f1.len() == f2.len() {
+                    f1.iter()
+                        .enumerate()
+                        .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
+                } else {
+                    false
+                }
+            }
+            (DataType::Dictionary(k1, v1), DataType::Dictionary(k2, v2)) => {
+                k1.as_ref().cmp_type(k2) && v1.cmp_type(v2.as_ref())
+            }
+            t @ (_, _) => std::mem::discriminant(t.0) == std::mem::discriminant(t.1),
+        }
+    }
 }
 
 impl Field {
@@ -2739,6 +2777,38 @@ mod tests {
         .is_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_compare_nested_types() {
+        let list_type_a = &DataType::List(Box::new(Field::new(
+            "a",
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            true,
+        )));
+        let list_type_b = &DataType::List(Box::new(Field::new(
+            "b",
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            false,
+        )));
+
+        assert!(list_type_a.cmp_type(list_type_b));
+    }
+
+    #[test]
+    fn test_compare_mismatching_types() {
+        let list_type_a = &DataType::LargeList(Box::new(Field::new(
+            "a",
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            true,
+        )));
+        let list_type_b = &DataType::LargeList(Box::new(Field::new(
+            "b",
+            DataType::Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
+            false,
+        )));
+
+        assert!(!list_type_a.cmp_type(list_type_b));
     }
 }
 

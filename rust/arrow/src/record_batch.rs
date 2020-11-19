@@ -100,7 +100,7 @@ impl RecordBatch {
                 ));
             }
             // list types can have different names, but we only need the data types to be the same
-            if column.data_type() != schema.field(i).data_type() {
+            if column.data_type().cmp_type(schema.field(i).data_type()) {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}",
                     schema.field(i).data_type(),
@@ -296,6 +296,54 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
         assert!(!batch.is_ok());
+    }
+
+    #[test]
+    fn create_record_batch_with_matching_nested_type() {
+        let schema = Schema::new(vec![Field::new(
+            "list",
+            DataType::List(Box::new(Field::new_dict(
+                "nested_dict_A",
+                DataType::Int32,
+                true,
+                0,
+                false,
+            ))),
+            false,
+        )]);
+
+        let child_data = Int32Array::from(vec![0, 1, 2, 3, 4, 5]);
+        let child_data_ref = Arc::new(ArrayData::new(
+            DataType::Int32,
+            6,
+            None,
+            None,
+            0,
+            vec![child_data.data_ref().buffers()[0].clone()],
+            vec![],
+        ));
+
+        let offsets = UInt64Array::from(vec![0, 2, 4]);
+        let array_data = Arc::new(ArrayData::new(
+            DataType::List(Box::new(Field::new_dict(
+                "nested_dict_B",
+                DataType::Int32,
+                false,
+                0,
+                false,
+            ))),
+            3,
+            None,
+            None,
+            0,
+            vec![offsets.data_ref().buffers()[0].clone()],
+            vec![child_data_ref.clone()],
+        ));
+
+        let list_array = Arc::new(ListArray::from(array_data));
+
+        let result = RecordBatch::try_new(Arc::new(schema), vec![list_array]);
+        assert!(result.is_ok());
     }
 
     #[test]
