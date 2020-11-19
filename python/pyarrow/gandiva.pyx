@@ -156,7 +156,7 @@ cdef class Projector(_Weakrefable):
 
     def evaluate(self, RecordBatch batch, SelectionVector selection=None):
         cdef vector[shared_ptr[CArray]] results
-        if selection == None:
+        if selection is None:
             check_status(self.projector.get().Evaluate(
                 batch.sp_batch.get()[0], self.pool.pool, &results))
         else:
@@ -404,7 +404,8 @@ cdef class TreeExprBuilder(_Weakrefable):
             condition.node)
         return Condition.create(r)
 
-cpdef make_projector(Schema schema, children, MemoryPool pool, str selection_mode="NONE"):
+cpdef make_projector(Schema schema, children, MemoryPool pool,
+        str selection_mode = "NONE"):
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
     for child in children:
