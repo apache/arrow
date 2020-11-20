@@ -1082,7 +1082,8 @@ class TestCookieMiddleware : public ::testing::Test {
     // Grab the first key value pair from the incoming cookie string.
     std::string::size_type pos = 0;
     const std::string key_val_pair =
-        trim(((pos = incoming_cookie.find(';')) != std::string::npos) ? 
+        arrow::internal::TrimString(
+            ((pos = incoming_cookie.find(';')) != std::string::npos) ? 
             incoming_cookie.substr(0, pos) : incoming_cookie.substr(0));
 
     // Split the key value pair into the key and value.
