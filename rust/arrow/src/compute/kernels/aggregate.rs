@@ -600,6 +600,88 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_min_max_float_edge_cases() {
+        let a: Float64Array = (0..100).map(|_| Some(f64::NEG_INFINITY)).collect();
+        assert_eq!(Some(f64::NEG_INFINITY), min(&a));
+        assert_eq!(Some(f64::NEG_INFINITY), max(&a));
+
+        let a: Float64Array = (0..100).map(|_| Some(f64::MIN)).collect();
+        assert_eq!(Some(f64::MIN), min(&a));
+        assert_eq!(Some(f64::MIN), max(&a));
+
+        let a: Float64Array = (0..100).map(|_| Some(f64::MAX)).collect();
+        assert_eq!(Some(f64::MAX), min(&a));
+        assert_eq!(Some(f64::MAX), max(&a));
+
+        let a: Float64Array = (0..100).map(|_| Some(f64::INFINITY)).collect();
+        assert_eq!(Some(f64::INFINITY), min(&a));
+        assert_eq!(Some(f64::INFINITY), max(&a));
+    }
+
+    #[test]
+    #[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
+    fn test_primitive_min_max_float_all_nans_non_null() {
+        let a: Float64Array = (0..100).map(|_| Some(f64::NAN)).collect();
+        assert!(min(&a).unwrap().is_nan());
+        assert!(max(&a).unwrap().is_nan());
+    }
+
+    #[test]
+    #[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
+    fn test_primitive_min_max_float_all_nans_nullable() {
+        let a: Float64Array = (0..100)
+            .map(|i| {
+                if i == 0 || i == 99 {
+                    Some(f64::NAN)
+                } else {
+                    Some(i as f64)
+                }
+            })
+            .collect();
+        // scalar implementation folds with the first value and returns NaN
+        assert_eq!(Some(1.0), min(&a));
+        assert_eq!(Some(98.0), max(&a));
+    }
+
+    #[test]
+    #[ignore = "scalar implementation folds with the first value and returns NaN"]
+    fn test_primitive_min_max_float_first_last_nan() {
+        let a: Float64Array = (0..100)
+            .map(|i| {
+                if i == 0 || i == 99 {
+                    Some(f64::NAN)
+                } else if i % 2 == 0 {
+                    None
+                } else {
+                    Some(i as f64)
+                }
+            })
+            .collect();
+        // scalar implementation folds with the first value and returns NaN
+        assert_eq!(Some(1.0), min(&a));
+        assert_eq!(Some(97.0), max(&a));
+    }
+
+    #[test]
+    fn test_primitive_min_max_float_inf_and_nans() {
+        let a: Float64Array = (0..100)
+            .map(|i| {
+                let x = match i % 10 {
+                    0 => f64::NEG_INFINITY,
+                    1 => f64::MIN,
+                    2 => f64::MAX,
+                    4 => f64::INFINITY,
+                    5 => f64::NAN,
+                    _ => i as f64,
+                };
+                Some(x)
+            })
+            .collect();
+        assert_eq!(Some(f64::NEG_INFINITY), min(&a));
+        assert_eq!(Some(f64::INFINITY), max(&a));
+    }
+
+    #[test]
     fn test_string_min_max_with_nulls() {
         let a = StringArray::from(vec![Some("b"), None, None, Some("a"), Some("c")]);
         assert_eq!("a", min_string(&a).unwrap());
