@@ -1145,7 +1145,7 @@ impl DataType {
 
     /// Compares this data type with another data type only based on the data type
     /// including nested data types, but not based on other values.
-    pub fn cmp_type(&self, other: &Self) -> bool {
+    pub fn eq_type(&self, other: &Self) -> bool {
         match (self, other) {
             (DataType::List(f1), DataType::List(f2)) => {
                 f1.data_type().cmp_type(f2.data_type())
