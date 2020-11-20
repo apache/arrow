@@ -43,10 +43,10 @@
 #error "gRPC headers should not be in public API"
 #endif
 
+#include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
-#include "arrow/flight/client_cookie_middleware.h"
 
 namespace pb = arrow::flight::protocol;
 
@@ -996,7 +996,7 @@ class TestErrorMiddleware : public ::testing::Test {
 
 // This test has functions that allow adding and removing cookies from a list of cookies.
 // It also automatically adds cookies to an internal list of tracked cookies when they
-// are passed to the middleware. 
+// are passed to the middleware.
 class TestCookieMiddleware : public ::testing::Test {
  public:
   // Setup function creates middleware factory and starts it up.
@@ -1009,9 +1009,8 @@ class TestCookieMiddleware : public ::testing::Test {
   // Function to add cookie to middleware.
   void AddCookie(const std::string& cookie) {
     CallHeaders call_headers;
-    call_headers.insert(
-      std::make_pair(arrow::util::string_view("set-cookie"), 
-      arrow::util::string_view(cookie)));
+    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
+                                       arrow::util::string_view(cookie)));
     middleware_->ReceivedHeaders(call_headers);
   }
 
@@ -1026,20 +1025,21 @@ class TestCookieMiddleware : public ::testing::Test {
   std::string trim(std::string s) {
     auto ltrim = [](std::string& s) {
       s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-          return !std::isspace(ch);
-      }));
+                return !std::isspace(ch);
+             }));
     };
     auto rtrim = [](std::string& s) {
-      s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-          return !std::isspace(ch);
-      }).base(), s.end());
+      s.erase(std::find_if(s.rbegin(), s.rend(),
+                           [](unsigned char ch) { return !std::isspace(ch); })
+                  .base(),
+              s.end());
     };
     ltrim(s);
     rtrim(s);
     return s;
   };
 
-  // Function to take a list of cookies and split them into a vector of individual 
+  // Function to take a list of cookies and split them into a vector of individual
   // cookies.
   std::vector<std::string> SplitCookies(const std::string& cookies) {
     std::vector<std::string> split_cookies;
@@ -1092,7 +1092,8 @@ class TestCookieMiddleware : public ::testing::Test {
 
     // Add key/value pair to outgoing cookie, need to add double quotes around the value
     // if there isn't any there already.
-    outgoing_cookie = key + "=" + 
+    outgoing_cookie =
+        key + "=" +
         (((val[0] == '\"') && (val[val.size() - 1] == '\"')) ? val : "\"" + val + "\"");
   }
 
@@ -1139,10 +1140,9 @@ class TestCookieMiddleware : public ::testing::Test {
   }
 
  protected:
-
   // Class to allow testing of the call headers.
   class TestCallHeaders : public AddCallHeaders {
-  public:
+   public:
     TestCallHeaders() {}
     ~TestCallHeaders() {}
 
@@ -1153,11 +1153,9 @@ class TestCookieMiddleware : public ::testing::Test {
     }
 
     // Function to get outgoing cookie.
-    std::string GetCookies() {
-      return outbound_cookie;
-    }
+    std::string GetCookies() { return outbound_cookie; }
 
-  private:
+   private:
     std::string outbound_cookie;
   };
 
