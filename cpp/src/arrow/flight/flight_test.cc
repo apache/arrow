@@ -1257,10 +1257,11 @@ class TestCookieMiddleware : public ::testing::Test {
   void ConvertFormat(const std::string& incoming_cookie, std::string& outgoing_cookie) {
     // Grab the first key value pair from the incoming cookie string.
     std::string::size_type pos = 0;
-    const std::string key_val_pair = arrow::internal::TrimString(
-        ((pos = incoming_cookie.find(';')) != std::string::npos)
-            ? incoming_cookie.substr(0, pos)
-            : incoming_cookie.substr(0));
+    const std::string key_val_pair =
+        arrow::internal::TrimString(
+            ((pos = incoming_cookie.find(';')) != std::string::npos) ? 
+            incoming_cookie.substr(0, pos) : incoming_cookie.substr(0));
+
     // Split the key value pair into the key and value.
     pos = key_val_pair.find('=');
     ASSERT_NE(std::string::npos, pos);
