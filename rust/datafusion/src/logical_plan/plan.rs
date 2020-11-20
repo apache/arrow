@@ -146,6 +146,8 @@ pub enum LogicalPlan {
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
+        /// Whether to produce a placeholder row
+        produce_one_row: bool,
         /// The schema description of the output
         schema: SchemaRef,
     },
@@ -192,7 +194,7 @@ impl LogicalPlan {
     /// Get a reference to the logical plan's schema
     pub fn schema(&self) -> &SchemaRef {
         match self {
-            LogicalPlan::EmptyRelation { schema } => &schema,
+            LogicalPlan::EmptyRelation { schema, .. } => &schema,
             LogicalPlan::InMemoryScan {
                 projected_schema, ..
             } => &projected_schema,

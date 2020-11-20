@@ -53,6 +53,7 @@ use crate::sql::{
 };
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
+use parquet::arrow::ArrowWriter;
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -142,12 +143,12 @@ impl ExecutionContext {
                             .schema(&schema)
                             .has_header(*has_header),
                     )?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 FileType::Parquet => {
                     self.register_parquet(name, location)?;
-                    let plan = LogicalPlanBuilder::empty().build()?;
+                    let plan = LogicalPlanBuilder::empty(false).build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(
@@ -386,6 +387,37 @@ impl ExecutionContext {
                 .try_collect()
                 .await
                 .map_err(|e| DataFusionError::from(e))?;
+        }
+        Ok(())
+    }
+
+    /// Execute a query and write the results to a partitioned Parquet file
+    pub async fn write_parquet(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        path: String,
+    ) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_owned();
+        fs::create_dir(&path)?;
+
+        for i in 0..plan.output_partitioning().partition_count() {
+            let path = path.clone();
+            let plan = plan.clone();
+            let filename = format!("part-{}.parquet", i);
+            let path = Path::new(&path).join(&filename);
+            let file = fs::File::create(path)?;
+            let mut writer =
+                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
+            let stream = plan.execute(i).await?;
+
+            stream
+                .map(|batch| writer.write(&batch?))
+                .try_collect()
+                .await
+                .map_err(|e| DataFusionError::from(e))?;
+
+            writer.close()?;
         }
         Ok(())
     }
@@ -1074,12 +1106,15 @@ mod tests {
         let batch = &results[0];
         assert_eq!(batch.num_rows(), 3);
         assert_eq!(batch.num_columns(), 10);
+        let mut result = test::format_batch(&batch);
+        result.sort_unstable();
+
         assert_eq!(
-            test::format_batch(&batch),
+            result,
             vec![
                 "a,3,2,2,2,2,2,2,2,2",
-                "c,3,2,2,2,2,2,2,2,2",
                 "b,1,1,1,1,1,1,1,1,1",
+                "c,3,2,2,2,2,2,2,2,2",
             ],
         );
 
@@ -1102,12 +1137,14 @@ mod tests {
         let batch = &results[0];
         assert_eq!(batch.num_rows(), 3);
         assert_eq!(batch.num_columns(), 10);
+        let mut result = test::format_batch(&batch);
+        result.sort_unstable();
         assert_eq!(
-            test::format_batch(&batch),
+            result,
             vec![
                 "a,5,3,3,3,3,3,3,3,3",
-                "c,1,1,1,1,1,1,1,1,1",
                 "b,5,4,4,4,4,4,4,4,4",
+                "c,1,1,1,1,1,1,1,1,1",
             ],
         );
 
@@ -1165,6 +1202,47 @@ mod tests {
         ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
         ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
+
+        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
+        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
+        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
+        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
+        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
+
+        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
+        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
+        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
+        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
+        let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0_count, 10);
+        assert_eq!(part1_count, 10);
+        assert_eq!(part2_count, 10);
+        assert_eq!(part3_count, 10);
+        assert_eq!(allparts_count, 40);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn write_parquet_results() -> Result<()> {
+        // create partitioned input file and context
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 4)?;
+
+        // execute a simple query and write the results to CSV
+        let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
+        write_parquet(&mut ctx, "SELECT c1, c2 FROM test", &out_dir).await?;
+
+        // create a new context and verify that the results were saved to a partitioned csv file
+        let mut ctx = ExecutionContext::new();
+
+        // register each partition as well as the top level dir
+        ctx.register_parquet("part0", &format!("{}/part-0.parquet", out_dir))?;
+        ctx.register_parquet("part1", &format!("{}/part-1.parquet", out_dir))?;
+        ctx.register_parquet("part2", &format!("{}/part-2.parquet", out_dir))?;
+        ctx.register_parquet("part3", &format!("{}/part-3.parquet", out_dir))?;
+        ctx.register_parquet("allparts", &out_dir)?;
 
         let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
         let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
@@ -1486,6 +1564,18 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
         ctx.write_csv(physical_plan, out_dir.to_string()).await
+    }
+
+    /// Execute SQL and write results to partitioned parquet files
+    async fn write_parquet(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+        out_dir: &str,
+    ) -> Result<()> {
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        ctx.write_parquet(physical_plan, out_dir.to_string()).await
     }
 
     /// Generate CSV partitions within the supplied directory

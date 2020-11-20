@@ -80,6 +80,19 @@ std::string UriUnescape(const util::string_view s) {
   return result;
 }
 
+std::string UriEncodeHost(const std::string& host) {
+  // Fairly naive check: if it contains a ':', it's IPv6 and needs
+  // brackets, else it's OK
+  if (host.find(":") != std::string::npos) {
+    std::string result = "[";
+    result += host;
+    result += ']';
+    return result;
+  } else {
+    return host;
+  }
+}
+
 struct Uri::Impl {
   Impl() : string_rep_(""), port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
 

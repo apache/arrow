@@ -19,23 +19,28 @@
 //! into a single partition
 
 use std::any::Any;
-use std::iter::Iterator;
 use std::sync::Arc;
 
-use futures::future;
+use futures::channel::mpsc;
+use futures::sink::SinkExt;
+use futures::stream::StreamExt;
+use futures::Stream;
 
-use super::common;
+use async_trait::async_trait;
+
+use arrow::record_batch::RecordBatch;
+use arrow::{
+    datatypes::SchemaRef,
+    error::{ArrowError, Result as ArrowResult},
+};
+
+use super::RecordBatchStream;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
-use arrow::record_batch::RecordBatch;
-use arrow::{datatypes::SchemaRef, error::ArrowError};
-
 use super::SendableRecordBatchStream;
-
-use async_trait::async_trait;
-use tokio;
+use pin_project_lite::pin_project;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -103,34 +108,69 @@ impl ExecutionPlan for MergeExec {
                 self.input.execute(0).await
             }
             _ => {
-                let tasks = (0..input_partitions).map(|part_i| {
+                // use a stream that allows each sender to put in at
+                // least one result in an attempt to maximize
+                // parallelism.
+                let (sender, receiver) =
+                    mpsc::channel::<ArrowResult<RecordBatch>>(input_partitions);
+
+                // spawn independent tasks whose resulting streams (of batches)
+                // are sent to the channel for consumption.
+                for part_i in (0..input_partitions) {
                     let input = self.input.clone();
+                    let mut sender = sender.clone();
                     tokio::spawn(async move {
-                        let stream = input.execute(part_i).await?;
-                        common::collect(stream).await
-                    })
-                });
+                        let mut stream = match input.execute(part_i).await {
+                            Err(e) => {
+                                // If send fails, plan being torn
+                                // down, no place to send the error
+                                let arrow_error = ArrowError::ExternalError(Box::new(e));
+                                sender.send(Err(arrow_error)).await.ok();
+                                return;
+                            }
+                            Ok(stream) => stream,
+                        };
 
-                let results = future::try_join_all(tasks)
-                    .await
-                    .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
+                        while let Some(item) = stream.next().await {
+                            // If send fails, plan being torn down,
+                            // there is no place to send the error
+                            sender.send(item).await.ok();
+                        }
+                    });
+                }
 
-                let combined_results = results
-                    .into_iter()
-                    .try_fold(Vec::<RecordBatch>::new(), |mut acc, maybe_batches| {
-                        acc.append(&mut maybe_batches?);
-                        Result::Ok(acc)
-                    })?
-                    .into_iter()
-                    .map(|x| Arc::new(x))
-                    .collect::<Vec<_>>();
-
-                Ok(Box::pin(common::SizedRecordBatchStream::new(
-                    self.input.schema(),
-                    combined_results,
-                )))
+                Ok(Box::pin(MergeStream {
+                    input: receiver,
+                    schema: self.schema().clone(),
+                }))
             }
         }
+    }
+}
+
+pin_project! {
+    struct MergeStream {
+        schema: SchemaRef,
+        #[pin]
+        input: mpsc::Receiver<ArrowResult<RecordBatch>>,
+    }
+}
+
+impl Stream for MergeStream {
+    type Item = ArrowResult<RecordBatch>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let this = self.project();
+        this.input.poll_next(cx)
+    }
+}
+
+impl RecordBatchStream for MergeStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 

@@ -158,6 +158,7 @@ static void BinaryMathOp256(benchmark::State& state) {  // NOLINT non-const refe
   for (auto _ : state) {
     for (int x = 0; x < kValueSize; x += 5) {
       benchmark::DoNotOptimize(v1[x + 2] * v2[x + 2]);
+      benchmark::DoNotOptimize(v1[x + 3] / v2[x + 3]);
     }
   }
   state.SetItemsProcessed(state.iterations() * kValueSize);

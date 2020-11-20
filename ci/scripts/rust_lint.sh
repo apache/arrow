@@ -17,10 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Entrypoint to run rust linter on CI (automated tests)
+#
+# Usage: rust_lint.sh <arrow checkout directory>
+
 set -e
 
 source_dir=${1}/rust
 
 pushd ${source_dir}/arrow
-    cargo clippy -- -A clippy::redundant_field_names
+    cargo clippy --all-targets --workspace -- -D warnings -A clippy::redundant_field_names
 popd

@@ -161,19 +161,18 @@ mod tests {
             ),
         ];
 
-        cases
-            .into_iter()
-            .map(|(array, start, length, expected)| {
+        cases.into_iter().try_for_each::<_, Result<()>>(
+            |(array, start, length, expected)| {
                 let array = T::from(array);
-                let result = substring(&array, start, &length)?;
+                let result: ArrayRef = substring(&array, start, &length)?;
                 assert_eq!(array.len(), result.len());
 
                 let result = result.as_any().downcast_ref::<T>().unwrap();
                 let expected = T::from(expected);
                 assert_eq!(&expected, result);
                 Ok(())
-            })
-            .collect::<Result<()>>()?;
+            },
+        )?;
 
         Ok(())
     }
@@ -243,9 +242,8 @@ mod tests {
             ),
         ];
 
-        cases
-            .into_iter()
-            .map(|(array, start, length, expected)| {
+        cases.into_iter().try_for_each::<_, Result<()>>(
+            |(array, start, length, expected)| {
                 let array = StringArray::from(array);
                 let result = substring(&array, start, &length)?;
                 assert_eq!(array.len(), result.len());
@@ -253,8 +251,8 @@ mod tests {
                 let expected = StringArray::from(expected);
                 assert_eq!(&expected, result,);
                 Ok(())
-            })
-            .collect::<Result<()>>()?;
+            },
+        )?;
 
         Ok(())
     }

@@ -82,9 +82,9 @@ async fn nyc() -> Result<()> {
                 assert_eq!(projected_schema.field(0).name(), "passenger_count");
                 assert_eq!(projected_schema.field(1).name(), "fare_amount");
             }
-            _ => assert!(false),
+            _ => unreachable!(),
         },
-        _ => assert!(false),
+        _ => unreachable!(false),
     }
 
     Ok(())
@@ -1397,5 +1397,49 @@ async fn query_on_string_dictionary() -> Result<()> {
     let expected = vec![vec!["2"]];
     assert_eq!(expected, actual);
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn query_without_from() -> Result<()> {
+    // Test for SELECT <expression> without FROM.
+    // Should evaluate expressions in project position.
+    let mut ctx = ExecutionContext::new();
+
+    let sql = "SELECT 1";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"]];
+    assert_eq!(expected, actual);
+
+    let sql = "SELECT 1+2, 3/4, cos(0)";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["3", "0", "1"]];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn query_scalar_minus_array() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Int32, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Int32Array::from(vec![
+            Some(0),
+            Some(1),
+            None,
+            Some(3),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT 4 - c1 FROM test";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["4"], vec!["3"], vec!["NULL"], vec!["1"]];
+    assert_eq!(expected, actual);
     Ok(())
 }

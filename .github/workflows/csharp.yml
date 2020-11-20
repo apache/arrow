@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: [2.2.103]
+        dotnet: ['3.1.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: [2.2.103]
+        dotnet: ['3.1.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1
@@ -97,7 +97,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: [2.2.103]
+        dotnet: ['3.1.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v1

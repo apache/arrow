@@ -24,20 +24,21 @@ use packed_simd::u8x64;
 use std::cmp;
 use std::convert::AsRef;
 use std::fmt::{Debug, Formatter};
-use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
 use std::ptr::NonNull;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
+#[cfg(feature = "avx512")]
+use crate::arch::avx512::*;
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_chunk_iterator::BitChunks;
 use crate::util::bit_util;
 use crate::util::bit_util::ceil;
-#[cfg(feature = "simd")]
+#[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
@@ -267,8 +268,28 @@ impl Buffer {
         bitwise_unary_op_helper(&self, offset, len, |a| a)
     }
 
+    /// Returns a `BitChunks` instance which can be used to iterate over this buffers bits
+    /// in larger chunks and starting at arbitrary bit offsets.
+    /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
         BitChunks::new(&self, offset, len)
+    }
+
+    /// Returns the number of 1-bits in this buffer.
+    pub fn count_set_bits(&self) -> usize {
+        let len_in_bits = self.len() * 8;
+        // self.offset is already taken into consideration by the bit_chunks implementation
+        self.count_set_bits_offset(0, len_in_bits)
+    }
+
+    /// Returns the number of 1-bits in this buffer, starting from `offset` with `length` bits
+    /// inspected. Note that both `offset` and `length` are measured in bits.
+    pub fn count_set_bits_offset(&self, offset: usize, len: usize) -> usize {
+        let chunks = self.bit_chunks(offset, len);
+        let mut count = chunks.iter().map(|c| c.count_ones() as usize).sum();
+        count += chunks.remainder_bits().count_ones() as usize;
+
+        count
     }
 
     /// Returns an empty buffer.
@@ -416,9 +437,7 @@ where
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
     // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
-    result
-        .write_all(rem)
-        .expect("not enough capacity in buffer");
+    result.extend_from_slice(rem);
 
     result.freeze()
 }
@@ -451,13 +470,12 @@ where
     let rem = op(left_chunks.remainder_bits());
     // we are counting its starting from the least significant bit, to to_le_bytes should be correct
     let rem = &rem.to_le_bytes()[0..remainder_bytes];
-    result
-        .write_all(rem)
-        .expect("not enough capacity in buffer");
+    result.extend_from_slice(rem);
 
     result.freeze()
 }
 
+#[cfg(all(target_arch = "x86_64", feature = "avx512"))]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -465,25 +483,43 @@ pub(super) fn buffer_bin_and(
     right_offset_in_bits: usize,
     len_in_bits: usize,
 ) -> Buffer {
-    // SIMD implementation if available and byte-aligned
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     if left_offset_in_bits % 8 == 0
         && right_offset_in_bits % 8 == 0
         && len_in_bits % 8 == 0
     {
-        return bitwise_bin_op_simd_helper(
-            &left,
-            left_offset_in_bits / 8,
-            &right,
-            right_offset_in_bits / 8,
-            len_in_bits / 8,
-            |a, b| a & b,
-            |a, b| a & b,
-        );
-    }
-    // Default implementation
-    #[allow(unreachable_code)]
-    {
+        let len = len_in_bits / 8;
+        let left_offset = left_offset_in_bits / 8;
+        let right_offset = right_offset_in_bits / 8;
+
+        let mut result = MutableBuffer::new(len).with_bitset(len, false);
+
+        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut right_chunks =
+            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+
+        result_chunks
+            .borrow_mut()
+            .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+            .for_each(|(res, (left, right))| unsafe {
+                avx512_bin_and(left, right, res);
+            });
+
+        result_chunks
+            .into_remainder()
+            .iter_mut()
+            .zip(
+                left_chunks
+                    .remainder()
+                    .iter()
+                    .zip(right_chunks.remainder().iter()),
+            )
+            .for_each(|(res, (left, right))| {
+                *res = *left & *right;
+            });
+
+        result.freeze()
+    } else {
         bitwise_bin_op_helper(
             &left,
             left_offset_in_bits,
@@ -495,6 +531,61 @@ pub(super) fn buffer_bin_and(
     }
 }
 
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
+        bitwise_bin_op_simd_helper(
+            &left,
+            left_offset_in_bits / 8,
+            &right,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
+            |a, b| a & b,
+            |a, b| a & b,
+        )
+    } else {
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a & b,
+        )
+    }
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(any(feature = "simd", feature = "avx512"))
+))]
+pub(super) fn buffer_bin_and(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    bitwise_bin_op_helper(
+        &left,
+        left_offset_in_bits,
+        right,
+        right_offset_in_bits,
+        len_in_bits,
+        |a, b| a & b,
+    )
+}
+
+#[cfg(all(target_arch = "x86_64", feature = "avx512"))]
 pub(super) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -502,25 +593,43 @@ pub(super) fn buffer_bin_or(
     right_offset_in_bits: usize,
     len_in_bits: usize,
 ) -> Buffer {
-    // SIMD implementation if available and byte-aligned
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     if left_offset_in_bits % 8 == 0
         && right_offset_in_bits % 8 == 0
         && len_in_bits % 8 == 0
     {
-        return bitwise_bin_op_simd_helper(
-            &left,
-            left_offset_in_bits / 8,
-            &right,
-            right_offset_in_bits / 8,
-            len_in_bits / 8,
-            |a, b| a | b,
-            |a, b| a | b,
-        );
-    }
-    // Default implementation
-    #[allow(unreachable_code)]
-    {
+        let len = len_in_bits / 8;
+        let left_offset = left_offset_in_bits / 8;
+        let right_offset = right_offset_in_bits / 8;
+
+        let mut result = MutableBuffer::new(len).with_bitset(len, false);
+
+        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut right_chunks =
+            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+
+        result_chunks
+            .borrow_mut()
+            .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+            .for_each(|(res, (left, right))| unsafe {
+                avx512_bin_or(left, right, res);
+            });
+
+        result_chunks
+            .into_remainder()
+            .iter_mut()
+            .zip(
+                left_chunks
+                    .remainder()
+                    .iter()
+                    .zip(right_chunks.remainder().iter()),
+            )
+            .for_each(|(res, (left, right))| {
+                *res = *left | *right;
+            });
+
+        result.freeze()
+    } else {
         bitwise_bin_op_helper(
             &left,
             left_offset_in_bits,
@@ -530,6 +639,60 @@ pub(super) fn buffer_bin_or(
             |a, b| a | b,
         )
     }
+}
+
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub(super) fn buffer_bin_or(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
+        bitwise_bin_op_simd_helper(
+            &left,
+            left_offset_in_bits / 8,
+            &right,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
+            |a, b| a | b,
+            |a, b| a | b,
+        )
+    } else {
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a | b,
+        )
+    }
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    not(any(feature = "simd", feature = "avx512"))
+))]
+pub(super) fn buffer_bin_or(
+    left: &Buffer,
+    left_offset_in_bits: usize,
+    right: &Buffer,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    bitwise_bin_op_helper(
+        &left,
+        left_offset_in_bits,
+        right,
+        right_offset_in_bits,
+        len_in_bits,
+        |a, b| a | b,
+    )
 }
 
 pub(super) fn buffer_unary_not(
@@ -676,7 +839,7 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
-    pub fn resize(&mut self, new_len: usize) -> () {
+    pub fn resize(&mut self, new_len: usize) {
         if new_len > self.len {
             self.reserve(new_len);
         } else {
@@ -773,21 +936,16 @@ impl MutableBuffer {
         }
     }
 
-    /// Writes a byte slice to the underlying buffer and updates the `len`, i.e. the
-    /// number array elements in the buffer.  Also, converts the `io::Result`
-    /// required by the `Write` trait to the Arrow `Result` type.
-    pub fn write_bytes(&mut self, bytes: &[u8], len_added: usize) -> Result<()> {
-        let write_result = self.write(bytes);
-        // `io::Result` has many options one of which we use, so pattern matching is
-        // overkill here
-        if write_result.is_err() {
-            Err(ArrowError::IoError(
-                "Could not write to Buffer, not big enough".to_string(),
-            ))
-        } else {
-            self.len += len_added;
-            Ok(())
+    /// Extends the buffer from a byte slice, incrementing its capacity if needed.
+    pub fn extend_from_slice(&mut self, bytes: &[u8]) {
+        let remaining_capacity = self.capacity - self.len;
+        if bytes.len() > remaining_capacity {
+            self.reserve(self.len + bytes.len());
         }
+        unsafe {
+            memory::memcpy(self.data.add(self.len), bytes.as_ptr(), bytes.len());
+        }
+        self.len += bytes.len();
     }
 }
 
@@ -811,30 +969,11 @@ impl PartialEq for MutableBuffer {
     }
 }
 
-impl Write for MutableBuffer {
-    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
-        let remaining_capacity = self.capacity - self.len;
-        if buf.len() > remaining_capacity {
-            return Err(IoError::new(ErrorKind::Other, "Buffer not big enough"));
-        }
-        unsafe {
-            memory::memcpy(self.data.add(self.len), buf.as_ptr(), buf.len());
-            self.len += buf.len();
-            Ok(buf.len())
-        }
-    }
-
-    fn flush(&mut self) -> IoResult<()> {
-        Ok(())
-    }
-}
-
 unsafe impl Sync for MutableBuffer {}
 unsafe impl Send for MutableBuffer {}
 
 #[cfg(test)]
 mod tests {
-    use crate::util::bit_util;
     use std::ptr::null_mut;
     use std::thread;
 
@@ -855,8 +994,7 @@ mod tests {
 
         // Different capacities should still preserve equality
         let mut buf2 = MutableBuffer::new(65);
-        buf2.write_all(&[0, 1, 2, 3, 4])
-            .expect("write should be OK");
+        buf2.extend_from_slice(&[0, 1, 2, 3, 4]);
 
         let buf2 = buf2.freeze();
         assert_eq!(buf1, buf2);
@@ -937,11 +1075,11 @@ mod tests {
     fn test_with_bitset() {
         let mut_buf = MutableBuffer::new(64).with_bitset(64, false);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         let buf = mut_buf.freeze();
-        assert_eq!(512, bit_util::count_set_bits(buf.data()));
+        assert_eq!(512, buf.count_set_bits());
     }
 
     #[test]
@@ -949,12 +1087,12 @@ mod tests {
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(0, 64);
         let buf = mut_buf.freeze();
-        assert_eq!(0, bit_util::count_set_bits(buf.data()));
+        assert_eq!(0, buf.count_set_bits());
 
         let mut mut_buf = MutableBuffer::new(64).with_bitset(64, true);
         mut_buf.set_null_bits(32, 32);
         let buf = mut_buf.freeze();
-        assert_eq!(256, bit_util::count_set_bits(buf.data()));
+        assert_eq!(256, buf.count_set_bits());
     }
 
     #[test]
@@ -994,31 +1132,21 @@ mod tests {
     }
 
     #[test]
-    fn test_mutable_write() {
+    fn test_mutable_extend_from_slice() {
         let mut buf = MutableBuffer::new(100);
-        buf.write_all(b"hello").expect("Ok");
+        buf.extend_from_slice(b"hello");
         assert_eq!(5, buf.len());
         assert_eq!(b"hello", buf.data());
 
-        buf.write_all(b" world").expect("Ok");
+        buf.extend_from_slice(b" world");
         assert_eq!(11, buf.len());
         assert_eq!(b"hello world", buf.data());
 
         buf.clear();
         assert_eq!(0, buf.len());
-        buf.write_all(b"hello arrow").expect("Ok");
+        buf.extend_from_slice(b"hello arrow");
         assert_eq!(11, buf.len());
         assert_eq!(b"hello arrow", buf.data());
-    }
-
-    #[test]
-    #[should_panic(expected = "Buffer not big enough")]
-    fn test_mutable_write_overflow() {
-        let mut buf = MutableBuffer::new(1);
-        assert_eq!(64, buf.capacity());
-        for _ in 0..10 {
-            buf.write_all(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
-        }
     }
 
     #[test]
@@ -1066,8 +1194,7 @@ mod tests {
     #[test]
     fn test_mutable_freeze() {
         let mut buf = MutableBuffer::new(1);
-        buf.write_all(b"aaaa bbbb cccc dddd")
-            .expect("write should be OK");
+        buf.extend_from_slice(b"aaaa bbbb cccc dddd");
         assert_eq!(19, buf.len());
         assert_eq!(64, buf.capacity());
         assert_eq!(b"aaaa bbbb cccc dddd", buf.data());
@@ -1083,11 +1210,11 @@ mod tests {
         let mut buf = MutableBuffer::new(1);
         let mut buf2 = MutableBuffer::new(1);
 
-        buf.write_all(&[0xaa])?;
-        buf2.write_all(&[0xaa, 0xbb])?;
+        buf.extend_from_slice(&[0xaa]);
+        buf2.extend_from_slice(&[0xaa, 0xbb]);
         assert!(buf != buf2);
 
-        buf.write_all(&[0xbb])?;
+        buf.extend_from_slice(&[0xbb]);
         assert_eq!(buf, buf2);
 
         buf2.reserve(65);
@@ -1133,5 +1260,90 @@ mod tests {
         check_as_typed_data!(&[1u64, 3u64, 6u64], u64);
         check_as_typed_data!(&[1f32, 3f32, 6f32], f32);
         check_as_typed_data!(&[1f64, 3f64, 6f64], f64);
+    }
+
+    #[test]
+    fn test_count_bits() {
+        assert_eq!(0, Buffer::from(&[0b00000000]).count_set_bits());
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits());
+        assert_eq!(3, Buffer::from(&[0b00001101]).count_set_bits());
+        assert_eq!(6, Buffer::from(&[0b01001001, 0b01010010]).count_set_bits());
+        assert_eq!(16, Buffer::from(&[0b11111111, 0b11111111]).count_set_bits());
+    }
+
+    #[test]
+    fn test_count_bits_slice() {
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b00000000])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            3,
+            Buffer::from(&[0b11111111, 0b11111111, 0b00001101])
+                .slice(2)
+                .count_set_bits()
+        );
+        assert_eq!(
+            6,
+            Buffer::from(&[0b11111111, 0b01001001, 0b01010010])
+                .slice(1)
+                .count_set_bits()
+        );
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111, 0b11111111, 0b11111111])
+                .slice(2)
+                .count_set_bits()
+        );
+    }
+
+    #[test]
+    fn test_count_bits_offset_slice() {
+        assert_eq!(8, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 8));
+        assert_eq!(3, Buffer::from(&[0b11111111]).count_set_bits_offset(0, 3));
+        assert_eq!(5, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 5));
+        assert_eq!(1, Buffer::from(&[0b11111111]).count_set_bits_offset(3, 1));
+        assert_eq!(0, Buffer::from(&[0b11111111]).count_set_bits_offset(8, 0));
+        assert_eq!(2, Buffer::from(&[0b01010101]).count_set_bits_offset(0, 3));
+        assert_eq!(
+            16,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 16)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(0, 10)
+        );
+        assert_eq!(
+            10,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(3, 10)
+        );
+        assert_eq!(
+            8,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(8, 8)
+        );
+        assert_eq!(
+            5,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(11, 5)
+        );
+        assert_eq!(
+            0,
+            Buffer::from(&[0b11111111, 0b11111111]).count_set_bits_offset(16, 0)
+        );
+        assert_eq!(
+            2,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 5)
+        );
+        assert_eq!(
+            4,
+            Buffer::from(&[0b01101101, 0b10101010]).count_set_bits_offset(7, 9)
+        );
     }
 }

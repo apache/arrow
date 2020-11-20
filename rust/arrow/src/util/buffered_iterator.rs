@@ -54,7 +54,7 @@ where
     /// Useful to extract the exact item where an error occurred
     #[inline]
     pub fn n(&self) -> usize {
-        return self.buffer.len();
+        self.buffer.len()
     }
 }
 

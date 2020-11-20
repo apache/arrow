@@ -22,7 +22,6 @@
 
 #include <cmath>
 #include <limits>
-#include <mutex>
 #include <sstream>
 #include <type_traits>
 
@@ -264,23 +263,39 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
-static std::once_flag pandas_static_initialized;
+static bool pandas_static_initialized = false;
 
+// Once initialized, these variables hold borrowed references to Pandas static data.
+// We should not use OwnedRef here because Python destructors would be
+// called on a finalized interpreter.
 static PyObject* pandas_NA = nullptr;
 static PyObject* pandas_NaT = nullptr;
 static PyObject* pandas_Timedelta = nullptr;
 static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 
-void GetPandasStaticSymbols() {
+}  // namespace
+
+void InitPandasStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (pandas_static_initialized) {
+    return;
+  }
+
   OwnedRef pandas;
 
-  // import pandas
+  // Import pandas
   Status s = ImportModule("pandas", &pandas);
   if (!s.ok()) {
     return;
   }
 
+  // Since ImportModule can release the GIL, another thread could have
+  // already initialized the static data.
+  if (pandas_static_initialized) {
+    return;
+  }
   OwnedRef ref;
 
   // set NaT sentinel and its type
@@ -305,12 +320,8 @@ void GetPandasStaticSymbols() {
   if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
     pandas_NA = ref.obj();
   }
-}
 
-}  // namespace
-
-void InitPandasStaticData() {
-  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+  pandas_static_initialized = true;
 }
 
 bool PandasObjectIsNull(PyObject* obj) {

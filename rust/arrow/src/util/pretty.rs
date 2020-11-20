@@ -140,7 +140,7 @@ mod tests {
         builder.append("three")?;
         let array = Arc::new(builder.finish());
 
-        let batch = RecordBatch::try_new(schema.clone(), vec![array])?;
+        let batch = RecordBatch::try_new(schema, vec![array])?;
 
         let table = pretty_format_batches(&[batch])?;
 

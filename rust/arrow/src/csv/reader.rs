@@ -140,7 +140,7 @@ fn infer_file_schema<R: Read + Seek>(
 
         for i in 0..header_length {
             if let Some(string) = record.get(i) {
-                if string == "" {
+                if string.is_empty() {
                     nulls[i] = true;
                 } else {
                     column_types[i].insert(infer_field_schema(string));
@@ -329,7 +329,7 @@ impl<R: Read> Reader<R> {
             schema,
             projection,
             record_iter,
-            line_number: if has_header { start + 1 } else { start + 0 },
+            line_number: if has_header { start + 1 } else { start },
         }
     }
 }
@@ -372,7 +372,7 @@ impl<R: Read> Iterator for Reader<R> {
 /// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
 fn parse(
     rows: &[StringRecord],
-    fields: &Vec<Field>,
+    fields: &[Field],
     projection: &Option<Vec<usize>>,
     line_number: usize,
 ) -> Result<RecordBatch> {

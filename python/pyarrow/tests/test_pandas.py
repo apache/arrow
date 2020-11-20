@@ -34,7 +34,7 @@ import pytest
 import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import random_ascii, rands
+from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
 
 import pyarrow as pa
@@ -519,6 +519,20 @@ class TestConvertMetadata:
             result = table_subset2.to_pandas()
             tm.assert_frame_equal(result, df[['a']].reset_index(drop=True))
 
+    def test_to_pandas_column_subset_multiindex(self):
+        # ARROW-10122
+        df = pd.DataFrame(
+            {"first": list(range(5)),
+             "second": list(range(5)),
+             "value": np.arange(5)}
+        )
+        table = pa.Table.from_pandas(df.set_index(["first", "second"]))
+
+        subset = table.select(["first", "value"])
+        result = subset.to_pandas()
+        expected = df[["first", "value"]].set_index("first")
+        tm.assert_frame_equal(result, expected)
+
     def test_empty_list_metadata(self):
         # Create table with array of empty lists, forced to have type
         # list(string) in pyarrow
@@ -567,6 +581,35 @@ class TestConvertMetadata:
         df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
         table = pa.Table.from_pandas(df)
         assert table.schema.pandas_metadata['pandas_version'] is not None
+
+    def test_mismatch_metadata_schema(self):
+        # ARROW-10511
+        # It is possible that the metadata and actual schema is not fully
+        # matching (eg no timezone information for tz-aware column)
+        # -> to_pandas() conversion should not fail on that
+        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+
+        # OPTION 1: casting after conversion
+        table = pa.Table.from_pandas(df)
+        # cast the "datetime" column to be tz-aware
+        new_col = table["datetime"].cast(pa.timestamp('ns', tz="UTC"))
+        new_table1 = table.set_column(
+            0, pa.field("datetime", new_col.type), new_col
+        )
+
+        # OPTION 2: specify schema during conversion
+        schema = pa.schema([("datetime", pa.timestamp('ns', tz="UTC"))])
+        new_table2 = pa.Table.from_pandas(df, schema=schema)
+
+        expected = df.copy()
+        expected["datetime"] = expected["datetime"].dt.tz_localize("UTC")
+
+        for new_table in [new_table1, new_table2]:
+            # ensure the new table still has the pandas metadata
+            assert new_table.schema.pandas_metadata is not None
+            # convert to pandas
+            result = new_table.to_pandas()
+            tm.assert_frame_equal(result, expected)
 
 
 class TestConvertPrimitiveTypes:
@@ -3179,6 +3222,34 @@ def test_table_from_pandas_schema_with_custom_metadata():
     assert table.schema.metadata.get(b'meta') == b'True'
 
 
+def test_table_from_pandas_schema_field_order_metadat():
+    # ARROW-10532
+    # ensure that a different field order in specified schema doesn't
+    # mangle metadata
+    df = pd.DataFrame({
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "float": np.random.randn(2)
+    })
+
+    schema = pa.schema([
+        pa.field("float", pa.float32(), nullable=True),
+        pa.field("datetime", pa.timestamp("s", tz="UTC"), nullable=False)
+    ])
+
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.equals(schema)
+    metadata_float = table.schema.pandas_metadata["columns"][0]
+    assert metadata_float["name"] == "float"
+    assert metadata_float["metadata"] is None
+    metadata_datetime = table.schema.pandas_metadata["columns"][1]
+    assert metadata_datetime["name"] == "datetime"
+    assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
+
+    result = table.to_pandas()
+    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    tm.assert_frame_equal(result, expected)
+
+
 # ----------------------------------------------------------------------
 # RecordBatch, Table
 
@@ -4238,3 +4309,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
             assert result[0].tzinfo is None
             expected = dt
         assert result[0] == expected
+
+
+def test_threaded_pandas_import():
+    invoke_script("pandas_threaded_import.py")

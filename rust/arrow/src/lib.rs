@@ -124,12 +124,26 @@
 //!
 //! The parquet implementation is on a [separate crate](https://crates.io/crates/parquet)
 
+#![cfg_attr(feature = "avx512", feature(stdsimd))]
+#![cfg_attr(feature = "avx512", feature(repr_simd))]
+#![cfg_attr(feature = "avx512", feature(avx512_target_feature))]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]
 #![warn(missing_debug_implementations)]
 #![deny(clippy::redundant_clone)]
+// introduced to ignore lint errors when upgrading from 2020-04-22 to 2020-11-14
+#![allow(
+    clippy::bind_instead_of_map,
+    clippy::float_equality_without_abs,
+    clippy::match_like_matches_macro,
+    clippy::needless_lifetimes,
+    clippy::needless_range_loop,
+    clippy::or_fun_call,
+    clippy::type_complexity
+)]
 
+mod arch;
 pub mod array;
 pub mod bitmap;
 pub mod buffer;
