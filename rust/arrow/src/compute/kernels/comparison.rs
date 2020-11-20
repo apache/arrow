@@ -157,19 +157,42 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
 
 pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
     let null_bit_buffer = left.data().null_buffer().cloned();
-    let re_pattern = right.replace("%", ".*").replace("_", ".");
-    let re = Regex::new(&re_pattern).map_err(|e| {
-        ArrowError::ComputeError(format!(
-            "Unable to build regex from LIKE pattern: {}",
-            e
-        ))
-    })?;
-
     let mut result = BooleanBufferBuilder::new(left.len());
-    for i in 0..left.len() {
-        let haystack = left.value(i);
-        result.append(re.is_match(haystack))?;
+
+    fn is_like_pattern(c: char) -> bool {
+        c == '%' || c == '_'
     }
+
+    if !right.contains(|x| x == '%' || x == '.') {
+        // fast path, can use equals
+        for i in 0..left.len() {
+            result.append(left.value(i) == right)?;
+        }
+    } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
+    {
+        // fast path, can use ends_with
+        for i in 0..left.len() {
+            result.append(left.value(i).starts_with(right))?;
+        }
+    } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
+        // fast path, can use starts_with
+        for i in 0..left.len() {
+            result.append(left.value(i).ends_with(right))?;
+        }
+    } else {
+        let re_pattern = right.replace("%", ".*").replace("_", ".");
+        let re = Regex::new(&re_pattern).map_err(|e| {
+            ArrowError::ComputeError(format!(
+                "Unable to build regex from LIKE pattern: {}",
+                e
+            ))
+        })?;
+
+        for i in 0..left.len() {
+            let haystack = left.value(i);
+            result.append(re.is_match(haystack))?;
+        }
+    };
 
     let data = ArrayData::new(
         DataType::Boolean,
