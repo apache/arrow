@@ -405,7 +405,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Condition.create(r)
 
 cpdef make_projector(Schema schema, children, MemoryPool pool,
-        str selection_mode = "NONE"):
+                     str selection_mode="NONE"):
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
     for child in children:
