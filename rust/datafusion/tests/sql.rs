@@ -228,6 +228,34 @@ async fn parquet_list_columns() {
 }
 
 #[tokio::test]
+async fn csv_select_nested() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT o1, o2, c3
+               FROM (
+                 SELECT c1 AS o1, c2 + 1 AS o2, c3
+                 FROM (
+                   SELECT c1, c2, c3, c4
+                   FROM aggregate_test_100
+                   WHERE c1 = 'a' AND c2 >= 4
+                   ORDER BY c2 ASC, c3 ASC
+                 )
+               )";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["a", "5", "-101"],
+        vec!["a", "5", "-54"],
+        vec!["a", "5", "-38"],
+        vec!["a", "5", "65"],
+        vec!["a", "6", "-101"],
+        vec!["a", "6", "-31"],
+        vec!["a", "6", "36"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_count_star() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
