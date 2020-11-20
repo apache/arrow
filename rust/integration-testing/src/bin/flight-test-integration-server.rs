@@ -546,6 +546,8 @@ type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 #[tokio::main]
 async fn main() -> Result {
+    tracing_subscriber::fmt::init();
+
     let matches = App::new("rust flight-test-integration-server")
         .about("Integration testing server for Flight.")
         .arg(Arg::with_name("port").long("port").takes_value(true))
