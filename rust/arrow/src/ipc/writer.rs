@@ -398,7 +398,7 @@ pub fn schema_to_bytes(schema: &Schema, write_options: &IpcWriteOptions) -> Enco
     }
 }
 
-enum Message<'a> {
+pub enum Message<'a> {
     Schema(&'a Schema, &'a IpcWriteOptions),
     RecordBatch(&'a RecordBatch, &'a IpcWriteOptions),
     DictionaryBatch(i64, &'a ArrayDataRef, &'a IpcWriteOptions),
