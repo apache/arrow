@@ -420,8 +420,8 @@ impl<'a> Message<'a> {
 }
 
 /// Write a message's IPC data and buffers, returning metadata and buffer data lengths written
-fn write_message<W: Write>(
-    mut writer: &mut BufWriter<W>,
+pub fn write_message<W: Write>(
+    mut writer: W,
     message: &Message,
     write_options: &IpcWriteOptions,
 ) -> Result<(usize, usize)> {
@@ -467,7 +467,7 @@ fn write_message<W: Write>(
     Ok((aligned_size, body_len))
 }
 
-fn write_body_buffers<W: Write>(writer: &mut BufWriter<W>, data: &[u8]) -> Result<usize> {
+fn write_body_buffers<W: Write>(mut writer: W, data: &[u8]) -> Result<usize> {
     let len = data.len() as u32;
     let pad_len = pad_to_8(len) as u32;
     let total_len = len + pad_len;
@@ -596,7 +596,7 @@ pub fn dictionary_batch_to_bytes(
 /// Write a record batch to the writer, writing the message size before the message
 /// if the record batch is being written to a stream
 fn write_continuation<W: Write>(
-    writer: &mut BufWriter<W>,
+    mut writer: W,
     write_options: &IpcWriteOptions,
     total_len: i32,
 ) -> Result<usize> {
