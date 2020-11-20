@@ -39,6 +39,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
