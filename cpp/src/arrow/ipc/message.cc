@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "arrow/buffer.h"
 #include "arrow/device.h"
@@ -469,6 +470,8 @@ class MessageDecoder::MessageDecoderImpl {
         metadata_(nullptr) {}
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
+    std::cerr << "ConsumeData / next_required_size_ " << next_required_size_ << std::endl;
+
     if (buffered_size_ == 0) {
       while (size > 0 && size >= next_required_size_) {
         auto used_size = next_required_size_;
@@ -505,6 +508,7 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeBuffer(std::shared_ptr<Buffer> buffer) {
+    std::cerr << "ConsumeBuffer / next_required_size_ " << next_required_size_ << std::endl;
     if (buffered_size_ == 0) {
       while (buffer->size() >= next_required_size_) {
         auto used_size = next_required_size_;
@@ -598,15 +602,18 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeInitial(int32_t continuation) {
+    std::cerr << "ConsumeInitial / continuation " << continuation << std::endl;
     if (continuation == internal::kIpcContinuationToken) {
       state_ = State::METADATA_LENGTH;
       next_required_size_ = kMessageDecoderNextRequiredSizeMetadataLength;
+      std::cerr << "ConsumeInitial / A / next_required_size_ = " << next_required_size_ << std::endl;
       RETURN_NOT_OK(listener_->OnMetadataLength());
       // Valid IPC message, read the message length now
       return Status::OK();
     } else if (continuation == 0) {
       state_ = State::EOS;
       next_required_size_ = 0;
+      std::cerr << "ConsumeInitial / B / next_required_size_ = " << next_required_size_ << std::endl;
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (continuation > 0) {
@@ -614,6 +621,7 @@ class MessageDecoder::MessageDecoderImpl {
       // ARROW-6314: Backwards compatibility for reading old IPC
       // messages produced prior to version 0.15.0
       next_required_size_ = continuation;
+      std::cerr << "ConsumeInitial / C / next_required_size_ = " << next_required_size_ << std::endl;
       RETURN_NOT_OK(listener_->OnMetadata());
       return Status::OK();
     } else {
@@ -641,11 +649,13 @@ class MessageDecoder::MessageDecoderImpl {
     if (metadata_length == 0) {
       state_ = State::EOS;
       next_required_size_ = 0;
+      std::cerr << "ConsumeMetadataLength / A /next_required_size_ = " << next_required_size_ << std::endl;
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (metadata_length > 0) {
       state_ = State::METADATA;
       next_required_size_ = metadata_length;
+      std::cerr << "ConsumeMetadataLength / B / next_required_size_ = " << next_required_size_ << std::endl;
       RETURN_NOT_OK(listener_->OnMetadata());
       return Status::OK();
     } else {
@@ -664,6 +674,8 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeMetadataChunks() {
+    std::cerr << "ConsumeMetadataChunks / next_required_size_ " << next_required_size_ << std::endl;
+
     if (chunks_[0]->size() >= next_required_size_) {
       if (chunks_[0]->size() == next_required_size_) {
         if (chunks_[0]->is_cpu()) {
@@ -698,6 +710,7 @@ class MessageDecoder::MessageDecoderImpl {
 
     state_ = State::BODY;
     next_required_size_ = body_length;
+    std::cerr << "ConsumeMetadata / next_required_size_ = " << next_required_size_ << std::endl;
     RETURN_NOT_OK(listener_->OnBody());
     if (next_required_size_ == 0) {
       ARROW_ASSIGN_OR_RAISE(auto body, AllocateBuffer(0, pool_));
@@ -713,6 +726,8 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeBodyChunks() {
+    std::cerr << "ConsumeBodyChunks / next_required_size_ " << next_required_size_ << std::endl;
+
     if (chunks_[0]->size() >= next_required_size_) {
       auto used_size = next_required_size_;
       if (chunks_[0]->size() == next_required_size_) {
@@ -740,6 +755,7 @@ class MessageDecoder::MessageDecoderImpl {
     RETURN_NOT_OK(listener_->OnMessageDecoded(std::move(message)));
     state_ = State::INITIAL;
     next_required_size_ = kMessageDecoderNextRequiredSizeInitial;
+    std::cerr << "ConsumeBody / next_required_size_ = " << next_required_size_ << std::endl;
     RETURN_NOT_OK(listener_->OnInitial());
     return Status::OK();
   }

@@ -121,6 +121,7 @@ impl FlightService for FlightServiceImpl {
         &self,
         request: Request<FlightDescriptor>,
     ) -> Result<Response<FlightInfo>, Status> {
+        eprintln!("Doing get_flight_info...");
         let descriptor = request.into_inner();
 
         match descriptor.r#type {
@@ -167,6 +168,8 @@ impl FlightService for FlightServiceImpl {
         &self,
         request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
+        eprintln!("Doing put...");
+
         let mut input_stream = request.into_inner();
         let flight_data = input_stream
             .message()
@@ -198,12 +201,14 @@ impl FlightService for FlightServiceImpl {
             let mut uploaded_chunks = uploaded_chunks.lock().await;
 
             while let Some(Ok(more_flight_data)) = input_stream.next().await {
+                eprintln!("send #1");
                 let stream_result = response_tx
                     .send(Ok(PutResult {
                         app_metadata: more_flight_data.app_metadata.clone(),
                     }))
                     .await;
                 if let Err(e) = stream_result {
+                    eprintln!("send #2");
                     response_tx
                         .send(Err(Status::internal(format!(
                             "Could not send PutResult: {:?}",
@@ -220,13 +225,16 @@ impl FlightService for FlightServiceImpl {
 
                 match arrow_batch_result {
                     Ok(batch) => chunks.push(batch),
-                    Err(e) => response_tx
+                    Err(e) => {
+                                            eprintln!("send #3");
+response_tx
                         .send(Err(Status::invalid_argument(format!(
                             "Could not convert to RecordBatch: {:?}",
                             e
                         ))))
                         .await
-                        .expect("Error sending error"),
+                            .expect("Error sending error")
+                    },
                 }
             }
 

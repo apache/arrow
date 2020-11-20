@@ -391,6 +391,7 @@ pub fn schema_to_bytes(schema: &Schema, write_options: &IpcWriteOptions) -> Enco
     fbb.finish(data, None);
 
     let data = fbb.finished_data();
+    dbg!(data.len());
     EncodedData {
         ipc_message: data.to_vec(),
         arrow_data: vec![],
@@ -600,9 +601,9 @@ fn write_continuation<W: Write>(
     total_len: i32,
 ) -> Result<usize> {
     let mut written = 8;
-
+    dbg!("write_continuation", write_options);
     // the version of the writer determines whether continuation markers should be added
-    match write_options.metadata_version {
+    match dbg!(write_options.metadata_version) {
         ipc::MetadataVersion::V1
         | ipc::MetadataVersion::V2
         | ipc::MetadataVersion::V3 => {

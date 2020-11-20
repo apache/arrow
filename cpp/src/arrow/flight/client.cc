@@ -1151,6 +1151,8 @@ class FlightClient::FlightClientImpl {
     using GrpcStream = grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>;
     using StreamWriter = GrpcStreamWriter<pb::PutResult, pb::PutResult>;
 
+    std::cerr << "DoPut called" << std::endl;
+
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
