@@ -56,6 +56,7 @@
 namespace arrow {
 
 using internal::BitmapAnd;
+using internal::BitmapAndNot;
 using internal::BitmapOr;
 using internal::BitmapXor;
 using internal::BitsetStack;
@@ -1104,6 +1105,22 @@ struct BitmapXorOp : public BitmapOperation {
   }
 };
 
+struct BitmapAndNotOp : public BitmapOperation {
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return BitmapAndNot(pool, left, left_offset, right, right_offset, length, out_offset);
+  }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    BitmapAndNot(left, left_offset, right, right_offset, length, out_offset, out_buffer);
+    return Status::OK();
+  }
+};
+
 class BitmapOp : public TestBase {
  public:
   void TestAligned(const BitmapOperation& op, const std::vector<int>& left_bits,
@@ -1191,6 +1208,16 @@ TEST_F(BitmapOp, Xor) {
   std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
   std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
   std::vector<int> result = {0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1};
+
+  TestAligned(op, left, right, result);
+  TestUnaligned(op, left, right, result);
+}
+
+TEST_F(BitmapOp, AndNot) {
+  BitmapAndNotOp op;
+  std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
+  std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
+  std::vector<int> result = {0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1};
 
   TestAligned(op, left, right, result);
   TestUnaligned(op, left, right, result);

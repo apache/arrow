@@ -560,5 +560,24 @@ void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
   BitmapOp<std::bit_xor>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
+template <typename T>
+struct AndNotOp {
+  constexpr T operator()(const T& l, const T& r) const { return l & ~r; }
+};
+
+Result<std::shared_ptr<Buffer>> BitmapAndNot(MemoryPool* pool, const uint8_t* left,
+                                             int64_t left_offset, const uint8_t* right,
+                                             int64_t right_offset, int64_t length,
+                                             int64_t out_offset) {
+  return BitmapOp<AndNotOp>(pool, left, left_offset, right, right_offset, length,
+                            out_offset);
+}
+
+void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                  int64_t right_offset, int64_t length, int64_t out_offset,
+                  uint8_t* out) {
+  BitmapOp<AndNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
+}
+
 }  // namespace internal
 }  // namespace arrow

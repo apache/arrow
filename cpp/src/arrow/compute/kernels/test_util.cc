@@ -71,7 +71,22 @@ ScalarVector GetScalars(const ArrayVector& inputs, int64_t index) {
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
-  AssertScalarsEqual(*expected, *out.scalar(), /*verbose=*/true);
+  if (!out.scalar()->Equals(expected)) {
+    std::string summary = func_name + "(";
+    for (const auto& input : inputs) {
+      summary += input->ToString() + ",";
+    }
+    summary.back() = ')';
+
+    summary += " = " + out.scalar()->ToString() + " != " + expected->ToString();
+
+    if (!out.type()->Equals(expected->type)) {
+      summary += " (types differed: " + out.type()->ToString() + " vs " +
+                 expected->type->ToString() + ")";
+    }
+
+    FAIL() << summary;
+  }
 }
 
 void CheckScalar(std::string func_name, const ArrayVector& inputs,
@@ -96,6 +111,10 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
     CheckScalarNonRecursive(func_name, SliceAll(inputs, 2 * slice_length),
                             expected->Slice(2 * slice_length), options);
   }
+
+  // should also work with an empty slice
+  CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
+                          options);
 
   // Ditto with ChunkedArray inputs
   if (slice_length > 0) {
