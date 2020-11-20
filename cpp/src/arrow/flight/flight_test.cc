@@ -38,6 +38,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
@@ -1038,24 +1039,6 @@ class TestCookieMiddleware : public ::testing::Test {
     return add_call_headers.GetCookies();
   }
 
-  // Function to trim whitespace from left and right sides of string.
-  std::string trim(std::string s) {
-    auto ltrim = [](std::string& s) {
-      s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-                return !std::isspace(ch);
-             }));
-    };
-    auto rtrim = [](std::string& s) {
-      s.erase(std::find_if(s.rbegin(), s.rend(),
-                           [](unsigned char ch) { return !std::isspace(ch); })
-                  .base(),
-              s.end());
-    };
-    ltrim(s);
-    rtrim(s);
-    return s;
-  };
-
   // Function to take a list of cookies and split them into a vector of individual
   // cookies.
   std::vector<std::string> SplitCookies(const std::string& cookies) {
@@ -1063,11 +1046,12 @@ class TestCookieMiddleware : public ::testing::Test {
     std::string::size_type pos1 = 0;
     std::string::size_type pos2 = 0;
     while ((pos2 = cookies.find(';', pos1)) != std::string::npos) {
-      split_cookies.push_back(trim(cookies.substr(pos1, pos2 - pos1)));
+      split_cookies.push_back(
+          arrow::internal::TrimString(cookies.substr(pos1, pos2 - pos1)));
       pos1 = pos2 + 1;
     }
     if (pos1 < cookies.size()) {
-      split_cookies.push_back(trim(cookies.substr(pos1)));
+      split_cookies.push_back(arrow::internal::TrimString(cookies.substr(pos1)));
     }
     std::sort(split_cookies.begin(), split_cookies.end());
     return split_cookies;
