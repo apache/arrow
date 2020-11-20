@@ -154,35 +154,35 @@ fn add_benchmark(c: &mut Criterion) {
 
     let arr_string = create_string_array(size, false);
 
-    // c.bench_function("eq Float32", |b| b.iter(|| bench_eq(&arr_a, &arr_b)));
-    // c.bench_function("eq scalar Float32", |b| {
-    //     b.iter(|| bench_eq_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("eq Float32", |b| b.iter(|| bench_eq(&arr_a, &arr_b)));
+    c.bench_function("eq scalar Float32", |b| {
+        b.iter(|| bench_eq_scalar(&arr_a, 1.0))
+    });
 
-    // c.bench_function("neq Float32", |b| b.iter(|| bench_neq(&arr_a, &arr_b)));
-    // c.bench_function("neq scalar Float32", |b| {
-    //     b.iter(|| bench_neq_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("neq Float32", |b| b.iter(|| bench_neq(&arr_a, &arr_b)));
+    c.bench_function("neq scalar Float32", |b| {
+        b.iter(|| bench_neq_scalar(&arr_a, 1.0))
+    });
 
-    // c.bench_function("lt Float32", |b| b.iter(|| bench_lt(&arr_a, &arr_b)));
-    // c.bench_function("lt scalar Float32", |b| {
-    //     b.iter(|| bench_lt_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("lt Float32", |b| b.iter(|| bench_lt(&arr_a, &arr_b)));
+    c.bench_function("lt scalar Float32", |b| {
+        b.iter(|| bench_lt_scalar(&arr_a, 1.0))
+    });
 
-    // c.bench_function("lt_eq Float32", |b| b.iter(|| bench_lt_eq(&arr_a, &arr_b)));
-    // c.bench_function("lt_eq scalar Float32", |b| {
-    //     b.iter(|| bench_lt_eq_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("lt_eq Float32", |b| b.iter(|| bench_lt_eq(&arr_a, &arr_b)));
+    c.bench_function("lt_eq scalar Float32", |b| {
+        b.iter(|| bench_lt_eq_scalar(&arr_a, 1.0))
+    });
 
-    // c.bench_function("gt Float32", |b| b.iter(|| bench_gt(&arr_a, &arr_b)));
-    // c.bench_function("gt scalar Float32", |b| {
-    //     b.iter(|| bench_gt_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("gt Float32", |b| b.iter(|| bench_gt(&arr_a, &arr_b)));
+    c.bench_function("gt scalar Float32", |b| {
+        b.iter(|| bench_gt_scalar(&arr_a, 1.0))
+    });
 
-    // c.bench_function("gt_eq Float32", |b| b.iter(|| bench_gt_eq(&arr_a, &arr_b)));
-    // c.bench_function("gt_eq scalar Float32", |b| {
-    //     b.iter(|| bench_gt_eq_scalar(&arr_a, 1.0))
-    // });
+    c.bench_function("gt_eq Float32", |b| b.iter(|| bench_gt_eq(&arr_a, &arr_b)));
+    c.bench_function("gt_eq scalar Float32", |b| {
+        b.iter(|| bench_gt_eq_scalar(&arr_a, 1.0))
+    });
 
     c.bench_function("like_utf8 scalar equals", |b| {
         b.iter(|| bench_like_utf8_scalar(&arr_string, "xxxx"))
