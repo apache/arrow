@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <time.h>
 #include <vector>
 
 #include "arrow/flight/api.h"
@@ -1022,6 +1023,16 @@ class TestCookieMiddleware : public ::testing::Test {
     factory_ = std::make_shared<ClientCookieMiddlewareFactory>();
     CallInfo callInfo;
     factory_->StartCall(callInfo, &middleware_);
+  }
+
+  // Function to get a date in the future in the format cookies use.
+  std::string GetFutureDate() {
+    // Time in 2 days.
+    time_t future_time   = time(0) + (60 * 60 * 48);
+    struct tm * time_info = localtime(&future_time);
+    char date_buffer[100];
+    strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", time_info);
+    return date_buffer;
   }
 
   // Function to add cookie to middleware.
@@ -2382,8 +2393,8 @@ TEST_F(TestCookieMiddleware, Expires) {
   AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
-  AddAndValidate("id0=0; expires=Fri, 22 Dec 5000 22:15:36 GMT;");
-  AddAndValidate("id1=0; expires=Fri, 22 Dec 5000 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=" + GetFutureDate() + ";");
+  AddAndValidate("id1=0; expires=" + GetFutureDate() + ";");
   SetExpired("id0=0");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   SetExpired("id1=0");
