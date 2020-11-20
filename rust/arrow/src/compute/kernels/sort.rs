@@ -24,6 +24,8 @@ use crate::compute::take;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
+#[cfg(feature = "avx512")]
+use crate::arch::avx512::*;
 use crate::buffer::MutableBuffer;
 use num::ToPrimitive;
 use std::sync::Arc;
@@ -222,6 +224,106 @@ impl Default for SortOptions {
     }
 }
 
+#[cfg(feature = "avx512")]
+/// Sort primitive values
+fn sort_primitive<T>(
+    values: &ArrayRef,
+    value_indices: Vec<u32>,
+    null_indices: Vec<u32>,
+    nan_indices: Vec<u32>,
+    options: &SortOptions,
+) -> Result<UInt32Array>
+where
+    T: ArrowPrimitiveType,
+    T::Native: std::cmp::PartialOrd,
+{
+    let values = as_primitive_array::<T>(values);
+    let descending = options.descending;
+
+    let mut nulls = null_indices;
+    let mut nans = nan_indices;
+
+    let perm_exch_width = PERMUTE_EXCHANGE_WIDTH * 2;
+
+    let valids = if crate::util::bit_util::is_power_of_two(values.len())
+        && values.len() > perm_exch_width
+    {
+        let value_data = value_indices
+            .iter()
+            .copied()
+            .map(|e| e as i64)
+            .collect::<Vec<i64>>();
+        let value_data = unsafe {
+            if !descending {
+                avx512_vec_sort_i64(&value_data)
+            } else {
+                let mut d = avx512_vec_sort_i64(&value_data);
+                d.reverse();
+                nans.reverse();
+                nulls.reverse();
+                d
+            }
+        };
+        // create tuples after the actual sorting
+        value_data
+            .iter()
+            .map(|index| (*index as u32, values.value(*index as usize)))
+            .collect::<Vec<(u32, T::Native)>>()
+    } else {
+        // create tuples that are used for sorting
+        let mut valids = value_indices
+            .into_iter()
+            .map(|index| (index, values.value(index as usize)))
+            .collect::<Vec<(u32, T::Native)>>();
+
+        if !descending {
+            valids.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN"));
+        } else {
+            valids
+                .sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN").reverse());
+            // reverse to keep a stable ordering
+            nans.reverse();
+            nulls.reverse();
+        }
+
+        valids
+    };
+
+    let valids_len = valids.len();
+    let nulls_len = nulls.len();
+    let nans_len = nans.len();
+
+    // collect results directly into a buffer instead of a vec to avoid another aligned allocation
+    let mut result = MutableBuffer::new(values.len() * std::mem::size_of::<u32>());
+    // sets len to capacity so we can access the whole buffer as a typed slice
+    result.resize(values.len() * std::mem::size_of::<u32>());
+    let result_slice: &mut [u32] = result.typed_data_mut();
+
+    debug_assert_eq!(result_slice.len(), nulls_len + nans_len + valids_len);
+
+    if options.nulls_first {
+        result_slice[0..nulls_len].copy_from_slice(&nulls);
+        insert_valid_and_nan_values(result_slice, nulls_len, valids, nans, descending);
+    } else {
+        // nulls last
+        insert_valid_and_nan_values(result_slice, 0, valids, nans, descending);
+        result_slice[valids_len + nans_len..].copy_from_slice(nulls.as_slice())
+    }
+
+    let result_data = Arc::new(ArrayData::new(
+        DataType::UInt32,
+        values.len(),
+        Some(0),
+        None,
+        0,
+        vec![result.freeze()],
+        vec![],
+    ));
+
+    Ok(UInt32Array::from(result_data))
+}
+
+#[cfg(not(feature = "avx512"))]
 /// Sort primitive values
 fn sort_primitive<T>(
     values: &ArrayRef,

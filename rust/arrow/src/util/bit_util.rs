@@ -35,6 +35,12 @@ pub fn round_upto_power_of_2(num: usize, factor: usize) -> usize {
     (num + (factor - 1)) & !(factor - 1)
 }
 
+///
+/// Checks whether given number is power of 2
+pub fn is_power_of_two(num: usize) -> bool {
+    (num & (num - 1)) == 0
+}
+
 /// Returns whether bit at position `i` in `data` is set or not
 #[inline]
 pub fn get_bit(data: &[u8], i: usize) -> bool {

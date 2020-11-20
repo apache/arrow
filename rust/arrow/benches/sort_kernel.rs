@@ -25,7 +25,8 @@ use std::sync::Arc;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::compute::kernels::sort::{lexsort, SortColumn};
+use arrow::compute::kernels::sort::{lexsort, sort, SortColumn};
+use arrow::compute::SortOptions;
 use arrow::util::test_util::seedable_rng;
 
 fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
@@ -43,7 +44,7 @@ fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
     Arc::new(builder.finish())
 }
 
-fn bench_sort(arr_a: &ArrayRef, array_b: &ArrayRef) {
+fn bench_lexsort(arr_a: &ArrayRef, array_b: &ArrayRef) {
     let columns = vec![
         SortColumn {
             values: arr_a.clone(),
@@ -58,26 +59,50 @@ fn bench_sort(arr_a: &ArrayRef, array_b: &ArrayRef) {
     criterion::black_box(lexsort(&columns).unwrap());
 }
 
+fn bench_sort(input: &ArrayRef) {
+    criterion::black_box(sort(&input, Some(SortOptions::default())).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
+    let arr_a = create_array(2u64.pow(10) as usize, false);
+
+    c.bench_function("sort 2^10", |b| b.iter(|| bench_sort(&arr_a)));
+
+    let arr_a = create_array(2u64.pow(12) as usize, false);
+
+    c.bench_function("sort 2^12", |b| b.iter(|| bench_sort(&arr_a)));
+
+    let arr_a = create_array(2u64.pow(10) as usize, true);
+
+    c.bench_function("sort nulls 2^10", |b| b.iter(|| bench_sort(&arr_a)));
+
+    let arr_a = create_array(2u64.pow(12) as usize, true);
+
+    c.bench_function("sort nulls 2^12", |b| b.iter(|| bench_sort(&arr_a)));
+
     let arr_a = create_array(2u64.pow(10) as usize, false);
     let arr_b = create_array(2u64.pow(10) as usize, false);
 
-    c.bench_function("sort 2^10", |b| b.iter(|| bench_sort(&arr_a, &arr_b)));
+    c.bench_function("lexsort 2^10", |b| b.iter(|| bench_lexsort(&arr_a, &arr_b)));
 
     let arr_a = create_array(2u64.pow(12) as usize, false);
     let arr_b = create_array(2u64.pow(12) as usize, false);
 
-    c.bench_function("sort 2^12", |b| b.iter(|| bench_sort(&arr_a, &arr_b)));
+    c.bench_function("lexsort 2^12", |b| b.iter(|| bench_lexsort(&arr_a, &arr_b)));
 
     let arr_a = create_array(2u64.pow(10) as usize, true);
     let arr_b = create_array(2u64.pow(10) as usize, true);
 
-    c.bench_function("sort nulls 2^10", |b| b.iter(|| bench_sort(&arr_a, &arr_b)));
+    c.bench_function("lexsort nulls 2^10", |b| {
+        b.iter(|| bench_lexsort(&arr_a, &arr_b))
+    });
 
     let arr_a = create_array(2u64.pow(12) as usize, true);
     let arr_b = create_array(2u64.pow(12) as usize, true);
 
-    c.bench_function("sort nulls 2^12", |b| b.iter(|| bench_sort(&arr_a, &arr_b)));
+    c.bench_function("lexsort nulls 2^12", |b| {
+        b.iter(|| bench_lexsort(&arr_a, &arr_b))
+    });
 }
 
 criterion_group!(benches, add_benchmark);
