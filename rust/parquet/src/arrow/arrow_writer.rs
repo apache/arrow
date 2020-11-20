@@ -17,7 +17,7 @@
 
 //! Contains writer which writes arrow data into parquet data.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use arrow::array as arrow_array;
 use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
@@ -64,7 +64,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
         let file_writer = SerializedFileWriter::new(
             writer.try_clone()?,
             schema.root_schema_ptr(),
-            Rc::new(props),
+            Arc::new(props),
         )?;
 
         Ok(Self {
@@ -784,7 +784,7 @@ mod tests {
 
         file.seek(std::io::SeekFrom::Start(0)).unwrap();
         let file_reader = SerializedFileReader::new(file).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(file_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
         let batch = record_batch_reader.next().unwrap().unwrap();
@@ -897,7 +897,7 @@ mod tests {
         writer.close().unwrap();
 
         let reader = SerializedFileReader::new(file).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
         let actual_batch = record_batch_reader

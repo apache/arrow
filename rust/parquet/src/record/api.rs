@@ -758,7 +758,7 @@ fn convert_decimal_to_string(decimal: &Decimal) -> String {
 mod tests {
     use super::*;
 
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::schema::types::{ColumnDescriptor, ColumnPath, PrimitiveTypeBuilder};
 
@@ -769,8 +769,8 @@ mod tests {
                 .with_logical_type($logical_type)
                 .build()
                 .unwrap();
-            Rc::new(ColumnDescriptor::new(
-                Rc::new(tpe),
+            Arc::new(ColumnDescriptor::new(
+                Arc::new(tpe),
                 0,
                 0,
                 ColumnPath::from("col"),
@@ -784,8 +784,8 @@ mod tests {
                 .with_scale($scale)
                 .build()
                 .unwrap();
-            Rc::new(ColumnDescriptor::new(
-                Rc::new(tpe),
+            Arc::new(ColumnDescriptor::new(
+                Arc::new(tpe),
                 0,
                 0,
                 ColumnPath::from("col"),

@@ -19,7 +19,7 @@ use std::fs::File;
 use std::{
     fs,
     io::{prelude::*, SeekFrom},
-    rc::Rc,
+    sync::Arc,
 };
 
 use parquet::file::writer::TryClone;
@@ -59,9 +59,9 @@ impl TryClone for CustomWriter {
 
 #[test]
 fn test_custom_writer() {
-    let schema = Rc::new(
+    let schema = Arc::new(
         types::Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(
+            .with_fields(&mut vec![Arc::new(
                 types::Type::primitive_type_builder("col1", Type::INT32)
                     .with_repetition(Repetition::REQUIRED)
                     .build()
@@ -70,7 +70,7 @@ fn test_custom_writer() {
             .build()
             .unwrap(),
     );
-    let props = Rc::new(WriterProperties::builder().build());
+    let props = Arc::new(WriterProperties::builder().build());
 
     let file = get_temp_file("test_custom_file_writer");
     let test_file = file.try_clone().unwrap();

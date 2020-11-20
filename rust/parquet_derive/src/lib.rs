@@ -44,7 +44,7 @@ mod parquet_field;
 /// use parquet::record::RecordWriter;
 /// use parquet::schema::parser::parse_message_type;
 ///
-/// use std::rc::Rc;
+/// use std::sync::Arc;
 //
 /// #[derive(ParquetRecordWriter)]
 /// struct ACompleteRecord<'a> {
@@ -69,9 +69,9 @@ mod parquet_field;
 ///     }
 ///   ];
 ///
-///  let schema = Rc::new(parse_message_type(schema_str).unwrap());
+///  let schema = Arc::new(parse_message_type(schema_str).unwrap());
 ///
-///  let props = Rc::new(WriterProperties::builder().build());
+///  let props = Arc::new(WriterProperties::builder().build());
 ///  let mut writer = SerializedFileWriter::new(file, schema, props).unwrap();
 ///
 ///  let mut row_group = writer.next_row_group().unwrap();

@@ -42,7 +42,7 @@
 //! println!("{:?}", schema);
 //! ```
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
@@ -189,7 +189,7 @@ impl<'a> Parser<'a> {
                 break;
             } else {
                 self.tokenizer.backtrack();
-                vec.push(Rc::new(self.add_type()?));
+                vec.push(Arc::new(self.add_type()?));
             }
         }
         Ok(vec)
@@ -592,7 +592,7 @@ mod tests {
 
         let expected = Type::group_type_builder("root")
             .with_fields(&mut vec![
-                Rc::new(
+                Arc::new(
                     Type::primitive_type_builder(
                         "f1",
                         PhysicalType::FIXED_LEN_BYTE_ARRAY,
@@ -604,7 +604,7 @@ mod tests {
                     .build()
                     .unwrap(),
                 ),
-                Rc::new(
+                Arc::new(
                     Type::primitive_type_builder(
                         "f2",
                         PhysicalType::FIXED_LEN_BYTE_ARRAY,
@@ -649,15 +649,15 @@ mod tests {
         .unwrap();
 
         let expected = Type::group_type_builder("root")
-            .with_fields(&mut vec![Rc::new(
+            .with_fields(&mut vec![Arc::new(
                 Type::group_type_builder("a0")
                     .with_repetition(Repetition::REQUIRED)
                     .with_fields(&mut vec![
-                        Rc::new(
+                        Arc::new(
                             Type::group_type_builder("a1")
                                 .with_repetition(Repetition::OPTIONAL)
                                 .with_logical_type(LogicalType::LIST)
-                                .with_fields(&mut vec![Rc::new(
+                                .with_fields(&mut vec![Arc::new(
                                     Type::primitive_type_builder(
                                         "a2",
                                         PhysicalType::BYTE_ARRAY,
@@ -670,15 +670,15 @@ mod tests {
                                 .build()
                                 .unwrap(),
                         ),
-                        Rc::new(
+                        Arc::new(
                             Type::group_type_builder("b1")
                                 .with_repetition(Repetition::OPTIONAL)
                                 .with_logical_type(LogicalType::LIST)
-                                .with_fields(&mut vec![Rc::new(
+                                .with_fields(&mut vec![Arc::new(
                                     Type::group_type_builder("b2")
                                         .with_repetition(Repetition::REPEATED)
                                         .with_fields(&mut vec![
-                                            Rc::new(
+                                            Arc::new(
                                                 Type::primitive_type_builder(
                                                     "b3",
                                                     PhysicalType::INT32,
@@ -686,7 +686,7 @@ mod tests {
                                                 .build()
                                                 .unwrap(),
                                             ),
-                                            Rc::new(
+                                            Arc::new(
                                                 Type::primitive_type_builder(
                                                     "b4",
                                                     PhysicalType::DOUBLE,
@@ -731,39 +731,39 @@ mod tests {
         .unwrap();
 
         let mut fields = vec![
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_1", PhysicalType::INT32)
                     .with_repetition(Repetition::REQUIRED)
                     .with_logical_type(LogicalType::INT_8)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_2", PhysicalType::INT32)
                     .with_repetition(Repetition::REQUIRED)
                     .with_logical_type(LogicalType::INT_16)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_3", PhysicalType::FLOAT)
                     .with_repetition(Repetition::REQUIRED)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_4", PhysicalType::DOUBLE)
                     .with_repetition(Repetition::REQUIRED)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_5", PhysicalType::INT32)
                     .with_logical_type(LogicalType::DATE)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 Type::primitive_type_builder("_6", PhysicalType::BYTE_ARRAY)
                     .with_logical_type(LogicalType::UTF8)
                     .build()

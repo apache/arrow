@@ -33,7 +33,7 @@
 //! [`ColumnChunkMetaData`](struct.ColumnChunkMetaData.html) has information about column
 //! chunk (primitive leaf column), including encoding/compression, number of values, etc.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use parquet_format::{ColumnChunk, ColumnMetaData, RowGroup};
 
@@ -53,7 +53,7 @@ pub struct ParquetMetaData {
 }
 
 impl ParquetMetaData {
-    /// Creates Parquet metadata from file metadata and a list of row group metadata `Rc`s
+    /// Creates Parquet metadata from file metadata and a list of row group metadata `Arc`s
     /// for each available row group.
     pub fn new(file_metadata: FileMetaData, row_groups: Vec<RowGroupMetaData>) -> Self {
         ParquetMetaData {
@@ -87,7 +87,7 @@ impl ParquetMetaData {
 pub type KeyValue = parquet_format::KeyValue;
 
 /// Reference counted pointer for [`FileMetaData`].
-pub type FileMetaDataPtr = Rc<FileMetaData>;
+pub type FileMetaDataPtr = Arc<FileMetaData>;
 
 /// Metadata for a Parquet file.
 #[derive(Debug)]
@@ -184,7 +184,7 @@ impl FileMetaData {
 }
 
 /// Reference counted pointer for [`RowGroupMetaData`].
-pub type RowGroupMetaDataPtr = Rc<RowGroupMetaData>;
+pub type RowGroupMetaDataPtr = Arc<RowGroupMetaData>;
 
 /// Metadata for a row group.
 #[derive(Debug)]
@@ -725,12 +725,12 @@ mod tests {
     fn get_test_schema_descr() -> SchemaDescPtr {
         let schema = SchemaType::group_type_builder("schema")
             .with_fields(&mut vec![
-                Rc::new(
+                Arc::new(
                     SchemaType::primitive_type_builder("a", Type::INT32)
                         .build()
                         .unwrap(),
                 ),
-                Rc::new(
+                Arc::new(
                     SchemaType::primitive_type_builder("b", Type::INT32)
                         .build()
                         .unwrap(),
@@ -739,6 +739,6 @@ mod tests {
             .build()
             .unwrap();
 
-        Rc::new(SchemaDescriptor::new(Rc::new(schema)))
+        Arc::new(SchemaDescriptor::new(Arc::new(schema)))
     }
 }

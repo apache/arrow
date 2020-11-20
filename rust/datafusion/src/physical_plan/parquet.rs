@@ -19,7 +19,6 @@
 
 use std::any::Any;
 use std::fs::File;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, thread};
@@ -66,7 +65,7 @@ impl ParquetExec {
             Err(DataFusionError::Plan("No files found".to_string()))
         } else {
             let file = File::open(&filenames[0])?;
-            let file_reader = Rc::new(SerializedFileReader::new(file)?);
+            let file_reader = Arc::new(SerializedFileReader::new(file)?);
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
             let schema = arrow_reader.get_schema()?;
 
@@ -179,7 +178,7 @@ fn read_file(
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     let file = File::open(&filename)?;
-    let file_reader = Rc::new(SerializedFileReader::new(file)?);
+    let file_reader = Arc::new(SerializedFileReader::new(file)?);
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
