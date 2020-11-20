@@ -429,13 +429,10 @@ mod tests {
         a: (&str, &Vec<i32>),
         b: (&str, &Vec<i32>),
         c: (&str, &Vec<i32>),
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        let (batch, schema) = build_table_i32(a, b, c)?;
-        Ok(Arc::new(MemoryExec::try_new(
-            &vec![vec![batch]],
-            Arc::new(schema),
-            None,
-        )?))
+    ) -> Arc<dyn ExecutionPlan> {
+        let batch = build_table_i32(a, b, c);
+        let schema = batch.schema();
+        Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None).unwrap())
     }
 
     fn join(
@@ -449,8 +446,6 @@ mod tests {
     /// Asserts that the rows are the same, taking into account that their order
     /// is irrelevant
     fn assert_same_rows(result: &[String], expected: &[&str]) {
-        assert_eq!(result.len(), expected.len());
-
         // convert to set since row order is irrelevant
         let result = result.iter().map(|s| s.clone()).collect::<HashSet<_>>();
 
@@ -463,19 +458,19 @@ mod tests {
 
     #[tokio::test]
     async fn join_one() -> Result<()> {
-        let t1 = build_table(
+        let left = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b1", &vec![4, 5, 5]), // this has a repetition
             ("c1", &vec![7, 8, 9]),
-        )?;
-        let t2 = build_table(
+        );
+        let right = build_table(
             ("a2", &vec![10, 20, 30]),
             ("b1", &vec![4, 5, 6]),
             ("c2", &vec![70, 80, 90]),
-        )?;
+        );
         let on = &[("b1", "b1")];
 
-        let join = join(t1, t2, on)?;
+        let join = join(left, right, on)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
@@ -493,19 +488,19 @@ mod tests {
 
     #[tokio::test]
     async fn join_two() -> Result<()> {
-        let t1 = build_table(
+        let left = build_table(
             ("a1", &vec![1, 2, 2]),
             ("b2", &vec![1, 2, 2]),
             ("c1", &vec![7, 8, 9]),
-        )?;
-        let t2 = build_table(
+        );
+        let right = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b2", &vec![1, 2, 2]),
             ("c2", &vec![70, 80, 90]),
-        )?;
+        );
         let on = &[("a1", "a1"), ("b2", "b2")];
 
-        let join = join(t1, t2, on)?;
+        let join = join(left, right, on)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
@@ -516,6 +511,94 @@ mod tests {
 
         let result = format_batch(&batches[0]);
         let expected = vec!["1,1,7,70", "2,2,8,80", "2,2,9,80"];
+
+        assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    /// Test where the left has 2 parts, the right with 1 part => 1 part
+    #[tokio::test]
+    async fn join_one_two_parts_left() -> Result<()> {
+        let batch1 = build_table_i32(
+            ("a1", &vec![1, 2]),
+            ("b2", &vec![1, 2]),
+            ("c1", &vec![7, 8]),
+        );
+        let batch2 =
+            build_table_i32(("a1", &vec![2]), ("b2", &vec![2]), ("c1", &vec![9]));
+        let schema = batch1.schema();
+        let left = Arc::new(
+            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+        );
+
+        let right = build_table(
+            ("a1", &vec![1, 2, 3]),
+            ("b2", &vec![1, 2, 2]),
+            ("c2", &vec![70, 80, 90]),
+        );
+        let on = &[("a1", "a1"), ("b2", "b2")];
+
+        let join = join(left, right, on)?;
+
+        let columns = columns(&join.schema());
+        assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
+
+        let stream = join.execute(0).await?;
+        let batches = common::collect(stream).await?;
+        assert_eq!(batches.len(), 1);
+
+        let result = format_batch(&batches[0]);
+        let expected = vec!["1,1,7,70", "2,2,8,80", "2,2,9,80"];
+
+        assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    /// Test where the left has 1 part, the right has 2 parts => 2 parts
+    #[tokio::test]
+    async fn join_one_two_parts_right() -> Result<()> {
+        let left = build_table(
+            ("a1", &vec![1, 2, 3]),
+            ("b1", &vec![4, 5, 5]), // this has a repetition
+            ("c1", &vec![7, 8, 9]),
+        );
+
+        let batch1 = build_table_i32(
+            ("a2", &vec![10, 20]),
+            ("b1", &vec![4, 6]),
+            ("c2", &vec![70, 80]),
+        );
+        let batch2 =
+            build_table_i32(("a2", &vec![30]), ("b1", &vec![5]), ("c2", &vec![90]));
+        let schema = batch1.schema();
+        let right = Arc::new(
+            MemoryExec::try_new(&vec![vec![batch1], vec![batch2]], schema, None).unwrap(),
+        );
+
+        let on = &[("b1", "b1")];
+
+        let join = join(left, right, on)?;
+
+        let columns = columns(&join.schema());
+        assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
+
+        // first part
+        let stream = join.execute(0).await?;
+        let batches = common::collect(stream).await?;
+        assert_eq!(batches.len(), 1);
+
+        let result = format_batch(&batches[0]);
+        let expected = vec!["1,4,7,10,70"];
+        assert_same_rows(&result, &expected);
+
+        // second part
+        let stream = join.execute(1).await?;
+        let batches = common::collect(stream).await?;
+        assert_eq!(batches.len(), 1);
+        let result = format_batch(&batches[0]);
+        let expected = vec!["2,5,8,30,90", "3,5,9,30,90"];
 
         assert_same_rows(&result, &expected);
 
