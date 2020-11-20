@@ -48,6 +48,7 @@
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
+#include "arrow/flight/client_cookie_middleware.h"
 
 namespace pb = arrow::flight::protocol;
 
@@ -1184,6 +1185,159 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   std::unique_ptr<FlightServerBase> server_;
   std::shared_ptr<HeaderAuthServerMiddlewareFactory> header_middleware_;
   std::shared_ptr<BearerAuthServerMiddlewareFactory> bearer_middleware_;
+};
+
+// This test has functions that allow adding and removing cookies from a list of cookies.
+// It also automatically adds cookies to an internal list of tracked cookies when they
+// are passed to the middleware.
+class TestCookieMiddleware : public ::testing::Test {
+ public:
+  // Setup function creates middleware factory and starts it up.
+  void SetUp() {
+    factory_ = std::make_shared<ClientCookieMiddlewareFactory>();
+    CallInfo callInfo;
+    factory_->StartCall(callInfo, &middleware_);
+  }
+
+  // Function to add cookie to middleware.
+  void AddCookie(const std::string& cookie) {
+    CallHeaders call_headers;
+    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
+                                       arrow::util::string_view(cookie)));
+    middleware_->ReceivedHeaders(call_headers);
+  }
+
+  // Function to get cookies from middleware.
+  std::string GetCookies() {
+    TestCallHeaders add_call_headers;
+    middleware_->SendingHeaders(&add_call_headers);
+    return add_call_headers.GetCookies();
+  }
+
+  // Function to take a list of cookies and split them into a vector of individual
+  // cookies.
+  std::vector<std::string> SplitCookies(const std::string& cookies) {
+    std::vector<std::string> split_cookies;
+    std::string::size_type pos1 = 0;
+    std::string::size_type pos2 = 0;
+    while ((pos2 = cookies.find(';', pos1)) != std::string::npos) {
+      split_cookies.push_back(
+          arrow::internal::TrimString(cookies.substr(pos1, pos2 - pos1)));
+      pos1 = pos2 + 1;
+    }
+    if (pos1 < cookies.size()) {
+      split_cookies.push_back(arrow::internal::TrimString(cookies.substr(pos1)));
+    }
+    std::sort(split_cookies.begin(), split_cookies.end());
+    return split_cookies;
+  }
+
+  // Function to check if expected cookies and actual cookies are equal.
+  void CheckEqual() {
+    std::sort(expected_cookies_.begin(), expected_cookies_.end());
+    std::vector<std::string> split_actual_cookies = SplitCookies(GetCookies());
+    EXPECT_EQ(expected_cookies_, split_actual_cookies);
+  }
+
+  // Function to add incoming cookies to middleware and validate them.
+  void AddAndValidate(const std::string& incoming_cookie) {
+    AddCookie(incoming_cookie);
+    AddExpected(incoming_cookie);
+    CheckEqual();
+  }
+
+  // Function to add an expired cookie to middleware and validate that it was removed.
+  void AddExpiredAndValidate(const std::string& incoming_cookie) {
+    AddCookie(incoming_cookie);
+    CheckEqual();
+  }
+
+  // Function to convert format so that it is key="val" and not key=val.
+  void ConvertFormat(const std::string& incoming_cookie, std::string& outgoing_cookie) {
+    // Grab the first key value pair from the incoming cookie string.
+    std::string::size_type pos = 0;
+    const std::string key_val_pair = arrow::internal::TrimString(
+        ((pos = incoming_cookie.find(';')) != std::string::npos)
+            ? incoming_cookie.substr(0, pos)
+            : incoming_cookie.substr(0));
+    // Split the key value pair into the key and value.
+    pos = key_val_pair.find('=');
+    ASSERT_NE(std::string::npos, pos);
+    std::string key = key_val_pair.substr(0, pos);
+    std::string val = key_val_pair.substr(pos + 1);
+
+    // Add key/value pair to outgoing cookie, need to add double quotes around the value
+    // if there isn't any there already.
+    outgoing_cookie =
+        key + "=" +
+        (((val[0] == '\"') && (val[val.size() - 1] == '\"')) ? val : "\"" + val + "\"");
+  }
+
+  // Function to find cookie matching a given key.
+  std::vector<std::string>::iterator FindCookieByKey(const std::string& key) {
+    auto collision = [key](const std::string& str1) {
+      const std::string::size_type pos = str1.find('=');
+      const std::string old_key = str1.substr(0, pos);
+      return key == old_key;
+    };
+    return std::find_if(expected_cookies_.begin(), expected_cookies_.end(), collision);
+  }
+
+  // Function to add new cookie or replace existing cookie.
+  void AddOrReplace(const std::string& new_cookie) {
+    // Get position of '=' to get the key.
+    const std::string::size_type pos = new_cookie.find('=');
+    ASSERT_NE(std::string::npos, pos);
+
+    // Get iterator of vector using key. If it exists, replace it, else insert normally.
+    std::vector<std::string>::iterator it = FindCookieByKey(new_cookie.substr(0, pos));
+    if (it != expected_cookies_.end()) {
+      *it = new_cookie;
+    } else {
+      expected_cookies_.push_back(new_cookie);
+    }
+  }
+
+  // Function to add a cookie to the list of expected cookies.
+  void AddExpected(const std::string& incoming_cookie) {
+    std::string new_cookie;
+    ConvertFormat(incoming_cookie, new_cookie);
+    AddOrReplace(new_cookie);
+  }
+
+  // Function to set a cookie as expired.
+  void SetExpired(const std::string& cookie) {
+    std::string::size_type pos = cookie.find('=');
+    ASSERT_NE(std::string::npos, pos);
+    std::vector<std::string>::iterator it = FindCookieByKey(cookie.substr(0, pos));
+    if (it != expected_cookies_.end()) {
+      it = expected_cookies_.erase(it);
+    }
+  }
+
+ protected:
+  // Class to allow testing of the call headers.
+  class TestCallHeaders : public AddCallHeaders {
+   public:
+    TestCallHeaders() {}
+    ~TestCallHeaders() {}
+
+    // Function to add cookie header.
+    void AddHeader(const std::string& key, const std::string& value) {
+      ASSERT_EQ(key, "cookie");
+      outbound_cookie_ = value;
+    }
+
+    // Function to get outgoing cookie.
+    std::string GetCookies() { return outbound_cookie_; }
+
+   private:
+    std::string outbound_cookie_;
+  };
+
+  std::vector<std::string> expected_cookies_;
+  std::unique_ptr<ClientMiddleware> middleware_;
+  std::shared_ptr<ClientCookieMiddlewareFactory> factory_;
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
@@ -2372,6 +2526,52 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
 TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); }
 
 TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
+
+TEST_F(TestCookieMiddleware, BasicParsing) {
+  AddAndValidate("id1=1; foo=bar;");
+  AddAndValidate("id1=1; foo=bar");
+  AddAndValidate("id2=2;");
+  AddAndValidate("id4=\"4\"");
+  AddAndValidate("id5=5; foo=bar; baz=buz;");
+}
+
+TEST_F(TestCookieMiddleware, Overwrite) {
+  AddAndValidate("id0=0");
+  AddAndValidate("id0=1");
+  AddAndValidate("id1=0");
+  AddAndValidate("id1=1");
+  AddAndValidate("id1=1");
+  AddAndValidate("id1=10");
+  AddAndValidate("id=3");
+  AddAndValidate("id=0");
+  AddAndValidate("id=0");
+}
+
+TEST_F(TestCookieMiddleware, MaxAge) {
+  AddExpiredAndValidate("id0=0; max-age=0;");
+  AddExpiredAndValidate("id1=0; max-age=-1;");
+  AddExpiredAndValidate("id2=0; max-age=0");
+  AddExpiredAndValidate("id3=0; max-age=-1");
+  AddAndValidate("id4=0; max-age=1");
+  AddAndValidate("id5=0; max-age=1");
+  SetExpired("id4=0");
+  AddExpiredAndValidate("id4=0; max-age=0");
+  SetExpired("id5=0");
+  AddExpiredAndValidate("id5=0; max-age=0");
+}
+
+TEST_F(TestCookieMiddleware, Expires) {
+  AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT;");
+  AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
+  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 5000 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Fri, 22 Dec 5000 22:15:36 GMT");
+  SetExpired("id0=0");
+  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  SetExpired("id1=0");
+  AddExpiredAndValidate("id1=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+}
 
 }  // namespace flight
 }  // namespace arrow
