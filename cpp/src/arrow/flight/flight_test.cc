@@ -18,12 +18,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <time.h>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -1204,11 +1204,15 @@ class TestCookieMiddleware : public ::testing::Test {
   // Function to get a date in the future in the format cookies use.
   std::string GetFutureDate() {
     // Time in 2 days.
-    time_t future_time = time(0) + (60 * 60 * 48);
+    time_t future_time = std::time(NULL) + (60 * 60 * 48);
     struct tm time_info;
+#ifdef _WIN32
+    localtime_s(&future_time, &time_info);
+# else
     localtime_r(&future_time, &time_info);
+#endif
     char date_buffer[100];
-    strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", &time_info);
+    std::strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", &time_info);
     return date_buffer;
   }
 
