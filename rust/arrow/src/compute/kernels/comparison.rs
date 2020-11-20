@@ -170,12 +170,12 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
         }
     } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
     {
-        // fast path, can use ends_with
+        // fast path, can use starts_with
         for i in 0..left.len() {
             result.append(left.value(i).starts_with(right))?;
         }
     } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
-        // fast path, can use starts_with
+        // fast path, can use ends_with
         for i in 0..left.len() {
             result.append(left.value(i).ends_with(right))?;
         }
