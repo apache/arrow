@@ -63,12 +63,16 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 
   std::string::size_type semi_col_pos = cookie_header_value.find(';', equals_pos);
   out_key =
-      arrow::internal::TrimString(cookie_header_value.substr(start_pos, equals_pos));
+      arrow::internal::TrimString(
+          cookie_header_value.substr(start_pos, equals_pos - start_pos));
   if (std::string::npos == semi_col_pos && semi_col_pos > equals_pos) {
+    // Last item - set start pos to end
     out_value = arrow::internal::TrimString(cookie_header_value.substr(equals_pos + 1));
+    start_pos = std::string::npos;
   } else {
     out_value = arrow::internal::TrimString(
-        cookie_header_value.substr(equals_pos + 1, semi_col_pos - equals_pos));
+        cookie_header_value.substr(equals_pos + 1, semi_col_pos - equals_pos - 1));
+    start_pos = semi_col_pos + 1;
   }
 
   // Key/Value may be URI-encoded.
@@ -82,7 +86,6 @@ bool ParseCookieAttribute(std::string cookie_header_value,
   }
 
   // Update the start position for subsequent calls to this function.
-  start_pos = semi_col_pos + 1;
   return true;
 }
 
@@ -144,7 +147,7 @@ struct Cookie {
 
   bool IsExpired() const {
     // Check if current-time is less than creation time.
-    return has_expiry_ && expiration_time_ >= std::chrono::system_clock::now();
+    return has_expiry_ && expiration_time_ <= std::chrono::system_clock::now();
   }
 
   std::string AsCookieString() {
@@ -182,13 +185,13 @@ class ClientCookieMiddlewareFactory::Impl {
     void SendingHeaders(AddCallHeaders* outgoing_headers) override {
       const std::string& cookie_string = factory_impl_.GetValidCookiesAsString();
       if (!cookie_string.empty()) {
-        outgoing_headers->AddHeader("Cookie", cookie_string);
+        outgoing_headers->AddHeader("cookie", cookie_string);
       }
     }
 
     void ReceivedHeaders(const CallHeaders& incoming_headers) override {
       const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&
-          cookie_header_values = incoming_headers.equal_range("Set-Cookie");
+          cookie_header_values = incoming_headers.equal_range("set-cookie");
       factory_impl_.UpdateCachedCookies(cookie_header_values);
     }
 
@@ -206,15 +209,13 @@ class ClientCookieMiddlewareFactory::Impl {
     const std::lock_guard<std::mutex> guard(mutex_);
 
     DiscardExpiredCookies();
-    std::string cookie_string;
-    bool first = true;
-    for (auto it = cookie_cache_.begin(); cookie_cache_.end() != it; ++it) {
-      if (first) {
-        first = false;
-      } else {
-        cookie_string += "; ";
-      }
-      cookie_string += it->second.AsCookieString();
+    if (cookie_cache_.empty()) {
+      return "";
+    }
+
+    std::string cookie_string = cookie_cache_.begin()->second.AsCookieString();
+    for (auto it = (++cookie_cache_.begin()); cookie_cache_.end() != it; ++it) {
+      cookie_string += "; " + it->second.AsCookieString();
     }
     return cookie_string;
   }
@@ -227,12 +228,17 @@ class ClientCookieMiddlewareFactory::Impl {
     const std::lock_guard<std::mutex> guard(mutex_);
 
     for (auto it = header_values.first; it != header_values.second; ++it) {
-      const util::string_view& value = header_values.first->second;
+      const util::string_view& value = it->second;
       Cookie cookie = Cookie::parse(value);
 
       // Cache cookies regardless of whether or not they are expired. The server may have
       // explicitly sent a Set-Cookie to expire a cached cookie.
-      cookie_cache_.insert({cookie.cookie_name_, cookie});
+      std::pair<CookieCache::iterator, bool> insertable = cookie_cache_.insert({cookie.cookie_name_, cookie});
+
+      // Force overwrite on insert collision.
+      if (!insertable.second) {
+        insertable.first->second = cookie;
+      }
     }
 
     DiscardExpiredCookies();
