@@ -1028,10 +1028,10 @@ class TestCookieMiddleware : public ::testing::Test {
   // Function to get a date in the future in the format cookies use.
   std::string GetFutureDate() {
     // Time in 2 days.
-    time_t future_time = std::time(NULL) + (60 * 60 * 48);
+    const time_t future_time = std::time(NULL) + (60 * 60 * 48);
     struct tm time_info;
 #ifdef _WIN32
-    localtime_s(&future_time, &time_info);
+    localtime_s(&time_info, &future_time);
 # else
     localtime_r(&future_time, &time_info);
 #endif
