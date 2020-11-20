@@ -68,11 +68,10 @@ impl MemTracker {
     /// Adds `num_bytes` to the memory consumption tracked by this memory tracker.
     #[inline]
     pub fn alloc(&self, num_bytes: i64) {
-        let current = self
+        let new_current = self
             .current_memory_usage
             .fetch_add(num_bytes, Ordering::Acquire)
             + num_bytes;
-        let new_current = current + num_bytes;
         self.max_memory_usage
             .fetch_max(new_current, Ordering::Acquire);
     }
