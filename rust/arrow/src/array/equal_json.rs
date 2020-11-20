@@ -321,6 +321,43 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
     }
 }
 
+impl JsonEqual for DecimalArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            JString(s) => {
+                self.is_valid(i)
+                    && (s
+                        .parse::<i128>()
+                        .map_or_else(|_| false, |v| v == self.value(i)))
+            }
+            JNull => self.is_null(i),
+            _ => false,
+        })
+    }
+}
+
+impl PartialEq<Value> for DecimalArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<DecimalArray> for Value {
+    fn eq(&self, arrow: &DecimalArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
 impl JsonEqual for UnionArray {
     fn equals_json(&self, _json: &[&Value]) -> bool {
         unimplemented!(
@@ -811,6 +848,88 @@ mod tests {
                 null,
                 null,
                 "world"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                1
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_decimal_json_equal() {
+        // Test the equal case
+        let mut builder = DecimalBuilder::new(30, 23, 6);
+        builder.append_value(1_000).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(-250).unwrap();
+        let arrow_array: DecimalArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "1000",
+                null,
+                "-250"
+            ]
+        "#,
+        )
+        .unwrap();
+        println!("{:?}", arrow_array);
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        builder.append_value(1_000).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(55).unwrap();
+        let arrow_array: DecimalArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "1000",
+                null,
+                "-250"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "1000",
+                null,
+                null,
+                "55"
             ]
         "#,
         )

@@ -400,6 +400,12 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
+        DataType::Decimal(_, _) => {
+            Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                .with_repetition(repetition)
+                .with_length(10)
+                .build()
+        }
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(LogicalType::UTF8)

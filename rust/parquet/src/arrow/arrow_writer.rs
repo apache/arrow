@@ -265,6 +265,7 @@ fn write_leaves(
         ArrowDataType::FixedSizeList(_, _)
         | ArrowDataType::Boolean
         | ArrowDataType::FixedSizeBinary(_)
+        | ArrowDataType::Decimal(_, _)
         | ArrowDataType::Union(_) => Err(ParquetError::NYI(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
@@ -469,6 +470,7 @@ fn get_levels(
             repetition: None,
         }],
         ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
+        ArrowDataType::Decimal(_, _) => unimplemented!(),
         ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
             let array_data = array.data();
             let child_data = array_data.child_data().get(0).unwrap();
@@ -553,6 +555,7 @@ fn get_levels(
                 | ArrowDataType::Utf8
                 | ArrowDataType::LargeUtf8 => unimplemented!(),
                 ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
+                ArrowDataType::Decimal(_, _) => unimplemented!(),
                 ArrowDataType::LargeBinary => unimplemented!(),
                 ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
                     // nested list

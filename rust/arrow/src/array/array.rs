@@ -307,6 +307,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
+        DataType::Decimal(_, _) => Arc::new(DecimalArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }

@@ -20,14 +20,15 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, FixedSizeBinaryArray, GenericBinaryArray,
-    GenericListArray, GenericStringArray, OffsetSizeTrait, PrimitiveArray,
-    StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
+    GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
+    PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::datatypes::{ArrowPrimitiveType, DataType, IntervalUnit};
 
 mod boolean;
+mod decimal;
 mod dictionary;
 mod fixed_binary;
 mod fixed_list;
@@ -42,6 +43,7 @@ mod variable_size;
 // For this reason, they are not exposed and are instead used
 // to build the generic functions below (`equal_range` and `equal`).
 use boolean::boolean_equal;
+use decimal::decimal_equal;
 use dictionary::dictionary_equal;
 use fixed_binary::fixed_binary_equal;
 use fixed_list::fixed_list_equal;
@@ -82,6 +84,12 @@ impl<OffsetSize: BinaryOffsetSizeTrait> PartialEq for GenericBinaryArray<OffsetS
 }
 
 impl PartialEq for FixedSizeBinaryArray {
+    fn eq(&self, other: &Self) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for DecimalArray {
     fn eq(&self, other: &Self) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
@@ -143,6 +151,7 @@ fn equal_values(
         DataType::FixedSizeBinary(_) => {
             fixed_binary_equal(lhs, rhs, lhs_start, rhs_start, len)
         }
+        DataType::Decimal(_, _) => decimal_equal(lhs, rhs, lhs_start, rhs_start, len),
         DataType::List(_) => list_equal::<i32>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::LargeList(_) => list_equal::<i64>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::FixedSizeList(_, _) => {
@@ -217,9 +226,9 @@ mod tests {
 
     use crate::array::{
         array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
-        FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray, Int32Builder,
-        ListBuilder, NullArray, PrimitiveBuilder, StringArray, StringDictionaryBuilder,
-        StringOffsetSizeTrait, StructArray,
+        DecimalBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray,
+        Int32Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+        StringDictionaryBuilder, StringOffsetSizeTrait, StructArray,
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::datatypes::Int16Type;
@@ -606,6 +615,96 @@ mod tests {
         let a_slice = a.slice(3, 1);
         let b_slice = b.slice(3, 1);
         test_equal(&a_slice, &b_slice, false);
+    }
+
+    fn create_decimal_array(data: &[Option<i128>]) -> ArrayDataRef {
+        let mut builder = DecimalBuilder::new(20, 23, 6);
+
+        for d in data {
+            if let Some(v) = d {
+                builder.append_value(*v).unwrap();
+            } else {
+                builder.append_null().unwrap();
+            }
+        }
+        builder.finish().data()
+    }
+
+    #[test]
+    fn test_decimal_equal() {
+        let a = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000)]);
+        let b = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some(15_887_000_000), Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    // Test the case where null_count > 0
+    #[test]
+    fn test_decimal_null() {
+        let a = create_decimal_array(&[Some(8_887_000_000), None, Some(-8_887_000_000)]);
+        let b = create_decimal_array(&[Some(8_887_000_000), None, Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000), None]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+
+        let b = create_decimal_array(&[Some(15_887_000_000), None, Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    #[test]
+    fn test_decimal_offsets() {
+        // Test the case where offset != 0
+        let a = create_decimal_array(&[
+            Some(8_887_000_000),
+            None,
+            None,
+            Some(-8_887_000_000),
+            None,
+            None,
+        ]);
+        let b = create_decimal_array(&[
+            Some(8_887_000_000),
+            None,
+            None,
+            Some(15_887_000_000),
+            None,
+            None,
+        ]);
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(0, 5);
+        let b_slice = b.slice(0, 5);
+        test_equal(&a_slice, &b_slice, false);
+
+        let a_slice = a.slice(4, 1);
+        let b_slice = b.slice(4, 1);
+        test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(3, 3);
+        let b_slice = b.slice(3, 3);
+        test_equal(&a_slice, &b_slice, false);
+
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, false);
+
+        let b = create_decimal_array(&[
+            None,
+            None,
+            None,
+            Some(-8_887_000_000),
+            Some(-3_000),
+            None,
+        ]);
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, true);
     }
 
     /// Create a fixed size list of 2 value lengths
