@@ -203,8 +203,6 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("like_utf8 scalar complex", |b| {
         b.iter(|| bench_like_utf8_scalar(&arr_string, "%xx_xx%xxx"))
     });
-
-
 }
 
 criterion_group!(benches, add_benchmark);
