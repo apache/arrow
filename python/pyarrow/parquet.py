@@ -21,7 +21,7 @@ from concurrent import futures
 from functools import partial, reduce
 
 import json
-from typing import Container, Iterable
+from collections.abc import Container, Iterable
 import numpy as np
 import os
 import re
@@ -130,7 +130,6 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), 
         ('x', '=', 0)
         ('y', 'in', ['a', 'b', 'c'])
         ('z', 'not in', {'a','b'})
-
 
     """
 
@@ -893,34 +892,26 @@ class ParquetPartitions:
         if p_column != f_column:
             return True
 
-        p_value = self.levels[level].dictionary[p_value_index].as_py()
+        f_type = type(f_value)
 
         if op in {'in', 'not in'}:
             if not (isinstance(f_value, Container) and
                     isinstance(f_value, Iterable)):
-                raise ValueError("Op '%s' requires an iterable such as list,"
-                                 " set or tuple", op)
+                raise TypeError(
+                    "'%s' object is not an iterable", f_type.__name__)
             if not f_value:
                 raise ValueError("Cannot use empty iterable as filter value")
-
             if len({type(item) for item in f_value}) != 1:
                 raise ValueError("All elements of the iterable '%s' must be of"
                                  " same type", f_value)
             f_type = type(next(iter(f_value)))
 
-            p_value = f_type(p_value)
-
-            if op == 'in':
-                return p_value in f_value
-            else:
-                return p_value not in f_value
-
-        if not isinstance(f_value, str) and isinstance(f_value, Container):
+        elif not isinstance(f_value, str) and isinstance(f_value, Container):
             raise ValueError("Op '%s' not supported with container "
                              "(set, list or tuple) value", op)
 
-        f_type = type(f_value)
-        p_value = f_type(p_value)
+        p_value = f_type(self.levels[level]
+                         .dictionary[p_value_index].as_py())
 
         if op == "=" or op == "==":
             return p_value == f_value
@@ -934,6 +925,10 @@ class ParquetPartitions:
             return p_value <= f_value
         elif op == '>=':
             return p_value >= f_value
+        elif op == 'in':
+            return p_value in f_value
+        elif op == 'not in':
+            return p_value not in f_value
         else:
             raise ValueError("'%s' is not a valid operator in predicates.",
                              filter[1])

@@ -2055,16 +2055,15 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
-        filters=[('integer', 'in', {1}), ('string', 'in', {'a', 'b'}),
-                 ('boolean', 'in', {True})],
+        filters=[('string', 'in', 'ab')],
         use_legacy_dataset=use_legacy_dataset
     )
     table = dataset.read()
     result_df = (table.to_pandas().reset_index(drop=True))
 
-    assert 0 not in result_df['integer'].values
+    assert 'a' in result_df['string'].values
+    assert 'b' in result_df['string'].values
     assert 'c' not in result_df['string'].values
-    assert False not in result_df['boolean'].values
 
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
@@ -2078,6 +2077,37 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
     assert 0 not in result_df['integer'].values
     assert 'c' not in result_df['string'].values
     assert False not in result_df['boolean'].values
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_filters_no_partition_found(tempdir, use_legacy_dataset):
+    fs = LocalFileSystem._get_instance()
+    base_path = tempdir
+
+    integer_keys = [0, 1]
+    string_keys = ['a', 'b', 'c']
+    boolean_keys = [True, False]
+    partition_spec = [
+        ['integer', integer_keys],
+        ['string', string_keys],
+        ['boolean', boolean_keys]
+    ]
+
+    df = pd.DataFrame({
+        'integer': np.array(integer_keys, dtype='i4').repeat(15),
+        'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
+                           3),
+    }, columns=['integer', 'string', 'boolean'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    with pytest.raises(ValueError, match=r"No partition is found."):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[('string', '=', 'not existed')],
+                          use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -2098,6 +2128,12 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
     }, columns=['index', 'integers'])
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    with pytest.raises(TypeError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[('integers', 'in', 3), ],
+                          use_legacy_dataset=use_legacy_dataset)
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
