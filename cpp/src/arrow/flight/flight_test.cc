@@ -1205,9 +1205,10 @@ class TestCookieMiddleware : public ::testing::Test {
   std::string GetFutureDate() {
     // Time in 2 days.
     time_t future_time = time(0) + (60 * 60 * 48);
-    struct tm* time_info = localtime(&future_time);
+    struct tm time_info;
+    localtime_r(&future_time, &time_info);
     char date_buffer[100];
-    strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", time_info);
+    strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", &time_info);
     return date_buffer;
   }
 
