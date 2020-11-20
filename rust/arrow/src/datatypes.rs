@@ -1157,22 +1157,18 @@ impl DataType {
                 f1.data_type().cmp_type(f2.data_type())
             }
             (DataType::Struct(f1), DataType::Struct(f2)) => {
-                if f1.len() == f2.len() {
-                    f1.iter()
+                f1.len() == f2.len()
+                    && f1
+                        .iter()
                         .enumerate()
                         .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
-                } else {
-                    false
-                }
             }
             (DataType::Union(f1), DataType::Union(f2)) => {
-                if f1.len() == f2.len() {
-                    f1.iter()
+                f1.len() == f2.len()
+                    && f1
+                        .iter()
                         .enumerate()
                         .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
-                } else {
-                    false
-                }
             }
             (DataType::Dictionary(k1, v1), DataType::Dictionary(k2, v2)) => {
                 k1.as_ref().cmp_type(k2) && v1.cmp_type(v2.as_ref())
