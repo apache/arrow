@@ -44,11 +44,11 @@
 #error "gRPC headers should not be in public API"
 #endif
 
+#include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
-#include "arrow/flight/client_cookie_middleware.h"
 
 namespace pb = arrow::flight::protocol;
 

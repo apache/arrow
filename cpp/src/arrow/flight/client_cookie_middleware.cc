@@ -62,9 +62,8 @@ bool ParseCookieAttribute(std::string cookie_header_value,
   }
 
   std::string::size_type semi_col_pos = cookie_header_value.find(';', equals_pos);
-  out_key =
-      arrow::internal::TrimString(
-          cookie_header_value.substr(start_pos, equals_pos - start_pos));
+  out_key = arrow::internal::TrimString(
+      cookie_header_value.substr(start_pos, equals_pos - start_pos));
   if (std::string::npos == semi_col_pos && semi_col_pos > equals_pos) {
     // Last item - set start pos to end
     out_value = arrow::internal::TrimString(cookie_header_value.substr(equals_pos + 1));
@@ -233,7 +232,8 @@ class ClientCookieMiddlewareFactory::Impl {
 
       // Cache cookies regardless of whether or not they are expired. The server may have
       // explicitly sent a Set-Cookie to expire a cached cookie.
-      std::pair<CookieCache::iterator, bool> insertable = cookie_cache_.insert({cookie.cookie_name_, cookie});
+      std::pair<CookieCache::iterator, bool> insertable =
+          cookie_cache_.insert({cookie.cookie_name_, cookie});
 
       // Force overwrite on insert collision.
       if (!insertable.second) {
