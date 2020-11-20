@@ -719,29 +719,25 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
 // Status FillDictionaryBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
 //                            int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
 //                            Array* parray) {
-//   auto array = checked_cast<FixedSizeListArray*>(parray);
-//   auto elementBatch = (batch->elements).get();
-//   DataType* elementType = array->value_type().get();
+//   auto array = checked_cast<DictionaryArray*>(parray);
+//   auto indices = array->indices();
+//   auto dictionary = array->dictionary();
+//   auto expandedType = dictionary->type();
 //   int64_t arrowLength = array->length();
-//   int32_t elementLength = array->value_length();  // Fixed length of each subarray
 //   if (!arrowLength) return Status::OK();
 //   int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
-//   if (orcOffset == 0) batch->offsets[0] = 0;
 //   if (array->null_count()) batch->hasNulls = true;
 //   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
-//     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
 //     if (array->IsNull(arrowOffset)) {
 //       batch->notNull[orcOffset] = false;
+//     } else {
+//       batch->notNull[orcOffset] = true;
+//       std::shared_ptr<Scalar> value =
+//           dictionary->GetScalar(indices->Value(arrowOffset)).ValueOrDie();
+//       RETURN_NOT_OK(FillBatch(expandedType, cbatch, arrowOffset, orcOffset, 1, ));
 //     }
+//     batch->numElements += orcOffset - initORCOffset;
 //   }
-//   int64_t numProcessedSubarrays = orcOffset - initORCOffset;
-//   batch->numElements += numProcessedSubarrays;
-//   int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
-//           initSubarrayORCOffset = batch->offsets[initORCOffset];
-//   // Let the subbatch take care of itself. Don't manipulate it here.
-//   RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
-//                           initSubarrayORCOffset, elementLength * numProcessedSubarrays,
-//                           array->values().get()));
 //   return Status::OK();
 // }
 
@@ -1080,11 +1076,11 @@ Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type> out) {
     }
     // Dictionary is an encoding method, not a TypeKind in ORC. Hence we need to get the
     // actual value type.
-    case Type::type::DICTIONARY: {
-      DataType* arrowValueType =
-          checked_cast<const DictionaryType*>(type)->value_type().get();
-      RETURN_NOT_OK(GetORCType(arrowValueType, std::move(out)));
-    }
+    // case Type::type::DICTIONARY: {
+    //   DataType* arrowValueType =
+    //       checked_cast<const DictionaryType*>(type)->dictionary()->type().get();
+    //   RETURN_NOT_OK(GetORCType(arrowValueType, std::move(out)));
+    // }
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
