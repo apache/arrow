@@ -84,15 +84,7 @@ impl ExecutionPlan for EmptyExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // GlobalLimitExec has a single output partition
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "EmptyExec invalid partition {} (expected 0)",
-                partition
-            )));
-        }
-
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
         // Makes a stream only contains one null element if needed
         let data = if self.produce_one_row {
             vec![RecordBatch::try_new(
@@ -107,11 +99,11 @@ impl ExecutionPlan for EmptyExec {
             vec![]
         };
 
-        Ok(Box::pin(MemoryStream::try_new(
+        Ok(vec![Box::pin(MemoryStream::try_new(
             data,
             self.schema.clone(),
             None,
-        )?))
+        )?)])
     }
 }
 
@@ -129,8 +121,8 @@ mod tests {
         assert_eq!(empty.schema(), schema);
 
         // we should have no results
-        let iter = empty.execute(0).await?;
-        let batches = common::collect(iter).await?;
+        let stream = &mut empty.execute().await?[0];
+        let batches = common::collect(stream).await?;
         assert!(batches.is_empty());
 
         Ok(())
@@ -158,8 +150,7 @@ mod tests {
         let empty = EmptyExec::new(false, schema.clone());
 
         // ask for the wrong partition
-        assert!(empty.execute(1).await.is_err());
-        assert!(empty.execute(20).await.is_err());
+        assert_eq!(empty.execute().await?.len(), 1);
         Ok(())
     }
 
@@ -168,8 +159,8 @@ mod tests {
         let schema = test::aggr_test_schema();
         let empty = EmptyExec::new(true, schema);
 
-        let iter = empty.execute(0).await?;
-        let batches = common::collect(iter).await?;
+        let stream = &mut empty.execute().await?[0];
+        let batches = common::collect(stream).await?;
 
         // should have one item
         assert_eq!(batches.len(), 1);

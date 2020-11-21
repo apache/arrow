@@ -221,15 +221,20 @@ impl ExecutionPlan for CsvExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(CsvStream::try_new(
-            &self.filenames[partition],
-            self.schema.clone(),
-            self.has_header,
-            self.delimiter,
-            &self.projection,
-            self.batch_size,
-        )?))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        self.filenames
+            .iter()
+            .map(|filename| {
+                Ok(Box::pin(CsvStream::try_new(
+                    filename,
+                    self.schema.clone(),
+                    self.has_header,
+                    self.delimiter,
+                    &self.projection,
+                    self.batch_size,
+                )?) as SendableRecordBatchStream)
+            })
+            .collect()
     }
 }
 
@@ -303,7 +308,7 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
         assert_eq!(3, csv.schema().fields().len());
-        let mut stream = csv.execute(0).await?;
+        let stream = &mut csv.execute().await?[0];
         let batch = stream.next().await.unwrap()?;
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
@@ -325,8 +330,8 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());
-        let mut it = csv.execute(0).await?;
-        let batch = it.next().await.unwrap()?;
+        let stream = &mut csv.execute().await?[0];
+        let batch = stream.next().await.unwrap()?;
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

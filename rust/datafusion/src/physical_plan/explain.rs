@@ -89,14 +89,7 @@ impl ExecutionPlan for ExplainExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "ExplainExec invalid partition {}",
-                partition
-            )));
-        }
-
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
         let mut type_builder = StringBuilder::new(self.stringified_plans.len());
         let mut plan_builder = StringBuilder::new(self.stringified_plans.len());
 
@@ -113,9 +106,9 @@ impl ExecutionPlan for ExplainExec {
             ],
         )?;
 
-        Ok(Box::pin(SizedRecordBatchStream::new(
+        Ok(vec![Box::pin(SizedRecordBatchStream::new(
             self.schema.clone(),
             vec![Arc::new(record_batch)],
-        )))
+        ))])
     }
 }

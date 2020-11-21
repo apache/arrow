@@ -102,12 +102,19 @@ impl ExecutionPlan for FilterExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(FilterExecStream {
-            schema: self.input.schema().clone(),
-            predicate: self.predicate.clone(),
-            input: self.input.execute(partition).await?,
-        }))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        self.input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|stream| {
+                Ok(Box::pin(FilterExecStream {
+                    schema: self.input.schema().clone(),
+                    predicate: self.predicate.clone(),
+                    input: stream,
+                }) as SendableRecordBatchStream)
+            })
+            .collect()
     }
 }
 

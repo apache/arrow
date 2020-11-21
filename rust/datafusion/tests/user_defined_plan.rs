@@ -396,19 +396,20 @@ impl ExecutionPlan for TopKExec {
     }
 
     /// Execute one partition and return an iterator over RecordBatch
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "TopKExec invalid partition {}",
-                partition
-            )));
-        }
-
-        Ok(Box::pin(TopKReader {
-            input: self.input.execute(partition).await?,
-            k: self.k,
-            done: false,
-        }))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        Ok(self
+            .input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|input| {
+                Box::pin(TopKReader {
+                    input,
+                    k: self.k,
+                    done: false,
+                }) as SendableRecordBatchStream
+            })
+            .collect())
     }
 }
 

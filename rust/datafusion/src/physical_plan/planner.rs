@@ -835,7 +835,7 @@ mod tests {
             unimplemented!("NoOpExecutionPlan::with_new_children");
         }
 
-        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
+        async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
             unimplemented!("NoOpExecutionPlan::execute");
         }
     }

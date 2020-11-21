@@ -82,7 +82,7 @@ mod tests {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
         let exec = table.scan(&projection, 2)?;
-        let stream = exec.execute(0).await?;
+        let stream = &mut exec.execute().await?[0];
 
         let count = stream
             .map(|batch| {
@@ -303,8 +303,9 @@ mod tests {
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
         let exec = table.scan(projection, 1024)?;
-        let mut it = exec.execute(0).await?;
-        it.next()
+        let stream = &mut exec.execute().await?[0];
+        stream
+            .next()
             .await
             .expect("should have received at least one batch")
             .map_err(|e| e.into())

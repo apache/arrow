@@ -59,18 +59,14 @@ impl MemTable {
     pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
         let exec = t.scan(&None, batch_size)?;
-        let partition_count = exec.output_partitioning().partition_count();
 
-        let tasks = (0..partition_count)
-            .map(|part_i| {
-                let exec = exec.clone();
-                tokio::spawn(async move {
-                    let stream = exec.execute(part_i).await?;
-                    common::collect(stream).await
-                })
+        let streams = exec.execute().await?;
+
+        let tasks = streams
+            .into_iter()
+            .map(|mut stream| {
+                tokio::spawn(async move { common::collect(&mut stream).await })
             })
-            // this collect *is needed* so that the join below can
-            // switch between tasks
             .collect::<Vec<_>>();
 
         let mut data: Vec<Vec<RecordBatch>> =
@@ -157,8 +153,8 @@ mod tests {
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
-        let mut it = exec.execute(0).await?;
-        let batch2 = it.next().await.unwrap()?;
+        let stream = &mut exec.execute().await?[0];
+        let batch2 = stream.next().await.unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -187,8 +183,8 @@ mod tests {
         let provider = MemTable::new(schema, vec![vec![batch]])?;
 
         let exec = provider.scan(&None, 1024)?;
-        let mut it = exec.execute(0).await?;
-        let batch1 = it.next().await.unwrap()?;
+        let stream = &mut exec.execute().await?[0];
+        let batch1 = stream.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
 

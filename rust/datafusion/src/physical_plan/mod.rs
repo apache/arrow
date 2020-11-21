@@ -80,8 +80,9 @@ pub trait ExecutionPlan: Debug + Send + Sync {
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
-    /// creates an iterator
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
+    /// creates a vector of streams of [RecordBatch]es, each stream corresponding
+    /// to a part of the partition.
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>>;
 }
 
 /// Partitioning schemes supported by operators.

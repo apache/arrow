@@ -143,13 +143,10 @@ impl ExecutionPlan for HashJoinExec {
         self.right.output_partitioning()
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
         // merge all parts into a single stream
-        // this is currently expensive as we re-compute this for every part from the right
-        // TODO: Fix this issue: we can't share this state across parts on the right.
-        // We need to change this `execute` to allow sharing state across parts...
         let merge = MergeExec::new(self.left.clone());
-        let stream = merge.execute(0).await?;
+        let stream = &mut merge.execute().await?[0];
 
         let on_left = self
             .on
@@ -177,17 +174,26 @@ impl ExecutionPlan for HashJoinExec {
                 Ok(acc)
             })
             .await?;
+        // send it to the heap under an Arc so that it can be shared
+        let left_data = Arc::new((left_data.0, left_data.1));
         // we have the batches and the hash map with their keys. We can how create a stream
         // over the right that uses this information to issue new batches.
 
-        let stream = self.right.execute(partition).await?;
-        Ok(Box::pin(HashJoinStream {
-            schema: self.schema.clone(),
-            on_right,
-            join_type: self.join_type.clone(),
-            left_data: (left_data.0, left_data.1),
-            right: stream,
-        }))
+        Ok(self
+            .right
+            .execute()
+            .await?
+            .into_iter()
+            .map(|input| {
+                Box::pin(HashJoinStream {
+                    schema: self.schema.clone(),
+                    on_right: on_right.clone(),
+                    join_type: self.join_type.clone(),
+                    left_data: left_data.clone(),
+                    right: input,
+                }) as SendableRecordBatchStream
+            })
+            .collect())
     }
 }
 
@@ -232,7 +238,7 @@ struct HashJoinStream {
     /// type of the join
     join_type: JoinType,
     /// information from the left
-    left_data: JoinLeftData,
+    left_data: Arc<JoinLeftData>,
     /// right
     right: SendableRecordBatchStream,
 }
@@ -475,7 +481,7 @@ mod tests {
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
 
-        let stream = join.execute(0).await?;
+        let stream = &mut join.execute().await?[0];
         let batches = common::collect(stream).await?;
 
         let result = format_batch(&batches[0]);
@@ -505,7 +511,7 @@ mod tests {
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "b2", "c2"]);
 
-        let stream = join.execute(0).await?;
+        let stream = &mut join.execute().await?[0];
         let batches = common::collect(stream).await?;
 
         let result = format_batch(&batches[0]);
@@ -535,7 +541,7 @@ mod tests {
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
 
-        let stream = join.execute(0).await?;
+        let stream = &mut join.execute().await?[0];
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
 
@@ -574,7 +580,7 @@ mod tests {
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
 
-        let stream = join.execute(0).await?;
+        let stream = &mut join.execute().await?[0];
         let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), 1);
 
@@ -615,8 +621,8 @@ mod tests {
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
 
         // first part
-        let stream = join.execute(0).await?;
-        let batches = common::collect(stream).await?;
+        let stream = &mut join.execute().await?;
+        let batches = common::collect(&mut stream[0]).await?;
         assert_eq!(batches.len(), 1);
 
         let result = format_batch(&batches[0]);
@@ -624,8 +630,7 @@ mod tests {
         assert_same_rows(&result, &expected);
 
         // second part
-        let stream = join.execute(1).await?;
-        let batches = common::collect(stream).await?;
+        let batches = common::collect(&mut stream[1]).await?;
         assert_eq!(batches.len(), 1);
         let result = format_batch(&batches[0]);
         let expected = vec!["2,5,8,30,90", "3,5,9,30,90"];

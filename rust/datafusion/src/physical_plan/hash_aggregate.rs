@@ -152,26 +152,32 @@ impl ExecutionPlan for HashAggregateExec {
         self.input.output_partitioning()
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        let input = self.input.execute(partition).await?;
-        let group_expr = self.group_expr.iter().map(|x| x.0.clone()).collect();
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        let streams = self.input.execute().await?;
 
-        if self.group_expr.is_empty() {
-            Ok(Box::pin(HashAggregateStream::new(
-                self.mode,
-                self.schema.clone(),
-                self.aggr_expr.clone(),
-                input,
-            )))
-        } else {
-            Ok(Box::pin(GroupedHashAggregateStream::new(
-                self.mode.clone(),
-                self.schema.clone(),
-                group_expr,
-                self.aggr_expr.clone(),
-                input,
-            )))
-        }
+        streams
+            .into_iter()
+            .map(|input| {
+                Ok(if self.group_expr.is_empty() {
+                    Box::pin(HashAggregateStream::new(
+                        self.mode,
+                        self.schema.clone(),
+                        self.aggr_expr.clone(),
+                        input,
+                    )) as SendableRecordBatchStream
+                } else {
+                    let group_expr =
+                        self.group_expr.iter().map(|x| x.0.clone()).collect();
+                    Box::pin(GroupedHashAggregateStream::new(
+                        self.mode.clone(),
+                        self.schema.clone(),
+                        group_expr,
+                        self.aggr_expr.clone(),
+                        input,
+                    )) as SendableRecordBatchStream
+                })
+            })
+            .collect()
     }
 
     fn with_new_children(
@@ -837,7 +843,8 @@ mod tests {
             input,
         )?);
 
-        let result = common::collect(partial_aggregate.execute(0).await?).await?;
+        let stream = &mut partial_aggregate.clone().execute().await?[0];
+        let result = common::collect(stream).await?;
 
         let mut rows = crate::test::format_batch(&result[0]);
         rows.sort();
@@ -859,7 +866,8 @@ mod tests {
             merge,
         )?);
 
-        let result = common::collect(merged_aggregate.execute(0).await?).await?;
+        let stream = &mut merged_aggregate.execute().await?[0];
+        let result = common::collect(stream).await?;
         assert_eq!(result.len(), 1);
 
         let batch = &result[0];
@@ -915,14 +923,14 @@ mod tests {
             )))
         }
 
-        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
+        async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
             let stream;
             if self.yield_first {
                 stream = TestYieldingStream::New;
             } else {
                 stream = TestYieldingStream::Yielded;
             }
-            Ok(Box::pin(stream))
+            Ok(vec![Box::pin(stream)])
         }
     }
 

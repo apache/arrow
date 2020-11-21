@@ -113,12 +113,19 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(ProjectionStream {
-            schema: self.schema.clone(),
-            expr: self.expr.iter().map(|x| x.0.clone()).collect(),
-            input: self.input.execute(partition).await?,
-        }))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        self.input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|stream| {
+                Ok(Box::pin(ProjectionStream {
+                    schema: self.schema.clone(),
+                    expr: self.expr.iter().map(|x| x.0.clone()).collect(),
+                    input: stream,
+                }) as SendableRecordBatchStream)
+            })
+            .collect()
     }
 }
 
@@ -194,12 +201,10 @@ mod tests {
         let projection =
             ProjectionExec::try_new(vec![(col("c1"), "c1".to_string())], Arc::new(csv))?;
 
-        let mut partition_count = 0;
         let mut row_count = 0;
-        for partition in 0..projection.output_partitioning().partition_count() {
-            partition_count += 1;
-            let stream = projection.execute(partition).await?;
-
+        let parts = projection.execute().await?;
+        assert_eq!(parts.len(), partitions);
+        for stream in parts {
             row_count += stream
                 .map(|batch| {
                     let batch = batch.unwrap();
@@ -209,7 +214,6 @@ mod tests {
                 .fold(0, |acc, x| future::ready(acc + x))
                 .await;
         }
-        assert_eq!(partitions, partition_count);
         assert_eq!(100, row_count);
 
         Ok(())

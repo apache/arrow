@@ -136,29 +136,44 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // because the parquet implementation is not thread-safe, it is necessary to execute
-        // on a thread and communicate with channels
-        let (response_tx, response_rx): (
-            Sender<Option<ArrowResult<RecordBatch>>>,
-            Receiver<Option<ArrowResult<RecordBatch>>>,
-        ) = bounded(2);
-
-        let filename = self.filenames[partition].clone();
-        let projection = self.projection.clone();
-        let batch_size = self.batch_size;
-
-        thread::spawn(move || {
-            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
-                println!("Parquet reader thread terminated due to error: {:?}", e);
-            }
-        });
-
-        Ok(Box::pin(ParquetStream {
-            schema: self.schema.clone(),
-            response_rx,
-        }))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        Ok(self
+            .filenames
+            .iter()
+            .map(|filename| {
+                prepare_stream(filename, &self.projection, &self.schema, &self.batch_size)
+            })
+            .collect())
     }
+}
+
+fn prepare_stream(
+    filename: &str,
+    projection: &Vec<usize>,
+    schema: &SchemaRef,
+    batch_size: &usize,
+) -> SendableRecordBatchStream {
+    // because the parquet implementation is not thread-safe, it is necessary to execute
+    // on a thread and communicate with channels
+    let (response_tx, response_rx): (
+        Sender<Option<ArrowResult<RecordBatch>>>,
+        Receiver<Option<ArrowResult<RecordBatch>>>,
+    ) = bounded(2);
+
+    let filename = filename.to_owned();
+    let projection = projection.clone();
+    let batch_size = *batch_size;
+
+    thread::spawn(move || {
+        if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
+            println!("Parquet reader thread terminated due to error: {:?}", e);
+        }
+    });
+
+    Box::pin(ParquetStream {
+        schema: schema.clone(),
+        response_rx,
+    })
 }
 
 fn send_result(
@@ -246,7 +261,7 @@ mod tests {
         let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
-        let mut results = parquet_exec.execute(0).await?;
+        let results = &mut parquet_exec.execute().await?[0];
         let batch = results.next().await.unwrap()?;
 
         assert_eq!(8, batch.num_rows());

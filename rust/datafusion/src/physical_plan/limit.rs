@@ -99,15 +99,7 @@ impl ExecutionPlan for GlobalLimitExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // GlobalLimitExec has a single output partition
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "GlobalLimitExec invalid partition {}",
-                partition
-            )));
-        }
-
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
         // GlobalLimitExec requires a single input partition
         if 1 != self.input.output_partitioning().partition_count() {
             return Err(DataFusionError::Internal(
@@ -115,8 +107,15 @@ impl ExecutionPlan for GlobalLimitExec {
             ));
         }
 
-        let stream = self.input.execute(0).await?;
-        Ok(Box::pin(LimitStream::new(stream, self.limit)))
+        Ok(self
+            .input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|input| {
+                Box::pin(LimitStream::new(input, self.limit)) as SendableRecordBatchStream
+            })
+            .collect())
     }
 }
 
@@ -168,9 +167,16 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(&self, _: usize) -> Result<SendableRecordBatchStream> {
-        let stream = self.input.execute(0).await?;
-        Ok(Box::pin(LimitStream::new(stream, self.limit)))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        Ok(self
+            .input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|input| {
+                Box::pin(LimitStream::new(input, self.limit)) as SendableRecordBatchStream
+            })
+            .collect())
     }
 }
 
@@ -261,8 +267,8 @@ mod tests {
         let limit = GlobalLimitExec::new(Arc::new(MergeExec::new(Arc::new(csv))), 7, 2);
 
         // the result should contain 4 batches (one per input partition)
-        let iter = limit.execute(0).await?;
-        let batches = common::collect(iter).await?;
+        let stream = &mut limit.execute().await?[0];
+        let batches = common::collect(stream).await?;
 
         // there should be a total of 100 rows
         let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();

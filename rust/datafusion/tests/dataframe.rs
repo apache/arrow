@@ -122,8 +122,8 @@ impl ExecutionPlan for CustomExecutionPlan {
             ))
         }
     }
-    async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(TestCustomRecordBatchStream { nb_batch: 1 }))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        Ok(vec![Box::pin(TestCustomRecordBatchStream { nb_batch: 1 })])
     }
 }
 

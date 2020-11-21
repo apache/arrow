@@ -80,7 +80,7 @@ impl RecordBatchStream for SizedRecordBatchStream {
 }
 
 /// Create a vector of record batches from a stream
-pub async fn collect(stream: SendableRecordBatchStream) -> Result<Vec<RecordBatch>> {
+pub async fn collect(stream: &mut SendableRecordBatchStream) -> Result<Vec<RecordBatch>> {
     stream
         .try_collect::<Vec<_>>()
         .await

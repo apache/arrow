@@ -350,15 +350,16 @@ impl ExecutionContext {
         match plan.output_partitioning().partition_count() {
             0 => Ok(vec![]),
             1 => {
-                let it = plan.execute(0).await?;
-                common::collect(it).await
+                let stream = &mut plan.execute().await?[0];
+                common::collect(stream).await
             }
             _ => {
                 // merge into a single partition
                 let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0).await?).await
+                let stream = &mut plan.execute().await?[0];
+                common::collect(stream).await
             }
         }
     }
@@ -373,14 +374,14 @@ impl ExecutionContext {
         let path = path.to_owned();
         fs::create_dir(&path)?;
 
-        for i in 0..plan.output_partitioning().partition_count() {
+        let streams = plan.execute().await?;
+
+        for (i, stream) in streams.into_iter().enumerate() {
             let path = path.clone();
-            let plan = plan.clone();
             let filename = format!("part-{}.csv", i);
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
             let mut writer = csv::Writer::new(file);
-            let stream = plan.execute(i).await?;
 
             stream
                 .map(|batch| writer.write(&batch?))
@@ -401,7 +402,9 @@ impl ExecutionContext {
         let path = path.to_owned();
         fs::create_dir(&path)?;
 
-        for i in 0..plan.output_partitioning().partition_count() {
+        let streams = plan.execute().await?;
+
+        for (i, stream) in streams.into_iter().enumerate() {
             let path = path.clone();
             let plan = plan.clone();
             let filename = format!("part-{}.parquet", i);
@@ -409,7 +412,6 @@ impl ExecutionContext {
             let file = fs::File::create(path)?;
             let mut writer =
                 ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
-            let stream = plan.execute(i).await?;
 
             stream
                 .map(|batch| writer.write(&batch?))

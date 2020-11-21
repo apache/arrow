@@ -29,10 +29,7 @@ use futures::Stream;
 use async_trait::async_trait;
 
 use arrow::record_batch::RecordBatch;
-use arrow::{
-    datatypes::SchemaRef,
-    error::{ArrowError, Result as ArrowResult},
-};
+use arrow::{datatypes::SchemaRef, error::Result as ArrowResult};
 
 use super::RecordBatchStream;
 use crate::error::{DataFusionError, Result};
@@ -89,62 +86,39 @@ impl ExecutionPlan for MergeExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // MergeExec produces a single partition
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "MergeExec invalid partition {}",
-                partition
-            )));
-        }
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        let streams = self.input.execute().await?;
 
-        let input_partitions = self.input.output_partitioning().partition_count();
-        match input_partitions {
-            0 => Err(DataFusionError::Internal(
+        if streams.len() == 0 {
+            return Err(DataFusionError::Internal(
                 "MergeExec requires at least one input partition".to_owned(),
-            )),
-            1 => {
-                // bypass any threading if there is a single partition
-                self.input.execute(0).await
-            }
-            _ => {
-                // use a stream that allows each sender to put in at
-                // least one result in an attempt to maximize
-                // parallelism.
-                let (sender, receiver) =
-                    mpsc::channel::<ArrowResult<RecordBatch>>(input_partitions);
-
-                // spawn independent tasks whose resulting streams (of batches)
-                // are sent to the channel for consumption.
-                for part_i in (0..input_partitions) {
-                    let input = self.input.clone();
-                    let mut sender = sender.clone();
-                    tokio::spawn(async move {
-                        let mut stream = match input.execute(part_i).await {
-                            Err(e) => {
-                                // If send fails, plan being torn
-                                // down, no place to send the error
-                                let arrow_error = ArrowError::ExternalError(Box::new(e));
-                                sender.send(Err(arrow_error)).await.ok();
-                                return;
-                            }
-                            Ok(stream) => stream,
-                        };
-
-                        while let Some(item) = stream.next().await {
-                            // If send fails, plan being torn down,
-                            // there is no place to send the error
-                            sender.send(item).await.ok();
-                        }
-                    });
-                }
-
-                Ok(Box::pin(MergeStream {
-                    input: receiver,
-                    schema: self.schema().clone(),
-                }))
-            }
+            ));
+        } else if streams.len() == 1 {
+            // bypass any threading if there is a single partition
+            return Ok(streams);
         }
+        // merge parts is needed...
+
+        // use a stream that allows each sender to put in at
+        // least one result in an attempt to maximize
+        // parallelism.
+        let (sender, receiver) = mpsc::channel::<ArrowResult<RecordBatch>>(streams.len());
+
+        streams.into_iter().for_each(|mut stream| {
+            let mut sender = sender.clone();
+            tokio::spawn(async move {
+                while let Some(item) = stream.next().await {
+                    // If send fails, plan being torn down,
+                    // there is no place to send the error
+                    sender.send(item).await.ok();
+                }
+            });
+        });
+
+        Ok(vec![Box::pin(MergeStream {
+            input: receiver,
+            schema: self.schema().clone(),
+        })])
     }
 }
 
@@ -202,8 +176,8 @@ mod tests {
         assert_eq!(merge.output_partitioning().partition_count(), 1);
 
         // the result should contain 4 batches (one per input partition)
-        let iter = merge.execute(0).await?;
-        let batches = common::collect(iter).await?;
+        let stream = &mut merge.execute().await?[0];
+        let batches = common::collect(stream).await?;
         assert_eq!(batches.len(), num_partitions);
 
         // there should be a total of 100 rows

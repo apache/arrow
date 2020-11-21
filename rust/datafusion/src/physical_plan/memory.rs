@@ -73,12 +73,17 @@ impl ExecutionPlan for MemoryExec {
         )))
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(MemoryStream::try_new(
-            self.partitions[partition].clone(),
-            self.schema.clone(),
-            self.projection.clone(),
-        )?))
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
+        self.partitions
+            .iter()
+            .map(|part| {
+                Ok(Box::pin(MemoryStream::try_new(
+                    part.clone(),
+                    self.schema.clone(),
+                    self.projection.clone(),
+                )?) as SendableRecordBatchStream)
+            })
+            .collect()
     }
 }
 

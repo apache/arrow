@@ -107,23 +107,23 @@ impl ExecutionPlan for SortExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        if 0 != partition {
-            return Err(DataFusionError::Internal(format!(
-                "SortExec invalid partition {}",
-                partition
-            )));
-        }
-
+    async fn execute(&self) -> Result<Vec<SendableRecordBatchStream>> {
         // sort needs to operate on a single partition currently
         if 1 != self.input.output_partitioning().partition_count() {
             return Err(DataFusionError::Internal(
                 "SortExec requires a single input partition".to_owned(),
             ));
         }
-        let input = self.input.execute(0).await?;
-
-        Ok(Box::pin(SortStream::new(input, self.expr.clone())))
+        Ok(self
+            .input
+            .execute()
+            .await?
+            .into_iter()
+            .map(|stream| {
+                Box::pin(SortStream::new(stream, self.expr.clone()))
+                    as SendableRecordBatchStream
+            })
+            .collect())
     }
 }
 
@@ -190,13 +190,13 @@ pin_project! {
 }
 
 impl SortStream {
-    fn new(input: SendableRecordBatchStream, expr: Vec<PhysicalSortExpr>) -> Self {
+    fn new(mut input: SendableRecordBatchStream, expr: Vec<PhysicalSortExpr>) -> Self {
         let (tx, rx) = futures::channel::oneshot::channel();
 
         let schema = input.schema();
         tokio::spawn(async move {
             let schema = input.schema();
-            let sorted_batch = common::collect(input)
+            let sorted_batch = common::collect(&mut input)
                 .await
                 .map_err(DataFusionError::into_arrow_external_error)
                 .and_then(move |batches| sort_batches(&batches, &schema, &expr));
