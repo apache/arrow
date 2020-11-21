@@ -487,6 +487,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn join_one_no_shared_column_names() -> Result<()> {
+        let left = build_table(
+            ("a1", &vec![1, 2, 3]),
+            ("b1", &vec![4, 5, 5]), // this has a repetition
+            ("c1", &vec![7, 8, 9]),
+        );
+        let right = build_table(
+            ("a2", &vec![10, 20, 30]),
+            ("b2", &vec![4, 5, 6]),
+            ("c2", &vec![70, 80, 90]),
+        );
+        let on = &[("b1", "b2")];
+
+        let join = join(left, right, on)?;
+
+        let columns = columns(&join.schema());
+        assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "b2", "c2"]);
+
+        let stream = join.execute(0).await?;
+        let batches = common::collect(stream).await?;
+
+        let result = format_batch(&batches[0]);
+        let expected = vec!["2,5,8,20,5,80", "3,5,9,20,5,80", "1,4,7,10,4,70"];
+
+        assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn join_two() -> Result<()> {
         let left = build_table(
             ("a1", &vec![1, 2, 2]),

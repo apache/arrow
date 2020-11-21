@@ -210,6 +210,9 @@ impl LogicalPlanBuilder {
                 &on,
                 &physical_join_type,
             );
+            println!("left: {:?}", self.plan.schema());
+            println!("right: {:?}", right.schema());
+            println!("join: {:?}", physical_schema);
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right,
