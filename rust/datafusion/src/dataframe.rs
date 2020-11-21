@@ -160,7 +160,7 @@ pub trait DataFrame {
     ///     col("a").alias("a2"),
     ///     col("b").alias("b2"),
     ///     col("c").alias("c2")])?;
-    /// let join = left.join(right, JoinType::Inner, vec!["a", "b"], vec!["a2", "b2"])?;
+    /// let join = left.join(right, JoinType::Inner, &["a", "b"], &["a2", "b2"])?;
     /// let batches = join.collect().await?;
     /// # Ok(())
     /// # }

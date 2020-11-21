@@ -232,9 +232,12 @@ mod tests {
         let right_rows = right.collect().await?;
         let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
         let join_rows = join.collect().await?;
-        assert_eq!(100, left_rows.len());
-        assert_eq!(100, right_rows.len());
-        assert_eq!(1000, join_rows.len()); //TODO determine expected number but should be > 100
+        assert_eq!(1, left_rows.len());
+        assert_eq!(100, left_rows[0].num_rows());
+        assert_eq!(1, right_rows.len());
+        assert_eq!(100, right_rows[0].num_rows());
+        assert_eq!(1, join_rows.len());
+        assert_eq!(2008, join_rows[0].num_rows());
         Ok(())
     }
 
