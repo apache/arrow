@@ -27,7 +27,7 @@ keywords = [ "arrow" ]
 edition = "2018"
 
 [lib]
-name = "arrow_c_integration"
+name = "arrow_pyarrow_integration_testing"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -35,4 +35,4 @@ arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
 pyo3 = { version = "0.12.1", features = ["extension-module"] }
 
 [package.metadata.maturin]
-requires-dist = ["pyarrow>=1,<2"]
+requires-dist = ["pyarrow>=1"]
