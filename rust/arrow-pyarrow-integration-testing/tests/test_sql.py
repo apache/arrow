@@ -19,7 +19,7 @@
 import unittest
 
 import pyarrow
-import arrow_c_integration
+import arrow_pyarrow_integration_testing
 
 
 class TestCase(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestCase(unittest.TestCase):
         """
         old_allocated = pyarrow.total_allocated_bytes()
         a = pyarrow.array([1, 2, 3])
-        b = arrow_c_integration.double(a)
+        b = arrow_pyarrow_integration_testing.double(a)
         self.assertEqual(b, pyarrow.array([2, 4, 6]))
         del a
         del b
@@ -44,7 +44,7 @@ class TestCase(unittest.TestCase):
             array = array.to_pylist()
             return pyarrow.array([x * 2 if x is not None else None for x in array])
         
-        is_correct = arrow_c_integration.double_py(double)
+        is_correct = arrow_pyarrow_integration_testing.double_py(double)
         self.assertTrue(is_correct)
 
     def test_string_python(self):
@@ -53,7 +53,7 @@ class TestCase(unittest.TestCase):
         """
         old_allocated = pyarrow.total_allocated_bytes()
         a = pyarrow.array(["a", None, "ccc"])
-        b = arrow_c_integration.substring(a, 1)
+        b = arrow_pyarrow_integration_testing.substring(a, 1)
         self.assertEqual(b, pyarrow.array(["", None, "cc"]))
         del a
         del b

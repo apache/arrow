@@ -154,7 +154,7 @@ fn substring(array: PyObject, start: i64, py: Python) -> PyResult<PyObject> {
 }
 
 #[pymodule]
-fn arrow_c_integration(_py: Python, m: &PyModule) -> PyResult<()> {
+fn arrow_pyarrow_integration_testing(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(double))?;
     m.add_wrapped(wrap_pyfunction!(double_py))?;
     m.add_wrapped(wrap_pyfunction!(substring))?;
