@@ -23,12 +23,12 @@ use std::time::Instant;
 
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
-use datafusion::prelude::*;
-use datafusion::datasource::{CsvFile, MemTable, TableProvider};
 use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::{CsvFile, MemTable, TableProvider};
 use datafusion::error::{DataFusionError, Result};
 use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::csv::CsvExec;
+use datafusion::prelude::*;
 
 use structopt::StructOpt;
 
@@ -108,12 +108,14 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
 
     // register tables
     for table in TABLES {
-        let table_provider = get_table(opt.path.to_str().unwrap(), table, opt.file_format.as_str())?;
+        let table_provider =
+            get_table(opt.path.to_str().unwrap(), table, opt.file_format.as_str())?;
         if opt.mem_table {
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
 
-            let memtable = MemTable::load(table_provider.as_ref(), opt.batch_size).await?;
+            let memtable =
+                MemTable::load(table_provider.as_ref(), opt.batch_size).await?;
             println!(
                 "Loaded table '{}' into memory in {} ms",
                 table,
@@ -164,10 +166,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                     l_linestatus
                 order by
                     l_returnflag,
-                    l_linestatus"),
+                    l_linestatus",
+        ),
 
         12 => {
-
             // We do not have sufficient SQL support for this query yet
 
             // "SELECT
@@ -199,26 +201,44 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             // ORDER BY
             //     l_shipmode"
 
-            Ok(ctx.table("line_item")?
-                .filter(col("l_shipmode").eq(lit("MAIL")).or(col("l_shipmode").eq(lit("SHIP"))))?
+            Ok(ctx
+                .table("lineitem")?
+                .filter(
+                    col("l_shipmode")
+                        .eq(lit("MAIL"))
+                        .or(col("l_shipmode").eq(lit("SHIP"))),
+                )?
                 .filter(col("l_commitdate").lt(col("l_receiptdate")))?
                 .filter(col("l_shipdate").lt(col("l_commitdate")))?
                 .filter(col("l_receiptdate").gt_eq(lit("1994-01-01")))?
                 // we do not support date functions yet, so faking the "+ interval '1' year" part
                 .filter(col("l_receiptdate").lt(lit("1995-01-01")))?
-                .join(ctx.table("orders")?, JoinType::Inner, &["l_orderkey"], &["o_orderkey"])?
-                .aggregate(vec![col("l_shipmode")], vec![
-                    // we do not support CASE WHEN yet, so faking this part
-                    sum(lit(1)).alias("high_line_count"),
-                    sum(lit(0)).alias("low_line_count"),
-                ])?.to_logical_plan())
+                .join(
+                    ctx.table("orders")?,
+                    JoinType::Inner,
+                    &["l_orderkey"],
+                    &["o_orderkey"],
+                )?
+                .aggregate(
+                    vec![col("l_shipmode")],
+                    vec![
+                        // we do not support CASE WHEN yet, so faking this part
+                        sum(lit(1)).alias("high_line_count"),
+                        sum(lit(0)).alias("low_line_count"),
+                    ],
+                )?
+                .to_logical_plan())
         }
 
         _ => unimplemented!("unsupported query"),
     }
 }
 
-async fn execute_query(ctx: &mut ExecutionContext, plan: &LogicalPlan, debug: bool) -> Result<()> {
+async fn execute_query(
+    ctx: &mut ExecutionContext,
+    plan: &LogicalPlan,
+    debug: bool,
+) -> Result<()> {
     let plan = ctx.optimize(&plan)?;
     if debug {
         println!("Optimized logical plan:\n{:?}", plan);
@@ -260,7 +280,11 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
     Ok(())
 }
 
-fn get_table(path: &str, table: &str, table_format: &str) -> Result<Box<dyn TableProvider + Send + Sync>> {
+fn get_table(
+    path: &str,
+    table: &str,
+    table_format: &str,
+) -> Result<Box<dyn TableProvider + Send + Sync>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files
         "tbl" => {
@@ -323,6 +347,6 @@ fn get_schema(table: &str) -> Schema {
             Field::new("o_comment", DataType::Utf8, true),
         ]),
 
-        _ => unimplemented!()
+        _ => unimplemented!(),
     }
 }
