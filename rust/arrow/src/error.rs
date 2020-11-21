@@ -36,6 +36,7 @@ pub enum ArrowError {
     InvalidArgumentError(String),
     ParquetError(String),
     DictionaryKeyOverflowError,
+    SqlError(String),
 }
 
 impl ArrowError {
@@ -106,6 +107,7 @@ impl Display for ArrowError {
             ArrowError::DictionaryKeyOverflowError => {
                 write!(f, "Dictionary key bigger than the key type")
             }
+            ArrowError::SqlError(desc) => write!(f, "SQL error: {}", desc),
         }
     }
 }

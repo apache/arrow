@@ -25,4 +25,5 @@ members = [
         "arrow-flight",
         "integration-testing",
 	"benchmarks",
+	"sql",
 ]
