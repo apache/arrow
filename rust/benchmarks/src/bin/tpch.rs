@@ -89,7 +89,7 @@ enum TpchOpt {
     Convert(ConvertOpt),
 }
 
-const TABLES: &[&'static str] = &["lineitem", "orders"];
+const TABLES: &[&str] = &["lineitem", "orders"];
 
 #[tokio::main]
 async fn main() -> Result<()> {
