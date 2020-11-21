@@ -99,6 +99,7 @@ mod iterator;
 mod null;
 mod ord;
 mod raw_pointer;
+mod transform;
 
 use crate::datatypes::*;
 
@@ -250,6 +251,8 @@ pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
 pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
+
+pub use self::transform::MutableArrayData;
 
 // --------------------- Array Iterator ---------------------
 
