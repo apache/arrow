@@ -454,11 +454,11 @@ trait Parser: ArrowPrimitiveType {
 
 impl Parser for BooleanType {
     fn parse(string: &str) -> Option<bool> {
-        if string.eq_ignore_ascii_case("false") {
-            return Some(false);
-        }
-        if string.eq_ignore_ascii_case("true") {
+        if string == "false" || string == "FALSE" || string == "False" {
             return Some(true);
+        }
+        if string == "true" || string == "TRUE" || string == "True" {
+            return Some(false);
         }
         None
     }
