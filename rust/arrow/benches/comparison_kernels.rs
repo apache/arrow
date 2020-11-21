@@ -147,6 +147,11 @@ fn bench_like_utf8_scalar(arr_a: &StringArray, value_b: &str) {
     like_utf8_scalar(criterion::black_box(arr_a), criterion::black_box(value_b)).unwrap();
 }
 
+fn bench_nlike_utf8_scalar(arr_a: &StringArray, value_b: &str) {
+    nlike_utf8_scalar(criterion::black_box(arr_a), criterion::black_box(value_b))
+        .unwrap();
+}
+
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
     let arr_a = create_array(size);
@@ -202,6 +207,26 @@ fn add_benchmark(c: &mut Criterion) {
 
     c.bench_function("like_utf8 scalar complex", |b| {
         b.iter(|| bench_like_utf8_scalar(&arr_string, "%xx_xx%xxx"))
+    });
+
+    c.bench_function("like_utf8 scalar equals", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx"))
+    });
+
+    c.bench_function("like_utf8 scalar contains", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx%"))
+    });
+
+    c.bench_function("like_utf8 scalar ends with", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx%"))
+    });
+
+    c.bench_function("like_utf8 scalar starts with", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx"))
+    });
+
+    c.bench_function("like_utf8 scalar complex", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xx_xx%xxx"))
     });
 }
 
