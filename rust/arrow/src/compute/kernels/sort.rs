@@ -486,26 +486,27 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
         ));
     };
 
-    // convert ArrayRefs to OrdArray trait objects and perform row count check
+    // map to data and DynComparator
     let flat_columns = columns
         .iter()
-        .map(|column| -> Result<(&Array, DynComparator, SortOptions)> {
-            // flatten and convert build comparators
-            Ok((
-                column.values.as_ref(),
-                build_compare(column.values.as_ref(), column.values.as_ref())?,
-                column.options.unwrap_or_default(),
-            ))
-        })
-        .collect::<Result<Vec<(&Array, DynComparator, SortOptions)>>>()?;
+        .map(
+            |column| -> Result<(&ArrayDataRef, DynComparator, SortOptions)> {
+                // flatten and convert build comparators
+                // use ArrayData for is_valid checks later to avoid dynamic call
+                let values = column.values.as_ref();
+                let data = values.data_ref();
+                Ok((
+                    data,
+                    build_compare(values, values)?,
+                    column.options.unwrap_or_default(),
+                ))
+            },
+        )
+        .collect::<Result<Vec<(&ArrayDataRef, DynComparator, SortOptions)>>>()?;
 
     let lex_comparator = |a_idx: &usize, b_idx: &usize| -> Ordering {
-        for column in flat_columns.iter() {
-            let values = &column.0;
-            let comparator = &column.1;
-            let sort_option = column.2;
-
-            match (values.is_valid(*a_idx), values.is_valid(*b_idx)) {
+        for (data, comparator, sort_option) in flat_columns.iter() {
+            match (data.is_valid(*a_idx), data.is_valid(*b_idx)) {
                 (true, true) => {
                     match (comparator)(*a_idx, *b_idx) {
                         // equal, move on to next column
