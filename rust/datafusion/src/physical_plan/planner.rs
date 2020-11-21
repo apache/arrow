@@ -30,6 +30,8 @@ use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use crate::physical_plan::hash_join::HashJoinExec;
+use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
@@ -39,6 +41,7 @@ use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
 use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
+use crate::prelude::JoinType;
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
@@ -286,6 +289,26 @@ impl DefaultPhysicalPlanner {
                     input,
                     ctx_state.config.concurrency,
                 )?))
+            }
+            LogicalPlan::Join {
+                left,
+                right,
+                on: keys,
+                join_type,
+                schema,
+            } => {
+                let left = self.create_physical_plan(left, ctx_state)?;
+                let right = self.create_physical_plan(right, ctx_state)?;
+                let physical_join_type = match join_type {
+                    JoinType::Inner => hash_utils::JoinType::Inner,
+                };
+                let hash_join =
+                    HashJoinExec::try_new(left, right, &keys, &physical_join_type)?;
+                if schema.as_ref() == hash_join.schema().as_ref() {
+                    Ok(Arc::new(hash_join))
+                } else {
+                    Err(DataFusionError::Plan("schema mismatch".to_string()))
+                }
             }
             LogicalPlan::EmptyRelation {
                 produce_one_row,

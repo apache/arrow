@@ -262,7 +262,7 @@ mod tests {
         let mut states = state1
             .iter()
             .zip(state2.iter())
-            .map(|(a, b)| (a.clone(), b.clone()))
+            .map(|(l, r)| (l.clone(), r.clone()))
             .collect::<Vec<(Option<T>, Option<S>)>>();
         states.sort();
         states

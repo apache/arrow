@@ -29,7 +29,7 @@ pub enum JoinType {
 }
 
 /// The on clause of the join, as vector of (left, right) columns.
-pub type JoinOn<'a> = [(&'a str, &'a str)];
+pub type JoinOn = [(String, String)];
 
 /// Checks whether the schemas "left" and "right" and columns "on" represent a valid join.
 /// They are valid whenever their columns' intersection equals the set `on`
@@ -94,15 +94,19 @@ pub fn build_join_schema(
 ) -> Schema {
     let fields: Vec<Field> = match join_type {
         JoinType::Inner => {
-            // inner: all fields are there
-            let on_right = &on.iter().map(|on| on.1.to_string()).collect::<HashSet<_>>();
+            // remove right-side join keys if they have the same names as the left-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
 
             let left_fields = left.fields().iter();
 
             let right_fields = right
                 .fields()
                 .iter()
-                .filter(|f| !on_right.contains(f.name()));
+                .filter(|f| !duplicate_keys.contains(f.name()));
 
             // left then right
             left_fields.chain(right_fields).cloned().collect()
@@ -119,8 +123,11 @@ mod tests {
     fn check(left: &[&str], right: &[&str], on: &[(&str, &str)]) -> Result<()> {
         let left = left.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
         let right = right.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
-
-        check_join_set_is_valid(&left, &right, on)
+        let on: Vec<_> = on
+            .iter()
+            .map(|(l, r)| (l.to_string(), r.to_string()))
+            .collect();
+        check_join_set_is_valid(&left, &right, &on)
     }
 
     #[test]
