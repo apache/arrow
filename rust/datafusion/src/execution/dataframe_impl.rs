@@ -109,8 +109,8 @@ impl DataFrame for DataFrameImpl {
         &self,
         right: Arc<dyn DataFrame>,
         join_type: JoinType,
-        left_cols: Vec<&str>,
-        right_cols: Vec<&str>,
+        left_cols: &[&str],
+        right_cols: &[&str],
     ) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .join(
@@ -221,6 +221,20 @@ mod tests {
         // the two plans should be identical
         assert_same_plan(&plan, &sql_plan);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join() -> Result<()> {
+        let left = test_table()?.select_columns(vec!["c1", "c2"])?;
+        let right = test_table()?.select_columns(vec!["c1", "c3"])?;
+        let left_rows = left.collect().await?;
+        let right_rows = right.collect().await?;
+        let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
+        let join_rows = join.collect().await?;
+        assert_eq!(100, left_rows.len());
+        assert_eq!(100, right_rows.len());
+        assert_eq!(1000, join_rows.len()); //TODO determine expected number but should be > 100
         Ok(())
     }
 

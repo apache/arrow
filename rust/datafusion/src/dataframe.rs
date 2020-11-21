@@ -169,8 +169,8 @@ pub trait DataFrame {
         &self,
         right: Arc<dyn DataFrame>,
         join_type: JoinType,
-        left_cols: Vec<&str>,
-        right_cols: Vec<&str>,
+        left_cols: &[&str],
+        right_cols: &[&str],
     ) -> Result<Arc<dyn DataFrame>>;
 
     /// Executes this DataFrame and collects all results into a vector of RecordBatch.

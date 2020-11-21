@@ -188,8 +188,8 @@ impl LogicalPlanBuilder {
         &self,
         right: Arc<LogicalPlan>,
         join_type: JoinType,
-        left_keys: Vec<&str>,
-        right_keys: Vec<&str>,
+        left_keys: &[&str],
+        right_keys: &[&str],
     ) -> Result<Self> {
         if left_keys.len() != right_keys.len() {
             Err(DataFusionError::Plan(
@@ -210,9 +210,6 @@ impl LogicalPlanBuilder {
                 &on,
                 &physical_join_type,
             );
-            println!("left: {:?}", self.plan.schema());
-            println!("right: {:?}", right.schema());
-            println!("join: {:?}", physical_schema);
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right,
