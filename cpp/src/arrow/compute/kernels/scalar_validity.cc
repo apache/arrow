@@ -35,7 +35,7 @@ struct IsValidOperator {
   }
 
   static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    DCHECK_EQ(out->offset, 0);
+    DCHECK(out->offset == 0);
     DCHECK_LE(out->length, arr.length);
     if (arr.MayHaveNulls()) {
       // Input has nulls => output is the null (validity) bitmap.

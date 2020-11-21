@@ -472,7 +472,7 @@ std::vector<ArrayVector> RechunkArraysConsistently(
     for (const auto& array : group) {
       group_length += array->length();
     }
-    DCHECK_EQ(group_length, total_length)
+    DCHECK(group_length == total_length)
         << "Array groups should have the same total number of elements";
   }
 #endif

@@ -156,7 +156,7 @@ grpc::Slice SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
   grpc::Slice slice(const_cast<uint8_t*>(buf->data()), static_cast<size_t>(buf->size()),
                     &ReleaseBuffer, ptr);
   // Make sure no copy was done (some grpc::Slice() constructors do an implicit memcpy)
-  DCHECK_EQ(slice.begin(), buf->data());
+  DCHECK(slice.begin() == buf->data());
   return slice;
 }
 
@@ -294,7 +294,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
       }
     }
 
-    DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
+    DCHECK(static_cast<int>(header_size) == header_stream.ByteCount());
   }
 
   // Hand off the slices to the returned ByteBuffer

@@ -59,7 +59,7 @@ static std::unordered_set<Integer> MakeSequentialIntegers(int32_t n_values) {
   for (int32_t i = 0; i < n_values; ++i) {
     values.insert(static_cast<Integer>(i));
   }
-  DCHECK_EQ(values.size(), static_cast<uint32_t>(n_values));
+  DCHECK(values.size() == static_cast<uint32_t>(n_values));
   return values;
 }
 

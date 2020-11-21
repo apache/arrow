@@ -538,7 +538,7 @@ TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
 // Scalar function execution
 
 void ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
-  DCHECK_EQ(1, batch.num_values());
+  DCHECK(1 == batch.num_values());
   const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
   int value_size = type.bit_width() / 8;
 
@@ -570,7 +570,7 @@ void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
 void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Validity preallocated, but not the data
   ArrayData* out_arr = out->mutable_array();
-  DCHECK_EQ(0, out_arr->offset);
+  DCHECK(0 == out_arr->offset);
   const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
   int value_size = type.bit_width() / 8;
   Status s = (ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
@@ -581,7 +581,7 @@ void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* o
 void ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Neither validity nor data preallocated
   ArrayData* out_arr = out->mutable_array();
-  DCHECK_EQ(0, out_arr->offset);
+  DCHECK(0 == out_arr->offset);
   Status s = (ctx->AllocateBitmap(out_arr->length).Value(&out_arr->buffers[0]));
   DCHECK_OK(s);
   const ArrayData& arg0 = *batch[0].array();

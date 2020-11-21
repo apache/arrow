@@ -31,7 +31,7 @@ namespace arrow {
 using internal::checked_cast;
 
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::BINARY);
+  ARROW_CHECK(data->type->id() == Type::BINARY);
   SetData(data);
 }
 
@@ -44,7 +44,7 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 }
 
 LargeBinaryArray::LargeBinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_BINARY);
+  ARROW_CHECK(data->type->id() == Type::LARGE_BINARY);
   SetData(data);
 }
 
@@ -58,7 +58,7 @@ LargeBinaryArray::LargeBinaryArray(int64_t length,
 }
 
 StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::STRING);
+  ARROW_CHECK(data->type->id() == Type::STRING);
   SetData(data);
 }
 
@@ -73,7 +73,7 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 Status StringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
 LargeStringArray::LargeStringArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_STRING);
+  ARROW_CHECK(data->type->id() == Type::LARGE_STRING);
   SetData(data);
 }
 

@@ -441,8 +441,8 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
       valid_run.length = 0;
     }
   }
-  DCHECK_EQ(valid_run.length, 0);
-  DCHECK_EQ(values_remaining, 0);
+  DCHECK(valid_run.length == 0);
+  DCHECK(values_remaining == 0);
   return values_read;
 }
 
@@ -687,7 +687,7 @@ inline bool RleEncoder::Put(uint64_t value) {
     if (repeat_count_ >= 8) {
       // We had a run that was long enough but it has ended.  Flush the
       // current repeated run.
-      DCHECK_EQ(literal_count_, 0);
+      DCHECK(literal_count_ == 0);
       FlushRepeatedRun();
     }
     repeat_count_ = 1;
@@ -696,7 +696,7 @@ inline bool RleEncoder::Put(uint64_t value) {
 
   buffered_values_[num_buffered_values_] = value;
   if (++num_buffered_values_ == 8) {
-    DCHECK_EQ(literal_count_ % 8, 0);
+    DCHECK(literal_count_ % 8 == 0);
     FlushBufferedValues(false);
   }
   return true;
@@ -721,10 +721,10 @@ inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
     // We only reserve one byte, to allow for streaming writes of literal values.
     // The logic makes sure we flush literal runs often enough to not overrun
     // the 1 byte.
-    DCHECK_EQ(literal_count_ % 8, 0);
+    DCHECK(literal_count_ % 8 == 0);
     int num_groups = literal_count_ / 8;
     int32_t indicator_value = (num_groups << 1) | 1;
-    DCHECK_EQ(indicator_value & 0xFFFFFF00, 0);
+    DCHECK((indicator_value & 0xFFFFFF00) == 0);
     *literal_indicator_byte_ = static_cast<uint8_t>(indicator_value);
     literal_indicator_byte_ = NULLPTR;
     literal_count_ = 0;
@@ -756,16 +756,16 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
     if (literal_count_ != 0) {
       // There was a current literal run.  All the values in it have been flushed
       // but we still need to update the indicator byte.
-      DCHECK_EQ(literal_count_ % 8, 0);
-      DCHECK_EQ(repeat_count_, 8);
+      DCHECK(literal_count_ % 8 == 0);
+      DCHECK(repeat_count_ == 8);
       FlushLiteralRun(true);
     }
-    DCHECK_EQ(literal_count_, 0);
+    DCHECK(literal_count_ == 0);
     return;
   }
 
   literal_count_ += num_buffered_values_;
-  DCHECK_EQ(literal_count_ % 8, 0);
+  DCHECK(literal_count_ % 8 == 0);
   int num_groups = literal_count_ / 8;
   if (num_groups + 1 >= (1 << 6)) {
     // We need to start a new literal run because the indicator byte we've reserved
@@ -786,7 +786,7 @@ inline int RleEncoder::Flush() {
     if (repeat_count_ > 0 && all_repeat) {
       FlushRepeatedRun();
     } else {
-      DCHECK_EQ(literal_count_ % 8, 0);
+      DCHECK(literal_count_ % 8 == 0);
       // Buffer the last group of literals to 8 by padding with 0s.
       for (; num_buffered_values_ != 0 && num_buffered_values_ < 8;
            ++num_buffered_values_) {
@@ -798,9 +798,9 @@ inline int RleEncoder::Flush() {
     }
   }
   bit_writer_.Flush();
-  DCHECK_EQ(num_buffered_values_, 0);
-  DCHECK_EQ(literal_count_, 0);
-  DCHECK_EQ(repeat_count_, 0);
+  DCHECK(num_buffered_values_ == 0);
+  DCHECK(literal_count_ == 0);
+  DCHECK(repeat_count_ == 0);
 
   return bit_writer_.bytes_written();
 }

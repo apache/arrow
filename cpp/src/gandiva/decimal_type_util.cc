@@ -35,7 +35,7 @@ constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
 // Implementation of decimal rules.
 Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_types,
                                       Decimal128TypePtr* out_type) {
-  DCHECK_EQ(in_types.size(), 2);
+  DCHECK(in_types.size() == 2);
 
   *out_type = nullptr;
   auto t1 = in_types[0];

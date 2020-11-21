@@ -440,7 +440,7 @@ Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   std::shared_ptr<Tensor> coords;
   RETURN_NOT_OK(NdarrayToTensor(pool, coords_ao, {}, &coords));
-  ARROW_CHECK_EQ(coords->type_id(), Type::INT64);  // Should be ensured by caller
+  ARROW_CHECK(coords->type_id() == Type::INT64);  // Should be ensured by caller
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<SparseCOOIndex> sparse_index,
                         SparseCOOIndex::Make(coords));
@@ -468,8 +468,8 @@ Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
   std::shared_ptr<Tensor> indptr, indices;
   RETURN_NOT_OK(NdarrayToTensor(pool, indptr_ao, {}, &indptr));
   RETURN_NOT_OK(NdarrayToTensor(pool, indices_ao, {}, &indices));
-  ARROW_CHECK_EQ(indptr->type_id(), Type::INT64);   // Should be ensured by caller
-  ARROW_CHECK_EQ(indices->type_id(), Type::INT64);  // Should be ensured by caller
+  ARROW_CHECK(indptr->type_id() == Type::INT64);   // Should be ensured by caller
+  ARROW_CHECK(indices->type_id() == Type::INT64);  // Should be ensured by caller
 
   auto sparse_index = std::make_shared<IndexType>(
       std::static_pointer_cast<NumericTensor<Int64Type>>(indptr),
@@ -503,7 +503,7 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
       return Status::TypeError("Did not pass ndarray object for indptr");
     }
     RETURN_NOT_OK(NdarrayToTensor(pool, item, {}, &indptr[i]));
-    ARROW_CHECK_EQ(indptr[i]->type_id(), Type::INT64);  // Should be ensured by caller
+    ARROW_CHECK(indptr[i]->type_id() == Type::INT64);  // Should be ensured by caller
   }
 
   for (int i = 0; i < ndim; ++i) {
@@ -512,7 +512,7 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
       return Status::TypeError("Did not pass ndarray object for indices");
     }
     RETURN_NOT_OK(NdarrayToTensor(pool, item, {}, &indices[i]));
-    ARROW_CHECK_EQ(indices[i]->type_id(), Type::INT64);  // Should be ensured by caller
+    ARROW_CHECK(indices[i]->type_id() == Type::INT64);  // Should be ensured by caller
   }
 
   auto sparse_index = std::make_shared<SparseCSFIndex>(indptr, indices, axis_order);

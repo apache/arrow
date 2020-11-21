@@ -215,7 +215,7 @@ class GZipCompressor : public Compressor {
       return CompressResult{input_len - stream_.avail_in, output_len - stream_.avail_out};
     } else {
       // No progress was possible
-      ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
+      ARROW_CHECK(ret == Z_BUF_ERROR);
       return CompressResult{0, 0};
     }
   }
@@ -239,7 +239,7 @@ class GZipCompressor : public Compressor {
     if (ret == Z_OK) {
       bytes_written = output_len - stream_.avail_out;
     } else {
-      ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
+      ARROW_CHECK(ret == Z_BUF_ERROR);
       bytes_written = 0;
     }
     // "If deflate returns with avail_out == 0, this function must be called

@@ -155,7 +155,7 @@ class BrotliCompressor : public Compressor {
       return BrotliError("Brotli end failed");
     }
     bool should_retry = !!BrotliEncoderHasMoreOutput(state_);
-    DCHECK_EQ(should_retry, !BrotliEncoderIsFinished(state_));
+    DCHECK(should_retry == !BrotliEncoderIsFinished(state_));
     return EndResult{static_cast<int64_t>(output_len - avail_out), should_retry};
   }
 

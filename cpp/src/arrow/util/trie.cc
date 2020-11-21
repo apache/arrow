@@ -79,7 +79,7 @@ Status TrieBuilder::AppendChildNode(Trie::Node* parent, uint8_t ch, Trie::Node&&
   }
   auto parent_lookup = parent->child_lookup_ * 256 + ch;
 
-  DCHECK_EQ(trie_.lookup_table_[parent_lookup], -1);
+  DCHECK(trie_.lookup_table_[parent_lookup] == -1);
   if (trie_.nodes_.size() >= static_cast<size_t>(kMaxIndex)) {
     auto max_capacity = kMaxIndex;
     return Status::CapacityError("TrieBuilder cannot contain more than ", max_capacity,

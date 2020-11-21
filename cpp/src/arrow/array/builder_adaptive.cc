@@ -161,7 +161,7 @@ Status AdaptiveIntBuilder::AppendValuesInternal(const int64_t* values, int64_t l
                                                 const uint8_t* valid_bytes) {
   if (pending_pos_ > 0) {
     // UnsafeAppendToBitmap expects length_ to be the pre-update value, satisfy it
-    DCHECK_EQ(length, pending_pos_) << "AppendValuesInternal called while data pending";
+    DCHECK(length == pending_pos_) << "AppendValuesInternal called while data pending";
     length_ -= pending_pos_;
   }
 
@@ -287,7 +287,7 @@ Status AdaptiveUIntBuilder::AppendValuesInternal(const uint64_t* values, int64_t
                                                  const uint8_t* valid_bytes) {
   if (pending_pos_ > 0) {
     // UnsafeAppendToBitmap expects length_ to be the pre-update value, satisfy it
-    DCHECK_EQ(length, pending_pos_) << "AppendValuesInternal called while data pending";
+    DCHECK(length == pending_pos_) << "AppendValuesInternal called while data pending";
     length_ -= pending_pos_;
   }
 

@@ -34,13 +34,13 @@ Device::~Device() {}
 #define COPY_BUFFER_SUCCESS(maybe_buffer) \
   ((maybe_buffer).ok() && *(maybe_buffer) != nullptr)
 
-#define COPY_BUFFER_RETURN(maybe_buffer, to)              \
-  if (!maybe_buffer.ok()) {                               \
-    return maybe_buffer;                                  \
-  }                                                       \
-  if (COPY_BUFFER_SUCCESS(maybe_buffer)) {                \
-    DCHECK_EQ(*(**maybe_buffer).device(), *to->device()); \
-    return maybe_buffer;                                  \
+#define COPY_BUFFER_RETURN(maybe_buffer, to)             \
+  if (!maybe_buffer.ok()) {                              \
+    return maybe_buffer;                                 \
+  }                                                      \
+  if (COPY_BUFFER_SUCCESS(maybe_buffer)) {               \
+    DCHECK(*(**maybe_buffer).device() == *to->device()); \
+    return maybe_buffer;                                 \
   }
 
 Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(

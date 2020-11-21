@@ -76,7 +76,7 @@ class Parametric1Type : public ExtensionType {
   Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override {
-    DCHECK_EQ(4, serialized.size());
+    DCHECK(4 == serialized.size());
     const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
     DCHECK(storage_type->Equals(int32()));
     return std::make_shared<Parametric1Type>(parameter);
@@ -122,7 +122,7 @@ class Parametric2Type : public ExtensionType {
   Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override {
-    DCHECK_EQ(4, serialized.size());
+    DCHECK(4 == serialized.size());
     const int32_t parameter = *reinterpret_cast<const int32_t*>(serialized.data());
     DCHECK(storage_type->Equals(int32()));
     return std::make_shared<Parametric2Type>(parameter);

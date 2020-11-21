@@ -91,7 +91,7 @@ class IntegrationJsonWriter::Impl {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) {
-    DCHECK_EQ(batch.num_columns(), schema_->num_fields());
+    DCHECK(batch.num_columns() == schema_->num_fields());
 
     if (!first_batch_written_) {
       RETURN_NOT_OK(FirstRecordBatch(batch));

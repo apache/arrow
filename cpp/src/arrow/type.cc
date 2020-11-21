@@ -2119,7 +2119,7 @@ FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
       ++i;
     }
   } else {
-    DCHECK_EQ(names.size(), arrays.size());
+    DCHECK(names.size() == arrays.size());
     for (const auto& array : arrays) {
       fields[i] = field(std::move(names[i]), array->type());
       ++i;

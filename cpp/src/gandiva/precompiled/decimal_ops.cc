@@ -241,7 +241,7 @@ static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(const BasicDecimalScalar1
                                                        const BasicDecimalScalar128& y,
                                                        int32_t out_scale,
                                                        bool* overflow) {
-  DCHECK_EQ(x.scale() + y.scale(), out_scale);
+  DCHECK(x.scale() + y.scale() == out_scale);
 
   BasicDecimal128 result;
   auto x_abs = BasicDecimal128::Abs(x.value());
@@ -308,7 +308,7 @@ static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(const BasicDecimalScalar
       // two digits to the right of the rightmost "visible" one. The reason why we have
       // to handle this case separately is because a scale multiplier with a delta_scale
       // 39 does not fit into 128 bit.
-      DCHECK_EQ(delta_scale, 39);
+      DCHECK(delta_scale == 39);
       result = 0;
     }
   }
@@ -335,7 +335,7 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
     // fast-path multiply
     result = x.value() * y.value();
-    DCHECK_EQ(x.scale() + y.scale(), out_scale);
+    DCHECK(x.scale() + y.scale() == out_scale);
     DCHECK_LE(BasicDecimal128::Abs(result), BasicDecimal128::GetMaxValue());
   } else if (x.value() == 0 || y.value() == 0) {
     // Handle this separately to avoid divide-by-zero errors.
@@ -370,7 +370,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
     auto x_scaled = CheckAndIncreaseScale(x.value(), delta_scale);
     BasicDecimal128 remainder;
     auto status = x_scaled.Divide(y.value(), &result, &remainder);
-    DCHECK_EQ(status, arrow::DecimalStatus::kSuccess);
+    DCHECK(status == arrow::DecimalStatus::kSuccess);
 
     // round-up
     if (BasicDecimal128::Abs(2 * remainder) >= BasicDecimal128::Abs(y.value())) {

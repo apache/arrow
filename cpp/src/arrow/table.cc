@@ -162,7 +162,7 @@ class SimpleTable : public Table {
     for (int i = 0; i < num_columns(); ++i) {
       std::vector<std::shared_ptr<Field>> new_fields = field(i)->Flatten();
       ARROW_ASSIGN_OR_RAISE(auto new_columns, column(i)->Flatten(pool));
-      DCHECK_EQ(new_columns.size(), new_fields.size());
+      DCHECK(new_columns.size() == new_fields.size());
       for (size_t j = 0; j < new_columns.size(); ++j) {
         flattened_fields.push_back(new_fields[j]);
         flattened_columns.push_back(new_columns[j]);

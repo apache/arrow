@@ -705,7 +705,7 @@ Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out) {
                        dictionary(int32(), nested_values0->type()),
                        /*indices=*/ArrayFromJSON(int32(), "[0, 1, 3, 3, null, 3, 2]"),
                        /*dictionary=*/nested_values0));
-  DCHECK_EQ(outer0->length(), length);
+  DCHECK(outer0->length() == length);
 
   // Field 1: struct(a: dict(int8, int64), b: dict(int16, utf8))
   ARROW_ASSIGN_OR_RAISE(
@@ -721,7 +721,7 @@ Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out) {
   ARROW_ASSIGN_OR_RAISE(
       auto outer1, StructArray::Make({inner1, inner2}, {field("a", inner1->type()),
                                                         field("b", inner2->type())}));
-  DCHECK_EQ(outer1->length(), length);
+  DCHECK(outer1->length() == length);
 
   // Field 2: dict(int8, struct(c: dict(int8, int64), d: dict(int16, list(dict(int8,
   // utf8)))))
@@ -742,7 +742,7 @@ Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out) {
                             dictionary(int8(), inner4->type()),
                             /*indices=*/ArrayFromJSON(int8(), "[0, 2, 4, 6, 1, 3, 5]"),
                             /*dictionary=*/inner4));
-  DCHECK_EQ(outer2->length(), length);
+  DCHECK(outer2->length() == length);
 
   auto schema = ::arrow::schema({
       field("f0", outer0->type()),

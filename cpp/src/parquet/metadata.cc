@@ -990,10 +990,10 @@ bool ApplicationVersion::VersionLt(const ApplicationVersion& other_version) cons
 
   if (version.major < other_version.version.major) return true;
   if (version.major > other_version.version.major) return false;
-  DCHECK_EQ(version.major, other_version.version.major);
+  DCHECK(version.major == other_version.version.major);
   if (version.minor < other_version.version.minor) return true;
   if (version.minor > other_version.version.minor) return false;
-  DCHECK_EQ(version.minor, other_version.version.minor);
+  DCHECK(version.minor == other_version.version.minor);
   return version.patch < other_version.version.patch;
 }
 

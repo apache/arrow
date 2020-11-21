@@ -50,7 +50,7 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   KERNEL_RETURN_IF_ERROR(
       ctx, Cast(Datum(input.child_data[0]), child_type, options, ctx->exec_context())
                .Value(&casted_child));
-  DCHECK_EQ(Datum::ARRAY, casted_child.kind());
+  DCHECK(Datum::ARRAY == casted_child.kind());
   result->child_data.push_back(casted_child.array());
 }
 

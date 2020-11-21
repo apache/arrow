@@ -76,7 +76,7 @@ int64_t DictionaryArray::GetValueIndex(int64_t i) const {
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
-  ARROW_CHECK_EQ(data->type->id(), Type::DICTIONARY);
+  ARROW_CHECK(data->type->id() == Type::DICTIONARY);
   ARROW_CHECK(data->dictionary != nullptr);
   SetData(data);
 }
@@ -93,9 +93,9 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
                                  const std::shared_ptr<Array>& indices,
                                  const std::shared_ptr<Array>& dictionary)
     : dict_type_(checked_cast<const DictionaryType*>(type.get())) {
-  ARROW_CHECK_EQ(type->id(), Type::DICTIONARY);
-  ARROW_CHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
-  ARROW_CHECK_EQ(dict_type_->value_type()->id(), dictionary->type()->id());
+  ARROW_CHECK(type->id() == Type::DICTIONARY);
+  ARROW_CHECK(indices->type_id() == dict_type_->index_type()->id());
+  ARROW_CHECK(dict_type_->value_type()->id() == dictionary->type()->id());
   DCHECK(dict_type_->value_type()->Equals(*dictionary->type()));
   auto data = indices->data()->Copy();
   data->type = type;

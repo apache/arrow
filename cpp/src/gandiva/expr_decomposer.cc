@@ -237,12 +237,12 @@ int ExprDecomposer::PushThenEntry(const IfNode& node) {
 }
 
 void ExprDecomposer::PopThenEntry(const IfNode& node) {
-  DCHECK_EQ(if_entries_stack_.empty(), false) << "PopThenEntry: found empty stack";
+  DCHECK(if_entries_stack_.empty() == false) << "PopThenEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
-  DCHECK_EQ(top->entry_type_, kStackEntryThen)
+  DCHECK(top->entry_type_ == kStackEntryThen)
       << "PopThenEntry: found " << top->entry_type_ << " expected then";
-  DCHECK_EQ(&top->if_node_, &node) << "PopThenEntry: found mismatched node";
+  DCHECK(&top->if_node_ == &node) << "PopThenEntry: found mismatched node";
 
   if_entries_stack_.pop();
 }
@@ -254,12 +254,12 @@ void ExprDecomposer::PushElseEntry(const IfNode& node, int local_bitmap_idx) {
 }
 
 bool ExprDecomposer::PopElseEntry(const IfNode& node) {
-  DCHECK_EQ(if_entries_stack_.empty(), false) << "PopElseEntry: found empty stack";
+  DCHECK(if_entries_stack_.empty() == false) << "PopElseEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
-  DCHECK_EQ(top->entry_type_, kStackEntryElse)
+  DCHECK(top->entry_type_ == kStackEntryElse)
       << "PopElseEntry: found " << top->entry_type_ << " expected else";
-  DCHECK_EQ(&top->if_node_, &node) << "PopElseEntry: found mismatched node";
+  DCHECK(&top->if_node_ == &node) << "PopElseEntry: found mismatched node";
   bool is_terminal_else = top->is_terminal_else_;
 
   if_entries_stack_.pop();
@@ -272,12 +272,12 @@ void ExprDecomposer::PushConditionEntry(const IfNode& node) {
 }
 
 void ExprDecomposer::PopConditionEntry(const IfNode& node) {
-  DCHECK_EQ(if_entries_stack_.empty(), false) << "PopConditionEntry: found empty stack";
+  DCHECK(if_entries_stack_.empty() == false) << "PopConditionEntry: found empty stack";
 
   auto top = if_entries_stack_.top().get();
-  DCHECK_EQ(top->entry_type_, kStackEntryCondition)
+  DCHECK(top->entry_type_ == kStackEntryCondition)
       << "PopConditionEntry: found " << top->entry_type_ << " expected condition";
-  DCHECK_EQ(&top->if_node_, &node) << "PopConditionEntry: found mismatched node";
+  DCHECK(&top->if_node_ == &node) << "PopConditionEntry: found mismatched node";
   if_entries_stack_.pop();
 }
 

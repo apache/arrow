@@ -46,10 +46,10 @@ Status GenericConversionError(const DataType& type, Args&&... args) {
 namespace {
 
 const DictionaryArray& GetDictionaryArray(const std::shared_ptr<Array>& in) {
-  DCHECK_EQ(in->type_id(), Type::DICTIONARY);
+  DCHECK(in->type_id() == Type::DICTIONARY);
   auto dict_type = static_cast<const DictionaryType*>(in->type().get());
-  DCHECK_EQ(dict_type->index_type()->id(), Type::INT32);
-  DCHECK_EQ(dict_type->value_type()->id(), Type::STRING);
+  DCHECK(dict_type->index_type()->id() == Type::INT32);
+  DCHECK(dict_type->value_type()->id() == Type::STRING);
   return static_cast<const DictionaryArray&>(*in);
 }
 

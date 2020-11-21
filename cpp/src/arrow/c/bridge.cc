@@ -71,7 +71,7 @@ using PoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 template <typename Derived>
 struct PoolAllocationMixin {
   static void* operator new(size_t size) {
-    DCHECK_EQ(size, sizeof(Derived));
+    DCHECK(size == sizeof(Derived));
     uint8_t* data;
     ARROW_CHECK_OK(default_memory_pool()->Allocate(static_cast<int64_t>(size), &data));
     return data;
@@ -161,7 +161,7 @@ Result<std::string> EncodeMetadata(const KeyValueMetadata& metadata) {
     RETURN_NOT_OK(write_string(metadata.key(i)));
     RETURN_NOT_OK(write_string(metadata.value(i)));
   }
-  DCHECK_EQ(static_cast<size_t>(data - data_start), total_size);
+  DCHECK(static_cast<size_t>(data - data_start) == total_size);
   return exported;
 }
 
@@ -425,7 +425,7 @@ struct SchemaExporter {
     if (type.mode() == UnionMode::DENSE) {
       s += "d:";
     } else {
-      DCHECK_EQ(type.mode(), UnionMode::SPARSE);
+      DCHECK(type.mode() == UnionMode::SPARSE);
       s += "s:";
     }
     bool first = true;
@@ -1360,7 +1360,7 @@ struct ArrayImporter {
     if (BitUtil::IsMultipleOf8(fw_type.bit_width())) {
       RETURN_NOT_OK(ImportFixedSizeBuffer(1, fw_type.bit_width() / 8));
     } else {
-      DCHECK_EQ(fw_type.bit_width(), 1);
+      DCHECK(fw_type.bit_width() == 1);
       RETURN_NOT_OK(ImportBitsBuffer(1));
     }
     return Status::OK();
@@ -1408,12 +1408,12 @@ struct ArrayImporter {
   }
 
   Status AllocateArrayData() {
-    DCHECK_EQ(data_, nullptr);
+    DCHECK(data_ == nullptr);
     data_ = std::make_shared<ArrayData>(type_, c_struct_->length, c_struct_->null_count,
                                         c_struct_->offset);
     data_->buffers.resize(static_cast<size_t>(c_struct_->n_buffers));
     data_->child_data.resize(static_cast<size_t>(c_struct_->n_children));
-    DCHECK_EQ(child_importers_.size(), data_->child_data.size());
+    DCHECK(child_importers_.size() == data_->child_data.size());
     std::transform(child_importers_.begin(), child_importers_.end(),
                    data_->child_data.begin(),
                    [](const ArrayImporter& child) { return child.data_; });

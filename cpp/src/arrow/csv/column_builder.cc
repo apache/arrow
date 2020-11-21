@@ -71,7 +71,7 @@ class ConcreteColumnBuilder : public ColumnBuilder {
       if (chunk == nullptr) {
         return Status::UnknownError("a chunk failed converting for an unknown reason");
       }
-      DCHECK_EQ(chunk->type()->id(), type->id()) << "Chunk types not equal!";
+      DCHECK(chunk->type()->id() == type->id()) << "Chunk types not equal!";
     }
     return std::make_shared<ChunkedArray>(chunks_, std::move(type));
   }
@@ -98,7 +98,7 @@ class ConcreteColumnBuilder : public ColumnBuilder {
   Status SetChunkUnlocked(int64_t chunk_index,
                           Result<std::shared_ptr<Array>> maybe_array) {
     // Should not insert an already built chunk
-    DCHECK_EQ(chunks_[chunk_index], nullptr);
+    DCHECK(chunks_[chunk_index] == nullptr);
 
     if (maybe_array.ok()) {
       chunks_[chunk_index] = *std::move(maybe_array);
@@ -321,7 +321,7 @@ void InferringColumnBuilder::Insert(int64_t block_index,
       parsers_.resize(chunk_index + 1);
     }
     // Should not insert an already converting chunk
-    DCHECK_EQ(parsers_[chunk_index], nullptr);
+    DCHECK(parsers_[chunk_index] == nullptr);
     parsers_[chunk_index] = parser;
     ReserveChunksUnlocked(block_index);
   }

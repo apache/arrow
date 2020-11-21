@@ -49,7 +49,7 @@ BooleanBuilder::BooleanBuilder(MemoryPool* pool)
 
 BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : BooleanBuilder(pool) {
-  ARROW_CHECK_EQ(Type::BOOL, type->id());
+  ARROW_CHECK(Type::BOOL == type->id());
 }
 
 void BooleanBuilder::Reset() {
@@ -89,7 +89,7 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
-  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+  DCHECK(length == static_cast<int64_t>(is_valid.size()));
   int64_t i = 0;
   data_builder_.UnsafeAppend<false>(length,
                                     [values, &i]() -> bool { return values[i++]; });
@@ -110,7 +110,7 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
                                     const std::vector<bool>& is_valid) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
-  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+  DCHECK(length == static_cast<int64_t>(is_valid.size()));
   int64_t i = 0;
   data_builder_.UnsafeAppend<false>(length,
                                     [&values, &i]() -> bool { return values[i++]; });

@@ -243,7 +243,7 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       DCHECK(false) << "NPY_DATETIME views only supported for Arrow TIMESTAMP types";
     }
   } else if (type == NPY_TIMEDELTA) {
-    DCHECK_EQ(datatype->id(), Type::DURATION);
+    DCHECK(datatype->id() == Type::DURATION);
     const auto& duration_type = checked_cast<const DurationType&>(*datatype);
     metadata->meta.base = internal::NumPyFrequency(duration_type.unit());
   }
@@ -437,7 +437,7 @@ class PandasWriter {
     // 1D array when there is only one column
     PyAcquireGIL lock;
 
-    DCHECK_EQ(1, num_columns_);
+    DCHECK(1 == num_columns_);
 
     npy_intp new_dims[1] = {static_cast<npy_intp>(num_rows_)};
     PyArray_Dims dims;
@@ -702,7 +702,7 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
           auto setitem_result =
               PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
           RETURN_IF_PYERROR();
-          DCHECK_EQ(setitem_result, 0);
+          DCHECK(setitem_result == 0);
         }
         *out_values = dict_item.obj();
         // Grant ownership to the resulting array
@@ -1373,8 +1373,8 @@ class DatetimeWriter : public TypedPandasWriter<NPY_DATETIME> {
 
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
-    DCHECK_EQ(UNIT, ts_type.unit()) << "Should only call instances of this writer "
-                                    << "with arrays of the correct unit";
+    DCHECK(UNIT == ts_type.unit()) << "Should only call instances of this writer "
+                                   << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();
@@ -1482,8 +1482,8 @@ class TimedeltaWriter : public TypedPandasWriter<NPY_TIMEDELTA> {
 
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     const auto& type = checked_cast<const DurationType&>(*data->type());
-    DCHECK_EQ(UNIT, type.unit()) << "Should only call instances of this writer "
-                                 << "with arrays of the correct unit";
+    DCHECK(UNIT == type.unit()) << "Should only call instances of this writer "
+                                << "with arrays of the correct unit";
     ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                     this->GetBlockColumnStart(rel_placement));
     return Status::OK();
@@ -1573,7 +1573,7 @@ class CategoricalWriter
       RETURN_NOT_OK(this->AllocateNDArray(TRAITS::npy_type, 1));
       RETURN_NOT_OK(MakeZeroLengthArray(dict_type.value_type(), &dict));
     } else {
-      DCHECK_EQ(IndexType::type_id, dict_type.index_type()->id());
+      DCHECK(IndexType::type_id == dict_type.index_type()->id());
       RETURN_NOT_OK(WriteIndices(*data, &dict));
     }
 

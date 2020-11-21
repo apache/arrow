@@ -335,12 +335,12 @@ bool InputType::Matches(const ValueDescr& descr) const {
 bool InputType::Matches(const Datum& value) const { return Matches(value.descr()); }
 
 const std::shared_ptr<DataType>& InputType::type() const {
-  DCHECK_EQ(InputType::EXACT_TYPE, kind_);
+  DCHECK(InputType::EXACT_TYPE == kind_);
   return type_;
 }
 
 const TypeMatcher& InputType::type_matcher() const {
-  DCHECK_EQ(InputType::USE_TYPE_MATCHER, kind_);
+  DCHECK(InputType::USE_TYPE_MATCHER == kind_);
   return *type_matcher_;
 }
 
@@ -366,12 +366,12 @@ Result<ValueDescr> OutputType::Resolve(KernelContext* ctx,
 }
 
 const std::shared_ptr<DataType>& OutputType::type() const {
-  DCHECK_EQ(FIXED, kind_);
+  DCHECK(FIXED == kind_);
   return type_;
 }
 
 const OutputType::Resolver& OutputType::resolver() const {
-  DCHECK_EQ(COMPUTED, kind_);
+  DCHECK(COMPUTED == kind_);
   return resolver_;
 }
 

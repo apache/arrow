@@ -93,7 +93,7 @@ class FileBuilder {
   }
 
   Result<std::shared_ptr<Buffer>> Finish() {
-    DCHECK_EQ(column_index_, num_columns_);
+    DCHECK(column_index_ == num_columns_);
     row_group_writer_->Close();
     file_writer_->Close();
     return stream_->Finish();
@@ -119,7 +119,7 @@ class FileBuilder {
     const int64_t values_written = typed_writer->WriteBatch(
         num_values, LevelPointerOrNull(def_levels, max_def_level),
         LevelPointerOrNull(rep_levels, max_rep_level), values.data());
-    DCHECK_EQ(values_written, static_cast<int64_t>(values.size()));  // Sanity check
+    DCHECK(values_written == static_cast<int64_t>(values.size()));  // Sanity check
 
     column_writer->Close();
     ++column_index_;
@@ -141,7 +141,7 @@ class FileBuilder {
     // Tests are expected to exercise all possible levels in [0, max_level]
     if (!levels.empty()) {
       const int16_t max_seen_level = *std::max_element(levels.begin(), levels.end());
-      DCHECK_EQ(max_seen_level, max_level);
+      DCHECK(max_seen_level == max_level);
     }
   }
 
@@ -150,7 +150,7 @@ class FileBuilder {
       DCHECK_GT(levels.size(), 0);
       return levels.data();
     } else {
-      DCHECK_EQ(levels.size(), 0);
+      DCHECK(levels.size() == 0);
       return nullptr;
     }
   }

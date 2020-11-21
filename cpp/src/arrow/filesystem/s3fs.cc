@@ -848,8 +848,8 @@ class ObjectOutputStream final : public io::OutputStream {
 
     // At this point, all part uploads have finished successfully
     DCHECK_GT(part_number_, 1);
-    DCHECK_EQ(upload_state_->completed_parts.size(),
-              static_cast<size_t>(part_number_ - 1));
+    DCHECK(upload_state_->completed_parts.size() ==
+           static_cast<size_t>(part_number_ - 1));
 
     S3Model::CompletedMultipartUpload completed_upload;
     completed_upload.SetParts(upload_state_->completed_parts);
@@ -972,8 +972,8 @@ class ObjectOutputStream final : public io::OutputStream {
         ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes));
         memcpy(owned_buffer->mutable_data(), data, nbytes);
       } else {
-        DCHECK_EQ(data, owned_buffer->data());
-        DCHECK_EQ(nbytes, owned_buffer->size());
+        DCHECK(data == owned_buffer->data());
+        DCHECK(nbytes == owned_buffer->size());
       }
       req.SetBody(
           std::make_shared<StringViewStream>(owned_buffer->data(), owned_buffer->size()));

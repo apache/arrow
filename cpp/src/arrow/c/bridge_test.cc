@@ -2725,7 +2725,7 @@ class BaseArrayStreamTest : public ::testing::Test {
   void TearDown() override { ASSERT_EQ(pool_->bytes_allocated(), orig_allocated_); }
 
   RecordBatchVector MakeBatches(std::shared_ptr<Schema> schema, ArrayVector arrays) {
-    DCHECK_EQ(schema->num_fields(), 1);
+    DCHECK(schema->num_fields() == 1);
     RecordBatchVector batches;
     for (const auto& array : arrays) {
       batches.push_back(RecordBatch::Make(schema, array->length(), {array}));

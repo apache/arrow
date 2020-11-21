@@ -171,7 +171,7 @@ static int256_t ReduceScaleBy(int256_t in, int32_t reduce_by) {
 
   int256_t divisor = GetScaleMultiplier(reduce_by);
   DCHECK_GT(divisor, 0);
-  DCHECK_EQ(divisor % 2, 0);  // multiple of 10.
+  DCHECK(divisor % 2 == 0);  // multiple of 10.
   auto result = in / divisor;
   auto remainder = in % divisor;
   // round up (same as BasicDecimal128::ReduceScaleBy)
@@ -253,7 +253,7 @@ void gdv_xlarge_mod(int64_t x_high, uint64_t x_low, int32_t x_scale, int64_t y_h
   auto intermediate_result = x_large % y_large;
   bool overflow = false;
   auto result = gandiva::internal::ConvertToDecimal128(intermediate_result, &overflow);
-  DCHECK_EQ(overflow, false);
+  DCHECK(overflow == false);
 
   *out_high = result.high_bits();
   *out_low = result.low_bits();

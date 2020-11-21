@@ -1067,7 +1067,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
   const auto page_size = static_cast<size_t>(GetPageSize());
   DCHECK_GT(page_size, 0);
   const size_t page_mask = ~(page_size - 1);
-  DCHECK_EQ(page_mask & page_size, page_size);
+  DCHECK((page_mask & page_size) == page_size);
 
   auto align_region = [=](const MemoryRegion& region) -> MemoryRegion {
     const auto addr = reinterpret_cast<uintptr_t>(region.addr);

@@ -216,7 +216,7 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
       return;
     }
 
-    DCHECK_EQ(unconverted->type_id(), Type::LIST);
+    DCHECK(unconverted->type_id() == Type::LIST);
     value_builder_->Insert(block_index, list_array->list_type()->value_field(),
                            list_array->values());
   }

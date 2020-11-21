@@ -24,7 +24,6 @@
 
 #define DCHECK(condition) ARROW_UNUSED(condition)
 #define DCHECK_OK(status) ARROW_UNUSED(status)
-#define DCHECK_EQ(val1, val2) ARROW_UNUSED(val1 == val2)
 #define DCHECK_LE(val1, val2) ARROW_UNUSED(val1 <= val2)
 #define DCHECK_LT(val1, val2) ARROW_UNUSED(val1 < val2)
 #define DCHECK_GE(val1, val2) ARROW_UNUSED(val1 >= val2)
@@ -61,7 +60,8 @@ enum class ArrowLogLevel : int {
   ::arrow::util::InterceptComparison::PrintOperands(                   \
       bound, ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((condition)) " ")
 
-#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
+#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) <= (val2))
+#define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) <= (val2))
 #define ARROW_CHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
 #define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
@@ -78,19 +78,21 @@ enum class ArrowLogLevel : int {
   ARROW_LOG_FAILED_STATUS(_s, (expr))
 
 #define DCHECK(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK(condition)  // NOLINT readability/braces
 #define DCHECK_EQ(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_EQ(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK_EQ(condition)  // NOLINT readability/braces
+#define DCHECK_NE(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_NE(condition)  // NOLINT readability/braces
 #define DCHECK_LE(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_LE(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK_LE(condition)  // NOLINT readability/braces
 #define DCHECK_LT(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_LT(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK_LT(condition)  // NOLINT readability/braces
 #define DCHECK_GE(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_GE(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK_GE(condition)  // NOLINT readability/braces
 #define DCHECK_GT(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_GT(condition)
+  if (::arrow::internal::kDebug) ARROW_CHECK_GT(condition)  // NOLINT readability/braces
 
-// CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
+// CAUTION: DCHECK_OK() always evaluates its argument ==  but other DCHECK*() macros
 // only do so in debug mode.
 #define DCHECK_OK(expr...)                                              \
   for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \

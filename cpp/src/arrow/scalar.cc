@@ -144,8 +144,8 @@ LargeStringScalar::LargeStringScalar(std::string s)
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
                                              std::shared_ptr<DataType> type)
     : BinaryScalar(std::move(value), std::move(type)) {
-  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width(),
-                 this->value->size());
+  ARROW_CHECK(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width() ==
+              this->value->size());
 }
 
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
@@ -161,8 +161,8 @@ LargeListScalar::LargeListScalar(std::shared_ptr<Array> value)
     : BaseListScalar(value, large_list(value->type())) {}
 
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
-  ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
-  ARROW_CHECK_EQ(pair_type->num_fields(), 2);
+  ARROW_CHECK(pair_type->id() == Type::STRUCT);
+  ARROW_CHECK(pair_type->num_fields() == 2);
   return map(pair_type->field(0)->type(), pair_type->field(1)->type());
 }
 
@@ -172,8 +172,8 @@ MapScalar::MapScalar(std::shared_ptr<Array> value)
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type)
     : BaseListScalar(value, std::move(type)) {
-  ARROW_CHECK_EQ(this->value->length(),
-                 checked_cast<const FixedSizeListType&>(*this->type).list_size());
+  ARROW_CHECK(this->value->length() ==
+              checked_cast<const FixedSizeListType&>(*this->type).list_size());
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value)

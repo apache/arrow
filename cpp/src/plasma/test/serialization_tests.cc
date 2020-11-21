@@ -53,7 +53,7 @@ std::vector<uint8_t> read_message_from_file(int fd, MessageType message_type) {
   std::vector<uint8_t> data;
   Status s = ReadMessage(fd, &type, &data);
   DCHECK_OK(s);
-  DCHECK_EQ(type, message_type);
+  DCHECK(type == message_type);
   return data;
 }
 

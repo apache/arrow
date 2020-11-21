@@ -208,7 +208,7 @@ struct ModeState {
     }
 
     // pop modes from min-heap and insert into output array (in reverse order)
-    DCHECK_EQ(min_heap.size(), static_cast<size_t>(n));
+    DCHECK(min_heap.size() == static_cast<size_t>(n));
     for (int64_t i = n - 1; i >= 0; --i) {
       std::tie(modes[i], counts[i]) = min_heap.top();
       min_heap.pop();
