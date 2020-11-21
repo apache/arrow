@@ -196,7 +196,7 @@ Status TypedColumnBuilder::Init() {
 
 void TypedColumnBuilder::Insert(int64_t block_index,
                                 const std::shared_ptr<BlockParser>& parser) {
-  DCHECK_NE(converter_, nullptr);
+  DCHECK(converter_ != nullptr);
 
   ReserveChunks(block_index);
 
@@ -225,7 +225,7 @@ class InferringColumnBuilder : public ConcreteColumnBuilder {
 
  protected:
   std::shared_ptr<DataType> type() const override {
-    DCHECK_NE(converter_, nullptr);
+    DCHECK(converter_ != nullptr);
     return converter_->type();
   }
 
@@ -262,7 +262,7 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
   std::shared_ptr<BlockParser> parser = parsers_[chunk_index];
   InferKind kind = infer_status_.kind();
 
-  DCHECK_NE(parser, nullptr);
+  DCHECK(parser != nullptr);
 
   lock.unlock();
   auto maybe_array = converter->Convert(*parser, col_index_);
@@ -316,7 +316,7 @@ void InferringColumnBuilder::Insert(int64_t block_index,
   {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    DCHECK_NE(converter_, nullptr);
+    DCHECK(converter_ != nullptr);
     if (parsers_.size() <= chunk_index) {
       parsers_.resize(chunk_index + 1);
     }

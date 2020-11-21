@@ -78,7 +78,7 @@ RecordBatchProjector::RecordBatchProjector(std::shared_ptr<Schema> to)
 
 Status RecordBatchProjector::SetDefaultValue(FieldRef ref,
                                              std::shared_ptr<Scalar> scalar) {
-  DCHECK_NE(scalar, nullptr);
+  DCHECK(scalar != nullptr);
   if (ref.IsNested()) {
     return Status::NotImplemented("setting default values for nested columns");
   }

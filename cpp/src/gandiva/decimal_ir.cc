@@ -83,11 +83,11 @@ void DecimalIR::AddGlobals(Engine* engine) {
 void DecimalIR::InitializeIntrinsics() {
   sadd_with_overflow_fn_ = llvm::Intrinsic::getDeclaration(
       module(), llvm::Intrinsic::sadd_with_overflow, types()->i128_type());
-  DCHECK_NE(sadd_with_overflow_fn_, nullptr);
+  DCHECK(sadd_with_overflow_fn_ != nullptr);
 
   smul_with_overflow_fn_ = llvm::Intrinsic::getDeclaration(
       module(), llvm::Intrinsic::smul_with_overflow, types()->i128_type());
-  DCHECK_NE(smul_with_overflow_fn_, nullptr);
+  DCHECK(smul_with_overflow_fn_ != nullptr);
 
   i128_with_overflow_struct_type_ =
       sadd_with_overflow_fn_->getFunctionType()->getReturnType();
@@ -449,7 +449,7 @@ llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
     auto out_low = ir_builder()->CreateLoad(out_low_ptr);
     result = ValueSplit(out_high, out_low).AsInt128(this);
   } else {
-    DCHECK_NE(return_type, types()->void_type());
+    DCHECK(return_type != types()->void_type());
 
     // Make call to pre-compiled IR function.
     result = ir_builder()->CreateCall(module()->getFunction(function_name),

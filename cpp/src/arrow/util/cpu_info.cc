@@ -412,7 +412,7 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
     hardware_flags_ &= ~flag;
   } else {
     // Can't turn something on that can't be supported
-    DCHECK_NE(original_hardware_flags_ & flag, 0);
+    DCHECK((original_hardware_flags_ & flag) != 0);
     hardware_flags_ |= flag;
   }
 }

@@ -233,7 +233,7 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
     // If units are the same, zero copy, otherwise convert
     const auto& in_type = checked_cast<const I&>(*input.type);
     const auto& out_type = checked_cast<const O&>(*output->type);
-    DCHECK_NE(in_type.unit(), out_type.unit()) << "Do not cast equal types";
+    DCHECK(in_type.unit() != out_type.unit()) << "Do not cast equal types";
     auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     ShiftTime<in_t, out_t>(ctx, conversion.first, conversion.second, input, output);
   }

@@ -255,7 +255,7 @@ static inline format::Type::type ToThrift(Type::type type) {
 
 static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, ConvertedType::NONE);
+  DCHECK(type != ConvertedType::NONE);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 

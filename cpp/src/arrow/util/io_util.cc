@@ -1487,7 +1487,7 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
   ARROW_ASSIGN_OR_RAISE(base_name, StringToNative(prefix + suffix));
 
   auto base_dirs = GetPlatformTemporaryDirs();
-  DCHECK_NE(base_dirs.size(), 0);
+  DCHECK(base_dirs.size() != 0);
 
   auto st = Status::OK();
   for (const auto& p : base_dirs) {

@@ -203,7 +203,7 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, bool evict_if_full, int* fd,
 
 #ifdef PLASMA_CUDA
 arrow::Result<std::shared_ptr<CudaContext>> PlasmaStore::GetCudaContext(int device_num) {
-  DCHECK_NE(device_num, 0);
+  DCHECK(device_num != 0);
   ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
   return manager->GetContext(device_num - 1);
 }

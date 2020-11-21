@@ -506,7 +506,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
     const Expression& predicate) {
   auto lock = physical_schema_mutex_.Lock();
 
-  DCHECK_NE(metadata_, nullptr);
+  DCHECK(metadata_ != nullptr);
   RETURN_NOT_OK(predicate.Validate(*physical_schema_));
 
   for (FieldRef ref : FieldsInExpression(predicate)) {
@@ -606,8 +606,8 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const FileSource& metadata_source, const std::string& base_path,
     std::shared_ptr<fs::FileSystem> filesystem, std::shared_ptr<ParquetFileFormat> format,
     ParquetFactoryOptions options) {
-  DCHECK_NE(filesystem, nullptr);
-  DCHECK_NE(format, nullptr);
+  DCHECK(filesystem != nullptr);
+  DCHECK(format != nullptr);
 
   // By automatically setting the options base_dir to the metadata's base_path,
   // we provide a better experience for user providing Partitioning that are

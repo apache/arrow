@@ -81,17 +81,17 @@ class BackgroundReader {
  protected:
   explicit BackgroundReader(int fd) : fd_(fd), total_bytes_(0) {
     file_handle_ = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
-    ARROW_CHECK_NE(file_handle_, INVALID_HANDLE_VALUE);
+    ARROW_CHECK(file_handle_ != INVALID_HANDLE_VALUE);
     event_ =
         CreateEvent(nullptr, /* bManualReset=*/TRUE, /* bInitialState=*/FALSE, nullptr);
-    ARROW_CHECK_NE(event_, INVALID_HANDLE_VALUE);
+    ARROW_CHECK(event_ != INVALID_HANDLE_VALUE);
   }
 
   void LoopReading() {
     const HANDLE handles[] = {file_handle_, event_};
     while (true) {
       DWORD ret = WaitForMultipleObjects(2, handles, /* bWaitAll=*/FALSE, INFINITE);
-      ARROW_CHECK_NE(ret, WAIT_FAILED);
+      ARROW_CHECK(ret != WAIT_FAILED);
       if (ret == WAIT_OBJECT_0 + 1) {
         // Got stop request
         break;

@@ -101,8 +101,8 @@ static BasicDecimal128 AddLargePositive(const BasicDecimalScalar128& x,
 static BasicDecimal128 AddLargeNegative(const BasicDecimalScalar128& x,
                                         const BasicDecimalScalar128& y,
                                         int32_t out_scale) {
-  DCHECK_NE(x.value(), 0);
-  DCHECK_NE(y.value(), 0);
+  DCHECK(x.value() != 0);
+  DCHECK(y.value() != 0);
   DCHECK((x.value() < 0 && y.value() > 0) || (x.value() > 0 && y.value() < 0));
 
   // separate out whole/fractions.

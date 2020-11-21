@@ -48,9 +48,9 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
 // \return The status of the operation
 static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precision,
                                             int32_t* scale) {
-  DCHECK_NE(python_decimal, NULLPTR);
-  DCHECK_NE(precision, NULLPTR);
-  DCHECK_NE(scale, NULLPTR);
+  DCHECK(python_decimal != NULLPTR);
+  DCHECK(precision != NULLPTR);
+  DCHECK(scale != NULLPTR);
 
   // TODO(phillipc): Make sure we perform PyDecimal_Check(python_decimal) as a DCHECK
   OwnedRef as_tuple(PyObject_CallMethod(python_decimal, const_cast<char*>("as_tuple"),
@@ -77,7 +77,7 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
   int32_t num_additional_zeros;
 
   if (num_digits <= abs_exponent) {
-    DCHECK_NE(exponent, 0) << "exponent should never be zero here";
+    DCHECK(exponent != 0) << "exponent should never be zero here";
 
     // we have leading/trailing zeros, leading if exponent is negative
     num_additional_zeros = exponent < 0 ? abs_exponent - num_digits : exponent;
@@ -94,13 +94,13 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
 
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string) {
-  DCHECK_NE(decimal_constructor, nullptr);
+  DCHECK(decimal_constructor != nullptr);
 
   auto string_size = decimal_string.size();
   DCHECK_GT(string_size, 0);
 
   auto string_bytes = decimal_string.c_str();
-  DCHECK_NE(string_bytes, nullptr);
+  DCHECK(string_bytes != nullptr);
 
   return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
                                string_size);
@@ -127,7 +127,7 @@ Status DecimalFromStdString(const std::string& decimal_string,
   }
 
   if (scale != inferred_scale) {
-    DCHECK_NE(out, NULLPTR);
+    DCHECK(out != NULLPTR);
     ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
   }
   return Status::OK();
@@ -137,8 +137,8 @@ template <typename ArrowDecimal>
 Status InternalDecimalFromPythonDecimal(PyObject* python_decimal,
                                         const DecimalType& arrow_type,
                                         ArrowDecimal* out) {
-  DCHECK_NE(python_decimal, NULLPTR);
-  DCHECK_NE(out, NULLPTR);
+  DCHECK(python_decimal != NULLPTR);
+  DCHECK(out != NULLPTR);
 
   std::string string;
   RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
@@ -148,8 +148,8 @@ Status InternalDecimalFromPythonDecimal(PyObject* python_decimal,
 template <typename ArrowDecimal>
 Status InternalDecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
                                    ArrowDecimal* out) {
-  DCHECK_NE(obj, NULLPTR);
-  DCHECK_NE(out, NULLPTR);
+  DCHECK(obj != NULLPTR);
+  DCHECK(out != NULLPTR);
 
   if (IsPyInteger(obj)) {
     // TODO: add a fast path for small-ish ints
@@ -195,7 +195,7 @@ bool PyDecimal_Check(PyObject* obj) {
   // PyObject_IsInstance() is slower as it has to check for virtual subclasses
   const int result =
       PyType_IsSubtype(Py_TYPE(obj), reinterpret_cast<PyTypeObject*>(decimal_type.obj()));
-  ARROW_CHECK_NE(result, -1) << " error during PyType_IsSubtype check";
+  ARROW_CHECK(result != -1) << " error during PyType_IsSubtype check";
   return result == 1;
 }
 

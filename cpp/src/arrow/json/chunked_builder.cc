@@ -392,9 +392,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       if (it == name_to_index_.end()) {
         // add a new field to this builder
         auto type = promotion_graph_->Infer(fields[i]);
-        DCHECK_NE(type, nullptr)
-            << "invalid unconverted_field encountered in conversion: "
-            << fields[i]->name() << ":" << *fields[i]->type();
+        DCHECK(type != nullptr) << "invalid unconverted_field encountered in conversion: "
+                                << fields[i]->name() << ":" << *fields[i]->type();
 
         auto new_index = static_cast<int>(name_to_index_.size());
         it = name_to_index_.emplace(fields[i]->name(), new_index).first;

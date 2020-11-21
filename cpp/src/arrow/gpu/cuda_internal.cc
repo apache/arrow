@@ -27,20 +27,20 @@ namespace cuda {
 namespace internal {
 
 std::string CudaErrorDescription(CUresult err) {
-  DCHECK_NE(err, CUDA_SUCCESS);
+  DCHECK(err != CUDA_SUCCESS);
   std::stringstream ss;
 
   const char* name = nullptr;
   auto err_result = cuGetErrorName(err, &name);
   if (err_result == CUDA_SUCCESS) {
-    DCHECK_NE(name, nullptr);
+    DCHECK(name != nullptr);
     ss << "[" << name << "] ";
   }
 
   const char* str = nullptr;
   err_result = cuGetErrorString(err, &str);
   if (err_result == CUDA_SUCCESS) {
-    DCHECK_NE(str, nullptr);
+    DCHECK(str != nullptr);
     ss << str;
   } else {
     ss << "unknown error";

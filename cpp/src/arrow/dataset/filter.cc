@@ -1123,7 +1123,7 @@ std::vector<std::string> FieldsInExpression(const Expression& expr) {
 }
 
 std::vector<std::string> FieldsInExpression(const std::shared_ptr<Expression>& expr) {
-  DCHECK_NE(expr, nullptr);
+  DCHECK(expr != nullptr);
   if (expr == nullptr) {
     return {};
   }
@@ -1590,7 +1590,7 @@ inline Result<std::shared_ptr<Array>> CountsToOffsets(
   offset_builder.UnsafeAppend(0);
 
   for (int64_t i = 0; i < counts->length(); ++i) {
-    DCHECK_NE(counts->Value(i), 0);
+    DCHECK(counts->Value(i) != 0);
     auto next_offset = static_cast<int32_t>(offset_builder[i] + counts->Value(i));
     offset_builder.UnsafeAppend(next_offset);
   }

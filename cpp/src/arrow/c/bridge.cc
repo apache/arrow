@@ -114,7 +114,7 @@ void ReleaseExportedSchema(struct ArrowSchema* schema) {
     DCHECK(ArrowSchemaIsReleased(dict))
         << "Dictionary release callback should have marked it released";
   }
-  DCHECK_NE(schema->private_data, nullptr);
+  DCHECK(schema->private_data != nullptr);
   delete reinterpret_cast<ExportedSchemaPrivateData*>(schema->private_data);
 
   ArrowSchemaMarkReleased(schema);
@@ -216,7 +216,7 @@ struct SchemaExporter {
     }
 
     // Third, fill C struct.
-    DCHECK_NE(c_struct, nullptr);
+    DCHECK(c_struct != nullptr);
     memset(c_struct, 0, sizeof(*c_struct));
 
     c_struct->format = pdata->format_.c_str();
@@ -503,7 +503,7 @@ void ReleaseExportedArray(struct ArrowArray* array) {
     DCHECK(ArrowArrayIsReleased(dict))
         << "Dictionary release callback should have marked it released";
   }
-  DCHECK_NE(array->private_data, nullptr);
+  DCHECK(array->private_data != nullptr);
   delete reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
 
   ArrowArrayMarkReleased(array);
@@ -565,7 +565,7 @@ struct ArrayExporter {
     }
 
     // Third, fill C struct.
-    DCHECK_NE(c_struct_, nullptr);
+    DCHECK(c_struct_ != nullptr);
     memset(c_struct_, 0, sizeof(*c_struct_));
 
     c_struct_->length = data.length;
@@ -814,13 +814,13 @@ struct SchemaImporter {
     // First import children (required for reconstituting parent type)
     child_importers_.resize(c_struct_->n_children);
     for (int64_t i = 0; i < c_struct_->n_children; ++i) {
-      DCHECK_NE(c_struct_->children[i], nullptr);
+      DCHECK(c_struct_->children[i] != nullptr);
       RETURN_NOT_OK(child_importers_[i].ImportChild(this, c_struct_->children[i]));
     }
 
     // Import main type
     RETURN_NOT_OK(ProcessFormat());
-    DCHECK_NE(type_, nullptr);
+    DCHECK(type_ != nullptr);
 
     // Import dictionary type
     if (c_struct_->dictionary != nullptr) {
@@ -1206,17 +1206,17 @@ struct ArrayImporter {
   }
 
   Result<std::shared_ptr<Array>> MakeArray() {
-    DCHECK_NE(data_, nullptr);
+    DCHECK(data_ != nullptr);
     return ::arrow::MakeArray(data_);
   }
 
   std::shared_ptr<ArrayData> GetArrayData() {
-    DCHECK_NE(data_, nullptr);
+    DCHECK(data_ != nullptr);
     return data_;
   }
 
   Result<std::shared_ptr<RecordBatch>> MakeRecordBatch(std::shared_ptr<Schema> schema) {
-    DCHECK_NE(data_, nullptr);
+    DCHECK(data_ != nullptr);
     if (data_->GetNullCount() != 0) {
       return Status::Invalid(
           "ArrowArray struct has non-zero null count, "
@@ -1263,7 +1263,7 @@ struct ArrayImporter {
     }
     child_importers_.reserve(fields.size());
     for (int64_t i = 0; i < c_struct_->n_children; ++i) {
-      DCHECK_NE(c_struct_->children[i], nullptr);
+      DCHECK(c_struct_->children[i] != nullptr);
       child_importers_.emplace_back(fields[i]->type());
       RETURN_NOT_OK(child_importers_.back().ImportChild(this, c_struct_->children[i]));
     }
@@ -1561,7 +1561,7 @@ class ExportedArrayStream {
     if (ArrowArrayStreamIsReleased(stream_)) {
       return;
     }
-    DCHECK_NE(private_data(), nullptr);
+    DCHECK(private_data() != nullptr);
     delete private_data();
 
     ArrowArrayStreamMarkReleased(stream_);

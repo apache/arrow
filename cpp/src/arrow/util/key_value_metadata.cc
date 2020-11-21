@@ -72,7 +72,7 @@ KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
 
 void KeyValueMetadata::ToUnorderedMap(
     std::unordered_map<std::string, std::string>* out) const {
-  DCHECK_NE(out, nullptr);
+  DCHECK(out != nullptr);
   const int64_t n = size();
   out->reserve(n);
   for (int64_t i = 0; i < n; ++i) {

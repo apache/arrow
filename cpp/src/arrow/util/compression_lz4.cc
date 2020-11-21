@@ -78,7 +78,7 @@ class LZ4Decompressor : public Decompressor {
   Status Reset() override {
 #if defined(LZ4_VERSION_NUMBER) && LZ4_VERSION_NUMBER >= 10800
     // LZ4F_resetDecompressionContext appeared in 1.8.0
-    DCHECK_NE(ctx_, nullptr);
+    DCHECK(ctx_ != nullptr);
     LZ4F_resetDecompressionContext(ctx_);
     finished_ = false;
     return Status::OK();

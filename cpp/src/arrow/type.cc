@@ -278,7 +278,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
 
 Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& other,
                                                 MergeOptions options) const {
-  DCHECK_NE(other, nullptr);
+  DCHECK(other != nullptr);
   return MergeWith(*other, options);
 }
 
@@ -327,7 +327,7 @@ bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) con
 bool Field::IsCompatibleWith(const Field& other) const { return MergeWith(other).ok(); }
 
 bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
-  DCHECK_NE(other, nullptr);
+  DCHECK(other != nullptr);
   return IsCompatibleWith(*other);
 }
 
@@ -1484,7 +1484,7 @@ class SchemaBuilder::Impl {
         field_merge_options_(field_merge_options) {}
 
   Status AddField(const std::shared_ptr<Field>& field) {
-    DCHECK_NE(field, nullptr);
+    DCHECK(field != nullptr);
 
     // Short-circuit, no lookup needed.
     if (policy_ == CONFLICT_APPEND) {
@@ -1592,7 +1592,7 @@ Status SchemaBuilder::AddFields(const std::vector<std::shared_ptr<Field>>& field
 }
 
 Status SchemaBuilder::AddSchema(const std::shared_ptr<Schema>& schema) {
-  DCHECK_NE(schema, nullptr);
+  DCHECK(schema != nullptr);
   return AddFields(schema->fields());
 }
 
@@ -1678,7 +1678,7 @@ static const std::string& LoadFingerprint(std::atomic<std::string*>* fingerprint
     return *new_p;
   } else {
     delete new_p;
-    DCHECK_NE(expected, nullptr);
+    DCHECK(expected != nullptr);
     return *expected;
   }
 }
