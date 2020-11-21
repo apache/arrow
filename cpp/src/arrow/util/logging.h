@@ -54,11 +54,11 @@ enum class ArrowLogLevel : int {
 #define ARROW_LOG(level) \
   ::arrow::util::ArrowLog(__FILE__, __LINE__, ::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_CHECK(condition...)                                      \
-  for (auto bound = ::arrow::util::InterceptComparison() <= condition; \
-       ARROW_PREDICT_FALSE(!static_cast<bool>(bound));)                \
-  ::arrow::util::InterceptComparison::PrintOperands(                   \
-      bound, ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((condition)) " ")
+#define ARROW_CHECK(condition...)                        \
+  if (ARROW_PREDICT_FALSE(!(condition)))                 \
+  ::arrow::util::InterceptComparison::PrintOperands(     \
+      ::arrow::util::InterceptComparison() <= condition, \
+      ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((condition)) " ")
 
 #define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) <= (val2))
 #define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) <= (val2))
@@ -71,7 +71,8 @@ enum class ArrowLogLevel : int {
   ARROW_LOG(FATAL) << " Operation failed: " << ARROW_STRINGIFY(operation) << "\n" \
                    << " Bad status: " << _s.ToString()
 
-// If the status is bad, CHECK immediately, appending the status to the logged message.
+// If the status is bad, CHECK immediately, appending the status to the logged
+// message.
 #define ARROW_CHECK_OK(expr...)                                         \
   for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \
        ARROW_PREDICT_FALSE(!_s.ok());)                                  \
@@ -141,12 +142,14 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   ///
   /// \param app_name The app name which starts the log.
   /// \param severity_threshold Logging threshold for the program.
-  /// \param log_dir Logging output file name. If empty, the log won't output to file.
+  /// \param log_dir Logging output file name. If empty, the log won't output to
+  /// file.
   static void StartArrowLog(std::string app_name,
                             ArrowLogLevel severity_threshold = ArrowLogLevel::ARROW_INFO,
                             std::string log_dir = "");
 
-  /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
+  /// The shutdown function of arrow log, it should be used with StartArrowLog as a
+  /// pair.
   static void ShutDownArrowLog();
 
   /// Install the failure signal handler to output call stack when crash.
@@ -183,91 +186,53 @@ struct InterceptComparison {
     return std::move(log);
   }
 
-  template <template <typename, typename> class Op, typename Lhs, typename Rhs>
-  static auto PrintOperands(const Op<Lhs, Rhs>& bound, ArrowLogBase&& log)
+  template <typename Lhs, typename Rhs>
+  struct BoundLhsRhs {
+    explicit constexpr operator bool() const { return false; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  static auto PrintOperands(const BoundLhsRhs<Lhs, Rhs>& bound, ArrowLogBase&& log)
       -> decltype(std::move(log) << bound.lhs << bound.rhs) {
     return std::move(log) << "\n  left:  " << bound.lhs << "\n  right: " << bound.rhs
                           << "\n";
   }
 
-  template <typename Lhs, typename Rhs>
-  struct BoundEqual {
-    explicit constexpr operator bool() const { return lhs == rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
-  template <typename Lhs, typename Rhs>
-  struct BoundNotEqual {
-    explicit constexpr operator bool() const { return lhs != rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
-  template <typename Lhs, typename Rhs>
-  struct BoundGreater {
-    explicit constexpr operator bool() const { return lhs > rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
-  template <typename Lhs, typename Rhs>
-  struct BoundGreaterEqual {
-    explicit constexpr operator bool() const { return lhs >= rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
-  template <typename Lhs, typename Rhs>
-  struct BoundLess {
-    explicit constexpr operator bool() const { return lhs < rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
-  template <typename Lhs, typename Rhs>
-  struct BoundLessEqual {
-    explicit constexpr operator bool() const { return lhs <= rhs; }
-    const Lhs& lhs;
-    const Rhs& rhs;
-  };
-
   template <typename Lhs>
   struct BoundLhs {
     template <typename Rhs>
-    BoundEqual<Lhs, Rhs> operator==(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator==(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
     template <typename Rhs>
-    BoundNotEqual<Lhs, Rhs> operator!=(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator!=(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
     template <typename Rhs>
-    BoundGreater<Lhs, Rhs> operator>(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator>(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
     template <typename Rhs>
-    BoundGreaterEqual<Lhs, Rhs> operator>=(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator>=(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
     template <typename Rhs>
-    BoundLess<Lhs, Rhs> operator<(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator<(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
     template <typename Rhs>
-    BoundLessEqual<Lhs, Rhs> operator<=(const Rhs& rhs) && {
+    BoundLhsRhs<Lhs, Rhs> operator<=(const Rhs& rhs) && {
       return {lhs, rhs};
     }
 
-    template <typename = Lhs>
-    explicit constexpr operator bool() const {
-      return static_cast<bool>(lhs);
-    }
+    explicit constexpr operator bool() const { return false; }
 
     const Lhs& lhs;
   };
