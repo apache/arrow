@@ -956,6 +956,18 @@ mod tests {
     }
 
     #[test]
+    fn test_sort_primitives_large() {
+        let data = [0, 1, 2, 3_u8]
+            .repeat(100_000)
+            .iter()
+            .map(|e| Some(*e))
+            .collect::<Vec<Option<u8>>>();
+        let mut expected = data.clone();
+        expected.sort();
+        test_sort_primitive_arrays::<UInt8Type>(data, None, expected);
+    }
+
+    #[test]
     fn test_sort_primitives() {
         // default case
         test_sort_primitive_arrays::<UInt8Type>(

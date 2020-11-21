@@ -17,6 +17,8 @@
 
 pub(crate) const AVX512_U8X64_LANES: usize = 64;
 
+///
+/// AVX-512 bit and implementation
 #[target_feature(enable = "avx512f")]
 pub(crate) unsafe fn avx512_bin_and(left: &[u8], right: &[u8], res: &mut [u8]) {
     use core::arch::x86_64::{__m512i, _mm512_and_si512, _mm512_loadu_epi64};
@@ -29,6 +31,8 @@ pub(crate) unsafe fn avx512_bin_and(left: &[u8], right: &[u8], res: &mut [u8]) {
     std::ptr::copy_nonoverlapping(s, d, std::mem::size_of::<__m512i>());
 }
 
+///
+/// AVX-512 bit or implementation
 #[target_feature(enable = "avx512f")]
 pub(crate) unsafe fn avx512_bin_or(left: &[u8], right: &[u8], res: &mut [u8]) {
     use core::arch::x86_64::{__m512i, _mm512_loadu_epi64, _mm512_or_si512};
@@ -41,6 +45,8 @@ pub(crate) unsafe fn avx512_bin_or(left: &[u8], right: &[u8], res: &mut [u8]) {
     std::ptr::copy_nonoverlapping(s, d, std::mem::size_of::<__m512i>());
 }
 
+///
+/// Sorting network for a single SIMD vector of i64s
 #[target_feature(enable = "avx512f")]
 pub(crate) unsafe fn avx512_vec_sort_i64_single<'a>(input: &[i64]) -> [i64; 8] {
     use core::arch::x86_64::{
@@ -48,6 +54,7 @@ pub(crate) unsafe fn avx512_vec_sort_i64_single<'a>(input: &[i64]) -> [i64; 8] {
         _mm512_min_epi64, _mm512_permutexvar_epi64, _mm512_set_epi64,
     };
 
+    // First wiring's permute exchange for the sorting network
     let mut inp: __m512i = _mm512_loadu_epi64(input.as_ptr() as *const _);
     let idxnn1: __m512i = _mm512_set_epi64(6, 7, 4, 5, 2, 3, 0, 1);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn1, inp);
@@ -55,30 +62,35 @@ pub(crate) unsafe fn avx512_vec_sort_i64_single<'a>(input: &[i64]) -> [i64; 8] {
     let wire_n_max: __m512i = _mm512_max_epi64(wire_n, inp);
     inp = _mm512_mask_mov_epi64(wire_n_min, 0xAA, wire_n_max);
 
+    // Second wiring's permute exchange for the sorting network
     let idxnn2: __m512i = _mm512_set_epi64(4, 5, 6, 7, 0, 1, 2, 3);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn2, inp);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, inp);
     let wire_n_max: __m512i = _mm512_max_epi64(wire_n, inp);
     inp = _mm512_mask_mov_epi64(wire_n_min, 0xCC, wire_n_max);
 
+    // Third wiring's permute exchange for the sorting network
     let idxnn3: __m512i = _mm512_set_epi64(6, 7, 4, 5, 2, 3, 0, 1);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn3, inp);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, inp);
     let wire_n_max: __m512i = _mm512_max_epi64(wire_n, inp);
     inp = _mm512_mask_mov_epi64(wire_n_min, 0xAA, wire_n_max);
 
+    // Fourth wiring's permute exchange, does forwarding.
     let idxnn4: __m512i = _mm512_set_epi64(0, 1, 2, 3, 4, 5, 6, 7);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn4, inp);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, inp);
     let wire_n_max: __m512i = _mm512_max_epi64(wire_n, inp);
     inp = _mm512_mask_mov_epi64(wire_n_min, 0xF0, wire_n_max);
 
+    // Fifth wiring's permute exchange for the sorting network
     let idxnn5: __m512i = _mm512_set_epi64(5, 4, 7, 6, 1, 0, 3, 2);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn5, inp);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, inp);
     let wire_n_max: __m512i = _mm512_max_epi64(wire_n, inp);
     inp = _mm512_mask_mov_epi64(wire_n_min, 0xCC, wire_n_max);
 
+    // Sixth wiring's permute exchange for the sorting network
     let idxnn6: __m512i = _mm512_set_epi64(6, 7, 4, 5, 2, 3, 0, 1);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn6, inp);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, inp);
@@ -88,6 +100,8 @@ pub(crate) unsafe fn avx512_vec_sort_i64_single<'a>(input: &[i64]) -> [i64; 8] {
     std::mem::transmute(inp)
 }
 
+///
+/// Sorting network with SIMD merger for two SIMD vector of i64s
 #[target_feature(enable = "avx512f")]
 pub(crate) unsafe fn avx512_vec_sort_i64_double(
     left: &[i64],
@@ -106,11 +120,13 @@ pub(crate) unsafe fn avx512_vec_sort_i64_double(
     let mut l: __m512i = _mm512_loadu_epi64(l.as_ptr() as *const _);
     let mut r: __m512i = _mm512_loadu_epi64(r.as_ptr() as *const _);
 
+    // Full blend of the both vector wires
     let idxnn1: __m512i = _mm512_set_epi64(0, 1, 2, 3, 4, 5, 6, 7);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn1, l);
     l = _mm512_min_epi64(r, wire_n);
     r = _mm512_max_epi64(r, wire_n);
 
+    // Carries on with normal sorting network operation
     let idxnn2: __m512i = _mm512_set_epi64(3, 2, 1, 0, 7, 6, 5, 4);
     let wire_n: __m512i = _mm512_permutexvar_epi64(idxnn2, l);
     let wire_n_min: __m512i = _mm512_min_epi64(wire_n, l);
@@ -151,6 +167,8 @@ pub(crate) unsafe fn avx512_vec_sort_i64_double(
 /// Permute exchange width for the AVX-512 SIMD application
 pub(crate) const PERMUTE_EXCHANGE_WIDTH: usize = 8;
 
+///
+/// Merge layer for sorting network
 fn merger_net(mut input: Vec<i64>) -> Vec<i64> {
     let half = input.len() / 2;
     if half > PERMUTE_EXCHANGE_WIDTH {
@@ -167,10 +185,14 @@ fn merger_net(mut input: Vec<i64>) -> Vec<i64> {
     input
 }
 
+///
+/// Cold path marker for hinting the CPU for the further optimizations.
 #[inline]
 #[cold]
 fn cold() {}
 
+///
+/// Size independent sorter for any vector which is power of two.
 pub(crate) unsafe fn avx512_vec_sort_i64(input: &[i64]) -> Vec<i64> {
     if (input.len() / 2) == PERMUTE_EXCHANGE_WIDTH {
         let v: Vec<&[i64]> = input.chunks_exact(PERMUTE_EXCHANGE_WIDTH).collect();
