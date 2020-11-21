@@ -130,11 +130,7 @@ impl ExecutionPlan for HashJoinExec {
             2 => Ok(Arc::new(HashJoinExec::try_new(
                 children[0].clone(),
                 children[1].clone(),
-                &self
-                    .on
-                    .iter()
-                    .map(|(x, y)| (x.as_str(), y.as_str()))
-                    .collect::<Vec<_>>(),
+                &self.on,
                 &self.join_type,
             )?)),
             _ => Err(DataFusionError::Internal(
@@ -438,9 +434,13 @@ mod tests {
     fn join(
         left: Arc<dyn ExecutionPlan>,
         right: Arc<dyn ExecutionPlan>,
-        on: &JoinOn,
+        on: &[(&str, &str)],
     ) -> Result<HashJoinExec> {
-        HashJoinExec::try_new(left, right, on, &JoinType::Inner)
+        let on: Vec<_> = on
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
+        HashJoinExec::try_new(left, right, &on, &JoinType::Inner)
     }
 
     /// Asserts that the rows are the same, taking into account that their order

@@ -30,6 +30,7 @@ use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
     TableSource,
 };
+use crate::physical_plan::hash_utils;
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -190,27 +191,34 @@ impl LogicalPlanBuilder {
         left_keys: Vec<&str>,
         right_keys: Vec<&str>,
     ) -> Result<Self> {
-        //TODO reconcile this with the logic in https://github.com/apache/arrow/pull/8709
-        let mut fields = vec![];
-        self.plan
-            .schema()
-            .fields()
-            .iter()
-            .for_each(|f| fields.push(f.to_owned()));
-        right
-            .schema()
-            .fields()
-            .iter()
-            .for_each(|f| fields.push(f.to_owned()));
-
-        Ok(Self::from(&LogicalPlan::Join {
-            left: Arc::new(self.plan.clone()),
-            right,
-            left_keys: left_keys.iter().map(|k| k.to_string()).collect(),
-            right_keys: right_keys.iter().map(|k| k.to_string()).collect(),
-            join_type,
-            schema: Arc::new(Schema::new(fields)),
-        }))
+        if left_keys.len() != right_keys.len() {
+            Err(DataFusionError::Plan(
+                "left_keys and right_keys were not the same length".to_string(),
+            ))
+        } else {
+            let on: Vec<_> = left_keys
+                .iter()
+                .zip(right_keys.iter())
+                .map(|(x, y)| (x.to_string(), y.to_string()))
+                .collect::<Vec<_>>();
+            let physical_join_type = match join_type {
+                JoinType::Inner => hash_utils::JoinType::Inner,
+            };
+            let physical_schema = hash_utils::build_join_schema(
+                self.plan.schema(),
+                right.schema(),
+                &on,
+                &physical_join_type,
+            );
+            Ok(Self::from(&LogicalPlan::Join {
+                left: Arc::new(self.plan.clone()),
+                right,
+                left_keys: left_keys.iter().map(|k| k.to_string()).collect(),
+                right_keys: right_keys.iter().map(|k| k.to_string()).collect(),
+                join_type,
+                schema: Arc::new(physical_schema),
+            }))
+        }
     }
 
     /// Apply an aggregate

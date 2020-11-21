@@ -155,8 +155,12 @@ pub trait DataFrame {
     /// # async fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let left = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let right = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let join = left.join(right, JoinType::Inner, vec!["a", "b"], vec!["a", "b"])?;
+    /// let right = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?
+    ///   .select(vec![
+    ///     col("a").alias("a2"),
+    ///     col("b").alias("b2"),
+    ///     col("c").alias("c2")])?;
+    /// let join = left.join(right, JoinType::Inner, vec!["a", "b"], vec!["a2", "b2"])?;
     /// let batches = join.collect().await?;
     /// # Ok(())
     /// # }

@@ -29,7 +29,7 @@ pub enum JoinType {
 }
 
 /// The on clause of the join, as vector of (left, right) columns.
-pub type JoinOn<'a> = [(&'a str, &'a str)];
+pub type JoinOn = [(String, String)];
 
 /// Checks whether the schemas "left" and "right" and columns "on" represent a valid join.
 /// They are valid whenever their columns' intersection equals the set `on`
@@ -119,8 +119,11 @@ mod tests {
     fn check(left: &[&str], right: &[&str], on: &[(&str, &str)]) -> Result<()> {
         let left = left.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
         let right = right.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
-
-        check_join_set_is_valid(&left, &right, on)
+        let on: Vec<_> = on
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
+        check_join_set_is_valid(&left, &right, &on)
     }
 
     #[test]
