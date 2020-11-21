@@ -729,9 +729,9 @@ class CountingServerMiddleware : public ServerMiddleware {
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
   void CallCompleted(const Status& status) override {
     if (status.ok()) {
-      ARROW_IGNORE_EXPR((*successful_)++);
+      ARROW_UNUSED((*successful_)++);
     } else {
-      ARROW_IGNORE_EXPR((*failed_)++);
+      ARROW_UNUSED((*failed_)++);
     }
   }
 

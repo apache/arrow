@@ -19,8 +19,8 @@
 
 #include <cstdint>
 
-#define ARROW_EXPAND(x) x
-#define ARROW_STRINGIFY(x) #x
+#define ARROW_EXPAND(x...) x
+#define ARROW_STRINGIFY(x...) #x
 #define ARROW_CONCAT(x, y) x##y
 
 // From Google gutil
@@ -36,7 +36,7 @@
   TypeName& operator=(TypeName&&) = default
 #endif
 
-#define ARROW_UNUSED(x) (void)(x)
+#define ARROW_UNUSED(x...) ((void)(x))
 #define ARROW_ARG_UNUSED(x)
 //
 // GCC can be told that a certain branch is not likely to be taken (for
@@ -45,24 +45,23 @@
 // the absence of better information (ie. -fprofile-arcs).
 //
 #if defined(__GNUC__)
-#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
-#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#define ARROW_PREDICT_FALSE(x...) (__builtin_expect(!!(x), 0))
+#define ARROW_PREDICT_TRUE(x...) (__builtin_expect(!!(x), 1))
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
 #elif defined(_MSC_VER)
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
-#define ARROW_PREDICT_FALSE(x) (x)
-#define ARROW_PREDICT_TRUE(x) (x)
+#define ARROW_PREDICT_FALSE(x...) (x)
+#define ARROW_PREDICT_TRUE(x...) (x)
 #define ARROW_PREFETCH(addr)
 #else
 #define ARROW_NORETURN
-#define ARROW_PREDICT_FALSE(x) (x)
-#define ARROW_PREDICT_TRUE(x) (x)
+#define ARROW_PREDICT_FALSE(x...) (x)
+#define ARROW_PREDICT_TRUE(x...) (x)
 #define ARROW_PREFETCH(addr)
 #endif
-
 #if (defined(__GNUC__) || defined(__APPLE__))
 #define ARROW_MUST_USE_RESULT __attribute__((warn_unused_result))
 #elif defined(_MSC_VER)
@@ -183,3 +182,15 @@
 
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
+
+// ----------------------------------------------------------------------
+// Promote NDEBUG to a constexpr variable
+namespace arrow {
+namespace internal {
+#ifdef NDEBUG
+constexpr bool kDebug = false;
+#else
+constexpr bool kDebug = true;
+#endif
+}  // namespace internal
+}  // namespace arrow

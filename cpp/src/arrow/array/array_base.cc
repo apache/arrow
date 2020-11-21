@@ -194,7 +194,7 @@ Result<std::shared_ptr<Scalar>> Array::GetScalar(int64_t i) const {
 
 std::string Array::Diff(const Array& other) const {
   std::stringstream diff;
-  ARROW_IGNORE_EXPR(Equals(other, EqualOptions().diff_sink(&diff)));
+  ARROW_UNUSED(Equals(other, EqualOptions().diff_sink(&diff)));
   return diff.str();
 }
 

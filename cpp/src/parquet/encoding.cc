@@ -1170,7 +1170,7 @@ int PlainBooleanDecoder::DecodeArrow(
       valid_bits, valid_bits_offset, num_values, null_count,
       [&]() {
         bool value;
-        ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
+        ARROW_UNUSED(bit_reader_->GetValue(1, &value));
         builder->UnsafeAppend(value);
       },
       [&]() { builder->UnsafeAppendNull(); });

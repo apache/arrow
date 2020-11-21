@@ -361,7 +361,7 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
     if (valid_run.set) {
       if ((repeat_count_ == 0) && (literal_count_ == 0)) {
         if (!NextCounts<RunType>()) return values_read;
-        DCHECK((repeat_count_ > 0) ^ (literal_count_ > 0));
+        DCHECK(((repeat_count_ > 0) ^ (literal_count_ > 0)));
       }
 
       if (repeat_count_ > 0) {
@@ -388,7 +388,7 @@ inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_c
             valid_run = bit_reader.NextRun();
           }
         }
-        RunType current_value = static_cast<RunType>(current_value_);
+        auto current_value = static_cast<RunType>(current_value_);
         if (ARROW_PREDICT_FALSE(!converter.IsValid(current_value))) {
           return values_read;
         }
@@ -703,10 +703,10 @@ inline bool RleEncoder::Put(uint64_t value) {
 }
 
 inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
-  if (literal_indicator_byte_ == NULL) {
+  if (literal_indicator_byte_ == NULLPTR) {
     // The literal indicator byte has not been reserved yet, get one now.
     literal_indicator_byte_ = bit_writer_.GetNextBytePtr();
-    DCHECK(literal_indicator_byte_ != NULL);
+    DCHECK(literal_indicator_byte_ != NULLPTR);
   }
 
   // Write all the buffered values as bit packed literals
@@ -726,7 +726,7 @@ inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
     int32_t indicator_value = (num_groups << 1) | 1;
     DCHECK_EQ(indicator_value & 0xFFFFFF00, 0);
     *literal_indicator_byte_ = static_cast<uint8_t>(indicator_value);
-    literal_indicator_byte_ = NULL;
+    literal_indicator_byte_ = NULLPTR;
     literal_count_ = 0;
     CheckBufferFull();
   }
@@ -770,7 +770,7 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
   if (num_groups + 1 >= (1 << 6)) {
     // We need to start a new literal run because the indicator byte we've reserved
     // cannot store more values.
-    DCHECK(literal_indicator_byte_ != NULL);
+    DCHECK(literal_indicator_byte_ != NULLPTR);
     FlushLiteralRun(true);
   } else {
     FlushLiteralRun(done);
@@ -818,7 +818,7 @@ inline void RleEncoder::Clear() {
   repeat_count_ = 0;
   num_buffered_values_ = 0;
   literal_count_ = 0;
-  literal_indicator_byte_ = NULL;
+  literal_indicator_byte_ = NULLPTR;
   bit_writer_.Clear();
 }
 

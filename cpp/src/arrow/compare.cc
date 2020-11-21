@@ -802,9 +802,9 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
       CompareArrayRanges(*left.data(), *right.data(), left_start_idx, left_end_idx,
                          right_start_idx, options, floating_approximate);
   if (!are_equal) {
-    ARROW_IGNORE_EXPR(PrintDiff(
-        left, right, left_start_idx, left_end_idx, right_start_idx,
-        right_start_idx + (left_end_idx - left_start_idx), options.diff_sink()));
+    ARROW_UNUSED(PrintDiff(left, right, left_start_idx, left_end_idx, right_start_idx,
+                           right_start_idx + (left_end_idx - left_start_idx),
+                           options.diff_sink()));
   }
   return are_equal;
 }
@@ -829,7 +829,7 @@ bool ArrayRangeApproxEquals(const Array& left, const Array& right, int64_t left_
 
 bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
   if (left.length() != right.length()) {
-    ARROW_IGNORE_EXPR(PrintDiff(left, right, opts.diff_sink()));
+    ARROW_UNUSED(PrintDiff(left, right, opts.diff_sink()));
     return false;
   }
   const bool floating_approximate = false;
@@ -838,7 +838,7 @@ bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts
 
 bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
   if (left.length() != right.length()) {
-    ARROW_IGNORE_EXPR(PrintDiff(left, right, opts.diff_sink()));
+    ARROW_UNUSED(PrintDiff(left, right, opts.diff_sink()));
     return false;
   }
   const bool floating_approximate = true;

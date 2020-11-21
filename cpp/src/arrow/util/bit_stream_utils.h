@@ -79,7 +79,7 @@ class BitWriter {
 
   /// Get a pointer to the next aligned byte and advance the underlying buffer
   /// by num_bytes.
-  /// Returns NULL if there was not enough space.
+  /// Returns NULLPTR if there was not enough space.
   uint8_t* GetNextBytePtr(int num_bytes = 1);
 
   /// Flushes all buffered values to the buffer. Call this when done writing to
@@ -113,7 +113,7 @@ class BitReader {
   }
 
   BitReader()
-      : buffer_(NULL),
+      : buffer_(NULLPTR),
         max_bytes_(0),
         buffered_values_(0),
         byte_offset_(0),
@@ -217,7 +217,7 @@ inline void BitWriter::Flush(bool align) {
 inline uint8_t* BitWriter::GetNextBytePtr(int num_bytes) {
   Flush(/* align */ true);
   DCHECK_LE(byte_offset_, max_bytes_);
-  if (byte_offset_ + num_bytes > max_bytes_) return NULL;
+  if (byte_offset_ + num_bytes > max_bytes_) return NULLPTR;
   uint8_t* ptr = buffer_ + byte_offset_;
   byte_offset_ += num_bytes;
   return ptr;
@@ -226,7 +226,7 @@ inline uint8_t* BitWriter::GetNextBytePtr(int num_bytes) {
 template <typename T>
 inline bool BitWriter::PutAligned(T val, int num_bytes) {
   uint8_t* ptr = GetNextBytePtr(num_bytes);
-  if (ptr == NULL) return false;
+  if (ptr == NULLPTR) return false;
   val = arrow::BitUtil::ToLittleEndian(val);
   memcpy(ptr, &val, num_bytes);
   return true;
@@ -281,7 +281,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
-  DCHECK(buffer_ != NULL);
+  DCHECK(buffer_ != NULLPTR);
   // TODO: revisit this limit if necessary
   DCHECK_LE(num_bits, 32);
   DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));

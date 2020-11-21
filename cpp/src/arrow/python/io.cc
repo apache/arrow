@@ -197,7 +197,7 @@ Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
     OwnedRef bytes;
     RETURN_NOT_OK(file_->Read(nbytes, bytes.ref()));
     PyObject* bytes_obj = bytes.obj();
-    DCHECK(bytes_obj != NULL);
+    DCHECK(bytes_obj != nullptr);
 
     if (!PyBytes_Check(bytes_obj)) {
       return Status::TypeError(
@@ -215,7 +215,7 @@ Result<std::shared_ptr<Buffer>> PyReadableFile::Read(int64_t nbytes) {
   return SafeCallIntoPython([=]() -> Result<std::shared_ptr<Buffer>> {
     OwnedRef bytes_obj;
     RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
-    DCHECK(bytes_obj.obj() != NULL);
+    DCHECK(bytes_obj.obj() != nullptr);
 
     return PyBuffer::FromPyObject(bytes_obj.obj());
   });
@@ -301,7 +301,7 @@ Status PyOutputStream::Write(const std::shared_ptr<Buffer>& buffer) {
 Status PyForeignBuffer::Make(const uint8_t* data, int64_t size, PyObject* base,
                              std::shared_ptr<Buffer>* out) {
   PyForeignBuffer* buf = new PyForeignBuffer(data, size, base);
-  if (buf == NULL) {
+  if (buf == nullptr) {
     return Status::OutOfMemory("could not allocate foreign buffer object");
   } else {
     *out = std::shared_ptr<Buffer>(buf);

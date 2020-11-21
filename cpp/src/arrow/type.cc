@@ -94,6 +94,11 @@ constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
 
+constexpr int32_t Decimal128Type::kMinPrecision;
+constexpr int32_t Decimal128Type::kMaxPrecision;
+constexpr int32_t Decimal256Type::kMinPrecision;
+constexpr int32_t Decimal256Type::kMaxPrecision;
+
 namespace internal {
 
 struct TypeIdToTypeNameVisitor {

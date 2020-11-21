@@ -20,6 +20,7 @@
 #ifdef ARROW_WITH_BACKTRACE
 #include <execinfo.h>
 #endif
+#include <array>
 #include <cstdlib>
 #include <iostream>
 
@@ -51,7 +52,7 @@ class CerrLog {
     }
   }
 
-  std::ostream& Stream() {
+  std::ostream& stream() {
     has_logged_ = true;
     return std::cerr;
   }
@@ -71,17 +72,18 @@ class CerrLog {
 
   void PrintBackTrace() {
 #ifdef ARROW_WITH_BACKTRACE
-    void* buffer[255];
-    const int calls = backtrace(buffer, static_cast<int>(sizeof(buffer) / sizeof(void*)));
-    backtrace_symbols_fd(buffer, calls, 1);
+    constexpr int kMaxCalls = 255;
+    std::array<void*, kMaxCalls> calls;
+    const int n_calls = backtrace(calls.data(), kMaxCalls);
+    backtrace_symbols_fd(calls.data(), n_calls, 1);
 #endif
   }
 };
 
 #ifdef ARROW_USE_GLOG
-typedef google::LogMessage LoggingProvider;
+using LoggingProvider = google::LogMessage;
 #else
-typedef CerrLog LoggingProvider;
+using LoggingProvider = CerrLog;
 #endif
 
 ArrowLogLevel ArrowLog::severity_threshold_ = ArrowLogLevel::ARROW_INFO;
@@ -112,16 +114,15 @@ static int GetMappedSeverity(ArrowLogLevel severity) {
 
 #endif
 
-void ArrowLog::StartArrowLog(const std::string& app_name,
-                             ArrowLogLevel severity_threshold,
-                             const std::string& log_dir) {
+void ArrowLog::StartArrowLog(std::string app_name, ArrowLogLevel severity_threshold,
+                             std::string log_dir) {
   severity_threshold_ = severity_threshold;
   // In InitGoogleLogging, it simply keeps the pointer.
   // We need to make sure the app name passed to InitGoogleLogging exist.
   // We should avoid using static string is a dynamic lib.
   static std::unique_ptr<std::string> app_name_;
-  app_name_.reset(new std::string(app_name));
-  log_dir_.reset(new std::string(log_dir));
+  app_name_.reset(new std::string(std::move(app_name)));
+  log_dir_.reset(new std::string(std::move(log_dir)));
 #ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
   google::SetStderrLogging(mapped_severity_threshold);
@@ -210,15 +211,13 @@ ArrowLog::ArrowLog(const char* file_name, int line_number, ArrowLogLevel severit
 #endif
 }
 
-std::ostream& ArrowLog::Stream() {
-  auto logging_provider = reinterpret_cast<LoggingProvider*>(logging_provider_);
-#ifdef ARROW_USE_GLOG
+std::ostream* ArrowLog::Stream() {
   // Before calling this function, user should check IsEnabled.
-  // When IsEnabled == false, logging_provider_ will be empty.
-  return logging_provider->stream();
-#else
-  return logging_provider->Stream();
-#endif
+  // When IsEnabled == false, logging_provider_ will be null.
+  if (auto provider = reinterpret_cast<LoggingProvider*>(logging_provider_)) {
+    return &provider->stream();
+  }
+  return nullptr;
 }
 
 bool ArrowLog::IsEnabled() const { return is_enabled_; }

@@ -186,7 +186,7 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_UNUSED(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }

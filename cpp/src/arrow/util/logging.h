@@ -22,22 +22,21 @@
 // The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
 // streams or stdc++. So, making the DCHECK calls void in that case.
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
-
-#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
-#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
-#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#define DCHECK(condition) ARROW_UNUSED(condition)
+#define DCHECK_OK(status) ARROW_UNUSED(status)
+#define DCHECK_EQ(val1, val2) ARROW_UNUSED(val1 == val2)
+#define DCHECK_NE(val1, val2) ARROW_UNUSED(val1 != val2)
+#define DCHECK_LE(val1, val2) ARROW_UNUSED(val1 <= val2)
+#define DCHECK_LT(val1, val2) ARROW_UNUSED(val1 < val2)
+#define DCHECK_GE(val1, val2) ARROW_UNUSED(val1 >= val2)
+#define DCHECK_GT(val1, val2) ARROW_UNUSED(val1 > val2)
 
 #else  // !GANDIVA_IR
 
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -53,31 +52,15 @@ enum class ArrowLogLevel : int {
   ARROW_FATAL = 3
 };
 
-#define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
+// Construct an ARROW_LOG entry
+#define ARROW_LOG(level) \
+  ::arrow::util::ArrowLog(__FILE__, __LINE__, ::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
-
-#define ARROW_CHECK(condition)                                               \
-  ARROW_PREDICT_TRUE(condition)                                              \
-  ? ARROW_IGNORE_EXPR(0)                                                     \
-  : ::arrow::util::Voidify() &                                               \
-          ::arrow::util::ArrowLog(__FILE__, __LINE__,                        \
-                                  ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
-              << " Check failed: " #condition " "
-
-// If 'to_call' returns a bad status, CHECK immediately with a logged message
-// of 'msg' followed by the status.
-#define ARROW_CHECK_OK_PREPEND(to_call, msg)                                         \
-  do {                                                                               \
-    ::arrow::Status _s = (to_call);                                                  \
-    ARROW_CHECK(_s.ok()) << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
-                         << (msg) << ": " << _s.ToString();                          \
-  } while (false)
-
-// If the status is bad, CHECK immediately, appending the status to the
-// logged message.
-#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
+#define ARROW_CHECK(condition...)                                      \
+  for (auto bound = ::arrow::util::InterceptComparison() <= condition; \
+       ARROW_PREDICT_FALSE(!static_cast<bool>(bound));)                \
+  ::arrow::util::InterceptComparison::PrintOperands(                   \
+      bound, ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((condition)) " ")
 
 #define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
 #define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
@@ -86,56 +69,37 @@ enum class ArrowLogLevel : int {
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#ifdef NDEBUG
-#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
+#define ARROW_LOG_FAILED_STATUS(status, operation)                                \
+  ARROW_LOG(FATAL) << " Operation failed: " << ARROW_STRINGIFY(operation) << "\n" \
+                   << " Bad status: " << _s.ToString()
+
+// If the status is bad, CHECK immediately, appending the status to the logged message.
+#define ARROW_CHECK_OK(expr...)                                         \
+  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \
+       ARROW_PREDICT_FALSE(!_s.ok());)                                  \
+  ARROW_LOG_FAILED_STATUS(_s, (expr))
+
+#define DCHECK(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK(condition)
+#define DCHECK_EQ(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_EQ(condition)
+#define DCHECK_NE(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_NE(condition)
+#define DCHECK_LE(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_LE(condition)
+#define DCHECK_LT(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_LT(condition)
+#define DCHECK_GE(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_GE(condition)
+#define DCHECK_GT(condition...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_GT(condition)
 
 // CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
-
-#define DCHECK(condition)                     \
-  while (false) ARROW_IGNORE_EXPR(condition); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_OK(s)    \
-  ARROW_IGNORE_EXPR(s); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_EQ(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_NE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_LT(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GE(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define DCHECK_GT(val1, val2)            \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-
-#else
-#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
-
-#define DCHECK ARROW_CHECK
-#define DCHECK_OK ARROW_CHECK_OK
-#define DCHECK_EQ ARROW_CHECK_EQ
-#define DCHECK_NE ARROW_CHECK_NE
-#define DCHECK_LE ARROW_CHECK_LE
-#define DCHECK_LT ARROW_CHECK_LT
-#define DCHECK_GE ARROW_CHECK_GE
-#define DCHECK_GT ARROW_CHECK_GT
-
-#endif  // NDEBUG
+#define DCHECK_OK(expr...)                                              \
+  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \
+       ::arrow::internal::kDebug && ARROW_PREDICT_FALSE(!_s.ok());)     \
+  ARROW_LOG_FAILED_STATUS(_s, (expr))
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
@@ -145,23 +109,24 @@ enum class ArrowLogLevel : int {
 // which hide the implementation into logging.cc file.
 // In logging.cc, we can choose different log libs using different macros.
 
-// This is also a null log which does not output anything.
+// This is also a log which does not output anything.
 class ARROW_EXPORT ArrowLogBase {
  public:
-  virtual ~ArrowLogBase() {}
+  virtual ~ArrowLogBase() = default;
 
   virtual bool IsEnabled() const { return false; }
 
-  template <typename T>
-  ArrowLogBase& operator<<(const T& t) {
+  template <typename T, typename = decltype(std::declval<std::ostream&>()
+                                            << std::declval<const T&>())>
+  ArrowLogBase&& operator<<(const T& t) && {
     if (IsEnabled()) {
-      Stream() << t;
+      *Stream() << t;
     }
-    return *this;
+    return std::move(*this);
   }
 
  protected:
-  virtual std::ostream& Stream() = 0;
+  virtual std::ostream* Stream() { return NULLPTR; }
 };
 
 class ARROW_EXPORT ArrowLog : public ArrowLogBase {
@@ -176,12 +141,12 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
 
   /// The init function of arrow log for a program which should be called only once.
   ///
-  /// \param appName The app name which starts the log.
+  /// \param app_name The app name which starts the log.
   /// \param severity_threshold Logging threshold for the program.
-  /// \param logDir Logging output file name. If empty, the log won't output to file.
-  static void StartArrowLog(const std::string& appName,
+  /// \param log_dir Logging output file name. If empty, the log won't output to file.
+  static void StartArrowLog(std::string app_name,
                             ArrowLogLevel severity_threshold = ArrowLogLevel::ARROW_INFO,
-                            const std::string& logDir = "");
+                            std::string log_dir = "");
 
   /// The shutdown function of arrow log, it should be used with StartArrowLog as a pair.
   static void ShutDownArrowLog();
@@ -202,6 +167,8 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ArrowLog);
 
+  std::ostream* Stream() override;
+
   // Hide the implementation of log provider by void *.
   // Otherwise, lib user may define the same macro to use the correct header file.
   void* logging_provider_;
@@ -209,41 +176,110 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   bool is_enabled_;
 
   static ArrowLogLevel severity_threshold_;
-
- protected:
-  std::ostream& Stream() override;
 };
 
-// This class make ARROW_CHECK compilation pass to change the << operator to void.
-// This class is copied from glog.
-class ARROW_EXPORT Voidify {
- public:
-  Voidify() {}
-  // This has to be an operator with a precedence lower than << but
-  // higher than ?:
-  void operator&(ArrowLogBase&) {}
-};
+struct InterceptComparison {
+  template <typename NotBinaryOrNotPrintable>
+  static ArrowLogBase&& PrintOperands(const NotBinaryOrNotPrintable&,
+                                      ArrowLogBase&& log) {
+    return std::move(log);
+  }
 
-namespace detail {
+  template <template <typename, typename> class Op, typename Lhs, typename Rhs>
+  static auto PrintOperands(const Op<Lhs, Rhs>& bound, ArrowLogBase&& log)
+      -> decltype(std::move(log) << bound.lhs << bound.rhs) {
+    return std::move(log) << "\n  left:  " << bound.lhs << "\n  right: " << bound.rhs
+                          << "\n";
+  }
 
-/// @brief A helper for the nil log sink.
-///
-/// Using this helper is analogous to sending log messages to /dev/null:
-/// nothing gets logged.
-class NullLog {
- public:
-  /// The no-op output operator.
-  ///
-  /// @param [in] t
-  ///   The object to send into the nil sink.
-  /// @return Reference to the updated object.
-  template <class T>
-  NullLog& operator<<(const T& t) {
-    return *this;
+  template <typename Lhs, typename Rhs>
+  struct BoundEqual {
+    explicit constexpr operator bool() const { return lhs == rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  struct BoundNotEqual {
+    explicit constexpr operator bool() const { return lhs != rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  struct BoundGreater {
+    explicit constexpr operator bool() const { return lhs > rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  struct BoundGreaterEqual {
+    explicit constexpr operator bool() const { return lhs >= rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  struct BoundLess {
+    explicit constexpr operator bool() const { return lhs < rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs, typename Rhs>
+  struct BoundLessEqual {
+    explicit constexpr operator bool() const { return lhs <= rhs; }
+    const Lhs& lhs;
+    const Rhs& rhs;
+  };
+
+  template <typename Lhs>
+  struct BoundLhs {
+    template <typename Rhs>
+    BoundEqual<Lhs, Rhs> operator==(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename Rhs>
+    BoundNotEqual<Lhs, Rhs> operator!=(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename Rhs>
+    BoundGreater<Lhs, Rhs> operator>(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename Rhs>
+    BoundGreaterEqual<Lhs, Rhs> operator>=(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename Rhs>
+    BoundLess<Lhs, Rhs> operator<(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename Rhs>
+    BoundLessEqual<Lhs, Rhs> operator<=(const Rhs& rhs) && {
+      return {lhs, rhs};
+    }
+
+    template <typename = Lhs>
+    explicit constexpr operator bool() const {
+      return static_cast<bool>(lhs);
+    }
+
+    const Lhs& lhs;
+  };
+
+  template <typename Lhs>
+  BoundLhs<Lhs> operator<=(const Lhs& lhs) && {
+    return BoundLhs<Lhs>{lhs};
   }
 };
 
-}  // namespace detail
 }  // namespace util
 }  // namespace arrow
 
