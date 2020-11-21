@@ -1148,30 +1148,30 @@ impl DataType {
     pub fn eq_type(&self, other: &Self) -> bool {
         match (self, other) {
             (DataType::List(f1), DataType::List(f2)) => {
-                f1.data_type().cmp_type(f2.data_type())
+                f1.data_type().eq_type(f2.data_type())
             }
             (DataType::FixedSizeList(f1, _), DataType::FixedSizeList(f2, _)) => {
-                f1.data_type().cmp_type(f2.data_type())
+                f1.data_type().eq_type(f2.data_type())
             }
             (DataType::LargeList(f1), DataType::LargeList(f2)) => {
-                f1.data_type().cmp_type(f2.data_type())
+                f1.data_type().eq_type(f2.data_type())
             }
             (DataType::Struct(f1), DataType::Struct(f2)) => {
                 f1.len() == f2.len()
                     && f1
                         .iter()
                         .enumerate()
-                        .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
+                        .all(|(i, f)| f.data_type().eq_type(f2[i].data_type()))
             }
             (DataType::Union(f1), DataType::Union(f2)) => {
                 f1.len() == f2.len()
                     && f1
                         .iter()
                         .enumerate()
-                        .all(|(i, f)| f.data_type().cmp_type(f2[i].data_type()))
+                        .all(|(i, f)| f.data_type().eq_type(f2[i].data_type()))
             }
             (DataType::Dictionary(k1, v1), DataType::Dictionary(k2, v2)) => {
-                k1.as_ref().cmp_type(k2) && v1.cmp_type(v2.as_ref())
+                k1.as_ref().eq_type(k2) && v1.eq_type(v2.as_ref())
             }
             t @ (_, _) => std::mem::discriminant(t.0) == std::mem::discriminant(t.1),
         }
@@ -2788,7 +2788,7 @@ mod tests {
             false,
         )));
 
-        assert!(list_type_a.cmp_type(list_type_b));
+        assert!(list_type_a.eq_type(list_type_b));
     }
 
     #[test]
@@ -2804,7 +2804,7 @@ mod tests {
             false,
         )));
 
-        assert!(!list_type_a.cmp_type(list_type_b));
+        assert!(!list_type_a.eq_type(list_type_b));
     }
 }
 
