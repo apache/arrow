@@ -118,9 +118,6 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
-        LogicalPlan::Join { .. } => {
-            vec![]
-        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -130,6 +127,7 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Limit { .. }
+        | LogicalPlan::Join { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
     }
