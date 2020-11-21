@@ -209,23 +209,23 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_like_utf8_scalar(&arr_string, "%xx_xx%xxx"))
     });
 
-    c.bench_function("like_utf8 scalar equals", |b| {
+    c.bench_function("nlike_utf8 scalar equals", |b| {
         b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx"))
     });
 
-    c.bench_function("like_utf8 scalar contains", |b| {
+    c.bench_function("nlike_utf8 scalar contains", |b| {
         b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx%"))
     });
 
-    c.bench_function("like_utf8 scalar ends with", |b| {
+    c.bench_function("nlike_utf8 scalar ends with", |b| {
         b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx%"))
     });
 
-    c.bench_function("like_utf8 scalar starts with", |b| {
+    c.bench_function("nlike_utf8 scalar starts with", |b| {
         b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx"))
     });
 
-    c.bench_function("like_utf8 scalar complex", |b| {
+    c.bench_function("nlike_utf8 scalar complex", |b| {
         b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xx_xx%xxx"))
     });
 }
