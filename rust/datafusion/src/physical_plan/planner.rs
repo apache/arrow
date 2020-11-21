@@ -302,13 +302,12 @@ impl DefaultPhysicalPlanner {
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                 };
-                let hash_join =
-                    HashJoinExec::try_new(left, right, &keys, &physical_join_type)?;
-                if schema.as_ref() == hash_join.schema().as_ref() {
-                    Ok(Arc::new(hash_join))
-                } else {
-                    Err(DataFusionError::Plan("schema mismatch".to_string()))
-                }
+                Ok(Arc::new(HashJoinExec::try_new(
+                    left,
+                    right,
+                    &keys,
+                    &physical_join_type,
+                )?))
             }
             LogicalPlan::EmptyRelation {
                 produce_one_row,
