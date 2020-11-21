@@ -26,6 +26,6 @@ mod tests {
     // verify that there is no data un-allocated
     #[test]
     fn test_memory_check() {
-        unsafe { assert_eq!(ALLOCATIONS, 0) }
+        unsafe { assert_eq!(ALLOCATIONS.load(std::sync::atomic::Ordering::SeqCst), 0) }
     }
 }
