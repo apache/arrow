@@ -48,7 +48,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda300
 Section: libs
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -128,7 +128,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -217,7 +217,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libplasma300
 Section: libs
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -230,7 +230,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: plasma-store-server
 Section: utils
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
@@ -242,7 +242,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -328,7 +328,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-glib300
 Section: libs
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -342,7 +342,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: gir1.2-arrow-cuda-1.0
 Section: introspection
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -353,7 +353,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-glib-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -471,7 +471,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libplasma-glib300
 Section: libs
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -485,7 +485,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: gir1.2-plasma-1.0
 Section: introspection
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -496,7 +496,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-glib-dev
 Section: libdevel
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -510,7 +510,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-glib-doc
 Section: doc
-Architecture: i386 amd64
+Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}
