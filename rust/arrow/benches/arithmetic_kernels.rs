@@ -69,7 +69,7 @@ fn bench_divide(arr_a: &ArrayRef, arr_b: &ArrayRef) {
 }
 
 fn bench_limit(arr_a: &ArrayRef, max: usize) {
-    criterion::black_box(limit(arr_a, max).unwrap());
+    criterion::black_box(limit(arr_a, max));
 }
 
 fn add_benchmark(c: &mut Criterion) {

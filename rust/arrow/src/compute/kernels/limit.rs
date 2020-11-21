@@ -18,7 +18,6 @@
 //! Defines miscellaneous array kernels.
 
 use crate::array::ArrayRef;
-use crate::error::Result;
 
 /// Returns the array, taking only the number of elements specified
 ///
@@ -26,9 +25,9 @@ use crate::error::Result;
 /// where:
 /// * it performs a bounds-check on the array
 /// * it slices from offset 0
-pub fn limit(array: &ArrayRef, num_elements: usize) -> Result<ArrayRef> {
+pub fn limit(array: &ArrayRef, num_elements: usize) -> ArrayRef {
     let lim = num_elements.min(array.len());
-    Ok(array.slice(0, lim))
+    array.slice(0, lim)
 }
 
 #[cfg(test)]
@@ -44,7 +43,7 @@ mod tests {
     #[test]
     fn test_limit_array() {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![5, 6, 7, 8, 9]));
-        let b = limit(&a, 3).unwrap();
+        let b = limit(&a, 3);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(3, c.len());
         assert_eq!(5, c.value(0));
@@ -55,7 +54,7 @@ mod tests {
     #[test]
     fn test_limit_string_array() {
         let a: ArrayRef = Arc::new(StringArray::from(vec!["hello", " ", "world", "!"]));
-        let b = limit(&a, 2).unwrap();
+        let b = limit(&a, 2);
         let c = b.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(2, c.len());
         assert_eq!("hello", c.value(0));
@@ -65,7 +64,7 @@ mod tests {
     #[test]
     fn test_limit_array_with_null() {
         let a: ArrayRef = Arc::new(Int32Array::from(vec![None, Some(5)]));
-        let b = limit(&a, 1).unwrap();
+        let b = limit(&a, 1);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, c.len());
         assert_eq!(true, c.is_null(0));
@@ -75,7 +74,7 @@ mod tests {
     fn test_limit_array_with_limit_too_large() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let a_ref: ArrayRef = Arc::new(a);
-        let b = limit(&a_ref, 6).unwrap();
+        let b = limit(&a_ref, 6);
         let c = b.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
 
         assert_eq!(5, c.len());
@@ -120,7 +119,7 @@ mod tests {
             .build();
         let list_array: ArrayRef = Arc::new(ListArray::from(list_data));
 
-        let limit_array = limit(&list_array, 6).unwrap();
+        let limit_array = limit(&list_array, 6);
         assert_eq!(6, limit_array.len());
         assert_eq!(0, limit_array.offset());
         assert_eq!(3, limit_array.null_count());
@@ -172,7 +171,7 @@ mod tests {
 
         let array: ArrayRef = Arc::new(struct_array);
 
-        let sliced_array = limit(&array, 3).unwrap();
+        let sliced_array = limit(&array, 3);
         let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
         assert_eq!(3, sliced_array.len());
         assert_eq!(0, sliced_array.offset());
