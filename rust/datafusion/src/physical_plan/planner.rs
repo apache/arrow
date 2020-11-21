@@ -295,7 +295,7 @@ impl DefaultPhysicalPlanner {
                 right,
                 on: keys,
                 join_type,
-                schema,
+                ..
             } => {
                 let left = self.create_physical_plan(left, ctx_state)?;
                 let right = self.create_physical_plan(right, ctx_state)?;
