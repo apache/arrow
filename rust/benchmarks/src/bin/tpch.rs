@@ -170,7 +170,6 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         ),
 
         12 => {
-
             // EXPERIMENTAL - this query currently fails with a Tokio scheduler error
             // see https://issues.apache.org/jira/browse/ARROW-10681
 
