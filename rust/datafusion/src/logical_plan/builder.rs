@@ -213,8 +213,11 @@ impl LogicalPlanBuilder {
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right,
-                left_keys: left_keys.iter().map(|k| k.to_string()).collect(),
-                right_keys: right_keys.iter().map(|k| k.to_string()).collect(),
+                on: left_keys
+                    .iter()
+                    .zip(right_keys.iter())
+                    .map(|(l, r)| (l.to_string(), r.to_string()))
+                    .collect(),
                 join_type,
                 schema: Arc::new(physical_schema),
             }))

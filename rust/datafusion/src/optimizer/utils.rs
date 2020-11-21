@@ -186,16 +186,14 @@ pub fn from_plan(
         }),
         LogicalPlan::Join {
             join_type,
-            left_keys,
-            right_keys,
+            on,
             schema,
             ..
         } => Ok(LogicalPlan::Join {
             left: Arc::new(inputs[0].clone()),
             right: Arc::new(inputs[1].clone()),
             join_type: join_type.clone(),
-            left_keys: left_keys.clone(),
-            right_keys: right_keys.clone(),
+            on: on.clone(),
             schema: schema.clone(),
         }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {

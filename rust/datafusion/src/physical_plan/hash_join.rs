@@ -438,7 +438,7 @@ mod tests {
     ) -> Result<HashJoinExec> {
         let on: Vec<_> = on
             .iter()
-            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
         HashJoinExec::try_new(left, right, &on, &JoinType::Inner)
     }

@@ -125,7 +125,7 @@ mod tests {
         let right = right.iter().map(|x| x.to_string()).collect::<HashSet<_>>();
         let on: Vec<_> = on
             .iter()
-            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
         check_join_set_is_valid(&left, &right, &on)
     }

@@ -293,8 +293,7 @@ impl DefaultPhysicalPlanner {
             LogicalPlan::Join {
                 left,
                 right,
-                left_keys,
-                right_keys,
+                on: keys,
                 join_type,
                 schema,
             } => {
@@ -303,13 +302,8 @@ impl DefaultPhysicalPlanner {
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                 };
-                let on: Vec<_> = left_keys
-                    .iter()
-                    .zip(right_keys.iter())
-                    .map(|(a, b)| (a.to_string(), b.to_string()))
-                    .collect();
                 let hash_join =
-                    HashJoinExec::try_new(left, right, &on, &physical_join_type)?;
+                    HashJoinExec::try_new(left, right, &keys, &physical_join_type)?;
                 if schema.as_ref() == hash_join.schema().as_ref() {
                     Ok(Arc::new(hash_join))
                 } else {

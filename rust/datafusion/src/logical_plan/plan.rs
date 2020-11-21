@@ -107,10 +107,8 @@ pub enum LogicalPlan {
         left: Arc<LogicalPlan>,
         /// Right input
         right: Arc<LogicalPlan>,
-        /// Columns in left input to use for join keys
-        left_keys: Vec<String>,
-        /// Columns in right input to use for join keys
-        right_keys: Vec<String>,
+        /// Equijoin clause expressed as pairs of (left, right) join columns
+        on: Vec<(String, String)>,
         /// Join type
         join_type: JoinType,
         /// The output schema, containing fields from the left and right inputs
@@ -581,16 +579,9 @@ impl LogicalPlan {
                         }
                         Ok(())
                     }
-                    LogicalPlan::Join {
-                        ref left_keys,
-                        ref right_keys,
-                        ..
-                    } => {
-                        let join_expr: Vec<String> = left_keys
-                            .iter()
-                            .zip(right_keys)
-                            .map(|(l, r)| format!("{} = {}", l, r))
-                            .collect();
+                    LogicalPlan::Join { on: ref keys, .. } => {
+                        let join_expr: Vec<String> =
+                            keys.iter().map(|(l, r)| format!("{} = {}", l, r)).collect();
                         write!(f, "Join: {}", join_expr.join(", "))
                     }
                     LogicalPlan::Limit { ref n, .. } => write!(f, "Limit: {}", n),
