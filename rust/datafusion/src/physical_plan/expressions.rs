@@ -3231,4 +3231,38 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn case_without_expr() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        let when1 = binary(
+            col("a"),
+            Operator::Eq,
+            lit(ScalarValue::Utf8(Some("foo".to_string()))),
+            &schema,
+        )?;
+        let then1 = lit(ScalarValue::Int32(Some(123)));
+        let when2 = binary(
+            col("a"),
+            Operator::Eq,
+            lit(ScalarValue::Utf8(Some("bar".to_string()))),
+            &schema,
+        )?;
+        let then2 = lit(ScalarValue::Int32(Some(456)));
+        let expr = case(None, &[(when1, then1), (when2, then2)], None)?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let result = result
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to downcast to Int32Array");
+
+        let expected = &Int32Array::from(vec![Some(123), None, Some(456)]);
+
+        assert_eq!(expected, result);
+
+        Ok(())
+    }
 }
