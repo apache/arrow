@@ -1797,27 +1797,29 @@ impl PhysicalExpr for CaseExpr {
 
                 for i in 0..self.when_then_expr.len() {
                     let when_value = self.when_then_expr[i].0.evaluate(batch)?;
-                    let when_array = match &when_value {
-                        ColumnarValue::Array(array) => array
-                            .as_any()
-                            .downcast_ref::<BooleanArray>()
-                            .expect("WHEN expression did not return a BooleanArray"),
-                        ColumnarValue::Scalar(_) => {
-                            //TODO convert to array or have separate path for scalars
-                            unimplemented!()
+                    let when_array: ArrayRef = match &when_value {
+                        ColumnarValue::Array(array) => array.clone(),
+                        ColumnarValue::Scalar(scalar) => {
+                            scalar.to_array_of_size(row_count)
                         }
                     };
+                    let when_array = when_array
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .expect("WHEN expression did not return a BooleanArray");
                     let then_value = self.when_then_expr[i].1.evaluate(batch)?;
-                    let then_array = match &then_value {
-                        ColumnarValue::Array(array) => array
-                            .as_any()
-                            .downcast_ref::<Int32Array>()
-                            .expect("Could not downcast THEN expression to Int32Array"),
-                        ColumnarValue::Scalar(_) => {
-                            //TODO convert to array or have separate path for scalars
-                            unimplemented!()
+                    let then_array: ArrayRef = match &then_value {
+                        ColumnarValue::Array(array) => array.clone(),
+                        ColumnarValue::Scalar(scalar) => {
+                            scalar.to_array_of_size(row_count)
                         }
                     };
+                    let then_array = then_array
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<Int32Array>()
+                        .expect("Could not downcast THEN expression to Int32Array");
                     if i == 0 {
                         let mut builder = Int32Builder::new(row_count);
                         for row in 0..row_count {
