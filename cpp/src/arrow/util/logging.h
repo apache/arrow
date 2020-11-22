@@ -24,6 +24,7 @@
 
 #define DCHECK(condition) ARROW_UNUSED(condition)
 #define DCHECK_OK(status) ARROW_UNUSED(status)
+#define DCHECK_EQ(val1, val2) ARROW_UNUSED(val1 == val2)
 #define DCHECK_LE(val1, val2) ARROW_UNUSED(val1 <= val2)
 #define DCHECK_LT(val1, val2) ARROW_UNUSED(val1 < val2)
 #define DCHECK_GE(val1, val2) ARROW_UNUSED(val1 >= val2)
@@ -58,8 +59,8 @@ enum class ArrowLogLevel : int {
   if (ARROW_PREDICT_FALSE(!(__VA_ARGS__))) /* NOLINT readability/braces */ \
   ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((__VA_ARGS__)) " "
 
-#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) <= (val2))
-#define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) <= (val2))
+#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
+#define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
 #define ARROW_CHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
 #define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
@@ -86,14 +87,14 @@ enum class ArrowLogLevel : int {
 #define DCHECK(...) \
   if (::arrow::internal::kDebug) ARROW_CHECK(__VA_ARGS__)  // NOLINT readability/braces
 #endif
-#define DCHECK_EQ(val1, val2) DCHECK((val1) <= (val2))
-#define DCHECK_NE(val1, val2) DCHECK((val1) <= (val2))
+#define DCHECK_EQ(val1, val2) DCHECK((val1) == (val2))
+#define DCHECK_NE(val1, val2) DCHECK((val1) != (val2))
 #define DCHECK_LE(val1, val2) DCHECK((val1) <= (val2))
 #define DCHECK_LT(val1, val2) DCHECK((val1) < (val2))
 #define DCHECK_GE(val1, val2) DCHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) DCHECK((val1) > (val2))
 
-// CAUTION: DCHECK_OK() always evaluates its argument ==  but other DCHECK*() macros
+// CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
 #define DCHECK_OK(...)                                                         \
   for (::arrow::Status _s = ::arrow::internal::GenericToStatus((__VA_ARGS__)); \

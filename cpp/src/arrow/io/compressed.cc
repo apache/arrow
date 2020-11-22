@@ -301,7 +301,7 @@ class CompressedInputStream::Impl {
         RETURN_NOT_OK(decompressed_->Resize(result.bytes_written));
         break;
       }
-      DCHECK(result.bytes_written == 0);
+      DCHECK_EQ(result.bytes_written, 0);
       // Need to enlarge output buffer
       decompress_size *= 2;
     }

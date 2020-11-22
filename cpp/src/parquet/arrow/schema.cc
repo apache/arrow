@@ -784,13 +784,13 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
     case ::arrow::Type::LIST:
       if (origin_type.id() == ::arrow::Type::LIST) {
         return [](FieldVector fields) {
-          DCHECK(fields.size() == 1);
+          DCHECK_EQ(fields.size(), 1);
           return ::arrow::list(std::move(fields[0]));
         };
       }
       if (origin_type.id() == ::arrow::Type::LARGE_LIST) {
         return [](FieldVector fields) {
-          DCHECK(fields.size() == 1);
+          DCHECK_EQ(fields.size(), 1);
           return ::arrow::large_list(std::move(fields[0]));
         };
       }
@@ -798,7 +798,7 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
         const auto list_size =
             checked_cast<const ::arrow::FixedSizeListType&>(origin_type).list_size();
         return [list_size](FieldVector fields) {
-          DCHECK(fields.size() == 1);
+          DCHECK_EQ(fields.size(), 1);
           return ::arrow::fixed_size_list(std::move(fields[0]), list_size);
         };
       }
@@ -819,7 +819,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   const int num_children = inferred_type->num_fields();
 
   if (num_children > 0 && origin_type->num_fields() == num_children) {
-    DCHECK(static_cast<int>(inferred->children.size()) == num_children);
+    DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
     const auto factory = GetNestedFactory(*origin_type, *inferred_type);
     if (factory) {
       // The type may be modified (e.g. LargeList) while the children stay the same

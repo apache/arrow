@@ -786,8 +786,8 @@ Status NumPyConverter::Visit(const StructType& type) {
   for (size_t chunk = 0; chunk < nchunks; chunk++) {
     // First group has the null bitmaps as Boolean Arrays
     const auto& null_data = groups[0][chunk]->data();
-    DCHECK(null_data->type->id() == Type::BOOL);
-    DCHECK(null_data->buffers.size() == 2);
+    DCHECK_EQ(null_data->type->id(), Type::BOOL);
+    DCHECK_EQ(null_data->buffers.size(), 2);
     const auto& null_buffer = null_data->buffers[1];
     // Careful: the rechunked null bitmap may have a non-zero offset
     // to its buffer, and it may not even start on a byte boundary

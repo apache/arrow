@@ -496,7 +496,7 @@ class TakeExpression : public CustomExpression {
         indices = Datum(indices_array->data());
       }
 
-      DCHECK(indices.kind() == Datum::ARRAY);
+      DCHECK_EQ(indices.kind(), Datum::ARRAY);
       compute::ExecContext ctx(pool);
       ARROW_ASSIGN_OR_RAISE(Datum out,
                             compute::Take(take_expr.dictionary_->data(), indices,

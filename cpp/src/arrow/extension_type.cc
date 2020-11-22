@@ -45,9 +45,9 @@ std::string ExtensionType::ToString() const {
 
 std::shared_ptr<Array> ExtensionType::WrapArray(const std::shared_ptr<DataType>& type,
                                                 const std::shared_ptr<Array>& storage) {
-  DCHECK(type->id() == Type::EXTENSION);
+  DCHECK_EQ(type->id(), Type::EXTENSION);
   const auto& ext_type = checked_cast<const ExtensionType&>(*type);
-  DCHECK(storage->type_id() == ext_type.storage_type()->id());
+  DCHECK_EQ(storage->type_id(), ext_type.storage_type()->id());
   auto data = storage->data()->Copy();
   data->type = type;
   return ext_type.MakeArray(std::move(data));
@@ -55,9 +55,9 @@ std::shared_ptr<Array> ExtensionType::WrapArray(const std::shared_ptr<DataType>&
 
 std::shared_ptr<ChunkedArray> ExtensionType::WrapArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<ChunkedArray>& storage) {
-  DCHECK(type->id() == Type::EXTENSION);
+  DCHECK_EQ(type->id(), Type::EXTENSION);
   const auto& ext_type = checked_cast<const ExtensionType&>(*type);
-  DCHECK(storage->type()->id() == ext_type.storage_type()->id());
+  DCHECK_EQ(storage->type()->id(), ext_type.storage_type()->id());
 
   ArrayVector out_chunks(storage->num_chunks());
   for (int i = 0; i < storage->num_chunks(); i++) {
@@ -72,7 +72,7 @@ ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,
                                const std::shared_ptr<Array>& storage) {
-  ARROW_CHECK(type->id() == Type::EXTENSION);
+  ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
   ARROW_CHECK(
       storage->type()->Equals(*checked_cast<const ExtensionType&>(*type).storage_type()));
   auto data = storage->data()->Copy();
@@ -82,7 +82,7 @@ ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,
 }
 
 void ExtensionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK(data->type->id() == Type::EXTENSION);
+  ARROW_CHECK_EQ(data->type->id(), Type::EXTENSION);
   this->Array::SetData(data);
 
   auto storage_data = data->Copy();

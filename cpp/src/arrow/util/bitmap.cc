@@ -56,7 +56,7 @@ bool Bitmap::Equals(const Bitmap& other) const {
 
 int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {
   for (size_t i = 1; i < N; ++i) {
-    DCHECK(bitmaps[i].length() == bitmaps[0].length());
+    DCHECK_EQ(bitmaps[i].length(), bitmaps[0].length());
   }
   return bitmaps[0].length();
 }

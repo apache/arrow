@@ -49,7 +49,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   if (p.aligned_words > 0) {
     // popcount as much as possible with the widest possible count
     const uint64_t* u64_data = reinterpret_cast<const uint64_t*>(p.aligned_start);
-    DCHECK((reinterpret_cast<size_t>(u64_data) & 7) == 0);
+    DCHECK_EQ(reinterpret_cast<size_t>(u64_data) & 7, 0);
     const uint64_t* end = u64_data + p.aligned_words;
 
     constexpr int64_t kCountUnrollFactor = 4;
@@ -456,8 +456,8 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
                      int64_t right_offset, uint8_t* out, int64_t out_offset,
                      int64_t length) {
   BitOp<uint8_t> op;
-  DCHECK(left_offset % 8 == right_offset % 8);
-  DCHECK(left_offset % 8 == out_offset % 8);
+  DCHECK_EQ(left_offset % 8, right_offset % 8);
+  DCHECK_EQ(left_offset % 8, out_offset % 8);
 
   const int64_t nbytes = BitUtil::BytesForBits(length + left_offset % 8);
   left += left_offset / 8;
@@ -488,7 +488,7 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
     int left_valid_bits, right_valid_bits;
     uint8_t left_byte = left_reader.NextTrailingByte(left_valid_bits);
     uint8_t right_byte = right_reader.NextTrailingByte(right_valid_bits);
-    DCHECK(left_valid_bits == right_valid_bits);
+    DCHECK_EQ(left_valid_bits, right_valid_bits);
     writer.PutNextTrailingByte(op_byte(left_byte, right_byte), left_valid_bits);
   }
 }

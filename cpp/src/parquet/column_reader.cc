@@ -1376,13 +1376,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
         ValuesHead<T>(), static_cast<int>(values_with_nulls),
         static_cast<int>(null_count), valid_bits, valid_bits_offset);
-    DCHECK(num_decoded == values_with_nulls);
+    DCHECK_EQ(num_decoded, values_with_nulls);
   }
 
   virtual void ReadValuesDense(int64_t values_to_read) {
     int64_t num_decoded =
         this->current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
-    DCHECK(num_decoded == values_to_read);
+    DCHECK_EQ(num_decoded, values_to_read);
   }
 
   // Return number of logical records read
@@ -1494,7 +1494,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                    ::arrow::MemoryPool* pool)
       : TypedRecordReader<FLBAType>(descr, leaf_info, pool), builder_(nullptr) {
-    DCHECK(descr_->physical_type() == Type::FIXED_LEN_BYTE_ARRAY);
+    DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
     int byte_width = descr_->type_length();
     std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
     builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, this->pool_));
@@ -1510,7 +1510,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     auto values = ValuesHead<FLBA>();
     int64_t num_decoded =
         this->current_decoder_->Decode(values, static_cast<int>(values_to_read));
-    DCHECK(num_decoded == values_to_read);
+    DCHECK_EQ(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
       PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
@@ -1526,7 +1526,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
         values, static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits, valid_bits_offset);
-    DCHECK(num_decoded == values_to_read);
+    DCHECK_EQ(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
       if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1548,7 +1548,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool) {
-    DCHECK(descr_->physical_type() == Type::BYTE_ARRAY);
+    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder.reset(new ::arrow::BinaryBuilder(pool));
   }
 
@@ -1566,7 +1566,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &accumulator_);
-    DCHECK(num_decoded == values_to_read);
+    DCHECK_EQ(num_decoded, values_to_read);
     ResetValues();
   }
 
@@ -1574,7 +1574,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     int64_t num_decoded = this->current_decoder_->DecodeArrow(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits_->mutable_data(), values_written_, &accumulator_);
-    DCHECK(num_decoded == values_to_read - null_count);
+    DCHECK_EQ(num_decoded, values_to_read - null_count);
     ResetValues();
   }
 
@@ -1635,7 +1635,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// Flush values since they have been copied into the builder
       ResetValues();
     }
-    DCHECK(num_decoded == values_to_read);
+    DCHECK_EQ(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
@@ -1654,7 +1654,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// Flush values since they have been copied into the builder
       ResetValues();
     }
-    DCHECK(num_decoded == values_to_read - null_count);
+    DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
  private:

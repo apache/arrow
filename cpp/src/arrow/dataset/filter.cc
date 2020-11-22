@@ -442,7 +442,7 @@ std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
     }
   }
 
-  DCHECK(cmp == Comparison::EQUAL);
+  DCHECK_EQ(cmp, Comparison::EQUAL);
 
   // the rhs of the comparisons are equal
   switch (op_) {
@@ -622,7 +622,7 @@ std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const 
   Datum out = maybe_out.ValueOrDie();
 
   DCHECK(out.is_array());
-  DCHECK(out.type()->id() == Type::BOOL);
+  DCHECK_EQ(out.type()->id(), Type::BOOL);
   auto out_array = checked_pointer_cast<BooleanArray>(out.make_array());
 
   for (int64_t i = 0; i < out_array->length(); ++i) {

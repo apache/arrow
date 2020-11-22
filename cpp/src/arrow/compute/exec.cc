@@ -834,7 +834,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
 
   Datum WrapResults(const std::vector<Datum>&,
                     const std::vector<Datum>& outputs) override {
-    DCHECK(1 == outputs.size());
+    DCHECK_EQ(1, outputs.size());
     return outputs[0];
   }
 
@@ -869,7 +869,7 @@ template <typename ExecutorType,
 Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
                                                      const Function* func,
                                                      const FunctionOptions* options) {
-  DCHECK(ExecutorType::function_kind == func->kind());
+  DCHECK_EQ(ExecutorType::function_kind, func->kind());
   auto typed_func = checked_cast<const FunctionType*>(func);
   return std::unique_ptr<KernelExecutor>(new ExecutorType(ctx, typed_func, options));
 }
@@ -924,8 +924,8 @@ CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
 
 SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
     : data_(std::move(data)) {
-  DCHECK(Type::INT32 == data_->type->id());
-  DCHECK(0 == data_->GetNullCount());
+  DCHECK_EQ(Type::INT32, data_->type->id());
+  DCHECK_EQ(0, data_->GetNullCount());
   indices_ = data_->GetValues<int32_t>(1);
 }
 

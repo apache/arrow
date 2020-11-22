@@ -43,7 +43,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 
 BooleanArray::BooleanArray(const std::shared_ptr<ArrayData>& data)
     : PrimitiveArray(data) {
-  ARROW_CHECK(data->type->id() == Type::BOOL);
+  ARROW_CHECK_EQ(data->type->id(), Type::BOOL);
 }
 
 BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,

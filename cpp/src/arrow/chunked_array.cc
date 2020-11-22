@@ -160,7 +160,7 @@ Result<std::vector<std::shared_ptr<ChunkedArray>>> ChunkedArray::Flatten(
   for (const auto& chunk : chunks_) {
     ARROW_ASSIGN_OR_RAISE(auto arrays,
                           checked_cast<const StructArray&>(*chunk).Flatten(pool));
-    DCHECK(arrays.size() == flattened_chunks.size());
+    DCHECK_EQ(arrays.size(), flattened_chunks.size());
     for (size_t i = 0; i < arrays.size(); ++i) {
       flattened_chunks[i].push_back(arrays[i]);
     }

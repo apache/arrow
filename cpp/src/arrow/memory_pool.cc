@@ -126,7 +126,7 @@ class SystemAllocator {
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
     if (previous_ptr == zero_size_area) {
-      DCHECK(old_size == 0);
+      DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
@@ -153,7 +153,7 @@ class SystemAllocator {
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
     if (ptr == zero_size_area) {
-      DCHECK(size == 0);
+      DCHECK_EQ(size, 0);
     } else {
 #ifdef _WIN32
       _aligned_free(ptr);
@@ -185,7 +185,7 @@ class JemallocAllocator {
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
     if (previous_ptr == zero_size_area) {
-      DCHECK(old_size == 0);
+      DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
@@ -204,7 +204,7 @@ class JemallocAllocator {
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
     if (ptr == zero_size_area) {
-      DCHECK(size == 0);
+      DCHECK_EQ(size, 0);
     } else {
       dallocx(ptr, MALLOCX_ALIGN(kAlignment));
     }
@@ -234,7 +234,7 @@ class MimallocAllocator {
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
     if (previous_ptr == zero_size_area) {
-      DCHECK(old_size == 0);
+      DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
@@ -253,7 +253,7 @@ class MimallocAllocator {
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
     if (ptr == zero_size_area) {
-      DCHECK(size == 0);
+      DCHECK_EQ(size, 0);
     } else {
       mi_free(ptr);
     }

@@ -436,9 +436,9 @@ class BlockParserImpl {
     batch_.parsed_ = batch_.parsed_buffer_->data();
 
     if (batch_.num_cols_ == -1) {
-      DCHECK(batch_.num_rows_ == 0);
+      DCHECK_EQ(batch_.num_rows_, 0);
     }
-    DCHECK(values_size_ == batch_.num_rows_ * batch_.num_cols_);
+    DCHECK_EQ(values_size_, batch_.num_rows_ * batch_.num_cols_);
 #ifndef NDEBUG
     if (batch_.num_rows_ > 0) {
       // Ending parsed offset should be equal to number of parsed bytes
@@ -449,9 +449,9 @@ class BlockParserImpl {
       const auto last_values_size = last_values_buffer->size() / sizeof(ParsedValueDesc);
       const auto check_parsed_size =
           static_cast<int32_t>(last_values[last_values_size - 1].offset);
-      DCHECK(batch_.parsed_size_ == check_parsed_size);
+      DCHECK_EQ(batch_.parsed_size_, check_parsed_size);
     } else {
-      DCHECK(batch_.parsed_size_ == 0);
+      DCHECK_EQ(batch_.parsed_size_, 0);
     }
 #endif
     *out_size = static_cast<uint32_t>(total_parsed_length);

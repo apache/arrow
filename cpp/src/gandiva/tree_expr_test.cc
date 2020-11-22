@@ -60,7 +60,7 @@ TEST_F(TestExprTree, TestField) {
   ExprDecomposer decomposer(registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n1, &pair);
-  DCHECK(status.ok() == true) << status.message();
+  DCHECK_EQ(status.ok(), true) << status.message();
 
   auto value = pair->value_expr();
   auto value_dex = std::dynamic_pointer_cast<VectorReadFixedLenValueDex>(value);
@@ -91,7 +91,7 @@ TEST_F(TestExprTree, TestBinary) {
   ExprDecomposer decomposer(registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n, &pair);
-  DCHECK(status.ok() == true) << status.message();
+  DCHECK_EQ(status.ok(), true) << status.message();
 
   auto value = pair->value_expr();
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
@@ -117,7 +117,7 @@ TEST_F(TestExprTree, TestUnary) {
   ExprDecomposer decomposer(registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n, &pair);
-  DCHECK(status.ok() == true) << status.message();
+  DCHECK_EQ(status.ok(), true) << status.message();
 
   auto value = pair->value_expr();
   auto never_null = std::dynamic_pointer_cast<NullableNeverFuncDex>(value);
@@ -146,7 +146,7 @@ TEST_F(TestExprTree, TestExpression) {
   ExprDecomposer decomposer(registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*root_node, &pair);
-  DCHECK(status.ok() == true) << status.message();
+  DCHECK_EQ(status.ok(), true) << status.message();
 
   auto value = pair->value_expr();
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);

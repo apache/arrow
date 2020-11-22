@@ -79,7 +79,7 @@ Datum::Datum(const RecordBatch& value)
     : value(RecordBatch::Make(value.schema(), value.num_rows(), value.columns())) {}
 
 std::shared_ptr<Array> Datum::make_array() const {
-  DCHECK(Datum::ARRAY == this->kind());
+  DCHECK_EQ(Datum::ARRAY, this->kind());
   return MakeArray(util::get<std::shared_ptr<ArrayData>>(this->value));
 }
 

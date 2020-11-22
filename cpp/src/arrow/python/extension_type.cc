@@ -135,7 +135,7 @@ error:
 }
 
 std::shared_ptr<Array> PyExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK(data->type->id() == Type::EXTENSION);
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
   return std::make_shared<ExtensionArray>(data);
 }
 
@@ -202,7 +202,7 @@ Status PyExtensionType::FromClass(const std::shared_ptr<DataType> storage_type,
 }
 
 Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
-  DCHECK(type->id() == Type::EXTENSION);
+  DCHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
   return RegisterExtensionType(ext_type);
 }

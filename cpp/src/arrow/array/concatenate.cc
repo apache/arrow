@@ -316,7 +316,7 @@ class ConcatenateImpl {
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
   Result<BufferVector> Buffers(size_t index, const std::vector<Range>& ranges) {
-    DCHECK(in_.size() == ranges.size());
+    DCHECK_EQ(in_.size(), ranges.size());
     BufferVector buffers;
     buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
@@ -327,7 +327,7 @@ class ConcatenateImpl {
             SliceBufferSafe(buffer, ranges[i].offset, ranges[i].length));
         buffers.push_back(std::move(sliced_buffer));
       } else {
-        DCHECK(ranges[i].length == 0);
+        DCHECK_EQ(ranges[i].length, 0);
       }
     }
     return buffers;
@@ -359,7 +359,7 @@ class ConcatenateImpl {
   // Note that BufferVector will not contain the buffer of in_[i] if it's
   // nullptr.
   Result<BufferVector> Buffers(size_t index, const FixedWidthType& fixed) {
-    DCHECK(fixed.bit_width() % 8 == 0);
+    DCHECK_EQ(fixed.bit_width() % 8, 0);
     return Buffers(index, fixed.bit_width() / 8);
   }
 
@@ -389,7 +389,7 @@ class ConcatenateImpl {
   // Elements are sliced with the explicitly passed ranges.
   Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(
       size_t index, const std::vector<Range>& ranges) {
-    DCHECK(in_.size() == ranges.size());
+    DCHECK_EQ(in_.size(), ranges.size());
     std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(

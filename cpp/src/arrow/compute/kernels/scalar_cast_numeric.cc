@@ -67,7 +67,7 @@ Status CheckFloatTruncation(const Datum& input, const Datum& output) {
   };
 
   if (input.kind() == Datum::SCALAR) {
-    DCHECK(output.kind() == Datum::SCALAR);
+    DCHECK_EQ(output.kind(), Datum::SCALAR);
     const auto& in_scalar = input.scalar_as<typename TypeTraits<InType>::ScalarType>();
     const auto& out_scalar = output.scalar_as<typename TypeTraits<OutType>::ScalarType>();
     if (WasTruncatedMaybeNull(out_scalar.value, in_scalar.value, out_scalar.is_valid)) {

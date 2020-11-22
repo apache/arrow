@@ -221,7 +221,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
-  DCHECK(filter.type->id() == Type::BOOL);
+  DCHECK_EQ(filter.type->id(), Type::BOOL);
   if (filter.length <= std::numeric_limits<uint16_t>::max()) {
     return GetTakeIndicesImpl<UInt16Type>(filter, null_selection, memory_pool);
   } else if (filter.length <= std::numeric_limits<uint32_t>::max()) {

@@ -184,7 +184,7 @@ class ZSTDCodec : public Codec {
       // We may pass a NULL 0-byte output buffer but some zstd versions demand
       // a valid pointer: https://github.com/facebook/zstd/issues/1385
       static uint8_t empty_buffer;
-      DCHECK(output_buffer_len == 0);
+      DCHECK_EQ(output_buffer_len, 0);
       output_buffer = &empty_buffer;
     }
 

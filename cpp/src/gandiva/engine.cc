@@ -84,7 +84,7 @@ std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 
 void Engine::InitOnce() {
-  DCHECK(llvm_init == false);
+  DCHECK_EQ(llvm_init, false);
 
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();

@@ -180,7 +180,7 @@ class BitReader {
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
   // TODO: revisit this limit if necessary (can be raised to 64 by fixing some edge cases)
   DCHECK_LE(num_bits, 32);
-  DCHECK(v >> num_bits == 0) << "v = " << v << ", num_bits = " << num_bits;
+  DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
 
   if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
     return false;

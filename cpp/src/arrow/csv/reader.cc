@@ -315,7 +315,7 @@ class ReaderMixin {
           return Status::OK();
         };
         RETURN_NOT_OK(parser.VisitLastRow(visit));
-        DCHECK(static_cast<size_t>(parser.num_cols()) == column_names_.size());
+        DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
         // Skip parsed header row
         data += parsed_size;
       }
@@ -503,7 +503,7 @@ class BaseTableReader : public ReaderMixin, public csv::TableReader {
   }
 
   Result<std::shared_ptr<Table>> MakeTable() {
-    DCHECK(column_builders_.size() == conversion_schema_.columns.size());
+    DCHECK_EQ(column_builders_.size(), conversion_schema_.columns.size());
 
     std::vector<std::shared_ptr<Field>> fields;
     std::vector<std::shared_ptr<ChunkedArray>> columns;
@@ -597,13 +597,13 @@ class BaseStreamingReader : public ReaderMixin, public csv::StreamingReader {
       }
     }
     RETURN_NOT_OK(st);
-    DCHECK(arrays.size() == column_decoders_.size());
+    DCHECK_EQ(arrays.size(), column_decoders_.size());
     const bool is_null = (arrays[0] == nullptr);
-    if (internal::kDebug) {
-      for (const auto& array : arrays) {
-        DCHECK((array == nullptr) == is_null);
-      }
+#ifndef NDEBUG
+    for (const auto& array : arrays) {
+      DCHECK_EQ(array == nullptr, is_null);
     }
+#endif
     if (is_null) {
       eof_ = true;
       return nullptr;

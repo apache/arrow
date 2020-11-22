@@ -59,7 +59,7 @@ BasicUnionBuilder::BasicUnionBuilder(
   const auto& union_type = checked_cast<const UnionType&>(*type);
   mode_ = union_type.mode();
 
-  DCHECK(children.size() == union_type.type_codes().size());
+  DCHECK_EQ(children.size(), union_type.type_codes().size());
 
   type_codes_ = union_type.type_codes();
   children_ = children;

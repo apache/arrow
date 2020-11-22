@@ -642,7 +642,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 template <typename DType>
 void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) {
   // For primitive types, only a memcpy
-  DCHECK(static_cast<size_t>(dict_encoded_size_) == sizeof(T) * memo_table_.size());
+  DCHECK_EQ(static_cast<size_t>(dict_encoded_size_), sizeof(T) * memo_table_.size());
   memo_table_.CopyValues(0 /* start_pos */, reinterpret_cast<T*>(buffer));
 }
 
@@ -661,7 +661,7 @@ void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) {
 template <>
 void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) {
   memo_table_.VisitValues(0, [&](const ::arrow::util::string_view& v) {
-    DCHECK(v.length() == static_cast<size_t>(type_length_));
+    DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
     memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
   });

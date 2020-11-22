@@ -404,7 +404,7 @@ class MemoryMappedFile::MemoryMap
     ~Region() {
       if (data_ != nullptr) {
         int result = munmap(data(), static_cast<size_t>(size_));
-        ARROW_CHECK(result == 0) << "munmap failed";
+        ARROW_CHECK_EQ(result, 0) << "munmap failed";
       }
     }
 
@@ -508,7 +508,7 @@ class MemoryMappedFile::MemoryMap
         position_ = map_len_;
       }
     } else {
-      DCHECK(position_ == 0);
+      DCHECK_EQ(position_, 0);
       // the mmap is not yet initialized, resize the underlying
       // file, since it might have been 0-sized
       RETURN_NOT_OK(InitMMap(new_size, /*resize_file*/ true));

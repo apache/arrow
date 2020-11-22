@@ -142,7 +142,7 @@ class BufferedOutputStream::Impl : public BufferedBase {
     }
     if (nbytes + buffer_pos_ >= buffer_size_) {
       RETURN_NOT_OK(FlushUnlocked());
-      DCHECK(buffer_pos_ == 0);
+      DCHECK_EQ(buffer_pos_, 0);
       if (nbytes >= buffer_size_) {
         // Direct write
         if (buffer) {

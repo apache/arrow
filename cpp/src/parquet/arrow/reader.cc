@@ -620,8 +620,8 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
                    std::move(child_reader)) {}
   ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) final {
-    DCHECK(data->buffers.size() == 2);
-    DCHECK(field()->type()->id() == ::arrow::Type::FIXED_SIZE_LIST);
+    DCHECK_EQ(data->buffers.size(), 2);
+    DCHECK_EQ(field()->type()->id(), ::arrow::Type::FIXED_SIZE_LIST);
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
     const int32_t* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
     for (int x = 1; x <= data->length; x++) {

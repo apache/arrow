@@ -46,8 +46,8 @@ class Lexer {
   };
 
   explicit Lexer(const ParseOptions& options) : options_(options) {
-    DCHECK(quoting == options_.quoting);
-    DCHECK(escaping == options_.escaping);
+    DCHECK_EQ(quoting, options_.quoting);
+    DCHECK_EQ(escaping, options_.escaping);
   }
 
   const char* ReadLine(const char* data, const char* data_end) {
@@ -196,7 +196,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
 
     const char* line_end =
         lexer.ReadLine(partial.data(), partial.data() + partial.size());
-    DCHECK(line_end == nullptr);  // Otherwise `partial` is a whole CSV line
+    DCHECK_EQ(line_end, nullptr);  // Otherwise `partial` is a whole CSV line
     line_end = lexer.ReadLine(block.data(), block.data() + block.size());
 
     if (line_end == nullptr) {

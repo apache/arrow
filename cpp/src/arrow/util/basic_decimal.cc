@@ -202,7 +202,7 @@ BasicDecimal128& BasicDecimal128::operator-=(const BasicDecimal128& right) {
 BasicDecimal128& BasicDecimal128::operator/=(const BasicDecimal128& right) {
   BasicDecimal128 remainder;
   auto s = Divide(right, this, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
 
@@ -782,7 +782,7 @@ BasicDecimal128 operator/(const BasicDecimal128& left, const BasicDecimal128& ri
   BasicDecimal128 remainder;
   BasicDecimal128 result;
   auto s = left.Divide(right, &result, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   return result;
 }
 
@@ -790,7 +790,7 @@ BasicDecimal128 operator%(const BasicDecimal128& left, const BasicDecimal128& ri
   BasicDecimal128 remainder;
   BasicDecimal128 result;
   auto s = left.Divide(right, &result, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   return remainder;
 }
 
@@ -802,7 +802,7 @@ static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delt
     DCHECK(multiplier != 0);
     BasicDecimal128 remainder;
     auto status = value.Divide(multiplier, result, &remainder);
-    DCHECK(status == DecimalStatus::kSuccess);
+    DCHECK_EQ(status, DecimalStatus::kSuccess);
     return remainder != 0;
   }
 
@@ -844,7 +844,7 @@ void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
 
   BasicDecimal128 multiplier(ScaleMultipliers[scale]);
   auto s = Divide(multiplier, whole, fraction);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
 
 const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
@@ -875,7 +875,7 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   BasicDecimal128 result;
   BasicDecimal128 remainder;
   auto s = Divide(divisor, &result, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {
@@ -1003,7 +1003,7 @@ bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
 BasicDecimal256& BasicDecimal256::operator/=(const BasicDecimal256& right) {
   BasicDecimal256 remainder;
   auto s = Divide(right, this, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
 }
 
@@ -1011,7 +1011,7 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
   BasicDecimal256 remainder;
   BasicDecimal256 result;
   auto s = left.Divide(right, &result, &remainder);
-  DCHECK(s == DecimalStatus::kSuccess);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   return result;
 }
 

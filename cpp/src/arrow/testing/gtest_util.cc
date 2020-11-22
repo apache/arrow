@@ -561,8 +561,8 @@ bool UuidType::ExtensionEquals(const ExtensionType& other) const {
 }
 
 std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK(data->type->id() == Type::EXTENSION);
-  DCHECK("uuid" == static_cast<const ExtensionType&>(*data->type).extension_name());
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<UuidArray>(data);
 }
 
@@ -583,8 +583,8 @@ bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
 }
 
 std::shared_ptr<Array> SmallintType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK(data->type->id() == Type::EXTENSION);
-  DCHECK("smallint" == static_cast<const ExtensionType&>(*data->type).extension_name());
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("smallint", static_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<SmallintArray>(data);
 }
 
@@ -606,7 +606,7 @@ bool DictExtensionType::ExtensionEquals(const ExtensionType& other) const {
 
 std::shared_ptr<Array> DictExtensionType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
-  DCHECK(data->type->id() == Type::EXTENSION);
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK(ExtensionEquals(checked_cast<const ExtensionType&>(*data->type)));
   // No need for a specific ExtensionArray derived class
   return std::make_shared<ExtensionArray>(data);
@@ -655,7 +655,7 @@ std::shared_ptr<Array> ExampleSmallint() {
 }
 
 ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type) {
-  ARROW_CHECK(type->id() == Type::EXTENSION);
+  ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = checked_pointer_cast<ExtensionType>(type);
 
   ARROW_CHECK_OK(RegisterExtensionType(ext_type));

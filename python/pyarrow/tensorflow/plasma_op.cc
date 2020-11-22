@@ -122,14 +122,14 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
     int64_t total_bytes = 0;
     for (int i = 0; i < num_tensors; ++i) {
       const size_t s = context->input(i).TotalBytes();
-      CHECK(s ==  context->input(i).NumElements() * byte_width);
+      CHECK_EQ(s, context->input(i).NumElements() * byte_width);
       CHECK_GT(s, 0);
       total_bytes += s;
       offsets.push_back(total_bytes);
     }
 
     const tf::Tensor& plasma_object_id = context->input(num_inputs - 1);
-    CHECK(plasma_object_id.NumElements() ==  1);
+    CHECK_EQ(plasma_object_id.NumElements(), 1);
     const std::string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
     VLOG(1) << "plasma_object_id_str: '" << plasma_object_id_str << "'";
     const plasma::ObjectID object_id =
@@ -265,7 +265,7 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
 
   void ComputeAsync(tf::OpKernelContext* context, DoneCallback done) override {
     const tf::Tensor& plasma_object_id = context->input(0);
-    CHECK(plasma_object_id.NumElements() ==  1);
+    CHECK_EQ(plasma_object_id.NumElements(), 1);
     const std::string& plasma_object_id_str = plasma_object_id.flat<std::string>()(0);
 
     VLOG(1) << "plasma_object_id_str: '" << plasma_object_id_str << "'";

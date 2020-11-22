@@ -730,7 +730,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
                       const IpcReadOptions& options, DictionaryKind* kind) {
   // Only invoke this method if we already know we have a dictionary message
-  DCHECK(message.type() == MessageType::DICTIONARY_BATCH);
+  DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
   return ReadDictionary(*message.metadata(), dictionary_memo, options, kind,
@@ -990,7 +990,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
 
     // TODO(wesm): this breaks integration tests, see ARROW-3256
-    // DCHECK((*out)->body_length() ==  block.body_length);
+    // DCHECK_EQ((*out)->body_length(), block.body_length);
 
     ARROW_ASSIGN_OR_RAISE(auto message,
                           ReadMessage(block.offset, block.metadata_length, file_));
@@ -1571,7 +1571,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
           sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
           &indices_type));
-      ARROW_CHECK(indptr_type == indices_type);
+      ARROW_CHECK_EQ(indptr_type, indices_type);
       ARROW_ASSIGN_OR_RAISE(
           sparse_index,
           SparseCSRIndex::Make(indices_type, shape, non_zero_length,
@@ -1586,7 +1586,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
           sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
           &indices_type));
-      ARROW_CHECK(indptr_type == indices_type);
+      ARROW_CHECK_EQ(indptr_type, indices_type);
       ARROW_ASSIGN_OR_RAISE(
           sparse_index,
           SparseCSCIndex::Make(indices_type, shape, non_zero_length,
@@ -1602,7 +1602,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
           sparse_tensor->sparseIndex_as_SparseTensorIndexCSF(), &axis_order,
           &indices_size, &indptr_type, &indices_type));
-      ARROW_CHECK(indptr_type == indices_type);
+      ARROW_CHECK_EQ(indptr_type, indices_type);
 
       const int64_t ndim = shape.size();
       std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);

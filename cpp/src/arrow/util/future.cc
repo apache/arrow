@@ -140,7 +140,7 @@ class FutureWaiterImpl : public FutureWaiter {
   int DoWaitAndFetchOne() {
     std::unique_lock<std::mutex> lock(global_waiter_mutex);
 
-    DCHECK(kind_ == ITERATE);
+    DCHECK_EQ(kind_, ITERATE);
     DoWaitUnlocked(&lock);
     DCHECK_LT(static_cast<size_t>(fetch_pos_), finished_futures_.size());
     if (static_cast<size_t>(fetch_pos_) == finished_futures_.size() - 1) {
@@ -211,7 +211,7 @@ class ConcreteFutureImpl : public FutureImpl {
 
     // Atomically load state at the time of adding the waiter, to avoid
     // missed or duplicate events in the caller
-    ARROW_CHECK(waiter_ == nullptr)
+    ARROW_CHECK_EQ(waiter_, nullptr)
         << "Only one Waiter allowed per Future at any given time";
     waiter_ = w;
     waiter_arg_ = future_num;
@@ -221,7 +221,7 @@ class ConcreteFutureImpl : public FutureImpl {
   void DoRemoveWaiter(FutureWaiter* w) {
     std::unique_lock<std::mutex> lock(mutex_);
 
-    ARROW_CHECK(waiter_ == w);
+    ARROW_CHECK_EQ(waiter_, w);
     waiter_ = nullptr;
   }
 

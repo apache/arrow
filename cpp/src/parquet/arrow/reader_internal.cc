@@ -599,7 +599,7 @@ template <
                                     std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type, Datum* out) {
-  DCHECK(type->id() == ::arrow::Type::DECIMAL);
+  DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);
 
   const int64_t length = reader->values_written();
 

@@ -50,7 +50,7 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_builder_(pool) {}
 
 void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
-  DCHECK(size == byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
+  DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
 }
 
 Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,

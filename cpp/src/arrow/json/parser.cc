@@ -395,7 +395,7 @@ class RawBuilderSet {
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
   enable_if_t<kind != Kind::kNull, RawArrayBuilder<kind>*> Cast(BuilderPtr builder) {
-    DCHECK(builder.kind == kind);
+    DCHECK_EQ(builder.kind, kind);
     return arena<kind>().data() + builder.index;
   }
 
@@ -464,10 +464,9 @@ class RawBuilderSet {
     }
     switch (builder.kind) {
       case Kind::kNull: {
-        DCHECK(builder ==
-               (parent.kind == Kind::kArray
-                    ? Cast<Kind::kArray>(parent)->value_builder()
-                    : Cast<Kind::kObject>(parent)->field_builder(field_index)));
+        DCHECK_EQ(builder, parent.kind == Kind::kArray
+                               ? Cast<Kind::kArray>(parent)->value_builder()
+                               : Cast<Kind::kObject>(parent)->field_builder(field_index));
 
         // increment null count stored inline
         builder.index += 1;
@@ -1047,7 +1046,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     auto parent = builder_stack_.back();
     if (parent.kind == Kind::kArray) {
       auto list_builder = Cast<Kind::kArray>(parent);
-      DCHECK(list_builder->value_builder() == builder_);
+      DCHECK_EQ(list_builder->value_builder(), builder_);
       status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
       if (ARROW_PREDICT_FALSE(!status_.ok())) {
         return true;
@@ -1056,7 +1055,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
       list_builder->value_builder(builder_);
     } else {
       auto struct_builder = Cast<Kind::kObject>(parent);
-      DCHECK(struct_builder->field_builder(field_index_) == builder_);
+      DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
       status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
       if (ARROW_PREDICT_FALSE(!status_.ok())) {
         return true;

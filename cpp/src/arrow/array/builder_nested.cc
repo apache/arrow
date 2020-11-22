@@ -78,7 +78,7 @@ void MapBuilder::Reset() {
 }
 
 Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  ARROW_CHECK(item_builder_->length() == key_builder_->length())
+  ARROW_CHECK_EQ(item_builder_->length(), key_builder_->length())
       << "keys and items builders don't have the same size in MapBuilder";
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->FinishInternal(out));
@@ -89,7 +89,7 @@ Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
 Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
                                 const uint8_t* valid_bytes) {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendValues(offsets, length, valid_bytes));
   length_ = list_builder_->length();
@@ -98,7 +98,7 @@ Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
 }
 
 Status MapBuilder::Append() {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->Append());
   length_ = list_builder_->length();
@@ -106,7 +106,7 @@ Status MapBuilder::Append() {
 }
 
 Status MapBuilder::AppendNull() {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNull());
   length_ = list_builder_->length();
@@ -115,7 +115,7 @@ Status MapBuilder::AppendNull() {
 }
 
 Status MapBuilder::AppendNulls(int64_t length) {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNulls(length));
   length_ = list_builder_->length();
@@ -124,7 +124,7 @@ Status MapBuilder::AppendNulls(int64_t length) {
 }
 
 Status MapBuilder::AppendEmptyValue() {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendEmptyValue());
   length_ = list_builder_->length();
@@ -133,7 +133,7 @@ Status MapBuilder::AppendEmptyValue() {
 }
 
 Status MapBuilder::AppendEmptyValues(int64_t length) {
-  DCHECK(item_builder_->length() == key_builder_->length());
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendEmptyValues(length));
   length_ = list_builder_->length();
@@ -283,7 +283,7 @@ Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 std::shared_ptr<DataType> StructBuilder::type() const {
-  DCHECK(type_->fields().size() == children_.size());
+  DCHECK_EQ(type_->fields().size(), children_.size());
   std::vector<std::shared_ptr<Field>> fields(children_.size());
   for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
     fields[i] = type_->field(i)->WithType(children_[i]->type());

@@ -55,7 +55,7 @@ Status ArrayBuilder::TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buf
     buffer->ZeroPadding();
   } else {
     // Null buffers are allowed in place of 0-byte buffers
-    DCHECK(bytes_filled == 0);
+    DCHECK_EQ(bytes_filled, 0);
   }
   return Status::OK();
 }

@@ -1406,7 +1406,7 @@ class ArrayReader {
     RETURN_NOT_OK(GetNullBitmap());
 
     RETURN_NOT_OK(GetChildren(obj_, type));
-    DCHECK(data_->child_data[0]->length == type.list_size() * length_);
+    DCHECK_EQ(data_->child_data[0]->length, type.list_size() * length_);
     return Status::OK();
   }
 
@@ -1513,7 +1513,7 @@ class ArrayReader {
       auto it = json_child.FindMember("name");
       RETURN_NOT_STRING("name", it, json_child);
 
-      DCHECK(it->value.GetString() == child_field->name());
+      DCHECK_EQ(it->value.GetString(), child_field->name());
       ArrayReader child_reader(child_obj, pool_, child_field);
       ARROW_ASSIGN_OR_RAISE(data_->child_data[i], child_reader.Parse());
     }
@@ -1698,7 +1698,7 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     const std::shared_ptr<Array>& column = batch.column(i);
 
-    DCHECK(batch.num_rows() == column->length())
+    DCHECK_EQ(batch.num_rows(), column->length())
         << "Array length did not match record batch length: " << batch.num_rows()
         << " != " << column->length() << " " << batch.column_name(i);
 

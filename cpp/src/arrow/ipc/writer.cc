@@ -1082,7 +1082,7 @@ class StreamBookKeeper {
 
   Status UpdatePositionCheckAligned() {
     RETURN_NOT_OK(UpdatePosition());
-    DCHECK(0 == position_ % 8) << "Stream is not aligned";
+    DCHECK_EQ(0, position_ % 8) << "Stream is not aligned";
     return Status::OK();
   }
 

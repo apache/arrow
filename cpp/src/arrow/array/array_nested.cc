@@ -179,9 +179,9 @@ namespace internal {
 template <typename TYPE>
 inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayData>& data,
                         Type::type expected_type_id) {
-  ARROW_CHECK(data->buffers.size() == 2);
-  ARROW_CHECK(data->type->id() == expected_type_id);
-  ARROW_CHECK(data->child_data.size() == 1);
+  ARROW_CHECK_EQ(data->buffers.size(), 2);
+  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
+  ARROW_CHECK_EQ(data->child_data.size(), 1);
 
   self->Array::SetData(data);
 
@@ -189,7 +189,7 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
   self->raw_value_offsets_ =
       data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
 
-  ARROW_CHECK(self->list_type_->value_type()->id() == data->child_data[0]->type->id());
+  ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
@@ -204,7 +204,7 @@ ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
                      std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
                      std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                      int64_t offset) {
-  ARROW_CHECK(type->id() == Type::LIST);
+  ARROW_CHECK_EQ(type->id(), Type::LIST);
   auto internal_data = ArrayData::Make(
       std::move(type), length,
       BufferVector{std::move(null_bitmap), std::move(value_offsets)}, null_count, offset);
@@ -221,7 +221,7 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
                                const std::shared_ptr<Array>& values,
                                const std::shared_ptr<Buffer>& null_bitmap,
                                int64_t null_count, int64_t offset) {
-  ARROW_CHECK(type->id() == Type::LARGE_LIST);
+  ARROW_CHECK_EQ(type->id(), Type::LARGE_LIST);
   auto internal_data =
       ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
@@ -400,14 +400,14 @@ FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
 }
 
 void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK(data->type->id() == Type::FIXED_SIZE_LIST);
+  ARROW_CHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
   this->Array::SetData(data);
 
-  ARROW_CHECK(list_type()->value_type()->id() == data->child_data[0]->type->id());
+  ARROW_CHECK_EQ(list_type()->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
   list_size_ = list_type()->list_size();
 
-  ARROW_CHECK(data_->child_data.size() == 1);
+  ARROW_CHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
 }
 
@@ -443,7 +443,7 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
 // Struct
 
 StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK(data->type->id() == Type::STRUCT);
+  ARROW_CHECK_EQ(data->type->id(), Type::STRUCT);
   SetData(data);
   boxed_fields_.resize(data->child_data.size());
 }
@@ -452,7 +452,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::vector<std::shared_ptr<Array>>& children,
                          std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                          int64_t offset) {
-  ARROW_CHECK(type->id() == Type::STRUCT);
+  ARROW_CHECK_EQ(type->id(), Type::STRUCT);
   SetData(ArrayData::Make(type, length, {null_bitmap}, null_count, offset));
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
@@ -601,21 +601,21 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
 
 void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
   this->UnionArray::SetData(std::move(data));
-  ARROW_CHECK(data_->type->id() == Type::SPARSE_UNION);
-  ARROW_CHECK(data_->buffers.size() == 2);
+  ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
+  ARROW_CHECK_EQ(data_->buffers.size(), 2);
 
   // No validity bitmap
-  ARROW_CHECK(data_->buffers[0] == nullptr);
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->UnionArray::SetData(std::move(data));
 
-  ARROW_CHECK(data_->type->id() == Type::DENSE_UNION);
-  ARROW_CHECK(data_->buffers.size() == 3);
+  ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
+  ARROW_CHECK_EQ(data_->buffers.size(), 3);
 
   // No validity bitmap
-  ARROW_CHECK(data_->buffers[0] == nullptr);
+  ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 
   raw_value_offsets_ = data->GetValuesSafe<int32_t>(2, /*offset=*/0);
 }

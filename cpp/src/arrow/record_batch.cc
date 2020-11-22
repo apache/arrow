@@ -147,14 +147,14 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
     std::vector<std::shared_ptr<Array>> columns) {
-  DCHECK(schema->num_fields() == static_cast<int>(columns.size()));
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows, columns);
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
     std::vector<std::shared_ptr<ArrayData>> columns) {
-  DCHECK(schema->num_fields() == static_cast<int>(columns.size()));
+  DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
                                              std::move(columns));
 }

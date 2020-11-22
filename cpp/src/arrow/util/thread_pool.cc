@@ -64,7 +64,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
 
   // Since we hold the lock, `it` now points to the correct thread object
   // (LaunchWorkersUnlocked has exited)
-  DCHECK(std::this_thread::get_id() == it->get_id());
+  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
 
   // If too many threads, we should secede from the pool
   const auto should_secede = [&]() -> bool {
@@ -106,7 +106,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
   // 2) we can explicitly join() the trashcan threads to make sure all OS threads
   //    are exited before the ThreadPool is destroyed.  Otherwise subtle
   //    timing conditions can lead to false positives with Valgrind.
-  DCHECK(std::this_thread::get_id() == it->get_id());
+  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
   state->finished_workers_.push_back(std::move(*it));
   state->workers_.erase(it);
   if (state->please_shutdown_) {
@@ -202,7 +202,7 @@ Status ThreadPool::Shutdown(bool wait) {
   state_->cv_.notify_all();
   state_->cv_shutdown_.wait(lock, [this] { return state_->workers_.empty(); });
   if (!state_->quick_shutdown_) {
-    DCHECK(state_->pending_tasks_.size() == 0);
+    DCHECK_EQ(state_->pending_tasks_.size(), 0);
   } else {
     state_->pending_tasks_.clear();
   }

@@ -61,7 +61,7 @@ class ConcreteColumnDecoder : public ColumnDecoder {
   void SetEOF(int64_t num_blocks) override {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    DCHECK(num_chunks_ == -1) << "Cannot change EOF";
+    DCHECK_EQ(num_chunks_, -1) << "Cannot change EOF";
     num_chunks_ = num_blocks;
 
     // If further chunks have been requested in NextChunk(), arrange to return nullptr

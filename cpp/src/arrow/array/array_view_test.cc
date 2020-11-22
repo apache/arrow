@@ -63,8 +63,8 @@ class IPv4Type : public ExtensionType {
   }
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-    DCHECK(data->type->id() == Type::EXTENSION);
-    DCHECK("ipv4" == static_cast<const ExtensionType&>(*data->type).extension_name());
+    DCHECK_EQ(data->type->id(), Type::EXTENSION);
+    DCHECK_EQ("ipv4", static_cast<const ExtensionType&>(*data->type).extension_name());
     return std::make_shared<ExtensionArray>(data);
   }
 

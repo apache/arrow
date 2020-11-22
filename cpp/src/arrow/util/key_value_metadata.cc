@@ -61,13 +61,13 @@ KeyValueMetadata::KeyValueMetadata() : keys_(), values_() {}
 KeyValueMetadata::KeyValueMetadata(
     const std::unordered_map<std::string, std::string>& map)
     : keys_(UnorderedMapKeys(map)), values_(UnorderedMapValues(map)) {
-  ARROW_CHECK(keys_.size() == values_.size());
+  ARROW_CHECK_EQ(keys_.size(), values_.size());
 }
 
 KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
                                    std::vector<std::string> values)
     : keys_(std::move(keys)), values_(std::move(values)) {
-  ARROW_CHECK(keys.size() == values.size());
+  ARROW_CHECK_EQ(keys.size(), values.size());
 }
 
 void KeyValueMetadata::ToUnorderedMap(
@@ -156,7 +156,7 @@ void KeyValueMetadata::reserve(int64_t n) {
 }
 
 int64_t KeyValueMetadata::size() const {
-  DCHECK(keys_.size() == values_.size());
+  DCHECK_EQ(keys_.size(), values_.size());
   return static_cast<int64_t>(keys_.size());
 }
 

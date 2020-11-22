@@ -413,7 +413,7 @@ class ListPathNode {
       // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
       RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      DCHECK(size_check.start == child_range->end);
+      DCHECK_EQ(size_check.start, child_range->end);
       child_range->end = size_check.end;
       ++range->start;
     }

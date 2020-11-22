@@ -810,7 +810,7 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
                       static_cast<int>(dest_buffer->size() - prefix_size));
   int encoded = level_encoder_.Encode(static_cast<int>(num_buffered_values_),
                                       reinterpret_cast<const int16_t*>(src_buffer));
-  DCHECK(encoded == num_buffered_values_);
+  DCHECK_EQ(encoded, num_buffered_values_);
 
   if (include_length_prefix) {
     reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
@@ -1000,7 +1000,7 @@ inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
 }
 
 bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
-  DCHECK(array.type_id() == ::arrow::Type::DICTIONARY);
+  DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
   return ::arrow::is_base_binary_like(dict_type.value_type()->id());
@@ -1270,7 +1270,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
         // need to output counts which will always be equal to
         // the batch size passed in (max def_level == 0 indicates
         // there cannot be repeated or null fields).
-        DCHECK(def_levels == nullptr);
+        DCHECK_EQ(def_levels, nullptr);
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
@@ -1567,7 +1567,7 @@ Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
   if (data.values() != nullptr) {
     values = reinterpret_cast<const T*>(data.values()->data()) + data.offset();
   } else {
-    DCHECK(data.length() == 0);
+    DCHECK_EQ(data.length(), 0);
   }
   bool no_nulls =
       writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
