@@ -234,6 +234,7 @@ csharp/test/Apache.Arrow.Tests/app.config
 csharp/src/Apache.Arrow.Flight/Apache.Arrow.Flight.csproj
 csharp/test/Apache.Arrow.Flight.Tests/Apache.Arrow.Flight.Tests.csproj
 csharp/test/Apache.Arrow.Flight.TestWeb/Apache.Arrow.Flight.TestWeb.csproj
+csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 *.html
 *.sgml
 *.css
