@@ -433,7 +433,7 @@ fn evaluate(
 ) -> Result<Vec<ArrayRef>> {
     expr.iter()
         .map(|expr| expr.evaluate(&batch))
-        .map(|r| r.map(|v| v.into_array(batch)))
+        .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
 }
 
@@ -562,7 +562,7 @@ fn aggregate_batch(
             let values = &expr
                 .iter()
                 .map(|e| e.evaluate(batch))
-                .map(|r| r.map(|v| v.into_array(batch)))
+                .map(|r| r.map(|v| v.into_array(batch.num_rows())))
                 .collect::<Result<Vec<_>>>()?;
 
             // 1.3

@@ -348,7 +348,7 @@ impl PhysicalExpr for ScalarFunctionExpr {
         let inputs = self
             .args
             .iter()
-            .map(|e| e.evaluate(batch).map(|v| v.into_array(batch)))
+            .map(|e| e.evaluate(batch).map(|v| v.into_array(batch.num_rows())))
             .collect::<Result<Vec<_>>>()?;
 
         // evaluate the function
@@ -382,7 +382,7 @@ mod tests {
 
         // evaluate works
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -423,7 +423,7 @@ mod tests {
 
         // evaluate works
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result.as_any().downcast_ref::<StringArray>().unwrap();
@@ -476,7 +476,7 @@ mod tests {
 
         // evaluate works
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result

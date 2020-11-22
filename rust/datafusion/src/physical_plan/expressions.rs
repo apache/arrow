@@ -1474,7 +1474,10 @@ impl PhysicalExpr for BinaryExpr {
         }
 
         // if both arrays or both literals - extract arrays and continue execution
-        let (left, right) = (left_value.into_array(batch), right_value.into_array(batch));
+        let (left, right) = (
+            left_value.into_array(batch.num_rows()),
+            right_value.into_array(batch.num_rows()),
+        );
 
         let result: Result<ArrayRef> = match &self.op {
             Operator::Like => binary_string_array_op!(left, right, like),
@@ -1787,82 +1790,99 @@ impl PhysicalExpr for CaseExpr {
                 unimplemented!()
             }
             _ => {
-                //TODO:
-                // - This is currently hard-coded for Int32 return value and needs to be made
-                //   generic over all types
+                //TODO: This is currently hard-coded for Int32 return value and needs to be made
+                //generic over all types
 
                 let mut result: Option<ArrayRef> = None;
-                let row_count = batch.num_rows();
+                let num_rows = batch.num_rows();
 
                 for i in 0..self.when_then_expr.len() {
                     let when_value = self.when_then_expr[i].0.evaluate(batch)?;
-                    let when_array: ArrayRef = match &when_value {
-                        ColumnarValue::Array(array) => array.clone(),
-                        ColumnarValue::Scalar(scalar) => {
-                            scalar.to_array_of_size(row_count)
-                        }
-                    };
-                    let when_array = when_array
+                    let when_value = when_value.into_array(num_rows);
+                    let when_value = when_value
                         .as_ref()
                         .as_any()
                         .downcast_ref::<BooleanArray>()
                         .expect("WHEN expression did not return a BooleanArray");
                     let then_value = self.when_then_expr[i].1.evaluate(batch)?;
-                    let then_array: ArrayRef = match &then_value {
-                        ColumnarValue::Array(array) => array.clone(),
-                        ColumnarValue::Scalar(scalar) => {
-                            scalar.to_array_of_size(row_count)
-                        }
-                    };
-                    let then_array = then_array
+                    let then_value = then_value.into_array(num_rows);
+                    let then_value = then_value
                         .as_ref()
                         .as_any()
                         .downcast_ref::<Int32Array>()
                         .expect("Could not downcast THEN expression to Int32Array");
                     if i == 0 {
-                        let mut builder = Int32Builder::new(row_count);
-                        for row in 0..row_count {
-                            if when_array.is_valid(row) && when_array.value(row) {
-                                builder.append_value(then_array.value(row))?;
+                        let mut builder = Int32Builder::new(num_rows);
+                        for row in 0..num_rows {
+                            if when_value.is_valid(row) && when_value.value(row) {
+                                builder.append_value(then_value.value(row))?;
                             } else {
                                 builder.append_null()?;
                             }
                         }
                         result = Some(Arc::new(builder.finish()));
                     } else {
-                        for row in 0..row_count {
-                            // this unwrap is safe because result is guaranteed to be Some(_)
-                            // after the first iteration of ths loop
-                            let mut builder = Int32Builder::new(row_count);
-                            let arc = result.unwrap();
-                            let prev_result = arc
-                                .as_ref()
-                                .as_any()
-                                .downcast_ref::<Int32Array>()
-                                .expect(
-                                    "Could not downcast previous results to Int32Array",
-                                );
-                            if prev_result.is_valid(row) {
-                                builder.append_value(prev_result.value(row))?;
-                            } else if when_array.is_valid(row) && when_array.value(row) {
-                                builder.append_value(then_array.value(row))?;
-                            } else {
-                                builder.append_null()?;
-                            }
-                            result = Some(Arc::new(builder.finish()));
-                        }
+                        result = Some(case_update(result, when_value, then_value)?);
                     }
                 }
 
-                if let Some(_e) = &self.else_expr {
-                    unimplemented!()
+                if let Some(e) = &self.else_expr {
+                    let else_array = e.evaluate(batch)?;
+                    let else_array = else_array.into_array(num_rows);
+                    let else_array = else_array
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<Int32Array>()
+                        .expect("ELSE expression did not return a Int32Array");
+                    let prev_result = result.unwrap(); // this is safe
+                    let prev_result = prev_result
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<Int32Array>()
+                        .expect("Could not downcast previous results to Int32Array");
+                    let mut builder = Int32Builder::new(num_rows);
+                    for i in 0..num_rows {
+                        if prev_result.is_valid(i) {
+                            builder.append_value(prev_result.value(i))?;
+                        } else if else_array.is_valid(i) {
+                            builder.append_value(else_array.value(i))?;
+                        } else {
+                            builder.append_null()?;
+                        }
+                    }
+                    Ok(ColumnarValue::Array(Arc::new(builder.finish())))
+                } else {
+                    // this unwrap is safe because result is guaranteed to be Some(_) at this point
+                    Ok(ColumnarValue::Array(result.unwrap()))
                 }
-
-                // this unwrap is safe because result is guaranteed to be Some(_) at this point
-                Ok(ColumnarValue::Array(result.unwrap()))
             }
         }
     }
+}
+
+fn case_update(
+    prev_result: Option<ArrayRef>,
+    when_array: &BooleanArray,
+    then_array: &Int32Array,
+) -> Result<ArrayRef> {
+    let row_count = when_array.len();
+    let prev_result = prev_result.unwrap(); // this is safe
+    let prev_result = prev_result
+        .as_ref()
+        .as_any()
+        .downcast_ref::<Int32Array>()
+        .expect("Could not downcast previous results to Int32Array");
+    let mut builder = Int32Builder::new(row_count);
+    for i in 0..row_count {
+        if prev_result.is_valid(i) {
+            builder.append_value(prev_result.value(i))?;
+        } else if when_array.is_valid(i) && when_array.value(i) {
+            builder.append_value(then_array.value(i))?;
+        } else {
+            builder.append_null()?;
+        }
+    }
+    Ok(Arc::new(builder.finish()))
 }
 
 /// CAST expression casts an expression to a specific data type
@@ -2043,7 +2063,7 @@ mod tests {
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
-        let result = lt.evaluate(&batch)?.into_array(&batch);
+        let result = lt.evaluate(&batch)?.into_array(batch.num_rows());
         assert_eq!(result.len(), 5);
 
         let expected = vec![false, false, true, true, true];
@@ -2079,7 +2099,7 @@ mod tests {
         );
         assert_eq!("a < b OR a = b", format!("{}", expr));
 
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         assert_eq!(result.len(), 5);
 
         let expected = vec![true, true, false, true, false];
@@ -2105,7 +2125,7 @@ mod tests {
         let literal_expr = lit(ScalarValue::from(42i32));
         assert_eq!("42", format!("{}", literal_expr));
 
-        let literal_array = literal_expr.evaluate(&batch)?.into_array(&batch);
+        let literal_array = literal_expr.evaluate(&batch)?.into_array(batch.num_rows());
         let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
 
         // note that the contents of the literal array are unrelated to the batch contents except for the length of the array
@@ -2144,7 +2164,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $C_TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?.into_array(&batch);
+            let result = expression.evaluate(&batch)?.into_array(batch.num_rows());
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $C_TYPE);
@@ -2295,7 +2315,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?.into_array(&batch);
+        let result = expression.evaluate(&batch)?.into_array(batch.num_rows());
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2309,7 +2329,7 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch)?.into_array(&batch);
+        let result = expression.evaluate(&batch)?.into_array(batch.num_rows());
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2365,7 +2385,7 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $TYPE);
 
             // compute
-            let result = expression.evaluate(&batch)?.into_array(&batch);
+            let result = expression.evaluate(&batch)?.into_array(batch.num_rows());
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $TYPE);
@@ -2922,7 +2942,7 @@ mod tests {
         let values = expr
             .iter()
             .map(|e| e.evaluate(batch))
-            .map(|r| r.map(|v| v.into_array(batch)))
+            .map(|r| r.map(|v| v.into_array(batch.num_rows())))
             .collect::<Result<Vec<_>>>()?;
         accum.update_batch(&values)?;
         accum.evaluate()
@@ -3020,7 +3040,7 @@ mod tests {
     ) -> Result<()> {
         let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema, data)?;
-        let result = arithmetic_op.evaluate(&batch)?.into_array(&batch);
+        let result = arithmetic_op.evaluate(&batch)?.into_array(batch.num_rows());
 
         assert_array_eq::<T>(expected, result);
 
@@ -3055,7 +3075,7 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
 
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -3084,7 +3104,7 @@ mod tests {
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -3105,7 +3125,7 @@ mod tests {
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
-        let result = expr.evaluate(&batch)?.into_array(&batch);
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
