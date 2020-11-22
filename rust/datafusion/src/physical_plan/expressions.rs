@@ -26,7 +26,7 @@ use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
-use arrow::array::{Array, Int32Builder, LargeStringArray};
+use arrow::array::{Array, BooleanBuilder, Int32Builder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
@@ -1763,6 +1763,37 @@ impl CaseExpr {
     }
 }
 
+//TODO make this work for all data types, not just Int32Array
+fn if_then_else(
+    bools: &BooleanArray,
+    true_values: ArrayRef,
+    false_values: ArrayRef,
+) -> Result<ArrayRef> {
+    let true_values = true_values
+        .as_ref()
+        .as_any()
+        .downcast_ref::<Int32Array>()
+        .expect("true_values downcast failed");
+
+    let false_values = false_values
+        .as_ref()
+        .as_any()
+        .downcast_ref::<Int32Array>()
+        .expect("false_values downcast failed");
+
+    let mut builder = Int32Builder::new(bools.len());
+    for i in 0..bools.len() {
+        if bools.is_null(i) {
+            builder.append_null()?;
+        } else if bools.value(i) {
+            builder.append_value(true_values.value(i))?;
+        } else {
+            builder.append_value(false_values.value(i))?;
+        }
+    }
+    Ok(Arc::new(builder.finish()))
+}
+
 impl PhysicalExpr for CaseExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.when_then_expr[0].1.data_type(input_schema)
@@ -1787,7 +1818,7 @@ impl PhysicalExpr for CaseExpr {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let mut result: Option<ArrayRef> = None;
         let num_rows = batch.num_rows();
-
+        let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
         match &self.expr {
             Some(e) => {
                 // The "when" conditions must all evaluate to the same type as the base "expr"
@@ -1795,15 +1826,32 @@ impl PhysicalExpr for CaseExpr {
 
                 //TODO hard-coded for "expr/when" type StringArray and "then" type Int32Array
 
-                let value = e.evaluate(batch)?;
-                let value = value.into_array(num_rows);
-                let base_value = value
+                let value_type = e.data_type(&batch.schema())?;
+
+                let base_value = e.evaluate(batch)?;
+                let base_value = base_value.into_array(num_rows);
+                let base_value = base_value
                     .as_ref()
                     .as_any()
                     .downcast_ref::<StringArray>()
                     .expect("WHEN expression did not return a StringArray");
 
-                for i in 0..self.when_then_expr.len() {
+                // start with the else condition, or nulls
+                let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr
+                {
+                    Some(e.evaluate(batch)?.into_array(batch.num_rows()))
+                } else {
+                    let mut builder = Int32Builder::new(num_rows);
+                    for row in 0..num_rows {
+                        builder.append_null()?;
+                    }
+                    Some(Arc::new(builder.finish()))
+                };
+
+                // walk backwards through the when/then expressions
+                for i in (0..self.when_then_expr.len()).rev() {
+                    let i = i as usize;
+
                     let when_value = self.when_then_expr[i].0.evaluate(batch)?;
                     let when_value = when_value.into_array(num_rows);
                     let when_value = when_value
@@ -1814,84 +1862,48 @@ impl PhysicalExpr for CaseExpr {
 
                     let then_value = self.when_then_expr[i].1.evaluate(batch)?;
                     let then_value = then_value.into_array(num_rows);
-                    let then_value = then_value
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("Could not downcast THEN expression to Int32Array");
 
-                    if i == 0 {
-                        let mut builder = Int32Builder::new(num_rows);
-                        for row in 0..num_rows {
-                            if when_value.is_valid(row)
-                                && when_value.value(row) == base_value.value(row)
-                            {
-                                builder.append_value(then_value.value(row))?;
-                            } else {
-                                builder.append_null()?;
-                            }
-                        }
-                        result = Some(Arc::new(builder.finish()));
-                    } else {
-                        let row_count = when_value.len();
-                        let prev_result = result.unwrap(); // this is safe
-                        let prev_result = prev_result
-                            .as_ref()
-                            .as_any()
-                            .downcast_ref::<Int32Array>()
-                            .expect("Could not downcast previous results to Int32Array");
-                        let mut builder = Int32Builder::new(row_count);
-                        for i in 0..row_count {
-                            if prev_result.is_valid(i) {
-                                builder.append_value(prev_result.value(i))?;
-                            } else if when_value.is_valid(i)
-                                && when_value.value(i) == base_value.value(i)
-                            {
-                                builder.append_value(then_value.value(i))?;
-                            } else {
-                                builder.append_null()?;
-                            }
-                        }
-                        result = Some(Arc::new(builder.finish()))
-                    }
-                }
-
-                if let Some(e) = &self.else_expr {
-                    let else_array = e.evaluate(batch)?;
-                    let else_array = else_array.into_array(num_rows);
-                    let else_array = else_array
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("ELSE expression did not return a Int32Array");
-                    let prev_result = result.unwrap(); // this is safe
-                    let prev_result = prev_result
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("Could not downcast previous results to Int32Array");
-                    let mut builder = Int32Builder::new(num_rows);
-                    for i in 0..num_rows {
-                        if prev_result.is_valid(i) {
-                            builder.append_value(prev_result.value(i))?;
-                        } else if else_array.is_valid(i) {
-                            builder.append_value(else_array.value(i))?;
+                    // build boolean array representing which rows match the "when" value
+                    let mut builder = BooleanBuilder::new(num_rows);
+                    for row in 0..num_rows {
+                        if when_value.is_valid(row) && base_value.is_valid(row) {
+                            builder.append_value(
+                                when_value.value(row) == base_value.value(row),
+                            )?;
                         } else {
                             builder.append_null()?;
                         }
                     }
-                    Ok(ColumnarValue::Array(Arc::new(builder.finish())))
-                } else {
-                    // this unwrap is safe because result is guaranteed to be Some(_) at this point
-                    Ok(ColumnarValue::Array(result.unwrap()))
+                    let when_match = builder.finish();
+
+                    current_value = Some(if_then_else(
+                        &when_match,
+                        then_value,
+                        current_value.unwrap(),
+                    )?);
                 }
+
+                Ok(ColumnarValue::Array(current_value.unwrap()))
             }
             _ => {
                 // The "when" conditions all evaluate to boolean in this use case
 
-                //TODO hard-coded for "then" type Int32Array
+                // start with the else condition, or nulls
+                let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr
+                {
+                    Some(e.evaluate(batch)?.into_array(batch.num_rows()))
+                } else {
+                    let mut builder = Int32Builder::new(num_rows);
+                    for row in 0..num_rows {
+                        builder.append_null()?;
+                    }
+                    Some(Arc::new(builder.finish()))
+                };
 
-                for i in 0..self.when_then_expr.len() {
+                // walk backwards through the when/then expressions
+                for i in (0..self.when_then_expr.len()).rev() {
+                    let i = i as usize;
+
                     let when_value = self.when_then_expr[i].0.evaluate(batch)?;
                     let when_value = when_value.into_array(num_rows);
                     let when_value = when_value
@@ -1899,74 +1911,18 @@ impl PhysicalExpr for CaseExpr {
                         .as_any()
                         .downcast_ref::<BooleanArray>()
                         .expect("WHEN expression did not return a BooleanArray");
+
                     let then_value = self.when_then_expr[i].1.evaluate(batch)?;
                     let then_value = then_value.into_array(num_rows);
-                    let then_value = then_value
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("Could not downcast THEN expression to Int32Array");
-                    if i == 0 {
-                        let mut builder = Int32Builder::new(num_rows);
-                        for row in 0..num_rows {
-                            if when_value.is_valid(row) && when_value.value(row) {
-                                builder.append_value(then_value.value(row))?;
-                            } else {
-                                builder.append_null()?;
-                            }
-                        }
-                        result = Some(Arc::new(builder.finish()));
-                    } else {
-                        let row_count = when_value.len();
-                        let prev_result = result.unwrap(); // this is safe
-                        let prev_result = prev_result
-                            .as_ref()
-                            .as_any()
-                            .downcast_ref::<Int32Array>()
-                            .expect("Could not downcast previous results to Int32Array");
-                        let mut builder = Int32Builder::new(row_count);
-                        for i in 0..row_count {
-                            if prev_result.is_valid(i) {
-                                builder.append_value(prev_result.value(i))?;
-                            } else if when_value.is_valid(i) && when_value.value(i) {
-                                builder.append_value(then_value.value(i))?;
-                            } else {
-                                builder.append_null()?;
-                            }
-                        }
-                        result = Some(Arc::new(builder.finish()))
-                    }
+
+                    current_value = Some(if_then_else(
+                        &when_value,
+                        then_value,
+                        current_value.unwrap(),
+                    )?);
                 }
 
-                if let Some(e) = &self.else_expr {
-                    let else_array = e.evaluate(batch)?;
-                    let else_array = else_array.into_array(num_rows);
-                    let else_array = else_array
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("ELSE expression did not return a Int32Array");
-                    let prev_result = result.unwrap(); // this is safe
-                    let prev_result = prev_result
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .expect("Could not downcast previous results to Int32Array");
-                    let mut builder = Int32Builder::new(num_rows);
-                    for i in 0..num_rows {
-                        if prev_result.is_valid(i) {
-                            builder.append_value(prev_result.value(i))?;
-                        } else if else_array.is_valid(i) {
-                            builder.append_value(else_array.value(i))?;
-                        } else {
-                            builder.append_null()?;
-                        }
-                    }
-                    Ok(ColumnarValue::Array(Arc::new(builder.finish())))
-                } else {
-                    // this unwrap is safe because result is guaranteed to be Some(_) at this point
-                    Ok(ColumnarValue::Array(result.unwrap()))
-                }
+                Ok(ColumnarValue::Array(current_value.unwrap()))
             }
         }
     }
