@@ -54,11 +54,11 @@ enum class ArrowLogLevel : int {
 #define ARROW_LOG(level) \
   ::arrow::util::ArrowLog(__FILE__, __LINE__, ::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_CHECK(condition...)                        \
-  if (ARROW_PREDICT_FALSE(!(condition)))                 \
-  ::arrow::util::InterceptComparison::PrintOperands(     \
-      ::arrow::util::InterceptComparison() <= condition, \
-      ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((condition)) " ")
+#define ARROW_CHECK(...)                                                   \
+  if (ARROW_PREDICT_FALSE(!(__VA_ARGS__))) /* NOLINT readability/braces */ \
+  ::arrow::util::InterceptComparison::PrintOperands(                       \
+      ::arrow::util::InterceptComparison() <= __VA_ARGS__,                 \
+      ARROW_LOG(FATAL) << " Check failed: " ARROW_STRINGIFY((__VA_ARGS__)) " ")
 
 #define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) <= (val2))
 #define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) <= (val2))
@@ -67,38 +67,38 @@ enum class ArrowLogLevel : int {
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#define ARROW_LOG_FAILED_STATUS(status, operation)                                \
-  ARROW_LOG(FATAL) << " Operation failed: " << ARROW_STRINGIFY(operation) << "\n" \
+#define ARROW_LOG_FAILED_STATUS(status, ...)                                        \
+  ARROW_LOG(FATAL) << " Operation failed: " << ARROW_STRINGIFY(__VA_ARGS__) << "\n" \
                    << " Bad status: " << _s.ToString()
 
 // If the status is bad, CHECK immediately, appending the status to the logged
 // message.
-#define ARROW_CHECK_OK(expr...)                                         \
-  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \
-       ARROW_PREDICT_FALSE(!_s.ok());)                                  \
-  ARROW_LOG_FAILED_STATUS(_s, (expr))
+#define ARROW_CHECK_OK(...)                                                    \
+  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((__VA_ARGS__)); \
+       ARROW_PREDICT_FALSE(!_s.ok());)                                         \
+  ARROW_LOG_FAILED_STATUS(_s, __VA_ARGS__)
 
-#define DCHECK(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK(condition)  // NOLINT readability/braces
-#define DCHECK_EQ(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_EQ(condition)  // NOLINT readability/braces
-#define DCHECK_NE(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_NE(condition)  // NOLINT readability/braces
-#define DCHECK_LE(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_LE(condition)  // NOLINT readability/braces
-#define DCHECK_LT(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_LT(condition)  // NOLINT readability/braces
-#define DCHECK_GE(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_GE(condition)  // NOLINT readability/braces
-#define DCHECK_GT(condition...) \
-  if (::arrow::internal::kDebug) ARROW_CHECK_GT(condition)  // NOLINT readability/braces
+#define DCHECK(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_EQ(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_EQ(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_NE(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_NE(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_LE(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_LE(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_LT(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_LT(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_GE(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_GE(__VA_ARGS__)  // NOLINT readability/braces
+#define DCHECK_GT(...) \
+  if (::arrow::internal::kDebug) ARROW_CHECK_GT(__VA_ARGS__)  // NOLINT readability/braces
 
 // CAUTION: DCHECK_OK() always evaluates its argument ==  but other DCHECK*() macros
 // only do so in debug mode.
-#define DCHECK_OK(expr...)                                              \
-  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((expr)); \
-       ::arrow::internal::kDebug && ARROW_PREDICT_FALSE(!_s.ok());)     \
-  ARROW_LOG_FAILED_STATUS(_s, (expr))
+#define DCHECK_OK(...)                                                         \
+  for (::arrow::Status _s = ::arrow::internal::GenericToStatus((__VA_ARGS__)); \
+       ::arrow::internal::kDebug && ARROW_PREDICT_FALSE(!_s.ok());)            \
+  ARROW_LOG_FAILED_STATUS(_s, __VA_ARGS__)
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.
