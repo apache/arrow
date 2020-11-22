@@ -1790,7 +1790,6 @@ impl PhysicalExpr for CaseExpr {
                 //TODO:
                 // - This is currently hard-coded for Int32 return value and needs to be made
                 //   generic over all types
-                // - Add support for scalars
 
                 let mut result: Option<ArrayRef> = None;
                 let row_count = batch.num_rows();
