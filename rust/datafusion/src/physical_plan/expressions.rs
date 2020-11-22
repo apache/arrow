@@ -1746,7 +1746,7 @@ impl fmt::Display for CaseExpr {
 impl CaseExpr {
     pub fn try_new(
         expr: Option<Arc<dyn PhysicalExpr>>,
-        when_then_expr: Vec<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)>,
+        when_then_expr: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
         else_expr: Option<Arc<dyn PhysicalExpr>>,
     ) -> Result<Self> {
         if when_then_expr.len() == 0 {
@@ -1756,11 +1756,20 @@ impl CaseExpr {
         } else {
             Ok(Self {
                 expr,
-                when_then_expr,
+                when_then_expr: when_then_expr.to_vec(),
                 else_expr,
             })
         }
     }
+}
+
+/// Create a CASE expression
+pub fn case(
+    expr: Option<Arc<dyn PhysicalExpr>>,
+    when_thens: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
+    else_expr: Option<Arc<dyn PhysicalExpr>>,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    Ok(Arc::new(CaseExpr::try_new(expr, when_thens, else_expr)?))
 }
 
 //TODO make this work for all data types, not just Int32Array
@@ -3193,6 +3202,30 @@ mod tests {
             .expect("failed to downcast to BooleanArray");
 
         let expected = &BooleanArray::from(vec![true, false]);
+
+        assert_eq!(expected, result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn case_with_expr() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        let when1 = lit(ScalarValue::Utf8(Some("foo".to_string())));
+        let then1 = lit(ScalarValue::Int32(Some(123)));
+        let when2 = lit(ScalarValue::Utf8(Some("bar".to_string())));
+        let then2 = lit(ScalarValue::Int32(Some(456)));
+        let expr = case(Some(col("a")), &[(when1, then1), (when2, then2)], None)?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let result = result
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to downcast to Int32Array");
+
+        let expected = &Int32Array::from(vec![Some(123), None, Some(456)]);
 
         assert_eq!(expected, result);
 
