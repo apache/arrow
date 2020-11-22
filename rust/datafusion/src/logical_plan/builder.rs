@@ -186,7 +186,7 @@ impl LogicalPlanBuilder {
     /// Apply a join
     pub fn join(
         &self,
-        right: Arc<LogicalPlan>,
+        right: &LogicalPlan,
         join_type: JoinType,
         left_keys: &[&str],
         right_keys: &[&str],
@@ -212,7 +212,7 @@ impl LogicalPlanBuilder {
             );
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
-                right,
+                right: Arc::new(right.clone()),
                 on: left_keys
                     .iter()
                     .zip(right_keys.iter())
