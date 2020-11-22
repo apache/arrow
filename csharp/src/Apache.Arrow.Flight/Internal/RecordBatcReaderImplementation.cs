@@ -20,24 +20,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Ipc;
+using Google.Protobuf;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Internal
 {
     internal class RecordBatcReaderImplementation : ArrowReaderImplementation
     {
         private readonly IAsyncStreamReader<Protocol.FlightData> _flightDataStream;
         private FlightDescriptor _flightDescriptor;
+        private readonly List<ByteString> _applicationMetadatas;
 
         public RecordBatcReaderImplementation(IAsyncStreamReader<Protocol.FlightData> streamReader)
         {
             _flightDataStream = streamReader;
+            _applicationMetadatas = new List<ByteString>();
         }
 
         public override RecordBatch ReadNextRecordBatch()
         {
             throw new NotImplementedException();
         }
+
+        public IReadOnlyList<ByteString> ApplicationMetadata => _applicationMetadatas;
 
         public async ValueTask<FlightDescriptor> ReadFlightDescriptor()
         {
@@ -60,6 +65,13 @@ namespace Apache.Arrow.Flight
             if (!moveNextResult)
             {
                 throw new Exception("No records or schema in this flight");
+            }
+
+            //AppMetadata will never be null, but length 0 if empty
+            //Those are skipped
+            if(_flightDataStream.Current.AppMetadata.Length > 0)
+            {
+                _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
             }
 
             var header = _flightDataStream.Current.DataHeader.Memory;
@@ -85,6 +97,8 @@ namespace Apache.Arrow.Flight
 
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
+            _applicationMetadatas.Clear(); //Clear any metadata from previous calls
+
             if (!HasReadSchema)
             {
                 await ReadSchema().ConfigureAwait(false);
@@ -92,6 +106,13 @@ namespace Apache.Arrow.Flight
             var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
             if (moveNextResult)
             {
+                //AppMetadata will never be null, but length 0 if empty
+                //Those are skipped
+                if (_flightDataStream.Current.AppMetadata.Length > 0)
+                {
+                    _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
+                }
+
                 var header = _flightDataStream.Current.DataHeader.Memory;
                 Message message = Message.GetRootAsMessage(CreateByteBuffer(header));
 
@@ -104,7 +125,7 @@ namespace Apache.Arrow.Flight
                         throw new NotImplementedException();
                 }
             }
-            return null;   
+            return null;
         }
     }
 }

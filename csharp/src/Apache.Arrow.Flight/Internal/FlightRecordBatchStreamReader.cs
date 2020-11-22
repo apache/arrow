@@ -21,9 +21,10 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Ipc;
+using Google.Protobuf;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Internal
 {
     /// <summary>
     /// Stream of record batches
@@ -31,18 +32,26 @@ namespace Apache.Arrow.Flight
     /// Use MoveNext() and Current to iterate over the batches.
     /// There are also gRPC helper functions such as ToListAsync() etc.
     /// </summary>
-    public class RecordBatchStreamReader : IAsyncStreamReader<RecordBatch>
+    public abstract class FlightRecordBatchStreamReader : IAsyncStreamReader<RecordBatch>
     {
         private readonly RecordBatcReaderImplementation _arrowReaderImplementation;
 
-        public RecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream)
+        private protected FlightRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream)
         {
             _arrowReaderImplementation = new RecordBatcReaderImplementation(flightDataStream);
         }
 
         public ValueTask<Schema> Schema => _arrowReaderImplementation.ReadSchema();
 
-        public ValueTask<FlightDescriptor> FlightDescriptor => _arrowReaderImplementation.ReadFlightDescriptor();
+        internal ValueTask<FlightDescriptor> GetFlightDescriptor()
+        {
+            return _arrowReaderImplementation.ReadFlightDescriptor();
+        }        
+
+        /// <summary>
+        /// Get the application metadata from the latest recieved record batch
+        /// </summary>
+        public IReadOnlyList<ByteString> ApplicationMetadata => _arrowReaderImplementation.ApplicationMetadata;
 
         public RecordBatch Current { get; private set; }
 

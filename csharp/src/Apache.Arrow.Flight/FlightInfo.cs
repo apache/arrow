@@ -16,49 +16,58 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Apache.Arrow.Flight.Writer;
+using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Ipc;
 
 namespace Apache.Arrow.Flight
 {
     public class FlightInfo
     {
-        private readonly Schema _schema;
-        private readonly FlightDescriptor _flightDescriptor;
-        private readonly IList<FlightEndpoint> _flightEndpoints;
-        
         internal FlightInfo(Protocol.FlightInfo flightInfo)
         {
-            _schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
-            _flightDescriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
+            Schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
+            FlightDescriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
 
             var endpoints = new List<FlightEndpoint>();
             foreach(var endpoint in flightInfo.Endpoint)
             {
                 endpoints.Add(new FlightEndpoint(endpoint));
             }
-            _flightEndpoints = endpoints;
+            Endpoints = endpoints;
+
+            TotalBytes = flightInfo.TotalBytes;
+            TotalRecords = flightInfo.TotalRecords;
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor flightDescriptor, IList<FlightEndpoint> flightEndpoints)
+        public FlightInfo(Schema schema, FlightDescriptor flightDescriptor, IReadOnlyList<FlightEndpoint> flightEndpoints, long totalRecords = 0, long totalBytes = 0)
         {
-            _schema = schema;
-            _flightDescriptor = flightDescriptor;
-            _flightEndpoints = flightEndpoints;
+            Schema = schema;
+            FlightDescriptor = flightDescriptor;
+            Endpoints = flightEndpoints;
+            TotalBytes = totalBytes;
+            TotalRecords = totalRecords;
         }
 
-        public IEnumerable<FlightEndpoint> Endpoints => _flightEndpoints;
+        public FlightDescriptor FlightDescriptor { get; }
+
+        public Schema Schema { get; }
+
+        public long TotalBytes { get; }
+
+        public long TotalRecords { get; }
+
+        public IReadOnlyList<FlightEndpoint> Endpoints { get; }
 
         internal Protocol.FlightInfo ToProtocol()
         {
-            var serializedSchema = SchemaWriter.SerializeSchema(_schema);
+            var serializedSchema = SchemaWriter.SerializeSchema(Schema);
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
-                FlightDescriptor = _flightDescriptor.ToProtocol()
+                FlightDescriptor = FlightDescriptor.ToProtocol()
             };
 
-            foreach(var endpoint in _flightEndpoints)
+            foreach(var endpoint in Endpoints)
             {
                 response.Endpoint.Add(endpoint.ToProtocol());
             }

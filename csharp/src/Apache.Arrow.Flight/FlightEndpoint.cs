@@ -22,23 +22,23 @@ namespace Apache.Arrow.Flight
 {
     public class FlightEndpoint
     {
-        private readonly Ticket _ticket;
-        private readonly IReadOnlyList<Location> _locations;
+        private readonly FlightTicket _ticket;
+        private readonly IReadOnlyList<FlightLocation> _locations;
         internal FlightEndpoint(Protocol.FlightEndpoint flightEndpoint)
         {
-            _ticket = new Ticket(flightEndpoint.Ticket);
-            _locations = flightEndpoint.Location.Select(x => new Location(x)).ToList();
+            _ticket = new FlightTicket(flightEndpoint.Ticket);
+            _locations = flightEndpoint.Location.Select(x => new FlightLocation(x)).ToList();
         }
 
-        public FlightEndpoint(Ticket ticket, IReadOnlyList<Location> locations)
+        public FlightEndpoint(FlightTicket ticket, IReadOnlyList<FlightLocation> locations)
         {
             _ticket = ticket;
             _locations = locations;
         }
 
-        public Ticket Ticket => _ticket;
+        public FlightTicket Ticket => _ticket;
 
-        public IEnumerable<Location> Locations => _locations;
+        public IEnumerable<FlightLocation> Locations => _locations;
 
         internal Protocol.FlightEndpoint ToProtocol()
         {
@@ -52,6 +52,22 @@ namespace Apache.Arrow.Flight
                 output.Location.Add(location.ToProtocol());
             }
             return output;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is FlightEndpoint other)
+            {
+                return Equals(_ticket, other._ticket) &&
+                    Enumerable.SequenceEqual(_locations, other._locations);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            //Ticket should contain enough to get a good hash code
+            return _ticket.GetHashCode();
         }
     }
 }

@@ -20,41 +20,52 @@ using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class Ticket
+    public class FlightResult
     {
-        private readonly Protocol.Ticket _ticket;
-        internal Ticket(Protocol.Ticket ticket)
+        private readonly Protocol.Result _result;
+
+        internal FlightResult(Protocol.Result result)
         {
-            _ticket = ticket;
+            _result = result;
         }
 
-        public Ticket(ByteString ticket)
+        public FlightResult(ByteString body)
         {
-            _ticket = new Protocol.Ticket()
+            _result = new Protocol.Result()
             {
-                Ticket_ = ticket
+                Body = body
             };
         }
 
-        public Ticket(string ticket)
-            : this(ByteString.CopyFromUtf8(ticket))
+        public FlightResult(string body)
+            : this(ByteString.CopyFromUtf8(body))
         {
         }
 
-        public Ticket(byte[] bytes)
-            : this(ByteString.CopyFrom(bytes))
+        public FlightResult(byte[] body)
+            : this(ByteString.CopyFrom(body))
         {
         }
 
-        public string TicketString => _ticket.Ticket_.ToStringUtf8();
+        public ByteString Body => _result.Body;
 
-        public ByteString TicketByteString => _ticket.Ticket_;
-
-        public byte[] TicketBytes => _ticket.Ticket_.ToByteArray();
-
-        internal Protocol.Ticket ToProtocol()
+        internal Protocol.Result ToProtocol()
         {
-            return _ticket;
+            return _result;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is FlightResult other)
+            {
+                return Equals(_result, other._result);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return _result.GetHashCode();
         }
     }
 }

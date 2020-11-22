@@ -9,7 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Apache.Arrow.Flight\Apache.Arrow.Flight.csproj" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Flight.AspNetCore\Apache.Arrow.Flight.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>

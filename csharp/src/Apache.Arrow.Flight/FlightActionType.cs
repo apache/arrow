@@ -16,55 +16,46 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class PutResult : IDisposable
+    public class FlightActionType
     {
-        private bool _disposed;
-
-        public PutResult(ArrowBuffer metadata)
+        private readonly Protocol.ActionType _actionType;
+        internal FlightActionType(Protocol.ActionType actionType)
         {
-            ApplicationMetadata = metadata;
+            _actionType = actionType;
         }
 
-        internal PutResult(Protocol.PutResult putResult)
+        public FlightActionType(string type, string description)
         {
-            this.ApplicationMetadata = new ArrowBuffer(putResult.AppMetadata.Memory);
-        }
-
-        public ArrowBuffer ApplicationMetadata { get; }
-
-        internal Protocol.PutResult ToProtocol()
-        {
-            return new Protocol.PutResult()
+            _actionType = new Protocol.ActionType()
             {
-                AppMetadata = ByteString.CopyFrom(ApplicationMetadata.Span)
+                Description = description,
+                Type = type
             };
         }
 
-        ~PutResult()
+        public string Type => _actionType.Type;
+        public string Description => _actionType.Description;
+
+        internal Protocol.ActionType ToProtocol()
         {
-            Dispose(true);
+            return _actionType;
         }
 
-        protected virtual void Dispose(bool disposing)
+        public override bool Equals(object obj)
         {
-            if (!_disposed)
+            if(obj is FlightActionType other)
             {
-                if (disposing)
-                {
-                    ApplicationMetadata.Dispose();
-                }
-                _disposed = true;
+                return Equals(_actionType, other._actionType);
             }
+            return false;
         }
 
-
-        public void Dispose()
+        public override int GetHashCode()
         {
-            Dispose(true);
+            return _actionType.GetHashCode();
         }
     }
 }

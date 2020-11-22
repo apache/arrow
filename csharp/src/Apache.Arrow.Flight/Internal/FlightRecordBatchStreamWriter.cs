@@ -18,11 +18,12 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Protocol;
+using Google.Protobuf;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Internal
 {
-    public class RecordBatchStreamWriter : IAsyncStreamWriter<RecordBatch>, IDisposable
+    public abstract class FlightRecordBatchStreamWriter : IAsyncStreamWriter<RecordBatch>, IDisposable
     {
         private FlightDataStream _flightDataStream;
         private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;
@@ -30,7 +31,7 @@ namespace Apache.Arrow.Flight
 
         private bool _disposed;
 
-        public RecordBatchStreamWriter(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor)
+        private protected FlightRecordBatchStreamWriter(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor)
         {
             _clientStreamWriter = clientStreamWriter;
             _flightDescriptor = flightDescriptor;
@@ -45,12 +46,17 @@ namespace Apache.Arrow.Flight
 
         public Task WriteAsync(RecordBatch message)
         {
+            return WriteAsync(message, default);
+        }
+
+        public Task WriteAsync(RecordBatch message, ByteString applicationMetadata)
+        {
             if (_flightDataStream == null)
             {
                 SetupStream(message.Schema);
             }
 
-            return _flightDataStream.Write(message);
+            return _flightDataStream.Write(message, applicationMetadata);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -62,7 +68,7 @@ namespace Apache.Arrow.Flight
             }
         }
 
-        ~RecordBatchStreamWriter()
+        ~FlightRecordBatchStreamWriter()
         {
             Dispose(false);
         }

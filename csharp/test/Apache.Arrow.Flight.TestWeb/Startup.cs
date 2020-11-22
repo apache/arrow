@@ -31,11 +31,10 @@ namespace Apache.Arrow.Flight.TestWeb
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddGrpc();
+            services.AddGrpc()
+                .AddFlightServer<FlightServer>();
 
             services.AddSingleton(new FlightStore());
-
-            services.AddSingleton<IFlightServer, FlightServer>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -50,7 +49,7 @@ namespace Apache.Arrow.Flight.TestWeb
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGrpcService<FlightServerImplementation>();
+                endpoints.MapFlightEndpoint();
 
                 endpoints.MapGet("/", async context =>
                 {

@@ -20,42 +20,51 @@ using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class Result
+    public class FlightCriteria
     {
-        private readonly Protocol.Result _result;
+        internal static readonly FlightCriteria Empty = new FlightCriteria();
 
-        internal Result(Protocol.Result result)
+        private readonly Protocol.Criteria _criteria;
+
+        internal FlightCriteria(Protocol.Criteria criteria)
         {
-            _result = result;
+            _criteria = criteria;
         }
 
-        public Result(ByteString ticket)
+        public FlightCriteria()
         {
-            _result = new Protocol.Result()
+            _criteria = new Protocol.Criteria();
+        }
+
+        public FlightCriteria(string expression)
+        {
+            _criteria = new Protocol.Criteria()
             {
-                Body = ticket
+                Expression = ByteString.CopyFromUtf8(expression)
             };
         }
 
-        public Result(string ticket)
-            : this(ByteString.CopyFromUtf8(ticket))
+        public FlightCriteria(byte[] bytes)
         {
+            _criteria = new Protocol.Criteria()
+            {
+                Expression = ByteString.CopyFrom(bytes)
+            };
         }
 
-        public Result(byte[] bytes)
-            : this(ByteString.CopyFrom(bytes))
+        public FlightCriteria(ByteString byteString)
         {
+            _criteria = new Protocol.Criteria()
+            {
+                Expression = byteString
+            };
         }
 
-        public string ResultString => _result.Body.ToStringUtf8();
+        public ByteString Expression => _criteria.Expression;
 
-        public ByteString ResultByteString => _result.Body;
-
-        public byte[] ResultBytes => _result.Body.ToByteArray();
-
-        internal Protocol.Result ToProtocol()
+        internal Protocol.Criteria ToProtocol()
         {
-            return _result;
+            return _criteria;
         }
     }
 }

@@ -20,15 +20,15 @@ using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class Action
+    public class FlightAction
     {
         private readonly Protocol.Action _action;
-        internal Action(Protocol.Action action)
+        internal FlightAction(Protocol.Action action)
         {
             _action = action;
         }
 
-        public Action(string type, ByteString body)
+        public FlightAction(string type, ByteString body)
         {
             _action = new Protocol.Action()
             {
@@ -37,7 +37,7 @@ namespace Apache.Arrow.Flight
             };
         }
 
-        public Action(string type, string body)
+        public FlightAction(string type, string body)
         {
             _action = new Protocol.Action()
             {
@@ -46,7 +46,7 @@ namespace Apache.Arrow.Flight
             };
         }
 
-        public Action(string type, byte[] body)
+        public FlightAction(string type, byte[] body)
         {
             _action = new Protocol.Action()
             {
@@ -55,11 +55,15 @@ namespace Apache.Arrow.Flight
             };
         }
 
+        public FlightAction(string type)
+        {
+            _action = new Protocol.Action()
+            {
+                Type = type
+            };
+        }
+
         public string Type => _action.Type;
-
-        public string BodyString => _action.Body.ToStringUtf8();
-
-        public byte[] BodyBytes => _action.Body.ToByteArray();
 
         public ByteString Body => _action.Body;
 

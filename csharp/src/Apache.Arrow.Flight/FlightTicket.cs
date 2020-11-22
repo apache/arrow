@@ -20,47 +20,51 @@ using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class Criteria
+    public class FlightTicket
     {
-        private readonly Protocol.Criteria _criteria;
-
-        internal Criteria(Protocol.Criteria criteria)
+        private readonly Protocol.Ticket _ticket;
+        internal FlightTicket(Protocol.Ticket ticket)
         {
-            _criteria = criteria;
+            _ticket = ticket;
         }
 
-        public Criteria()
+        public FlightTicket(ByteString ticket)
         {
-            _criteria = new Protocol.Criteria();
-        }
-
-        public Criteria(string expression)
-        {
-            _criteria = new Protocol.Criteria()
+            _ticket = new Protocol.Ticket()
             {
-                Expression = ByteString.CopyFromUtf8(expression)
+                Ticket_ = ticket
             };
         }
 
-        public Criteria(byte[] bytes)
+        public FlightTicket(string ticket)
+            : this(ByteString.CopyFromUtf8(ticket))
         {
-            _criteria = new Protocol.Criteria()
-            {
-                Expression = ByteString.CopyFrom(bytes)
-            };
         }
 
-        public Criteria(ByteString byteString)
+        public FlightTicket(byte[] bytes)
+            : this(ByteString.CopyFrom(bytes))
         {
-            _criteria = new Protocol.Criteria()
-            {
-                Expression = byteString
-            };
         }
 
-        internal Protocol.Criteria ToProtocol()
+        public ByteString Ticket => _ticket.Ticket_;
+
+        internal Protocol.Ticket ToProtocol()
         {
-            return _criteria;
+            return _ticket;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is FlightTicket other)
+            {
+                return Equals(_ticket, other._ticket);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return _ticket.GetHashCode();
         }
     }
 }

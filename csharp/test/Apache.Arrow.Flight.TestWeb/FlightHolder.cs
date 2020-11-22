@@ -18,6 +18,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Google.Protobuf;
 
 namespace Apache.Arrow.Flight.TestWeb
 {
@@ -25,23 +26,25 @@ namespace Apache.Arrow.Flight.TestWeb
     {
         private readonly FlightDescriptor _flightDescriptor;
         private readonly Schema _schema;
+        private readonly string _location;
 
         //Not thread safe, but only used in tests
-        private readonly List<RecordBatch> _recordBatches = new List<RecordBatch>();
+        private readonly List<RecordBatchWithMetadata> _recordBatches = new List<RecordBatchWithMetadata>();
         
-        public FlightHolder(FlightDescriptor flightDescriptor, Schema schema)
+        public FlightHolder(FlightDescriptor flightDescriptor, Schema schema, string location)
         {
             _flightDescriptor = flightDescriptor;
             _schema = schema;
+            _location = location;
         }
 
-        public void AddBatch(RecordBatch recordBatch)
+        public void AddBatch(RecordBatchWithMetadata recordBatchWithMetadata)
         {
             //Should validate schema here
-            _recordBatches.Add(recordBatch);
+            _recordBatches.Add(recordBatchWithMetadata);
         }
 
-        public IEnumerable<RecordBatch> GetRecordBatches()
+        public IEnumerable<RecordBatchWithMetadata> GetRecordBatches()
         {
             return _recordBatches.ToList();
         }
@@ -50,7 +53,9 @@ namespace Apache.Arrow.Flight.TestWeb
         {
             return new FlightInfo(_schema, _flightDescriptor, new List<FlightEndpoint>()
             {
-                new FlightEndpoint(new Ticket(_flightDescriptor.Paths.FirstOrDefault()), new List<Location>())
+                new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()), new List<FlightLocation>(){
+                    new FlightLocation(_location)
+                })
             });
         }
     }

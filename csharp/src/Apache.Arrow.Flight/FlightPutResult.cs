@@ -16,46 +16,49 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
-    public class ActionType
+    public class FlightPutResult
     {
-        private readonly Protocol.ActionType _actionType;
-        internal ActionType(Protocol.ActionType actionType)
+        public static readonly FlightPutResult Empty = new FlightPutResult();
+
+        private readonly Protocol.PutResult _putResult;
+
+        public FlightPutResult()
         {
-            _actionType = actionType;
+            _putResult = new Protocol.PutResult();
         }
 
-        public ActionType(string type, string description)
+        public FlightPutResult(ByteString applicationMetadata)
         {
-            _actionType = new Protocol.ActionType()
+            _putResult = new Protocol.PutResult()
             {
-                Description = description,
-                Type = type
+                AppMetadata = applicationMetadata
             };
         }
 
-        public string Type => _actionType.Type;
-        public string Description => _actionType.Description;
-
-        internal Protocol.ActionType ToProtocol()
+        public FlightPutResult(byte[] applicationMetadata)
+            : this(ByteString.CopyFrom(applicationMetadata))
         {
-            return _actionType;
         }
 
-        public override bool Equals(object obj)
+        public FlightPutResult(string applicationMetadata)
+            : this(ByteString.CopyFromUtf8(applicationMetadata))
         {
-            if(obj is ActionType other)
-            {
-                return Equals(_actionType, other._actionType);
-            }
-            return false;
         }
 
-        public override int GetHashCode()
+        internal FlightPutResult(Protocol.PutResult putResult)
         {
-            return _actionType.GetHashCode();
+            _putResult = putResult;
+        }
+
+        public ByteString ApplicationMetadata => _putResult.AppMetadata;
+
+        internal Protocol.PutResult ToProtocol()
+        {
+            return _putResult;
         }
     }
 }

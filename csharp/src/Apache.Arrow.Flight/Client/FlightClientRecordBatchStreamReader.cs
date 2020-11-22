@@ -13,31 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Apache.Arrow.Flight.Protocol;
+using Apache.Arrow.Flight.Internal;
+using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Client
 {
-    public class Location
+    public class FlightClientRecordBatchStreamReader : FlightRecordBatchStreamReader
     {
-        private readonly Protocol.Location _location;
-        internal Location(Protocol.Location location)
+        internal FlightClientRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(flightDataStream)
         {
-            _location = location;
-        }
-
-        public Location(string uri)
-        {
-            _location = new Protocol.Location()
-            {
-                Uri = uri
-            };
-        }
-
-        internal Protocol.Location ToProtocol()
-        {
-            return _location;
         }
     }
 }

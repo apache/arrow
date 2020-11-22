@@ -78,15 +78,12 @@ namespace Apache.Arrow.Flight
             return _flightDescriptor;
         }
 
-        public bool IsCommand => _flightDescriptor.Type == Protocol.FlightDescriptor.Types.DescriptorType.Cmd;
+        public FlightDescriptorType Type => (FlightDescriptorType)_flightDescriptor.Type;
 
         public IEnumerable<string> Paths => _flightDescriptor.Path;
 
-        public ByteString CommandByteString => _flightDescriptor.Cmd;
+        public ByteString Cmd => _flightDescriptor.Cmd;
 
-        public byte[] CommandBytes => _flightDescriptor.Cmd.ToByteArray();
-
-        public string CommandString => _flightDescriptor.Cmd.ToStringUtf8();
 
         public override int GetHashCode()
         {

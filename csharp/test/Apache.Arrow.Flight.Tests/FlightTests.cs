@@ -17,8 +17,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.TestWeb;
 using Apache.Arrow.Tests;
+using Google.Protobuf;
 using Grpc.Core.Utils;
 using Xunit;
 
@@ -54,7 +56,7 @@ namespace Apache.Arrow.Flight.Tests
         }
 
 
-        private IEnumerable<RecordBatch> GetStoreBatch(FlightDescriptor flightDescriptor)
+        private IEnumerable<RecordBatchWithMetadata> GetStoreBatch(FlightDescriptor flightDescriptor)
         {
             Assert.Contains(flightDescriptor, (IReadOnlyDictionary<FlightDescriptor, FlightHolder>)_flightStore.Flights);
 
@@ -62,11 +64,11 @@ namespace Apache.Arrow.Flight.Tests
             return flightHolder.GetRecordBatches();
         }
 
-        private void GivenStoreBatches(FlightDescriptor flightDescriptor, params RecordBatch[] batches)
+        private FlightInfo GivenStoreBatches(FlightDescriptor flightDescriptor, params RecordBatchWithMetadata[] batches)
         {
             var initialBatch = batches.FirstOrDefault();
 
-            var flightHolder = new FlightHolder(flightDescriptor, initialBatch.Schema);
+            var flightHolder = new FlightHolder(flightDescriptor, initialBatch.RecordBatch.Schema, _testWebFactory.GetAddress());
 
             foreach(var batch in batches)
             {
@@ -74,6 +76,8 @@ namespace Apache.Arrow.Flight.Tests
             }
 
             _flightStore.Flights.Add(flightDescriptor, flightHolder);
+
+            return flightHolder.GetFlightInfo();
         }
 
         [Fact]
@@ -92,7 +96,7 @@ namespace Apache.Arrow.Flight.Tests
             var actualBatches = GetStoreBatch(flightDescriptor);
             Assert.Single(actualBatches);
 
-            ArrowReaderVerifier.CompareBatches(expectedBatch, actualBatches.First());
+            ArrowReaderVerifier.CompareBatches(expectedBatch, actualBatches.First().RecordBatch);
         }
 
         [Fact]
@@ -113,8 +117,8 @@ namespace Apache.Arrow.Flight.Tests
             var actualBatches = GetStoreBatch(flightDescriptor).ToList();
             Assert.Equal(2, actualBatches.Count);
 
-            ArrowReaderVerifier.CompareBatches(expectedBatch1, actualBatches[0]);
-            ArrowReaderVerifier.CompareBatches(expectedBatch2, actualBatches[1]);
+            ArrowReaderVerifier.CompareBatches(expectedBatch1, actualBatches[0].RecordBatch);
+            ArrowReaderVerifier.CompareBatches(expectedBatch2, actualBatches[1].RecordBatch);
         }
 
         [Fact]
@@ -124,7 +128,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch = CreateTestBatch(0, 100);
 
             //Add batch to the in memory store
-            GivenStoreBatches(flightDescriptor, expectedBatch);
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch));
 
             //Get the flight info for the ticket
             var flightInfo = await _flightClient.GetInfo(flightDescriptor);
@@ -133,7 +137,7 @@ namespace Apache.Arrow.Flight.Tests
             var endpoint = flightInfo.Endpoints.FirstOrDefault();
 
             var getStream = _flightClient.GetStream(endpoint.Ticket);
-            var resultList = await getStream.ToListAsync();
+            var resultList = await getStream.ResponseStream.ToListAsync();
 
             Assert.Single(resultList);
             ArrowReaderVerifier.CompareBatches(expectedBatch, resultList[0]);
@@ -147,7 +151,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch2 = CreateTestBatch(100, 100);
 
             //Add batch to the in memory store
-            GivenStoreBatches(flightDescriptor, expectedBatch1, expectedBatch2);
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch1), new RecordBatchWithMetadata(expectedBatch2));
 
             //Get the flight info for the ticket
             var flightInfo = await _flightClient.GetInfo(flightDescriptor);
@@ -156,7 +160,7 @@ namespace Apache.Arrow.Flight.Tests
             var endpoint = flightInfo.Endpoints.FirstOrDefault();
 
             var getStream = _flightClient.GetStream(endpoint.Ticket);
-            var resultList = await getStream.ToListAsync();
+            var resultList = await getStream.ResponseStream.ToListAsync();
 
             Assert.Equal(2, resultList.Count);
             ArrowReaderVerifier.CompareBatches(expectedBatch1, resultList[0]);
@@ -164,20 +168,119 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
-        public async Task TestListActions()
+        public async Task TestGetFlightMetadata()
         {
-            var expected = new List<ActionType>()
+            var flightDescriptor = FlightDescriptor.Path("test");
+            var expectedBatch1 = CreateTestBatch(0, 100);
+
+            var expectedMetadata = ByteString.CopyFromUtf8("test metadata");
+            var expectedMetadataList = new List<ByteString>() { expectedMetadata };
+
+            //Add batch to the in memory store
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch1, expectedMetadata));
+
+            //Get the flight info for the ticket
+            var flightInfo = await _flightClient.GetInfo(flightDescriptor);
+            Assert.Single(flightInfo.Endpoints);
+
+            var endpoint = flightInfo.Endpoints.FirstOrDefault();
+
+            var getStream = _flightClient.GetStream(endpoint.Ticket);
+
+            List<ByteString> actualMetadata = new List<ByteString>(); 
+            while(await getStream.ResponseStream.MoveNext(default))
             {
-                new ActionType("get", "get a flight"),
-                new ActionType("put", "add a flight"),
-                new ActionType("delete", "delete a flight")
+                actualMetadata.AddRange(getStream.ResponseStream.ApplicationMetadata);
+            }
+
+            Assert.Equal(expectedMetadataList, actualMetadata);
+        }
+
+        [Fact]
+        public async Task TestPutWithMetadata()
+        {
+            var flightDescriptor = FlightDescriptor.Path("test");
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedMetadata = ByteString.CopyFromUtf8("test metadata");
+
+            var putStream = _flightClient.StartPut(flightDescriptor);
+            await putStream.RequestStream.WriteAsync(expectedBatch, expectedMetadata);
+            await putStream.RequestStream.CompleteAsync();
+            var putResults = await putStream.ResponseStream.ToListAsync();
+
+            Assert.Single(putResults);
+
+            var actualBatches = GetStoreBatch(flightDescriptor);
+            Assert.Single(actualBatches);
+
+            ArrowReaderVerifier.CompareBatches(expectedBatch, actualBatches.First().RecordBatch);
+            Assert.Equal(expectedMetadata, actualBatches.First().Metadata);
+        }
+
+        [Fact]
+        public async Task TestGetSchema()
+        {
+            var flightDescriptor = FlightDescriptor.Path("test");
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedSchema = expectedBatch.Schema;
+
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch));
+
+            var actualSchema = await _flightClient.GetSchema(flightDescriptor);
+
+            SchemaComparer.Compare(expectedSchema, actualSchema);
+        }
+
+        [Fact]
+        public async Task TestDoAction()
+        {
+            var expectedResult = new List<FlightResult>()
+            {
+                new FlightResult("test data")
             };
 
-            var actual = await _flightClient.ListActions().ToListAsync();
+            var resultStream = _flightClient.DoAction(new FlightAction("test"));
+            var actualResult = await resultStream.ResponseStream.ToListAsync();
+
+            Assert.Equal(expectedResult, actualResult);
+        }
+
+        [Fact]
+        public async Task TestListActions()
+        {
+            var expected = new List<FlightActionType>()
+            {
+                new FlightActionType("get", "get a flight"),
+                new FlightActionType("put", "add a flight"),
+                new FlightActionType("delete", "delete a flight"),
+                new FlightActionType("test", "test action")
+            };
+
+            var actual = await _flightClient.ListActions().ResponseStream.ToListAsync();
 
             Assert.Equal(expected, actual);
         }
 
-        
+        [Fact]
+        public async Task TestListFlights()
+        {
+            var flightDescriptor1 = FlightDescriptor.Path("test1");
+            var flightDescriptor2 = FlightDescriptor.Path("test2");
+            var expectedBatch = CreateTestBatch(0, 100);
+
+            List<FlightInfo> expectedFlightInfo = new List<FlightInfo>();
+
+            expectedFlightInfo.Add(GivenStoreBatches(flightDescriptor1, new RecordBatchWithMetadata(expectedBatch)));
+            expectedFlightInfo.Add(GivenStoreBatches(flightDescriptor2, new RecordBatchWithMetadata(expectedBatch)));
+
+            var listFlightStream = _flightClient.ListFlights();
+
+            var actualFlights = await listFlightStream.ResponseStream.ToListAsync();
+
+            for(int i = 0; i < expectedFlightInfo.Count; i++)
+            {
+                FlightInfoComparer.Compare(expectedFlightInfo[i], actualFlights[i]);
+            }
+        }
     }
 }

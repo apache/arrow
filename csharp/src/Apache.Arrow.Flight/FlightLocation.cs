@@ -16,36 +16,44 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
-using Apache.Arrow.Flight.Protocol;
-using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Writer
+namespace Apache.Arrow.Flight
 {
-    public class ClientRecordBatchStreamWriter : RecordBatchStreamWriter, IClientStreamWriter<RecordBatch>
+    public class FlightLocation
     {
-        private readonly IClientStreamWriter<FlightData> _clientStreamWriter;
-        private bool _completed = false;
-        public ClientRecordBatchStreamWriter(IClientStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor) : base(clientStreamWriter, flightDescriptor)
+        private readonly Protocol.Location _location;
+        internal FlightLocation(Protocol.Location location)
         {
-            _clientStreamWriter = clientStreamWriter;
+            _location = location;
         }
 
-        protected override void Dispose(bool disposing)
+        public FlightLocation(string uri)
         {
-            CompleteAsync().Wait();
-            base.Dispose(disposing);
-        }
-
-        public async Task CompleteAsync()
-        {
-            if (_completed)
+            _location = new Protocol.Location()
             {
-                return;
-            }
+                Uri = uri
+            };
+        }
 
-            await _clientStreamWriter.CompleteAsync().ConfigureAwait(false);
-            _completed = true;
+        public string Uri => _location.Uri;
+
+        internal Protocol.Location ToProtocol()
+        {
+            return _location;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is FlightLocation other)
+            {
+                return Equals(_location, other._location);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return _location.GetHashCode();
         }
     }
 }

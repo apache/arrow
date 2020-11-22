@@ -56,9 +56,14 @@ namespace Apache.Arrow.Flight.Tests
                         });
         }
 
+        public string GetAddress()
+        {
+            return "http://127.0.0.1:5001";
+        }
+
         public GrpcChannel GetChannel()
         {
-            return GrpcChannel.ForAddress("http://127.0.0.1:5001");
+            return GrpcChannel.ForAddress(GetAddress());
         }
 
         public void Stop()

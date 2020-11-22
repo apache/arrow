@@ -26,7 +26,7 @@ using FlatBuffers;
 using Google.Protobuf;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Internal
 {
     /// <summary>
     /// Handles writing record batches as flight data
@@ -66,17 +66,22 @@ namespace Apache.Arrow.Flight
             this.BaseStream.SetLength(0);
         }
 
-        public async Task Write(RecordBatch recordBatch)
+        public async Task Write(RecordBatch recordBatch, ByteString applicationMetadata)
         {
             if (!HasWrittenSchema)
             {
-                await SendSchema();
+                await SendSchema().ConfigureAwait(false);
             }
             ResetStream();
 
             _currentFlightData = new Protocol.FlightData();
 
-            await WriteRecordBatchInternalAsync(recordBatch);
+            if(applicationMetadata != null)
+            {
+                _currentFlightData.AppMetadata = applicationMetadata;
+            }
+
+            await WriteRecordBatchInternalAsync(recordBatch).ConfigureAwait(false);
 
             //Reset stream position
             this.BaseStream.Position = 0;

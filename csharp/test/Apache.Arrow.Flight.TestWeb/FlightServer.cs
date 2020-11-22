@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.Server;
 using Grpc.Core;
 using Grpc.Core.Utils;
 
@@ -31,42 +32,48 @@ namespace Apache.Arrow.Flight.TestWeb
             _flightStore = flightStore;
         }
 
-        public Task DoAction(Action request, IAsyncStreamWriter<Result> responseStream, ServerCallContext context)
+        public async Task DoAction(FlightAction request, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
         {
-            throw new NotImplementedException();
+            switch (request.Type)
+            {
+                case "test":
+                    await responseStream.WriteAsync(new FlightResult("test data"));
+                    break;
+                default:
+                    throw new NotImplementedException();
+            }
         }
 
-        public async Task DoGet(Ticket ticket, IServerStreamWriter<RecordBatch> responseStream, ServerCallContext context)
+        public async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
         {
-            var flightDescriptor = FlightDescriptor.Path(ticket.TicketString);
+            var flightDescriptor = FlightDescriptor.Path(ticket.Ticket.ToStringUtf8());
 
             if(_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
                 var batches = flightHolder.GetRecordBatches();
 
+                
                 foreach(var batch in batches)
                 {
-                    await responseStream.WriteAsync(batch);
+                    await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);
                 }
             }
         }
 
-        public async Task DoPut(RecordBatchStreamReader requestStream, IAsyncStreamWriter<PutResult> responseStream, ServerCallContext context)
+        public async Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
         {
             var flightDescriptor = await requestStream.FlightDescriptor;
 
             if(!_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
-                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema);
+                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema, $"http://{context.Host}");
                 _flightStore.Flights.Add(flightDescriptor, flightHolder);
             }
 
-            var batches = await requestStream.ToListAsync();
-
-            foreach(var batch in batches)
+            while (await requestStream.MoveNext())
             {
-                flightHolder.AddBatch(batch);
-                await responseStream.WriteAsync(new PutResult(new ArrowBuffer()));
+                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()));
+                await responseStream.WriteAsync(FlightPutResult.Empty);
             }
         }
 
@@ -81,19 +88,29 @@ namespace Apache.Arrow.Flight.TestWeb
 
         public Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
         {
-            throw new NotImplementedException();
+            if(_flightStore.Flights.TryGetValue(request, out var flightHolder))
+            {
+                return Task.FromResult(flightHolder.GetFlightInfo().Schema);
+            }
+            throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
 
-        public async Task ListActions(IAsyncStreamWriter<ActionType> responseStream, ServerCallContext context)
+        public async Task ListActions(IAsyncStreamWriter<FlightActionType> responseStream, ServerCallContext context)
         {
-            await responseStream.WriteAsync(new ActionType("get", "get a flight"));
-            await responseStream.WriteAsync(new ActionType("put", "add a flight"));
-            await responseStream.WriteAsync(new ActionType("delete", "delete a flight"));
+            await responseStream.WriteAsync(new FlightActionType("get", "get a flight"));
+            await responseStream.WriteAsync(new FlightActionType("put", "add a flight"));
+            await responseStream.WriteAsync(new FlightActionType("delete", "delete a flight"));
+            await responseStream.WriteAsync(new FlightActionType("test", "test action"));
         }
 
-        public Task ListFlights(Criteria request, IAsyncStreamWriter<FlightInfo> responseStream, ServerCallContext context)
+        public async Task ListFlights(FlightCriteria request, IAsyncStreamWriter<FlightInfo> responseStream, ServerCallContext context)
         {
-            throw new NotImplementedException();
+            var flightInfos = _flightStore.Flights.Select(x => x.Value.GetFlightInfo()).ToList();
+
+            foreach(var flightInfo in flightInfos)
+            {
+                await responseStream.WriteAsync(flightInfo);
+            }
         }
     }
 }

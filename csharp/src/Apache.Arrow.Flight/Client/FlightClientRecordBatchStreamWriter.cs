@@ -15,41 +15,38 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using Apache.Arrow.Flatbuf;
-using Apache.Arrow.Ipc;
-using Google.Protobuf;
+using Apache.Arrow.Flight.Protocol;
+using Apache.Arrow.Flight.Internal;
+using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Writer
+namespace Apache.Arrow.Flight.Client
 {
-    /// <summary>
-    /// This class handles writing schemas
-    /// </summary>
-    internal class SchemaWriter : ArrowStreamWriter
+    public class FlightClientRecordBatchStreamWriter : FlightRecordBatchStreamWriter, IClientStreamWriter<RecordBatch>
     {
-        private SchemaWriter(Stream baseStream, Schema schema) : base(baseStream, schema)
+        private readonly IClientStreamWriter<FlightData> _clientStreamWriter;
+        private bool _completed = false;
+        internal FlightClientRecordBatchStreamWriter(IClientStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor) : base(clientStreamWriter, flightDescriptor)
         {
+            _clientStreamWriter = clientStreamWriter;
         }
 
-        public void WriteSchema(Schema schema, CancellationToken cancellationToken)
+        protected override void Dispose(bool disposing)
         {
-            var offset = base.SerializeSchema(schema);
-            WriteMessage(MessageHeader.Schema, offset, 0);
+            CompleteAsync().Wait();
+            base.Dispose(disposing);
         }
 
-        public static ByteString SerializeSchema(Schema schema, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task CompleteAsync()
         {
-            using(var memoryStream = new MemoryStream())
+            if (_completed)
             {
-                var writer = new SchemaWriter(memoryStream, schema);
-                writer.WriteSchema(schema, cancellationToken);
-
-                memoryStream.Position = 0;
-                return ByteString.FromStream(memoryStream);
+                return;
             }
+
+            await _clientStreamWriter.CompleteAsync().ConfigureAwait(false);
+            _completed = true;
         }
     }
 }

@@ -13,39 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.Protocol;
+using Apache.Arrow.Flight.Internal;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight
+namespace Apache.Arrow.Flight.Server
 {
-    public class StreamWriter<TIn, TOut> : IAsyncStreamWriter<TIn>
+    public class FlightServerRecordBatchStreamReader : FlightRecordBatchStreamReader
     {
-        private readonly IAsyncStreamWriter<TOut> _inputStream;
-        private readonly Func<TIn, TOut> _convertFunction;
-        internal StreamWriter(IAsyncStreamWriter<TOut> inputStream, Func<TIn, TOut> convertFunction)
+        internal FlightServerRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(flightDataStream)
         {
-            _inputStream = inputStream;
-            _convertFunction = convertFunction;
         }
 
-        public WriteOptions WriteOptions
-        {
-            get
-            {
-                return _inputStream.WriteOptions;
-            }
-            set
-            {
-                _inputStream.WriteOptions = value;
-            }
-        }
-
-        public Task WriteAsync(TIn message)
-        {
-            return _inputStream.WriteAsync(_convertFunction(message));
-        }
+        public ValueTask<FlightDescriptor> FlightDescriptor => GetFlightDescriptor();
     }
 }
