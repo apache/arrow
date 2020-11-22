@@ -1877,6 +1877,13 @@ fn if_then_else(
             true_values,
             false_values
         ),
+        DataType::Utf8 => if_then_else!(
+            array::StringBuilder,
+            array::StringArray,
+            bools,
+            true_values,
+            false_values
+        ),
         other => Err(DataFusionError::Execution(format!(
             "CASE does not support '{:?}'",
             other
@@ -1906,6 +1913,7 @@ fn build_null_array(data_type: &DataType, num_rows: usize) -> Result<ArrayRef> {
         DataType::Int64 => make_null_array!(array::Int64Builder, num_rows),
         DataType::Float32 => make_null_array!(array::Float32Builder, num_rows),
         DataType::Float64 => make_null_array!(array::Float64Builder, num_rows),
+        DataType::Utf8 => make_null_array!(array::StringBuilder, num_rows),
         other => Err(DataFusionError::Execution(format!(
             "CASE does not support '{:?}'",
             other
@@ -1946,6 +1954,16 @@ fn array_equals(
 ) -> Result<BooleanArray> {
     match data_type {
         DataType::UInt8 => array_equals!(array::UInt8Array, when_value, base_value),
+        DataType::UInt16 => array_equals!(array::UInt16Array, when_value, base_value),
+        DataType::UInt32 => array_equals!(array::UInt32Array, when_value, base_value),
+        DataType::UInt64 => array_equals!(array::UInt64Array, when_value, base_value),
+        DataType::Int8 => array_equals!(array::Int8Array, when_value, base_value),
+        DataType::Int16 => array_equals!(array::Int16Array, when_value, base_value),
+        DataType::Int32 => array_equals!(array::Int32Array, when_value, base_value),
+        DataType::Int64 => array_equals!(array::Int64Array, when_value, base_value),
+        DataType::Float32 => array_equals!(array::Float32Array, when_value, base_value),
+        DataType::Float64 => array_equals!(array::Float64Array, when_value, base_value),
+        DataType::Utf8 => array_equals!(array::StringArray, when_value, base_value),
         other => Err(DataFusionError::Execution(format!(
             "CASE does not support '{:?}'",
             other
@@ -3355,6 +3373,36 @@ mod tests {
     }
 
     #[test]
+    fn case_with_expr_else() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        let when1 = lit(ScalarValue::Utf8(Some("foo".to_string())));
+        let then1 = lit(ScalarValue::Int32(Some(123)));
+        let when2 = lit(ScalarValue::Utf8(Some("bar".to_string())));
+        let then2 = lit(ScalarValue::Int32(Some(456)));
+        let else_value = lit(ScalarValue::Int32(Some(999)));
+
+        let expr = case(
+            Some(col("a")),
+            &[(when1, then1), (when2, then2)],
+            Some(else_value),
+        )?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let result = result
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to downcast to Int32Array");
+
+        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(456)]);
+
+        assert_eq!(expected, result);
+
+        Ok(())
+    }
+
+    #[test]
     fn case_without_expr() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
@@ -3364,14 +3412,14 @@ mod tests {
             col("a"),
             Operator::Eq,
             lit(ScalarValue::Utf8(Some("foo".to_string()))),
-            &schema,
+            &batch.schema(),
         )?;
         let then1 = lit(ScalarValue::Int32(Some(123)));
         let when2 = binary(
             col("a"),
             Operator::Eq,
             lit(ScalarValue::Utf8(Some("bar".to_string()))),
-            &schema,
+            &batch.schema(),
         )?;
         let then2 = lit(ScalarValue::Int32(Some(456)));
         let expr = case(None, &[(when1, then1), (when2, then2)], None)?;
@@ -3382,6 +3430,41 @@ mod tests {
             .expect("failed to downcast to Int32Array");
 
         let expected = &Int32Array::from(vec![Some(123), None, Some(456)]);
+
+        assert_eq!(expected, result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn case_without_expr_else() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        let when1 = binary(
+            col("a"),
+            Operator::Eq,
+            lit(ScalarValue::Utf8(Some("foo".to_string()))),
+            &batch.schema(),
+        )?;
+        let then1 = lit(ScalarValue::Int32(Some(123)));
+        let when2 = binary(
+            col("a"),
+            Operator::Eq,
+            lit(ScalarValue::Utf8(Some("bar".to_string()))),
+            &batch.schema(),
+        )?;
+        let then2 = lit(ScalarValue::Int32(Some(456)));
+        let else_value = lit(ScalarValue::Int32(Some(999)));
+        let expr = case(None, &[(when1, then1), (when2, then2)], Some(else_value))?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let result = result
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .expect("failed to downcast to Int32Array");
+
+        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
