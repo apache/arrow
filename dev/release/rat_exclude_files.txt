@@ -257,6 +257,7 @@ r/inst/include/cpp11/*.hpp
 ruby/red-arrow/.yardopts
 rust/arrow/test/data/*.csv
 rust/rust-toolchain
+rust/arrow/Cross.toml
 rust/arrow-flight/src/arrow.flight.protocol.rs
 julia/Arrow/Project.toml
 julia/Arrow/README.md
