@@ -24,6 +24,7 @@ use arrow::datatypes::{Schema, SchemaRef};
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::prelude::col;
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -118,6 +119,9 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
+        LogicalPlan::Join { on, .. } => {
+            on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect()
+        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -127,7 +131,6 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Limit { .. }
-        | LogicalPlan::Join { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
     }

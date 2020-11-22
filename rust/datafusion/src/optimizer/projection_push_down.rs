@@ -158,6 +158,37 @@ fn optimize_plan(
                 })
             }
         }
+        LogicalPlan::Join {
+            left,
+            right,
+            on,
+            join_type,
+            schema,
+        } => {
+            let mut new_required_columns = HashSet::new();
+            for (l, r) in on {
+                new_required_columns.insert(l.to_owned());
+                new_required_columns.insert(r.to_owned());
+            }
+            Ok(LogicalPlan::Join {
+                left: Arc::new(optimize_plan(
+                    optimizer,
+                    &left,
+                    &new_required_columns,
+                    true,
+                )?),
+                right: Arc::new(optimize_plan(
+                    optimizer,
+                    &right,
+                    &new_required_columns,
+                    true,
+                )?),
+
+                join_type: join_type.clone(),
+                on: on.clone(),
+                schema: schema.clone(),
+            })
+        }
         LogicalPlan::Aggregate {
             schema,
             input,
@@ -312,7 +343,6 @@ fn optimize_plan(
         | LogicalPlan::Filter { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
-        | LogicalPlan::Join { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Extension { .. } => {
             let expr = utils::expressions(plan);
