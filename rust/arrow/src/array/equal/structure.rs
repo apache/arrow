@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::ArrayData;
+use crate::{array::data::count_nulls, array::ArrayData, buffer::Buffer};
 
 use super::equal_range;
 
 fn equal_values(
     lhs: &ArrayData,
     rhs: &ArrayData,
+    lhs_nulls: Option<&Buffer>,
+    rhs_nulls: Option<&Buffer>,
     lhs_start: usize,
     rhs_start: usize,
     len: usize,
@@ -30,19 +32,51 @@ fn equal_values(
         .iter()
         .zip(rhs.child_data())
         .all(|(lhs_values, rhs_values)| {
-            equal_range(lhs_values, rhs_values, lhs_start, rhs_start, len)
+            // merge the null data
+            let lhs_merged_nulls = match (lhs_nulls, lhs_values.null_buffer()) {
+                (None, None) => None,
+                (None, Some(c)) => Some(c.clone()),
+                (Some(p), None) => Some(p.clone()),
+                (Some(p), Some(c)) => {
+                    let merged = (p & c).unwrap();
+                    Some(merged)
+                }
+            };
+            let rhs_merged_nulls = match (rhs_nulls, rhs_values.null_buffer()) {
+                (None, None) => None,
+                (None, Some(c)) => Some(c.clone()),
+                (Some(p), None) => Some(p.clone()),
+                (Some(p), Some(c)) => {
+                    let merged = (p & c).unwrap();
+                    Some(merged)
+                }
+            };
+            equal_range(
+                lhs_values,
+                rhs_values,
+                lhs_merged_nulls.as_ref(),
+                rhs_merged_nulls.as_ref(),
+                lhs_start,
+                rhs_start,
+                len,
+            )
         })
 }
 
 pub(super) fn struct_equal(
     lhs: &ArrayData,
     rhs: &ArrayData,
+    lhs_nulls: Option<&Buffer>,
+    rhs_nulls: Option<&Buffer>,
     lhs_start: usize,
     rhs_start: usize,
     len: usize,
 ) -> bool {
-    if lhs.null_count() == 0 && rhs.null_count() == 0 {
-        equal_values(lhs, rhs, lhs_start, rhs_start, len)
+    // we have to recalculate null counts from the null bitmaps
+    let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
+    let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
+    if lhs_null_count == 0 && rhs_null_count == 0 {
+        equal_values(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
     } else {
         // with nulls, we need to compare item by item whenever it is not null
         (0..len).all(|i| {
@@ -53,7 +87,7 @@ pub(super) fn struct_equal(
 
             lhs_is_null
                 || (lhs_is_null == rhs_is_null)
-                    && equal_values(lhs, rhs, lhs_pos, rhs_pos, 1)
+                    && equal_values(lhs, rhs, lhs_nulls, rhs_nulls, lhs_pos, rhs_pos, 1)
         })
     }
 }
