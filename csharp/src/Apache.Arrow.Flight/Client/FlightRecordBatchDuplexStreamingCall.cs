@@ -19,7 +19,7 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Client
 {
-    public class FlightRecordBatchDuplexStreamingCall
+    public class FlightRecordBatchDuplexStreamingCall : IDisposable
     {
         private readonly Func<Status> _getStatusFunc;
         private readonly Func<Metadata> _getTrailersFunc;
