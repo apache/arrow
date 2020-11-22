@@ -25,35 +25,30 @@ use std::{
 };
 
 /// Filter Push Down optimizer rule pushes filter clauses down the plan
+/// # Introduction
+/// A filter-commutative operation is an operation whose result of filter(op(data)) = op(filter(data)).
+/// An example of a filter-commutative operation is a projection; a counter-example is `limit`.
 ///
-/// This optimization looks for the maximum depth of each column in the plan where a filter can be applied and
-/// re-writes the plan with filters on those locations.
-/// It performs two passes on the plan:
-/// 1. identify filters, which columns they use, and projections along the path
-/// 2. move filters down, re-writing the expressions using the projections
-/*
-A filter-commutative operation is an operation whose result of filter(op(data)) = op(filter(data)).
-An example of a filter-commutative operation is a projection; a counter-example is `limit`.
-
-The filter-commutative property is column-specific. An aggregate grouped by A on SUM(B)
-can commute with a filter that depends on A only, but does not commute with a filter that depends
-on SUM(B).
-
-This optimizer commutes filters with filter-commutative operations to push the filters
-to the maximum possible depth, consequently re-writing the filter expressions by every
-projection that changes the filter's expression.
-
-    Filter: #b Gt Int64(10)
-        Projection: #a AS b
-
-is optimized to
-
-    Projection: #a AS b
-        Filter: #a Gt Int64(10)  <--- changed from #b to #a
-
-This performs a single pass trought the plan. When it passes through a filter, it stores that filter,
-and when it reaches a node that does not commute with it, it adds the filter to that place.
-*/
+/// The filter-commutative property is column-specific. An aggregate grouped by A on SUM(B)
+/// can commute with a filter that depends on A only, but does not commute with a filter that depends
+/// on SUM(B).
+///
+/// This optimizer commutes filters with filter-commutative operations to push the filters
+/// the closest possible to the scans, re-writing the filter expressions by every
+/// projection that changes the filter's expression.
+///
+/// Filter: #b Gt Int64(10)
+///     Projection: #a AS b
+///
+/// is optimized to
+///
+/// Projection: #a AS b
+///     Filter: #a Gt Int64(10)  <--- changed from #b to #a
+///
+/// This performs a single pass trought the plan. When it passes trought a filter, it stores that filter,
+/// and when it reaches a node that does not commute with it, it adds the filter to that place.
+/// When it passes through a projection, it re-writes the filter's expression taking into accoun that projection.
+/// When multiple filters would have been written, it `AND` their expressions into a single expression.
 pub struct FilterPushDown {}
 
 #[derive(Debug, Clone, Default)]
