@@ -1794,6 +1794,37 @@ fn if_then_else(
     Ok(Arc::new(builder.finish()))
 }
 
+//TODO make this work for all data types, not just Int32Array
+fn build_null_array(data_type: &DataType, num_rows: usize) -> Result<ArrayRef> {
+    match data_type {
+        DataType::Int32 => {
+            let mut builder = Int32Builder::new(num_rows);
+            for row in 0..num_rows {
+                builder.append_null()?;
+            }
+            Ok(Arc::new(builder.finish()))
+        }
+        _ => unimplemented!(),
+    }
+}
+
+//TODO this should be using a compute kernel
+//TODO support all types not just StringArray
+fn array_equals(
+    when_value: &StringArray,
+    base_value: &StringArray,
+) -> Result<BooleanArray> {
+    let mut builder = BooleanBuilder::new(when_value.len());
+    for row in 0..when_value.len() {
+        if when_value.is_valid(row) && base_value.is_valid(row) {
+            builder.append_value(when_value.value(row) == base_value.value(row))?;
+        } else {
+            builder.append_null()?;
+        }
+    }
+    Ok(builder.finish())
+}
+
 impl PhysicalExpr for CaseExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.when_then_expr[0].1.data_type(input_schema)
@@ -1816,7 +1847,6 @@ impl PhysicalExpr for CaseExpr {
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        let mut result: Option<ArrayRef> = None;
         let num_rows = batch.num_rows();
         let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
         match &self.expr {
@@ -1841,11 +1871,7 @@ impl PhysicalExpr for CaseExpr {
                 {
                     Some(e.evaluate(batch)?.into_array(batch.num_rows()))
                 } else {
-                    let mut builder = Int32Builder::new(num_rows);
-                    for row in 0..num_rows {
-                        builder.append_null()?;
-                    }
-                    Some(Arc::new(builder.finish()))
+                    Some(build_null_array(&return_type, num_rows)?)
                 };
 
                 // walk backwards through the when/then expressions
@@ -1864,17 +1890,7 @@ impl PhysicalExpr for CaseExpr {
                     let then_value = then_value.into_array(num_rows);
 
                     // build boolean array representing which rows match the "when" value
-                    let mut builder = BooleanBuilder::new(num_rows);
-                    for row in 0..num_rows {
-                        if when_value.is_valid(row) && base_value.is_valid(row) {
-                            builder.append_value(
-                                when_value.value(row) == base_value.value(row),
-                            )?;
-                        } else {
-                            builder.append_null()?;
-                        }
-                    }
-                    let when_match = builder.finish();
+                    let when_match = array_equals(&when_value, &base_value)?;
 
                     current_value = Some(if_then_else(
                         &when_match,
@@ -1893,11 +1909,7 @@ impl PhysicalExpr for CaseExpr {
                 {
                     Some(e.evaluate(batch)?.into_array(batch.num_rows()))
                 } else {
-                    let mut builder = Int32Builder::new(num_rows);
-                    for row in 0..num_rows {
-                        builder.append_null()?;
-                    }
-                    Some(Arc::new(builder.finish()))
+                    Some(build_null_array(&return_type, num_rows)?)
                 };
 
                 // walk backwards through the when/then expressions
