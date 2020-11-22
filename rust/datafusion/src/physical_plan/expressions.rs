@@ -26,7 +26,7 @@ use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
-use arrow::array::{Array, BooleanBuilder, Int32Builder, LargeStringArray};
+use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
@@ -1772,83 +1772,201 @@ pub fn case(
     Ok(Arc::new(CaseExpr::try_new(expr, when_thens, else_expr)?))
 }
 
-//TODO make this work for all data types, not just Int32Array
+macro_rules! if_then_else {
+    ($BUILDER_TYPE:ty, $ARRAY_TYPE:ty, $BOOLS:expr, $TRUE:expr, $FALSE:expr) => {{
+        let true_values = $TRUE
+            .as_ref()
+            .as_any()
+            .downcast_ref::<$ARRAY_TYPE>()
+            .expect("true_values downcast failed");
+
+        let false_values = $FALSE
+            .as_ref()
+            .as_any()
+            .downcast_ref::<$ARRAY_TYPE>()
+            .expect("false_values downcast failed");
+
+        let mut builder = <$BUILDER_TYPE>::new($BOOLS.len());
+        for i in 0..$BOOLS.len() {
+            if $BOOLS.is_null(i) {
+                builder.append_null()?;
+            } else if $BOOLS.value(i) {
+                builder.append_value(true_values.value(i))?;
+            } else {
+                builder.append_value(false_values.value(i))?;
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
 fn if_then_else(
     bools: &BooleanArray,
     true_values: ArrayRef,
     false_values: ArrayRef,
+    data_type: &DataType,
 ) -> Result<ArrayRef> {
-    let true_values = true_values
-        .as_ref()
-        .as_any()
-        .downcast_ref::<Int32Array>()
-        .expect("true_values downcast failed");
-
-    let false_values = false_values
-        .as_ref()
-        .as_any()
-        .downcast_ref::<Int32Array>()
-        .expect("false_values downcast failed");
-
-    let mut builder = Int32Builder::new(bools.len());
-    for i in 0..bools.len() {
-        if bools.is_null(i) {
-            builder.append_null()?;
-        } else if bools.value(i) {
-            builder.append_value(true_values.value(i))?;
-        } else {
-            builder.append_value(false_values.value(i))?;
-        }
+    match data_type {
+        DataType::UInt8 => if_then_else!(
+            array::UInt8Builder,
+            array::UInt8Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::UInt16 => if_then_else!(
+            array::UInt16Builder,
+            array::UInt16Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::UInt32 => if_then_else!(
+            array::UInt32Builder,
+            array::UInt32Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::UInt64 => if_then_else!(
+            array::UInt64Builder,
+            array::UInt64Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Int8 => if_then_else!(
+            array::Int8Builder,
+            array::Int8Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Int16 => if_then_else!(
+            array::Int16Builder,
+            array::Int16Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Int32 => if_then_else!(
+            array::Int32Builder,
+            array::Int32Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Int64 => if_then_else!(
+            array::Int64Builder,
+            array::Int64Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Float32 => if_then_else!(
+            array::Float32Builder,
+            array::Float32Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        DataType::Float64 => if_then_else!(
+            array::Float64Builder,
+            array::Float64Array,
+            bools,
+            true_values,
+            false_values
+        ),
+        other => Err(DataFusionError::Execution(format!(
+            "CASE does not support '{:?}'",
+            other
+        ))),
     }
-    Ok(Arc::new(builder.finish()))
 }
 
-//TODO make this work for all data types, not just Int32Array
+macro_rules! make_null_array {
+    ($TY:ty, $N:expr) => {{
+        let mut builder = <$TY>::new($N);
+        for _ in 0..$N {
+            builder.append_null()?;
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
 fn build_null_array(data_type: &DataType, num_rows: usize) -> Result<ArrayRef> {
     match data_type {
-        DataType::Int32 => {
-            let mut builder = Int32Builder::new(num_rows);
-            for _ in 0..num_rows {
-                builder.append_null()?;
-            }
-            Ok(Arc::new(builder.finish()))
-        }
-        _ => unimplemented!(),
+        DataType::UInt8 => make_null_array!(array::UInt8Builder, num_rows),
+        DataType::UInt16 => make_null_array!(array::UInt16Builder, num_rows),
+        DataType::UInt32 => make_null_array!(array::UInt32Builder, num_rows),
+        DataType::UInt64 => make_null_array!(array::UInt64Builder, num_rows),
+        DataType::Int8 => make_null_array!(array::Int8Builder, num_rows),
+        DataType::Int16 => make_null_array!(array::Int16Builder, num_rows),
+        DataType::Int32 => make_null_array!(array::Int32Builder, num_rows),
+        DataType::Int64 => make_null_array!(array::Int64Builder, num_rows),
+        DataType::Float32 => make_null_array!(array::Float32Builder, num_rows),
+        DataType::Float64 => make_null_array!(array::Float64Builder, num_rows),
+        other => Err(DataFusionError::Execution(format!(
+            "CASE does not support '{:?}'",
+            other
+        ))),
     }
 }
 
-//TODO this should be using a compute kernel
-//TODO support all types not just StringArray
-fn array_equals(
-    when_value: &StringArray,
-    base_value: &StringArray,
-) -> Result<BooleanArray> {
-    let mut builder = BooleanBuilder::new(when_value.len());
-    for row in 0..when_value.len() {
-        if when_value.is_valid(row) && base_value.is_valid(row) {
-            builder.append_value(when_value.value(row) == base_value.value(row))?;
-        } else {
-            builder.append_null()?;
+macro_rules! array_equals {
+    ($TY:ty, $L:expr, $R:expr) => {{
+        let when_value = $L
+            .as_ref()
+            .as_any()
+            .downcast_ref::<$TY>()
+            .expect("array_equals downcast failed");
+
+        let base_value = $R
+            .as_ref()
+            .as_any()
+            .downcast_ref::<$TY>()
+            .expect("array_equals downcast failed");
+
+        let mut builder = BooleanBuilder::new(when_value.len());
+        for row in 0..when_value.len() {
+            if when_value.is_valid(row) && base_value.is_valid(row) {
+                builder.append_value(when_value.value(row) == base_value.value(row))?;
+            } else {
+                builder.append_null()?;
+            }
         }
+        Ok(builder.finish())
+    }};
+}
+
+fn array_equals(
+    data_type: &DataType,
+    when_value: ArrayRef,
+    base_value: ArrayRef,
+) -> Result<BooleanArray> {
+    match data_type {
+        DataType::UInt8 => array_equals!(array::UInt8Array, when_value, base_value),
+        other => Err(DataFusionError::Execution(format!(
+            "CASE does not support '{:?}'",
+            other
+        ))),
     }
-    Ok(builder.finish())
 }
 
 impl CaseExpr {
+    /// This function evaluates the form of CASE that matches an expression to fixed values.
+    ///
+    /// CASE expression
+    ///     WHEN value THEN result
+    ///     [WHEN ...]
+    ///     [ELSE result]
+    /// END
     fn case_when_with_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        //TODO hard-coded for "expr/when" type StringArray and "then" type Int32Array
-
         let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
-
         let expr = self.expr.as_ref().unwrap();
-
         let base_value = expr.evaluate(batch)?;
+        let base_type = expr.data_type(&batch.schema())?;
         let base_value = base_value.into_array(batch.num_rows());
-        let base_value = base_value
-            .as_ref()
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("WHEN expression did not return a StringArray");
 
         // start with the else condition, or nulls
         let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
@@ -1863,28 +1981,31 @@ impl CaseExpr {
 
             let when_value = self.when_then_expr[i].0.evaluate(batch)?;
             let when_value = when_value.into_array(batch.num_rows());
-            let when_value = when_value
-                .as_ref()
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .expect("WHEN expression did not return a StringArray");
 
             let then_value = self.when_then_expr[i].1.evaluate(batch)?;
             let then_value = then_value.into_array(batch.num_rows());
 
             // build boolean array representing which rows match the "when" value
-            let when_match = array_equals(&when_value, &base_value)?;
+            let when_match = array_equals(&base_type, when_value, base_value.clone())?;
 
             current_value = Some(if_then_else(
                 &when_match,
                 then_value,
                 current_value.unwrap(),
+                &return_type,
             )?);
         }
 
         Ok(ColumnarValue::Array(current_value.unwrap()))
     }
 
+    /// This function evaluates the form of CASE where each WHEN expression is a boolean
+    /// expression.
+    ///
+    /// CASE WHEN condition THEN result
+    ///      [WHEN ...]
+    ///      [ELSE result]
+    /// END
     fn case_when_no_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
 
@@ -1914,6 +2035,7 @@ impl CaseExpr {
                 &when_value,
                 then_value,
                 current_value.unwrap(),
+                &return_type,
             )?);
         }
 
