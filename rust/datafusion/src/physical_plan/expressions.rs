@@ -1826,7 +1826,7 @@ fn array_equals(
 }
 
 impl CaseExpr {
-    fn case_when_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+    fn case_when_with_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         //TODO hard-coded for "expr/when" type StringArray and "then" type Int32Array
 
         let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
@@ -1875,6 +1875,41 @@ impl CaseExpr {
 
         Ok(ColumnarValue::Array(current_value.unwrap()))
     }
+
+    fn case_when_no_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
+
+        // start with the else condition, or nulls
+        let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
+            Some(e.evaluate(batch)?.into_array(batch.num_rows()))
+        } else {
+            Some(build_null_array(&return_type, batch.num_rows())?)
+        };
+
+        // walk backwards through the when/then expressions
+        for i in (0..self.when_then_expr.len()).rev() {
+            let i = i as usize;
+
+            let when_value = self.when_then_expr[i].0.evaluate(batch)?;
+            let when_value = when_value.into_array(batch.num_rows());
+            let when_value = when_value
+                .as_ref()
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .expect("WHEN expression did not return a BooleanArray");
+
+            let then_value = self.when_then_expr[i].1.evaluate(batch)?;
+            let then_value = then_value.into_array(batch.num_rows());
+
+            current_value = Some(if_then_else(
+                &when_value,
+                then_value,
+                current_value.unwrap(),
+            )?);
+        }
+
+        Ok(ColumnarValue::Array(current_value.unwrap()))
+    }
 }
 
 impl PhysicalExpr for CaseExpr {
@@ -1899,46 +1934,14 @@ impl PhysicalExpr for CaseExpr {
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
-        let num_rows = batch.num_rows();
         if self.expr.is_some() {
             // this use case evaluates "expr" and then compares the values with the "when"
             // values
-            self.case_when_expr(batch)
+            self.case_when_with_expr(batch)
         } else {
             // The "when" conditions all evaluate to boolean in this use case and can be
             // arbitrary expressions
-            let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
-
-            // start with the else condition, or nulls
-            let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
-                Some(e.evaluate(batch)?.into_array(batch.num_rows()))
-            } else {
-                Some(build_null_array(&return_type, num_rows)?)
-            };
-
-            // walk backwards through the when/then expressions
-            for i in (0..self.when_then_expr.len()).rev() {
-                let i = i as usize;
-
-                let when_value = self.when_then_expr[i].0.evaluate(batch)?;
-                let when_value = when_value.into_array(num_rows);
-                let when_value = when_value
-                    .as_ref()
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .expect("WHEN expression did not return a BooleanArray");
-
-                let then_value = self.when_then_expr[i].1.evaluate(batch)?;
-                let then_value = then_value.into_array(num_rows);
-
-                current_value = Some(if_then_else(
-                    &when_value,
-                    then_value,
-                    current_value.unwrap(),
-                )?);
-            }
-
-            Ok(ColumnarValue::Array(current_value.unwrap()))
+            self.case_when_no_expr(batch)
         }
     }
 }
