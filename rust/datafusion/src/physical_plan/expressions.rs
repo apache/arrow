@@ -1799,7 +1799,7 @@ fn build_null_array(data_type: &DataType, num_rows: usize) -> Result<ArrayRef> {
     match data_type {
         DataType::Int32 => {
             let mut builder = Int32Builder::new(num_rows);
-            for row in 0..num_rows {
+            for _ in 0..num_rows {
                 builder.append_null()?;
             }
             Ok(Arc::new(builder.finish()))
@@ -1825,6 +1825,58 @@ fn array_equals(
     Ok(builder.finish())
 }
 
+impl CaseExpr {
+    fn case_when_expr(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        //TODO hard-coded for "expr/when" type StringArray and "then" type Int32Array
+
+        let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
+
+        let expr = self.expr.as_ref().unwrap();
+
+        let base_value = expr.evaluate(batch)?;
+        let base_value = base_value.into_array(batch.num_rows());
+        let base_value = base_value
+            .as_ref()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("WHEN expression did not return a StringArray");
+
+        // start with the else condition, or nulls
+        let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
+            Some(e.evaluate(batch)?.into_array(batch.num_rows()))
+        } else {
+            Some(build_null_array(&return_type, batch.num_rows())?)
+        };
+
+        // walk backwards through the when/then expressions
+        for i in (0..self.when_then_expr.len()).rev() {
+            let i = i as usize;
+
+            let when_value = self.when_then_expr[i].0.evaluate(batch)?;
+            let when_value = when_value.into_array(batch.num_rows());
+            let when_value = when_value
+                .as_ref()
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("WHEN expression did not return a StringArray");
+
+            let then_value = self.when_then_expr[i].1.evaluate(batch)?;
+            let then_value = then_value.into_array(batch.num_rows());
+
+            // build boolean array representing which rows match the "when" value
+            let when_match = array_equals(&when_value, &base_value)?;
+
+            current_value = Some(if_then_else(
+                &when_match,
+                then_value,
+                current_value.unwrap(),
+            )?);
+        }
+
+        Ok(ColumnarValue::Array(current_value.unwrap()))
+    }
+}
+
 impl PhysicalExpr for CaseExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.when_then_expr[0].1.data_type(input_schema)
@@ -1848,94 +1900,45 @@ impl PhysicalExpr for CaseExpr {
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
         let num_rows = batch.num_rows();
-        let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
-        match &self.expr {
-            Some(e) => {
-                // The "when" conditions must all evaluate to the same type as the base "expr"
-                // in this use case
+        if self.expr.is_some() {
+            // this use case evaluates "expr" and then compares the values with the "when"
+            // values
+            self.case_when_expr(batch)
+        } else {
+            // The "when" conditions all evaluate to boolean in this use case and can be
+            // arbitrary expressions
+            let return_type = self.when_then_expr[0].1.data_type(&batch.schema())?;
 
-                //TODO hard-coded for "expr/when" type StringArray and "then" type Int32Array
+            // start with the else condition, or nulls
+            let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
+                Some(e.evaluate(batch)?.into_array(batch.num_rows()))
+            } else {
+                Some(build_null_array(&return_type, num_rows)?)
+            };
 
-                let value_type = e.data_type(&batch.schema())?;
+            // walk backwards through the when/then expressions
+            for i in (0..self.when_then_expr.len()).rev() {
+                let i = i as usize;
 
-                let base_value = e.evaluate(batch)?;
-                let base_value = base_value.into_array(num_rows);
-                let base_value = base_value
+                let when_value = self.when_then_expr[i].0.evaluate(batch)?;
+                let when_value = when_value.into_array(num_rows);
+                let when_value = when_value
                     .as_ref()
                     .as_any()
-                    .downcast_ref::<StringArray>()
-                    .expect("WHEN expression did not return a StringArray");
+                    .downcast_ref::<BooleanArray>()
+                    .expect("WHEN expression did not return a BooleanArray");
 
-                // start with the else condition, or nulls
-                let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr
-                {
-                    Some(e.evaluate(batch)?.into_array(batch.num_rows()))
-                } else {
-                    Some(build_null_array(&return_type, num_rows)?)
-                };
+                let then_value = self.when_then_expr[i].1.evaluate(batch)?;
+                let then_value = then_value.into_array(num_rows);
 
-                // walk backwards through the when/then expressions
-                for i in (0..self.when_then_expr.len()).rev() {
-                    let i = i as usize;
-
-                    let when_value = self.when_then_expr[i].0.evaluate(batch)?;
-                    let when_value = when_value.into_array(num_rows);
-                    let when_value = when_value
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<StringArray>()
-                        .expect("WHEN expression did not return a StringArray");
-
-                    let then_value = self.when_then_expr[i].1.evaluate(batch)?;
-                    let then_value = then_value.into_array(num_rows);
-
-                    // build boolean array representing which rows match the "when" value
-                    let when_match = array_equals(&when_value, &base_value)?;
-
-                    current_value = Some(if_then_else(
-                        &when_match,
-                        then_value,
-                        current_value.unwrap(),
-                    )?);
-                }
-
-                Ok(ColumnarValue::Array(current_value.unwrap()))
+                current_value = Some(if_then_else(
+                    &when_value,
+                    then_value,
+                    current_value.unwrap(),
+                )?);
             }
-            _ => {
-                // The "when" conditions all evaluate to boolean in this use case
 
-                // start with the else condition, or nulls
-                let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr
-                {
-                    Some(e.evaluate(batch)?.into_array(batch.num_rows()))
-                } else {
-                    Some(build_null_array(&return_type, num_rows)?)
-                };
-
-                // walk backwards through the when/then expressions
-                for i in (0..self.when_then_expr.len()).rev() {
-                    let i = i as usize;
-
-                    let when_value = self.when_then_expr[i].0.evaluate(batch)?;
-                    let when_value = when_value.into_array(num_rows);
-                    let when_value = when_value
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<BooleanArray>()
-                        .expect("WHEN expression did not return a BooleanArray");
-
-                    let then_value = self.when_then_expr[i].1.evaluate(batch)?;
-                    let then_value = then_value.into_array(num_rows);
-
-                    current_value = Some(if_then_else(
-                        &when_value,
-                        then_value,
-                        current_value.unwrap(),
-                    )?);
-                }
-
-                Ok(ColumnarValue::Array(current_value.unwrap()))
-            }
+            Ok(ColumnarValue::Array(current_value.unwrap()))
         }
     }
 }
