@@ -43,7 +43,7 @@ impl SqlDataSource for Postgres {
         let (table_schema, table_name) = if table_name.contains('.') {
             let split = table_name.split('.').collect::<Vec<&str>>();
             if split.len() != 2 {
-                return Err(ArrowError::IoError(
+                return Err(ArrowError::SqlError(
                     "table name must have schema and table name only, or just table name"
                         .to_string(),
                 ));
@@ -79,65 +79,38 @@ impl SqlDataSource for Postgres {
         connection: &str,
         table_name: &str,
         limit: Option<usize>,
-        _batch_size: usize,
+        batch_size: usize,
     ) -> Result<Vec<RecordBatch>> {
-        // create connection
-        let mut client = Client::connect(connection, NoTls).unwrap();
-        let total_rows = client
-            .query_one(
-                format!("select count(1) as freq from {}", table_name).as_str(),
-                &[],
-            )
-            .expect("Unable to get row count");
-        let total_rows: i64 = total_rows.get("freq");
-        let limit = limit.unwrap_or(std::usize::MAX).min(total_rows as usize);
-        // get schema
-        // TODO: reuse connection
-        // TODO: split read into multiple batches, using limit and skip
-        let schema = Postgres::get_table_schema(connection, table_name)?;
-        let reader = get_binary_reader(
-            &mut client,
-            format!("select * from {} limit {}", table_name, limit).as_str(),
-        )?;
-        read_from_binary(reader, &schema).map(|batch| vec![batch])
+        let query = match &limit {
+            Some(limit) => {
+                format!("select * from {} limit {}", table_name, limit)
+            }
+            None => {
+                format!("select * from {}", table_name)
+            }
+        };
+        Self::read_query(connection, &query, limit, batch_size)
     }
 
     fn read_query(
         connection: &str,
         query: &str,
         limit: Option<usize>,
-        _batch_size: usize,
+        batch_size: usize,
     ) -> Result<Vec<RecordBatch>> {
-        // create connection
-        let mut client = Client::connect(connection, NoTls).unwrap();
-        let total_rows = client
-            .query_one(
-                format!("select count(1) as freq from ({}) a", query).as_str(),
-                &[],
-            )
-            .expect("Unable to get row count");
-        let total_rows: i64 = total_rows.get("freq");
-        let limit = limit.unwrap_or(std::usize::MAX).min(total_rows as usize);
-        // get schema
-        // TODO: reuse connection
-        // TODO: split read into multiple batches, using limit and skip
-        let row = client
-            .query_one(
-                format!("select a.* from ({}) a limit 1", query).as_str(),
-                &[],
-            )
-            .unwrap();
-        let schema = row_to_schema(&row).expect("Unable to get schema from row");
-        let reader = get_binary_reader(
-            &mut client,
-            format!("select a.* from ({}) a limit {}", query, limit).as_str(),
+        // create iterator
+        let iterator = PostgresReadIterator::try_new(
+            connection, query, limit, batch_size
         )?;
-        read_from_binary(reader, &schema).map(|batch| vec![batch])
+        iterator.collect()
     }
 }
 
 impl PostgresReadIterator {
     /// Create a new Postgres reader
+    ///
+    /// For performance reasons, it is recommended to use large batch sizes of
+    /// at least 2^16 (65536) records (or a number larger enough)
     pub fn try_new(
         connection: &str,
         query: &str,
@@ -215,13 +188,13 @@ impl Iterator for PostgresReadIterator {
     fn next(&mut self) -> Option<Self::Item> {
         self.read_batch()
             .map_err(|e| {
-                eprintln!("Postgres error: {:?}", e);
-                arrow::error::ArrowError::IoError("Postgres error".to_string())
+                arrow::error::ArrowError::SqlError(e.to_string())
             })
             .transpose()
     }
 }
 
+#[inline]
 fn get_binary_reader<'a>(
     client: &'a mut Client,
     query: &str,
@@ -493,29 +466,30 @@ fn row_to_schema(row: &postgres::Row) -> Result<Schema> {
     Ok(Schema::new_with_metadata(fields, metadata))
 }
 
+/// Consume binary data from reader, and convert it to a RecordBatch
 fn read_from_binary<R>(mut reader: R, schema: &Schema) -> Result<RecordBatch>
 where
     R: Read,
 {
     // read signature
     let mut bytes = [0u8; 11];
-    reader.read_exact(&mut bytes).unwrap();
+    reader.read_exact(&mut bytes)?;
     if bytes != MAGIC {
-        eprintln!("Unexpected binary format type");
-        return Err(ArrowError::IoError(
+        return Err(ArrowError::SqlError(
             "Unexpected Postgres binary type".to_string(),
         ));
     }
     // read flags
     let mut bytes: [u8; 4] = [0; 4];
-    reader.read_exact(&mut bytes).unwrap();
+    reader.read_exact(&mut bytes)?;
     let _size = u32::from_be_bytes(bytes);
 
     // header extension area length
     let mut bytes: [u8; 4] = [0; 4];
-    reader.read_exact(&mut bytes).unwrap();
+    reader.read_exact(&mut bytes)?;
     let _size = u32::from_be_bytes(bytes);
 
+    // iterate through rows
     read_rows(&mut reader, schema)
 }
 
@@ -527,6 +501,7 @@ where
     let mut is_done = false;
     let field_len = schema.fields().len();
 
+    // TODO: given fixed batch sizes, we could reuse these across record batches
     let mut buffers: Vec<Vec<u8>> = vec![vec![]; field_len];
     let mut null_buffers: Vec<Vec<bool>> = vec![vec![]; field_len];
     let mut offset_buffers: Vec<Vec<i32>> = vec![vec![]; field_len];
@@ -575,7 +550,7 @@ where
         record_num += 1;
         // tuple length
         let mut bytes: [u8; 2] = [0; 2];
-        reader.read_exact(&mut bytes).unwrap();
+        reader.read_exact(&mut bytes)?;
         let size = i16::from_be_bytes(bytes);
         if size == -1 {
             // trailer
@@ -587,11 +562,11 @@ where
         assert_eq!(size, field_len);
         for i in 0..field_len {
             let mut bytes = [0u8; 4];
-            reader.read_exact(&mut bytes).unwrap();
+            reader.read_exact(&mut bytes)?;
             let col_length = i32::from_be_bytes(bytes);
             // populate offsets for types that need them
             match schema.field(i).data_type() {
-                DataType::Binary | DataType::Utf8 => {
+                DataType::Binary | DataType::LargeBinary | DataType::Utf8 | DataType::LargeUtf8 => {
                     offset_buffers[i].push(col_length);
                 }
                 DataType::FixedSizeBinary(binary_size) => {
@@ -614,14 +589,13 @@ where
                     &mut reader,
                     schema.field(i).data_type(),
                     col_length as usize,
-                )
-                .expect("Unable to read data");
+                )?;
                 buffers[i].append(&mut data);
             }
         }
     }
 
-    let mut arrays = vec![];
+    let mut arrays = Vec::with_capacity(schema.fields().len());
     // build record batches
     buffers
         .into_iter()
@@ -692,9 +666,7 @@ where
                     arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
                 DataType::Binary
-                | DataType::Utf8
-                | DataType::LargeBinary
-                | DataType::LargeUtf8 => {
+                | DataType::Utf8 => {
                     // recontruct offsets
                     let mut offset = 0;
                     let mut offsets = vec![0];
@@ -713,17 +685,39 @@ where
                     );
                     arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
-                DataType::List(_) | DataType::LargeList(_) => {
+                DataType::LargeBinary
+                | DataType::LargeUtf8 => {
+                    // recontruct offsets
+                    let mut offset = 0i64;
+                    let mut offsets = vec![0i64];
+                    offset_buffers[i].iter().map(|o| *o as i64).for_each(|o| {
+                        offsets.push(offset + o);
+                        offset += o;
+                    });
                     let data = ArrayData::new(
                         f.data_type().clone(),
                         n.len(),
                         Some(null_count),
                         Some(null_buffer),
                         0,
-                        vec![Buffer::from(b)],
+                        vec![Buffer::from(offsets.to_byte_slice()), Buffer::from(b)],
                         vec![],
                     );
                     arrays.push(arrow::array::make_array(Arc::new(data)))
+                }
+                DataType::List(_) | DataType::LargeList(_) => {
+                    todo!()
+                    // TODO: this is incorrect
+                    // let data = ArrayData::new(
+                    //     f.data_type().clone(),
+                    //     n.len(),
+                    //     Some(null_count),
+                    //     Some(null_buffer),
+                    //     0,
+                    //     vec![Buffer::from(b)],
+                    //     vec![],
+                    // );
+                    // arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
                 DataType::FixedSizeList(_, _) => {
                     let data = ArrayData::new(
@@ -737,7 +731,7 @@ where
                     );
                     arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
-                DataType::Float16 => panic!("Float16 not yet implemented"),
+                DataType::Float16 => unreachable!(),
                 DataType::Struct(_) => panic!("Reading struct arrays not implemented"),
                 DataType::Dictionary(_, _) => {
                     panic!("Reading dictionary arrays not implemented")
@@ -765,9 +759,7 @@ fn read_col<R: Read>(
         DataType::UInt16 => read_u16(reader),
         DataType::UInt32 => read_u32(reader),
         DataType::UInt64 => read_u64(reader),
-        DataType::Float16 => Err(ArrowError::InvalidArgumentError(
-            "Float 16 is not yet supported".to_string(),
-        )),
+        DataType::Float16 => unreachable!(),
         DataType::Float32 => read_f32(reader),
         DataType::Float64 => read_f64(reader),
         DataType::Timestamp(_, _) => read_timestamp64(reader),
@@ -793,6 +785,7 @@ fn read_col<R: Read>(
     }
 }
 
+#[inline]
 fn read_u8<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_u8()
@@ -800,6 +793,7 @@ fn read_u8<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
 
+#[inline]
 fn read_i8<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i8()
@@ -807,48 +801,63 @@ fn read_i8<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
 
+#[inline]
 fn read_u16<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_u16::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_i16<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i16::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_u32<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_u32::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_i32<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i32::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_u64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_u64::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_i64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i64::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_bool<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_u8()
         .map(|v| vec![v])
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_string<R: Read>(reader: &mut R, len: usize) -> Result<Vec<u8>> {
     let mut buf = vec![0; len];
     reader
@@ -856,12 +865,16 @@ fn read_string<R: Read>(reader: &mut R, len: usize) -> Result<Vec<u8>> {
         .map_err(|e| ArrowError::SqlError(e.to_string()))?;
     Ok(buf)
 }
+
+#[inline]
 fn read_f32<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_f32::<NetworkEndian>()
         .map(|v| v.to_le_bytes().to_vec())
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
+
+#[inline]
 fn read_f64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_f64::<NetworkEndian>()
@@ -870,6 +883,7 @@ fn read_f64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
 }
 
 /// Postgres dates are days since epoch of 01-01-2000, so we add 10957 days
+#[inline]
 fn read_date32<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i32::<NetworkEndian>()
@@ -877,6 +891,7 @@ fn read_date32<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
         .map_err(|e| ArrowError::SqlError(e.to_string()))
 }
 
+#[inline]
 fn read_timestamp64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i64::<NetworkEndian>()
@@ -886,6 +901,7 @@ fn read_timestamp64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
 
 /// we do not support time with time zone as it is 48-bit,
 /// time without a zone is 32-bit but arrow only supports 64-bit at microsecond resolution
+#[inline]
 fn read_time64<R: Read>(reader: &mut R) -> Result<Vec<u8>> {
     reader
         .read_i32::<NetworkEndian>()
