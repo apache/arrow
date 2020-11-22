@@ -22,6 +22,13 @@ use std::alloc::Layout;
 use std::mem::align_of;
 use std::ptr::NonNull;
 
+/// Target pointer width of the targeted platform
+#[cfg(target_pointer_width = "64")]
+pub(crate) const POINTER_WIDTH: usize = 64;
+/// Target pointer width of the targeted platform
+#[cfg(target_pointer_width = "32")]
+pub(crate) const POINTER_WIDTH: usize = 32;
+
 // NOTE: Below code is written for spatial/temporal prefetcher optimizations. Memory allocation
 // should align well with usage pattern of cache access and block sizes on layers of storage levels from
 // registers to non-volatile memory. These alignments are all cache aware alignments incorporated
@@ -239,8 +246,8 @@ mod tests {
     fn test_allocate() {
         for _ in 0..10 {
             let p = allocate_aligned(1024);
-            // make sure this is 64-byte aligned
-            assert_eq!(0, (p as usize) % 64);
+            // make sure this is native pointer size aligned
+            assert_eq!(0, (p as usize) % POINTER_WIDTH);
         }
     }
 

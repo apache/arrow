@@ -1,0 +1,7 @@
+[build.env]
+passthrough = [
+    "RUST_BACKTRACE",
+    "RUST_LOG",
+    "ARROW_TEST_DATA",
+    "PARQUET_TEST_DATA"
+]

@@ -351,6 +351,7 @@ impl fmt::Debug for UnionArray {
 mod tests {
     use super::*;
 
+    use crate::memory::POINTER_WIDTH;
     use std::sync::Arc;
 
     use crate::array::*;
@@ -419,7 +420,11 @@ mod tests {
             4 * 8 * 4 * mem::size_of::<i32>(),
             union.get_buffer_memory_size()
         );
-        let internals_of_union_array = (8 + 72) + (union.boxed_fields.len() * 144); // Arc<ArrayData> & Vec<ArrayRef> combined.
+        let tagged_pointer_size = POINTER_WIDTH / 4 + POINTER_WIDTH;
+        let internals_of_union_array = tagged_pointer_size
+            + ((union.boxed_fields.len() * tagged_pointer_size)
+                + POINTER_WIDTH * 2
+                + POINTER_WIDTH); // Arc<ArrayData> & Vec<ArrayRef> combined.
         assert_eq!(
             union.get_buffer_memory_size() + internals_of_union_array,
             union.get_array_memory_size()

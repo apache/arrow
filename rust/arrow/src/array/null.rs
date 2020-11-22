@@ -120,6 +120,7 @@ impl fmt::Debug for NullArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::POINTER_WIDTH;
 
     #[test]
     fn test_null_array() {
@@ -130,7 +131,7 @@ mod tests {
         assert_eq!(null_arr.is_valid(0), false);
 
         assert_eq!(0, null_arr.get_buffer_memory_size());
-        let internals_of_null_array = 64; // Arc<ArrayData>
+        let internals_of_null_array = POINTER_WIDTH; // Arc<ArrayData>
         assert_eq!(
             null_arr.get_buffer_memory_size() + internals_of_null_array,
             null_arr.get_array_memory_size()

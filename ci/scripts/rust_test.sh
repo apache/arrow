@@ -42,6 +42,34 @@ cargo run --example read_csv
 cargo run --example read_csv_infer_schema
 popd
 
+# Install cross
+cargo install cross
+
+# Linker issues exists with the triples below.
+# Needs to be resolved with shipping triple specific toolchain inside containers:
+#
+# armv7-unknown-linux-musleabi
+# armv7-unknown-linux-gnueabi
+
+# Define targets
+export TARGETS="armv7-unknown-linux-musleabihf \
+arm-unknown-linux-musleabihf \
+arm-unknown-linux-musleabi \
+armv7-unknown-linux-gnueabihf \
+arm-unknown-linux-gnueabihf \
+arm-unknown-linux-gnueabi"
+
+# Run on targets
+pushd arrow
+for target in $TARGETS; do
+  # Target specific runs
+  cross run --target ${target} --example builders
+  cross run --target ${target} --example dynamic_types
+  cross run --target ${target} --example read_csv
+  cross run --target ${target} --example read_csv_infer_schema
+done
+popd
+
 # test datafusion examples
 pushd datafusion
 cargo run --example csv_sql
