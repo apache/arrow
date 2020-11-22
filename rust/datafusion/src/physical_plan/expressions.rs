@@ -26,7 +26,7 @@ use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
-use arrow::array::LargeStringArray;
+use arrow::array::{Array, Int32Builder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
@@ -1695,6 +1695,173 @@ impl PhysicalExpr for IsNotNullExpr {
 /// Create an IS NOT NULL expression
 pub fn is_not_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
     Ok(Arc::new(IsNotNullExpr::new(arg)))
+}
+
+/// The CASE expression is similar to a series of nested if/else and there are two forms that
+/// can be used. The first form consists of a series of boolean "when" expressions with
+/// corresponding "then" expressions, and an optional "else" expression.
+///
+/// CASE WHEN condition THEN result
+///      [WHEN ...]
+///      [ELSE result]
+/// END
+///
+/// The second form uses a base expression and then a series of "when" clauses that match on a
+/// literal value.
+///
+/// CASE expression
+///     WHEN value THEN result
+///     [WHEN ...]
+///     [ELSE result]
+/// END
+#[derive(Debug)]
+struct CaseExpr {
+    /// Optional base expression that can be compared to literal values in the "when" expressions
+    expr: Option<Arc<dyn PhysicalExpr>>,
+    /// One or more when/then expressions
+    when_then_expr: Vec<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)>,
+    /// Optional "else" expression
+    else_expr: Option<Arc<dyn PhysicalExpr>>,
+}
+
+impl fmt::Display for CaseExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CASE ")?;
+        if let Some(e) = &self.expr {
+            write!(f, "{} ", e)?;
+        }
+        for (w, t) in &self.when_then_expr {
+            write!(f, "WHEN {} THEN {} ", w, t)?;
+        }
+        if let Some(e) = &self.else_expr {
+            write!(f, "ELSE {} ", e)?;
+        }
+        write!(f, "END")
+    }
+}
+
+impl CaseExpr {
+    pub fn try_new(
+        expr: Option<Arc<dyn PhysicalExpr>>,
+        when_then_expr: Vec<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)>,
+        else_expr: Option<Arc<dyn PhysicalExpr>>,
+    ) -> Result<Self> {
+        if when_then_expr.len() == 0 {
+            Err(DataFusionError::Execution(
+                "There must be at least one WHEN clause".to_string(),
+            ))
+        } else {
+            Ok(Self {
+                expr,
+                when_then_expr,
+                else_expr,
+            })
+        }
+    }
+}
+
+impl PhysicalExpr for CaseExpr {
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.when_then_expr[0].1.data_type(input_schema)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        // this expression is nullable if any of the input expressions are nullable
+        let then_nullable = self
+            .when_then_expr
+            .iter()
+            .map(|(_, t)| t.nullable(input_schema))
+            .collect::<Result<Vec<_>>>()?;
+        if then_nullable.contains(&true) {
+            Ok(true)
+        } else if let Some(e) = &self.else_expr {
+            e.nullable(input_schema)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        match &self.expr {
+            Some(_) => {
+                unimplemented!()
+            }
+            _ => {
+                //TODO:
+                // - This is currently hard-coded for Int32 return value and needs to be made
+                //   generic over all types
+                // - Add support for scalars
+
+                let mut result: Option<ArrayRef> = None;
+                let row_count = batch.num_rows();
+
+                for i in 0..self.when_then_expr.len() {
+                    let when_value = self.when_then_expr[i].0.evaluate(batch)?;
+                    let when_array = match &when_value {
+                        ColumnarValue::Array(array) => array
+                            .as_any()
+                            .downcast_ref::<BooleanArray>()
+                            .expect("WHEN expression did not return a BooleanArray"),
+                        ColumnarValue::Scalar(_) => {
+                            //TODO convert to array or have separate path for scalars
+                            unimplemented!()
+                        }
+                    };
+                    let then_value = self.when_then_expr[i].1.evaluate(batch)?;
+                    let then_array = match &then_value {
+                        ColumnarValue::Array(array) => array
+                            .as_any()
+                            .downcast_ref::<Int32Array>()
+                            .expect("Could not downcast THEN expression to Int32Array"),
+                        ColumnarValue::Scalar(_) => {
+                            //TODO convert to array or have separate path for scalars
+                            unimplemented!()
+                        }
+                    };
+                    if i == 0 {
+                        let mut builder = Int32Builder::new(row_count);
+                        for row in 0..row_count {
+                            if when_array.is_valid(row) && when_array.value(row) {
+                                builder.append_value(then_array.value(row))?;
+                            } else {
+                                builder.append_null()?;
+                            }
+                        }
+                        result = Some(Arc::new(builder.finish()));
+                    } else {
+                        for row in 0..row_count {
+                            // this unwrap is safe because result is guaranteed to be Some(_)
+                            // after the first iteration of ths loop
+                            let mut builder = Int32Builder::new(row_count);
+                            let arc = result.unwrap();
+                            let prev_result = arc
+                                .as_ref()
+                                .as_any()
+                                .downcast_ref::<Int32Array>()
+                                .expect(
+                                    "Could not downcast previous results to Int32Array",
+                                );
+                            if prev_result.is_valid(row) {
+                                builder.append_value(prev_result.value(row))?;
+                            } else if when_array.is_valid(row) && when_array.value(row) {
+                                builder.append_value(then_array.value(row))?;
+                            } else {
+                                builder.append_null()?;
+                            }
+                            result = Some(Arc::new(builder.finish()));
+                        }
+                    }
+                }
+
+                if let Some(_e) = &self.else_expr {
+                    unimplemented!()
+                }
+
+                // this unwrap is safe because result is guaranteed to be Some(_) at this point
+                Ok(ColumnarValue::Array(result.unwrap()))
+            }
+        }
+    }
 }
 
 /// CAST expression casts an expression to a specific data type
