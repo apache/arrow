@@ -170,7 +170,6 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         ),
 
         12 => {
-
             // We do not have sufficient SQL support for this query yet
 
             // "SELECT
@@ -240,6 +239,9 @@ async fn execute_query(
     plan: &LogicalPlan,
     debug: bool,
 ) -> Result<()> {
+    if debug {
+        println!("Logical plan:\n{:?}", plan);
+    }
     let plan = ctx.optimize(&plan)?;
     if debug {
         println!("Optimized logical plan:\n{:?}", plan);
