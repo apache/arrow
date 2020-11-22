@@ -1791,9 +1791,17 @@ macro_rules! if_then_else {
             if $BOOLS.is_null(i) {
                 builder.append_null()?;
             } else if $BOOLS.value(i) {
-                builder.append_value(true_values.value(i))?;
+                if true_values.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(true_values.value(i))?;
+                }
             } else {
-                builder.append_value(false_values.value(i))?;
+                if false_values.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(false_values.value(i))?;
+                }
             }
         }
         Ok(Arc::new(builder.finish()))
@@ -3350,14 +3358,14 @@ mod tests {
 
     #[test]
     fn case_with_expr() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = case_test_batch()?;
 
+        // CASE a WHEN 'foo' THEN 123 WHEN 'bar' THEN 456 END
         let when1 = lit(ScalarValue::Utf8(Some("foo".to_string())));
         let then1 = lit(ScalarValue::Int32(Some(123)));
         let when2 = lit(ScalarValue::Utf8(Some("bar".to_string())));
         let then2 = lit(ScalarValue::Int32(Some(456)));
+
         let expr = case(Some(col("a")), &[(when1, then1), (when2, then2)], None)?;
         let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
@@ -3365,7 +3373,7 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), None, Some(456)]);
+        let expected = &Int32Array::from(vec![Some(123), None, None, Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3374,10 +3382,9 @@ mod tests {
 
     #[test]
     fn case_with_expr_else() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = case_test_batch()?;
 
+        // CASE a WHEN 'foo' THEN 123 WHEN 'bar' THEN 456 ELSE 999 END
         let when1 = lit(ScalarValue::Utf8(Some("foo".to_string())));
         let then1 = lit(ScalarValue::Int32(Some(123)));
         let when2 = lit(ScalarValue::Utf8(Some("bar".to_string())));
@@ -3395,7 +3402,7 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(456)]);
+        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3404,10 +3411,9 @@ mod tests {
 
     #[test]
     fn case_without_expr() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = case_test_batch()?;
 
+        // CASE WHEN a = 'foo' THEN 123 WHEN a = 'bar' THEN 456 END
         let when1 = binary(
             col("a"),
             Operator::Eq,
@@ -3422,6 +3428,7 @@ mod tests {
             &batch.schema(),
         )?;
         let then2 = lit(ScalarValue::Int32(Some(456)));
+
         let expr = case(None, &[(when1, then1), (when2, then2)], None)?;
         let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
@@ -3429,7 +3436,7 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), None, Some(456)]);
+        let expected = &Int32Array::from(vec![Some(123), None, None, Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3438,10 +3445,9 @@ mod tests {
 
     #[test]
     fn case_without_expr_else() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-        let a = StringArray::from(vec![Some("foo"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = case_test_batch()?;
 
+        // CASE WHEN a = 'foo' THEN 123 WHEN a = 'bar' THEN 456 ELSE 999 END
         let when1 = binary(
             col("a"),
             Operator::Eq,
@@ -3457,6 +3463,7 @@ mod tests {
         )?;
         let then2 = lit(ScalarValue::Int32(Some(456)));
         let else_value = lit(ScalarValue::Int32(Some(999)));
+
         let expr = case(None, &[(when1, then1), (when2, then2)], Some(else_value))?;
         let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
         let result = result
@@ -3464,10 +3471,17 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), Some(456)]);
+        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
 
         assert_eq!(expected, result);
 
         Ok(())
+    }
+
+    fn case_test_batch() -> Result<RecordBatch> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), Some("baz"), None, Some("bar")]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        Ok(batch)
     }
 }
