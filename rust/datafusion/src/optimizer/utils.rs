@@ -344,11 +344,15 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
                 }
             }
 
-            Ok(Expr::Case {
+            let x = Expr::Case {
                 expr: _expr,
                 when_then_expr: _when_then,
                 else_expr: _else_expr,
-            })
+            };
+
+            println!("rewrite: {:?}", x);
+
+            Ok(x)
         }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
             expr: Box::new(expressions[0].clone()),

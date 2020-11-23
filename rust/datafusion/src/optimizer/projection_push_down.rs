@@ -113,6 +113,7 @@ fn optimize_plan(
     required_columns: &HashSet<String>, // set of columns required up to this step
     has_projection: bool,
 ) -> Result<LogicalPlan> {
+    let mut new_required_columns = required_columns.clone();
     match plan {
         LogicalPlan::Projection {
             input,
@@ -125,7 +126,6 @@ fn optimize_plan(
 
             let mut new_expr = Vec::new();
             let mut new_fields = Vec::new();
-            let mut new_required_columns = HashSet::new();
 
             // Gather all columns needed for expressions in this Projection
             schema
@@ -165,7 +165,6 @@ fn optimize_plan(
             join_type,
             schema,
         } => {
-            let mut new_required_columns = HashSet::new();
             for (l, r) in on {
                 new_required_columns.insert(l.to_owned());
                 new_required_columns.insert(r.to_owned());
@@ -200,7 +199,6 @@ fn optimize_plan(
             // * remove any aggregate expression that is not required
             // * construct the new set of required columns
 
-            let mut new_required_columns = HashSet::new();
             utils::exprlist_to_column_names(group_expr, &mut new_required_columns)?;
 
             // Gather all columns needed for expressions in this Aggregate
@@ -347,7 +345,6 @@ fn optimize_plan(
         | LogicalPlan::Extension { .. } => {
             let expr = utils::expressions(plan);
             // collect all required columns by this plan
-            let mut new_required_columns = required_columns.clone();
             utils::exprlist_to_column_names(&expr, &mut new_required_columns)?;
 
             // apply the optimization to all inputs of the plan
