@@ -1263,8 +1263,6 @@ use_legacy_dataset : bool, default True
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
-                if not self.pieces:
-                    raise ValueError('No partition is found.')
                 self.schema = self.pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema
