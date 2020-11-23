@@ -110,6 +110,27 @@ struct RScalar {
   bool null;
 };
 
+struct RBytesView {
+  const char* bytes;
+  R_xlen_t size;
+  bool is_utf8;
+
+  Status ParseString(RScalar* value) {
+    if (value->rtype != STRING) {
+      return Status::Invalid("cannot parse string");
+    }
+
+    SEXP s = *reinterpret_cast<SEXP*>(value->data);
+    bytes = CHAR(s);
+    size = XLENGTH(s);
+
+    // TODO: test it
+    is_utf8 = true;
+
+    return Status::OK();
+  }
+};
+
 class RValue {
  public:
   static bool IsNull(RScalar* obj) { return obj->null; }
@@ -244,11 +265,10 @@ class RValue {
   }
 
   template <typename T>
-  static enable_if_string<T, Result<cpp11::r_string>> Convert(const T*,
-                                                              const RConversionOptions&,
-                                                              RScalar* value) {
+  static enable_if_string<T, Status> Convert(const T*, const RConversionOptions&,
+                                             RScalar* value, RBytesView& view) {
     if (value->rtype == STRING) {
-      return *reinterpret_cast<cpp11::r_string*>(value->data);
+      return view.ParseString(value);
     }
 
     // TODO: improve error
@@ -384,24 +404,23 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     if (RValue::IsNull(value)) {
       return this->primitive_builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(
-          auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
+      ARROW_RETURN_NOT_OK(
+          RValue::Convert(this->primitive_type_, this->options_, value, view_));
 
-      // TODO: the python implementation uses a PyBytesView class in between
-      //       maybe useful for when we convert from a list of raw vectors
-      if (!IS_ASCII(converted) || !IS_UTF8(converted)) {
+      if (!view_.is_utf8) {
         observed_binary_ = true;
       }
 
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(XLENGTH(converted)));
-      this->primitive_builder_->UnsafeAppend(CHAR(converted),
-                                             static_cast<OffsetType>(XLENGTH(converted)));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes,
+                                             static_cast<OffsetType>(view_.size));
     }
     return Status::OK();
   }
 
  protected:
   bool observed_binary_ = false;
+  RBytesView view_;
 };
 
 template <typename T>
