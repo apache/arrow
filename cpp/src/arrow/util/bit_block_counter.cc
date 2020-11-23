@@ -27,6 +27,9 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
+
+using BitUtil::EnsureNotNull;
+
 namespace internal {
 
 static inline uint64_t LoadWord(const uint8_t* bytes) {
@@ -109,13 +112,6 @@ BitBlockCount BitBlockCounter::NextFourWords() {
   bitmap_ += BitUtil::BytesForBits(kFourWordsBits);
   bits_remaining_ -= kFourWordsBits;
   return {256, static_cast<int16_t>(total_popcount)};
-}
-
-// Prevent pointer arithmetic on nullptr, which is undefined behavior even if the pointer
-// is never dereferenced.
-inline const uint8_t* EnsureNotNull(const uint8_t* ptr) {
-  static const uint8_t byte{};
-  return ptr == nullptr ? &byte : ptr;
 }
 
 OptionalBitBlockCounter::OptionalBitBlockCounter(const uint8_t* validity_bitmap,

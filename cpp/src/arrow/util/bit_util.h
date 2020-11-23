@@ -455,5 +455,12 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);
 
+/// \brief Replace an unused pointer with a dummy if it is nullptr; pointer arithmetic on
+/// nullptr is undefined behavior even if the pointer is never dereferenced.
+inline const uint8_t* EnsureNotNull(const uint8_t* ptr) {
+  static const uint8_t byte{};
+  return ptr == NULLPTR ? &byte : ptr;
+}
+
 }  // namespace BitUtil
 }  // namespace arrow
