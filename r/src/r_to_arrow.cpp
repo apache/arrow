@@ -104,7 +104,7 @@ RVectorType GetVectorType(SEXP x) {
   return OTHER;
 }
 
-struct RObject {
+struct RScalar {
   RVectorType rtype;
   void* data;
   bool null;
@@ -112,12 +112,12 @@ struct RObject {
 
 class RValue {
  public:
-  static bool IsNull(RObject* obj) { return obj->null; }
+  static bool IsNull(RScalar* obj) { return obj->null; }
 
   // TODO: generalise
 
   static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
-                                 RObject* value) {
+                                 RScalar* value) {
     // TODO: handle conversion from other types
     if (value->rtype == INT32) {
       return *reinterpret_cast<int32_t*>(value->data);
@@ -127,8 +127,18 @@ class RValue {
     return Status::Invalid("invalid conversion");
   }
 
+  static Result<bool> Convert(const BooleanType*, const RConversionOptions&,
+                              RScalar* value) {
+    if (value->rtype == BOOLEAN) {
+      return *reinterpret_cast<bool*>(value->data);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
   static Result<double> Convert(const DoubleType*, const RConversionOptions&,
-                                RObject* value) {
+                                RScalar* value) {
     // TODO: handle conversion from other types
     if (value->rtype == FLOAT64) {
       return *reinterpret_cast<double*>(value->data);
@@ -139,7 +149,7 @@ class RValue {
   }
 
   static Result<uint8_t> Convert(const UInt8Type*, const RConversionOptions&,
-                                 RObject* value) {
+                                 RScalar* value) {
     // TODO: handle conversion from other types
     if (value->rtype == UINT8) {
       return *reinterpret_cast<uint8_t*>(value->data);
@@ -168,9 +178,14 @@ bool is_NA<uint8_t>(uint8_t value) {
   return false;
 }
 
+template <>
+bool is_NA<cpp11::r_bool>(cpp11::r_bool value) {
+  return false;
+}
+
 template <RVectorType rtype, typename T, class VisitorFunc>
 inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
-  RObject obj{rtype, nullptr, false};
+  RScalar obj{rtype, nullptr, false};
   cpp11::r_vector<T> values(x);
   for (T value : values) {
     obj.data = reinterpret_cast<void*>(&value);
@@ -185,6 +200,9 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   RVectorType rtype = GetVectorType(x);
 
   switch (rtype) {
+    case BOOLEAN:
+      return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
     case UINT8:
       return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
@@ -201,7 +219,7 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   return Status::OK();
 }
 
-using RConverter = Converter<RObject*, RConversionOptions>;
+using RConverter = Converter<RScalar*, RConversionOptions>;
 
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
@@ -217,34 +235,33 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_null<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) override {
+  Status Append(RScalar* value) override {
     return this->primitive_builder_->AppendNull();
   }
 };
 
-// Temporary (this only handles int32 for now)
 template <typename T>
 class RPrimitiveConverter<
-    T,
-    enable_if_t<
-        !std::is_same<T, Int32Type>::value && !std::is_same<T, DoubleType>::value &&
-        !std::is_same<T, UInt8Type>::value &&
-        (is_boolean_type<T>::value || is_number_type<T>::value ||
-         is_decimal_type<T>::value || is_date_type<T>::value || is_time_type<T>::value)>>
+    T, enable_if_t<!std::is_same<T, Int32Type>::value &&
+                   !std::is_same<T, DoubleType>::value &&
+                   !std::is_same<T, UInt8Type>::value && !is_boolean_type<T>::value &&
+                   (is_number_type<T>::value || is_decimal_type<T>::value ||
+                    is_date_type<T>::value || is_time_type<T>::value)>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     return Status::NotImplemented("conversion to fixed size binary not yet implemented");
   }
 };
 
 template <typename T>
-class RPrimitiveConverter<T, enable_if_t<std::is_same<T, Int32Type>::value ||
-                                         std::is_same<T, DoubleType>::value ||
-                                         std::is_same<T, UInt8Type>::value>>
+class RPrimitiveConverter<
+    T,
+    enable_if_t<std::is_same<T, Int32Type>::value || std::is_same<T, DoubleType>::value ||
+                std::is_same<T, UInt8Type>::value || is_boolean_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     if (RValue::IsNull(value)) {
       return this->primitive_builder_->AppendNull();
     } else {
@@ -260,7 +277,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_binary<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     return Status::NotImplemented("conversion to binary not yet implemented");
   }
 };
@@ -269,7 +286,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     return Status::NotImplemented("conversion to fixed size binary not yet implemented");
   }
 };
@@ -278,7 +295,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_string_like<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     return Status::NotImplemented("conversion to string not yet implemented");
   }
 };
@@ -288,7 +305,7 @@ class RPrimitiveConverter<
     T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RObject* value) {
+  Status Append(RScalar* value) {
     return Status::NotImplemented(
         "conversion to timestamp or duration not yet implemented");
   }
@@ -310,7 +327,7 @@ class RListConverter;
 template <typename U, typename Enable = void>
 class RDictionaryConverter : public DictionaryConverter<U, RConverter> {
  public:
-  Status Append(RObject* value) { return Status::OK(); }
+  Status Append(RScalar* value) { return Status::OK(); }
 };
 
 class RStructConverter;
@@ -333,7 +350,7 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Append(RObject* value) { return Status::OK(); }
+  Status Append(RScalar* value) { return Status::OK(); }
 };
 
 template <>
@@ -343,7 +360,7 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  Status Append(RObject* value) override { return Status::OK(); }
+  Status Append(RScalar* value) override { return Status::OK(); }
 
  protected:
   Status Init(MemoryPool* pool) override {
@@ -376,7 +393,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
 
   StopIfNotOk(converter->Reserve(options.size));
   StopIfNotOk(VisitVector(x, options.size,
-                          [&converter](RObject* obj) { return converter->Append(obj); }));
+                          [&converter](RScalar* obj) { return converter->Append(obj); }));
   return ValueOrStop(converter->ToArray());
 }
 
