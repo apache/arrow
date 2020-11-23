@@ -222,7 +222,6 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 .aggregate(
                     vec![col("l_shipmode")],
                     vec![
-                        // we do not support CASE WHEN yet, so faking this part
                         sum(case_when()
                             .when(or(
                                 col("o_orderpriority").eq(lit("1-URGENT")),
