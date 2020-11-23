@@ -446,6 +446,7 @@ fn parse(
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
+/// Specialized parsing implementations
 trait Parser: ArrowPrimitiveType {
     fn parse(string: &str) -> Option<Self::Native> {
         string.parse::<Self::Native>().ok()
@@ -454,13 +455,13 @@ trait Parser: ArrowPrimitiveType {
 
 impl Parser for BooleanType {
     fn parse(string: &str) -> Option<bool> {
-        if string == "false" || string == "FALSE" || string == "False" {
-            return Some(true);
+        if string.eq_ignore_ascii_case("false") {
+            Some(false)
+        } else if string.eq_ignore_ascii_case("true") {
+            Some(true)
+        } else {
+            None
         }
-        if string == "true" || string == "TRUE" || string == "True" {
-            return Some(false);
-        }
-        None
     }
 }
 
@@ -1036,5 +1037,44 @@ mod tests {
 
         assert!(csv.next().is_none());
         Ok(())
+    }
+
+    #[test]
+    fn test_parsing_bool() {
+        // Encode the expected behavior of boolean parsing
+        assert_eq!(Some(true), parse_item::<BooleanType>("true"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("tRUe"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("True"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("TRUE"));
+        assert_eq!(None, parse_item::<BooleanType>("t"));
+        assert_eq!(None, parse_item::<BooleanType>("T"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+
+        assert_eq!(Some(false), parse_item::<BooleanType>("false"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("fALse"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("False"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("FALSE"));
+        assert_eq!(None, parse_item::<BooleanType>("f"));
+        assert_eq!(None, parse_item::<BooleanType>("F"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+    }
+
+    #[test]
+    fn test_parsing_float() {
+        assert_eq!(Some(12.34), parse_item::<Float64Type>("12.34"));
+        assert_eq!(Some(-12.34), parse_item::<Float64Type>("-12.34"));
+        assert_eq!(Some(12.0), parse_item::<Float64Type>("12"));
+        assert_eq!(Some(0.0), parse_item::<Float64Type>("0"));
+        assert!(parse_item::<Float64Type>("nan").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("NaN").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_sign_positive());
+        assert!(parse_item::<Float64Type>("-inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("-inf")
+            .unwrap()
+            .is_sign_negative());
+        assert_eq!(None, parse_item::<Float64Type>(""));
+        assert_eq!(None, parse_item::<Float64Type>("dd"));
+        assert_eq!(None, parse_item::<Float64Type>("12.34.56"));
     }
 }
