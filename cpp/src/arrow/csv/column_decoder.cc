@@ -221,7 +221,7 @@ Status TypedColumnDecoder::Init() {
 
 void TypedColumnDecoder::Insert(int64_t block_index,
                                 const std::shared_ptr<BlockParser>& parser) {
-  DCHECK(converter_ != nullptr);
+  DCHECK_NE(converter_, nullptr);
 
   PrepareChunk(block_index);
 
@@ -251,7 +251,7 @@ class InferringColumnDecoder : public ConcreteColumnDecoder {
 
  protected:
   std::shared_ptr<DataType> type() const override {
-    DCHECK(converter_ != nullptr);
+    DCHECK_NE(converter_, nullptr);
     return converter_->type();
   }
 

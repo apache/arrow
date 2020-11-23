@@ -292,7 +292,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #ifndef NDEBUG
     // Poison data
     if (size > 0) {
-      DCHECK(*out != nullptr);
+      DCHECK_NE(*out, nullptr);
       (*out)[0] = kAllocPoison;
       (*out)[size - 1] = kAllocPoison;
     }
@@ -313,7 +313,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #ifndef NDEBUG
     // Poison data
     if (new_size > old_size) {
-      DCHECK(*ptr != nullptr);
+      DCHECK_NE(*ptr, nullptr);
       (*ptr)[old_size] = kReallocPoison;
       (*ptr)[new_size - 1] = kReallocPoison;
     }
@@ -327,7 +327,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #ifndef NDEBUG
     // Poison data
     if (size > 0) {
-      DCHECK(buffer != nullptr);
+      DCHECK_NE(buffer, nullptr);
       buffer[0] = kDeallocPoison;
       buffer[size - 1] = kDeallocPoison;
     }

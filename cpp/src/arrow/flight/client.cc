@@ -286,8 +286,8 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
     }
 
     if (methods->QueryInterceptionHookPoint(InterceptionHookPoints::POST_RECV_STATUS)) {
-      DCHECK(nullptr != methods->GetRecvStatus());
-      DCHECK(nullptr != methods->GetRecvTrailingMetadata());
+      DCHECK_NE(nullptr, methods->GetRecvStatus());
+      DCHECK_NE(nullptr, methods->GetRecvTrailingMetadata());
       ReceivedHeaders(*methods->GetRecvTrailingMetadata());
       const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
       for (const auto& middleware : middleware_) {

@@ -620,7 +620,7 @@ Status PlasmaClient::Impl::GetBuffers(
     if (object_buffers[i].data) {
       // If the object was already in use by the client, then the store should
       // have returned it.
-      DCHECK(object->data_size != -1);
+      DCHECK_NE(object->data_size, -1);
       // We've already filled out the information for this object, so we can
       // just continue.
       continue;

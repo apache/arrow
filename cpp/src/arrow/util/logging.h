@@ -25,6 +25,7 @@
 #define DCHECK(condition) ARROW_UNUSED(condition)
 #define DCHECK_OK(status) ARROW_UNUSED(status)
 #define DCHECK_EQ(val1, val2) ARROW_UNUSED(val1 == val2)
+#define DCHECK_NE(val1, val2) ARROW_UNUSED(val1 != val2)
 #define DCHECK_LE(val1, val2) ARROW_UNUSED(val1 <= val2)
 #define DCHECK_LT(val1, val2) ARROW_UNUSED(val1 < val2)
 #define DCHECK_GE(val1, val2) ARROW_UNUSED(val1 >= val2)

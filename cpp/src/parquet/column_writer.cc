@@ -1067,7 +1067,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
       // PARQUET-780
       if (values_to_write > 0) {
-        DCHECK(nullptr != values);
+        DCHECK_NE(nullptr, values);
       }
       WriteValues(AddIfNotNull(values, value_offset), values_to_write,
                   batch_size - values_to_write);
@@ -1765,7 +1765,7 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
                                                     [static_cast<int>(target_unit)];
 
     // .first -> coercion operation; .second -> scale factor
-    DCHECK(coercion.first != COERCE_INVALID);
+    DCHECK_NE(coercion.first, COERCE_INVALID);
     return coercion.first == COERCE_DIVIDE ? DivideBy(coercion.second)
                                            : MultiplyBy(coercion.second);
   }

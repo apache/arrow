@@ -528,7 +528,7 @@ class MemoryMappedFile::MemoryMap
     length = std::max<int64_t>(0, std::min(length, map_len_ - offset));
 
     if (length > 0) {
-      DCHECK(region_ != nullptr);
+      DCHECK_NE(region_, nullptr);
       return SliceBuffer(region_, offset, length);
     } else {
       return std::make_shared<Buffer>(nullptr, 0);
@@ -719,7 +719,7 @@ Status MemoryMappedFile::WillNeed(const std::vector<ReadRange>& ranges) {
     ARROW_ASSIGN_OR_RAISE(
         auto size,
         internal::ValidateReadRange(range.offset, range.length, memory_map_->size()));
-    DCHECK(memory_map_->data() != nullptr);
+    DCHECK_NE(memory_map_->data(), nullptr);
     regions[i] = {const_cast<uint8_t*>(memory_map_->data() + range.offset),
                   static_cast<size_t>(size)};
   }

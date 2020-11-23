@@ -877,7 +877,7 @@ Result<std::unique_ptr<KernelExecutor>> MakeExecutor(ExecContext* ctx,
 }  // namespace
 
 Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* output) {
-  DCHECK(nullptr != output);
+  DCHECK_NE(nullptr, output);
   DCHECK_GT(output->buffers.size(), 0);
 
   if (output->type->id() == Type::NA) {

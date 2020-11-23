@@ -915,7 +915,7 @@ struct SplitBaseTransform {
       ArrayData* output_list = out->mutable_array();
       // list offsets were preallocated
       auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
-      DCHECK(list_offsets != nullptr);
+      DCHECK_NE(list_offsets, nullptr);
       // initial value
       *list_offsets++ = 0;
       KERNEL_RETURN_IF_ERROR(

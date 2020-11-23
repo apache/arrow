@@ -35,7 +35,7 @@ Mutex::Guard::Guard(Mutex* locked)
       }) {}
 
 Mutex::Guard Mutex::TryLock() {
-  DCHECK(impl_ != nullptr);
+  DCHECK_NE(impl_, nullptr);
   if (impl_->mutex_.try_lock()) {
     return Guard{this};
   }
@@ -43,7 +43,7 @@ Mutex::Guard Mutex::TryLock() {
 }
 
 Mutex::Guard Mutex::Lock() {
-  DCHECK(impl_ != nullptr);
+  DCHECK_NE(impl_, nullptr);
   impl_->mutex_.lock();
   return Guard{this};
 }

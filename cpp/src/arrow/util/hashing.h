@@ -208,7 +208,7 @@ class HashTable {
   };
 
   HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
-    DCHECK(pool != nullptr);
+    DCHECK_NE(pool, nullptr);
     // Minimum of 32 elements
     capacity = std::max<uint64_t>(capacity, 32UL);
     capacity_ = BitUtil::NextPower2(capacity);

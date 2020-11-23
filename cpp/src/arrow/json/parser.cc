@@ -86,9 +86,9 @@ static internal::Trie MakeFromTagTrie() {
 
 Kind::type Kind::FromTag(const std::shared_ptr<const KeyValueMetadata>& tag) {
   static internal::Trie name_to_kind = MakeFromTagTrie();
-  DCHECK(tag->FindKey("json_kind") != -1);
+  DCHECK_NE(tag->FindKey("json_kind"), -1);
   util::string_view name = tag->value(tag->FindKey("json_kind"));
-  DCHECK(name_to_kind.Find(name) != -1);
+  DCHECK_NE(name_to_kind.Find(name), -1);
   return static_cast<Kind::type>(name_to_kind.Find(name));
 }
 

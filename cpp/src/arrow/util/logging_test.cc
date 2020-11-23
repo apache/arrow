@@ -84,7 +84,7 @@ TEST(DcheckMacros, DoNotEvaluateReleaseMode) {
       return i;
     };
     DCHECK_EQ(f2(), 0);
-    DCHECK(f2() != 0);
+    DCHECK_NE(f2(), 0);
     DCHECK_LT(f2(), 0);
     DCHECK_LE(f2(), 0);
     DCHECK_GE(f2(), 0);

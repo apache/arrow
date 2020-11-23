@@ -147,7 +147,7 @@ std::array<uint8_t, 16> BasicDecimal128::ToBytes() const {
 }
 
 void BasicDecimal128::ToBytes(uint8_t* out) const {
-  DCHECK(out != nullptr);
+  DCHECK_NE(out, nullptr);
 #if ARROW_LITTLE_ENDIAN
   reinterpret_cast<uint64_t*>(out)[0] = low_bits_;
   reinterpret_cast<int64_t*>(out)[1] = high_bits_;
@@ -799,7 +799,7 @@ static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delt
   BasicDecimal128 multiplier(ScaleMultipliers[abs_delta_scale]);
 
   if (delta_scale < 0) {
-    DCHECK(multiplier != 0);
+    DCHECK_NE(multiplier, 0);
     BasicDecimal128 remainder;
     auto status = value.Divide(multiplier, result, &remainder);
     DCHECK_EQ(status, DecimalStatus::kSuccess);
@@ -812,7 +812,7 @@ static bool RescaleWouldCauseDataLoss(const BasicDecimal128& value, int32_t delt
 
 DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal128* out) const {
-  DCHECK(out != nullptr);
+  DCHECK_NE(out, nullptr);
 
   if (original_scale == new_scale) {
     *out = *this;
@@ -938,7 +938,7 @@ std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
 }
 
 void BasicDecimal256::ToBytes(uint8_t* out) const {
-  DCHECK(out != nullptr);
+  DCHECK_NE(out, nullptr);
 #if ARROW_LITTLE_ENDIAN
   reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[0];
   reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[1];

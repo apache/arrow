@@ -647,7 +647,7 @@ class SerialStreamingReader : public BaseStreamingReader {
 
     // Read schema from first batch
     ARROW_ASSIGN_OR_RAISE(pending_batch_, ReadNext());
-    DCHECK(schema_ != nullptr);
+    DCHECK_NE(schema_, nullptr);
     return Status::OK();
   }
 

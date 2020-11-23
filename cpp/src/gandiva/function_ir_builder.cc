@@ -25,7 +25,7 @@ llvm::Value* FunctionIRBuilder::BuildIfElse(llvm::Value* condition,
                                             std::function<llvm::Value*()> else_func) {
   llvm::IRBuilder<>* builder = ir_builder();
   llvm::Function* function = builder->GetInsertBlock()->getParent();
-  DCHECK(function != nullptr);
+  DCHECK_NE(function, nullptr);
 
   // Create blocks for the then, else and merge cases.
   llvm::BasicBlock* then_bb = llvm::BasicBlock::Create(*context(), "then", function);

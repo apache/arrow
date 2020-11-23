@@ -175,7 +175,7 @@ PyBuffer::PyBuffer() : Buffer(nullptr, 0) {}
 Status PyBuffer::Init(PyObject* obj) {
   if (!PyObject_GetBuffer(obj, &py_buf_, PyBUF_ANY_CONTIGUOUS)) {
     data_ = reinterpret_cast<const uint8_t*>(py_buf_.buf);
-    ARROW_CHECK(data_ != nullptr) << "Null pointer in Py_buffer";
+    ARROW_CHECK_NE(data_, nullptr) << "Null pointer in Py_buffer";
     size_ = py_buf_.len;
     capacity_ = py_buf_.len;
     is_mutable_ = !py_buf_.readonly;

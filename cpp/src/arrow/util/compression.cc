@@ -173,7 +173,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       break;
   }
 
-  DCHECK(codec != nullptr);
+  DCHECK_NE(codec, nullptr);
   RETURN_NOT_OK(codec->Init());
   return std::move(codec);
 }

@@ -233,7 +233,7 @@ Result<std::shared_ptr<ArrayData>> DictionaryMemo::GetDictionary(int64_t id,
 Status DictionaryMemo::AddDictionaryType(int64_t id,
                                          const std::shared_ptr<DataType>& type) {
   // AddDictionaryType expects the dict value type
-  DCHECK(type->id() != Type::DICTIONARY);
+  DCHECK_NE(type->id(), Type::DICTIONARY);
   const auto pair = impl_->id_to_type_.emplace(id, type);
   if (!pair.second && !pair.first->second->Equals(*type)) {
     return Status::KeyError("Conflicting dictionary types for id ", id);

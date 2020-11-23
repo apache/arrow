@@ -2223,7 +2223,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     const auto& dense_type =
         checked_cast<const DictionaryType&>(*arr->type()).value_type();
     RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));
-    DCHECK(arr->type()->id() != Type::DICTIONARY);
+    DCHECK_NE(arr->type()->id(), Type::DICTIONARY);
   }
 
   if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
@@ -2247,7 +2247,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   PandasWriter::type output_type;
   RETURN_NOT_OK(GetPandasWriterType(*arr, modified_options, &output_type));
   if (options.decode_dictionaries) {
-    DCHECK(output_type != PandasWriter::CATEGORICAL);
+    DCHECK_NE(output_type, PandasWriter::CATEGORICAL);
   }
 
   std::shared_ptr<PandasWriter> writer;

@@ -36,7 +36,7 @@ Fragment::Fragment(std::shared_ptr<Expression> partition_expression,
                    std::shared_ptr<Schema> physical_schema)
     : partition_expression_(std::move(partition_expression)),
       physical_schema_(std::move(physical_schema)) {
-  DCHECK(partition_expression_ != nullptr);
+  DCHECK_NE(partition_expression_, nullptr);
 }
 
 Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
@@ -64,7 +64,7 @@ InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
                                    std::shared_ptr<Expression> partition_expression)
     : Fragment(std::move(partition_expression), std::move(schema)),
       record_batches_(std::move(record_batches)) {
-  DCHECK(physical_schema_ != nullptr);
+  DCHECK_NE(physical_schema_, nullptr);
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
@@ -98,7 +98,7 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
 Dataset::Dataset(std::shared_ptr<Schema> schema,
                  std::shared_ptr<Expression> partition_expression)
     : schema_(std::move(schema)), partition_expression_(std::move(partition_expression)) {
-  DCHECK(partition_expression_ != nullptr);
+  DCHECK_NE(partition_expression_, nullptr);
 }
 
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(

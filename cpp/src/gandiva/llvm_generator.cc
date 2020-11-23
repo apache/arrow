@@ -481,7 +481,7 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
                                             const std::vector<llvm::Value*>& args) {
   // find the llvm function.
   llvm::Function* fn = module()->getFunction(full_name);
-  DCHECK(fn != nullptr) << "missing function " << full_name;
+  DCHECK_NE(fn, nullptr) << "missing function " << full_name;
 
   if (enable_ir_traces_ && !full_name.compare("printf") &&
       !full_name.compare("printff")) {
