@@ -22,7 +22,7 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
-use std::ops::{BitAnd, Not};
+use std::ops::Not;
 use std::sync::Arc;
 
 use crate::array::{
@@ -228,6 +228,11 @@ pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
 
 /// Copies original array, setting null bit to true if a secondary comparison boolean array is set to true.
 /// Typically used to implement NULLIF.
+// NOTE: For now this only supports Primitive Arrays.  Although the code could be made generic, the issue
+// is that currently the bitmap operations result in a final bitmap which is aligned to bit 0, and thus
+// the left array's data needs to be sliced to a new offset, and for non-primitive arrays shifting the
+// data might be too complicated.   In the future, to avoid shifting left array's data, we could instead
+// shift the final bitbuffer to the right, prepending with 0's instead.
 pub fn nullif<T>(
     left: &PrimitiveArray<T>,
     right: &BooleanArray,
@@ -242,6 +247,7 @@ where
         ));
     }
     let left_data = left.data();
+    let right_data = right.data();
 
     // If left has no bitmap, create a new one with all values set for nullity op later
     // left=0 (null)   right=null       output bitmap=null
@@ -257,34 +263,59 @@ where
     // TRICK: convert BooleanArray buffer as a bitmap for faster operation
     let right_combo_buffer = match right.data().null_bitmap() {
         Some(right_bitmap) => {
+            // NOTE: right values and bitmaps are combined and stay at bit offset right.offset()
             (&right.values() & &right_bitmap.bits).ok().map(|b| b.not())
         }
         None => Some(!&right.values()),
     };
 
     // AND of original left null bitmap with right expression
+    // Here we take care of the possible offsets of the left and right arrays all at once.
     let modified_null_buffer = match left_data.null_bitmap() {
         Some(left_null_bitmap) => match right_combo_buffer {
-            Some(rcb) => Some(left_null_bitmap.bits.bitand(&rcb)?),
-            None => Some(left_null_bitmap.bits.clone()),
+            Some(rcb) => Some(buffer_bin_and(
+                &left_null_bitmap.bits,
+                left_data.offset(),
+                &rcb,
+                right_data.offset(),
+                left_data.len(),
+            )),
+            None => Some(
+                left_null_bitmap
+                    .bits
+                    .bit_slice(left_data.offset(), left.len()),
+            ),
         },
         None => right_combo_buffer,
     };
 
-    // Count the number of set bits (non-null), so we can pass in correct null_count
-    // TODO: use count_set_bits_offset
-    let num_null_bits = modified_null_buffer
-        .clone()
-        .map(|buf| left.len() - buf.count_set_bits());
+    // Align/shift left data on offset as needed, since new bitmaps are shifted and aligned to 0 already
+    // NOTE: this probably only works for primitive arrays.
+    let data_buffers = if left.offset() == 0 {
+        left_data.buffers().to_vec()
+    } else {
+        // Shift each data buffer by type's bit_width * offset.
+        left_data
+            .buffers()
+            .iter()
+            .map(|buf| {
+                buf.bit_slice(
+                    left.offset() * T::get_bit_width(),
+                    left.len() * T::get_bit_width(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
 
     // Construct new array with same values but modified null bitmap
+    // TODO: shift data buffer as needed
     let data = ArrayData::new(
         T::DATA_TYPE,
         left.len(),
-        num_null_bits,
+        None, // force new to compute the number of null bits
         modified_null_buffer,
-        left.offset(),
-        left_data.buffers().to_vec(),
+        0, // No need for offset since left data has been shifted
+        data_buffers,
         left_data.child_data().to_vec(),
     );
     Ok(PrimitiveArray::<T>::from(Arc::new(data)))
@@ -671,5 +702,31 @@ mod tests {
         ]);
 
         assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_nullif_int_array_offset() {
+        let a = Int32Array::from(vec![None, Some(15), Some(8), Some(1), Some(9)]);
+        let a = a.slice(1, 3); // Some(15), Some(8), Some(1)
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let comp = BooleanArray::from(vec![
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+        ]);
+        let comp = comp.slice(2, 3); // Some(false), None, Some(true)
+        let comp = comp.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let res = nullif(&a, &comp).unwrap();
+
+        let expected = Int32Array::from(vec![
+            Some(15), // False => keep it
+            Some(8),  // None => keep it
+            None,     // true => None
+        ]);
+        assert_eq!(&expected, &res)
     }
 }
