@@ -286,10 +286,8 @@ TEST_P(TestFeather, PrimitiveNullRoundTrip) {
     std::vector<std::shared_ptr<Array>> expected_fields;
     for (int i = 0; i < batch->num_columns(); ++i) {
       ASSERT_EQ(batch->column_name(i), reader_->schema()->field(i)->name());
-      StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
-                             batch->column(i)->null_bitmap(),
-                             batch->column(i)->null_count());
-      AssertArraysEqual(str_values, *result->column(i)->chunk(0));
+      ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayOfNull(utf8(), batch->num_rows()));
+      AssertArraysEqual(*expected, *result->column(i)->chunk(0));
     }
   } else {
     AssertTablesEqual(*table, *result);

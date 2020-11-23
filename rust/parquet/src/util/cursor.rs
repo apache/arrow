@@ -16,16 +16,16 @@
 // under the License.
 
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
-use std::rc::Rc;
+use std::sync::Arc;
 use std::{cmp, fmt};
 
 /// This is object to use if your file is already in memory.
 /// The sliceable cursor is similar to std::io::Cursor, except that it makes it easy to create "cursor slices".
-/// To achieve this, it uses Rc instead of shared references. Indeed reference fields are painfull
+/// To achieve this, it uses Arc instead of shared references. Indeed reference fields are painfull
 /// because the lack of Generic Associated Type implies that you would require complex lifetime propagation when
 /// returning such a cursor.
 pub struct SliceableCursor {
-    inner: Rc<Vec<u8>>,
+    inner: Arc<Vec<u8>>,
     start: u64,
     length: usize,
     pos: u64,
@@ -46,7 +46,7 @@ impl SliceableCursor {
     pub fn new(content: Vec<u8>) -> Self {
         let size = content.len();
         SliceableCursor {
-            inner: Rc::new(content),
+            inner: Arc::new(content),
             start: 0,
             pos: 0,
             length: size,
@@ -62,7 +62,7 @@ impl SliceableCursor {
             return Err(Error::new(ErrorKind::InvalidInput, "out of bound"));
         }
         Ok(SliceableCursor {
-            inner: Rc::clone(&self.inner),
+            inner: Arc::clone(&self.inner),
             start: new_start,
             pos: new_start,
             length,

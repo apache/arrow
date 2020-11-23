@@ -126,7 +126,7 @@ mod tests {
     use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     struct TestVisitorContext {}
     struct TestVisitor {
@@ -225,7 +225,7 @@ mod tests {
             }
         ";
 
-        let parquet_type = Rc::new(parse_message_type(&message_type).unwrap());
+        let parquet_type = Arc::new(parse_message_type(&message_type).unwrap());
 
         let mut visitor = TestVisitor::new(parquet_type.clone());
         for f in parquet_type.get_fields() {

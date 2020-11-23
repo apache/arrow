@@ -96,6 +96,17 @@ ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                   int64_t right_offset, int64_t length);
 
+// Same as BitmapEquals, but considers a NULL bitmap pointer the same as an
+// all-ones bitmap.
+ARROW_EXPORT
+bool OptionalBitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                          int64_t right_offset, int64_t length);
+
+ARROW_EXPORT
+bool OptionalBitmapEquals(const std::shared_ptr<Buffer>& left, int64_t left_offset,
+                          const std::shared_ptr<Buffer>& right, int64_t right_offset,
+                          int64_t length);
+
 /// \brief Do a "bitmap and" on right and left buffers starting at
 /// their respective bit-offsets for the given bit-length and put
 /// the results in out_buffer starting at the given bit-offset.
@@ -152,6 +163,25 @@ Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
 ARROW_EXPORT
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
+
+/// \brief Do a "bitmap and not" on right and left buffers starting at
+/// their respective bit-offsets for the given bit-length and put
+/// the results in out_buffer starting at the given bit-offset.
+///
+/// out_buffer will be allocated and initialized to zeros using pool before
+/// the operation.
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> BitmapAndNot(MemoryPool* pool, const uint8_t* left,
+                                             int64_t left_offset, const uint8_t* right,
+                                             int64_t right_offset, int64_t length,
+                                             int64_t out_offset);
+
+/// \brief Do a "bitmap and not" on right and left buffers starting at
+/// their respective bit-offsets for the given bit-length and put
+/// the results in out starting at the given bit-offset.
+ARROW_EXPORT
+void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                  int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
 }  // namespace internal
 }  // namespace arrow

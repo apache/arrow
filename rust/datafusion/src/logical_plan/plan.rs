@@ -41,6 +41,13 @@ pub enum TableSource {
     FromProvider(Arc<dyn TableProvider + Send + Sync>),
 }
 
+/// Join type
+#[derive(Debug, Clone)]
+pub enum JoinType {
+    /// Inner join
+    Inner,
+}
+
 /// A LogicalPlan represents the different types of relational
 /// operators (such as Projection, Filter, etc) and can be created by
 /// the SQL query planner and the DataFrame API.
@@ -93,6 +100,19 @@ pub enum LogicalPlan {
         expr: Vec<Expr>,
         /// The incoming logical plan
         input: Arc<LogicalPlan>,
+    },
+    /// Join two logical plans on one or more join columns
+    Join {
+        /// Left input
+        left: Arc<LogicalPlan>,
+        /// Right input
+        right: Arc<LogicalPlan>,
+        /// Equijoin clause expressed as pairs of (left, right) join columns
+        on: Vec<(String, String)>,
+        /// Join type
+        join_type: JoinType,
+        /// The output schema, containing fields from the left and right inputs
+        schema: SchemaRef,
     },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
@@ -211,6 +231,7 @@ impl LogicalPlan {
             LogicalPlan::Filter { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { input, .. } => input.schema(),
+            LogicalPlan::Join { schema, .. } => &schema,
             LogicalPlan::Limit { input, .. } => input.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
@@ -292,6 +313,9 @@ impl LogicalPlan {
             LogicalPlan::Filter { input, .. } => input.accept(visitor)?,
             LogicalPlan::Aggregate { input, .. } => input.accept(visitor)?,
             LogicalPlan::Sort { input, .. } => input.accept(visitor)?,
+            LogicalPlan::Join { left, right, .. } => {
+                left.accept(visitor)? && right.accept(visitor)?
+            }
             LogicalPlan::Limit { input, .. } => input.accept(visitor)?,
             LogicalPlan::Extension { node } => {
                 for input in node.inputs() {
@@ -554,6 +578,11 @@ impl LogicalPlan {
                             write!(f, "{:?}", expr[i])?;
                         }
                         Ok(())
+                    }
+                    LogicalPlan::Join { on: ref keys, .. } => {
+                        let join_expr: Vec<String> =
+                            keys.iter().map(|(l, r)| format!("{} = {}", l, r)).collect();
+                        write!(f, "Join: {}", join_expr.join(", "))
                     }
                     LogicalPlan::Limit { ref n, .. } => write!(f, "Limit: {}", n),
                     LogicalPlan::CreateExternalTable { ref name, .. } => {

@@ -1003,8 +1003,7 @@ bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
-  auto id = dict_type.value_type()->id();
-  return id == ::arrow::Type::BINARY || id == ::arrow::Type::STRING;
+  return ::arrow::is_base_binary_like(dict_type.value_type()->id());
 }
 
 Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
@@ -1884,8 +1883,7 @@ template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-  if (array.type()->id() != ::arrow::Type::BINARY &&
-      array.type()->id() != ::arrow::Type::STRING) {
+  if (!::arrow::is_base_binary_like(array.type()->id())) {
     ARROW_UNSUPPORTED();
   }
 

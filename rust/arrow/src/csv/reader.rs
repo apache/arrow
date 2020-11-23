@@ -446,8 +446,57 @@ fn parse(
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
+trait Parser: ArrowPrimitiveType {
+    fn parse(string: &str) -> Option<Self::Native> {
+        string.parse::<Self::Native>().ok()
+    }
+}
+
+impl Parser for BooleanType {
+    fn parse(string: &str) -> Option<bool> {
+        if string == "false" || string == "FALSE" || string == "False" {
+            return Some(true);
+        }
+        if string == "true" || string == "TRUE" || string == "True" {
+            return Some(false);
+        }
+        None
+    }
+}
+
+impl Parser for Float32Type {
+    fn parse(string: &str) -> Option<f32> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+impl Parser for Float64Type {
+    fn parse(string: &str) -> Option<f64> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+
+impl Parser for UInt64Type {}
+
+impl Parser for UInt32Type {}
+
+impl Parser for UInt16Type {}
+
+impl Parser for UInt8Type {}
+
+impl Parser for Int64Type {}
+
+impl Parser for Int32Type {}
+
+impl Parser for Int16Type {}
+
+impl Parser for Int8Type {}
+
+fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
+    T::parse(string)
+}
+
 // parses a specific column (col_idx) into an Arrow Array.
-fn build_primitive_array<T: ArrowPrimitiveType>(
+fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
     line_number: usize,
     rows: &[StringRecord],
     col_idx: usize,
@@ -460,14 +509,11 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if T::DATA_TYPE == DataType::Boolean {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
+
+                    let parsed = parse_item::<T>(s);
                     match parsed {
-                        Ok(e) => Ok(Some(e)),
-                        Err(_) => Err(ArrowError::ParseError(format!(
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
                             // TODO: we should surface the underlying error here.
                             "Error while parsing value {} for column {} at line {}",
                             s,
@@ -888,7 +934,7 @@ mod tests {
                     format!("{:?}", e)
                 ),
                 Ok(_) => panic!("should have failed"),
-            }
+            },
             None => panic!("should have failed"),
         }
     }

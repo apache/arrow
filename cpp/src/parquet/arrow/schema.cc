@@ -872,6 +872,15 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
+  if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
+       inferred_type->id() == ::arrow::Type::BINARY) ||
+      (origin_type->id() == ::arrow::Type::LARGE_STRING &&
+       inferred_type->id() == ::arrow::Type::STRING)) {
+    // Read back binary-like arrays with the intended offset width.
+    inferred->field = inferred->field->WithType(origin_type);
+    modified = true;
+  }
+
   // Restore field metadata
   std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
   if (field_metadata != nullptr) {

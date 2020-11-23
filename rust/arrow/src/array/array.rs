@@ -157,7 +157,7 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     /// assert_eq!(array.is_null(1), true);
     /// ```
     fn is_null(&self, index: usize) -> bool {
-        self.data().is_null(index)
+        self.data_ref().is_null(index)
     }
 
     /// Returns whether the element at `index` is not null.
@@ -174,7 +174,7 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     /// assert_eq!(array.is_valid(1), false);
     /// ```
     fn is_valid(&self, index: usize) -> bool {
-        self.data().is_valid(index)
+        self.data_ref().is_valid(index)
     }
 
     /// Returns the total number of null values in this array.
@@ -307,6 +307,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
+        DataType::Decimal(_, _) => Arc::new(DecimalArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }

@@ -46,6 +46,16 @@ std::string Bitmap::Diff(const Bitmap& other) const {
   return ToArray()->Diff(*other.ToArray());
 }
 
+void Bitmap::CopyFrom(const Bitmap& other) {
+  ::arrow::internal::CopyBitmap(other.buffer_->data(), other.offset_, other.length_,
+                                buffer_->mutable_data(), offset_);
+}
+
+void Bitmap::CopyFromInverted(const Bitmap& other) {
+  ::arrow::internal::InvertBitmap(other.buffer_->data(), other.offset_, other.length_,
+                                  buffer_->mutable_data(), offset_);
+}
+
 bool Bitmap::Equals(const Bitmap& other) const {
   if (length_ != other.length_) {
     return false;

@@ -1700,7 +1700,11 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(results->Next(&result));
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
+#ifndef _WIN32
+  // On Windows gRPC sometimes returns a blank peer address, so don't
+  // bother checking for it.
   ASSERT_NE(result->body->ToString(), "");
+#endif
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {

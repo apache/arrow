@@ -92,6 +92,8 @@ SCALAR_EAGER_BINARY(KleeneAnd, "and_kleene")
 SCALAR_EAGER_BINARY(Or, "or")
 SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
 SCALAR_EAGER_BINARY(Xor, "xor")
+SCALAR_EAGER_BINARY(AndNot, "and_not")
+SCALAR_EAGER_BINARY(KleeneAndNot, "and_not_kleene")
 
 // ----------------------------------------------------------------------
 

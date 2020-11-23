@@ -24,6 +24,7 @@ use arrow::datatypes::{Schema, SchemaRef};
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::prelude::col;
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -118,6 +119,9 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
+        LogicalPlan::Join { on, .. } => {
+            on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect()
+        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -139,6 +143,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Filter { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
+        LogicalPlan::Join { left, right, .. } => vec![left, right],
         LogicalPlan::Limit { input, .. } => vec![input],
         LogicalPlan::Extension { node } => node.inputs(),
         // plans without inputs
@@ -179,6 +184,18 @@ pub fn from_plan(
         LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
             expr: expr.clone(),
             input: Arc::new(inputs[0].clone()),
+        }),
+        LogicalPlan::Join {
+            join_type,
+            on,
+            schema,
+            ..
+        } => Ok(LogicalPlan::Join {
+            left: Arc::new(inputs[0].clone()),
+            right: Arc::new(inputs[1].clone()),
+            join_type: join_type.clone(),
+            on: on.clone(),
+            schema: schema.clone(),
         }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,

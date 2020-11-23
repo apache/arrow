@@ -37,6 +37,10 @@ from pyarrow.includes.libgandiva cimport (
     CCondition, CExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
+    CSelectionVector_Mode,
+    _ensure_selection_mode,
+    CConfiguration,
+    CConfigurationBuilder,
     TreeExprBuilder_MakeExpression,
     TreeExprBuilder_MakeFunction,
     TreeExprBuilder_MakeBoolLiteral,
@@ -73,7 +77,6 @@ from pyarrow.includes.libgandiva cimport (
     Filter_Make,
     CFunctionSignature,
     GetRegisteredFunctionSignatures)
-
 
 cdef class Node(_Weakrefable):
     cdef:
@@ -151,10 +154,16 @@ cdef class Projector(_Weakrefable):
     def llvm_ir(self):
         return self.projector.get().DumpIR().decode()
 
-    def evaluate(self, RecordBatch batch):
+    def evaluate(self, RecordBatch batch, SelectionVector selection=None):
         cdef vector[shared_ptr[CArray]] results
-        check_status(self.projector.get().Evaluate(
-            batch.sp_batch.get()[0], self.pool.pool, &results))
+        if selection is None:
+            check_status(self.projector.get().Evaluate(
+                batch.sp_batch.get()[0], self.pool.pool, &results))
+        else:
+            check_status(
+                self.projector.get().Evaluate(
+                    batch.sp_batch.get()[0], selection.selection_vector.get(),
+                    self.pool.pool, &results))
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
@@ -395,19 +404,24 @@ cdef class TreeExprBuilder(_Weakrefable):
             condition.node)
         return Condition.create(r)
 
-cpdef make_projector(Schema schema, children, MemoryPool pool):
+cpdef make_projector(Schema schema, children, MemoryPool pool,
+                     str selection_mode="NONE"):
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
     for child in children:
         c_children.push_back(child.expression)
     cdef shared_ptr[CProjector] result
-    check_status(Projector_Make(schema.sp_schema, c_children,
-                                &result))
+    check_status(
+        Projector_Make(schema.sp_schema, c_children,
+                       _ensure_selection_mode(selection_mode),
+                       CConfigurationBuilder.DefaultConfiguration(),
+                       &result))
     return Projector.create(result, pool)
 
 cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
-    check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
+    check_status(
+        Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
 
 cdef class FunctionSignature(_Weakrefable):

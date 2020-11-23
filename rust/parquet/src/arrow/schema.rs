@@ -24,7 +24,7 @@
 //! The interfaces for converting arrow schema to parquet schema is coming.
 
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use arrow::datatypes::{DataType, DataTypeContext, DateUnit, Field, Schema, TimeUnit};
 use arrow::ipc::writer;
@@ -254,12 +254,12 @@ pub fn arrow_to_parquet_schema(schema: &Schema) -> Result<SchemaDescriptor> {
     let fields: Result<Vec<TypePtr>> = schema
         .fields()
         .iter()
-        .map(|field| arrow_to_parquet_type(field).map(Rc::new))
+        .map(|field| arrow_to_parquet_type(field).map(Arc::new))
         .collect();
     let group = Type::group_type_builder("arrow_schema")
         .with_fields(&mut fields?)
         .build()?;
-    Ok(SchemaDescriptor::new(Rc::new(group)))
+    Ok(SchemaDescriptor::new(Arc::new(group)))
 }
 
 fn parse_key_value_metadata(
@@ -400,6 +400,12 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
+        DataType::Decimal(_, _) => {
+            Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                .with_repetition(repetition)
+                .with_length(10)
+                .build()
+        }
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(LogicalType::UTF8)
@@ -409,9 +415,9 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::List(type_ctx)
         | DataType::FixedSizeList(type_ctx, _)
         | DataType::LargeList(type_ctx) => Type::group_type_builder(name)
-            .with_fields(&mut vec![Rc::new(
+            .with_fields(&mut vec![Arc::new(
                 Type::group_type_builder("list")
-                    .with_fields(&mut vec![Rc::new({
+                    .with_fields(&mut vec![Arc::new({
                         let list_field = Field::new(
                             "element",
                             type_ctx.data_type().clone(),
@@ -434,7 +440,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             // recursively convert children to types/nodes
             let fields: Result<Vec<TypePtr>> = fields
                 .iter()
-                .map(|f| arrow_to_parquet_type(f).map(Rc::new))
+                .map(|f| arrow_to_parquet_type(f).map(Arc::new))
                 .collect();
             Type::group_type_builder(name)
                 .with_fields(&mut fields?)
@@ -774,7 +780,7 @@ mod tests {
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
 
@@ -803,7 +809,7 @@ mod tests {
 
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
 
@@ -825,7 +831,7 @@ mod tests {
 
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
 
@@ -1040,7 +1046,7 @@ mod tests {
 
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
         let converted_fields = converted_arrow_schema.fields();
@@ -1078,7 +1084,7 @@ mod tests {
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
         let converted_fields = converted_arrow_schema.fields();
@@ -1128,7 +1134,7 @@ mod tests {
         // }
         // required int64 leaf5;
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema_by_columns(&parquet_schema, vec![0, 3, 4], &None)
                 .unwrap();
@@ -1179,7 +1185,7 @@ mod tests {
         // }
         // required int64 leaf5;
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema_by_columns(&parquet_schema, vec![3, 4, 0], &None)
                 .unwrap();
@@ -1233,7 +1239,7 @@ mod tests {
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &None).unwrap();
         let converted_fields = converted_arrow_schema.fields();
@@ -1266,7 +1272,7 @@ mod tests {
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_fields = parquet_schema
             .columns()
             .iter()
@@ -1341,7 +1347,7 @@ mod tests {
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
 
         let arrow_fields = vec![
             Field::new("boolean", DataType::Boolean, false),
@@ -1435,7 +1441,7 @@ mod tests {
         let mut expected_metadata: HashMap<String, String> = HashMap::new();
         expected_metadata.insert("foo".to_owned(), "bar".to_owned());
 
-        let parquet_schema = SchemaDescriptor::new(Rc::new(parquet_group_type));
+        let parquet_schema = SchemaDescriptor::new(Arc::new(parquet_group_type));
         let converted_arrow_schema =
             parquet_to_arrow_schema(&parquet_schema, &Some(key_value_metadata)).unwrap();
 
@@ -1563,7 +1569,7 @@ mod tests {
 
         // read file back
         let parquet_reader = SerializedFileReader::try_from(file)?;
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
         let read_schema = arrow_reader.get_schema()?;
         assert_eq!(schema, read_schema);
 
@@ -1631,7 +1637,7 @@ mod tests {
 
         // read file back
         let parquet_reader = SerializedFileReader::try_from(file)?;
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
         let read_schema = arrow_reader.get_schema()?;
         assert_eq!(schema, read_schema);
 

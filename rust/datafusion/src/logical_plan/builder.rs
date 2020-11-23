@@ -27,8 +27,10 @@ use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 
 use super::{
-    col, exprlist_to_fields, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
+    TableSource,
 };
+use crate::physical_plan::hash_utils;
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -179,6 +181,47 @@ impl LogicalPlanBuilder {
             expr,
             input: Arc::new(self.plan.clone()),
         }))
+    }
+
+    /// Apply a join
+    pub fn join(
+        &self,
+        right: &LogicalPlan,
+        join_type: JoinType,
+        left_keys: &[&str],
+        right_keys: &[&str],
+    ) -> Result<Self> {
+        if left_keys.len() != right_keys.len() {
+            Err(DataFusionError::Plan(
+                "left_keys and right_keys were not the same length".to_string(),
+            ))
+        } else {
+            let on: Vec<_> = left_keys
+                .iter()
+                .zip(right_keys.iter())
+                .map(|(x, y)| (x.to_string(), y.to_string()))
+                .collect::<Vec<_>>();
+            let physical_join_type = match join_type {
+                JoinType::Inner => hash_utils::JoinType::Inner,
+            };
+            let physical_schema = hash_utils::build_join_schema(
+                self.plan.schema(),
+                right.schema(),
+                &on,
+                &physical_join_type,
+            );
+            Ok(Self::from(&LogicalPlan::Join {
+                left: Arc::new(self.plan.clone()),
+                right: Arc::new(right.clone()),
+                on: left_keys
+                    .iter()
+                    .zip(right_keys.iter())
+                    .map(|(l, r)| (l.to_string(), r.to_string()))
+                    .collect(),
+                join_type,
+                schema: Arc::new(physical_schema),
+            }))
+        }
     }
 
     /// Apply an aggregate

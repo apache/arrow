@@ -199,6 +199,9 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
     using offset_type = typename T::offset_type;
     constexpr char empty_value = 0;
 
+    if (arr.length == 0) {
+      return Status::OK();
+    }
     const offset_type* offsets = arr.GetValues<offset_type>(1);
     const char* data;
     if (!arr.buffers[2]) {
@@ -229,6 +232,9 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
     using offset_type = typename T::offset_type;
     constexpr uint8_t empty_value = 0;
 
+    if (arr.length == 0) {
+      return;
+    }
     const offset_type* offsets = arr.GetValues<offset_type>(1);
     const uint8_t* data;
     if (!arr.buffers[2]) {

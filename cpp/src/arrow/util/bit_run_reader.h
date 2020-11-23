@@ -40,8 +40,12 @@ struct BitRun {
   }
 };
 
-static inline bool operator==(const BitRun& lhs, const BitRun& rhs) {
+inline bool operator==(const BitRun& lhs, const BitRun& rhs) {
   return lhs.length == rhs.length && lhs.set == rhs.set;
+}
+
+inline bool operator!=(const BitRun& lhs, const BitRun& rhs) {
+  return lhs.length != rhs.length || lhs.set != rhs.set;
 }
 
 class BitRunReaderLinear {
@@ -96,7 +100,7 @@ class ARROW_EXPORT BitRunReader {
     int64_t start_bit_offset = start_position & 63;
     // Invert the word for proper use of CountTrailingZeros and
     // clear bits so CountTrailingZeros can do it magic.
-    word_ = ~word_ & ~BitUtil::LeastSignficantBitMask(start_bit_offset);
+    word_ = ~word_ & ~BitUtil::LeastSignificantBitMask(start_bit_offset);
 
     // Go  forward until the next change from unset to set.
     int64_t new_bits = BitUtil::CountTrailingZeros(word_) - start_bit_offset;
@@ -161,6 +165,8 @@ class ARROW_EXPORT BitRunReader {
 #else
 using BitRunReader = BitRunReaderLinear;
 #endif
+
+// TODO SetBitRunReader?
 
 }  // namespace internal
 }  // namespace arrow
