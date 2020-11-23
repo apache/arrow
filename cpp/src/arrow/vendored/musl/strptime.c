@@ -21,13 +21,13 @@
 #define HAVE_LANGINFO 1
 #else
 // Custom support for abbreviated months on Windows, this is required for cookie handling.
-uint32_t MONTH_COUNT = 12;
+size_t MONTH_COUNT = 12;
 const char* MONTHS[] = {
 	"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
 };
 
 // Custom support for abbreviated days on Windows, this is required for cookie handling.
-uint32_t DAY_COUNT = 7;
+size_t DAY_COUNT = 7;
 const char* DAYS[] = {
 	"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
 };
