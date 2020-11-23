@@ -1693,7 +1693,7 @@ impl ArrayBuilder for DecimalBuilder {
             )) as ArrayDataRef;
             let list_data = Arc::new(ArrayData::new(
                 DataType::FixedSizeList(
-                    Box::new(Field::new("item", DataType::UInt8, true)),
+                    Box::new(DataTypeContext::new(DataType::UInt8, true)),
                     self.builder.list_len,
                 ),
                 array.len(),
