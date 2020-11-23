@@ -1032,7 +1032,7 @@ class TestCookieMiddleware : public ::testing::Test {
     struct tm time_info;
 #ifdef _WIN32
     localtime_s(&time_info, &future_time);
-# else
+#else
     localtime_r(&future_time, &time_info);
 #endif
     char date_buffer[100];
