@@ -178,6 +178,9 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   <#if listName == "LargeList">
   @Override
   public void startList() {
+    if (vector.getLastSet() >= idx()){
+      vector.setLastSet(idx() - 1);
+    }
     vector.startNewValue(idx());
     writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getLong(((long) idx() + 1L) * OFFSET_WIDTH)));
   }
@@ -190,6 +193,9 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   <#else>
   @Override
   public void startList() {
+    if (vector.getLastSet() >= idx()){
+      vector.setLastSet(idx() - 1);
+    }
     vector.startNewValue(idx());
     writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
   }

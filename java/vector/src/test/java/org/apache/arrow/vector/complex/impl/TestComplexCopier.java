@@ -209,6 +209,57 @@ public class TestComplexCopier {
   }
 
   @Test
+  public void testCopyListVectorToANonEmptyList() {
+    try (ListVector from = ListVector.empty("v", allocator);
+         ListVector to = ListVector.empty("v", allocator)) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        listWriter.startList();
+        listWriter.integer().writeInt(i);
+        listWriter.integer().writeInt(i * 2);
+        listWriter.endList();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+
+      // Copy again to the target vector which is non-empty
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+
+      // copy using copyFromSafe method
+      for (int i = 0; i < COUNT; i++) {
+        to.copyFromSafe(i, i, from);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
+
+  @Test
   public void testCopyListVectorWithNulls() {
     try (ListVector from = ListVector.empty("v", allocator);
          ListVector to = ListVector.empty("v", allocator)) {
