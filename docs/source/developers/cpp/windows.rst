@@ -273,8 +273,8 @@ tests can be made with there individual make targets).
 1. Microsoft offers trial VMs for `Windows with Microsoft Visual Studio
    <https://developer.microsoft.com/en-us/windows/downloads/virtual-machines>`_.
    Download and install a version.
-2. Run the VM and install `Git <https://git-scm.com/>`, `CMake
-   <https://cmake.org/>`, and Miniconda or Anaconda (these instructions assume
+2. Run the VM and install `Git <https://git-scm.com/>`_, `CMake
+   <https://cmake.org/>`_, and Miniconda or Anaconda (these instructions assume
    Anaconda). Also install the `"Build Tools for Visual Studio"
    <https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019>`_.
    Make sure to select the C++ toolchain in the installer wizard, and reboot
