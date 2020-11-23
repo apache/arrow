@@ -24,7 +24,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

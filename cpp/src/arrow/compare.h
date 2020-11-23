@@ -83,22 +83,29 @@ class EqualOptions {
 bool ARROW_EXPORT ArrayEquals(const Array& left, const Array& right,
                               const EqualOptions& = EqualOptions::Defaults());
 
+/// Returns true if the arrays are approximately equal. For non-floating point
+/// types, this is equivalent to ArrayEquals(left, right)
+bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
+                                    const EqualOptions& = EqualOptions::Defaults());
+
+/// Returns true if indicated equal-length segment of arrays are exactly equal
+bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
+                                   int64_t start_idx, int64_t end_idx,
+                                   int64_t other_start_idx,
+                                   const EqualOptions& = EqualOptions::Defaults());
+
+/// Returns true if indicated equal-length segment of arrays are approximately equal
+bool ARROW_EXPORT ArrayRangeApproxEquals(const Array& left, const Array& right,
+                                         int64_t start_idx, int64_t end_idx,
+                                         int64_t other_start_idx,
+                                         const EqualOptions& = EqualOptions::Defaults());
+
 bool ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right,
                                const EqualOptions& = EqualOptions::Defaults());
 
 /// EXPERIMENTAL: Returns true if the given sparse tensors are exactly equal
 bool ARROW_EXPORT SparseTensorEquals(const SparseTensor& left, const SparseTensor& right,
                                      const EqualOptions& = EqualOptions::Defaults());
-
-/// Returns true if the arrays are approximately equal. For non-floating point
-/// types, this is equivalent to ArrayEquals(left, right)
-bool ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
-                                    const EqualOptions& = EqualOptions::Defaults());
-
-/// Returns true if indicated equal-length segment of arrays is exactly equal
-bool ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
-                                   int64_t start_idx, int64_t end_idx,
-                                   int64_t other_start_idx);
 
 /// Returns true if the type metadata are exactly equal
 /// \param[in] left a DataType

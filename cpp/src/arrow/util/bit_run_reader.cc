@@ -45,7 +45,7 @@ BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t 
 
   // Prepare for inversion in NextRun.
   // Clear out any preceding bits.
-  word_ = word_ & ~BitUtil::LeastSignficantBitMask(position_);
+  word_ = word_ & ~BitUtil::LeastSignificantBitMask(position_);
 }
 
 #endif

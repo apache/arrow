@@ -283,6 +283,16 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
 
+  /// \brief Generate a random FixedSizeBinaryArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] byte_width the byte width of fixed-size binary items
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,
+                                         double null_probability = 0);
+
   /// \brief Generate a random ListArray
   ///
   /// \param[in] values The underlying values array
@@ -293,6 +303,25 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \return a generated Array
   std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
                               bool force_empty_nulls = false);
+
+  /// \brief Generate a random SparseUnionArray
+  ///
+  /// The type ids are chosen randomly, according to a uniform distribution,
+  /// amongst the given child fields.
+  ///
+  /// \param[in] fields Vector of Arrays containing the data for each union field
+  /// \param[in] size The size of the generated sparse union array
+  std::shared_ptr<Array> SparseUnion(const ArrayVector& fields, int64_t size);
+
+  /// \brief Generate a random DenseUnionArray
+  ///
+  /// The type ids are chosen randomly, according to a uniform distribution,
+  /// amongst the given child fields.  The offsets are incremented along
+  /// each child field.
+  ///
+  /// \param[in] fields Vector of Arrays containing the data for each union field
+  /// \param[in] size The size of the generated sparse union array
+  std::shared_ptr<Array> DenseUnion(const ArrayVector& fields, int64_t size);
 
   /// \brief Generate a random Array of the specified type, size, and null_probability.
   ///
