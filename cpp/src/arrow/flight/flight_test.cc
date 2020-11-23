@@ -805,7 +805,7 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
       const std::string val = iter.second.to_string();
       if (key == kAuthHeader) {
         if (val.size() > strlen(kBasicPrefix)) {
-          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix), 
+          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix),
                         kBasicPrefix, char_compare)) {
             const std::string encoded_credentials = val.substr(strlen(kBasicPrefix));
             const std::string decoded_credentials = arrow::util::base64_decode(
@@ -819,8 +819,7 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
       }
     }
 
-    if (username == kValidUsername &&
-        password == kValidPassword) {
+    if ((username == kValidUsername) && (password == kValidPassword)) {
       outgoing_headers->AddHeader(kAuthHeader, std::string(kBearerPrefix) + kBearerToken);
     }
   }
@@ -841,7 +840,7 @@ class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
         incoming_headers.equal_range(kAuthHeader);
-    if (iter_pair.first != iter_pair.second) {      
+    if (iter_pair.first != iter_pair.second) {
       *middleware = std::make_shared<HeaderAuthServerMiddleware>(incoming_headers);
     }
     return Status::OK();
@@ -1072,11 +1071,11 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   void SetUp() {
     server_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
     ASSERT_OK(MakeServer<FlightServerBase>(
-        &server_, &client_, [&](FlightServerOptions* options) { 
+        &server_, &client_, [&](FlightServerOptions* options) {
           options->auth_handler = std::unique_ptr<ServerAuthHandler>(
               new TestServerAuthHandler("", ""));
           options->middleware.push_back({"header-auth-server", server_middleware_});
-          return Status::OK(); 
+          return Status::OK();
         },
         [&](FlightClientOptions* options) { return Status::OK(); }));
   }
@@ -1085,7 +1084,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     std::pair<std::string, std::string> bearer_token;
     // Note: Status intentionally ignored because it requires C++ server implementation of
     // header auth. For now it returns an IOError.
-    arrow::Status status = 
+    arrow::Status status =
         client_->AuthenticateBasicToken(kValidUsername, kValidPassword, &bearer_token);
     ASSERT_EQ(bearer_token.first, kAuthHeader);
     ASSERT_EQ(bearer_token.second, (std::string(kBearerPrefix) + kBearerToken));
