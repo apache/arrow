@@ -77,6 +77,33 @@ pub enum Expr {
     IsNotNull(Box<Expr>),
     /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
+    /// The CASE expression is similar to a series of nested if/else and there are two forms that
+    /// can be used. The first form consists of a series of boolean "when" expressions with
+    /// corresponding "then" expressions, and an optional "else" expression.
+    ///
+    /// CASE WHEN condition THEN result
+    ///      [WHEN ...]
+    ///      [ELSE result]
+    /// END
+    ///
+    /// The second form uses a base expression and then a series of "when" clauses that match on a
+    /// literal value.
+    ///
+    /// CASE expression
+    ///     WHEN value THEN result
+    ///     [WHEN ...]
+    ///     [ELSE result]
+    /// END
+    Case {
+        /// Optional base expression that can be compared to literal values in the "when" expressions
+        expr: Option<Box<Expr>>,
+        /// One or more when/then expressions
+        when_then_expr: Vec<(Box<Expr>, Box<Expr>)>,
+        /// Optional "else" expression
+        else_expr: Option<Box<Expr>>,
+        /// The `DataType` the expression will yield
+        data_type: DataType,
+    },
     /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
     Cast {
         /// The expression being cast
@@ -141,6 +168,7 @@ impl Expr {
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
+            Expr::Case { data_type, .. } => Ok(data_type.clone()),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
@@ -202,6 +230,24 @@ impl Expr {
             Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
+            Expr::Case {
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                // this expression is nullable if any of the input expressions are nullable
+                let then_nullable = when_then_expr
+                    .iter()
+                    .map(|(_, t)| t.nullable(input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                if then_nullable.contains(&true) {
+                    Ok(true)
+                } else if let Some(e) = else_expr {
+                    e.nullable(input_schema)
+                } else {
+                    Ok(false)
+                }
+            }
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::ScalarUDF { .. } => Ok(true),
@@ -339,6 +385,66 @@ impl Expr {
             asc,
             nulls_first,
         }
+    }
+}
+
+pub struct CaseWhenBuilder {
+    when_expr: Vec<Expr>,
+    then_expr: Vec<Expr>,
+}
+
+pub struct CaseThenBuilder {
+    when_expr: Vec<Expr>,
+    then_expr: Vec<Expr>,
+}
+
+impl CaseWhenBuilder {
+    pub fn when(&mut self, expr: Expr) -> CaseThenBuilder {
+        self.when_expr.push(expr);
+        CaseThenBuilder {
+            when_expr: self.when_expr.clone(),
+            then_expr: self.then_expr.clone(),
+        }
+    }
+    pub fn or_else(&mut self, expr: Expr) -> Expr {
+        Expr::Case {
+            expr: None,
+            when_then_expr: vec![],
+            else_expr: None,
+            data_type: DataType::Null,
+        }
+    }
+    pub fn end(&mut self, expr: Expr) -> Expr {
+        Expr::Case {
+            expr: None,
+            when_then_expr: vec![],
+            else_expr: None,
+            data_type: DataType::Null,
+        }
+    }
+}
+
+impl CaseThenBuilder {
+    pub fn then(&mut self, expr: Expr) -> CaseWhenBuilder {
+        self.then_expr.push(expr);
+        CaseWhenBuilder {
+            when_expr: self.when_expr.clone(),
+            then_expr: self.then_expr.clone(),
+        }
+    }
+}
+
+pub fn case(expr: Expr) -> CaseWhenBuilder {
+    CaseWhenBuilder {
+        when_expr: vec![],
+        then_expr: vec![],
+    }
+}
+
+pub fn case_when() -> CaseWhenBuilder {
+    CaseWhenBuilder {
+        when_expr: vec![],
+        then_expr: vec![],
     }
 }
 
@@ -568,6 +674,24 @@ impl fmt::Debug for Expr {
             Expr::Column(name) => write!(f, "#{}", name),
             Expr::ScalarVariable(var_names) => write!(f, "{}", var_names.join(".")),
             Expr::Literal(v) => write!(f, "{:?}", v),
+            Expr::Case {
+                expr,
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                write!(f, "CASE ")?;
+                if let Some(e) = expr {
+                    write!(f, "{:?} ", e)?;
+                }
+                for (w, t) in when_then_expr {
+                    write!(f, "WHEN {:?} THEN {:?} ", w, t)?;
+                }
+                if let Some(e) = else_expr {
+                    write!(f, "ELSE {:?} ", e)?;
+                }
+                write!(f, "END")
+            }
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }

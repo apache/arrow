@@ -63,6 +63,24 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
             expr_to_column_names(right, accum)?;
             Ok(())
         }
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+            ..
+        } => {
+            if let Some(e) = expr {
+                expr_to_column_names(e, accum)?;
+            }
+            for (w, t) in when_then_expr {
+                expr_to_column_names(w, accum)?;
+                expr_to_column_names(t, accum)?;
+            }
+            if let Some(e) = else_expr {
+                expr_to_column_names(e, accum)?
+            }
+            Ok(())
+        }
         Expr::Cast { expr, .. } => expr_to_column_names(expr, accum),
         Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
@@ -225,6 +243,25 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
         Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
         Expr::AggregateUDF { args, .. } => Ok(args.iter().collect()),
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+            ..
+        } => {
+            let mut expr_list: Vec<&Expr> = vec![];
+            if let Some(e) = expr {
+                expr_list.push(e.as_ref());
+            }
+            for (w, t) in when_then_expr {
+                expr_list.push(w.as_ref());
+                expr_list.push(t.as_ref());
+            }
+            if let Some(e) = else_expr {
+                expr_list.push(e.as_ref());
+            }
+            Ok(expr_list)
+        }
         Expr::Cast { expr, .. } => Ok(vec![expr]),
         Expr::Column(_) => Ok(vec![]),
         Expr::Alias(expr, ..) => Ok(vec![expr]),
@@ -267,6 +304,20 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             fun: fun.clone(),
             args: expressions.clone(),
         }),
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+            data_type,
+        } => {
+            //TODO this doesn't fit the design
+            Ok(Expr::Case {
+                expr: expr.clone(),
+                when_then_expr: when_then_expr.clone(),
+                else_expr: else_expr.clone(),
+                data_type: data_type.clone(),
+            })
+        }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
             expr: Box::new(expressions[0].clone()),
             data_type: data_type.clone(),
