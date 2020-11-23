@@ -146,14 +146,14 @@ def test_large_binary_huge():
 
 @pytest.mark.large_memory
 def test_large_binary_overflow():
-    s = b'x' * (1 << 32)
+    s = b'x' * (1 << 31)
     arr = pa.array([s], type=pa.large_binary())
     table = pa.Table.from_arrays([arr], names=['strs'])
     for use_dictionary in [False, True]:
         writer = pa.BufferOutputStream()
         with pytest.raises(
                 pa.ArrowInvalid,
-                match="Parquet cannot store strings with size 4GB or more"):
+                match="Parquet cannot store strings with size 2GB or more"):
             _write_table(table, writer, use_dictionary=use_dictionary)
 
 

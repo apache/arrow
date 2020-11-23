@@ -56,6 +56,9 @@ namespace parquet {
 namespace {
 
 constexpr int64_t kInMemoryDefaultCapacity = 1024;
+// The Parquet spec isn't very clear whether ByteArray lengths are signed or
+// unsigned, but the Java implementation uses signed ints.
+constexpr size_t kMaxByteArraySize = std::numeric_limits<int32_t>::max();
 
 class EncoderImpl : virtual public Encoder {
  public:
@@ -136,12 +139,11 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         array.value_offset(array.length()) - array.value_offset(0);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
-    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
     PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 4GB or more");
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
           UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -604,12 +606,11 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
     PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 4GB or more");
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
           PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -619,12 +620,11 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrayType>
   void PutBinaryDictionaryArray(const ArrayType& array) {
-    constexpr size_t kMaxByteArraySize = std::numeric_limits<uint32_t>::max();
     DCHECK_EQ(array.null_count(), 0);
     for (int64_t i = 0; i < array.length(); i++) {
       auto v = array.GetView(i);
       if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
-        throw ParquetException("Parquet cannot store strings with size 4GB or more");
+        throw ParquetException("Parquet cannot store strings with size 2GB or more");
       }
       dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
       int32_t unused_memo_index;
