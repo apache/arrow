@@ -177,6 +177,8 @@ ReaderProperties default_reader_properties() {
   return default_reader_properties;
 }
 
+namespace {
+
 // Extracts encoded statistics from V1 and V2 data page headers
 template <typename H>
 EncodedStatistics ExtractStatsFromHeader(const H& header) {
@@ -493,6 +495,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   return decompression_buffer_;
 }
 
+}  // namespace
+
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
@@ -501,6 +505,8 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
 }
+
+namespace {
 
 // ----------------------------------------------------------------------
 // Impl base class for TypedColumnReader and RecordReader
@@ -1021,6 +1027,8 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
   return num_rows_to_skip - rows_to_skip;
 }
 
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Dynamic column reader constructor
 
@@ -1063,6 +1071,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
 // RecordReader
 
 namespace internal {
+namespace {
 
 // The minimum number of repetition/definition levels to decode at a time, for
 // better vectorized performance when doing many smaller record reads
@@ -1675,6 +1684,8 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool);
   }
 }
+
+}  // namespace
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,

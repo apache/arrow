@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/compute/api.h"
 #include "arrow/datum.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -341,20 +342,26 @@ Status TransferDictionary(RecordReader* reader,
   return Status::OK();
 }
 
-Status TransferBinary(RecordReader* reader,
+Status TransferBinary(RecordReader* reader, MemoryPool* pool,
                       const std::shared_ptr<DataType>& logical_value_type,
                       std::shared_ptr<ChunkedArray>* out) {
   if (reader->read_dictionary()) {
     return TransferDictionary(
         reader, ::arrow::dictionary(::arrow::int32(), logical_value_type), out);
   }
+  ::arrow::compute::ExecContext ctx(pool);
+  ::arrow::compute::CastOptions cast_options;
+  cast_options.allow_invalid_utf8 = false;  // avoid spending time validating UTF8 data
+
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   auto chunks = binary_reader->GetBuilderChunks();
-  for (const auto& chunk : chunks) {
+  for (auto& chunk : chunks) {
     if (!chunk->type()->Equals(*logical_value_type)) {
-      ARROW_ASSIGN_OR_RAISE(*out, ChunkedArray(chunks).View(logical_value_type));
-      return Status::OK();
+      // XXX: if a LargeBinary chunk is larger than 2GB, the MSBs of offsets
+      // will be lost because they are first created as int32 and then cast to int64.
+      ARROW_ASSIGN_OR_RAISE(
+          chunk, ::arrow::compute::Cast(*chunk, logical_value_type, cast_options, &ctx));
     }
   }
   *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
@@ -710,8 +717,10 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
       break;
     case ::arrow::Type::FIXED_SIZE_BINARY:
     case ::arrow::Type::BINARY:
-    case ::arrow::Type::STRING: {
-      RETURN_NOT_OK(TransferBinary(reader, value_type, &chunked_result));
+    case ::arrow::Type::STRING:
+    case ::arrow::Type::LARGE_BINARY:
+    case ::arrow::Type::LARGE_STRING: {
+      RETURN_NOT_OK(TransferBinary(reader, pool, value_type, &chunked_result));
       result = chunked_result;
     } break;
     case ::arrow::Type::DECIMAL: {
