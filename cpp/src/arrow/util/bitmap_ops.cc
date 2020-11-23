@@ -86,6 +86,10 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 
 namespace {
 
+// BitmapWordReader here is faster than BitmapUInt64Reader (in bitmap_reader.h)
+// on sufficiently large inputs.  However, it has a larger prolog / epilog overhead
+// and should probably not be used for small bitmaps.
+
 template <typename Word>
 class BitmapWordReader {
  public:

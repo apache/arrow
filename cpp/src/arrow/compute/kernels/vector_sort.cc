@@ -26,6 +26,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/table.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
 
@@ -238,21 +239,9 @@ inline void VisitRawValuesInline(const ArrayType& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
   const auto data = values.raw_values();
-  if (values.null_count() > 0) {
-    BitmapReader reader(values.null_bitmap_data(), values.offset(), values.length());
-    for (int64_t i = 0; i < values.length(); ++i) {
-      if (reader.IsSet()) {
-        visitor_not_null(data[i]);
-      } else {
-        visitor_null();
-      }
-      reader.Next();
-    }
-  } else {
-    for (int64_t i = 0; i < values.length(); ++i) {
-      visitor_not_null(data[i]);
-    }
-  }
+  VisitBitBlocksVoid(
+      values.null_bitmap(), values.offset(), values.length(),
+      [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
 template <typename ArrowType>
