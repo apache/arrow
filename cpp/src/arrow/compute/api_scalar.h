@@ -261,7 +261,7 @@ Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 1.0.0
+/// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> AndNot(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
@@ -274,7 +274,7 @@ Result<Datum> AndNot(const Datum& left, const Datum& right, ExecContext* ctx = N
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 1.0.0
+/// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
