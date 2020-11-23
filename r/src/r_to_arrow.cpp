@@ -25,6 +25,7 @@
 #include <arrow/array/builder_dict.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/type_traits.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
 
@@ -64,6 +65,8 @@ enum RVectorType {
   DATE,
   TIME,
   TIMESTAMP,
+  BINARY,
+  LIST,
 
   OTHER
 };
@@ -95,8 +98,12 @@ RVectorType GetVectorType(SEXP x) {
       if (Rf_inherits(x, "data.frame")) {
         return DATAFRAME;
       }
-      // TODO: binary, list, POSIXlt
-      break;
+
+      if (Rf_inherits(x, "arrow_binary")) {
+        return BINARY;
+      }
+
+      return LIST;
     }
     default:
       break;
@@ -126,6 +133,19 @@ struct RBytesView {
 
     // TODO: test it
     is_utf8 = true;
+
+    return Status::OK();
+  }
+
+  Status ParseRaw(RScalar* value) {
+    if (value->rtype != BINARY) {
+      return Status::Invalid("cannot parse binary");
+    }
+
+    SEXP raw = *reinterpret_cast<SEXP*>(value->data);
+    bytes = reinterpret_cast<const char*>(RAW_RO(raw));
+    size = XLENGTH(raw);
+    is_utf8 = false;
 
     return Status::OK();
   }
@@ -274,6 +294,26 @@ class RValue {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
+
+  static Status Convert(const BaseBinaryType*, const RConversionOptions&, RScalar* value,
+                        RBytesView& view) {
+    if (value->rtype == BINARY) {
+      return view.ParseRaw(value);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Status Convert(const FixedSizeBinaryType* type, const RConversionOptions&,
+                        RScalar* value, RBytesView& view) {
+    ARROW_RETURN_NOT_OK(view.ParseRaw(value));
+    if (view.size != type->byte_width()) {
+      return Status::Invalid("invalid size");
+    } else {
+      return Status::OK();
+    }
+  }
 };
 
 template <typename T>
@@ -380,9 +420,27 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_binary<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
+  using OffsetType = typename T::offset_type;
+
   Status Append(RScalar* value) {
-    return Status::NotImplemented("conversion to binary not yet implemented");
+    if (RValue::IsNull(value)) {
+      this->primitive_builder_->UnsafeAppendNull();
+    } else {
+      ARROW_RETURN_NOT_OK(
+          RValue::Convert(this->primitive_type_, this->options_, value, view_));
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes,
+                                             static_cast<OffsetType>(view_.size));
+    }
+
+    return Status::OK();
   }
+
+ protected:
+  RBytesView view_;
 };
 
 template <typename T>
@@ -390,8 +448,23 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RScalar* value) {
-    return Status::NotImplemented("conversion to fixed size binary not yet implemented");
+    if (RValue::IsNull(value)) {
+      this->primitive_builder_->UnsafeAppendNull();
+    } else {
+      ARROW_RETURN_NOT_OK(
+          RValue::Convert(this->primitive_type_, this->options_, value, view_));
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes);
+    }
+
+    return Status::OK();
   }
+
+ protected:
+  RBytesView view_;
 };
 
 template <typename T>
