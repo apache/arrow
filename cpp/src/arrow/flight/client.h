@@ -194,12 +194,12 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   Status Authenticate(const FlightCallOptions& options,
                       std::unique_ptr<ClientAuthHandler> auth_handler);
 
-  /// \brief Authenticate to the server using the given handler.
+  /// \brief Authenticate to the server using basic authentication with base 64 encoding.
   /// \param[in] username Username to use
   /// \param[in] password Password to use
   /// \param[in] bearer_token Bearer token retreived if applicable
   /// \return Status OK if the client authenticated successfully
-  Status AuthenticateBasicToken(std::string username, std::string password, 
+  Status AuthenticateBasicToken(const std::string& username, const std::string& password, 
                                 std::pair<std::string, std::string>* bearer_token);
 
   /// \brief Perform the indicated action, returning an iterator to the stream

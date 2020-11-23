@@ -123,7 +123,7 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    client_header_auth_middleware.cc
+    client_header_auth_middleware_internal.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

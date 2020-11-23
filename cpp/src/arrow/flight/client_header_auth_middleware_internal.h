@@ -21,8 +21,6 @@
 #pragma once
 
 #include "arrow/flight/client_middleware.h"
-#include "arrow/flight/client_auth.h"
-#include "arrow/flight/client.h"
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -33,46 +31,37 @@
 #include <grpc++/grpc++.h>
 #endif
 
-#include <algorithm>
-#include <iostream>
-#include <cctype>
-#include <string>
-
-const std::string AUTH_HEADER = "authorization";
-const std::string BEARER_PREFIX = "Bearer ";
-const std::string BASIC_PREFIX = "Basic ";
-
 namespace arrow {
 namespace flight {
+namespace internal {
 
-// TODO: Need to add documentation in this file.
+/// \brief Add basic authentication header key value pair to context.
+///
+/// \param context grpc context variable to add header to.
+/// \param username username to encode into header.
+/// \param password password to to encode into header.
 void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context, 
                                              const std::string& username, 
                                              const std::string& password);
 
-class ARROW_FLIGHT_EXPORT ClientBearerTokenMiddleware : public ClientMiddleware {
- public:
-  explicit ClientBearerTokenMiddleware(
-    std::pair<std::string, std::string>* bearer_token_);
-
-  void SendingHeaders(AddCallHeaders* outgoing_headers);
-  void ReceivedHeaders(const CallHeaders& incoming_headers);
-  void CallCompleted(const Status& status);
-
- private:
-  std::pair<std::string, std::string>* bearer_token;
-};
-
+/// \brief Client-side middleware for receiving and latching a bearer token.
 class ARROW_FLIGHT_EXPORT ClientBearerTokenFactory : public ClientMiddlewareFactory {
  public:
-  explicit ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_)
-    : bearer_token(bearer_token_) {}
+  /// \brief Constructor for factory.
+  ///
+  /// \param[out] bearer_token_ pointer to a std::pair of std::strings that the factory
+  ///     will populate with the bearer token that is received from the server.
+  ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_);
+
+  ~ClientBearerTokenFactory();
 
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware);
-  void Reset();
 
  private:
-  std::pair<std::string, std::string>* bearer_token;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
+
+}  // namespace internal
 }  // namespace flight
 }  // namespace arrow

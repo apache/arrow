@@ -50,8 +50,8 @@
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_header_auth_middleware_internal.h"
 #include "arrow/flight/client_middleware.h"
-#include "arrow/flight/client_header_auth_middleware.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/middleware_internal.h"
@@ -332,7 +332,7 @@ class GrpcClientInterceptorAdapterFactory
     : public grpc::experimental::ClientInterceptorFactoryInterface {
  public:
   GrpcClientInterceptorAdapterFactory(
-      std::vector<std::shared_ptr<ClientMiddlewareFactory>>& middleware)
+      const std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
       : middleware_(middleware) {}
 
   grpc::experimental::Interceptor* CreateClientInterceptor(
@@ -364,6 +364,7 @@ class GrpcClientInterceptorAdapterFactory
     }
 
     const CallInfo flight_info{flight_method};
+    std::lock_guard<std::mutex> lock(middleware_lock_);
     for (auto& factory : middleware_) {
       std::unique_ptr<ClientMiddleware> instance;
       factory->StartCall(flight_info, &instance);
@@ -374,8 +375,18 @@ class GrpcClientInterceptorAdapterFactory
     return new GrpcClientInterceptorAdapter(std::move(middleware));
   }
 
+  void AddMiddlewareFactory(std::shared_ptr<ClientMiddlewareFactory> middleware_factory) {
+    std::lock_guard<std::mutex> lock(middleware_lock_);
+    middleware_.push_back(middleware_factory);
+  }
+
+  void RemoveMiddlewareFactory() {
+    middleware_.pop_back();
+  }
+
  private:
-  std::vector<std::shared_ptr<ClientMiddlewareFactory>>& middleware_;
+  std::mutex middleware_lock_;
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
 class GrpcClientAuthSender : public ClientAuthSender {
@@ -874,6 +885,8 @@ constexpr char BLANK_ROOT_PEM[] =
 }  // namespace
 class FlightClient::FlightClientImpl {
  public:
+  FlightClientImpl() : interceptor_pointer(NULLPTR) {}
+
   Status Connect(const Location& location, const FlightClientOptions& options) {
     const std::string& scheme = location.scheme();
 
@@ -967,9 +980,8 @@ class FlightClient::FlightClientImpl {
 
     std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
         interceptors;
-    middleware = std::move(options.middleware);
-    interceptors.emplace_back(
-        new GrpcClientInterceptorAdapterFactory(middleware));
+    interceptor_pointer = new GrpcClientInterceptorAdapterFactory(options.middleware);
+    interceptors.emplace_back(interceptor_pointer);
 
     stub_ = pb::FlightService::NewStub(
         grpc::experimental::CreateCustomChannelWithInterceptors(
@@ -998,12 +1010,20 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status AuthenticateBasicToken(std::string username, std::string password,
+  Status AuthenticateBasicToken(const std::string& username, const std::string& password,
                                 std::pair<std::string, std::string>* bearer_token) {
     // Add bearer token factory to middleware so it can intercept the bearer token.
-    middleware.push_back(std::make_shared<ClientBearerTokenFactory>(bearer_token));
+    if (interceptor_pointer != NULLPTR) {
+      std::cout << "Adding middleware." << std::endl;
+      interceptor_pointer->AddMiddlewareFactory(std::make_shared<internal::ClientBearerTokenFactory>(bearer_token));
+    } else {
+      std::cout << "NULLPTR" << std::endl;
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Connect must be called before AuthenticateBasicToken.");
+    }
     ClientRpc rpc({});
-    AddBasicAuthHeaders(&rpc.context, username, password);
+    std::cout << "AddBasicAuthHeaders" << std::endl;
+    internal::AddBasicAuthHeaders(&rpc.context, username, password);
     std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
         stream = stub_->Handshake(&rpc.context);
 
@@ -1011,7 +1031,8 @@ class FlightClient::FlightClientImpl {
     GrpcClientAuthReader incoming{stream};
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    middleware.pop_back();
+    std::cout << "Middleware popback" << std::endl;
+    interceptor_pointer->RemoveMiddlewareFactory();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
@@ -1203,8 +1224,8 @@ class FlightClient::FlightClientImpl {
       GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
       noop_auth_check_;
 #endif
-  std::vector<std::shared_ptr<arrow::flight::ClientMiddlewareFactory>> middleware;
   int64_t write_size_limit_bytes_;
+  GrpcClientInterceptorAdapterFactory* interceptor_pointer;
 };
 
 FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
@@ -1228,7 +1249,7 @@ Status FlightClient::Authenticate(const FlightCallOptions& options,
 }
 
 Status FlightClient::AuthenticateBasicToken(
-    std::string username, std::string password,
+    const std::string& username, const std::string& password,
     std::pair<std::string, std::string>* bearer_token) {
   return impl_->AuthenticateBasicToken(username, password, bearer_token);
 }
