@@ -242,6 +242,18 @@ class RValue {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
+
+  template <typename T>
+  static enable_if_string<T, Result<cpp11::r_string>> Convert(const T*,
+                                                              const RConversionOptions&,
+                                                              RScalar* value) {
+    if (value->rtype == STRING) {
+      return *reinterpret_cast<cpp11::r_string*>(value->data);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
 };
 
 template <typename T>
@@ -265,6 +277,11 @@ bool is_NA<uint8_t>(uint8_t value) {
 template <>
 bool is_NA<cpp11::r_bool>(cpp11::r_bool value) {
   return false;
+}
+
+template <>
+bool is_NA<cpp11::r_string>(cpp11::r_string value) {
+  return value == NA_STRING;
 }
 
 template <RVectorType rtype, typename T, class VisitorFunc>
@@ -296,6 +313,9 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
     case FLOAT64:
       return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
+    case STRING:
+      return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
     default:
       break;
   }
@@ -307,13 +327,6 @@ using RConverter = Converter<RScalar*, RConversionOptions>;
 
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
-
-// TODO: this needs various versions as what python does:
-
-// class PyPrimitiveConverter<
-//   T, enable_if_t<is_boolean_type<T>::value || is_number_type<T>::value ||
-//   is_decimal_type<T>::value || is_date_type<T>::value ||
-//   is_time_type<T>::value>> : public PrimitiveConverter<T, PyConverter> {
 
 template <typename T>
 class RPrimitiveConverter<T, enable_if_null<T>>
@@ -365,9 +378,30 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_string_like<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
+  using OffsetType = typename T::offset_type;
+
   Status Append(RScalar* value) {
-    return Status::NotImplemented("conversion to string not yet implemented");
+    if (RValue::IsNull(value)) {
+      return this->primitive_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
+
+      // TODO: the python implementation uses a PyBytesView class in between
+      //       maybe useful for when we convert from a list of raw vectors
+      if (!IS_ASCII(converted) || !IS_UTF8(converted)) {
+        observed_binary_ = true;
+      }
+
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(XLENGTH(converted)));
+      this->primitive_builder_->UnsafeAppend(CHAR(converted),
+                                             static_cast<OffsetType>(XLENGTH(converted)));
+    }
+    return Status::OK();
   }
+
+ protected:
+  bool observed_binary_ = false;
 };
 
 template <typename T>
