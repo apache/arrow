@@ -20,23 +20,17 @@
 #ifndef _WIN32
 #define HAVE_LANGINFO 1
 #else
-#define ABBR_SUN "SUN"
-#define ABBR_MON "Mon"
-#define ABBR_TUE "TUE"
-#define ABBR_WED "WED"
-#define ABBR_THU "THU"
-#define ABBR_FRI "FRI"
-#define ABBR_SAT "SAT"
+// Custom support for abbreviated months on Windows, this is required for cookie handling.
+uint32_t MONTH_COUNT = 12;
+const char[][] MONTHS = {
+	"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+}
 
-int GetDayNumber(const char *__restrict s, size_t* len) {
+int GetMonthNumber(const char *__restrict s, size_t* len) {
 	*len = 3;
-	if (!strncasecmp(s, ABBR_SUN, *len)) return 0;
-	if (!strncasecmp(s, ABBR_MON, *len)) return 1;
-	if (!strncasecmp(s, ABBR_TUE, *len)) return 2;
-	if (!strncasecmp(s, ABBR_WED, *len)) return 3;
-	if (!strncasecmp(s, ABBR_THU, *len)) return 4;
-	if (!strncasecmp(s, ABBR_FRI, *len)) return 5;
-	if (!strncasecmp(s, ABBR_SAT, *len)) return 6;
+	for (uint32_t i = 0; i < MONTH_COUNT; i++) {
+		if (!strncasecmp(s, MONTHS[i], *len)) return i;
+	}	
 	return -1;
 }
 #endif
@@ -90,9 +84,9 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			if (!s) return 0;
 			break;
 #else
-		case 'a':
+		case 'b':
 			dest = &tm->tm_wday;
-			*dest = GetDayNumber(s, &len);
+			*dest = GetMonthNumber(s, &len);
 			s += len;
 			break;
 #endif
