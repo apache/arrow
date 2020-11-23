@@ -1201,21 +1201,6 @@ class TestCookieMiddleware : public ::testing::Test {
     factory_->StartCall(callInfo, &middleware_);
   }
 
-  // Function to get a date in the future in the format cookies use.
-  std::string GetFutureDate() {
-    // Time in 2 days.
-    const time_t future_time = std::time(NULL) + (60 * 60 * 48);
-    struct tm time_info;
-#ifdef _WIN32
-    localtime_s(&time_info, &future_time);
-#else
-    localtime_r(&future_time, &time_info);
-#endif
-    char date_buffer[100];
-    std::strftime(date_buffer, 100, "%a, %d %b %Y %H:%M:%S GMT", &time_info);
-    return date_buffer;
-  }
-
   // Function to add cookie to middleware.
   void AddCookie(const std::string& cookie) {
     CallHeaders call_headers;
@@ -2582,8 +2567,8 @@ TEST_F(TestCookieMiddleware, Expires) {
   AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
-  AddAndValidate("id0=0; expires=" + GetFutureDate() + ";");
-  AddAndValidate("id1=0; expires=" + GetFutureDate() + ";");
+  AddAndValidate("id0=0; expires=Wed, 01 Jan 3000 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Wed, 01 Jan 3000 22:15:36 GMT");
   SetExpired("id0=0");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   SetExpired("id1=0");
