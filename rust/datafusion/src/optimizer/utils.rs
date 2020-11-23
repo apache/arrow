@@ -94,7 +94,6 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Wildcard => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(e) => expr_to_column_names(e, accum),
     }
 }
 
@@ -282,7 +281,6 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(expr) => Ok(vec![expr.as_ref().to_owned()]),
     }
 }
 
@@ -371,7 +369,6 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(_) => Ok(Expr::Nested(Box::new(expressions[0].clone()))),
     }
 }
 
