@@ -30,9 +30,9 @@
 #include <string>
 #include <memory>
 
-const std::string kAuthHeader = "authorization";
-const std::string kBearerPrefix = "Bearer ";
-const std::string kBasicPrefix = "Basic ";
+const char kAuthHeader[] = "authorization";
+const char kBearerPrefix[] = "Bearer ";
+const char kBasicPrefix[] = "Basic ";
 
 namespace arrow {
 namespace flight {
@@ -43,28 +43,30 @@ namespace internal {
 // @param context Context object to add the headers to.
 // @param username Username to format and encode.
 // @param password Password to format and encode.
-void AddBasicAuthHeaders(grpc::ClientContext* context, 
+void AddBasicAuthHeaders(grpc::ClientContext* context,
                          const std::string& username, const std::string& password) {
   const std::string credentials = username + ":" + password;
-  context->AddMetadata(kAuthHeader, kBasicPrefix + 
-      arrow::util::base64_encode((const unsigned char*)credentials.c_str(), 
+  context->AddMetadata(kAuthHeader, kBasicPrefix +
+      arrow::util::base64_encode((const unsigned char*)credentials.c_str(),
                                   credentials.size()));
 }
 
 class ClientBearerTokenFactory::Impl {
  public:
-  Impl(std::pair<std::string, std::string>* bearer_token)
+  explicit Impl(std::pair<std::string, std::string>* bearer_token)
       : bearer_token_(bearer_token) { }
 
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
-    *middleware = arrow::internal::make_unique<ClientBearerTokenMiddleware>(bearer_token_);
+    *middleware = 
+        arrow::internal::make_unique<ClientBearerTokenMiddleware>(bearer_token_);
   }
 
  private:
   class ClientBearerTokenMiddleware : public ClientMiddleware {
    public:
-    explicit ClientBearerTokenMiddleware(std::pair<std::string, std::string>* bearer_token)
+    explicit ClientBearerTokenMiddleware(
+        std::pair<std::string, std::string>* bearer_token)
         : bearer_token_(bearer_token) { }
 
     void SendingHeaders(AddCallHeaders* outgoing_headers) override { }
@@ -81,11 +83,11 @@ class ClientBearerTokenFactory::Impl {
         return;
       }
 
-      // Check if the value of the auth token starts with the bearer prefix, latch the token.
+      // Check if the value of the auth token starts with the bearer prefix and latch it.
       const std::string bearer_val = bearer_iter->second.to_string();
-      if (bearer_val.size() > kBearerPrefix.size()) {
-        if (std::equal(bearer_val.begin(), bearer_val.begin() + kBearerPrefix.size(), 
-                       kBearerPrefix.begin(), char_compare)) {
+      if (bearer_val.size() > strlen(kBearerPrefix)) {
+        if (std::equal(bearer_val.begin(), bearer_val.begin() + strlen(kBearerPrefix),
+                       kBearerPrefix, char_compare)) {
           *bearer_token_ = std::make_pair(kAuthHeader, bearer_val);
         }
       }
@@ -102,12 +104,12 @@ class ClientBearerTokenFactory::Impl {
 };
 
 ClientBearerTokenFactory::ClientBearerTokenFactory(
-    std::pair<std::string, std::string>* bearer_token) 
+    std::pair<std::string, std::string>* bearer_token)
     : impl_(new ClientBearerTokenFactory::Impl(bearer_token)) { }
 
 ClientBearerTokenFactory::~ClientBearerTokenFactory() { }
 
-void ClientBearerTokenFactory::StartCall(const CallInfo& info, 
+void ClientBearerTokenFactory::StartCall(const CallInfo& info,
                                          std::unique_ptr<ClientMiddleware>* middleware) {
   impl_->StartCall(info, middleware);
 }

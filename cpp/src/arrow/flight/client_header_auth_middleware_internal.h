@@ -40,8 +40,8 @@ namespace internal {
 /// \param context grpc context variable to add header to.
 /// \param username username to encode into header.
 /// \param password password to to encode into header.
-void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context, 
-                                             const std::string& username, 
+void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context,
+                                             const std::string& username,
                                              const std::string& password);
 
 /// \brief Client-side middleware for receiving and latching a bearer token.
@@ -51,7 +51,7 @@ class ARROW_FLIGHT_EXPORT ClientBearerTokenFactory : public ClientMiddlewareFact
   ///
   /// \param[out] bearer_token_ pointer to a std::pair of std::strings that the factory
   ///     will populate with the bearer token that is received from the server.
-  ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_);
+  explicit ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_);
 
   ~ClientBearerTokenFactory();
 

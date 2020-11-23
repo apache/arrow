@@ -54,14 +54,14 @@ namespace pb = arrow::flight::protocol;
 namespace arrow {
 namespace flight {
 
-const std::string kValidUsername = "flight_username";
-const std::string kValidPassword = "flight_password";
-const std::string kInvalidUsername = "invalid_flight_username";
-const std::string kInvalidPassword = "invalid_flight_password";
-const std::string kBearerToken = "bearertoken";
-const std::string kBasicPrefix = "Basic ";
-const std::string kBearerPrefix = "Bearer ";
-const std::string kAuthHeader = "authorization";
+const char kValidUsername[] = "flight_username";
+const char kValidPassword[] = "flight_password";
+const char kInvalidUsername[] = "invalid_flight_username";
+const char kInvalidPassword[] = "invalid_flight_password";
+const char kBearerToken[] = "bearertoken";
+const char kBasicPrefix[] = "Basic ";
+const char kBearerPrefix[] = "Bearer ";
+const char kAuthHeader[] = "authorization";
 
 void AssertEqual(const ActionType& expected, const ActionType& actual) {
   ASSERT_EQ(expected.type, actual.type);
@@ -804,10 +804,10 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
       const std::string key = iter.first.to_string();
       const std::string val = iter.second.to_string();
       if (key == kAuthHeader) {
-        if (val.size() > kBasicPrefix.size()) {
-          if (std::equal(val.begin(), val.begin() + kBasicPrefix.size(), 
-                        kBasicPrefix.begin(), char_compare)) {
-            const std::string encoded_credentials = val.substr(kBasicPrefix.size());
+        if (val.size() > strlen(kBasicPrefix)) {
+          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix), 
+                        kBasicPrefix, char_compare)) {
+            const std::string encoded_credentials = val.substr(strlen(kBasicPrefix));
             const std::string decoded_credentials = arrow::util::base64_decode(
                 encoded_credentials);
             std::stringstream decoded_stream(decoded_credentials);
@@ -821,7 +821,7 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
 
     if (username == kValidUsername &&
         password == kValidPassword) {
-      outgoing_headers->AddHeader(kAuthHeader, kBearerPrefix + kBearerToken);
+      outgoing_headers->AddHeader(kAuthHeader, std::string(kBearerPrefix) + kBearerToken);
     }
   }
 
@@ -1088,7 +1088,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     arrow::Status status = 
         client_->AuthenticateBasicToken(kValidUsername, kValidPassword, &bearer_token);
     ASSERT_EQ(bearer_token.first, kAuthHeader);
-    ASSERT_EQ(bearer_token.second, (kBearerPrefix + kBearerToken));
+    ASSERT_EQ(bearer_token.second, (std::string(kBearerPrefix) + kBearerToken));
   }
 
   void RunInvalidClientAuth() {

@@ -199,7 +199,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] password Password to use
   /// \param[in] bearer_token Bearer token retreived if applicable
   /// \return Status OK if the client authenticated successfully
-  Status AuthenticateBasicToken(const std::string& username, const std::string& password, 
+  Status AuthenticateBasicToken(const std::string& username, const std::string& password,
                                 std::pair<std::string, std::string>* bearer_token);
 
   /// \brief Perform the indicated action, returning an iterator to the stream
