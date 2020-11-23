@@ -215,7 +215,7 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
 namespace {
 
 struct NullGeneralization {
-  enum type { NONE, ALL_VALID, ALL_NULL };
+  enum type { PERHAPS_NULL, ALL_VALID, ALL_NULL };
 
   static type Get(const Datum& datum) {
     if (datum.type()->id() == Type::NA) {
@@ -238,7 +238,7 @@ struct NullGeneralization {
       return ALL_NULL;
     }
 
-    return NONE;
+    return PERHAPS_NULL;
   }
 };
 

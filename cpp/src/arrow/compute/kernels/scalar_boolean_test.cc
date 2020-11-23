@@ -67,7 +67,7 @@ TEST(TestBooleanKernel, And) {
   auto left = ArrayFromJSON(boolean(), "    [true, true,  true, false, false, null]");
   auto right = ArrayFromJSON(boolean(), "   [true, false, null, false, null,  null]");
   auto expected = ArrayFromJSON(boolean(), "[true, false, null, false, null,  null]");
-  // CheckScalarBinary("and", left, right, expected);
+  CheckScalarBinary("and", left, right, expected);
   CheckBooleanScalarArrayBinary("and", left);
 }
 

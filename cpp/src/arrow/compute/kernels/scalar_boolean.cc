@@ -35,6 +35,9 @@ enum BitmapIndex { LEFT_VALID, LEFT_DATA, RIGHT_VALID, RIGHT_DATA };
 template <typename ComputeWord>
 void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayData& left,
                    const ArrayData& right, ArrayData* out) {
+  DCHECK(left.null_count != 0 || right.null_count != 0)
+      << "ComputeKleene is unnecessarily expensive for the non-null case";
+
   Bitmap bitmaps[4];
   bitmaps[LEFT_VALID] = {left.buffers[0], left.offset, left.length};
   bitmaps[LEFT_DATA] = {left.buffers[1], left.offset, left.length};
@@ -77,7 +80,7 @@ void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayDa
     return;
   }
 
-  DCHECK(left.null_count != 0 || right.null_count != 0);
+  DCHECK(left.null_count != 0 && right.null_count != 0);
   Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
     apply(words[LEFT_VALID], words[LEFT_DATA], words[RIGHT_VALID], words[RIGHT_DATA]);
   });
@@ -180,7 +183,7 @@ struct KleeneAnd : Commutative<KleeneAnd> {
   static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                    ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      BitUtil::SetBitsTo(out->buffers[0]->mutable_data(), out->offset, out->length, true);
+      GetBitmap(*out, 0).SetBitsTo(true);
       return And::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
