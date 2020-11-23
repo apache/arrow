@@ -222,21 +222,19 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 .aggregate(
                     vec![col("l_shipmode")],
                     vec![
-                        sum(case_when()
-                            .when(or(
-                                col("o_orderpriority").eq(lit("1-URGENT")),
-                                col("o_orderpriority").eq(lit("2-HIGH")),
-                            ))
-                            .then(lit(1))
-                            .or_else(lit(0)))
+                        sum(case_when(or(
+                            col("o_orderpriority").eq(lit("1-URGENT")),
+                            col("o_orderpriority").eq(lit("2-HIGH")),
+                        ))
+                        .then(lit(1))
+                        .or_else(lit(0)))
                         .alias("high_line_count"),
-                        sum(case_when()
-                            .when(and(
-                                col("o_orderpriority").not_eq(lit("1-URGENT")),
-                                col("o_orderpriority").not_eq(lit("2-HIGH")),
-                            ))
-                            .then(lit(1))
-                            .or_else(lit(0)))
+                        sum(case_when(and(
+                            col("o_orderpriority").not_eq(lit("1-URGENT")),
+                            col("o_orderpriority").not_eq(lit("2-HIGH")),
+                        ))
+                        .then(lit(1))
+                        .or_else(lit(0)))
                         .alias("low_line_count"),
                     ],
                 )?

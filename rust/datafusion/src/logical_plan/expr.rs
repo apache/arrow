@@ -454,10 +454,10 @@ pub fn case(expr: Expr) -> CaseWhenBuilder {
 }
 
 /// Create a CASE WHEN statement with boolean WHEN expressions and no base expression.
-pub fn case_when() -> CaseWhenBuilder {
-    CaseWhenBuilder {
+pub fn case_when(when_expr: Expr) -> CaseThenBuilder {
+    CaseThenBuilder {
         expr: None,
-        when_expr: vec![],
+        when_expr: vec![when_expr],
         then_expr: vec![],
     }
 }

@@ -315,9 +315,9 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             args: expressions.clone(),
         }),
         Expr::Case { .. } => {
-            let mut _expr: Option<Box<Expr>> = None;
-            let mut _when_then: Vec<(Box<Expr>, Box<Expr>)> = vec![];
-            let mut _else_expr: Option<Box<Expr>> = None;
+            let mut base_expr: Option<Box<Expr>> = None;
+            let mut when_then: Vec<(Box<Expr>, Box<Expr>)> = vec![];
+            let mut else_expr: Option<Box<Expr>> = None;
             let mut i = 0;
 
             while i < expressions.len() {
@@ -325,17 +325,17 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
                     Expr::Literal(ScalarValue::Utf8(Some(str)))
                         if str == CASE_EXPR_MARKER =>
                     {
-                        _expr = Some(Box::new(expressions[i + 1].clone()));
+                        base_expr = Some(Box::new(expressions[i + 1].clone()));
                         i += 2;
                     }
                     Expr::Literal(ScalarValue::Utf8(Some(str)))
                         if str == CASE_ELSE_MARKER =>
                     {
-                        _expr = Some(Box::new(expressions[i + 1].clone()));
+                        else_expr = Some(Box::new(expressions[i + 1].clone()));
                         i += 2;
                     }
                     _ => {
-                        _when_then.push((
+                        when_then.push((
                             Box::new(expressions[i].clone()),
                             Box::new(expressions[i + 1].clone()),
                         ));
@@ -344,15 +344,11 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
                 }
             }
 
-            let x = Expr::Case {
-                expr: _expr,
-                when_then_expr: _when_then,
-                else_expr: _else_expr,
-            };
-
-            println!("rewrite: {:?}", x);
-
-            Ok(x)
+            Ok(Expr::Case {
+                expr: base_expr,
+                when_then_expr: when_then,
+                else_expr,
+            })
         }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
             expr: Box::new(expressions[0].clone()),
