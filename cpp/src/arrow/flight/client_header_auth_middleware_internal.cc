@@ -18,8 +18,8 @@
 // Interfaces for defining middleware for Flight clients. Currently
 // experimental.
 
-#include "client_header_auth_middleware_internal.h"
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_header_auth_middleware_internal.h"
 #include "arrow/flight/client.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/make_unique.h"
@@ -58,7 +58,7 @@ class ClientBearerTokenFactory::Impl {
 
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
-    *middleware = 
+    *middleware =
         arrow::internal::make_unique<ClientBearerTokenMiddleware>(bearer_token_);
   }
 

@@ -1014,7 +1014,8 @@ class FlightClient::FlightClientImpl {
                                 std::pair<std::string, std::string>* bearer_token) {
     // Add bearer token factory to middleware so it can intercept the bearer token.
     if (interceptor_pointer != NULLPTR) {
-      interceptor_pointer->AddMiddlewareFactory(std::make_shared<internal::ClientBearerTokenFactory>(bearer_token));
+      interceptor_pointer->AddMiddlewareFactory(
+          std::make_shared<internal::ClientBearerTokenFactory>(bearer_token));
     } else {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Connect must be called before AuthenticateBasicToken.");

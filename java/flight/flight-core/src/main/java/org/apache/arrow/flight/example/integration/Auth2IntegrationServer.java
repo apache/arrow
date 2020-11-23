@@ -17,9 +17,10 @@
 
 package org.apache.arrow.flight.example.integration;
 
-import com.google.common.base.Strings;
-import org.apache.arrow.flight.FlightServer;
+import java.io.IOException;
+
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
@@ -29,7 +30,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 
-import java.io.IOException;
+import com.google.common.base.Strings;
 
 /**
  * Java server for running integration tests - this is currently setup to run
