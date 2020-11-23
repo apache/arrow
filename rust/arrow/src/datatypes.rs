@@ -125,11 +125,11 @@ pub enum DataType {
     /// A variable-length string in Unicode with UFT-8 encoding and 64-bit offsets.
     LargeUtf8,
     /// A list of some logical data type with variable length.
-    List(Box<Field>),
+    List(Box<DataTypeContext>),
     /// A list of some logical data type with fixed length.
-    FixedSizeList(Box<Field>, i32),
+    FixedSizeList(Box<DataTypeContext>, i32),
     /// A list of some logical data type with variable length and 64-bit offsets.
-    LargeList(Box<Field>),
+    LargeList(Box<DataTypeContext>),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
@@ -145,6 +145,13 @@ pub enum DataType {
     /// This type mostly used to represent low cardinality string
     /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
+}
+
+/// Data type context that holds additional metadata
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DataTypeContext {
+    data_type: DataType,
+    nullable: bool,
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -874,7 +881,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 impl DataType {
     /// Parse a data type from a JSON representation
     pub(crate) fn from(json: &Value) -> Result<DataType> {
-        let default_field = Field::new("", DataType::Boolean, true);
+        let default_dt_ctx = DataTypeContext::new(DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "null" => Ok(DataType::Null),
@@ -1008,17 +1015,17 @@ impl DataType {
                 },
                 Some(s) if s == "list" => {
                     // return a list with any type as its child isn't defined in the map
-                    Ok(DataType::List(Box::new(default_field)))
+                    Ok(DataType::List(Box::new(default_dt_ctx)))
                 }
                 Some(s) if s == "largelist" => {
                     // return a largelist with any type as its child isn't defined in the map
-                    Ok(DataType::LargeList(Box::new(default_field)))
+                    Ok(DataType::LargeList(Box::new(default_dt_ctx)))
                 }
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
                         Ok(DataType::FixedSizeList(
-                            Box::new(default_field),
+                            Box::new(default_dt_ctx),
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
@@ -1142,39 +1149,27 @@ impl DataType {
                 | Float64
         )
     }
+}
 
-    /// Compares this data type with another data type only based on the data type
-    /// including nested data types, but not based on other values.
-    pub fn eq_type(&self, other: &Self) -> bool {
-        match (self, other) {
-            (DataType::List(f1), DataType::List(f2)) => {
-                f1.data_type().eq_type(f2.data_type())
-            }
-            (DataType::FixedSizeList(f1, _), DataType::FixedSizeList(f2, _)) => {
-                f1.data_type().eq_type(f2.data_type())
-            }
-            (DataType::LargeList(f1), DataType::LargeList(f2)) => {
-                f1.data_type().eq_type(f2.data_type())
-            }
-            (DataType::Struct(f1), DataType::Struct(f2)) => {
-                f1.len() == f2.len()
-                    && f1
-                        .iter()
-                        .enumerate()
-                        .all(|(i, f)| f.data_type().eq_type(f2[i].data_type()))
-            }
-            (DataType::Union(f1), DataType::Union(f2)) => {
-                f1.len() == f2.len()
-                    && f1
-                        .iter()
-                        .enumerate()
-                        .all(|(i, f)| f.data_type().eq_type(f2[i].data_type()))
-            }
-            (DataType::Dictionary(k1, v1), DataType::Dictionary(k2, v2)) => {
-                k1.as_ref().eq_type(k2) && v1.eq_type(v2.as_ref())
-            }
-            t @ (_, _) => std::mem::discriminant(t.0) == std::mem::discriminant(t.1),
+impl DataTypeContext {
+    /// Creates a new data type context
+    pub fn new(data_type: DataType, nullable: bool) -> Self {
+        DataTypeContext {
+            data_type,
+            nullable,
         }
+    }
+
+    /// Returns an immutable reference to the data type
+    #[inline]
+    pub const fn data_type(&self) -> &DataType {
+        &self.data_type
+    }
+
+    /// Indicates whether in this data type context null values are eligible
+    #[inline]
+    pub const fn is_nullable(&self) -> bool {
+        self.nullable
     }
 }
 
@@ -1183,6 +1178,7 @@ impl Field {
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
+            //todo: combine data type and nullability in type context
             data_type,
             nullable,
             dict_id: 0,
@@ -1276,16 +1272,21 @@ impl Field {
                                     "Field 'children' must have one element for a list data type".to_string(),
                                 ));
                             }
+                            let nested_field = Self::from(&values[0])?;
+                            let nexted_dt_ctx = DataTypeContext::new(
+                                nested_field.data_type,
+                                nested_field.nullable,
+                            );
                             match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
-                                        Self::from(&values[0])?,
+                                        nexted_dt_ctx,
                                     )),
                                     DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        Self::from(&values[0])?,
+                                        nexted_dt_ctx,
                                     )),
                                     DataType::FixedSizeList(_, int) => {
                                         DataType::FixedSizeList(
-                                            Box::new(Self::from(&values[0])?),
+                                            Box::new(nexted_dt_ctx),
                                             int,
                                         )
                                     }
@@ -1377,9 +1378,30 @@ impl Field {
     pub fn to_json(&self) -> Value {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
-            DataType::List(field) => vec![field.to_json()],
-            DataType::LargeList(field) => vec![field.to_json()],
-            DataType::FixedSizeList(field, _) => vec![field.to_json()],
+            DataType::List(type_ctx) => {
+                let item = Field::new(
+                    "item",
+                    type_ctx.data_type().clone(),
+                    type_ctx.is_nullable(),
+                );
+                vec![item.to_json()]
+            }
+            DataType::LargeList(type_ctx) => {
+                let item = Field::new(
+                    "item",
+                    type_ctx.data_type().clone(),
+                    type_ctx.is_nullable(),
+                );
+                vec![item.to_json()]
+            }
+            DataType::FixedSizeList(type_ctx, _) => {
+                let item = Field::new(
+                    "item",
+                    type_ctx.data_type().clone(),
+                    type_ctx.is_nullable(),
+                );
+                vec![item.to_json()]
+            }
             _ => vec![],
         };
         match self.data_type() {
@@ -2025,23 +2047,24 @@ mod tests {
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
                 Field::new(
                     "c21",
-                    DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+                    DataType::List(Box::new(DataTypeContext::new(
+                        DataType::Boolean,
+                        true,
+                    ))),
                     false,
                 ),
                 Field::new(
                     "c22",
                     DataType::FixedSizeList(
-                        Box::new(Field::new("bools", DataType::Boolean, false)),
+                        Box::new(DataTypeContext::new(DataType::Boolean, false)),
                         5,
                     ),
                     false,
                 ),
                 Field::new(
                     "c23",
-                    DataType::List(Box::new(Field::new(
-                        "inner_list",
-                        DataType::List(Box::new(Field::new(
-                            "struct",
+                    DataType::List(Box::new(DataTypeContext::new(
+                        DataType::List(Box::new(DataTypeContext::new(
                             DataType::Struct(vec![]),
                             true,
                         ))),
@@ -2077,10 +2100,8 @@ mod tests {
                 Field::new("c33", DataType::LargeUtf8, true),
                 Field::new(
                     "c34",
-                    DataType::LargeList(Box::new(Field::new(
-                        "inner_large_list",
-                        DataType::LargeList(Box::new(Field::new(
-                            "struct",
+                    DataType::LargeList(Box::new(DataTypeContext::new(
+                        DataType::LargeList(Box::new(DataTypeContext::new(
                             DataType::Struct(vec![]),
                             false,
                         ))),
@@ -2308,7 +2329,7 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "bools",
+                                "name": "item",
                                 "nullable": false,
                                 "type": {
                                     "name": "bool"
@@ -2325,14 +2346,14 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "inner_list",
+                                "name": "item",
                                 "nullable": false,
                                 "type": {
                                     "name": "list"
                                 },
                                 "children": [
                                     {
-                                        "name": "struct",
+                                        "name": "item",
                                         "nullable": true,
                                         "type": {
                                             "name": "struct"
@@ -2465,14 +2486,14 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "inner_large_list",
+                                "name": "item",
                                 "nullable": true,
                                 "type": {
                                     "name": "largelist"
                                 },
                                 "children": [
                                     {
-                                        "name": "struct",
+                                        "name": "item",
                                         "nullable": false,
                                         "type": {
                                             "name": "struct"
@@ -2777,34 +2798,30 @@ mod tests {
 
     #[test]
     fn test_compare_nested_types() {
-        let list_type_a = &DataType::List(Box::new(Field::new(
-            "a",
+        let list_type_a = &DataType::List(Box::new(DataTypeContext::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
             true,
         )));
-        let list_type_b = &DataType::List(Box::new(Field::new(
-            "b",
+        let list_type_b = &DataType::List(Box::new(DataTypeContext::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
-            false,
+            true,
         )));
 
-        assert!(list_type_a.eq_type(list_type_b));
+        assert_eq!(list_type_a, list_type_b);
     }
 
     #[test]
     fn test_compare_mismatching_types() {
-        let list_type_a = &DataType::LargeList(Box::new(Field::new(
-            "a",
+        let list_type_a = &DataType::LargeList(Box::new(DataTypeContext::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
             true,
         )));
-        let list_type_b = &DataType::LargeList(Box::new(Field::new(
-            "b",
+        let list_type_b = &DataType::LargeList(Box::new(DataTypeContext::new(
             DataType::Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
             false,
         )));
 
-        assert!(!list_type_a.eq_type(list_type_b));
+        assert_ne!(list_type_a, list_type_b);
     }
 }
 

@@ -100,7 +100,7 @@ impl RecordBatch {
                 ));
             }
             // list types can have different names, but we only need the data types to be the same
-            if !column.data_type().eq_type(schema.field(i).data_type()) {
+            if column.data_type() != schema.field(i).data_type() {
                 return Err(ArrowError::InvalidArgumentError(format!(
                     "column types must match schema types, expected {:?} but found {:?} at column index {}",
                     schema.field(i).data_type(),
@@ -302,13 +302,7 @@ mod tests {
     fn create_record_batch_with_matching_nested_type() {
         let schema = Schema::new(vec![Field::new(
             "list",
-            DataType::List(Box::new(Field::new_dict(
-                "nested_dict_A",
-                DataType::Int32,
-                true,
-                0,
-                false,
-            ))),
+            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, true))),
             false,
         )]);
 
@@ -325,13 +319,7 @@ mod tests {
 
         let offsets = UInt64Array::from(vec![0, 2, 4]);
         let array_data = Arc::new(ArrayData::new(
-            DataType::List(Box::new(Field::new_dict(
-                "nested_dict_B",
-                DataType::Int32,
-                false,
-                0,
-                false,
-            ))),
+            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, true))),
             3,
             None,
             None,

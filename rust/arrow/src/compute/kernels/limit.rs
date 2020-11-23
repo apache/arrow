@@ -36,7 +36,7 @@ mod tests {
     use super::*;
     use crate::array::*;
     use crate::buffer::Buffer;
-    use crate::datatypes::{DataType, Field, ToByteSlice};
+    use crate::datatypes::{DataType, DataTypeContext, Field, ToByteSlice};
     use crate::util::bit_util;
 
     use std::sync::Arc;
@@ -111,7 +111,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(9)
             .add_buffer(value_offsets)

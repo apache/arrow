@@ -89,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref list_field) | LargeList(ref list_field) => {
+        List(ref type_ctx) | LargeList(ref type_ctx) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -99,7 +99,7 @@ fn create_array(
             buffer_index += 2;
             let triple = create_array(
                 nodes,
-                list_field.data_type(),
+                type_ctx.data_type(),
                 data,
                 buffers,
                 dictionaries,

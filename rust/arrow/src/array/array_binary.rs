@@ -443,7 +443,7 @@ impl Array for FixedSizeBinaryArray {
 
 #[cfg(test)]
 mod tests {
-    use crate::datatypes::Field;
+    use crate::datatypes::DataTypeContext;
 
     use super::*;
 
@@ -755,7 +755,7 @@ mod tests {
             .build();
 
         let array_data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Binary, false)),
+            Box::new(DataTypeContext::new(DataType::Binary, false)),
             4,
         ))
         .len(3)

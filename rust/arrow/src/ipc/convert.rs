@@ -17,7 +17,9 @@
 
 //! Utilities for converting between IPC types and native Arrow types
 
-use crate::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
+use crate::datatypes::{
+    DataType, DataTypeContext, DateUnit, Field, IntervalUnit, Schema, TimeUnit,
+};
 use crate::ipc;
 
 use flatbuffers::{
@@ -268,14 +270,23 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             if children.len() != 1 {
                 panic!("expect a list to have one child")
             }
-            DataType::List(Box::new(children.get(0).into()))
+            let child_field = children.get(0);
+            // returning int16 for now, to test, not sure how to get data type
+            DataType::List(Box::new(DataTypeContext::new(
+                get_data_type(child_field, false),
+                child_field.nullable(),
+            )))
         }
         ipc::Type::LargeList => {
             let children = field.children().unwrap();
             if children.len() != 1 {
                 panic!("expect a large list to have one child")
             }
-            DataType::LargeList(Box::new(children.get(0).into()))
+            let child_field = children.get(0);
+            DataType::LargeList(Box::new(DataTypeContext::new(
+                get_data_type(child_field, false),
+                child_field.nullable(),
+            )))
         }
         ipc::Type::FixedSizeList => {
             let children = field.children().unwrap();
@@ -283,7 +294,14 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 panic!("expect a list to have one child")
             }
             let fsl = field.type_as_fixed_size_list().unwrap();
-            DataType::FixedSizeList(Box::new(children.get(0).into()), fsl.listSize())
+            let child_field = children.get(0);
+            DataType::FixedSizeList(
+                Box::new(DataTypeContext::new(
+                    get_data_type(child_field, false),
+                    child_field.nullable(),
+                )),
+                fsl.listSize(),
+            )
         }
         ipc::Type::Struct_ => {
             let mut fields = vec![];
@@ -529,24 +547,63 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 children: Some(fbb.create_vector(&empty_fields[..])),
             }
         }
-        List(ref list_type) => {
-            let child = build_field(fbb, list_type);
+        List(ref type_ctx) => {
+            let nested_type =
+                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+            let child = ipc::Field::create(
+                fbb,
+                &ipc::FieldArgs {
+                    name: None,
+                    nullable: type_ctx.is_nullable(),
+                    type_type: nested_type.type_type,
+                    type_: Some(nested_type.type_),
+                    children: nested_type.children,
+                    dictionary: None,
+                    custom_metadata: None,
+                },
+            );
             FBFieldType {
                 type_type: ipc::Type::List,
                 type_: ipc::ListBuilder::new(fbb).finish().as_union_value(),
                 children: Some(fbb.create_vector(&[child])),
             }
         }
-        LargeList(ref list_type) => {
-            let child = build_field(fbb, list_type);
+        LargeList(ref type_ctx) => {
+            let inner_types =
+                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+            let child = ipc::Field::create(
+                fbb,
+                &ipc::FieldArgs {
+                    name: None,
+                    nullable: type_ctx.is_nullable(),
+                    type_type: inner_types.type_type,
+                    type_: Some(inner_types.type_),
+                    dictionary: None,
+                    children: inner_types.children,
+                    custom_metadata: None,
+                },
+            );
             FBFieldType {
                 type_type: ipc::Type::LargeList,
                 type_: ipc::LargeListBuilder::new(fbb).finish().as_union_value(),
                 children: Some(fbb.create_vector(&[child])),
             }
         }
-        FixedSizeList(ref list_type, len) => {
-            let child = build_field(fbb, list_type);
+        FixedSizeList(ref type_ctx, len) => {
+            let inner_types =
+                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+            let child = ipc::Field::create(
+                fbb,
+                &ipc::FieldArgs {
+                    name: None,
+                    nullable: type_ctx.is_nullable(),
+                    type_type: inner_types.type_type,
+                    type_: Some(inner_types.type_),
+                    dictionary: None,
+                    children: inner_types.children,
+                    custom_metadata: None,
+                },
+            );
             let mut builder = ipc::FixedSizeListBuilder::new(fbb);
             builder.add_listSize(*len as i32);
             FBFieldType {
@@ -629,7 +686,7 @@ pub(crate) fn get_fb_dictionary<'a: 'b, 'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::{DataType, Field, Schema};
+    use crate::datatypes::{DataType, DataTypeContext, Field, Schema};
 
     #[test]
     fn convert_schema_round_trip() {
@@ -695,13 +752,15 @@ mod tests {
                 Field::new("binary", DataType::Binary, false),
                 Field::new(
                     "list[u8]",
-                    DataType::List(Box::new(Field::new("item", DataType::UInt8, false))),
+                    DataType::List(Box::new(DataTypeContext::new(
+                        DataType::UInt8,
+                        false,
+                    ))),
                     true,
                 ),
                 Field::new(
                     "list[struct<float32, int32, bool>]",
-                    DataType::List(Box::new(Field::new(
-                        "struct",
+                    DataType::List(Box::new(DataTypeContext::new(
                         DataType::Struct(vec![
                             Field::new("float32", DataType::UInt8, false),
                             Field::new("int32", DataType::Int32, true),
@@ -717,8 +776,7 @@ mod tests {
                         Field::new("int64", DataType::Int64, true),
                         Field::new(
                             "list[struct<date32, list[struct<>]>]",
-                            DataType::List(Box::new(Field::new(
-                                "struct",
+                            DataType::List(Box::new(DataTypeContext::new(
                                 DataType::Struct(vec![
                                     Field::new(
                                         "date32",
@@ -727,8 +785,7 @@ mod tests {
                                     ),
                                     Field::new(
                                         "list[struct<>]",
-                                        DataType::List(Box::new(Field::new(
-                                            "struct",
+                                        DataType::List(Box::new(DataTypeContext::new(
                                             DataType::Struct(vec![]),
                                             false,
                                         ))),
