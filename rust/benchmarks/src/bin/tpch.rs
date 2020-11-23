@@ -237,7 +237,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             ))
                             .then(lit(1))
                             .or_else(lit(0)))
-                        .alias("high_line_count"),
+                        .alias("low_line_count"),
                     ],
                 )?
                 .to_logical_plan())
