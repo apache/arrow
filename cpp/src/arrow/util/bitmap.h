@@ -86,6 +86,13 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
+  void SetBitsTo(bool v) {
+    BitUtil::SetBitsTo(buffer_->mutable_data(), offset_, length_, v);
+  }
+
+  void CopyFrom(const Bitmap& other);
+  void CopyFromInverted(const Bitmap& other);
+
   /// \brief Visit bits from each bitmap as bitset<N>
   ///
   /// All bitmaps must have identical length.
