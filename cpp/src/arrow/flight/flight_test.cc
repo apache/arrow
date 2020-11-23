@@ -36,6 +36,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 
@@ -43,6 +44,7 @@
 #error "gRPC headers should not be in public API"
 #endif
 
+#include "arrow/flight/client_header_auth_middleware_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
@@ -51,6 +53,15 @@ namespace pb = arrow::flight::protocol;
 
 namespace arrow {
 namespace flight {
+
+const std::string kValidUsername = "flight_username";
+const std::string kValidPassword = "flight_password";
+const std::string kInvalidUsername = "invalid_flight_username";
+const std::string kInvalidPassword = "invalid_flight_password";
+const std::string kBearerToken = "bearertoken";
+const std::string kBasicPrefix = "Basic ";
+const std::string kBearerPrefix = "Bearer ";
+const std::string kAuthHeader = "authorization";
 
 void AssertEqual(const ActionType& expected, const ActionType& actual) {
   ASSERT_EQ(expected.type, actual.type);
@@ -774,6 +785,69 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
+// A server middleware for validating incoming base64 header authentication.
+class HeaderAuthServerMiddleware : public ServerMiddleware {
+ public:
+  explicit HeaderAuthServerMiddleware(const CallHeaders& incoming_headers) {
+    incoming_headers_ = incoming_headers;
+  }
+
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+    // Lambda function to compare characters without case sensitivity.
+    auto char_compare = [] (const char& char1, const char& char2) {
+          return (std::toupper(char1) == std::toupper(char2));
+    };
+
+    std::string username;
+    std::string password;
+    for (auto& iter : incoming_headers_) {
+      const std::string key = iter.first.to_string();
+      const std::string val = iter.second.to_string();
+      if (key == kAuthHeader) {
+        if (val.size() > kBasicPrefix.size()) {
+          if (std::equal(val.begin(), val.begin() + kBasicPrefix.size(), 
+                        kBasicPrefix.begin(), char_compare)) {
+            const std::string encoded_credentials = val.substr(kBasicPrefix.size());
+            const std::string decoded_credentials = arrow::util::base64_decode(
+                encoded_credentials);
+            std::stringstream decoded_stream(decoded_credentials);
+            std::getline(decoded_stream, username, ':');
+            std::getline(decoded_stream, password, ':');
+            break;
+          }
+        }
+      }
+    }
+
+    if (username == kValidUsername &&
+        password == kValidPassword) {
+      outgoing_headers->AddHeader(kAuthHeader, kBearerPrefix + kBearerToken);
+    }
+  }
+
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "HeaderAuthServerMiddleware"; }
+
+  CallHeaders incoming_headers_;
+};
+
+// Factory for base64 header authentication testing.
+class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  HeaderAuthServerMiddlewareFactory() {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+        incoming_headers.equal_range(kAuthHeader);
+    if (iter_pair.first != iter_pair.second) {      
+      *middleware = std::make_shared<HeaderAuthServerMiddleware>(incoming_headers);
+    }
+    return Status::OK();
+  }
+};
+
 // A client middleware that adds a thread-local "request ID" to
 // outgoing calls as a header, and keeps track of the status of
 // completed calls. NOT thread-safe.
@@ -991,6 +1065,51 @@ class TestErrorMiddleware : public ::testing::Test {
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+};
+
+class TestBasicHeaderAuthMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    server_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
+    ASSERT_OK(MakeServer<FlightServerBase>(
+        &server_, &client_, [&](FlightServerOptions* options) { 
+          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
+              new TestServerAuthHandler("", ""));
+          options->middleware.push_back({"header-auth-server", server_middleware_});
+          return Status::OK(); 
+        },
+        [&](FlightClientOptions* options) { return Status::OK(); }));
+  }
+
+  void RunValidClientAuth() {
+    std::pair<std::string, std::string> bearer_token;
+    // Note: Status intentionally ignored because it requires C++ server implementation of
+    // header auth. For now it returns an IOError.
+    arrow::Status status = 
+        client_->AuthenticateBasicToken(kValidUsername, kValidPassword, &bearer_token);
+    ASSERT_EQ(bearer_token.first, kAuthHeader);
+    ASSERT_EQ(bearer_token.second, (kBearerPrefix + kBearerToken));
+  }
+
+  void RunInvalidClientAuth() {
+    std::pair<std::string, std::string> bearer_token;
+    // Note: Status intentionally ignored because it requires C++ server implementation of
+    // header auth. For now it returns an IOError.
+    arrow::Status status = client_->AuthenticateBasicToken(
+        kInvalidUsername, kInvalidPassword, &bearer_token);
+    ASSERT_EQ(bearer_token.first, std::string(""));
+    ASSERT_EQ(bearer_token.second, std::string(""));
+  }
+
+  void TearDown() {
+    ASSERT_OK(server_->Shutdown());
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+  std::shared_ptr<HeaderAuthServerMiddlewareFactory> server_middleware_;
+  std::shared_ptr<internal::ClientBearerTokenFactory> client_middleware_;
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
@@ -2170,6 +2289,14 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   const Status status = stream->Close();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoPut);
+}
+
+TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) {
+  RunValidClientAuth();
+}
+
+TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) {
+  RunInvalidClientAuth();
 }
 
 }  // namespace flight

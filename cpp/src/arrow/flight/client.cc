@@ -1014,15 +1014,12 @@ class FlightClient::FlightClientImpl {
                                 std::pair<std::string, std::string>* bearer_token) {
     // Add bearer token factory to middleware so it can intercept the bearer token.
     if (interceptor_pointer != NULLPTR) {
-      std::cout << "Adding middleware." << std::endl;
       interceptor_pointer->AddMiddlewareFactory(std::make_shared<internal::ClientBearerTokenFactory>(bearer_token));
     } else {
-      std::cout << "NULLPTR" << std::endl;
       return MakeFlightError(FlightStatusCode::Internal,
                              "Connect must be called before AuthenticateBasicToken.");
     }
     ClientRpc rpc({});
-    std::cout << "AddBasicAuthHeaders" << std::endl;
     internal::AddBasicAuthHeaders(&rpc.context, username, password);
     std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
         stream = stub_->Handshake(&rpc.context);
@@ -1031,7 +1028,6 @@ class FlightClient::FlightClientImpl {
     GrpcClientAuthReader incoming{stream};
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    std::cout << "Middleware popback" << std::endl;
     interceptor_pointer->RemoveMiddlewareFactory();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
