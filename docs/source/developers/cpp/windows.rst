@@ -286,7 +286,7 @@ tests can be made with there individual make targets).
    Run this from an Anaconda/Miniconda command prompt (*not* PowerShell prompt),
    and make sure to run "vcvarsall.bat x64" first. The location of vcvarsall.bat
    will depend, it may be under a different path than commonly indicated,
-   e.g. "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+   e.g. "``C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat``"
    with the 2019 build tools.
 
 .. code-block:: shell
