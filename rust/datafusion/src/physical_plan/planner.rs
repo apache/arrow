@@ -302,6 +302,7 @@ impl DefaultPhysicalPlanner {
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                     JoinType::Left => hash_utils::JoinType::Left,
+                    JoinType::Right => hash_utils::JoinType::Right,
                 };
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
