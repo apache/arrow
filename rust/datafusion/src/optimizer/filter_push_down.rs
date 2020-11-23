@@ -94,7 +94,7 @@ fn issue_filters(
         .iter()
         .skip(1)
         .fold(predicates[0].clone(), |acc, predicate| {
-            and(acc, (*predicate).clone())
+            and(acc, (*predicate).to_owned())
         });
 
     // add a new filter node with the predicates
