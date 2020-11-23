@@ -389,11 +389,13 @@ impl Expr {
 }
 
 pub struct CaseWhenBuilder {
+    expr: Option<Box<Expr>>,
     when_expr: Vec<Expr>,
     then_expr: Vec<Expr>,
 }
 
 pub struct CaseThenBuilder {
+    expr: Option<Box<Expr>>,
     when_expr: Vec<Expr>,
     then_expr: Vec<Expr>,
 }
@@ -402,22 +404,33 @@ impl CaseWhenBuilder {
     pub fn when(&mut self, expr: Expr) -> CaseThenBuilder {
         self.when_expr.push(expr);
         CaseThenBuilder {
+            expr: self.expr.clone(),
             when_expr: self.when_expr.clone(),
             then_expr: self.then_expr.clone(),
         }
     }
-    pub fn or_else(&mut self, expr: Expr) -> Expr {
+    pub fn or_else(&mut self, else_expr: Expr) -> Expr {
         Expr::Case {
-            expr: None,
-            when_then_expr: vec![],
-            else_expr: None,
+            expr: self.expr.clone(),
+            when_then_expr: self
+                .when_expr
+                .iter()
+                .zip(self.then_expr.iter())
+                .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
+                .collect(),
+            else_expr: Some(Box::new(else_expr)),
             data_type: DataType::Null,
         }
     }
-    pub fn end(&mut self, expr: Expr) -> Expr {
+    pub fn end(&mut self) -> Expr {
         Expr::Case {
-            expr: None,
-            when_then_expr: vec![],
+            expr: self.expr.clone(),
+            when_then_expr: self
+                .when_expr
+                .iter()
+                .zip(self.then_expr.iter())
+                .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
+                .collect(),
             else_expr: None,
             data_type: DataType::Null,
         }
@@ -428,21 +441,26 @@ impl CaseThenBuilder {
     pub fn then(&mut self, expr: Expr) -> CaseWhenBuilder {
         self.then_expr.push(expr);
         CaseWhenBuilder {
+            expr: self.expr.clone(),
             when_expr: self.when_expr.clone(),
             then_expr: self.then_expr.clone(),
         }
     }
 }
 
+/// Create a CASE WHEN statement with literal WHEN expressions for comparison to the base expression.
 pub fn case(expr: Expr) -> CaseWhenBuilder {
     CaseWhenBuilder {
+        expr: Some(Box::new(expr)),
         when_expr: vec![],
         then_expr: vec![],
     }
 }
 
+/// Create a CASE WHEN statement with boolean WHEN expressions and no base expression.
 pub fn case_when() -> CaseWhenBuilder {
     CaseWhenBuilder {
+        expr: None,
         when_expr: vec![],
         then_expr: vec![],
     }
@@ -458,11 +476,20 @@ pub fn binary_expr(l: Expr, op: Operator, r: Expr) -> Expr {
 }
 
 /// return a new expression with a logical AND
-pub fn and(left: &Expr, right: &Expr) -> Expr {
+pub fn and(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {
-        left: Box::new(left.clone()),
+        left: Box::new(left),
         op: Operator::And,
-        right: Box::new(right.clone()),
+        right: Box::new(right),
+    }
+}
+
+/// return a new expression with a logical OR
+pub fn or(left: Expr, right: Expr) -> Expr {
+    Expr::BinaryExpr {
+        left: Box::new(left),
+        op: Operator::Or,
+        right: Box::new(right),
     }
 }
 
