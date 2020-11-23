@@ -202,7 +202,7 @@ fn update_hash(
     // evaluate the keys
     let keys_values = on
         .iter()
-        .map(|name| Ok(col(name).evaluate(batch)?.into_array(batch)))
+        .map(|name| Ok(col(name).evaluate(batch)?.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
     let mut key = Vec::with_capacity(keys_values.len());
