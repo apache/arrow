@@ -786,11 +786,12 @@ Status PrintDiff(const Array& left, const Array& right, int64_t left_offset,
     return Status::OK();
   }
 
+  const auto left_slice = left.Slice(left_offset, left_length);
+  const auto right_slice = right.Slice(right_offset, right_length);
   ARROW_ASSIGN_OR_RAISE(auto edits,
-                        DiffRanges(left, right, left_offset, left_length, right_offset,
-                                   right_length, default_memory_pool()));
+                        Diff(*left_slice, *right_slice, default_memory_pool()));
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeUnifiedDiffFormatter(*left.type(), os));
-  return formatter(*edits, left, right);
+  return formatter(*edits, *left_slice, *right_slice);
 }
 
 Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {

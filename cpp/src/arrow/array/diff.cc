@@ -53,8 +53,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
 
-namespace {
-
 template <typename ArrayType>
 auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(index)) {
   return array.GetView(index);
@@ -73,7 +71,7 @@ struct Slice {
 
 template <typename ArrayType, typename T = typename ArrayType::TypeClass,
           typename = enable_if_list_like<T>>
-Slice GetView(const ArrayType& array, int64_t index) {
+static Slice GetView(const ArrayType& array, int64_t index) {
   return Slice{array.values().get(), array.value_offset(index),
                array.value_length(index)};
 }
@@ -90,11 +88,11 @@ struct UnitSlice {
 
 // FIXME(bkietz) this is inefficient;
 // StructArray's fields can be diffed independently then merged
-UnitSlice GetView(const StructArray& array, int64_t index) {
+static UnitSlice GetView(const StructArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-UnitSlice GetView(const UnionArray& array, int64_t index) {
+static UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
@@ -159,20 +157,14 @@ struct EditPoint {
 class QuadraticSpaceMyersDiff {
  public:
   QuadraticSpaceMyersDiff(const Array& base, const Array& target, MemoryPool* pool)
-      : QuadraticSpaceMyersDiff(base, target, 0, base.length(), 0, target.length(),
-                                pool) {}
-
-  QuadraticSpaceMyersDiff(const Array& base, const Array& target, int64_t base_offset,
-                          int64_t base_length, int64_t target_offset,
-                          int64_t target_length, MemoryPool* pool)
       : base_(base),
         target_(target),
         pool_(pool),
         value_comparator_(GetValueComparator(*base.type())),
-        base_begin_(base_offset),
-        base_end_(base_offset + base_length),
-        target_begin_(target_offset),
-        target_end_(target_offset + target_length),
+        base_begin_(0),
+        base_end_(base.length()),
+        target_begin_(0),
+        target_end_(target.length()),
         endpoint_base_({ExtendFrom({base_begin_, target_begin_}).base}),
         insert_({true}) {
     if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
@@ -339,8 +331,8 @@ class QuadraticSpaceMyersDiff {
   ValueComparator value_comparator_;
   int64_t finish_index_ = -1;
   int64_t edit_count_ = 0;
-  const int64_t base_begin_, base_end_;
-  const int64_t target_begin_, target_end_;
+  int64_t base_begin_, base_end_;
+  int64_t target_begin_, target_end_;
   // each element of endpoint_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
   // the corresponding furthest position was reached via an insertion or a deletion
@@ -350,12 +342,11 @@ class QuadraticSpaceMyersDiff {
   std::vector<bool> insert_;
 };
 
-Result<std::shared_ptr<StructArray>> NullDiffRanges(
-    const Array& base, const Array& target, int64_t base_offset, int64_t base_length,
-    int64_t target_offset, int64_t target_length, MemoryPool* pool) {
-  const bool insert = base_length < target_length;
-  const auto run_length = std::min(base_length, target_length);
-  const auto edit_count = std::max(base_length, target_length) - run_length;
+Result<std::shared_ptr<StructArray>> NullDiff(const Array& base, const Array& target,
+                                              MemoryPool* pool) {
+  bool insert = base.length() < target.length();
+  auto run_length = std::min(base.length(), target.length());
+  auto edit_count = std::max(base.length(), target.length()) - run_length;
 
   TypedBufferBuilder<bool> insert_builder(pool);
   RETURN_NOT_OK(insert_builder.Resize(edit_count + 1));
@@ -377,49 +368,28 @@ Result<std::shared_ptr<StructArray>> NullDiffRanges(
                            {field("insert", boolean()), field("run_length", int64())});
 }
 
-}  // namespace
-
-Result<std::shared_ptr<StructArray>> DiffRanges(const Array& base, const Array& target,
-                                                int64_t base_offset, int64_t base_length,
-                                                int64_t target_offset,
-                                                int64_t target_length, MemoryPool* pool) {
+Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
+                                          MemoryPool* pool) {
   if (!base.type()->Equals(target.type())) {
     return Status::TypeError("only taking the diff of like-typed arrays is supported.");
   }
-  if (base_offset + base_length > base.length()) {
-    return Status::Invalid("diff offset and length for base array out of bounds");
-  }
-  if (target_offset + target_length > target.length()) {
-    return Status::Invalid("diff offset and length for target array out of bounds");
-  }
 
   if (base.type()->id() == Type::NA) {
-    return NullDiffRanges(base, target, base_offset, base_length, target_offset,
-                          target_length, pool);
+    return NullDiff(base, target, pool);
   } else if (base.type()->id() == Type::EXTENSION) {
     auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
     auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
-    return DiffRanges(*base_storage, *target_storage, base_offset, base_length,
-                      target_offset, target_length, pool);
+    return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
-    return QuadraticSpaceMyersDiff(base, target, base_offset, base_length, target_offset,
-                                   target_length, pool)
-        .Diff();
+    return QuadraticSpaceMyersDiff(base, target, pool).Diff();
   }
 }
 
-Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
-                                          MemoryPool* pool) {
-  return DiffRanges(base, target, 0, base.length(), 0, target.length(), pool);
-}
-
-namespace {
-
 using Formatter = std::function<void(const Array&, int64_t index, std::ostream*)>;
 
-Result<Formatter> MakeFormatter(const DataType& type);
+static Result<Formatter> MakeFormatter(const DataType& type);
 
 class MakeFormatterImpl {
  public:
@@ -430,7 +400,7 @@ class MakeFormatterImpl {
 
  private:
   template <typename VISITOR>
-  friend Status arrow::VisitTypeInline(const DataType&, VISITOR*);
+  friend Status VisitTypeInline(const DataType&, VISITOR*);
 
   // factory implementation
   Status Visit(const BooleanType&) {
@@ -703,11 +673,9 @@ class MakeFormatterImpl {
   Formatter impl_;
 };
 
-Result<Formatter> MakeFormatter(const DataType& type) {
+static Result<Formatter> MakeFormatter(const DataType& type) {
   return MakeFormatterImpl{}.Make(type);
 }
-
-}  // namespace
 
 Status VisitEditScript(
     const Array& edits,
@@ -746,8 +714,6 @@ Status VisitEditScript(
   }
   return Status::OK();
 }
-
-namespace {
 
 class UnifiedDiffFormatter {
  public:
@@ -797,8 +763,6 @@ class UnifiedDiffFormatter {
   const Array* target_ = nullptr;
   Formatter formatter_;
 };
-
-}  // namespace
 
 Result<std::function<Status(const Array& edits, const Array& base, const Array& target)>>
 MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
