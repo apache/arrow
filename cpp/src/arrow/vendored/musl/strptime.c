@@ -22,16 +22,31 @@
 #else
 // Custom support for abbreviated months on Windows, this is required for cookie handling.
 uint32_t MONTH_COUNT = 12;
-const char[][] MONTHS = {
+const char* MONTHS[] = {
 	"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+};
+
+// Custom support for abbreviated days on Windows, this is required for cookie handling.
+uint32_t DAY_COUNT = 7;
+const char* DAYS[] = {
+	"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
+};
+
+int GetNumber(const char *__restrict s, size_t len, const char** table, size_t count) {
+	for (uint32_t i = 0; i < count; i++) {
+		if (!strncasecmp(s, table[i], len)) return i;
+	}
+	return -1;
 }
 
 int GetMonthNumber(const char *__restrict s, size_t* len) {
 	*len = 3;
-	for (uint32_t i = 0; i < MONTH_COUNT; i++) {
-		if (!strncasecmp(s, MONTHS[i], *len)) return i;
-	}	
-	return -1;
+	return GetNumber(s, *len, MONTHS, MONTH_COUNT);
+}
+
+int GetDayNumber(const char *__restrict s, size_t* len) {
+	*len = 3;
+	return GetNumber(s, *len, DAYS, DAY_COUNT);
 }
 #endif
 
@@ -84,8 +99,13 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			if (!s) return 0;
 			break;
 #else
-		case 'b':
+		case 'a':
 			dest = &tm->tm_wday;
+			*dest = GetDayNumber(s, &len);
+			s += len;
+			break;
+		case 'b':
+			dest = &tm->tm_mon;
 			*dest = GetMonthNumber(s, &len);
 			s += len;
 			break;
