@@ -116,23 +116,24 @@ class RValue {
 
   // TODO: generalise
 
-  static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    // TODO: handle conversion from other types
-    if (value->rtype == INT32) {
-      return *reinterpret_cast<int32_t*>(value->data);
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion");
-  }
-
   static Result<bool> Convert(const BooleanType*, const RConversionOptions&,
                               RScalar* value) {
     if (value->rtype == BOOLEAN) {
       return *reinterpret_cast<bool*>(value->data);
     }
 
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<uint16_t> Convert(const HalfFloatType*, const RConversionOptions&,
+                                  RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<float> Convert(const FloatType*, const RConversionOptions&,
+                               RScalar* value) {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
@@ -155,6 +156,89 @@ class RValue {
       return *reinterpret_cast<uint8_t*>(value->data);
     }
 
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int8_t> Convert(const Int8Type*, const RConversionOptions&,
+                                RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int16_t> Convert(const Int16Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<uint16_t> Convert(const UInt16Type*, const RConversionOptions&,
+                                  RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: handle conversion from other types
+    if (value->rtype == INT32) {
+      return *reinterpret_cast<int32_t*>(value->data);
+    }
+
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<uint32_t> Convert(const UInt32Type*, const RConversionOptions&,
+                                  RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int64_t> Convert(const Int64Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<uint64_t> Convert(const UInt64Type*, const RConversionOptions&,
+                                  RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int64_t> Convert(const Date64Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int32_t> Convert(const Time32Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<int64_t> Convert(const Time64Type*, const RConversionOptions&,
+                                 RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<Decimal128> Convert(const Decimal128Type*, const RConversionOptions&,
+                                    RScalar* value) {
+    // TODO: improve error
+    return Status::Invalid("invalid conversion");
+  }
+
+  static Result<Decimal256> Convert(const Decimal256Type*, const RConversionOptions&,
+                                    RScalar* value) {
     // TODO: improve error
     return Status::Invalid("invalid conversion");
   }
@@ -242,23 +326,9 @@ class RPrimitiveConverter<T, enable_if_null<T>>
 
 template <typename T>
 class RPrimitiveConverter<
-    T, enable_if_t<!std::is_same<T, Int32Type>::value &&
-                   !std::is_same<T, DoubleType>::value &&
-                   !std::is_same<T, UInt8Type>::value && !is_boolean_type<T>::value &&
-                   (is_number_type<T>::value || is_decimal_type<T>::value ||
-                    is_date_type<T>::value || is_time_type<T>::value)>>
-    : public PrimitiveConverter<T, RConverter> {
- public:
-  Status Append(RScalar* value) {
-    return Status::NotImplemented("conversion to fixed size binary not yet implemented");
-  }
-};
-
-template <typename T>
-class RPrimitiveConverter<
-    T,
-    enable_if_t<std::is_same<T, Int32Type>::value || std::is_same<T, DoubleType>::value ||
-                std::is_same<T, UInt8Type>::value || is_boolean_type<T>::value>>
+    T, enable_if_t<is_number_type<T>::value || is_boolean_type<T>::value ||
+                   is_date_type<T>::value || is_time_type<T>::value ||
+                   is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RScalar* value) {
