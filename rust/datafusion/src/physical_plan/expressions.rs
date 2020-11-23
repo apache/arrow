@@ -48,9 +48,9 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        Array, ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array,
-        Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
-        TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
+        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
+        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };

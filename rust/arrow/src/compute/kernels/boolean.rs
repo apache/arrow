@@ -25,9 +25,7 @@
 use std::ops::Not;
 use std::sync::Arc;
 
-use crate::array::{
-    Array, ArrayData, ArrayRef, BooleanArray, PrimitiveArray, PrimitiveArrayOps,
-};
+use crate::array::{Array, ArrayData, BooleanArray, PrimitiveArray};
 use crate::buffer::{
     buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer, MutableBuffer,
 };
