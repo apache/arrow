@@ -101,8 +101,6 @@ pub enum Expr {
         when_then_expr: Vec<(Box<Expr>, Box<Expr>)>,
         /// Optional "else" expression
         else_expr: Option<Box<Expr>>,
-        /// The `DataType` the expression will yield
-        data_type: DataType,
     },
     /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
     Cast {
@@ -168,7 +166,7 @@ impl Expr {
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
-            Expr::Case { data_type, .. } => Ok(data_type.clone()),
+            Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
@@ -419,7 +417,6 @@ impl CaseWhenBuilder {
                 .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
                 .collect(),
             else_expr: Some(Box::new(else_expr)),
-            data_type: DataType::Null,
         }
     }
     pub fn end(&mut self) -> Expr {
@@ -432,7 +429,6 @@ impl CaseWhenBuilder {
                 .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
                 .collect(),
             else_expr: None,
-            data_type: DataType::Null,
         }
     }
 }

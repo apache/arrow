@@ -24,7 +24,11 @@ use arrow::datatypes::{Schema, SchemaRef};
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
-use crate::prelude::col;
+use crate::prelude::{col, lit};
+use crate::scalar::ScalarValue;
+
+const CASE_EXPR_MARKER: &str = "__DATAFUSION_CASE_EXPR__";
+const CASE_ELSE_MARKER: &str = "__DATAFUSION_CASE_ELSE__";
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -234,45 +238,51 @@ pub fn from_plan(
 
 /// Returns all direct children `Expression`s of `expr`.
 /// E.g. if the expression is "(a + 1) + 1", it returns ["a + 1", "1"] (as Expr objects)
-pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
+pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
     match expr {
-        Expr::BinaryExpr { left, right, .. } => Ok(vec![left, right]),
-        Expr::IsNull(e) => Ok(vec![e]),
-        Expr::IsNotNull(e) => Ok(vec![e]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
-        Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().collect()),
+        Expr::BinaryExpr { left, right, .. } => {
+            Ok(vec![left.as_ref().to_owned(), right.as_ref().to_owned()])
+        }
+        Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
+        Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
+        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::AggregateFunction { args, .. } => {
+            Ok(args.iter().map(|e| e.clone()).collect())
+        }
+        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
         Expr::Case {
             expr,
             when_then_expr,
             else_expr,
             ..
         } => {
-            let mut expr_list: Vec<&Expr> = vec![];
+            let mut expr_list: Vec<Expr> = vec![];
             if let Some(e) = expr {
-                expr_list.push(e.as_ref());
+                expr_list.push(lit(CASE_EXPR_MARKER));
+                expr_list.push(e.as_ref().to_owned());
             }
             for (w, t) in when_then_expr {
-                expr_list.push(w.as_ref());
-                expr_list.push(t.as_ref());
+                expr_list.push(w.as_ref().to_owned());
+                expr_list.push(t.as_ref().to_owned());
             }
             if let Some(e) = else_expr {
-                expr_list.push(e.as_ref());
+                expr_list.push(lit(CASE_ELSE_MARKER));
+                expr_list.push(e.as_ref().to_owned());
             }
             Ok(expr_list)
         }
-        Expr::Cast { expr, .. } => Ok(vec![expr]),
+        Expr::Cast { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Column(_) => Ok(vec![]),
-        Expr::Alias(expr, ..) => Ok(vec![expr]),
+        Expr::Alias(expr, ..) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Literal(_) => Ok(vec![]),
         Expr::ScalarVariable(_) => Ok(vec![]),
-        Expr::Not(expr) => Ok(vec![expr]),
-        Expr::Sort { expr, .. } => Ok(vec![expr]),
+        Expr::Not(expr) => Ok(vec![expr.as_ref().to_owned()]),
+        Expr::Sort { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(expr) => Ok(vec![expr]),
+        Expr::Nested(expr) => Ok(vec![expr.as_ref().to_owned()]),
     }
 }
 
@@ -304,18 +314,40 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             fun: fun.clone(),
             args: expressions.clone(),
         }),
-        Expr::Case {
-            expr,
-            when_then_expr,
-            else_expr,
-            data_type,
-        } => {
-            //TODO this doesn't fit the design
+        Expr::Case { .. } => {
+            let mut _expr: Option<Box<Expr>> = None;
+            let mut _when_then: Vec<(Box<Expr>, Box<Expr>)> = vec![];
+            let mut _else_expr: Option<Box<Expr>> = None;
+            let mut i = 0;
+
+            while i < expressions.len() {
+                match &expressions[i] {
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_EXPR_MARKER =>
+                    {
+                        _expr = Some(Box::new(expressions[i + 1].clone()));
+                        i += 2;
+                    }
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_ELSE_MARKER =>
+                    {
+                        _expr = Some(Box::new(expressions[i + 1].clone()));
+                        i += 2;
+                    }
+                    _ => {
+                        _when_then.push((
+                            Box::new(expressions[i].clone()),
+                            Box::new(expressions[i + 1].clone()),
+                        ));
+                        i += 2;
+                    }
+                }
+            }
+
             Ok(Expr::Case {
-                expr: expr.clone(),
-                when_then_expr: when_then_expr.clone(),
-                else_expr: else_expr.clone(),
-                data_type: data_type.clone(),
+                expr: _expr,
+                when_then_expr: _when_then,
+                else_expr: _else_expr,
             })
         }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
