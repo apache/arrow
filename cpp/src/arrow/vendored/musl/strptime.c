@@ -19,6 +19,26 @@
 
 #ifndef _WIN32
 #define HAVE_LANGINFO 1
+#else
+#define ABBR_SUN "SUN"
+#define ABBR_MON "Mon"
+#define ABBR_TUE "TUE"
+#define ABBR_WED "WED"
+#define ABBR_THU "THU"
+#define ABBR_FRI "FRI"
+#define ABBR_SAT "SAT"
+
+int GetDayNumber(const char *__restrict s, size_t* len) {
+	*len = 3;
+	if (!strncasecmp(s, ABBR_SUN, *len)) return 0;
+	if (!strncasecmp(s, ABBR_MON, *len)) return 1;
+	if (!strncasecmp(s, ABBR_TUE, *len)) return 2;
+	if (!strncasecmp(s, ABBR_WED, *len)) return 3;
+	if (!strncasecmp(s, ABBR_THU, *len)) return 4;
+	if (!strncasecmp(s, ABBR_FRI, *len)) return 5;
+	if (!strncasecmp(s, ABBR_SAT, *len)) return 6;
+	return -1;
+}
 #endif
 
 #ifdef HAVE_LANGINFO
@@ -30,9 +50,9 @@
 char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__restrict tm)
 {
 	int i, w, neg, adj, min, range, *dest, dummy;
+	size_t len;
 #ifdef HAVE_LANGINFO
 	const char *ex;
-	size_t len;
 #endif
 	int want_century = 0, century = 0, relyear = 0;
 	while (*f) {
@@ -68,6 +88,12 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		case 'c':
 			s = strptime(s, nl_langinfo(D_T_FMT), tm);
 			if (!s) return 0;
+			break;
+#else
+		case 'a':
+			dest = &tm->tm_wday;
+			*dest = GetDayNumber(s, &len);
+			s += len;
 			break;
 #endif
 		case 'C':
