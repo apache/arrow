@@ -228,24 +228,24 @@ class RangeDataEqualsImpl {
     const int8_t* left_codes = left_.GetValues<int8_t>(1);
     const int8_t* right_codes = right_.GetValues<int8_t>(1);
 
-    VisitValidRuns([&](int64_t i, int64_t length) {
-      for (int64_t j = i; j < i + length; ++j) {
-        const auto type_id = left_codes[left_start_idx_ + j];
-        if (type_id != right_codes[right_start_idx_ + j]) {
-          return false;
-        }
-        const auto child_num = child_ids[type_id];
-        // XXX can we instead detect runs of same-child union values?
-        RangeDataEqualsImpl impl(
-            options_, floating_approximate_, *left_.child_data[child_num],
-            *right_.child_data[child_num], left_start_idx_ + left_.offset + j,
-            right_start_idx_ + right_.offset + j, 1);
-        if (!impl.Compare()) {
-          return false;
-        }
+    // Unions don't have a null bitmap
+    for (int64_t i = 0; i < range_length_; ++i) {
+      const auto type_id = left_codes[left_start_idx_ + i];
+      if (type_id != right_codes[right_start_idx_ + i]) {
+        result_ = false;
+        break;
       }
-      return true;
-    });
+      const auto child_num = child_ids[type_id];
+      // XXX can we instead detect runs of same-child union values?
+      RangeDataEqualsImpl impl(
+          options_, floating_approximate_, *left_.child_data[child_num],
+          *right_.child_data[child_num], left_start_idx_ + left_.offset + i,
+          right_start_idx_ + right_.offset + i, 1);
+      if (!impl.Compare()) {
+        result_ = false;
+        break;
+      }
+    }
     return Status::OK();
   }
 
@@ -256,23 +256,22 @@ class RangeDataEqualsImpl {
     const int32_t* left_offsets = left_.GetValues<int32_t>(2);
     const int32_t* right_offsets = right_.GetValues<int32_t>(2);
 
-    VisitValidRuns([&](int64_t i, int64_t length) {
-      for (int64_t j = i; j < i + length; ++j) {
-        const auto type_id = left_codes[left_start_idx_ + j];
-        if (type_id != right_codes[right_start_idx_ + j]) {
-          return false;
-        }
-        const auto child_num = child_ids[type_id];
-        RangeDataEqualsImpl impl(
-            options_, floating_approximate_, *left_.child_data[child_num],
-            *right_.child_data[child_num], left_offsets[left_start_idx_ + j],
-            right_offsets[right_start_idx_ + j], 1);
-        if (!impl.Compare()) {
-          return false;
-        }
+    for (int64_t i = 0; i < range_length_; ++i) {
+      const auto type_id = left_codes[left_start_idx_ + i];
+      if (type_id != right_codes[right_start_idx_ + i]) {
+        result_ = false;
+        break;
       }
-      return true;
-    });
+      const auto child_num = child_ids[type_id];
+      RangeDataEqualsImpl impl(
+          options_, floating_approximate_, *left_.child_data[child_num],
+          *right_.child_data[child_num], left_offsets[left_start_idx_ + i],
+          right_offsets[right_start_idx_ + i], 1);
+      if (!impl.Compare()) {
+        result_ = false;
+        break;
+      }
+    }
     return Status::OK();
   }
 
@@ -362,9 +361,7 @@ class RangeDataEqualsImpl {
       // One of the arrays is an array of empty strings and nulls.
       // We just need to compare the offsets.
       // (note we must not call memcmp() with null data pointers)
-      const auto compare_ranges = [&](int64_t left_offset, int64_t right_offset,
-                                      int64_t length) -> bool { return true; };
-      CompareWithOffsets<typename TypeClass::offset_type>(1, compare_ranges);
+      CompareWithOffsets<typename TypeClass::offset_type>(1, [](...) { return true; });
     }
     return Status::OK();
   }
