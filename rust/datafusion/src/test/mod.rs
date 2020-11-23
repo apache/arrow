@@ -133,6 +133,12 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
                 s.push(',');
             }
             let array = batch.column(column_index);
+
+            if array.is_null(row_index) {
+                s.push_str("NULL");
+                continue;
+            }
+
             match array.data_type() {
                 DataType::Utf8 => s.push_str(
                     array
