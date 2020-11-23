@@ -122,15 +122,16 @@ class BitmapUInt64Reader {
     uint64_t word;
     memcpy(&word, bitmap_, 8);
     bitmap_ += 8;
-    return word;
+    return BitUtil::ToLittleEndian(word);
   }
 
   uint64_t LoadPartialWord(int8_t bit_offset, int64_t num_bits) {
-    uint64_t word;
+    uint64_t word = 0;
     const int64_t num_bytes = BitUtil::BytesForBits(num_bits);
     memcpy(&word, bitmap_, num_bytes);
     bitmap_ += num_bytes;
-    return (word >> bit_offset) & BitUtil::LeastSignificantBitMask(num_bits);
+    return (BitUtil::ToLittleEndian(word) >> bit_offset) &
+           BitUtil::LeastSignificantBitMask(num_bits);
   }
 
   const uint8_t* bitmap_;
