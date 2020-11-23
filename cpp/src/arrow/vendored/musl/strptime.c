@@ -33,7 +33,7 @@ const char* DAYS[] = {
 };
 
 int GetNumber(const char *__restrict s, size_t len, const char** table, size_t count) {
-	for (uint32_t i = 0; i < count; i++) {
+	for (size_t i = 0; i < count; i++) {
 		if (!strncasecmp(s, table[i], len)) return i;
 	}
 	return -1;
