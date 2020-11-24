@@ -628,13 +628,13 @@ value, but smaller than nulls.
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
 | partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Binary- and String-like | UInt64            | :struct:`ArraySortptions`      | \(2) \(3) \(4) |
+| array_sort_indices    | Unary      | Binary- and String-like | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3) \(4) |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
-| array_sort_indices    | Unary      | Numeric                 | UInt64            | :struct:`ArraySortptions`      | \(2) \(4)      |
+| array_sort_indices    | Unary      | Numeric                 | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4)      |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Binary- and String-like | UInt64            | :struct:`Sortptions`           | \(2) \(3) \(5) |
+| sort_indices          | Unary      | Binary- and String-like | UInt64            | :struct:`SortOptions`          | \(2) \(3) \(5) |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Numeric                 | UInt64            | :struct:`Sortptions`           | \(2) \(5)      |
+| sort_indices          | Unary      | Numeric                 | UInt64            | :struct:`SortOptions`          | \(2) \(5)      |
 +-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
