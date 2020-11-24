@@ -933,7 +933,7 @@ async fn case_when_else() -> Result<()> {
              ELSE 999 END \
         FROM t1";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["NULL"]];
+    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["999"]];
     assert_eq!(expected, actual);
     Ok(())
 }
@@ -961,7 +961,7 @@ async fn case_when_else_with_base_expr() -> Result<()> {
              ELSE 999 END \
         FROM t1";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["NULL"]];
+    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["999"]];
     assert_eq!(expected, actual);
     Ok(())
 }
