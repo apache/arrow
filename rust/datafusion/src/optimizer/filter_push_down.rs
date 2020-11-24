@@ -93,7 +93,9 @@ fn issue_filters(
     let predicate = predicates
         .iter()
         .skip(1)
-        .fold(predicates[0].clone(), |acc, predicate| and(&acc, predicate));
+        .fold(predicates[0].clone(), |acc, predicate| {
+            and(acc, (*predicate).to_owned())
+        });
 
     // add a new filter node with the predicates
     let plan = LogicalPlan::Filter {

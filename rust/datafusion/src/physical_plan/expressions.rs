@@ -1718,7 +1718,7 @@ pub fn is_not_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> 
 ///     [ELSE result]
 /// END
 #[derive(Debug)]
-struct CaseExpr {
+pub struct CaseExpr {
     /// Optional base expression that can be compared to literal values in the "when" expressions
     expr: Option<Arc<dyn PhysicalExpr>>,
     /// One or more when/then expressions
@@ -1744,6 +1744,7 @@ impl fmt::Display for CaseExpr {
 }
 
 impl CaseExpr {
+    /// Create a new CASE WHEN expression
     pub fn try_new(
         expr: Option<Arc<dyn PhysicalExpr>>,
         when_then_expr: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
