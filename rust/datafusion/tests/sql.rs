@@ -946,6 +946,41 @@ async fn case_when() {
 }
 
 #[tokio::test]
+async fn case_when_with_base_expr() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx).await;
+    let sql = "SELECT \
+        CASE c1 WHEN 'a' THEN 1 \
+             WHEN 'b' THEN 2 \
+             ELSE 999 END \
+        FROM aggregate_test_100 LIMIT 20";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["999"],
+        vec!["999"],
+        vec!["2"],
+        vec!["1"],
+        vec!["2"],
+        vec!["2"],
+        vec!["999"],
+        vec!["1"],
+        vec!["999"],
+        vec!["1"],
+        vec!["999"],
+        vec!["1"],
+        vec!["999"],
+        vec!["999"],
+        vec!["2"],
+        vec!["999"],
+        vec!["999"],
+        vec!["999"],
+        vec!["999"],
+        vec!["999"],
+    ];
+    assert_eq!(expected, actual);
+}
+
+#[tokio::test]
 async fn csv_explain() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx).await;
