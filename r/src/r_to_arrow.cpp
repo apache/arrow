@@ -67,6 +67,7 @@ enum RVectorType {
   TIMESTAMP,
   BINARY,
   LIST,
+  FACTOR,
 
   OTHER
 };
@@ -78,6 +79,9 @@ RVectorType GetVectorType(SEXP x) {
     case RAWSXP:
       return UINT8;
     case INTSXP:
+      if (Rf_inherits(x, "factor")) {
+        return FACTOR;
+      }
       return INT32;
     case STRSXP:
       return STRING;
@@ -123,10 +127,6 @@ struct RBytesView {
   bool is_utf8;
 
   Status ParseString(RScalar* value) {
-    if (value->rtype != STRING) {
-      return Status::Invalid("cannot parse string");
-    }
-
     SEXP s = *reinterpret_cast<SEXP*>(value->data);
     bytes = CHAR(s);
     size = XLENGTH(s);
@@ -287,8 +287,12 @@ class RValue {
   template <typename T>
   static enable_if_string<T, Status> Convert(const T*, const RConversionOptions&,
                                              RScalar* value, RBytesView& view) {
-    if (value->rtype == STRING) {
-      return view.ParseString(value);
+    switch (value->rtype) {
+      case STRING:
+      case FACTOR:
+        return view.ParseString(value);
+      default:
+        break;
     }
 
     // TODO: improve error
@@ -357,6 +361,26 @@ inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
 }
 
 template <class VisitorFunc>
+inline Status VisitFactor(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+  cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
+  SEXP* levels_ptr = const_cast<SEXP*>(STRING_PTR_RO(levels));
+
+  RScalar obj{FACTOR, nullptr, false};
+  cpp11::r_vector<int> values(x);
+
+  for (int value : values) {
+    if (is_NA<int>(value)) {
+      obj.null = true;
+    } else {
+      obj.null = false;
+      obj.data = reinterpret_cast<void*>(&levels_ptr[value - 1]);
+    }
+    RETURN_NOT_OK(func(&obj));
+  }
+  return Status::OK();
+}
+
+template <class VisitorFunc>
 inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   RVectorType rtype = GetVectorType(x);
 
@@ -376,11 +400,15 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
     case STRING:
       return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
+
+    case FACTOR:
+      return VisitFactor<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
+
     default:
       break;
   }
 
-  return Status::OK();
+  return Status::Invalid("No visitor for R type ", rtype);
 }
 
 using RConverter = Converter<RScalar*, RConversionOptions>;
@@ -510,20 +538,35 @@ class RPrimitiveConverter<
 template <typename T>
 class RListConverter;
 
-// TODO: replace by various versions. The python code has 2 versions:
-//
-// template <typename U>
-// class PyDictionaryConverter<U, enable_if_has_c_type<U>>
-//    : public DictionaryConverter<U, PyConverter> {
-//
-// template <typename U>
-// class PyDictionaryConverter<U, enable_if_has_string_view<U>>
-//    : public DictionaryConverter<U, PyConverter> {
-//
 template <typename U, typename Enable = void>
-class RDictionaryConverter : public DictionaryConverter<U, RConverter> {
+class RDictionaryConverter;
+
+template <typename U>
+class RDictionaryConverter<U, enable_if_has_c_type<U>>
+    : public DictionaryConverter<U, RConverter> {
  public:
-  Status Append(RScalar* value) { return Status::OK(); }
+  Status Append(RScalar* value) override {
+    return Status::NotImplemented(
+        "dictionaries only implemented with string value types");
+  }
+};
+
+template <typename U>
+class RDictionaryConverter<U, enable_if_has_string_view<U>>
+    : public DictionaryConverter<U, RConverter> {
+ public:
+  Status Append(RScalar* value) override {
+    if (RValue::IsNull(value)) {
+      return this->value_builder_->AppendNull();
+    } else {
+      ARROW_RETURN_NOT_OK(
+          RValue::Convert(this->value_type_, this->options_, value, view_));
+      return this->value_builder_->Append(view_.bytes, static_cast<int32_t>(view_.size));
+    }
+  }
+
+ protected:
+  RBytesView view_;
 };
 
 class RStructConverter;
