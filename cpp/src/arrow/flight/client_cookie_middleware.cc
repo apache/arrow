@@ -97,7 +97,7 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 //
 // @return 0 on error, epoch seconds for date otherwise.
 uint64_t ParseDate(const std::string& date) {
-  std;:cout << "Parsing " << date << std::endl;
+  std::cout << "Parsing " << date << std::endl;
   // Abbreviated months in order.
   static const std::vector<std::string> months = {
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
@@ -108,9 +108,9 @@ uint64_t ParseDate(const std::string& date) {
     std::transform(month.begin(), month.end(), month.begin(), ::toupper);
     auto it = std::find(months.begin(), months.end(), month);
     if (it != months.end()) {
-      return static_cast<long>(std::distance(months.begin(), it));
+      return static_cast<int64_t>(std::distance(months.begin(), it));
     } else {
-      return -1L;
+      return int64_t(-1);
     }
   };
 
@@ -152,12 +152,12 @@ uint64_t ParseDate(const std::string& date) {
   }
 
   // Attempt to convert parsed values to longs. If any come back as -1, return 0.
-  long month = month_str_to_int(str_month);
-  long day = read_str(str_day);
-  long year = read_str(str_year);
-  long hour = read_str(str_hour);
-  long min = read_str(str_min);
-  long sec = read_str(str_sec);
+  int64_t month = month_str_to_int(str_month);
+  int64_t day = read_str(str_day);
+  int64_t year = read_str(str_year);
+  int64_t hour = read_str(str_hour);
+  int64_t min = read_str(str_min);
+  int64_t sec = read_str(str_sec);
 
   if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
       (sec == -1)) {
