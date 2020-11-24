@@ -512,7 +512,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   }
 
  private:
-  Random<Type> *rand_;
+  Random<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
 TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(4000); }
