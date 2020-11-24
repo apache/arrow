@@ -363,10 +363,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // all
-  func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
-  aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
+ func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
+aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
-
 }
 
 }  // namespace internal
