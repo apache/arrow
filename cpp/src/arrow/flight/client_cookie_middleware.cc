@@ -96,12 +96,11 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 // @param date Input formatted date to parse.
 //
 // @return 0 on error, epoch seconds for date otherwise.
-uint64_t ParseDate(const std::string& date) {
+std::chrono::seconds ParseDate(const std::string& date) {
   std::cout << "Parsing " << date << std::endl;
   // Abbreviated months in order.
   static const std::vector<std::string> months = {
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
-  };
+      "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 
   // Lambda function to convert abbreviated month string to number.
   auto month_str_to_int = [](std::string month) {
@@ -148,7 +147,7 @@ uint64_t ParseDate(const std::string& date) {
   if ((str_month == "") || (str_day == "") || (str_year == "") || (str_hour == "") ||
       (str_min == "") || (str_sec == "")) {
     std::cout << "Failure -> empty" << std::endl;
-    return 0;
+    return std::chrono::seconds(0);
   }
 
   // Attempt to convert parsed values to longs. If any come back as -1, return 0.
@@ -162,14 +161,15 @@ uint64_t ParseDate(const std::string& date) {
   if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
       (sec == -1)) {
     std::cout << "failure -> -1" << std::endl;
-    return 0;
+    return std::chrono::seconds(0);
   }
 
-  arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(
-      arrow_vendored::date::year(year) / (month + 1) / day) + (std::chrono::hours(hour)
-          + std::chrono::minutes(min) + std::chrono::seconds(sec));
+  arrow_vendored::date::sys_seconds secs =
+      arrow_vendored::date::sys_days(arrow_vendored::date::year(year) / (month + 1) /
+                                     day) +
+      (std::chrono::hours(hour) + std::chrono::minutes(min) + std::chrono::seconds(sec));
   std::cout << "No direct failure: " << secs.time_since_epoch().count() << std::endl;
-  return secs.time_since_epoch().count();
+  return secs.time_since_epoch();
 }
 
 struct Cookie {
@@ -216,9 +216,9 @@ struct Cookie {
                                                              "expires")) {
         std::cout << "Expires!" << std::endl;
         cookie.has_expiry_ = true;
-        int64_t seconds = ParseDate(cookie_attr_value);
+        std::chrono::seconds seconds = ParseDate(cookie_attr_value);
         cookie.expiration_time_ =
-            std::chrono::system_clock::from_time_t(static_cast<time_t>(seconds));
+            std::chrono::time_point<std::chrono::system_clock>(seconds);
       }
     }
 
@@ -227,16 +227,25 @@ struct Cookie {
 
   bool IsExpired() const {
     // Check if current-time is less than creation time.
-    std::cout << "Expiration time: ";
-    std::cout << expiration_time_.time_since_epoch().count();
-    std::cout << std::endl;
-    std::cout << "Current time: ";
-    std::cout << std::chrono::system_clock::now().time_since_epoch().count();
-    std::cout << std::endl;
-    std::cout << "Expiration time < Current time: ";
-    std::cout << (expiration_time_ <= std::chrono::system_clock::now());
-    std::cout << std::endl;
-    return has_expiry_ && (expiration_time_ <= std::chrono::system_clock::now());
+    if (has_expiry_) {
+      // Converting std::chrono time_points to uint64_t ticks because MinGW returns a
+      // negative number for large values.
+      uint64_t expiry_time =
+          static_cast<uint64_t>(expiration_time_.time_since_epoch().count());
+      uint64_t current_time = static_cast<uint64_t>(
+          std::chrono::system_clock::now().time_since_epoch().count());
+      std::cout << "Expiration time: ";
+      std::cout << expiry_time;
+      std::cout << std::endl;
+      std::cout << "Current time: ";
+      std::cout << current_time;
+      std::cout << std::endl;
+      std::cout << "Expiration time < Current time: ";
+      std::cout << (expiry_time <= current_time);
+      std::cout << std::endl;
+      return (expiry_time <= current_time);
+    }
+    return false;
   }
 
   std::string AsCookieString() {
