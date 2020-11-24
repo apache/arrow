@@ -898,7 +898,7 @@ class BearerAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
     return Status::OK();
   }
 
-  bool GetIsValid() { return isValid_; };
+  bool GetIsValid() { return isValid_; }
 
  private:
   bool isValid_;
