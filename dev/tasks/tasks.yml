@@ -689,6 +689,13 @@ tasks:
       - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -810,6 +817,13 @@ tasks:
       - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -906,6 +920,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1005,6 +1024,11 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -1104,6 +1128,116 @@ tasks:
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet300_{no_rc_version}-1_[a-z0-9]+.deb
+
+  ubuntu-groovy-amd64:
+    ci: github
+    template: linux-packages/github.linux.amd64.yml
+    params:
+      build_task: "apt:build"
+      target: "ubuntu-groovy"
+      upload_extensions:
+        - .ddeb
+        - .deb
+        - .debian.tar.xz
+        - .dsc
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma300_{no_rc_version}-1_[a-z0-9]+.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
+
+  ubuntu-groovy-arm64:
+    ci: travis
+    template: linux-packages/travis.linux.arm64.yml
+    params:
+      build_task: "apt:build"
+      target: "ubuntu-groovy-arm64"
+      upload_extensions:
+        - .ddeb
+        - .deb
+        - .debian.tar.xz
+        - .dsc
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
