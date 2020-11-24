@@ -19,35 +19,6 @@
 
 #ifndef _WIN32
 #define HAVE_LANGINFO 1
-#else
-// Custom support for abbreviated months on Windows, this is required for cookie handling.
-size_t MONTH_COUNT = 12;
-const char* MONTHS[] = {
-	"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
-};
-
-// Custom support for abbreviated days on Windows, this is required for cookie handling.
-size_t DAY_COUNT = 7;
-const char* DAYS[] = {
-	"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
-};
-
-int GetNumber(const char *__restrict s, size_t len, const char** table, size_t count) {
-	for (size_t i = 0; i < count; i++) {
-		if (!strncasecmp(s, table[i], len)) return i;
-	}
-	return -1;
-}
-
-int GetMonthNumber(const char *__restrict s, size_t* len) {
-	*len = 3;
-	return GetNumber(s, *len, MONTHS, MONTH_COUNT);
-}
-
-int GetDayNumber(const char *__restrict s, size_t* len) {
-	*len = 3;
-	return GetNumber(s, *len, DAYS, DAY_COUNT);
-}
 #endif
 
 #ifdef HAVE_LANGINFO
@@ -59,9 +30,9 @@ int GetDayNumber(const char *__restrict s, size_t* len) {
 char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__restrict tm)
 {
 	int i, w, neg, adj, min, range, *dest, dummy;
-	size_t len;
 #ifdef HAVE_LANGINFO
 	const char *ex;
+	size_t len;
 #endif
 	int want_century = 0, century = 0, relyear = 0;
 	while (*f) {
@@ -97,17 +68,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		case 'c':
 			s = strptime(s, nl_langinfo(D_T_FMT), tm);
 			if (!s) return 0;
-			break;
-#else
-		case 'a':
-			dest = &tm->tm_wday;
-			*dest = GetDayNumber(s, &len);
-			s += len;
-			break;
-		case 'b':
-			dest = &tm->tm_mon;
-			*dest = GetMonthNumber(s, &len);
-			s += len;
 			break;
 #endif
 		case 'C':
