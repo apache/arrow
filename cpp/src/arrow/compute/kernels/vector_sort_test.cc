@@ -502,9 +502,9 @@ class TestChunkedArrayRandomBase : public TestBase {
 template <typename Type>
 class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
  public:
-  void SetUp() override { this->rand_.reset(new Random<Type>(0x5487655)); }
+  void SetUp() override { rand_ = new Random<Type>(0x5487655); }
 
-  void TearDown() override { this->rand_.release(); }
+  void TearDown() override { delete rand_; }
 
  protected:
   std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
@@ -512,7 +512,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   }
 
  private:
-  std::unique_ptr<Random<Type>> rand_;
+  Random<Type> *rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
 TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(4000); }
@@ -525,10 +525,10 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
  public:
   void SetUp() override {
     range_ = 2000;
-    rand_.reset(new RandomRange<Type>(0x5487655));
+    rand_ = new RandomRange<Type>(0x5487655);
   }
 
-  void TearDown() override { rand_.release(); }
+  void TearDown() override { delete rand_; }
 
  protected:
   std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
@@ -537,7 +537,7 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
 
  private:
   int range_;
-  std::unique_ptr<RandomRange<Type>> rand_;
+  RandomRange<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
 TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(4000); }
