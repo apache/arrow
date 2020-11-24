@@ -386,28 +386,23 @@ impl Expr {
     }
 }
 
-pub struct CaseWhenBuilder {
+pub struct CaseBuilder {
     expr: Option<Box<Expr>>,
     when_expr: Vec<Expr>,
     then_expr: Vec<Expr>,
 }
 
-pub struct CaseThenBuilder {
-    expr: Option<Box<Expr>>,
-    when_expr: Vec<Expr>,
-    then_expr: Vec<Expr>,
-}
-
-impl CaseWhenBuilder {
-    pub fn when(&mut self, expr: Expr) -> CaseThenBuilder {
-        self.when_expr.push(expr);
-        CaseThenBuilder {
+impl CaseBuilder {
+    pub fn when(&mut self, when: Expr, then: Expr) -> CaseBuilder {
+        self.when_expr.push(when);
+        self.then_expr.push(then);
+        CaseBuilder {
             expr: self.expr.clone(),
             when_expr: self.when_expr.clone(),
             then_expr: self.then_expr.clone(),
         }
     }
-    pub fn or_else(&mut self, else_expr: Expr) -> Expr {
+    pub fn otherwise(&mut self, else_expr: Expr) -> Expr {
         Expr::Case {
             expr: self.expr.clone(),
             when_then_expr: self
@@ -433,20 +428,9 @@ impl CaseWhenBuilder {
     }
 }
 
-impl CaseThenBuilder {
-    pub fn then(&mut self, expr: Expr) -> CaseWhenBuilder {
-        self.then_expr.push(expr);
-        CaseWhenBuilder {
-            expr: self.expr.clone(),
-            when_expr: self.when_expr.clone(),
-            then_expr: self.then_expr.clone(),
-        }
-    }
-}
-
 /// Create a CASE WHEN statement with literal WHEN expressions for comparison to the base expression.
-pub fn case(expr: Expr) -> CaseWhenBuilder {
-    CaseWhenBuilder {
+pub fn case(expr: Expr) -> CaseBuilder {
+    CaseBuilder {
         expr: Some(Box::new(expr)),
         when_expr: vec![],
         then_expr: vec![],
@@ -454,11 +438,11 @@ pub fn case(expr: Expr) -> CaseWhenBuilder {
 }
 
 /// Create a CASE WHEN statement with boolean WHEN expressions and no base expression.
-pub fn case_when(when_expr: Expr) -> CaseThenBuilder {
-    CaseThenBuilder {
+pub fn when(when: Expr, then: Expr) -> CaseBuilder {
+    CaseBuilder {
         expr: None,
-        when_expr: vec![when_expr],
-        then_expr: vec![],
+        when_expr: vec![when],
+        then_expr: vec![then],
     }
 }
 

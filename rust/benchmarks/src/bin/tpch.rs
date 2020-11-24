@@ -26,7 +26,7 @@ use arrow::util::pretty;
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::{CsvFile, MemTable, TableProvider};
 use datafusion::error::{DataFusionError, Result};
-use datafusion::logical_plan::{and, case_when, or, LogicalPlan};
+use datafusion::logical_plan::{and, or, when, LogicalPlan};
 use datafusion::physical_plan::csv::CsvExec;
 use datafusion::prelude::*;
 
@@ -222,19 +222,23 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 .aggregate(
                     vec![col("l_shipmode")],
                     vec![
-                        sum(case_when(or(
-                            col("o_orderpriority").eq(lit("1-URGENT")),
-                            col("o_orderpriority").eq(lit("2-HIGH")),
-                        ))
-                        .then(lit(1))
-                        .or_else(lit(0)))
+                        sum(when(
+                            or(
+                                col("o_orderpriority").eq(lit("1-URGENT")),
+                                col("o_orderpriority").eq(lit("2-HIGH")),
+                            ),
+                            lit(1),
+                        )
+                        .otherwise(lit(0)))
                         .alias("high_line_count"),
-                        sum(case_when(and(
-                            col("o_orderpriority").not_eq(lit("1-URGENT")),
-                            col("o_orderpriority").not_eq(lit("2-HIGH")),
-                        ))
-                        .then(lit(1))
-                        .or_else(lit(0)))
+                        sum(when(
+                            and(
+                                col("o_orderpriority").not_eq(lit("1-URGENT")),
+                                col("o_orderpriority").not_eq(lit("2-HIGH")),
+                            ),
+                            lit(1),
+                        )
+                        .otherwise(lit(0)))
                         .alias("low_line_count"),
                     ],
                 )?
