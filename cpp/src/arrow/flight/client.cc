@@ -373,8 +373,9 @@ class GrpcClientInterceptorAdapterFactory
     }
     return new GrpcClientInterceptorAdapter(std::move(middleware));
   }
+
  private:
- std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
 class GrpcClientAuthSender : public ClientAuthSender {
@@ -996,9 +997,9 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status AuthenticateBasicToken(
-      const FlightCallOptions& options, const std::string& username, 
-      const std::string& password, std::pair<std::string, std::string>* bearer_token) {
+  Status AuthenticateBasicToken(const FlightCallOptions& options,
+                                const std::string& username, const std::string& password,
+                                std::pair<std::string, std::string>* bearer_token) {
     // Add basic auth headers to outgoing headers.
     ClientRpc rpc(options);
     internal::AddBasicAuthHeaders(&rpc.context, username, password);
@@ -1225,9 +1226,9 @@ Status FlightClient::Authenticate(const FlightCallOptions& options,
   return impl_->Authenticate(options, std::move(auth_handler));
 }
 
-Status FlightClient::AuthenticateBasicToken(const FlightCallOptions& options,
-    const std::string& username, const std::string& password,
-    std::pair<std::string, std::string>* bearer_token) {
+Status FlightClient::AuthenticateBasicToken(
+    const FlightCallOptions& options, const std::string& username,
+    const std::string& password, std::pair<std::string, std::string>* bearer_token) {
   return impl_->AuthenticateBasicToken(options, username, password, bearer_token);
 }
 

@@ -83,7 +83,6 @@ void GetBearerTokenHeader(grpc::ClientContext& context,
   }
 }
 
-
 }  // namespace internal
 }  // namespace flight
 }  // namespace arrow

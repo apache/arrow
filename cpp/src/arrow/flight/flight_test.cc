@@ -553,6 +553,14 @@ class OptionsTestServer : public FlightServerBase {
   }
 };
 
+class HeaderAuthTestServer : public FlightServerBase {
+ public:
+  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
+                     std::unique_ptr<FlightListing>* listings) override {
+    return Status::OK();
+  }
+};
+
 class TestMetadata : public ::testing::Test {
  public:
   void SetUp() {
@@ -785,6 +793,30 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
+// Function to look in CallHeaders for a key that has a value starting with prefix and
+// return the rest of the value after the prefix.
+std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
+                                          const std::string& key,
+                                          const std::string& prefix) {
+  // Lambda function to compare characters without case sensitivity.
+  auto char_compare = [](const char& char1, const char& char2) {
+    return (std::toupper(char1) == std::toupper(char2));
+  };
+
+  auto iter = incoming_headers.find(key);
+  if (iter == incoming_headers.end()) {
+    return "";
+  }
+  const std::string val = iter->second.to_string();
+  if (val.size() > prefix.length()) {
+    if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
+                   char_compare)) {
+      return val.substr(prefix.length());
+    }
+  }
+  return "";
+}
+
 // A server middleware for validating incoming base64 header authentication.
 class HeaderAuthServerMiddleware : public ServerMiddleware {
  public:
@@ -793,32 +825,12 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
   }
 
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {
-    // Lambda function to compare characters without case sensitivity.
-    auto char_compare = [](const char& char1, const char& char2) {
-      return (std::toupper(char1) == std::toupper(char2));
-    };
-
-    std::string username;
-    std::string password;
-    for (auto& iter : incoming_headers_) {
-      const std::string key = iter.first.to_string();
-      const std::string val = iter.second.to_string();
-      if (key == kAuthHeader) {
-        if (val.size() > strlen(kBasicPrefix)) {
-          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix), kBasicPrefix,
-                         char_compare)) {
-            const std::string encoded_credentials = val.substr(strlen(kBasicPrefix));
-            const std::string decoded_credentials =
-                arrow::util::base64_decode(encoded_credentials);
-            std::stringstream decoded_stream(decoded_credentials);
-            std::getline(decoded_stream, username, ':');
-            std::getline(decoded_stream, password, ':');
-            break;
-          }
-        }
-      }
-    }
-
+    std::string encoded_credentials =
+        FindKeyValPrefixInCallHeaders(incoming_headers_, kAuthHeader, kBasicPrefix);
+    std::stringstream decoded_stream(arrow::util::base64_decode(encoded_credentials));
+    std::string username, password;
+    std::getline(decoded_stream, username, ':');
+    std::getline(decoded_stream, password, ':');
     if ((username == kValidUsername) && (password == kValidPassword)) {
       outgoing_headers->AddHeader(kAuthHeader, std::string(kBearerPrefix) + kBearerToken);
     }
@@ -829,6 +841,29 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
   std::string name() const override { return "HeaderAuthServerMiddleware"; }
 
   CallHeaders incoming_headers_;
+};
+
+// A server middleware for validating incoming bearer header authentication.
+class BearerAuthServerMiddleware : public ServerMiddleware {
+ public:
+  explicit BearerAuthServerMiddleware(const CallHeaders& incoming_headers, bool* isValid)
+      : isValid_(isValid) {
+    incoming_headers_ = incoming_headers;
+  }
+
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {
+    std::string bearer_token =
+        FindKeyValPrefixInCallHeaders(incoming_headers_, kAuthHeader, kBearerPrefix);
+    *isValid_ = (bearer_token == std::string(kBearerToken));
+  }
+
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "BearerAuthServerMiddleware"; }
+
+ private:
+  CallHeaders incoming_headers_;
+  bool* isValid_;
 };
 
 // Factory for base64 header authentication testing.
@@ -845,6 +880,28 @@ class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
     }
     return Status::OK();
   }
+};
+
+// Factory for base64 header authentication testing.
+class BearerAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  BearerAuthServerMiddlewareFactory() : isValid_(false) {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+        incoming_headers.equal_range(kAuthHeader);
+    if (iter_pair.first != iter_pair.second) {
+      *middleware =
+          std::make_shared<BearerAuthServerMiddleware>(incoming_headers, &isValid_);
+    }
+    return Status::OK();
+  }
+
+  bool GetIsValid() { return isValid_; };
+
+ private:
+  bool isValid_;
 };
 
 // A client middleware that adds a thread-local "request ID" to
@@ -1069,13 +1126,17 @@ class TestErrorMiddleware : public ::testing::Test {
 class TestBasicHeaderAuthMiddleware : public ::testing::Test {
  public:
   void SetUp() {
-    server_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
-    ASSERT_OK(MakeServer<FlightServerBase>(
+    header_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
+    bearer_middleware_ = std::make_shared<BearerAuthServerMiddlewareFactory>();
+    std::pair<std::string, std::string> bearer = make_pair(
+        kAuthHeader, std::string(kBearerPrefix) + " " + std::string(kBearerToken));
+    ASSERT_OK(MakeServer<HeaderAuthTestServer>(
         &server_, &client_,
         [&](FlightServerOptions* options) {
           options->auth_handler =
               std::unique_ptr<ServerAuthHandler>(new NoOpAuthHandler());
-          options->middleware.push_back({"header-auth-server", server_middleware_});
+          options->middleware.push_back({"header-auth-server", header_middleware_});
+          options->middleware.push_back({"bearer-auth-server", bearer_middleware_});
           return Status::OK();
         },
         [&](FlightClientOptions* options) { return Status::OK(); }));
@@ -1083,12 +1144,15 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
 
   void RunValidClientAuth() {
     std::pair<std::string, std::string> bearer_token;
-    // Note: Status intentionally ignored because it requires C++ server implementation of
-    // header auth. For now it returns an IOError.
-    arrow::Status status = client_->AuthenticateBasicToken({}, kValidUsername,
-                                                           kValidPassword, &bearer_token);
+    ASSERT_OK(client_->AuthenticateBasicToken({}, kValidUsername, kValidPassword,
+                                              &bearer_token));
     ASSERT_EQ(bearer_token.first, kAuthHeader);
     ASSERT_EQ(bearer_token.second, (std::string(kBearerPrefix) + kBearerToken));
+    std::unique_ptr<FlightListing> listing;
+    FlightCallOptions call_options;
+    call_options.headers.push_back(bearer_token);
+    ASSERT_OK(client_->ListFlights(call_options, {}, &listing));
+    ASSERT_TRUE(bearer_middleware_->GetIsValid());
   }
 
   void RunInvalidClientAuth() {
@@ -1106,7 +1170,8 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
-  std::shared_ptr<HeaderAuthServerMiddlewareFactory> server_middleware_;
+  std::shared_ptr<HeaderAuthServerMiddlewareFactory> header_middleware_;
+  std::shared_ptr<BearerAuthServerMiddlewareFactory> bearer_middleware_;
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
