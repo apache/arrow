@@ -152,6 +152,12 @@ pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
 
 /// Get the Arrow data type from the flatbuffer Field table
 pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
+    get_data_type_context(field, may_be_dictionary)
+        .data_type()
+        .clone()
+}
+
+fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> DataTypeContext {
     if let Some(dictionary) = field.dictionary() {
         if may_be_dictionary {
             let int = dictionary.indexType().unwrap();
@@ -166,14 +172,16 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 (64, false) => DataType::UInt64,
                 _ => panic!("Unexpected bitwidth and signed"),
             };
-            return DataType::Dictionary(
-                Box::new(index_type),
-                Box::new(get_data_type(field, false)),
+            let value_type = get_data_type_context(field, false).data_type().clone();
+            return DataTypeContext::new(
+                DataType::Dictionary(Box::new(index_type), Box::new(value_type)),
+                // taking nullability from parent field
+                field.nullable(),
             );
         }
     }
 
-    match field.type_type() {
+    let data_type = match field.type_type() {
         ipc::Type::Null => DataType::Null,
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
@@ -271,11 +279,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 panic!("expect a list to have one child")
             }
             let child_field = children.get(0);
-            // returning int16 for now, to test, not sure how to get data type
-            DataType::List(Box::new(DataTypeContext::new(
-                get_data_type(child_field, false),
-                child_field.nullable(),
-            )))
+            DataType::List(Box::new(get_data_type_context(child_field, false)))
         }
         ipc::Type::LargeList => {
             let children = field.children().unwrap();
@@ -283,10 +287,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 panic!("expect a large list to have one child")
             }
             let child_field = children.get(0);
-            DataType::LargeList(Box::new(DataTypeContext::new(
-                get_data_type(child_field, false),
-                child_field.nullable(),
-            )))
+            DataType::LargeList(Box::new(get_data_type_context(child_field, false)))
         }
         ipc::Type::FixedSizeList => {
             let children = field.children().unwrap();
@@ -296,10 +297,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             let fsl = field.type_as_fixed_size_list().unwrap();
             let child_field = children.get(0);
             DataType::FixedSizeList(
-                Box::new(DataTypeContext::new(
-                    get_data_type(child_field, false),
-                    child_field.nullable(),
-                )),
+                Box::new(get_data_type_context(child_field, false)),
                 fsl.listSize(),
             )
         }
@@ -314,7 +312,9 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             DataType::Struct(fields)
         }
         t => unimplemented!("Type {:?} not supported", t),
-    }
+    };
+
+    DataTypeContext::new(data_type, field.nullable())
 }
 
 pub(crate) struct FBFieldType<'b> {
