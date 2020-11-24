@@ -414,60 +414,60 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
-  TYPED_TEST(TestStringKernels, ExtractRE2) {
-    RE2Options options{"(?P<letter>[ab])(?P<digit>\\d)"};
-    auto type = struct_({field("letter", this->type()), field("digit", this->type())});
-    // TODO: enable test when the following issue is fixed:
-    // https://issues.apache.org/jira/browse/ARROW-10208
-    // this->CheckUnary(
-    //     "utf8_extract_re2", R"(["a1", "b2", "c3", null])", type,
-    //     R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null,
-    //     null])", &options);
-    this->CheckUnary("utf8_extract_re2", R"(["a1", "b2"])", type,
-                     R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",
-                     &options);
-  }
+}
 
-  TYPED_TEST(TestStringKernels, Strptime) {
-    std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
-    std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
-    StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
-    this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
-  }
+TYPED_TEST(TestStringKernels, ExtractRE2) {
+  RE2Options options{"(?P<letter>[ab])(?P<digit>\\d)"};
+  auto type = struct_({field("letter", this->type()), field("digit", this->type())});
+  // TODO: enable test when the following issue is fixed:
+  // https://issues.apache.org/jira/browse/ARROW-10208
+  // this->CheckUnary(
+  //     "utf8_extract_re2", R"(["a1", "b2", "c3", null])", type,
+  //     R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null,
+  //     null])", &options);
+  this->CheckUnary("utf8_extract_re2", R"(["a1", "b2"])", type,
+                   R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",
+                   &options);
+}
 
-  TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
-    auto input = ArrayFromJSON(this->type(), R"(["2020-05-01", null, "1900-12-11"])");
-    ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
-  }
+TYPED_TEST(TestStringKernels, Strptime) {
+  std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
+  std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+}
+
+TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
+  auto input = ArrayFromJSON(this->type(), R"(["2020-05-01", null, "1900-12-11"])");
+  ASSERT_RAISES(Invalid, CallFunction("strptime", {input}));
+}
 
 #ifdef ARROW_WITH_UTF8PROC
-  TEST(TestStringKernels, UnicodeLibraryAssumptions) {
-    uint8_t output[4];
-    for (utf8proc_int32_t codepoint = 0x100; codepoint < 0x110000; codepoint++) {
-      utf8proc_ssize_t encoded_nbytes = utf8proc_encode_char(codepoint, output);
-      utf8proc_int32_t codepoint_upper = utf8proc_toupper(codepoint);
-      utf8proc_ssize_t encoded_nbytes_upper =
-          utf8proc_encode_char(codepoint_upper, output);
-      // validate that upper casing will only lead to a byte length growth of max 3/2
-      if (encoded_nbytes == 2) {
-        EXPECT_LE(encoded_nbytes_upper, 3)
-            << "Expected the upper case codepoint for a 2 byte encoded codepoint to be "
-               "encoded in maximum 3 bytes, not "
-            << encoded_nbytes_upper;
-      }
-      utf8proc_int32_t codepoint_lower = utf8proc_tolower(codepoint);
-      utf8proc_ssize_t encoded_nbytes_lower =
-          utf8proc_encode_char(codepoint_lower, output);
-      // validate that lower casing will only lead to a byte length growth of max 3/2
-      if (encoded_nbytes == 2) {
-        EXPECT_LE(encoded_nbytes_lower, 3)
-            << "Expected the lower case codepoint for a 2 byte encoded codepoint to be "
-               "encoded in maximum 3 bytes, not "
-            << encoded_nbytes_lower;
-      }
+TEST(TestStringKernels, UnicodeLibraryAssumptions) {
+  uint8_t output[4];
+  for (utf8proc_int32_t codepoint = 0x100; codepoint < 0x110000; codepoint++) {
+    utf8proc_ssize_t encoded_nbytes = utf8proc_encode_char(codepoint, output);
+    utf8proc_int32_t codepoint_upper = utf8proc_toupper(codepoint);
+    utf8proc_ssize_t encoded_nbytes_upper = utf8proc_encode_char(codepoint_upper, output);
+    // validate that upper casing will only lead to a byte length growth of max 3/2
+    if (encoded_nbytes == 2) {
+      EXPECT_LE(encoded_nbytes_upper, 3)
+          << "Expected the upper case codepoint for a 2 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_upper;
+    }
+    utf8proc_int32_t codepoint_lower = utf8proc_tolower(codepoint);
+    utf8proc_ssize_t encoded_nbytes_lower = utf8proc_encode_char(codepoint_lower, output);
+    // validate that lower casing will only lead to a byte length growth of max 3/2
+    if (encoded_nbytes == 2) {
+      EXPECT_LE(encoded_nbytes_lower, 3)
+          << "Expected the lower case codepoint for a 2 byte encoded codepoint to be "
+             "encoded in maximum 3 bytes, not "
+          << encoded_nbytes_lower;
     }
   }
+}
 #endif
 
 }  // namespace compute
-}  // namespace compute
+}  // namespace arrow

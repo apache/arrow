@@ -1299,8 +1299,11 @@ struct ExtractRE2 {
   }
 };
 
+const FunctionDoc utf8_extract_re2_doc("Extract", ("Long.."), {"strings"}, "RE2Options");
+
 void AddExtractRE2(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("utf8_extract_re2", Arity::Unary());
+  auto func = std::make_shared<ScalarFunction>("utf8_extract_re2", Arity::Unary(),
+                                               &utf8_extract_re2_doc);
   using t32 = ExtractRE2<StringType>;
   using t64 = ExtractRE2<LargeStringType>;
   DCHECK_OK(func->AddKernel({utf8()}, {struct_({})}, t32::Exec, t32::State::Init));
