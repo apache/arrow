@@ -227,7 +227,16 @@ struct Cookie {
 
   bool IsExpired() const {
     // Check if current-time is less than creation time.
-    return has_expiry_ && expiration_time_ <= std::chrono::system_clock::now();
+    std::cout << "Expiration time: ";
+    std::cout << expiration_time_.time_since_epoch().count();
+    std::cout << std::endl;
+    std::cout << "Current time: ";
+    std::cout << std::chrono::system_clock::now().time_since_epoch().count();
+    std::cout << std::endl;
+    std::cout << "Expiration time < Current time: ";
+    std::cout << (expiration_time_ <= std::chrono::system_clock::now());
+    std::cout << std::endl;
+    return has_expiry_ && (expiration_time_ <= std::chrono::system_clock::now());
   }
 
   std::string AsCookieString() {
