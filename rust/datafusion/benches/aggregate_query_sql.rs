@@ -19,7 +19,7 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::{seq::SliceRandom, rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
@@ -127,11 +127,7 @@ fn create_context(
                     // Integer values between [0, 9].
                     let integer_values_narrow_choices = (0..10).collect::<Vec<u64>>();
                     let integer_values_narrow = (0..batch_size)
-                        .map(|_| {
-                            *integer_values_narrow_choices
-                                .choose(&mut rng)
-                                .unwrap()
-                        })
+                        .map(|_| *integer_values_narrow_choices.choose(&mut rng).unwrap())
                         .collect::<Vec<u64>>();
 
                     RecordBatch::try_new(
@@ -226,7 +222,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             query(
                 ctx.clone(),
-                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t GROUP BY u64_narrow",
             )
         })
@@ -236,9 +232,9 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             query(
                 ctx.clone(),
-                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t \
-                 WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",
+                 WHERE f32 > 10 AND f32 < 20 GROUP BY u64_narrow",
             )
         })
     });

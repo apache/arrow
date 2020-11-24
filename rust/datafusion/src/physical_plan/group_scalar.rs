@@ -122,7 +122,9 @@ mod tests {
         match result {
             Err(DataFusionError::Internal(error_message)) => assert_eq!(
                 error_message,
-                String::from("Cannot convert a ScalarValue with associated DataType Float32")
+                String::from(
+                    "Cannot convert a ScalarValue with associated DataType Float32"
+                )
             ),
             _ => panic!("Unexpected result"),
         }
