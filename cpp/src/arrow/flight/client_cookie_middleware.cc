@@ -136,16 +136,15 @@ std::chrono::seconds ParseDate(const std::string& date) {
 
   // Parse out day, month, year, hour, minute, and second. If any come back empty, return
   // 0.
-  const std::string comma = ",";
   size_t offset = 0;
-  const std::string str_day = date_find(comma, offset, 2);
+  const std::string str_day = date_find(",", offset, 2);
   const std::string str_month = date_find(str_day, offset, 3);
   const std::string str_year = date_find(str_month, offset, 4);
   const std::string str_hour = date_find(str_year, offset, 2);
   const std::string str_min = date_find(str_hour, offset, 2);
   const std::string str_sec = date_find(str_min, offset, 2);
-  if ((str_month == "") || (str_day == "") || (str_year == "") || (str_hour == "") ||
-      (str_min == "") || (str_sec == "")) {
+  if (str_month.empty() || str_day.empty() || str_year.empty() || str_hour.empty() ||
+      str_min.empty() || str_sec.empty()) {
     std::cout << "Failure -> empty" << std::endl;
     return std::chrono::seconds(0);
   }
