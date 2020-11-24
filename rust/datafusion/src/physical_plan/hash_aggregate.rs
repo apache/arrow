@@ -656,7 +656,8 @@ fn create_batch_from_map(
                     GroupByScalar::UInt16(n) => Arc::new(UInt16Array::from(vec![*n])),
                     GroupByScalar::UInt32(n) => Arc::new(UInt32Array::from(vec![*n])),
                     GroupByScalar::UInt64(n) => Arc::new(UInt64Array::from(vec![*n])),
-                    GroupByScalar::Utf8(str) => Arc::new(StringArray::from(vec![&**str])),
+                    GroupByScalar::Utf8(str) => Arc::new(StringArray::from(vec![&***str]))
+                    //GroupByScalar::Utf8(str) => Arc::new(StringArray::from(vec![**str])),
                 })
                 .collect::<Vec<ArrayRef>>();
 
@@ -763,7 +764,7 @@ pub(crate) fn create_key(
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                vec[i] = GroupByScalar::Utf8(String::from(array.value(row)))
+                vec[i] = GroupByScalar::Utf8(Box::new(String::from(array.value(row))))
             }
             _ => {
                 // This is internal because we should have caught this before.
