@@ -363,7 +363,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library" ON)
-  define_option(ARROW_WITH_RE2 "Build with support for regular expressions using the re2 library" ON)
+  define_option(ARROW_WITH_RE2
+                "Build with support for regular expressions using the re2 library" ON)
 
   #----------------------------------------------------------------------
   if(MSVC_TOOLCHAIN)
