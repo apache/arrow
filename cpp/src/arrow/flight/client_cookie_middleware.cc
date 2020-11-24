@@ -19,6 +19,7 @@
 
 // Platform-specific defines
 #include <chrono>
+#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -96,6 +97,7 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 //
 // @return 0 on error, epoch seconds for date otherwise.
 uint64_t ParseDate(const std::string& date) {
+  std;:cout << "Parsing " << date << std::endl;
   // Abbreviated months in order.
   static const std::vector<std::string> months = {
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
@@ -127,6 +129,7 @@ uint64_t ParseDate(const std::string& date) {
     char* end_ptr;
     long val = std::strtol(str.c_str(), &end_ptr, 10);
     if (end_ptr == str.c_str()) {
+      std::cout << "Failure - month" << std::endl;
       val = -1;
     }
     return val;
@@ -144,6 +147,7 @@ uint64_t ParseDate(const std::string& date) {
   const std::string str_sec = date_find(str_min, offset, 2);
   if ((str_month == "") || (str_day == "") || (str_year == "") || (str_hour == "") ||
       (str_min == "") || (str_sec == "")) {
+    std::cout << "Failure -> empty" << std::endl;
     return 0;
   }
 
@@ -157,6 +161,7 @@ uint64_t ParseDate(const std::string& date) {
 
   if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
       (sec == -1)) {
+    std::cout << "failure -> -1" << std::endl;
     return 0;
   }
 
@@ -190,6 +195,7 @@ struct Cookie {
     while (pos < cookie_value_str.size() &&
            ParseCookieAttribute(cookie_value_str, pos, cookie_attr_name,
                                 cookie_attr_value)) {
+      std::cout << cookie_attr_name << ":" << cookie_attr_value << std::endl;
       if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name, "max-age")) {
         // Note: max-age takes precedence over expires. We don't really care about other
         // attributes and will arbitrarily take the first max-age. We can stop the loop
@@ -207,6 +213,7 @@ struct Cookie {
         break;
       } else if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name,
                                                              "expires")) {
+        std::cout << "Expires!" << std::endl;
         cookie.has_expiry_ = true;
         int64_t seconds = ParseDate(cookie_attr_value);
         cookie.expiration_time_ =
