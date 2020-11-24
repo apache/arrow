@@ -96,6 +96,8 @@ mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
 cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
 
-debug/arrow-cls-cls-arrow-test
+if [ ! -z "${ARROW_BUILD_TESTS}" ]; then
+    debug/arrow-cls-cls-arrow-test
+fi
 
 popd

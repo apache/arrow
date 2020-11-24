@@ -149,16 +149,16 @@ TEST_F(TestRadosScanTask, Execute) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto object = std::make_shared<RadosObject>("object.1");
-  auto rados_options = RadosOptions::FromPoolName("test_pool");
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
 
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  rados_options->rados_interface_ = mock_rados_interface;
-  rados_options->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
 
   std::shared_ptr<RadosScanTask> task = std::make_shared<RadosScanTask>(
-      options_, ctx_, std::move(object), std::move(rados_options));
+      options_, ctx_, std::move(object), std::move(cluster));
 
   AssertScanTaskEquals(reader.get(), task.get(), false);
 }
@@ -173,15 +173,15 @@ TEST_F(TestRadosFragment, Scan) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto object = std::make_shared<RadosObject>("object.1");
-  auto rados_options = RadosOptions::FromPoolName("test_pool");
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
 
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  rados_options->rados_interface_ = mock_rados_interface;
-  rados_options->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  RadosFragment fragment(schema_, object, rados_options);
+  RadosFragment fragment(schema_, object, cluster);
 
   AssertFragmentEquals(reader.get(), &fragment, 4);
 }
@@ -200,15 +200,15 @@ TEST_F(TestRadosDataset, GetFragments) {
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto rados_options = RadosOptions::FromPoolName("test_pool");
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
 
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  rados_options->rados_interface_ = mock_rados_interface;
-  rados_options->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, rados_options);
+  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
 
   AssertDatasetEquals(reader.get(), dataset.get());
 }
@@ -219,15 +219,15 @@ TEST_F(TestRadosDataset, ReplaceSchema) {
   RadosObjectVector object_vector{std::make_shared<RadosObject>("object.1"),
                                   std::make_shared<RadosObject>("object.2")};
 
-  auto rados_options = RadosOptions::FromPoolName("test_pool");
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
 
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  rados_options->rados_interface_ = mock_rados_interface;
-  rados_options->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, rados_options);
+  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
 
   // drop field
   ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
@@ -298,15 +298,15 @@ TEST_F(TestRadosDataset, EndToEnd) {
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto rados_options = RadosOptions::FromPoolName("test_pool");
+  auto cluster = std::make_shared<RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
 
   auto mock_rados_interface = new MockRados();
   auto mock_ioctx_interface = new MockIoCtx();
 
-  rados_options->rados_interface_ = mock_rados_interface;
-  rados_options->io_ctx_interface_ = mock_ioctx_interface;
+  cluster->rados_interface_ = mock_rados_interface;
+  cluster->io_ctx_interface_ = mock_ioctx_interface;
 
-  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, rados_options);
+  auto dataset = std::make_shared<RadosDataset>(schema_, object_vector, cluster);
   auto context = std::make_shared<ScanContext>();
   auto builder = std::make_shared<ScannerBuilder>(dataset, context);
   auto scanner = builder->Finish().ValueOrDie();
