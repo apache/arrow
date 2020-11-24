@@ -168,6 +168,7 @@ uint64_t ParseDate(const std::string& date) {
   arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(
       arrow_vendored::date::year(year) / (month + 1) / day) + (std::chrono::hours(hour)
           + std::chrono::minutes(min) + std::chrono::seconds(sec));
+  std::cout << "No direct failure: " << secs.time_since_epoch().count() << std::endl;
   return secs.time_since_epoch().count();
 }
 
