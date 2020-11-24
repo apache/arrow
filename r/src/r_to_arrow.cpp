@@ -238,8 +238,13 @@ class RValue {
 
   static Result<int64_t> Convert(const Int64Type*, const RConversionOptions&,
                                  RScalar* value) {
+    // TODO: handle conversion from other types
+    if (value->rtype == INTEGER64) {
+      return *reinterpret_cast<int64_t*>(value->data);
+    }
+
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to int64");
   }
 
   static Result<uint64_t> Convert(const UInt64Type*, const RConversionOptions&,
@@ -353,6 +358,11 @@ bool is_NA<SEXP>(SEXP value) {
   return Rf_isNull(value);
 }
 
+template <>
+bool is_NA<int64_t>(int64_t value) {
+  return value == NA_INT64;
+}
+
 template <RVectorType rtype, typename T, class VisitorFunc>
 inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   RScalar obj{rtype, nullptr, false};
@@ -360,6 +370,18 @@ inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   for (T value : values) {
     obj.data = reinterpret_cast<void*>(&value);
     obj.null = is_NA<T>(value);
+    RETURN_NOT_OK(func(&obj));
+  }
+  return Status::OK();
+}
+
+template <class VisitorFunc>
+inline Status VisitInt64Vector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+  RScalar obj{INTEGER64, nullptr, false};
+  cpp11::doubles values(x);
+  for (double value : values) {
+    obj.data = reinterpret_cast<void*>(&value);
+    obj.null = is_NA<int64_t>(*reinterpret_cast<int64_t*>(&value));
     RETURN_NOT_OK(func(&obj));
   }
   return Status::OK();
@@ -405,6 +427,9 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
     case STRING:
       return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
+
+    case INTEGER64:
+      return VisitInt64Vector<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
 
     case LIST:
       return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
