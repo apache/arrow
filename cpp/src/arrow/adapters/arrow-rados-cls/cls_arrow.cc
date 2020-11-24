@@ -27,18 +27,37 @@ CLS_VER(1, 0)
 CLS_NAME(arrow)
 
 cls_handle_t h_class;
-cls_method_handle_t h_read_and_scan;
+cls_method_handle_t h_read;
 cls_method_handle_t h_write;
+cls_method_handle_t h_scan;
+
+/// \brief Read an entire object.
+///
+/// \param[in] hctx the function execution context.
+/// \param[in] in the input bufferlist.
+/// \param[in] out the output bufferlist.
+static int read(cls_method_context_t hctx, ceph::buffer::list* in,
+                ceph::buffer::list* out) {
+  int ret;
+  ceph::buffer::list bl;
+  ret = cls_cxx_read(hctx, 0, 0, &bl);
+  if (ret < 0) {
+    CLS_ERR("ERROR: failed to read an object");
+    return ret;
+  }
+
+  *out = bl;
+  return 0;
+}
 
 /// \brief Write data to an object.
 ///
-/// \param[in] hctx the function execution context
-/// \param[in] in the input bufferlist
-/// \param[in] out the output bufferlist
+/// \param[in] hctx the function execution context.
+/// \param[in] in the input bufferlist.
+/// \param[in] out the output bufferlist.
 static int write(cls_method_context_t hctx, ceph::buffer::list* in,
                  ceph::buffer::list* out) {
   int ret;
-
   CLS_LOG(0, "create an object");
   ret = cls_cxx_create(hctx, false);
   if (ret < 0) {
@@ -59,11 +78,11 @@ static int write(cls_method_context_t hctx, ceph::buffer::list* in,
 /// \brief Read record batches from an object and
 /// apply the pushed down scan operations on them.
 ///
-/// \param[in] hctx the function execution context
-/// \param[in] in the input bufferlist
-/// \param[in] out the output bufferlist
-static int read_and_scan(cls_method_context_t hctx, ceph::buffer::list* in,
-                         ceph::buffer::list* out) {
+/// \param[in] hctx the function execution context.
+/// \param[in] in the input bufferlist.
+/// \param[in] out the output bufferlist.
+static int scan(cls_method_context_t hctx, ceph::buffer::list* in,
+                ceph::buffer::list* out) {
   int ret;
   arrow::Status arrow_ret;
 
@@ -118,9 +137,8 @@ void __cls_init() {
 
   cls_register("arrow", &h_class);
 
-  cls_register_cxx_method(h_class, "read_and_scan", CLS_METHOD_RD | CLS_METHOD_WR,
-                          read_and_scan, &h_read_and_scan);
-
+  cls_register_cxx_method(h_class, "read", CLS_METHOD_RD | CLS_METHOD_WR, read, &h_read);
   cls_register_cxx_method(h_class, "write", CLS_METHOD_RD | CLS_METHOD_WR, write,
                           &h_write);
+  cls_register_cxx_method(h_class, "scan", CLS_METHOD_RD | CLS_METHOD_WR, scan, &h_scan);
 }

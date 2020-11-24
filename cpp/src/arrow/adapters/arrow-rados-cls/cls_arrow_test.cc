@@ -33,11 +33,11 @@
 
 using arrow::dataset::string_literals::operator"" _;
 
-int create_test_arrow_table(std::shared_ptr<arrow::Table>* out_table) {
+std::shared_ptr<arrow::Table> CreateTestTable() {
   // Create a memory pool
   arrow::MemoryPool* pool = arrow::default_memory_pool();
 
-  // An arrow array builder for each table column
+  // An Arrow array builder for each table column
   arrow::Int32Builder id_builder(pool);
   arrow::DoubleBuilder cost_builder(pool);
   arrow::ListBuilder components_builder(pool,
@@ -78,157 +78,156 @@ int create_test_arrow_table(std::shared_ptr<arrow::Table>* out_table) {
       arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
       arrow::field("cost_components", arrow::list(arrow::float64()))};
   auto schema = std::make_shared<arrow::Schema>(schema_vector);
-  *out_table = arrow::Table::Make(schema, {id_array, cost_array, cost_components_array});
-
-  if (*out_table == nullptr) {
-    return -1;
-  }
-  return 0;
+  return arrow::Table::Make(schema, {id_array, cost_array, cost_components_array});
 }
 
-arrow::RecordBatchVector create_test_record_batches() {
-  std::shared_ptr<arrow::Table> table;
-  create_test_arrow_table(&table);
+arrow::RecordBatchVector CreateTestRecordBatches() {
+  auto table = CreateTestTable();
   arrow::TableBatchReader table_reader(*table);
   arrow::RecordBatchVector batches;
   table_reader.ReadAll(&batches);
   return batches;
 }
 
-TEST(ClsSDK, TestWriteAndReadTable) {
-  librados::Rados cluster;
-  std::string pool_name = librados::get_temp_pool_name();
-  ASSERT_EQ("", librados::create_one_pool_pp(pool_name, cluster));
-  librados::IoCtx ioctx;
-  cluster.ioctx_create(pool_name.c_str(), ioctx);
-
-  librados::bufferlist in, out;
-  std::shared_ptr<arrow::Table> table;
-  create_test_arrow_table(&table);
-  arrow::dataset::serialize_table_to_bufferlist(table, in);
-  ASSERT_EQ(0, ioctx.exec("test_object_1", "arrow", "write", in, out));
-
-  librados::bufferlist in_, out_;
-  auto filter = arrow::dataset::scalar(true);
-  auto schema = arrow::schema(
-      {arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
-       arrow::field("cost_components", arrow::list(arrow::float64()))});
-
-  arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_1", "arrow", "read_and_scan", in_, out_));
-  std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
-  ASSERT_EQ(table->Equals(*table_), 1);
-
-  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+arrow::dataset::RadosObjectVector CreateTestObjectVector(std::string id) {
+  auto object = std::make_shared<arrow::dataset::RadosObject>(id);
+  arrow::dataset::RadosObjectVector vector;
+  vector.push_back(object);
+  return vector;
 }
 
-TEST(ClsSDK, TestProjection) {
-  librados::Rados cluster;
-  std::string pool_name = librados::get_temp_pool_name();
-  ASSERT_EQ("", librados::create_one_pool_pp(pool_name, cluster));
-  librados::IoCtx ioctx;
-  cluster.ioctx_create(pool_name.c_str(), ioctx);
+std::shared_ptr<arrow::dataset::RadosCluster> CreateTestClusterHandle() {
+  librados::Rados cluster_;
+  librados::create_one_pool_pp("test-pool", cluster_);
+  auto cluster =
+      std::make_shared<arrow::dataset::RadosCluster>("test-pool", "/etc/ceph/ceph.conf");
+  cluster->Connect();
+  return cluster;
+}
 
-  librados::bufferlist in, out;
-  std::shared_ptr<arrow::Table> table;
-  create_test_arrow_table(&table);
-  arrow::dataset::serialize_table_to_bufferlist(table, in);
-  ASSERT_EQ(0, ioctx.exec("test_object_2", "arrow", "write", in, out));
+TEST(TestClsSDK, WriteAndScanTable) {
+  auto cluster = CreateTestClusterHandle();
+  auto batches = CreateTestRecordBatches();
+  auto table = CreateTestTable();
+  auto objects = CreateTestObjectVector("test.obj.1");
 
-  librados::bufferlist in_, out_;
-  auto filter = arrow::dataset::scalar(true);
-  auto schema =
-      arrow::schema({arrow::field("id", arrow::int32()),
-                     arrow::field("cost_components", arrow::list(arrow::float64()))});
+  /// Write the Fragment.
+  arrow::dataset::RadosFragment::WriteFragment(batches, cluster, objects[0]);
 
+  /// Build the Dataset.
+  arrow::dataset::FinishOptions finish_options;
+  auto factory = arrow::dataset::RadosDatasetFactory::Make(objects, cluster).ValueOrDie();
+  auto dataset = factory->Finish(finish_options).ValueOrDie();
+
+  /// Build the Scanner.
+  auto scanner_builder = dataset->NewScan().ValueOrDie();
+  scanner_builder->Filter(arrow::dataset::scalar(true));
+  scanner_builder->Project(std::vector<std::string>{"id", "cost", "cost_components"});
+  auto scanner = scanner_builder->Finish().ValueOrDie();
+
+  /// Execute Scan and Validate.
+  auto result_table = scanner->ToTable().ValueOrDie();
+  ASSERT_EQ(table->Equals(*result_table), 1);
+}
+
+TEST(TestClsSDK, Projection) {
+  auto cluster = CreateTestClusterHandle();
+  auto batches = CreateTestRecordBatches();
+  auto table = CreateTestTable();
+  auto objects = CreateTestObjectVector("test.obj.2");
+
+  /// Write the Fragment.
+  arrow::dataset::RadosFragment::WriteFragment(batches, cluster, objects[0]);
+
+  /// Build the Dataset.
+  arrow::dataset::FinishOptions finish_options;
+  auto factory = arrow::dataset::RadosDatasetFactory::Make(objects, cluster).ValueOrDie();
+  auto dataset = factory->Finish(finish_options).ValueOrDie();
+
+  /// Build the Scanner.
+  auto scanner_builder = dataset->NewScan().ValueOrDie();
+  scanner_builder->Filter(arrow::dataset::scalar(true));
+  scanner_builder->Project(std::vector<std::string>{"id", "cost_components"});
+  auto scanner = scanner_builder->Finish().ValueOrDie();
+
+  /// Execute Scan and Validate.
+  auto result_table = scanner->ToTable().ValueOrDie();
   auto table_projected = table->RemoveColumn(1).ValueOrDie();
-  arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_2", "arrow", "read_and_scan", in_, out_));
-  std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
-
-  ASSERT_EQ(table->Equals(*table_), 0);
-  ASSERT_EQ(table_projected->Equals(*table_), 1);
-  ASSERT_EQ(table_->num_columns(), 2);
-  ASSERT_EQ(table_->schema()->Equals(*schema), 1);
-
-  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+  ASSERT_EQ(table->Equals(*result_table), 0);
+  ASSERT_EQ(table_projected->Equals(*result_table), 1);
+  ASSERT_EQ(result_table->num_columns(), 2);
 }
 
-TEST(ClsSDK, TestSelection) {
-  librados::Rados cluster;
-  std::string pool_name = librados::get_temp_pool_name();
-  ASSERT_EQ("", librados::create_one_pool_pp(pool_name, cluster));
-  librados::IoCtx ioctx;
-  cluster.ioctx_create(pool_name.c_str(), ioctx);
+TEST(TestClsSDK, Selection) {
+  auto cluster = CreateTestClusterHandle();
+  auto batches = CreateTestRecordBatches();
+  auto table = CreateTestTable();
+  auto objects = CreateTestObjectVector("test.obj.3");
 
-  librados::bufferlist in, out;
-  std::shared_ptr<arrow::Table> table;
-  create_test_arrow_table(&table);
-  arrow::dataset::serialize_table_to_bufferlist(table, in);
-  ASSERT_EQ(0, ioctx.exec("test_object_3", "arrow", "write", in, out));
+  /// Write the Fragment.
+  arrow::dataset::RadosFragment::WriteFragment(batches, cluster, objects[0]);
 
-  librados::bufferlist in_, out_;
-  std::shared_ptr<arrow::dataset::Expression> filter =
-      ("id"_ == int32_t(8) || "id"_ == int32_t(7)).Copy();
-  auto schema = arrow::schema(
-      {arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
-       arrow::field("cost_components", arrow::list(arrow::float64()))});
-  arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_3", "arrow", "read_and_scan", in_, out_));
-  std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
-  ASSERT_EQ(table_->num_rows(), 2);
-  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+  /// Build the Dataset.
+  arrow::dataset::FinishOptions finish_options;
+  auto factory = arrow::dataset::RadosDatasetFactory::Make(objects, cluster).ValueOrDie();
+  auto dataset = factory->Finish(finish_options).ValueOrDie();
+
+  /// Build the Scanner.
+  auto scanner_builder = dataset->NewScan().ValueOrDie();
+  auto filter = ("id"_ == int32_t(8) || "id"_ == int32_t(7)).Copy();
+  scanner_builder->Filter(filter);
+  scanner_builder->Project(std::vector<std::string>{"id", "cost", "cost_components"});
+  auto scanner = scanner_builder->Finish().ValueOrDie();
+
+  /// Execute Scan and Validate.
+  auto result_table = scanner->ToTable().ValueOrDie();
+  ASSERT_EQ(result_table->num_rows(), 2);
 }
 
-TEST(ClsSDK, TestEndToEnd) {
-  /// Create a test pool in the Cluster.
-  librados::Rados cluster;
-  librados::create_one_pool_pp("test-pool", cluster);
-
-  /// Instantiate the RadosDataset.
-  auto options = arrow::dataset::RadosOptions::FromPoolName("test-pool");
-  auto schema = arrow::schema(
-      {arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
-       arrow::field("cost_components", arrow::list(arrow::float64()))});
-  arrow::dataset::RadosObjectVector objects;
-  for (int i = 0; i < 4; i++)
-    objects.push_back(
-        std::make_shared<arrow::dataset::RadosObject>("obj." + std::to_string(i)));
-  auto rados_ds =
-      std::make_shared<arrow::dataset::RadosDataset>(schema, objects, options);
+TEST(TestClsSDK, EndToEnd) {
+  auto cluster = CreateTestClusterHandle();
+  auto batches = CreateTestRecordBatches();
 
   /// Prepare RecordBatches and Write the fragments.
-  auto record_batches = create_test_record_batches();
+  arrow::dataset::RadosObjectVector objects;
   for (int i = 0; i < 4; i++) {
-    arrow::dataset::RadosFragment::WriteFragment(record_batches, options, objects[i]);
+    std::string id = "test.obj." + std::to_string(i);
+    auto object = CreateTestObjectVector(id)[0];
+    objects.push_back(object);
+    arrow::dataset::RadosFragment::WriteFragment(batches, cluster, object);
   }
 
-  /// Perform filter and projection on the RadosDataset.
+  /// Create a RadosDataset and apply Scan operations.
+  arrow::dataset::FinishOptions finish_options;
+  auto rados_ds_factory =
+      arrow::dataset::RadosDatasetFactory::Make(objects, cluster).ValueOrDie();
+  auto rados_ds = rados_ds_factory->Finish(finish_options).ValueOrDie();
   auto rados_scanner_builder = rados_ds->NewScan().ValueOrDie();
   rados_scanner_builder->Filter(("id"_ > int32_t(7)).Copy());
   rados_scanner_builder->Project(std::vector<std::string>{"cost", "id"});
   auto rados_scanner = rados_scanner_builder->Finish().ValueOrDie();
   auto result_table = rados_scanner->ToTable().ValueOrDie();
 
-  /// Perform the same operations through an InMemoryDataset.
-  arrow::RecordBatchVector batches;
-  for (auto batch : record_batches) {
-    batches.push_back(batch);
-    batches.push_back(batch);
-    batches.push_back(batch);
-    batches.push_back(batch);
+  /// Create an InMemoryDataset and apply Scan operations.
+  arrow::RecordBatchVector batches_;
+  for (auto batch : batches) {
+    batches_.push_back(batch);
+    batches_.push_back(batch);
+    batches_.push_back(batch);
+    batches_.push_back(batch);
   }
 
-  auto inmemory_ds = std::make_shared<arrow::dataset::InMemoryDataset>(schema, batches);
+  auto schema = arrow::schema(
+      {arrow::field("id", arrow::int32()), arrow::field("cost", arrow::float64()),
+       arrow::field("cost_components", arrow::list(arrow::float64()))});
+
+  auto inmemory_ds = std::make_shared<arrow::dataset::InMemoryDataset>(schema, batches_);
   auto inmemory_scanner_builder = inmemory_ds->NewScan().ValueOrDie();
   inmemory_scanner_builder->Filter(("id"_ > int32_t(7)).Copy());
   inmemory_scanner_builder->Project(std::vector<std::string>{"cost", "id"});
   auto inmemory_scanner = inmemory_scanner_builder->Finish().ValueOrDie();
   auto expected_table = inmemory_scanner->ToTable().ValueOrDie();
 
-  /// Check if both the result Tables are same or not.
+  /// Check if both the Tables are same or not.
   ASSERT_EQ(result_table->Equals(*expected_table), 1);
 }
