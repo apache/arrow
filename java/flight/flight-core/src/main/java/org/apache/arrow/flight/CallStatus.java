@@ -49,6 +49,7 @@ public class CallStatus {
   public static final CallStatus UNAUTHORIZED = FlightStatusCode.UNAUTHORIZED.toStatus();
   public static final CallStatus UNIMPLEMENTED = FlightStatusCode.UNIMPLEMENTED.toStatus();
   public static final CallStatus UNAVAILABLE = FlightStatusCode.UNAVAILABLE.toStatus();
+  public static final CallStatus TOKEN_EXPIRED = FlightStatusCode.TOKEN_EXPIRED.toStatus();
 
   /**
    * Create a new status.

@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 import javax.net.ssl.SSLException;
 
@@ -87,6 +88,8 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
+  private CredentialCallOption basicAuthCredentialCallOption;
+  private CredentialCallOption bearerAuthCredentialCallOption;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
@@ -118,22 +121,24 @@ public class FlightClient implements AutoCloseable {
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
-    final Iterator<Flight.FlightInfo> flights;
-    try {
-      flights = CallOptions.wrapStub(blockingStub, options)
-          .listFlights(criteria.asCriteria());
-    } catch (StatusRuntimeException sre) {
-      throw StatusUtils.fromGrpcRuntimeException(sre);
-    }
-    return () -> StatusUtils.wrapIterator(flights, t -> {
+    return callApiWithRetry(o -> {
+      final Iterator<Flight.FlightInfo> flights;
       try {
-        return new FlightInfo(t);
-      } catch (URISyntaxException e) {
-        // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-        // itself wouldn't be able to construct an invalid Location.
-        throw new RuntimeException(e);
+        flights = CallOptions.wrapStub(blockingStub, options)
+                .listFlights(criteria.asCriteria());
+      } catch (StatusRuntimeException sre) {
+        throw StatusUtils.fromGrpcRuntimeException(sre);
       }
-    });
+      return () -> StatusUtils.wrapIterator(flights, t -> {
+        try {
+          return new FlightInfo(t);
+        } catch (URISyntaxException e) {
+          // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+          // itself wouldn't be able to construct an invalid Location.
+          throw new RuntimeException(e);
+        }
+      });
+    }, options);
   }
 
   /**
@@ -142,14 +147,16 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for the call.
    */
   public Iterable<ActionType> listActions(CallOption... options) {
-    final Iterator<Flight.ActionType> actions;
-    try {
-      actions = CallOptions.wrapStub(blockingStub, options)
-          .listActions(Empty.getDefaultInstance());
-    } catch (StatusRuntimeException sre) {
-      throw StatusUtils.fromGrpcRuntimeException(sre);
-    }
-    return () -> StatusUtils.wrapIterator(actions, ActionType::new);
+    return callApiWithRetry(o -> {
+      final Iterator<Flight.ActionType> actions;
+      try {
+        actions = CallOptions.wrapStub(blockingStub, o)
+                .listActions(Empty.getDefaultInstance());
+      } catch (StatusRuntimeException sre) {
+        throw StatusUtils.fromGrpcRuntimeException(sre);
+      }
+      return () -> StatusUtils.wrapIterator(actions, ActionType::new);
+    }, options);
   }
 
   /**
@@ -196,9 +203,10 @@ public class FlightClient implements AutoCloseable {
     final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
             new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
     middleware.add(clientAuthMiddleware);
-    handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
-
-    return Optional.ofNullable(clientAuthMiddleware.getCredentialCallOption());
+    basicAuthCredentialCallOption = new CredentialCallOption(new BasicAuthCredentialWriter(username, password));
+    handshake(basicAuthCredentialCallOption);
+    bearerAuthCredentialCallOption = clientAuthMiddleware.getCredentialCallOption();
+    return Optional.ofNullable(bearerAuthCredentialCallOption);
   }
 
   /**
@@ -386,6 +394,42 @@ public class FlightClient implements AutoCloseable {
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
+  }
+
+  /**
+   * Helper Method to retry the Flight API call if it encounters FlightStatusCode.TOKEN_EXPIRED.
+   * @param func Function to execute.
+   * @param options RPC-layer hints for this call.
+   * @param <R> The return type of the function.
+   * @return The result of the function.
+   */
+  private <R> R callApiWithRetry(Function<CallOption[], R> func, CallOption... options) {
+    R result = null;
+    try {
+      // TODO: Call the apply function immediately rather than lazily.
+      result = func.apply(options);
+    } catch (FlightRuntimeException ex) {
+      // Retry the API call when TOKEN_EXPIRED is encountered.
+      if (ex.status().code() == FlightStatusCode.TOKEN_EXPIRED) {
+        for (int i = 0; i < options.length; i++) {
+          if (options[i] instanceof CredentialCallOption) {
+            // TODO: Find a better way to differentiate between the type of credential writer being used.
+            options[i] = basicAuthCredentialCallOption;
+            break;
+          }
+        }
+        result = func.apply(options);
+        for (FlightClientMiddleware.Factory factory : middleware) {
+          if (factory instanceof ClientIncomingAuthHeaderMiddleware.Factory) {
+            bearerAuthCredentialCallOption = (
+                    (ClientIncomingAuthHeaderMiddleware.Factory) factory)
+                    .getCredentialCallOption();
+            break;
+          }
+        }
+      }
+    }
+    return result;
   }
 
   /** A pair of a reader and a writer for a DoExchange call. */
