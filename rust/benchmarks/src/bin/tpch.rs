@@ -353,3 +353,36 @@ fn get_schema(table: &str) -> Schema {
         _ => unimplemented!(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[tokio::test]
+    async fn q1() -> Result<()> {
+        verify_query(1).await
+    }
+
+    #[tokio::test]
+    async fn q12() -> Result<()> {
+        verify_query(12).await
+    }
+
+    async fn verify_query(n: usize) -> Result<()> {
+        if let Ok(path) = env::var("TPCH_DATA") {
+            let opt = BenchmarkOpt {
+                query: n,
+                debug: false,
+                iterations: 1,
+                concurrency: 2,
+                batch_size: 4096,
+                path: PathBuf::from(path),
+                file_format: "tbl".to_string(),
+                mem_table: false,
+            };
+            benchmark(opt).await?
+        }
+        Ok(())
+    }
+}
