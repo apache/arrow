@@ -916,6 +916,20 @@ async fn case_when() -> Result<()> {
     let sql = "SELECT \
         CASE WHEN c1 = 'a' THEN 1 \
              WHEN c1 = 'b' THEN 2 \
+             END \
+        FROM t1";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"], vec!["2"], vec!["NULL"], vec!["NULL"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn case_when_else() -> Result<()> {
+    let mut ctx = create_case_context()?;
+    let sql = "SELECT \
+        CASE WHEN c1 = 'a' THEN 1 \
+             WHEN c1 = 'b' THEN 2 \
              ELSE 999 END \
         FROM t1";
     let actual = execute(&mut ctx, sql).await;
@@ -926,6 +940,20 @@ async fn case_when() -> Result<()> {
 
 #[tokio::test]
 async fn case_when_with_base_expr() -> Result<()> {
+    let mut ctx = create_case_context()?;
+    let sql = "SELECT \
+        CASE c1 WHEN 'a' THEN 1 \
+             WHEN 'b' THEN 2 \
+             END \
+        FROM t1";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"], vec!["2"], vec!["NULL"], vec!["NULL"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn case_when_else_with_base_expr() -> Result<()> {
     let mut ctx = create_case_context()?;
     let sql = "SELECT \
         CASE c1 WHEN 'a' THEN 1 \
