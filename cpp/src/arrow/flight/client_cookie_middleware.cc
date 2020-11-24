@@ -106,7 +106,7 @@ uint64_t ParseDate(const std::string& date) {
     std::vector<const std::string>::iterator it = 
       std::find(months.begin(), months.end(), month);
     if (it != months.end()) {
-      return (it - months.begin());
+      return static_cast<long>(it - months.begin());
     } else {
       return -1L;
     }
