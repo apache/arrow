@@ -118,12 +118,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 # protobuf-internal.cc
 set(ARROW_FLIGHT_SRCS
     client.cc
+    client_header_auth_middleware_internal.cc
     internal.cc
     protocol_internal.cc
     serialization_internal.cc
     server.cc
     server_auth.cc
-    client_header_auth_middleware_internal.cc
     types.cc)
 
 add_arrow_lib(arrow_flight
@@ -214,17 +214,16 @@ if(ARROW_BUILD_INTEGRATION)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::gtest)
 
-  add_executable(flight-test-integration-client-header-auth
-                 test_integration_client_header_auth.cc)
-  target_link_libraries(flight-test-integration-client-header-auth 
-                        ${ARROW_FLIGHT_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES} GTest::gtest)
+  add_executable(flight-test-integration-client-header-auth test_integration_client_header_auth.cc)
+  target_link_libraries(flight-test-integration-client-header-auth ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow_flight flight-test-integration-client
-                   flight-test-integration-server
-                   flight-test-integration-client-header-auth)
+                                flight-test-integration-client-header-auth
+                                flight-test-integration-server)
   add_dependencies(arrow-integration flight-test-integration-client
-                   flight-test-integration-server
-                   flight-test-integration-client-header-auth)
+                                     flight-test-integration-client-header-auth
+                                     flight-test-integration-server)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
