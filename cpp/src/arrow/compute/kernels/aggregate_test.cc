@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 
 #include "arrow/testing/gtest_common.h"
@@ -724,6 +725,59 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
       }
     }
   }
+}
+
+//
+// Any
+//
+
+class TestPrimitiveAnyKernel : public ::testing::Test {
+ public:
+  void AssertAnyIs(const Datum& array, bool expected) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Any(array));
+    const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
+    const auto expected_any = static_cast<const BooleanScalar>(expected);
+    ASSERT_EQ(out_any, expected_any);
+  }
+
+  void AssertAnyIs(const std::string& json, bool expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertAnyIs(array, expected);
+  }
+
+  void AssertAnyIs(const std::vector<std::string>& json, bool expected) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertAnyIs(array, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<BooleanType>::type_singleton();
+  }
+};
+
+class TestAnyKernel : public TestPrimitiveAnyKernel {};
+
+TEST_F(TestAnyKernel, Basics) {
+  std::vector<std::string> chunked_input0 = {"[]", "[true]"};
+  std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
+  std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
+  std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
+  std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
+
+  this->AssertAnyIs("[]", false);
+  this->AssertAnyIs("[false]", false);
+  this->AssertAnyIs("[true, false]", true);
+  this->AssertAnyIs("[null, null, null]", false);
+  this->AssertAnyIs("[false, false, false]", false);
+  this->AssertAnyIs("[false, false, false, null]", false);
+  this->AssertAnyIs("[true, null, true, true]", true);
+  this->AssertAnyIs("[false, null, false, true]", true);
+  this->AssertAnyIs("[true, null, false, true]", true);
+  this->AssertAnyIs(chunked_input0, true);
+  this->AssertAnyIs(chunked_input1, true);
+  this->AssertAnyIs(chunked_input2, false);
+  this->AssertAnyIs(chunked_input3, false);
+  this->AssertAnyIs(chunked_input4, true);
 }
 
 //

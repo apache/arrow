@@ -18,7 +18,7 @@
 //! Contains implementation of record assembly and converting Parquet types into
 //! [`Row`](crate::record::api::Row)s.
 
-use std::{collections::HashMap, fmt, rc::Rc};
+use std::{collections::HashMap, fmt, sync::Arc};
 
 use crate::basic::{LogicalType, Repetition};
 use crate::errors::{ParquetError, Result};
@@ -277,7 +277,7 @@ impl TreeBuilder {
                     path.pop();
 
                     let reader = self.reader_tree(
-                        Rc::new(required_field),
+                        Arc::new(required_field),
                         &mut path,
                         curr_def_level,
                         curr_rep_level,
@@ -737,7 +737,7 @@ impl<'a> RowIter<'a> {
                 if !root_schema.check_contains(&projection) {
                     return Err(general_err!("Root schema does not contain projection"));
                 }
-                Ok(Rc::new(SchemaDescriptor::new(Rc::new(projection))))
+                Ok(Arc::new(SchemaDescriptor::new(Arc::new(projection))))
             }
             None => Ok(root_descr),
         }

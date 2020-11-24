@@ -15,17 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
-use std::rc::Rc;
+use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::sync::{Arc, Mutex};
 use std::{cmp, fmt};
+
+use crate::file::writer::TryClone;
 
 /// This is object to use if your file is already in memory.
 /// The sliceable cursor is similar to std::io::Cursor, except that it makes it easy to create "cursor slices".
-/// To achieve this, it uses Rc instead of shared references. Indeed reference fields are painfull
+/// To achieve this, it uses Arc instead of shared references. Indeed reference fields are painfull
 /// because the lack of Generic Associated Type implies that you would require complex lifetime propagation when
 /// returning such a cursor.
 pub struct SliceableCursor {
-    inner: Rc<Vec<u8>>,
+    inner: Arc<Vec<u8>>,
     start: u64,
     length: usize,
     pos: u64,
@@ -46,7 +48,7 @@ impl SliceableCursor {
     pub fn new(content: Vec<u8>) -> Self {
         let size = content.len();
         SliceableCursor {
-            inner: Rc::new(content),
+            inner: Arc::new(content),
             start: 0,
             pos: 0,
             length: size,
@@ -62,7 +64,7 @@ impl SliceableCursor {
             return Err(Error::new(ErrorKind::InvalidInput, "out of bound"));
         }
         Ok(SliceableCursor {
-            inner: Rc::clone(&self.inner),
+            inner: Arc::clone(&self.inner),
             start: new_start,
             pos: new_start,
             length,
@@ -126,6 +128,56 @@ impl Seek for SliceableCursor {
             self.pos = new_pos as u64;
             Ok(self.start)
         }
+    }
+}
+
+/// Use this type to write Parquet to memory rather than a file.
+#[derive(Debug, Default, Clone)]
+pub struct InMemoryWriteableCursor {
+    buffer: Arc<Mutex<Cursor<Vec<u8>>>>,
+}
+
+impl InMemoryWriteableCursor {
+    /// Consume this instance and return the underlying buffer as long as there are no other
+    /// references to this instance.
+    pub fn into_inner(self) -> Option<Vec<u8>> {
+        Arc::try_unwrap(self.buffer)
+            .ok()
+            .and_then(|mutex| mutex.into_inner().ok())
+            .map(|cursor| cursor.into_inner())
+    }
+
+    /// Returns a clone of the underlying buffer
+    pub fn data(&self) -> Vec<u8> {
+        let inner = self.buffer.lock().unwrap();
+        inner.get_ref().to_vec()
+    }
+}
+
+impl TryClone for InMemoryWriteableCursor {
+    fn try_clone(&self) -> std::io::Result<Self> {
+        Ok(Self {
+            buffer: self.buffer.clone(),
+        })
+    }
+}
+
+impl Write for InMemoryWriteableCursor {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut inner = self.buffer.lock().unwrap();
+        inner.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut inner = self.buffer.lock().unwrap();
+        inner.flush()
+    }
+}
+
+impl Seek for InMemoryWriteableCursor {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let mut inner = self.buffer.lock().unwrap();
+        inner.seek(pos)
     }
 }
 

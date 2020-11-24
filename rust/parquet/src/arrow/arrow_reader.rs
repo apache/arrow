@@ -28,7 +28,6 @@ use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::StructArray, error::ArrowError};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Arrow reader api.
@@ -77,7 +76,7 @@ pub trait ArrowReader {
 }
 
 pub struct ParquetFileArrowReader {
-    file_reader: Rc<dyn FileReader>,
+    file_reader: Arc<dyn FileReader>,
 }
 
 impl ArrowReader for ParquetFileArrowReader {
@@ -152,7 +151,7 @@ impl ArrowReader for ParquetFileArrowReader {
 }
 
 impl ParquetFileArrowReader {
-    pub fn new(file_reader: Rc<dyn FileReader>) -> Self {
+    pub fn new(file_reader: Arc<dyn FileReader>) -> Self {
         Self { file_reader }
     }
 }
@@ -255,7 +254,7 @@ mod tests {
     use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn test_arrow_reader_all_columns() {
@@ -475,14 +474,14 @@ mod tests {
 
         let path = get_temp_filename();
 
-        let schema = parse_message_type(message_type).map(Rc::new).unwrap();
+        let schema = parse_message_type(message_type).map(Arc::new).unwrap();
 
         generate_single_column_file_with_data::<T>(&values, path.as_path(), schema)
             .unwrap();
 
         let parquet_reader =
             SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
 
         let mut record_reader = arrow_reader
             .get_record_reader(opts.record_batch_size)
@@ -527,7 +526,7 @@ mod tests {
         schema: TypePtr,
     ) -> Result<()> {
         let file = File::create(path)?;
-        let writer_props = Rc::new(WriterProperties::builder().build());
+        let writer_props = Arc::new(WriterProperties::builder().build());
 
         let mut writer = SerializedFileWriter::new(file, schema, writer_props)?;
 
@@ -547,13 +546,13 @@ mod tests {
         writer.close()
     }
 
-    fn get_test_reader(file_name: &str) -> Rc<dyn FileReader> {
+    fn get_test_reader(file_name: &str) -> Arc<dyn FileReader> {
         let file = get_test_file(file_name);
 
         let reader =
             SerializedFileReader::new(file).expect("Failed to create serialized reader");
 
-        Rc::new(reader)
+        Arc::new(reader)
     }
 
     fn get_test_file(file_name: &str) -> File {

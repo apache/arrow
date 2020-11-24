@@ -97,7 +97,6 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 //
 // @return 0 on error, epoch seconds for date otherwise.
 std::chrono::seconds ParseDate(const std::string& date) {
-  std::cout << "Parsing " << date << std::endl;
   // Abbreviated months in order.
   static const std::vector<std::string> months = {
       "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
@@ -128,7 +127,6 @@ std::chrono::seconds ParseDate(const std::string& date) {
     char* end_ptr;
     int32_t val = static_cast<int32_t>(std::strtol(str.c_str(), &end_ptr, 10));
     if (end_ptr == str.c_str()) {
-      std::cout << "Failure - month" << std::endl;
       val = -1;
     }
     return val;
@@ -145,7 +143,6 @@ std::chrono::seconds ParseDate(const std::string& date) {
   const std::string str_sec = date_find(str_min, offset, 2);
   if (str_month.empty() || str_day.empty() || str_year.empty() || str_hour.empty() ||
       str_min.empty() || str_sec.empty()) {
-    std::cout << "Failure -> empty" << std::endl;
     return std::chrono::seconds(0);
   }
 
@@ -159,7 +156,6 @@ std::chrono::seconds ParseDate(const std::string& date) {
 
   if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
       (sec == -1)) {
-    std::cout << "failure -> -1" << std::endl;
     return std::chrono::seconds(0);
   }
 
@@ -167,7 +163,6 @@ std::chrono::seconds ParseDate(const std::string& date) {
       arrow_vendored::date::sys_days(arrow_vendored::date::year(year) / (month + 1) /
                                      day) +
       (std::chrono::hours(hour) + std::chrono::minutes(min) + std::chrono::seconds(sec));
-  std::cout << "No direct failure: " << secs.time_since_epoch().count() << std::endl;
   return secs.time_since_epoch();
 }
 
@@ -195,7 +190,6 @@ struct Cookie {
     while (pos < cookie_value_str.size() &&
            ParseCookieAttribute(cookie_value_str, pos, cookie_attr_name,
                                 cookie_attr_value)) {
-      std::cout << cookie_attr_name << ":" << cookie_attr_value << std::endl;
       if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name, "max-age")) {
         // Note: max-age takes precedence over expires. We don't really care about other
         // attributes and will arbitrarily take the first max-age. We can stop the loop
@@ -213,11 +207,9 @@ struct Cookie {
         break;
       } else if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name,
                                                              "expires")) {
-        std::cout << "Expires!" << std::endl;
         cookie.has_expiry_ = true;
-        std::chrono::seconds seconds = ParseDate(cookie_attr_value);
-        cookie.expiration_time_ =
-            std::chrono::time_point<std::chrono::system_clock>(seconds);
+        cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
+            ParseDate(cookie_attr_value));
       }
     }
 
@@ -233,15 +225,6 @@ struct Cookie {
           static_cast<uint64_t>(expiration_time_.time_since_epoch().count());
       uint64_t current_time = static_cast<uint64_t>(
           std::chrono::system_clock::now().time_since_epoch().count());
-      std::cout << "Expiration time: ";
-      std::cout << expiry_time;
-      std::cout << std::endl;
-      std::cout << "Current time: ";
-      std::cout << current_time;
-      std::cout << std::endl;
-      std::cout << "Expiration time < Current time: ";
-      std::cout << (expiry_time <= current_time);
-      std::cout << std::endl;
       return (expiry_time <= current_time);
     }
     return false;

@@ -263,6 +263,26 @@ This package contains the libraries for Apache Arrow C++.
 Summary:	Libraries and header files for Apache Arrow C++
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+%if %{have_brotli}
+Requires:	brotli-devel
+%endif
+Requires:	bzip2-devel
+Requires:	libzstd-devel
+Requires:	lz4-devel
+%if %{use_flight}
+BuildRequires:	openssl-devel
+%endif
+%if %{have_rapidjson}
+Requires:	rapidjson-devel
+%endif
+%if %{have_re2}
+Requires:	re2-devel
+%endif
+Requires:	snappy-devel
+%if %{have_utf8proc}
+Requires:	utf8proc-devel
+%endif
+Requires:	zlib-devel
 
 %description devel
 Libraries and header files for Apache Arrow C++.
@@ -284,6 +304,9 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %endif
 %{_libdir}/cmake/arrow/FindLz4.cmake
+%if %{have_re2}
+%{_libdir}/cmake/arrow/FindRE2.cmake
+%endif
 %{_libdir}/cmake/arrow/FindSnappy.cmake
 %if %{have_utf8proc}
 %{_libdir}/cmake/arrow/Findutf8proc.cmake
@@ -398,9 +421,6 @@ Libraries and header files for Gandiva.
 %{_libdir}/cmake/arrow/GandivaConfig*.cmake
 %{_libdir}/cmake/arrow/GandivaTargets*.cmake
 %{_libdir}/cmake/arrow/FindGandiva.cmake
-%if %{have_re2}
-%{_libdir}/cmake/arrow/FindRE2.cmake
-%endif
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
 %{_libdir}/pkgconfig/gandiva.pc

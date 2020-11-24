@@ -17,7 +17,7 @@
 
 //! Contains writer which writes arrow data into parquet data.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use arrow::array as arrow_array;
 use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
@@ -64,7 +64,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
         let file_writer = SerializedFileWriter::new(
             writer.try_clone()?,
             schema.root_schema_ptr(),
-            Rc::new(props),
+            Arc::new(props),
         )?;
 
         Ok(Self {
@@ -265,6 +265,7 @@ fn write_leaves(
         ArrowDataType::FixedSizeList(_, _)
         | ArrowDataType::Boolean
         | ArrowDataType::FixedSizeBinary(_)
+        | ArrowDataType::Decimal(_, _)
         | ArrowDataType::Union(_) => Err(ParquetError::NYI(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
@@ -469,6 +470,7 @@ fn get_levels(
             repetition: None,
         }],
         ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
+        ArrowDataType::Decimal(_, _) => unimplemented!(),
         ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
             let array_data = array.data();
             let child_data = array_data.child_data().get(0).unwrap();
@@ -553,6 +555,7 @@ fn get_levels(
                 | ArrowDataType::Utf8
                 | ArrowDataType::LargeUtf8 => unimplemented!(),
                 ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
+                ArrowDataType::Decimal(_, _) => unimplemented!(),
                 ArrowDataType::LargeBinary => unimplemented!(),
                 ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
                     // nested list
@@ -675,7 +678,9 @@ mod tests {
     use arrow::record_batch::RecordBatch;
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
-    use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
+    use crate::file::{
+        metadata::KeyValue, reader::SerializedFileReader, writer::InMemoryWriteableCursor,
+    };
     use crate::util::test_common::get_temp_file;
 
     #[test]
@@ -701,6 +706,53 @@ mod tests {
         let mut writer = ArrowWriter::try_new(file, Arc::new(schema), None).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
+    }
+
+    #[test]
+    fn roundtrip_bytes() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, true),
+        ]));
+
+        // create some data
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Int32Array::from(vec![Some(1), None, None, Some(4), Some(5)]);
+
+        // build a record batch
+        let expected_batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(a), Arc::new(b)]).unwrap();
+
+        let cursor = InMemoryWriteableCursor::default();
+
+        {
+            let mut writer = ArrowWriter::try_new(cursor.clone(), schema, None).unwrap();
+            writer.write(&expected_batch).unwrap();
+            writer.close().unwrap();
+        }
+
+        let buffer = cursor.into_inner().unwrap();
+
+        let cursor = crate::file::serialized_reader::SliceableCursor::new(buffer);
+        let reader = SerializedFileReader::new(cursor).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(reader));
+        let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
+
+        let actual_batch = record_batch_reader
+            .next()
+            .expect("No batch found")
+            .expect("Unable to get batch");
+
+        assert_eq!(expected_batch.schema(), actual_batch.schema());
+        assert_eq!(expected_batch.num_columns(), actual_batch.num_columns());
+        assert_eq!(expected_batch.num_rows(), actual_batch.num_rows());
+        for i in 0..expected_batch.num_columns() {
+            let expected_data = expected_batch.column(i).data();
+            let actual_data = actual_batch.column(i).data();
+
+            assert_eq!(expected_data, actual_data);
+        }
     }
 
     #[test]
@@ -781,7 +833,7 @@ mod tests {
 
         file.seek(std::io::SeekFrom::Start(0)).unwrap();
         let file_reader = SerializedFileReader::new(file).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(file_reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
         let batch = record_batch_reader.next().unwrap().unwrap();
@@ -894,7 +946,7 @@ mod tests {
         writer.close().unwrap();
 
         let reader = SerializedFileReader::new(file).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(reader));
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
         let actual_batch = record_batch_reader

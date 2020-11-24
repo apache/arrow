@@ -24,6 +24,11 @@ use arrow::datatypes::{Schema, SchemaRef};
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::prelude::{col, lit};
+use crate::scalar::ScalarValue;
+
+const CASE_EXPR_MARKER: &str = "__DATAFUSION_CASE_EXPR__";
+const CASE_ELSE_MARKER: &str = "__DATAFUSION_CASE_ELSE__";
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -60,6 +65,24 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::BinaryExpr { left, right, .. } => {
             expr_to_column_names(left, accum)?;
             expr_to_column_names(right, accum)?;
+            Ok(())
+        }
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+            ..
+        } => {
+            if let Some(e) = expr {
+                expr_to_column_names(e, accum)?;
+            }
+            for (w, t) in when_then_expr {
+                expr_to_column_names(w, accum)?;
+                expr_to_column_names(t, accum)?;
+            }
+            if let Some(e) = else_expr {
+                expr_to_column_names(e, accum)?
+            }
             Ok(())
         }
         Expr::Cast { expr, .. } => expr_to_column_names(expr, accum),
@@ -118,6 +141,9 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result.extend(aggr_expr.clone());
             result
         }
+        LogicalPlan::Join { on, .. } => {
+            on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect()
+        }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
@@ -139,6 +165,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Filter { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
+        LogicalPlan::Join { left, right, .. } => vec![left, right],
         LogicalPlan::Limit { input, .. } => vec![input],
         LogicalPlan::Extension { node } => node.inputs(),
         // plans without inputs
@@ -180,6 +207,18 @@ pub fn from_plan(
             expr: expr.clone(),
             input: Arc::new(inputs[0].clone()),
         }),
+        LogicalPlan::Join {
+            join_type,
+            on,
+            schema,
+            ..
+        } => Ok(LogicalPlan::Join {
+            left: Arc::new(inputs[0].clone()),
+            right: Arc::new(inputs[1].clone()),
+            join_type: join_type.clone(),
+            on: on.clone(),
+            schema: schema.clone(),
+        }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,
             input: Arc::new(inputs[0].clone()),
@@ -199,26 +238,51 @@ pub fn from_plan(
 
 /// Returns all direct children `Expression`s of `expr`.
 /// E.g. if the expression is "(a + 1) + 1", it returns ["a + 1", "1"] (as Expr objects)
-pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
+pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
     match expr {
-        Expr::BinaryExpr { left, right, .. } => Ok(vec![left, right]),
-        Expr::IsNull(e) => Ok(vec![e]),
-        Expr::IsNotNull(e) => Ok(vec![e]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
-        Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().collect()),
-        Expr::Cast { expr, .. } => Ok(vec![expr]),
+        Expr::BinaryExpr { left, right, .. } => {
+            Ok(vec![left.as_ref().to_owned(), right.as_ref().to_owned()])
+        }
+        Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
+        Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
+        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::AggregateFunction { args, .. } => {
+            Ok(args.iter().map(|e| e.clone()).collect())
+        }
+        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+            ..
+        } => {
+            let mut expr_list: Vec<Expr> = vec![];
+            if let Some(e) = expr {
+                expr_list.push(lit(CASE_EXPR_MARKER));
+                expr_list.push(e.as_ref().to_owned());
+            }
+            for (w, t) in when_then_expr {
+                expr_list.push(w.as_ref().to_owned());
+                expr_list.push(t.as_ref().to_owned());
+            }
+            if let Some(e) = else_expr {
+                expr_list.push(lit(CASE_ELSE_MARKER));
+                expr_list.push(e.as_ref().to_owned());
+            }
+            Ok(expr_list)
+        }
+        Expr::Cast { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Column(_) => Ok(vec![]),
-        Expr::Alias(expr, ..) => Ok(vec![expr]),
+        Expr::Alias(expr, ..) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Literal(_) => Ok(vec![]),
         Expr::ScalarVariable(_) => Ok(vec![]),
-        Expr::Not(expr) => Ok(vec![expr]),
-        Expr::Sort { expr, .. } => Ok(vec![expr]),
+        Expr::Not(expr) => Ok(vec![expr.as_ref().to_owned()]),
+        Expr::Sort { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(expr) => Ok(vec![expr]),
+        Expr::Nested(expr) => Ok(vec![expr.as_ref().to_owned()]),
     }
 }
 
@@ -250,6 +314,42 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             fun: fun.clone(),
             args: expressions.clone(),
         }),
+        Expr::Case { .. } => {
+            let mut base_expr: Option<Box<Expr>> = None;
+            let mut when_then: Vec<(Box<Expr>, Box<Expr>)> = vec![];
+            let mut else_expr: Option<Box<Expr>> = None;
+            let mut i = 0;
+
+            while i < expressions.len() {
+                match &expressions[i] {
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_EXPR_MARKER =>
+                    {
+                        base_expr = Some(Box::new(expressions[i + 1].clone()));
+                        i += 2;
+                    }
+                    Expr::Literal(ScalarValue::Utf8(Some(str)))
+                        if str == CASE_ELSE_MARKER =>
+                    {
+                        else_expr = Some(Box::new(expressions[i + 1].clone()));
+                        i += 2;
+                    }
+                    _ => {
+                        when_then.push((
+                            Box::new(expressions[i].clone()),
+                            Box::new(expressions[i + 1].clone()),
+                        ));
+                        i += 2;
+                    }
+                }
+            }
+
+            Ok(Expr::Case {
+                expr: base_expr,
+                when_then_expr: when_then,
+                else_expr,
+            })
+        }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
             expr: Box::new(expressions[0].clone()),
             data_type: data_type.clone(),

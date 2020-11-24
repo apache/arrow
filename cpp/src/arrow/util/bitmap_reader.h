@@ -69,6 +69,78 @@ class BitmapReader {
   int64_t bit_offset_;
 };
 
+// XXX Cannot name it BitmapWordReader because the name is already used
+// in bitmap_ops.cc
+
+class BitmapUInt64Reader {
+ public:
+  BitmapUInt64Reader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap + start_offset / 8),
+        num_carry_bits_(8 - start_offset % 8),
+        length_(length),
+        remaining_length_(length_) {
+    if (length_ > 0) {
+      // Load carry bits from the first byte's MSBs
+      if (length_ >= num_carry_bits_) {
+        carry_bits_ =
+            LoadPartialWord(static_cast<int8_t>(8 - num_carry_bits_), num_carry_bits_);
+      } else {
+        carry_bits_ = LoadPartialWord(static_cast<int8_t>(8 - num_carry_bits_), length_);
+      }
+    }
+  }
+
+  uint64_t NextWord() {
+    if (ARROW_PREDICT_TRUE(remaining_length_ >= 64 + num_carry_bits_)) {
+      // We can load a full word
+      uint64_t next_word = LoadFullWord();
+      // Carry bits come first, then the (64 - num_carry_bits_) LSBs from next_word
+      uint64_t word = carry_bits_ | (next_word << num_carry_bits_);
+      carry_bits_ = next_word >> (64 - num_carry_bits_);
+      remaining_length_ -= 64;
+      return word;
+    } else if (remaining_length_ > num_carry_bits_) {
+      // We can load a partial word
+      uint64_t next_word =
+          LoadPartialWord(/*bit_offset=*/0, remaining_length_ - num_carry_bits_);
+      uint64_t word = carry_bits_ | (next_word << num_carry_bits_);
+      carry_bits_ = next_word >> (64 - num_carry_bits_);
+      remaining_length_ = std::max<int64_t>(remaining_length_ - 64, 0);
+      return word;
+    } else {
+      remaining_length_ = 0;
+      return carry_bits_;
+    }
+  }
+
+  int64_t position() const { return length_ - remaining_length_; }
+
+  int64_t length() const { return length_; }
+
+ private:
+  uint64_t LoadFullWord() {
+    uint64_t word;
+    memcpy(&word, bitmap_, 8);
+    bitmap_ += 8;
+    return BitUtil::ToLittleEndian(word);
+  }
+
+  uint64_t LoadPartialWord(int8_t bit_offset, int64_t num_bits) {
+    uint64_t word = 0;
+    const int64_t num_bytes = BitUtil::BytesForBits(num_bits);
+    memcpy(&word, bitmap_, num_bytes);
+    bitmap_ += num_bytes;
+    return (BitUtil::ToLittleEndian(word) >> bit_offset) &
+           BitUtil::LeastSignificantBitMask(num_bits);
+  }
+
+  const uint8_t* bitmap_;
+  const int64_t num_carry_bits_;  // in [1, 8]
+  const int64_t length_;
+  int64_t remaining_length_;
+  uint64_t carry_bits_;
+};
+
 /// \brief Index into a possibly non-existent bitmap
 struct OptionalBitIndexer {
   const uint8_t* bitmap;

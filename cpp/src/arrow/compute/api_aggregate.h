@@ -154,7 +154,21 @@ Result<Datum> MinMax(const Datum& value,
                      const MinMaxOptions& options = MinMaxOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the modal (most common) values of a numeric array
+/// \brief Test whether any element in a boolean array evaluates to true.
+///
+/// This function returns true if any of the elements in the array evaluates
+/// to true and false otherwise. Null values are skipped.
+///
+/// \param[in] value input datum, expecting a boolean array
+/// \param[in] ctx the function execution context, optional
+/// \return resulting datum as a BooleanScalar
+
+/// \since 3.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Any(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the modal (most common) value of a numeric array
 ///
 /// This function returns top-n most common values and number of times they occur as
 /// an array of `struct<mode: T, count: int64>`, where T is the input type.

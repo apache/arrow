@@ -128,7 +128,7 @@ fn batch_filter(
 ) -> ArrowResult<RecordBatch> {
     predicate
         .evaluate(&batch)
-        .map(|v| v.into_array(batch))
+        .map(|v| v.into_array(batch.num_rows()))
         .map_err(DataFusionError::into_arrow_external_error)
         .and_then(|array| {
             array

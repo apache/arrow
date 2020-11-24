@@ -27,9 +27,11 @@ use crate::logical_plan::{
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
-use crate::physical_plan::expressions::{Column, Literal, PhysicalSortExpr};
+use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use crate::physical_plan::hash_join::HashJoinExec;
+use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
@@ -39,6 +41,7 @@ use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
 use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
+use crate::prelude::JoinType;
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
@@ -287,6 +290,25 @@ impl DefaultPhysicalPlanner {
                     ctx_state.config.concurrency,
                 )?))
             }
+            LogicalPlan::Join {
+                left,
+                right,
+                on: keys,
+                join_type,
+                ..
+            } => {
+                let left = self.create_physical_plan(left, ctx_state)?;
+                let right = self.create_physical_plan(right, ctx_state)?;
+                let physical_join_type = match join_type {
+                    JoinType::Inner => hash_utils::JoinType::Inner,
+                };
+                Ok(Arc::new(HashJoinExec::try_new(
+                    left,
+                    right,
+                    &keys,
+                    &physical_join_type,
+                )?))
+            }
             LogicalPlan::EmptyRelation {
                 produce_one_row,
                 schema,
@@ -421,6 +443,55 @@ impl DefaultPhysicalPlanner {
                 let lhs = self.create_physical_expr(left, input_schema, ctx_state)?;
                 let rhs = self.create_physical_expr(right, input_schema, ctx_state)?;
                 binary(lhs, op.clone(), rhs, input_schema)
+            }
+            Expr::Case {
+                expr,
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                let expr: Option<Arc<dyn PhysicalExpr>> = if let Some(e) = expr {
+                    Some(self.create_physical_expr(
+                        e.as_ref(),
+                        input_schema,
+                        ctx_state,
+                    )?)
+                } else {
+                    None
+                };
+                let when_expr = when_then_expr
+                    .iter()
+                    .map(|(w, _)| {
+                        self.create_physical_expr(w.as_ref(), input_schema, ctx_state)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let then_expr = when_then_expr
+                    .iter()
+                    .map(|(_, t)| {
+                        self.create_physical_expr(t.as_ref(), input_schema, ctx_state)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let when_then_expr: Vec<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)> =
+                    when_expr
+                        .iter()
+                        .zip(then_expr.iter())
+                        .map(|(w, t)| (w.clone(), t.clone()))
+                        .collect();
+                let else_expr: Option<Arc<dyn PhysicalExpr>> = if let Some(e) = else_expr
+                {
+                    Some(self.create_physical_expr(
+                        e.as_ref(),
+                        input_schema,
+                        ctx_state,
+                    )?)
+                } else {
+                    None
+                };
+                Ok(Arc::new(CaseExpr::try_new(
+                    expr,
+                    &when_then_expr,
+                    else_expr,
+                )?))
             }
             Expr::Cast { expr, data_type } => expressions::cast(
                 self.create_physical_expr(expr, input_schema, ctx_state)?,

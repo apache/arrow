@@ -1060,9 +1060,9 @@ class TestCookieMiddleware : public ::testing::Test {
 
   // Function to check if expected cookies and actual cookies are equal.
   void CheckEqual() {
-    std::sort(expected_cookies.begin(), expected_cookies.end());
+    std::sort(expected_cookies_.begin(), expected_cookies_.end());
     std::vector<std::string> split_actual_cookies = SplitCookies(GetCookies());
-    EXPECT_EQ(expected_cookies, split_actual_cookies);
+    EXPECT_EQ(expected_cookies_, split_actual_cookies);
   }
 
   // Function to add incoming cookies to middleware and validate them.
@@ -1106,7 +1106,7 @@ class TestCookieMiddleware : public ::testing::Test {
       const std::string old_key = str1.substr(0, pos);
       return key == old_key;
     };
-    return std::find_if(expected_cookies.begin(), expected_cookies.end(), collision);
+    return std::find_if(expected_cookies_.begin(), expected_cookies_.end(), collision);
   }
 
   // Function to add new cookie or replace existing cookie.
@@ -1117,10 +1117,10 @@ class TestCookieMiddleware : public ::testing::Test {
 
     // Get iterator of vector using key. If it exists, replace it, else insert normally.
     std::vector<std::string>::iterator it = FindCookieByKey(new_cookie.substr(0, pos));
-    if (it != expected_cookies.end()) {
+    if (it != expected_cookies_.end()) {
       *it = new_cookie;
     } else {
-      expected_cookies.push_back(new_cookie);
+      expected_cookies_.push_back(new_cookie);
     }
   }
 
@@ -1136,8 +1136,8 @@ class TestCookieMiddleware : public ::testing::Test {
     std::string::size_type pos = cookie.find('=');
     ASSERT_NE(std::string::npos, pos);
     std::vector<std::string>::iterator it = FindCookieByKey(cookie.substr(0, pos));
-    if (it != expected_cookies.end()) {
-      it = expected_cookies.erase(it);
+    if (it != expected_cookies_.end()) {
+      it = expected_cookies_.erase(it);
     }
   }
 
@@ -1151,17 +1151,17 @@ class TestCookieMiddleware : public ::testing::Test {
     // Function to add cookie header.
     void AddHeader(const std::string& key, const std::string& value) {
       ASSERT_EQ(key, "cookie");
-      outbound_cookie = value;
+      outbound_cookie_ = value;
     }
 
     // Function to get outgoing cookie.
-    std::string GetCookies() { return outbound_cookie; }
+    std::string GetCookies() { return outbound_cookie_; }
 
    private:
-    std::string outbound_cookie;
+    std::string outbound_cookie_;
   };
 
-  std::vector<std::string> expected_cookies;
+  std::vector<std::string> expected_cookies_;
   std::unique_ptr<ClientMiddleware> middleware_;
   std::shared_ptr<ClientCookieMiddlewareFactory> factory_;
 };
@@ -1856,7 +1856,11 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(results->Next(&result));
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
+#ifndef _WIN32
+  // On Windows gRPC sometimes returns a blank peer address, so don't
+  // bother checking for it.
   ASSERT_NE(result->body->ToString(), "");
+#endif
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {

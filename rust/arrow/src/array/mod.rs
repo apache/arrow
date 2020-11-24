@@ -99,6 +99,7 @@ mod iterator;
 mod null;
 mod ord;
 mod raw_pointer;
+mod transform;
 
 use crate::datatypes::*;
 
@@ -111,6 +112,7 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array_binary::BinaryArray;
+pub use self::array_binary::DecimalArray;
 pub use self::array_binary::FixedSizeBinaryArray;
 pub use self::array_binary::LargeBinaryArray;
 pub use self::array_dictionary::DictionaryArray;
@@ -207,6 +209,7 @@ pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::DecimalBuilder;
 pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::LargeBinaryBuilder;
@@ -248,6 +251,8 @@ pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
 pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
+
+pub use self::transform::MutableArrayData;
 
 // --------------------- Array Iterator ---------------------
 

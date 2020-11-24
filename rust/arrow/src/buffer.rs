@@ -947,6 +947,15 @@ impl MutableBuffer {
         }
         self.len += bytes.len();
     }
+
+    /// Extends the buffer by `len` with all bytes equal to `0u8`, incrementing its capacity if needed.
+    pub fn extend(&mut self, len: usize) {
+        let remaining_capacity = self.capacity - self.len;
+        if len > remaining_capacity {
+            self.reserve(self.len + len);
+        }
+        self.len += len;
+    }
 }
 
 impl Drop for MutableBuffer {

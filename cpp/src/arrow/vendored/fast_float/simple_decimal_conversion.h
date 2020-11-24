@@ -3,14 +3,15 @@
 
 /**
  * This code is meant to handle the case where we have more than 19 digits.
- * 
- * Based on work by Nigel Tao (at https://github.com/google/wuffs/)
+ *
+ * It is based on work by Nigel Tao (at https://github.com/google/wuffs/)
  * who credits Ken Thompson for the design (via a reference to the Go source
- * code). See
- * https://github.com/google/wuffs/blob/aa46859ea40c72516deffa1b146121952d6dfd3b/internal/cgen/base/floatconv-submodule-data.c
- * https://github.com/google/wuffs/blob/46cd8105f47ca07ae2ba8e6a7818ef9c0df6c152/internal/cgen/base/floatconv-submodule-code.c
+ * code).
+ *
+ * Rob Pike suggested that this algorithm be called "Simple Decimal Conversion".
+ *
  * It is probably not very fast but it is a fallback that should almost never
- * be used in reallife.
+ * be used in real life. Though it is not fast, it is "easily" understood and debugged.
  **/
 #include "ascii_number.h"
 #include "decimal_to_binary.h"
@@ -28,22 +29,9 @@ inline void trim(decimal &h) {
   }
 }
 
-#if 0
-/** If you ever want to see what is going on, the following function might prove handy:
- * **/
-void print(const decimal d, int32_t exp2 = 0) {
-  printf("0.");
-  for(size_t i = 0; i < d.num_digits; i++) {
-    printf("%d", int(d.digits[i]));
-  }
-  printf(" * 10 **%d ", d.decimal_point);
-  printf(" * 2 **%d ", exp2);
-}
-#endif
 
 
-
-uint32_t number_of_digits_decimal_left_shift(decimal &h, uint32_t shift) {
+uint32_t number_of_digits_decimal_left_shift(const decimal &h, uint32_t shift) {
   shift &= 63;
   const static uint16_t number_of_digits_decimal_left_shift_table[65] = {
     0x0000, 0x0800, 0x0801, 0x0803, 0x1006, 0x1009, 0x100D, 0x1812, 0x1817,
@@ -136,8 +124,6 @@ uint32_t number_of_digits_decimal_left_shift(decimal &h, uint32_t shift) {
   return num_new_digits;
 }
 
-} // end of anonymous namespace
-
 uint64_t round(decimal &h) {
   if ((h.num_digits == 0) || (h.decimal_point < 0)) {
     return 0;
@@ -152,7 +138,7 @@ uint64_t round(decimal &h) {
   }
   bool round_up = false;
   if (dp < h.num_digits) {
-    round_up = h.digits[dp] >= 5; // normally, we round up    
+    round_up = h.digits[dp] >= 5; // normally, we round up  
     // but we may need to round to even!
     if ((h.digits[dp] == 5) && (dp + 1 == h.num_digits)) {
       round_up = h.truncated || ((dp > 0) && (1 & h.digits[dp - 1]));
@@ -253,6 +239,7 @@ void decimal_right_shift(decimal &h, uint32_t shift) {
   trim(h);
 }
 
+} // end of anonymous namespace
 
 template <typename binary>
 adjusted_mantissa compute_float(decimal &d) {
@@ -266,21 +253,21 @@ adjusted_mantissa compute_float(decimal &d) {
   // At this point, going further, we can assume that d.num_digits > 0.
   //
   // We want to guard against excessive decimal point values because
-  // they can result in long running times. Indeed, we do 
+  // they can result in long running times. Indeed, we do
   // shifts by at most 60 bits. We have that log(10**400)/log(2**60) ~= 22
   // which is fine, but log(10**299995)/log(2**60) ~= 16609 which is not
   // fine (runs for a long time).
   //
   if(d.decimal_point < -324) {
     // We have something smaller than 1e-324 which is always zero
-    // in binary64 and binary32. 
+    // in binary64 and binary32.
     // It should be zero.
     answer.power2 = 0;
     answer.mantissa = 0;
     return answer;
   } else if(d.decimal_point >= 310) {
     // We have something at least as large as 0.1e310 which is
-    // always infinite.    
+    // always infinite.  
     answer.power2 = binary::infinite_power();
     answer.mantissa = 0;
     return answer;
@@ -367,9 +354,20 @@ adjusted_mantissa compute_float(decimal &d) {
 template <typename binary>
 adjusted_mantissa parse_long_mantissa(const char *first, const char* last) {
     decimal d = parse_decimal(first, last);
+    // In some cases we can get lucky and looking at only the first 19 digits is enough.
+    // Let us try that.
+    const uint64_t mantissa = d.to_truncated_mantissa();
+    const int64_t exponent =  d.to_truncated_exponent();
+    // credit: R. Oudompheng who first implemented this fast path (to my knowledge).
+    // It is rough, but it does the job of accelerating the slow path since most
+    // long streams of digits are determined after 19 digits.
+    adjusted_mantissa am1 = compute_float<binary>(exponent, mantissa);
+    adjusted_mantissa am2 = compute_float<binary>(exponent, mantissa+1);
+    // They must both agree and be both a successful result.
+    if(( am1 == am2 ) && (am1.power2 >= 0)) { return am1; }
     return compute_float<binary>(d);
 }
 
 } // namespace fast_float
-}  // namespace arrow_vendored
+} // namespace arrow_vendored
 #endif

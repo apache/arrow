@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -32,9 +33,13 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace random {
 
 namespace {
@@ -267,6 +272,29 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
   return result;
 }
 
+std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
+                                                             int32_t byte_width,
+                                                             double null_probability) {
+  if (null_probability < 0 || null_probability > 1) {
+    ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
+  }
+
+  // Visual Studio does not implement uniform_int_distribution for char types.
+  using GenOpt = GenerateOptions<uint8_t, std::uniform_int_distribution<uint16_t>>;
+  GenOpt options(seed(), static_cast<uint8_t>('A'), static_cast<uint8_t>('z'),
+                 null_probability);
+
+  int64_t null_count = 0;
+  auto null_bitmap = *AllocateEmptyBitmap(size);
+  auto data_buffer = *AllocateBuffer(size * byte_width);
+  options.GenerateBitmap(null_bitmap->mutable_data(), size, &null_count);
+  options.GenerateData(data_buffer->mutable_data(), size * byte_width);
+
+  auto type = fixed_size_binary(byte_width);
+  return std::make_shared<FixedSizeBinaryArray>(type, size, std::move(data_buffer),
+                                                std::move(null_bitmap), null_count);
+}
+
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
                                                      int32_t last_offset,
                                                      double null_probability,
@@ -319,6 +347,43 @@ std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t s
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,
+                                                         int64_t size) {
+  DCHECK_GT(fields.size(), 0);
+  // Trivial type codes map
+  std::vector<UnionArray::type_code_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  // Generate array of type ids
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+  return *SparseUnionArray::Make(*type_ids, fields, type_codes);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& fields,
+                                                        int64_t size) {
+  DCHECK_GT(fields.size(), 0);
+  // Trivial type codes map
+  std::vector<UnionArray::type_code_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  // Generate array of type ids
+  auto type_ids = Int8(size, 0, static_cast<int8_t>(fields.size() - 1));
+
+  // Generate array of offsets
+  const auto& concrete_ids = checked_cast<const Int8Array&>(*type_ids);
+  Int32Builder offsets_builder;
+  ABORT_NOT_OK(offsets_builder.Reserve(size));
+  std::vector<int32_t> last_offsets(fields.size(), 0);
+  for (int64_t i = 0; i < size; ++i) {
+    const auto field_id = concrete_ids.Value(i);
+    offsets_builder.UnsafeAppend(last_offsets[field_id]++);
+  }
+  std::shared_ptr<Array> offsets;
+  ABORT_NOT_OK(offsets_builder.Finish(&offsets));
+
+  return *DenseUnionArray::Make(*type_ids, *offsets, fields, type_codes);
 }
 
 namespace {

@@ -82,6 +82,21 @@ class ApacheArrowPackageTask < PackageTask
          "--output", @full_archive_name)
     end
   end
+
+  def apt_arm64_cuda_available_target?(target)
+    # ubuntu-20.10 has navidia-cuda-toolkit but not libcuda1.
+    # ubuntu-21.04 may support this.
+    false
+  end
+
+  def apt_prepare_debian_control(control_in, target)
+    if apt_arm64_cuda_available_target?(target)
+      cuda_architecture = "any"
+    else
+      cuda_architecture = "i386 amd64"
+    end
+    control_in.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
+  end
 end
 
 task = ApacheArrowPackageTask.new

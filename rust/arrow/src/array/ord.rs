@@ -31,11 +31,11 @@ pub type DynComparator<'a> = Box<dyn Fn(usize, usize) -> Ordering + 'a>;
 
 /// compares two floats, placing NaNs at last
 fn cmp_nans_last<T: Float>(a: &T, b: &T) -> Ordering {
-    match (a, b) {
-        (x, y) if x.is_nan() && y.is_nan() => Ordering::Equal,
-        (x, _) if x.is_nan() => Ordering::Greater,
-        (_, y) if y.is_nan() => Ordering::Less,
-        (_, _) => a.partial_cmp(b).unwrap(),
+    match (a.is_nan(), b.is_nan()) {
+        (true, true) => Ordering::Equal,
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        _ => a.partial_cmp(b).unwrap(),
     }
 }
 

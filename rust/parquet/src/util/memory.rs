@@ -18,19 +18,21 @@
 //! Utility methods and structs for working with memory.
 
 use std::{
-    cell::Cell,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     io::{Result as IoResult, Write},
     mem,
     ops::{Index, IndexMut},
-    rc::{Rc, Weak},
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Arc, Weak,
+    },
 };
 
 // ----------------------------------------------------------------------
 // Memory Tracker classes
 
 /// Reference counted pointer for [`MemTracker`].
-pub type MemTrackerPtr = Rc<MemTracker>;
+pub type MemTrackerPtr = Arc<MemTracker>;
 /// Non-owning reference for [`MemTracker`].
 pub type WeakMemTrackerPtr = Weak<MemTracker>;
 
@@ -39,7 +41,8 @@ pub type WeakMemTrackerPtr = Weak<MemTracker>;
 pub struct MemTracker {
     // In the tuple, the first element is the current memory allocated (in bytes),
     // and the second element is the maximum memory allocated so far (in bytes).
-    memory_usage: Cell<(i64, i64)>,
+    current_memory_usage: AtomicI64,
+    max_memory_usage: AtomicI64,
 }
 
 impl MemTracker {
@@ -47,29 +50,30 @@ impl MemTracker {
     #[inline]
     pub fn new() -> MemTracker {
         MemTracker {
-            memory_usage: Cell::new((0, 0)),
+            current_memory_usage: Default::default(),
+            max_memory_usage: Default::default(),
         }
     }
 
     /// Returns the current memory consumption, in bytes.
     pub fn memory_usage(&self) -> i64 {
-        self.memory_usage.get().0
+        self.current_memory_usage.load(Ordering::Acquire)
     }
 
     /// Returns the maximum memory consumption so far, in bytes.
     pub fn max_memory_usage(&self) -> i64 {
-        self.memory_usage.get().1
+        self.max_memory_usage.load(Ordering::Acquire)
     }
 
     /// Adds `num_bytes` to the memory consumption tracked by this memory tracker.
     #[inline]
     pub fn alloc(&self, num_bytes: i64) {
-        let (current, mut maximum) = self.memory_usage.get();
-        let new_current = current + num_bytes;
-        if new_current > maximum {
-            maximum = new_current
-        }
-        self.memory_usage.set((new_current, maximum));
+        let new_current = self
+            .current_memory_usage
+            .fetch_add(num_bytes, Ordering::Acquire)
+            + num_bytes;
+        self.max_memory_usage
+            .fetch_max(new_current, Ordering::Acquire);
     }
 }
 
@@ -267,7 +271,7 @@ impl<T: Clone> Drop for Buffer<T> {
 /// when all slices are dropped.
 #[derive(Clone, Debug)]
 pub struct BufferPtr<T> {
-    data: Rc<Vec<T>>,
+    data: Arc<Vec<T>>,
     start: usize,
     len: usize,
     // TODO: will this create too many references? rethink about this.
@@ -279,7 +283,7 @@ impl<T> BufferPtr<T> {
     pub fn new(v: Vec<T>) -> Self {
         let len = v.len();
         Self {
-            data: Rc::new(v),
+            data: Arc::new(v),
             start: 0,
             len,
             mem_tracker: None,
@@ -380,8 +384,8 @@ impl<T: Debug> Display for BufferPtr<T> {
 impl<T> Drop for BufferPtr<T> {
     fn drop(&mut self) {
         if self.is_mem_tracked()
-            && Rc::strong_count(&self.data) == 1
-            && Rc::weak_count(&self.data) == 0
+            && Arc::strong_count(&self.data) == 1
+            && Arc::weak_count(&self.data) == 0
         {
             let mc = self.mem_tracker.as_ref().unwrap();
             mc.alloc(-(self.data.capacity() as i64));
@@ -401,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_byte_buffer_mem_tracker() {
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
 
         let mut buffer = ByteBuffer::new().with_mem_tracker(mem_tracker.clone());
         buffer.set_data(vec![0; 10]);
@@ -437,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_byte_ptr_mem_tracker() {
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
 
         let mut buffer = ByteBuffer::new().with_mem_tracker(mem_tracker.clone());
         buffer.set_data(vec![0; 60]);

@@ -72,16 +72,16 @@ jobs:
             git diff --name-only HEAD..upstream/master | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
-            echo "::set-env name=R_DOCS::true"
+            echo "R_DOCS=true" >> $GITHUB_ENV
           fi
           if changed 'cmake' || changed 'CMake'; then
-            echo "::set-env name=CMAKE_FORMAT::true"
+            echo "CMAKE_FORMAT=true" >> $GITHUB_ENV
           fi
           if changed '^cpp/src'; then
-            echo "::set-env name=CLANG_FORMAT_CPP::true"
+            echo "CLANG_FORMAT_CPP=true" >> $GITHUB_ENV
           fi
           if changed '^r/src'; then
-            echo "::set-env name=CLANG_FORMAT_R::true"
+            echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
           fi
       - name: Run cmake_format
         if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')

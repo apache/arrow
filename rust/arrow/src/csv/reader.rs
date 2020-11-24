@@ -446,8 +446,58 @@ fn parse(
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
+/// Specialized parsing implementations
+trait Parser: ArrowPrimitiveType {
+    fn parse(string: &str) -> Option<Self::Native> {
+        string.parse::<Self::Native>().ok()
+    }
+}
+
+impl Parser for BooleanType {
+    fn parse(string: &str) -> Option<bool> {
+        if string.eq_ignore_ascii_case("false") {
+            Some(false)
+        } else if string.eq_ignore_ascii_case("true") {
+            Some(true)
+        } else {
+            None
+        }
+    }
+}
+
+impl Parser for Float32Type {
+    fn parse(string: &str) -> Option<f32> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+impl Parser for Float64Type {
+    fn parse(string: &str) -> Option<f64> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+
+impl Parser for UInt64Type {}
+
+impl Parser for UInt32Type {}
+
+impl Parser for UInt16Type {}
+
+impl Parser for UInt8Type {}
+
+impl Parser for Int64Type {}
+
+impl Parser for Int32Type {}
+
+impl Parser for Int16Type {}
+
+impl Parser for Int8Type {}
+
+fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
+    T::parse(string)
+}
+
 // parses a specific column (col_idx) into an Arrow Array.
-fn build_primitive_array<T: ArrowPrimitiveType>(
+fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
     line_number: usize,
     rows: &[StringRecord],
     col_idx: usize,
@@ -460,14 +510,11 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if T::DATA_TYPE == DataType::Boolean {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
+
+                    let parsed = parse_item::<T>(s);
                     match parsed {
-                        Ok(e) => Ok(Some(e)),
-                        Err(_) => Err(ArrowError::ParseError(format!(
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
                             // TODO: we should surface the underlying error here.
                             "Error while parsing value {} for column {} at line {}",
                             s,
@@ -888,7 +935,7 @@ mod tests {
                     format!("{:?}", e)
                 ),
                 Ok(_) => panic!("should have failed"),
-            }
+            },
             None => panic!("should have failed"),
         }
     }
@@ -990,5 +1037,44 @@ mod tests {
 
         assert!(csv.next().is_none());
         Ok(())
+    }
+
+    #[test]
+    fn test_parsing_bool() {
+        // Encode the expected behavior of boolean parsing
+        assert_eq!(Some(true), parse_item::<BooleanType>("true"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("tRUe"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("True"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("TRUE"));
+        assert_eq!(None, parse_item::<BooleanType>("t"));
+        assert_eq!(None, parse_item::<BooleanType>("T"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+
+        assert_eq!(Some(false), parse_item::<BooleanType>("false"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("fALse"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("False"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("FALSE"));
+        assert_eq!(None, parse_item::<BooleanType>("f"));
+        assert_eq!(None, parse_item::<BooleanType>("F"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+    }
+
+    #[test]
+    fn test_parsing_float() {
+        assert_eq!(Some(12.34), parse_item::<Float64Type>("12.34"));
+        assert_eq!(Some(-12.34), parse_item::<Float64Type>("-12.34"));
+        assert_eq!(Some(12.0), parse_item::<Float64Type>("12"));
+        assert_eq!(Some(0.0), parse_item::<Float64Type>("0"));
+        assert!(parse_item::<Float64Type>("nan").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("NaN").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_sign_positive());
+        assert!(parse_item::<Float64Type>("-inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("-inf")
+            .unwrap()
+            .is_sign_negative());
+        assert_eq!(None, parse_item::<Float64Type>(""));
+        assert_eq!(None, parse_item::<Float64Type>("dd"));
+        assert_eq!(None, parse_item::<Float64Type>("12.34.56"));
     }
 }

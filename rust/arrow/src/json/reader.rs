@@ -44,7 +44,6 @@
 
 use indexmap::map::IndexMap as HashMap;
 use indexmap::set::IndexSet as HashSet;
-use std::cell::RefCell;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -761,15 +760,15 @@ impl<R: Read> Reader<R> {
     where
         DICT_TY: ArrowPrimitiveType + ArrowDictionaryKeyType,
     {
-        let mut builder: RefCell<Box<dyn ArrayBuilder>> = match data_type {
+        let mut builder: Box<dyn ArrayBuilder> = match data_type {
             DataType::Utf8 => {
                 let values_builder = StringBuilder::new(rows.len() * 5);
-                RefCell::new(Box::new(ListBuilder::new(values_builder)))
+                Box::new(ListBuilder::new(values_builder))
             }
             DataType::Dictionary(_, _) => {
                 let values_builder =
                     self.build_string_dictionary_builder::<DICT_TY>(rows.len() * 5)?;
-                RefCell::new(Box::new(ListBuilder::new(values_builder)))
+                Box::new(ListBuilder::new(values_builder))
             }
             e => {
                 return Err(ArrowError::JsonError(format!(
@@ -812,7 +811,6 @@ impl<R: Read> Reader<R> {
                 // them.
                 match data_type {
                     DataType::Utf8 => {
-                        let builder = &mut builder.borrow_mut();
                         let builder = builder
                             .as_any_mut()
                             .downcast_mut::<ListBuilder<StringBuilder>>()
@@ -831,7 +829,6 @@ impl<R: Read> Reader<R> {
                         builder.append(true)?;
                     }
                     DataType::Dictionary(_, _) => {
-                        let builder = &mut builder.borrow_mut();
                         let builder = builder.as_any_mut().downcast_mut::<ListBuilder<StringDictionaryBuilder<DICT_TY>>>().ok_or(ArrowError::JsonError(
                             "Cast failed for ListBuilder<StringDictionaryBuilder> during nested data parsing".to_string(),
                         ))?;
@@ -856,7 +853,7 @@ impl<R: Read> Reader<R> {
             }
         }
 
-        Ok(builder.get_mut().finish() as ArrayRef)
+        Ok(builder.finish() as ArrayRef)
     }
 
     #[inline(always)]

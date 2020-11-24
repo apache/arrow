@@ -31,7 +31,7 @@ The generic Compute API
 Functions and function registry
 -------------------------------
 
-Functions represent compute operations over inputs of possibly varying 
+Functions represent compute operations over inputs of possibly varying
 types.  Internally, a function is implemented by one or several
 "kernels", depending on the concrete input types (for example, a function
 adding values from two inputs can have different kernels depending on
@@ -134,6 +134,9 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | Function name            | Arity      | Input types        | Output type           | Options class                              |
 +==========================+============+====================+=======================+============================================+
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| any                      | Unary      | Boolean            | Scalar Boolean        |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | count                    | Unary      | Any                | Scalar Int64          | :struct:`CountOptions`                     |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | mean                     | Unary      | Numeric            | Scalar Float64        |                                            |
@@ -253,7 +256,11 @@ For the Kleene logic variants, therefore:
 +==========================+============+====================+=====================+
 | and                      | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
+| and_not                  | Binary     | Boolean            | Boolean             |
++--------------------------+------------+--------------------+---------------------+
 | and_kleene               | Binary     | Boolean            | Boolean             |
++--------------------------+------------+--------------------+---------------------+
+| and_not_kleene           | Binary     | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
 | invert                   | Unary      | Boolean            | Boolean             |
 +--------------------------+------------+--------------------+---------------------+
@@ -617,17 +624,21 @@ In these functions, nulls are considered greater than any other value
 Floating-point NaN values are considered greater than any other non-null
 value, but smaller than nulls.
 
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| Function name         | Arity      | Input types             | Output type       | Options class                  | Notes       |
-+=======================+============+=========================+===================+================================+=============+
-| partition_nth_indices | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)   |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)        |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| sort_indices          | Unary      | Binary- and String-like | UInt64            |                                | \(2) \(3)   |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
-| sort_indices          | Unary      | Numeric                 | UInt64            |                                | \(2)        |
-+-----------------------+------------+-------------------------+-------------------+--------------------------------+-------------+
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| Function name         | Arity      | Input types             | Output type       | Options class                  | Notes          |
++=======================+============+=========================+===================+================================+================+
+| partition_nth_indices | Unary      | Binary- and String-like | UInt64            | :struct:`PartitionNthOptions`  | \(1) \(3)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| partition_nth_indices | Unary      | Numeric                 | UInt64            | :struct:`PartitionNthOptions`  | \(1)           |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| array_sort_indices    | Unary      | Binary- and String-like | UInt64            | :struct:`ArraySortOptions`     | \(2) \(3) \(4) |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| array_sort_indices    | Unary      | Numeric                 | UInt64            | :struct:`ArraySortOptions`     | \(2) \(4)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Binary- and String-like | UInt64            | :struct:`SortOptions`          | \(2) \(3) \(5) |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
+| sort_indices          | Unary      | Numeric                 | UInt64            | :struct:`SortOptions`          | \(2) \(5)      |
++-----------------------+------------+-------------------------+-------------------+--------------------------------+----------------+
 
 * \(1) The output is an array of indices into the input array, that define
   a partial non-stable sort such that the *N*'th index points to the *N*'th
@@ -636,12 +647,17 @@ value, but smaller than nulls.
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(2) The output is an array of indices into the input array, that define
-  a stable sort of the input array.
+* \(2) The output is an array of indices into the input, that define a
+  stable sort of the input.
 
 * \(3) Input values are ordered lexicographically as bytestrings (even
   for String arrays).
 
+* \(4) The input must be an array. The default order is ascending.
+
+* \(5) The input can be an array, chunked array, record batch or
+  table. If the input is a record batch or table, one or more sort
+  keys must be specified.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~

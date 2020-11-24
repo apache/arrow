@@ -58,6 +58,34 @@ struct ARROW_EXPORT TakeOptions : public FunctionOptions {
   static TakeOptions Defaults() { return BoundsCheck(); }
 };
 
+enum class SortOrder {
+  Ascending,
+  Descending,
+};
+
+/// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
+struct ARROW_EXPORT SortKey {
+  explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
+      : name(name), order(order) {}
+
+  /// The name of the sort column.
+  std::string name;
+  /// How to order by this sort key.
+  SortOrder order;
+};
+
+struct ARROW_EXPORT ArraySortOptions : public FunctionOptions {
+  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending) : order(order) {}
+
+  SortOrder order;
+};
+
+struct ARROW_EXPORT SortOptions : public FunctionOptions {
+  explicit SortOptions(std::vector<SortKey> sort_keys = {}) : sort_keys(sort_keys) {}
+
+  std::vector<SortKey> sort_keys;
+};
+
 /// \brief Partitioning options for NthToIndices
 struct ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot) : pivot(pivot) {}
@@ -152,21 +180,71 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort an array.
+/// \brief Returns the indices that would sort an array in the
+/// specified order.
 ///
 /// Perform an indirect sort of array. The output array will contain
 /// indices that would sort an array, which would be the same length
-/// as input. Nulls will be stably partitioned to the end of the output.
+/// as input. Nulls will be stably partitioned to the end of the output
+/// regardless of order.
 ///
-/// For example given values = [null, 1, 3.3, null, 2, 5.3], the output
-/// will be [1, 4, 2, 5, 0, 3]
+/// For example given array = [null, 1, 3.3, null, 2, 5.3] and order
+/// = SortOrder::DESCENDING, the output will be [5, 2, 4, 1, 0,
+/// 3].
 ///
-/// \param[in] values array to sort
+/// \param[in] array array to sort
+/// \param[in] order ascending or descending
 /// \param[in] ctx the function execution context, optional
 /// \return offsets indices that would sort an array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<Array>> SortIndices(const Array& array,
+                                           SortOrder order = SortOrder::Ascending,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Returns the indices that would sort a chunked array in the
+/// specified order.
+///
+/// Perform an indirect sort of chunked array. The output array will
+/// contain indices that would sort a chunked array, which would be
+/// the same length as input. Nulls will be stably partitioned to the
+/// end of the output regardless of order.
+///
+/// For example given chunked_array = [[null, 1], [3.3], [null, 2,
+/// 5.3]] and order = SortOrder::DESCENDING, the output will be [5, 2,
+/// 4, 1, 0, 3].
+///
+/// \param[in] chunked_array chunked array to sort
+/// \param[in] order ascending or descending
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort an array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
+                                           SortOrder order = SortOrder::Ascending,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Returns the indices that would sort a table in the
+/// specified order.
+///
+/// Perform an indirect sort of table. The output array will contain
+/// indices that would sort a table, which would be the same length as
+/// input. Nulls will be stably partitioned to the end of the output
+/// regardless of order.
+///
+/// For example given table = {
+/// "column1": [[null,   1], [   3, null, 2, 1]],
+/// "column2": [[   5], [3,   null, null, 5, 5]],
+/// } and options = {
+/// {"column1", SortOrder::Ascending},
+/// {"column2", SortOrder::Descending},
+/// }, the output will be [5, 1, 4, 2, 0, 3].
+///
+/// \param[in] table table to sort
+/// \param[in] options options
+/// \param[in] ctx the function execution context, optional
+/// \return offsets indices that would sort a table
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortIndices(const Table& table, const SortOptions& options,
+                                           ExecContext* ctx = NULLPTR);
 
 /// \brief Compute unique elements from an array-like object
 ///
@@ -253,6 +331,11 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* context = NULLPTR);
+
+ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
+                                             ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

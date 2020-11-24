@@ -271,7 +271,7 @@ impl<'a> Printer<'a> {
 mod tests {
     use super::*;
 
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::basic::{Repetition, Type as PhysicalType};
     use crate::schema::{parser::parse_message_type, types::Type};
@@ -337,8 +337,8 @@ mod tests {
                     .with_id(2)
                     .build();
             let mut struct_fields = Vec::new();
-            struct_fields.push(Rc::new(f1.unwrap()));
-            struct_fields.push(Rc::new(f2.unwrap()));
+            struct_fields.push(Arc::new(f1.unwrap()));
+            struct_fields.push(Arc::new(f2.unwrap()));
             let field = Type::group_type_builder("field")
                 .with_repetition(Repetition::OPTIONAL)
                 .with_fields(&mut struct_fields)
@@ -346,8 +346,8 @@ mod tests {
                 .build()
                 .unwrap();
             let mut fields = Vec::new();
-            fields.push(Rc::new(field));
-            fields.push(Rc::new(f3.unwrap()));
+            fields.push(Arc::new(field));
+            fields.push(Arc::new(f3.unwrap()));
             let message = Type::group_type_builder("schema")
                 .with_fields(&mut fields)
                 .with_id(2)
@@ -376,7 +376,7 @@ mod tests {
         let a1 = Type::group_type_builder("a1")
             .with_repetition(Repetition::OPTIONAL)
             .with_logical_type(LogicalType::LIST)
-            .with_fields(&mut vec![Rc::new(a2)])
+            .with_fields(&mut vec![Arc::new(a2)])
             .build()
             .unwrap();
 
@@ -393,25 +393,25 @@ mod tests {
         let b2 = Type::group_type_builder("b2")
             .with_repetition(Repetition::REPEATED)
             .with_logical_type(LogicalType::NONE)
-            .with_fields(&mut vec![Rc::new(b3), Rc::new(b4)])
+            .with_fields(&mut vec![Arc::new(b3), Arc::new(b4)])
             .build()
             .unwrap();
 
         let b1 = Type::group_type_builder("b1")
             .with_repetition(Repetition::OPTIONAL)
             .with_logical_type(LogicalType::LIST)
-            .with_fields(&mut vec![Rc::new(b2)])
+            .with_fields(&mut vec![Arc::new(b2)])
             .build()
             .unwrap();
 
         let a0 = Type::group_type_builder("a0")
             .with_repetition(Repetition::REQUIRED)
-            .with_fields(&mut vec![Rc::new(a1), Rc::new(b1)])
+            .with_fields(&mut vec![Arc::new(a1), Arc::new(b1)])
             .build()
             .unwrap();
 
         let message = Type::group_type_builder("root")
-            .with_fields(&mut vec![Rc::new(a0)])
+            .with_fields(&mut vec![Arc::new(a0)])
             .build()
             .unwrap();
 
@@ -434,7 +434,7 @@ mod tests {
 
         let field = Type::group_type_builder("field")
             .with_repetition(Repetition::OPTIONAL)
-            .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
+            .with_fields(&mut vec![Arc::new(f1), Arc::new(f2)])
             .build()
             .unwrap();
 
@@ -446,7 +446,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(field), Rc::new(f3)])
+            .with_fields(&mut vec![Arc::new(field), Arc::new(f3)])
             .build()
             .unwrap();
 
@@ -472,7 +472,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
+            .with_fields(&mut vec![Arc::new(f1), Arc::new(f2)])
             .build()
             .unwrap();
 
