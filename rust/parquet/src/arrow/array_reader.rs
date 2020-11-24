@@ -33,14 +33,14 @@ use arrow::array::{
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     ArrowPrimitiveType, BooleanType as ArrowBooleanType, DataType as ArrowType,
-    DataTypeContext, Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
+    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
     DurationMicrosecondType as ArrowDurationMicrosecondType,
     DurationMillisecondType as ArrowDurationMillisecondType,
     DurationNanosecondType as ArrowDurationNanosecondType,
     DurationSecondType as ArrowDurationSecondType, Field,
     Float32Type as ArrowFloat32Type, Float64Type as ArrowFloat64Type,
     Int16Type as ArrowInt16Type, Int32Type as ArrowInt32Type,
-    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, Schema,
+    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, NullableDataType, Schema,
     Time32MillisecondType as ArrowTime32MillisecondType,
     Time32SecondType as ArrowTime32SecondType,
     Time64MicrosecondType as ArrowTime64MicrosecondType,
@@ -1347,7 +1347,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
                     .ok()
                     .map(|f| f.data_type().to_owned())
                     .unwrap_or_else(|| {
-                        ArrowType::List(Box::new(DataTypeContext::new(
+                        ArrowType::List(Box::new(NullableDataType::new(
                             item_reader_type.clone(),
                             list_type.is_optional(),
                         )))
@@ -1626,9 +1626,9 @@ mod tests {
         StructArray,
     };
     use arrow::datatypes::{
-        ArrowPrimitiveType, DataType as ArrowType, DataTypeContext,
-        Date32Type as ArrowDate32, Field, Int32Type as ArrowInt32,
-        Int64Type as ArrowInt64, Time32MillisecondType as ArrowTime32MillisecondArray,
+        ArrowPrimitiveType, DataType as ArrowType, Date32Type as ArrowDate32, Field,
+        Int32Type as ArrowInt32, Int64Type as ArrowInt64, NullableDataType,
+        Time32MillisecondType as ArrowTime32MillisecondArray,
         Time64MicrosecondType as ArrowTime64MicrosecondArray,
         TimestampMicrosecondType as ArrowTimestampMicrosecondType,
         TimestampMillisecondType as ArrowTimestampMillisecondType,
@@ -2310,7 +2310,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i32>::new(
             Box::new(item_array_reader),
-            ArrowType::List(Box::new(DataTypeContext::new(ArrowType::Int32, false))),
+            ArrowType::List(Box::new(NullableDataType::new(ArrowType::Int32, false))),
             ArrowType::Int32,
             1,
             1,
@@ -2364,7 +2364,7 @@ mod tests {
 
         let mut list_array_reader = ListArrayReader::<i64>::new(
             Box::new(item_array_reader),
-            ArrowType::LargeList(Box::new(DataTypeContext::new(ArrowType::Int32, true))),
+            ArrowType::LargeList(Box::new(NullableDataType::new(ArrowType::Int32, true))),
             ArrowType::Int32,
             1,
             1,

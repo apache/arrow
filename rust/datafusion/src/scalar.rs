@@ -34,7 +34,7 @@ use arrow::{
 };
 
 use crate::error::{DataFusionError, Result};
-use arrow::datatypes::DataTypeContext;
+use arrow::datatypes::NullableDataType;
 
 /// Represents a dynamically typed, nullable single value.
 /// This is the single-valued counter-part of arrow’s `Array`.
@@ -134,7 +134,7 @@ impl ScalarValue {
             ScalarValue::Utf8(_) => DataType::Utf8,
             ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
             ScalarValue::List(_, data_type) => {
-                DataType::List(Box::new(DataTypeContext::new(data_type.clone(), true)))
+                DataType::List(Box::new(NullableDataType::new(data_type.clone(), true)))
             }
             ScalarValue::Date32(_) => DataType::Date32(DateUnit::Day),
         }

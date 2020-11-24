@@ -764,7 +764,7 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::List(Box::new(DataTypeContext::new(
+        DataType::List(Box::new(NullableDataType::new(
             self.values_builder.data_type(),
             true,
         )))
@@ -833,7 +833,7 @@ where
         let null_bit_buffer = self.bitmap_builder.finish();
         let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0).unwrap();
-        let data = ArrayData::builder(DataType::List(Box::new(DataTypeContext::new(
+        let data = ArrayData::builder(DataType::List(Box::new(NullableDataType::new(
             values_data.data_type().clone(),
             true, // TODO: find a consistent way of getting this
         ))))
@@ -974,7 +974,7 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::LargeList(Box::new(DataTypeContext::new(
+        DataType::LargeList(Box::new(NullableDataType::new(
             self.values_builder.data_type(),
             true,
         )))
@@ -1044,7 +1044,7 @@ where
         let nulls = null_bit_buffer.count_set_bits();
         self.offsets_builder.append(0).unwrap();
         let data = ArrayData::builder(DataType::LargeList(Box::new(
-            DataTypeContext::new(values_data.data_type().clone(), true),
+            NullableDataType::new(values_data.data_type().clone(), true),
         )))
         .len(len)
         .null_count(len - nulls)
@@ -1153,7 +1153,7 @@ where
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
         DataType::FixedSizeList(
-            Box::new(DataTypeContext::new(self.values_builder.data_type(), true)),
+            Box::new(NullableDataType::new(self.values_builder.data_type(), true)),
             self.list_len,
         )
     }
@@ -1232,7 +1232,7 @@ where
         let null_bit_buffer = self.bitmap_builder.finish();
         let nulls = null_bit_buffer.count_set_bits();
         let data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(DataTypeContext::new(values_data.data_type().clone(), true)),
+            Box::new(NullableDataType::new(values_data.data_type().clone(), true)),
             self.list_len,
         ))
         .len(len)
@@ -1453,7 +1453,10 @@ fn append_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::List(Box::new(DataTypeContext::new(DataType::UInt8, true))),
+                    DataType::List(Box::new(NullableDataType::new(
+                        DataType::UInt8,
+                        true,
+                    ))),
                     array.len(),
                     None,
                     array.null_buffer().cloned(),
@@ -1505,7 +1508,7 @@ fn append_large_binary_data(
                 )) as ArrayDataRef;
 
                 Arc::new(ArrayData::new(
-                    DataType::LargeList(Box::new(DataTypeContext::new(
+                    DataType::LargeList(Box::new(NullableDataType::new(
                         DataType::UInt8,
                         true,
                     ))),
@@ -1607,7 +1610,7 @@ impl ArrayBuilder for FixedSizeBinaryBuilder {
             )) as ArrayDataRef;
             let list_data = Arc::new(ArrayData::new(
                 DataType::FixedSizeList(
-                    Box::new(DataTypeContext::new(DataType::UInt8, true)),
+                    Box::new(NullableDataType::new(DataType::UInt8, true)),
                     self.builder.list_len,
                 ),
                 array.len(),
@@ -1693,7 +1696,7 @@ impl ArrayBuilder for DecimalBuilder {
             )) as ArrayDataRef;
             let list_data = Arc::new(ArrayData::new(
                 DataType::FixedSizeList(
-                    Box::new(DataTypeContext::new(DataType::UInt8, true)),
+                    Box::new(NullableDataType::new(DataType::UInt8, true)),
                     self.builder.list_len,
                 ),
                 array.len(),
@@ -3814,13 +3817,13 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Data type List(DataTypeContext { data_type: Int64, nullable: true }) is not currently supported"
+        expected = "Data type List(NullableDataType { data_type: Int64, nullable: true }) is not currently supported"
     )]
     fn test_struct_array_builder_from_schema_unsupported_type() {
         let mut fields = Vec::new();
         fields.push(Field::new("f1", DataType::Int16, false));
         let list_type =
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int64, true)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int64, true)));
         fields.push(Field::new("f2", list_type, false));
 
         let _ = StructBuilder::from_fields(fields, 5);
@@ -4119,7 +4122,7 @@ mod tests {
         let list_value_offsets =
             Buffer::from(&[0, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int64, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Int64, true))),
             8,
             None,
             None,
@@ -4205,7 +4208,7 @@ mod tests {
             &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
         );
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int64, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Int64, true))),
             12,
             None,
             None,
@@ -4247,7 +4250,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         let list_data = ArrayData::new(
-            DataType::List(Box::new(DataTypeContext::new(DataType::Utf8, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
             3,
             None,
             None,
@@ -4282,7 +4285,7 @@ mod tests {
         ]);
         let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
         let expected_list_data = ArrayData::new(
-            DataType::List(Box::new(DataTypeContext::new(DataType::Utf8, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
             7,
             None,
             None, // is this correct?
@@ -4371,7 +4374,7 @@ mod tests {
         ]);
         let expected_list_data = ArrayData::new(
             DataType::FixedSizeList(
-                Box::new(DataTypeContext::new(DataType::UInt16, true)),
+                Box::new(NullableDataType::new(DataType::UInt16, true)),
                 2,
             ),
             12,
@@ -4444,7 +4447,7 @@ mod tests {
         ]);
         let expected_list_data = ArrayData::new(
             DataType::FixedSizeList(
-                Box::new(DataTypeContext::new(DataType::UInt8, true)),
+                Box::new(NullableDataType::new(DataType::UInt8, true)),
                 2,
             ),
             12,

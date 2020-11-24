@@ -302,7 +302,7 @@ mod tests {
     fn create_record_batch_with_matching_nested_type() {
         let schema = Schema::new(vec![Field::new(
             "list",
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
             false,
         )]);
 
@@ -319,7 +319,7 @@ mod tests {
 
         let offsets = UInt64Array::from(vec![0, 2, 4]);
         let array_data = Arc::new(ArrayData::new(
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
             3,
             None,
             None,

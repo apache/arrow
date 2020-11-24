@@ -767,7 +767,7 @@ mod tests {
             let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(
-                DataTypeContext::new(DataType::Int32, false),
+                NullableDataType::new(DataType::Int32, false),
             ));
             let list_data = ArrayData::builder(list_data_type.clone())
                 .len(3)
@@ -838,7 +838,7 @@ mod tests {
             let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(
-                DataTypeContext::new(DataType::Int32, false),
+                NullableDataType::new(DataType::Int32, false),
             ));
             let list_data = ArrayData::builder(list_data_type.clone())
                 .len(4)
@@ -909,7 +909,7 @@ mod tests {
             let value_offsets = Buffer::from(&value_offsets.to_byte_slice());
             // Construct a list array from the above two
             let list_data_type = DataType::$list_data_type(Box::new(
-                DataTypeContext::new(DataType::Int32, false),
+                NullableDataType::new(DataType::Int32, false),
             ));
             let list_data = ArrayData::builder(list_data_type.clone())
                 .len(4)
@@ -1001,7 +1001,7 @@ mod tests {
         let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(DataTypeContext::new(DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)

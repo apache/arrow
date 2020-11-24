@@ -26,7 +26,7 @@ use arrow::array::{
 };
 use arrow::buffer::Buffer;
 use arrow::datatypes::{
-    DataType, DataTypeContext, Date64Type, Field, Time64NanosecondType, ToByteSlice,
+    DataType, Date64Type, Field, NullableDataType, Time64NanosecondType, ToByteSlice,
 };
 
 fn main() {
@@ -102,7 +102,7 @@ fn main() {
 
     // Construct a list array from the above two
     let list_data_type =
-        DataType::List(Box::new(DataTypeContext::new(DataType::Int32, false)));
+        DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
     let list_data = ArrayData::builder(list_data_type)
         .len(3)
         .add_buffer(value_offsets)

@@ -38,7 +38,7 @@ use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
-use arrow::datatypes::DataTypeContext;
+use arrow::datatypes::NullableDataType;
 use arrow::{
     array::ArrayRef,
     compute::kernels::length::length,
@@ -204,7 +204,7 @@ pub fn return_type(
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
         BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
-            Box::new(DataTypeContext::new(arg_types[0].clone(), true)),
+            Box::new(NullableDataType::new(arg_types[0].clone(), true)),
             arg_types.len() as i32,
         )),
         _ => Ok(DataType::Float64),
@@ -473,7 +473,7 @@ mod tests {
             expr.data_type(&schema)?,
             // type equals to a common coercion
             DataType::FixedSizeList(
-                Box::new(DataTypeContext::new(expected_type, true)),
+                Box::new(NullableDataType::new(expected_type, true)),
                 2
             )
         );

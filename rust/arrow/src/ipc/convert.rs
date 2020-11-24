@@ -18,7 +18,7 @@
 //! Utilities for converting between IPC types and native Arrow types
 
 use crate::datatypes::{
-    DataType, DataTypeContext, DateUnit, Field, IntervalUnit, Schema, TimeUnit,
+    DataType, DateUnit, Field, IntervalUnit, NullableDataType, Schema, TimeUnit,
 };
 use crate::ipc;
 
@@ -157,7 +157,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
         .clone()
 }
 
-fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> DataTypeContext {
+fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> NullableDataType {
     if let Some(dictionary) = field.dictionary() {
         if may_be_dictionary {
             let int = dictionary.indexType().unwrap();
@@ -173,7 +173,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> DataType
                 _ => panic!("Unexpected bitwidth and signed"),
             };
             let value_type = get_data_type_context(field, false).data_type().clone();
-            return DataTypeContext::new(
+            return NullableDataType::new(
                 DataType::Dictionary(Box::new(index_type), Box::new(value_type)),
                 // taking nullability from parent field
                 field.nullable(),
@@ -314,7 +314,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> DataType
         t => unimplemented!("Type {:?} not supported", t),
     };
 
-    DataTypeContext::new(data_type, field.nullable())
+    NullableDataType::new(data_type, field.nullable())
 }
 
 pub(crate) struct FBFieldType<'b> {
@@ -686,7 +686,7 @@ pub(crate) fn get_fb_dictionary<'a: 'b, 'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::{DataType, DataTypeContext, Field, Schema};
+    use crate::datatypes::{DataType, Field, NullableDataType, Schema};
 
     #[test]
     fn convert_schema_round_trip() {
@@ -752,7 +752,7 @@ mod tests {
                 Field::new("binary", DataType::Binary, false),
                 Field::new(
                     "list[u8]",
-                    DataType::List(Box::new(DataTypeContext::new(
+                    DataType::List(Box::new(NullableDataType::new(
                         DataType::UInt8,
                         false,
                     ))),
@@ -760,7 +760,7 @@ mod tests {
                 ),
                 Field::new(
                     "list[struct<float32, int32, bool>]",
-                    DataType::List(Box::new(DataTypeContext::new(
+                    DataType::List(Box::new(NullableDataType::new(
                         DataType::Struct(vec![
                             Field::new("float32", DataType::UInt8, false),
                             Field::new("int32", DataType::Int32, true),
@@ -776,7 +776,7 @@ mod tests {
                         Field::new("int64", DataType::Int64, true),
                         Field::new(
                             "list[struct<date32, list[struct<>]>]",
-                            DataType::List(Box::new(DataTypeContext::new(
+                            DataType::List(Box::new(NullableDataType::new(
                                 DataType::Struct(vec![
                                     Field::new(
                                         "date32",
@@ -785,7 +785,7 @@ mod tests {
                                     ),
                                     Field::new(
                                         "list[struct<>]",
-                                        DataType::List(Box::new(DataTypeContext::new(
+                                        DataType::List(Box::new(NullableDataType::new(
                                             DataType::Struct(vec![]),
                                             false,
                                         ))),

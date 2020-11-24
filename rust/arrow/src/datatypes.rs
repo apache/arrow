@@ -125,11 +125,11 @@ pub enum DataType {
     /// A variable-length string in Unicode with UFT-8 encoding and 64-bit offsets.
     LargeUtf8,
     /// A list of some logical data type with variable length.
-    List(Box<DataTypeContext>),
+    List(Box<NullableDataType>),
     /// A list of some logical data type with fixed length.
-    FixedSizeList(Box<DataTypeContext>, i32),
+    FixedSizeList(Box<NullableDataType>, i32),
     /// A list of some logical data type with variable length and 64-bit offsets.
-    LargeList(Box<DataTypeContext>),
+    LargeList(Box<NullableDataType>),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
@@ -149,9 +149,9 @@ pub enum DataType {
     Decimal(usize, usize),
 }
 
-/// Data type context that holds additional metadata
+/// Extends data type with nullability
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct DataTypeContext {
+pub struct NullableDataType {
     data_type: DataType,
     nullable: bool,
 }
@@ -196,8 +196,7 @@ pub enum IntervalUnit {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Field {
     name: String,
-    data_type: DataType,
-    nullable: bool,
+    data_type: NullableDataType,
     dict_id: i64,
     dict_is_ordered: bool,
 }
@@ -883,7 +882,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 impl DataType {
     /// Parse a data type from a JSON representation
     pub(crate) fn from(json: &Value) -> Result<DataType> {
-        let default_dt_ctx = DataTypeContext::new(DataType::Boolean, true);
+        let default_dt_ctx = NullableDataType::new(DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "null" => Ok(DataType::Null),
@@ -1156,10 +1155,10 @@ impl DataType {
     }
 }
 
-impl DataTypeContext {
+impl NullableDataType {
     /// Creates a new data type context
     pub fn new(data_type: DataType, nullable: bool) -> Self {
-        DataTypeContext {
+        NullableDataType {
             data_type,
             nullable,
         }
@@ -1183,9 +1182,7 @@ impl Field {
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
-            //todo: combine data type and nullability in type context
-            data_type,
-            nullable,
+            data_type: NullableDataType::new(data_type, nullable),
             dict_id: 0,
             dict_is_ordered: false,
         }
@@ -1201,8 +1198,7 @@ impl Field {
     ) -> Self {
         Field {
             name: name.to_string(),
-            data_type,
-            nullable,
+            data_type: NullableDataType::new(data_type, nullable),
             dict_id,
             dict_is_ordered,
         }
@@ -1217,13 +1213,13 @@ impl Field {
     /// Returns an immutable reference to the `Field`'s  data-type
     #[inline]
     pub const fn data_type(&self) -> &DataType {
-        &self.data_type
+        self.data_type.data_type()
     }
 
     /// Indicates whether this `Field` supports null values
     #[inline]
     pub const fn is_nullable(&self) -> bool {
-        self.nullable
+        self.data_type.nullable
     }
 
     /// Returns the dictionary ID
@@ -1278,9 +1274,9 @@ impl Field {
                                 ));
                             }
                             let nested_field = Self::from(&values[0])?;
-                            let nexted_dt_ctx = DataTypeContext::new(
-                                nested_field.data_type,
-                                nested_field.nullable,
+                            let nexted_dt_ctx = NullableDataType::new(
+                                nested_field.data_type.data_type,
+                                nested_field.data_type.nullable,
                             );
                             match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
@@ -1367,8 +1363,7 @@ impl Field {
                 };
                 Ok(Field {
                     name,
-                    nullable,
-                    data_type,
+                    data_type: NullableDataType::new(data_type, nullable),
                     dict_id,
                     dict_is_ordered,
                 })
@@ -1412,7 +1407,7 @@ impl Field {
         match self.data_type() {
             DataType::Dictionary(ref index_type, ref value_type) => json!({
                 "name": self.name,
-                "nullable": self.nullable,
+                "nullable": self.data_type.nullable,
                 "type": value_type.to_json(),
                 "children": children,
                 "dictionary": {
@@ -1423,8 +1418,8 @@ impl Field {
             }),
             _ => json!({
                 "name": self.name,
-                "nullable": self.nullable,
-                "type": self.data_type.to_json(),
+                "nullable": self.data_type.is_nullable(),
+                "type": self.data_type.data_type().to_json(),
                 "children": children
             }),
         }
@@ -1453,8 +1448,8 @@ impl Field {
                     .to_string(),
             ));
         }
-        match &mut self.data_type {
-            DataType::Struct(nested_fields) => match &from.data_type {
+        match &mut self.data_type.data_type {
+            DataType::Struct(nested_fields) => match &from.data_type.data_type {
                 DataType::Struct(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
@@ -1477,7 +1472,7 @@ impl Field {
                     ));
                 }
             },
-            DataType::Union(nested_fields) => match &from.data_type {
+            DataType::Union(nested_fields) => match &from.data_type.data_type {
                 DataType::Union(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
@@ -1529,7 +1524,7 @@ impl Field {
             | DataType::Utf8
             | DataType::LargeUtf8
             | DataType::Decimal(_, _) => {
-                if self.data_type != from.data_type {
+                if self.data_type.data_type != from.data_type.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
                             .to_string(),
@@ -1537,8 +1532,8 @@ impl Field {
                 }
             }
         }
-        if from.nullable {
-            self.nullable = from.nullable;
+        if from.data_type.nullable {
+            self.data_type.nullable = from.data_type.nullable;
         }
 
         Ok(())
@@ -1547,7 +1542,7 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.data_type)
+        write!(f, "{}: {:?}", self.name, self.data_type.data_type)
     }
 }
 
@@ -1867,12 +1862,12 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"address\",\"data_type\":{\"Struct\":\
-             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}\
-             ]},\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}]}",
+             {\"name\":\"first_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"last_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"address\",\"data_type\":{\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"zip\",\"data_type\":{\"data_type\":\"UInt16\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}\
+             ]},\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}]}",
             serialized
         );
 
@@ -2053,7 +2048,7 @@ mod tests {
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
                 Field::new(
                     "c21",
-                    DataType::List(Box::new(DataTypeContext::new(
+                    DataType::List(Box::new(NullableDataType::new(
                         DataType::Boolean,
                         true,
                     ))),
@@ -2062,15 +2057,15 @@ mod tests {
                 Field::new(
                     "c22",
                     DataType::FixedSizeList(
-                        Box::new(DataTypeContext::new(DataType::Boolean, false)),
+                        Box::new(NullableDataType::new(DataType::Boolean, false)),
                         5,
                     ),
                     false,
                 ),
                 Field::new(
                     "c23",
-                    DataType::List(Box::new(DataTypeContext::new(
-                        DataType::List(Box::new(DataTypeContext::new(
+                    DataType::List(Box::new(NullableDataType::new(
+                        DataType::List(Box::new(NullableDataType::new(
                             DataType::Struct(vec![]),
                             true,
                         ))),
@@ -2106,8 +2101,8 @@ mod tests {
                 Field::new("c33", DataType::LargeUtf8, true),
                 Field::new(
                     "c34",
-                    DataType::LargeList(Box::new(DataTypeContext::new(
-                        DataType::LargeList(Box::new(DataTypeContext::new(
+                    DataType::LargeList(Box::new(NullableDataType::new(
+                        DataType::LargeList(Box::new(NullableDataType::new(
                             DataType::Struct(vec![]),
                             false,
                         ))),
@@ -2566,8 +2561,8 @@ mod tests {
         assert_eq!(schema.to_string(), "first_name: Utf8, \
         last_name: Utf8, \
         address: Struct([\
-        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
+        Field { name: \"street\", data_type: NullableDataType { data_type: Utf8, nullable: false }, dict_id: 0, dict_is_ordered: false }, \
+        Field { name: \"zip\", data_type: NullableDataType { data_type: UInt16, nullable: false }, dict_id: 0, dict_is_ordered: false }])")
     }
 
     #[test]
@@ -2804,11 +2799,11 @@ mod tests {
 
     #[test]
     fn test_compare_nested_types() {
-        let list_type_a = &DataType::List(Box::new(DataTypeContext::new(
+        let list_type_a = &DataType::List(Box::new(NullableDataType::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
             true,
         )));
-        let list_type_b = &DataType::List(Box::new(DataTypeContext::new(
+        let list_type_b = &DataType::List(Box::new(NullableDataType::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
             true,
         )));
@@ -2818,11 +2813,11 @@ mod tests {
 
     #[test]
     fn test_compare_mismatching_types() {
-        let list_type_a = &DataType::LargeList(Box::new(DataTypeContext::new(
+        let list_type_a = &DataType::LargeList(Box::new(NullableDataType::new(
             DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
             true,
         )));
-        let list_type_b = &DataType::LargeList(Box::new(DataTypeContext::new(
+        let list_type_b = &DataType::LargeList(Box::new(NullableDataType::new(
             DataType::Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
             false,
         )));
