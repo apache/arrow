@@ -96,7 +96,7 @@ namespace Apache.Arrow.Flight
 
             public ValueTask DisposeAsync()
             {
-                _flightRecordBatchStreamReader._arrowReaderImplementation.Dispose();
+                _flightRecordBatchStreamReader.Dispose();
                 return CompletedValueTask;
             }
         }
