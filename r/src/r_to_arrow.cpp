@@ -348,6 +348,11 @@ bool is_NA<cpp11::r_string>(cpp11::r_string value) {
   return value == NA_STRING;
 }
 
+template <>
+bool is_NA<SEXP>(SEXP value) {
+  return Rf_isNull(value);
+}
+
 template <RVectorType rtype, typename T, class VisitorFunc>
 inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   RScalar obj{rtype, nullptr, false};
@@ -401,6 +406,10 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
       return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
 
+    case LIST:
+      return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
+
     case FACTOR:
       return VisitFactor<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
 
@@ -409,6 +418,13 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   }
 
   return Status::Invalid("No visitor for R type ", rtype);
+}
+
+template <typename T>
+Status Extend(T* converter, SEXP x, R_xlen_t size) {
+  RETURN_NOT_OK(converter->Reserve(size));
+  return VisitVector(x, size,
+                     [&converter](RScalar* obj) { return converter->Append(obj); });
 }
 
 using RConverter = Converter<RScalar*, RConversionOptions>;
@@ -589,7 +605,21 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Append(RScalar* value) { return Status::OK(); }
+  Status Append(RScalar* value) {
+    if (RValue::IsNull(value)) {
+      return this->list_builder_->AppendNull();
+    }
+
+    // append one element to the list
+    RETURN_NOT_OK(this->list_builder_->Append());
+
+    // append the contents through the list value converter
+    SEXP obj = *reinterpret_cast<SEXP*>(value->data);
+    R_xlen_t size = XLENGTH(obj);
+    RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
+
+    return Extend(this->value_converter_.get(), obj, size);
+  }
 };
 
 template <>
@@ -630,9 +660,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
 
-  StopIfNotOk(converter->Reserve(options.size));
-  StopIfNotOk(VisitVector(x, options.size,
-                          [&converter](RScalar* obj) { return converter->Append(obj); }));
+  StopIfNotOk(Extend(converter.get(), x, options.size));
   return ValueOrStop(converter->ToArray());
 }
 
