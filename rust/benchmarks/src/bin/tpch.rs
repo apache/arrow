@@ -229,7 +229,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             ),
                             lit(1),
                         )
-                        .otherwise(lit(0)))
+                        .otherwise(lit(0))?)
                         .alias("high_line_count"),
                         sum(when(
                             and(
@@ -238,7 +238,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             ),
                             lit(1),
                         )
-                        .otherwise(lit(0)))
+                        .otherwise(lit(0))?)
                         .alias("low_line_count"),
                     ],
                 )?

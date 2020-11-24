@@ -34,6 +34,7 @@ use crate::physical_plan::{
 };
 use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
+use std::collections::HashSet;
 
 /// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
 /// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
@@ -390,6 +391,7 @@ pub struct CaseBuilder {
     expr: Option<Box<Expr>>,
     when_expr: Vec<Expr>,
     then_expr: Vec<Expr>,
+    else_expr: Option<Box<Expr>>,
 }
 
 impl CaseBuilder {
@@ -400,10 +402,48 @@ impl CaseBuilder {
             expr: self.expr.clone(),
             when_expr: self.when_expr.clone(),
             then_expr: self.then_expr.clone(),
+            else_expr: self.else_expr.clone(),
         }
     }
-    pub fn otherwise(&mut self, else_expr: Expr) -> Expr {
-        Expr::Case {
+    pub fn otherwise(&mut self, else_expr: Expr) -> Result<Expr> {
+        self.else_expr = Some(Box::new(else_expr));
+        self.build()
+    }
+
+    pub fn end(&self) -> Result<Expr> {
+        self.build()
+    }
+}
+
+impl CaseBuilder {
+    fn build(&self) -> Result<Expr> {
+        // collect all "then" expressions
+        let mut then_expr = self.then_expr.clone();
+        if let Some(e) = &self.else_expr {
+            then_expr.push(e.as_ref().to_owned());
+        }
+
+        let then_types: Vec<DataType> = then_expr
+            .iter()
+            .map(|e| match e {
+                Expr::Literal(_) => e.get_type(&Schema::empty()),
+                _ => Ok(DataType::Null),
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        if then_types.contains(&DataType::Null) {
+            // cannot verify types until execution type
+        } else {
+            let unique_types: HashSet<&DataType> = then_types.iter().collect();
+            if unique_types.len() != 1 {
+                return Err(DataFusionError::Plan(format!(
+                    "CASE expression 'then' values had multiple data types: {:?}",
+                    unique_types
+                )));
+            }
+        }
+
+        Ok(Expr::Case {
             expr: self.expr.clone(),
             when_then_expr: self
                 .when_expr
@@ -411,20 +451,8 @@ impl CaseBuilder {
                 .zip(self.then_expr.iter())
                 .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
                 .collect(),
-            else_expr: Some(Box::new(else_expr)),
-        }
-    }
-    pub fn end(&mut self) -> Expr {
-        Expr::Case {
-            expr: self.expr.clone(),
-            when_then_expr: self
-                .when_expr
-                .iter()
-                .zip(self.then_expr.iter())
-                .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
-                .collect(),
-            else_expr: None,
-        }
+            else_expr: self.else_expr.clone(),
+        })
     }
 }
 
@@ -434,6 +462,7 @@ pub fn case(expr: Expr) -> CaseBuilder {
         expr: Some(Box::new(expr)),
         when_expr: vec![],
         then_expr: vec![],
+        else_expr: None,
     }
 }
 
@@ -443,6 +472,7 @@ pub fn when(when: Expr, then: Expr) -> CaseBuilder {
         expr: None,
         when_expr: vec![when],
         then_expr: vec![then],
+        else_expr: None,
     }
 }
 
@@ -820,4 +850,27 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 /// Create field meta-data from an expression, for use in a result set schema
 pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter().map(|e| e.to_field(input_schema)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{col, lit, when};
+    use super::*;
+
+    #[test]
+    fn case_when_same_literal_then_types() -> Result<()> {
+        let _ = when(col("state").eq(lit("CO")), lit(303))
+            .when(col("state").eq(lit("NY")), lit(212))
+            .end()?;
+        Ok(())
+    }
+
+    #[test]
+    fn case_when_different_literal_then_types() -> Result<()> {
+        let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
+            .when(col("state").eq(lit("NY")), lit("212"))
+            .end();
+        assert!(maybe_expr.is_err());
+        Ok(())
+    }
 }
