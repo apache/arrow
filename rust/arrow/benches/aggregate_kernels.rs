@@ -74,21 +74,22 @@ fn bench_min_string(arr_a: &StringArray) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_array(512, false);
+    let size = 2_usize.pow(20);
+    let arr_a = create_array(size, false);
 
-    c.bench_function("sum 512", |b| b.iter(|| bench_sum(&arr_a)));
-    c.bench_function("min 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("sum 2^20", |b| b.iter(|| bench_sum(&arr_a)));
+    c.bench_function("min 2^20", |b| b.iter(|| bench_min(&arr_a)));
 
-    let arr_a = create_array(512, true);
+    let arr_a = create_array(size, true);
 
-    c.bench_function("sum nulls 512", |b| b.iter(|| bench_sum(&arr_a)));
-    c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
+    c.bench_function("sum nulls 2^20", |b| b.iter(|| bench_sum(&arr_a)));
+    c.bench_function("min nulls 2^20", |b| b.iter(|| bench_min(&arr_a)));
 
-    let arr_b = create_string_array(512, false);
-    c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
+    let arr_b = create_string_array(size, false);
+    c.bench_function("min string 2^20", |b| b.iter(|| bench_min_string(&arr_b)));
 
-    let arr_b = create_string_array(512, true);
-    c.bench_function("min nulls string 512", |b| {
+    let arr_b = create_string_array(size, true);
+    c.bench_function("min nulls string 2^20", |b| {
         b.iter(|| bench_min_string(&arr_b))
     });
 }

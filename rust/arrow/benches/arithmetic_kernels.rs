@@ -73,25 +73,25 @@ fn bench_limit(arr_a: &ArrayRef, max: usize) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let arr_a = create_array(512, false);
-    let arr_b = create_array(512, false);
+    let arr_a = create_array(2_usize.pow(20), false);
+    let arr_b = create_array(2_usize.pow(20), false);
 
-    c.bench_function("add 512", |b| b.iter(|| bench_add(&arr_a, &arr_b)));
-    c.bench_function("subtract 512", |b| {
+    c.bench_function("add 2^20", |b| b.iter(|| bench_add(&arr_a, &arr_b)));
+    c.bench_function("subtract 2^20", |b| {
         b.iter(|| bench_subtract(&arr_a, &arr_b))
     });
-    c.bench_function("multiply 512", |b| {
+    c.bench_function("multiply 2^20", |b| {
         b.iter(|| bench_multiply(&arr_a, &arr_b))
     });
-    c.bench_function("divide 512", |b| b.iter(|| bench_divide(&arr_a, &arr_b)));
-    c.bench_function("limit 512, 512", |b| b.iter(|| bench_limit(&arr_a, 512)));
+    c.bench_function("divide 2^20", |b| b.iter(|| bench_divide(&arr_a, &arr_b)));
+    c.bench_function("limit 2^20, 512", |b| b.iter(|| bench_limit(&arr_a, 512)));
 
-    let arr_a_nulls = create_array(512, false);
-    let arr_b_nulls = create_array(512, false);
-    c.bench_function("add_nulls_512", |b| {
+    let arr_a_nulls = create_array(2_usize.pow(20), false);
+    let arr_b_nulls = create_array(2_usize.pow(20), false);
+    c.bench_function("add_nulls_2^20", |b| {
         b.iter(|| bench_add(&arr_a_nulls, &arr_b_nulls))
     });
-    c.bench_function("divide_nulls_512", |b| {
+    c.bench_function("divide_nulls_2^20", |b| {
         b.iter(|| bench_divide(&arr_a_nulls, &arr_b_nulls))
     });
 }

@@ -21,6 +21,10 @@ use std::ops::Add;
 
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::ArrowNumericType;
+use bitvec::prelude::BitField;
+use rayon::iter::IndexedParallelIterator;
+use rayon::prelude::*;
+use std::iter::Sum;
 
 /// Helper macro to perform min/max of strings
 fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
@@ -129,7 +133,7 @@ where
 pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    T::Native: Add<Output = T::Native>,
+    T::Native: Add<Output = T::Native> + Sum,
 {
     let null_count = array.null_count();
 
@@ -141,33 +145,38 @@ where
 
     match array.data().null_buffer() {
         None => {
-            let sum = data.iter().fold(T::default_value(), |accumulator, value| {
-                accumulator + *value
-            });
+            let total = data
+                .par_iter()
+                .map(|value| {
+                    let mut sum = T::default_value();
+                    sum = sum + *value;
+                    sum
+                })
+                .sum();
 
-            Some(sum)
+            Some(total)
         }
         Some(buffer) => {
-            let mut sum = T::default_value();
-            let data_chunks = data.chunks_exact(64);
+            let data_chunks = data.par_chunks_exact(64);
             let remainder = data_chunks.remainder();
 
             let buffer_slice = buffer.bit_slice().slicing(array.offset(), array.len());
-            let buffer_chunks = buffer_slice.chunks::<u64>();
+            let buffer_chunks = buffer_slice.par_chunks::<u64>();
 
             let buffer_remainder_bits: u64 = buffer_chunks.remainder_bits();
 
-            let buffer_chunk_iter = buffer_chunks.into_native_iter();
-
-            data_chunks
-                .zip(buffer_chunk_iter)
-                .for_each(|(chunk, mask)| {
+            let mut sum = data_chunks
+                .zip(buffer_chunks)
+                .map(|(chunk, mask)| {
+                    let mut sum = T::default_value();
                     chunk.iter().enumerate().for_each(|(i, value)| {
-                        if (mask & (1 << i)) != 0 {
+                        if (mask.load::<u64>() & (1 << i)) != 0 {
                             sum = sum + *value;
                         }
                     });
-                });
+                    sum
+                })
+                .sum();
 
             remainder.iter().enumerate().for_each(|(i, value)| {
                 if buffer_remainder_bits & (1 << i) != 0 {

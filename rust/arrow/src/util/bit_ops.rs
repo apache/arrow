@@ -20,7 +20,10 @@ use crate::buffer::Buffer;
 use bitvec::prelude::*;
 use bitvec::slice::ChunksExact;
 
+use rayon::iter::plumbing::*;
+use rayon::prelude::*;
 use std::fmt::Debug;
+use std::marker::PhantomData as marker;
 
 ///
 /// Immutable bit slice view of `Buffer` data.
@@ -98,6 +101,27 @@ impl<'a> BufferBitSlice<'a> {
         };
         BufferBitChunksExact {
             chunks_exact,
+            remainder,
+            remainder_len_in_bits: remainder_bits.len(),
+        }
+    }
+
+    #[inline]
+    pub fn par_chunks<T>(&self) -> ParallelChunksExact<T>
+    where
+        T: BitMemory,
+    {
+        let offset_size_in_bits = 8 * std::mem::size_of::<T>();
+        let chunks_exact = self.bit_slice.chunks_exact(offset_size_in_bits);
+        let remainder_bits = chunks_exact.remainder();
+        let remainder: T = if remainder_bits.is_empty() {
+            T::default()
+        } else {
+            remainder_bits.load::<T>()
+        };
+        ParallelChunksExact {
+            bit_slice: self.bit_slice,
+            chunk_size: offset_size_in_bits,
             remainder,
             remainder_len_in_bits: remainder_bits.len(),
         }
@@ -325,6 +349,128 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         self.chunks_exact
+    }
+}
+
+/// Implements parallel iterator over an immutable reference to a `BufferBitChunksExact`
+#[derive(Debug)]
+pub struct ParallelChunksExact<'a, T> {
+    bit_slice: &'a BitSlice<LocalBits, u8>,
+    chunk_size: usize,
+    remainder: T,
+    remainder_len_in_bits: usize,
+}
+
+impl<'a, T> ParallelChunksExact<'a, T>
+where
+    T: BitMemory,
+{
+    ///
+    /// Returns remainder bit length from the exact chunk iterator
+    #[inline(always)]
+    pub fn remainder_bit_len(&self) -> usize {
+        self.remainder_len_in_bits
+    }
+
+    ///
+    /// Returns the remainder bits interpreted as given type.
+    #[inline(always)]
+    pub fn remainder_bits(&self) -> T {
+        self.remainder
+    }
+
+    ///
+    /// Returns an iterator which interprets underlying chunk's view's bits as given type.
+    #[inline(always)]
+    pub fn into_native_iter(self) -> impl Iterator<Item = T> + 'a
+    where
+        T: BitMemory,
+    {
+        self.bit_slice
+            .chunks_exact(self.chunk_size)
+            .map(|e| e.load::<T>())
+    }
+}
+
+impl<'a, T> ParallelIterator for ParallelChunksExact<'a, T>
+where
+    T: BitMemory,
+{
+    type Item = &'a BitSlice<LocalBits, u8>;
+
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where
+        C: UnindexedConsumer<Self::Item>,
+    {
+        bridge(self, consumer)
+    }
+
+    fn opt_len(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+impl<'a, T> IndexedParallelIterator for ParallelChunksExact<'a, T>
+where
+    T: BitMemory,
+{
+    fn len(&self) -> usize {
+        self.bit_slice.len()
+    }
+
+    fn drive<C>(self, consumer: C) -> C::Result
+    where
+        C: Consumer<Self::Item>,
+    {
+        bridge(self, consumer)
+    }
+
+    fn with_producer<CB>(self, callback: CB) -> CB::Output
+    where
+        CB: ProducerCallback<Self::Item>,
+    {
+        callback.callback(BufferBitSliceProducer::<T> {
+            inner: self.bit_slice,
+            marker,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct BufferBitSliceProducer<'a, T>
+where
+    T: BitMemory,
+{
+    inner: &'a BitSlice<LocalBits, u8>,
+    marker: marker<T>,
+}
+
+impl<'a, T> Producer for BufferBitSliceProducer<'a, T>
+where
+    T: BitMemory,
+{
+    type Item = &'a BitSlice<LocalBits, u8>;
+    type IntoIter = ChunksExact<'a, LocalBits, u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let offset_size_in_bits = 8 * std::mem::size_of::<T>();
+        self.inner.chunks_exact(offset_size_in_bits)
+    }
+
+    fn split_at(self, index: usize) -> (Self, Self) {
+        let offset_size_in_bits = 8 * std::mem::size_of::<T>();
+        let elem_index = index * offset_size_in_bits;
+        let (left, right) = self.inner.split_at(elem_index);
+        (
+            BufferBitSliceProducer {
+                inner: left,
+                marker,
+            },
+            BufferBitSliceProducer {
+                inner: right,
+                marker,
+            },
+        )
     }
 }
 

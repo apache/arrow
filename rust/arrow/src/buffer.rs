@@ -36,6 +36,8 @@ use crate::memory;
 use crate::util::bit_ops::*;
 use crate::util::utils;
 use crate::util::utils::ceil;
+use bitvec::field::BitField;
+use rayon::prelude::*;
 #[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
 
@@ -428,31 +430,28 @@ fn bitwise_bin_op_helper<F>(
     op: F,
 ) -> Buffer
 where
-    F: Fn(u64, u64) -> u64,
+    F: Fn(u64, u64) -> u64 + Send + Sync,
 {
     // reserve capacity and set length so we can get a typed view of u64 chunks
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
     let left_slice = left.bit_slice().slicing(left_offset_in_bits, len_in_bits);
-    let left_chunks = left_slice.chunks::<u64>();
+    let left_chunks = left_slice.par_chunks::<u64>();
 
     let right_slice = right.bit_slice().slicing(right_offset_in_bits, len_in_bits);
-    let right_chunks = right_slice.chunks::<u64>();
+    let right_chunks = right_slice.par_chunks::<u64>();
 
     let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
     let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
     let rem = &rem.to_ne_bytes()[0..remainder_bytes];
 
-    let left_chunk_iter = left_chunks.into_native_iter();
-    let right_chunk_iter = right_chunks.into_native_iter();
-
-    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
+    let result_chunks = result.typed_data_mut::<u64>().par_iter_mut();
 
     result_chunks
-        .zip(left_chunk_iter.zip(right_chunk_iter))
+        .zip(left_chunks.zip(right_chunks))
         .for_each(|(res, (left, right))| {
-            *res = op(left, right);
+            *res = op((*left).load::<u64>(), (*right).load::<u64>());
         });
 
     result.extend_from_slice(rem);
@@ -469,25 +468,23 @@ fn bitwise_unary_op_helper<F>(
     op: F,
 ) -> Buffer
 where
-    F: Fn(u64) -> u64,
+    F: Fn(u64) -> u64 + Send + Sync,
 {
     // reserve capacity and set length so we can get a typed view of u64 chunks
     let mut result =
         MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
     let left_slice = left.bit_slice().slicing(offset_in_bits, len_in_bits);
-    let left_chunks = left_slice.chunks::<u64>();
+    let left_chunks = left_slice.par_chunks::<u64>();
 
     let remainder_bytes = ceil(left_chunks.remainder_bit_len(), 8);
     let rem = op(left_chunks.remainder_bits());
     let rem = &rem.to_ne_bytes()[0..remainder_bytes];
 
-    let left_chunk_iter = left_chunks.into_native_iter();
+    let result_chunks = result.typed_data_mut::<u64>().par_iter_mut();
 
-    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
-
-    result_chunks.zip(left_chunk_iter).for_each(|(res, left)| {
-        *res = op(left);
+    result_chunks.zip(left_chunks).for_each(|(res, left)| {
+        *res = op((*left).load::<u64>());
     });
 
     result.extend_from_slice(rem);
