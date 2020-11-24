@@ -332,7 +332,7 @@ class GrpcClientInterceptorAdapterFactory
     : public grpc::experimental::ClientInterceptorFactoryInterface {
  public:
   GrpcClientInterceptorAdapterFactory(
-      const std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
+      std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
       : middleware_(middleware) {}
 
   grpc::experimental::Interceptor* CreateClientInterceptor(
@@ -364,7 +364,6 @@ class GrpcClientInterceptorAdapterFactory
     }
 
     const CallInfo flight_info{flight_method};
-    std::lock_guard<std::mutex> lock(middleware_lock_);
     for (auto& factory : middleware_) {
       std::unique_ptr<ClientMiddleware> instance;
       factory->StartCall(flight_info, &instance);
@@ -374,17 +373,8 @@ class GrpcClientInterceptorAdapterFactory
     }
     return new GrpcClientInterceptorAdapter(std::move(middleware));
   }
-
-  void AddMiddlewareFactory(std::shared_ptr<ClientMiddlewareFactory> middleware_factory) {
-    std::lock_guard<std::mutex> lock(middleware_lock_);
-    middleware_.push_back(middleware_factory);
-  }
-
-  void RemoveMiddlewareFactory() { middleware_.pop_back(); }
-
  private:
-  std::mutex middleware_lock_;
-  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
+ std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
 class GrpcClientAuthSender : public ClientAuthSender {
@@ -883,8 +873,6 @@ constexpr char BLANK_ROOT_PEM[] =
 }  // namespace
 class FlightClient::FlightClientImpl {
  public:
-  FlightClientImpl() {}
-
   Status Connect(const Location& location, const FlightClientOptions& options) {
     const std::string& scheme = location.scheme();
 
@@ -1012,7 +1000,7 @@ class FlightClient::FlightClientImpl {
       const FlightCallOptions& options, const std::string& username, 
       const std::string& password, std::pair<std::string, std::string>* bearer_token) {
     // Add basic auth headers to outgoing headers.
-    ClientRpc rpc({});
+    ClientRpc rpc(options);
     internal::AddBasicAuthHeaders(&rpc.context, username, password);
 
     std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
