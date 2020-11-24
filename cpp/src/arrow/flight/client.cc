@@ -380,9 +380,7 @@ class GrpcClientInterceptorAdapterFactory
     middleware_.push_back(middleware_factory);
   }
 
-  void RemoveMiddlewareFactory() {
-    middleware_.pop_back();
-  }
+  void RemoveMiddlewareFactory() { middleware_.pop_back(); }
 
  private:
   std::mutex middleware_lock_;
@@ -1037,8 +1035,6 @@ class FlightClient::FlightClientImpl {
     }
     return Status::OK();
   }
-
-
 
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                      std::unique_ptr<FlightListing>* listing) {

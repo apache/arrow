@@ -18,17 +18,16 @@
 // Interfaces for defining middleware for Flight clients. Currently
 // experimental.
 
-#include "arrow/flight/client_auth.h"
 #include "arrow/flight/client_header_auth_middleware_internal.h"
 #include "arrow/flight/client.h"
+#include "arrow/flight/client_auth.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/make_unique.h"
 
 #include <algorithm>
-#include <iostream>
 #include <cctype>
-#include <string>
 #include <memory>
+#include <string>
 
 const char kAuthHeader[] = "authorization";
 const char kBearerPrefix[] = "Bearer ";
@@ -43,18 +42,19 @@ namespace internal {
 // @param context Context object to add the headers to.
 // @param username Username to format and encode.
 // @param password Password to format and encode.
-void AddBasicAuthHeaders(grpc::ClientContext* context,
-                         const std::string& username, const std::string& password) {
+void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username,
+                         const std::string& password) {
   const std::string credentials = username + ":" + password;
-  context->AddMetadata(kAuthHeader, kBasicPrefix +
-      arrow::util::base64_encode((const unsigned char*)credentials.c_str(),
-                                  credentials.size()));
+  context->AddMetadata(
+      kAuthHeader,
+      kBasicPrefix + arrow::util::base64_encode((const unsigned char*)credentials.c_str(),
+                                                credentials.size()));
 }
 
 class ClientBearerTokenFactory::Impl {
  public:
   explicit Impl(std::pair<std::string, std::string>* bearer_token)
-      : bearer_token_(bearer_token) { }
+      : bearer_token_(bearer_token) {}
 
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
@@ -67,14 +67,14 @@ class ClientBearerTokenFactory::Impl {
    public:
     explicit ClientBearerTokenMiddleware(
         std::pair<std::string, std::string>* bearer_token)
-        : bearer_token_(bearer_token) { }
+        : bearer_token_(bearer_token) {}
 
-    void SendingHeaders(AddCallHeaders* outgoing_headers) override { }
+    void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
 
     void ReceivedHeaders(const CallHeaders& incoming_headers) override {
       // Lambda function to compare characters without case sensitivity.
-      auto char_compare = [] (const char& char1, const char& char2) {
-            return (std::toupper(char1) == std::toupper(char2));
+      auto char_compare = [](const char& char1, const char& char2) {
+        return (std::toupper(char1) == std::toupper(char2));
       };
 
       // Grab the auth token if one exists.
@@ -93,7 +93,7 @@ class ClientBearerTokenFactory::Impl {
       }
     }
 
-    void CallCompleted(const Status& status) override { }
+    void CallCompleted(const Status& status) override {}
 
    private:
     std::pair<std::string, std::string>* bearer_token_;
@@ -105,9 +105,9 @@ class ClientBearerTokenFactory::Impl {
 
 ClientBearerTokenFactory::ClientBearerTokenFactory(
     std::pair<std::string, std::string>* bearer_token)
-    : impl_(new ClientBearerTokenFactory::Impl(bearer_token)) { }
+    : impl_(new ClientBearerTokenFactory::Impl(bearer_token)) {}
 
-ClientBearerTokenFactory::~ClientBearerTokenFactory() { }
+ClientBearerTokenFactory::~ClientBearerTokenFactory() {}
 
 void ClientBearerTokenFactory::StartCall(const CallInfo& info,
                                          std::unique_ptr<ClientMiddleware>* middleware) {

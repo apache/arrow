@@ -794,8 +794,8 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
 
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {
     // Lambda function to compare characters without case sensitivity.
-    auto char_compare = [] (const char& char1, const char& char2) {
-          return (std::toupper(char1) == std::toupper(char2));
+    auto char_compare = [](const char& char1, const char& char2) {
+      return (std::toupper(char1) == std::toupper(char2));
     };
 
     std::string username;
@@ -805,11 +805,11 @@ class HeaderAuthServerMiddleware : public ServerMiddleware {
       const std::string val = iter.second.to_string();
       if (key == kAuthHeader) {
         if (val.size() > strlen(kBasicPrefix)) {
-          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix),
-                        kBasicPrefix, char_compare)) {
+          if (std::equal(val.begin(), val.begin() + strlen(kBasicPrefix), kBasicPrefix,
+                         char_compare)) {
             const std::string encoded_credentials = val.substr(strlen(kBasicPrefix));
-            const std::string decoded_credentials = arrow::util::base64_decode(
-                encoded_credentials);
+            const std::string decoded_credentials =
+                arrow::util::base64_decode(encoded_credentials);
             std::stringstream decoded_stream(decoded_credentials);
             std::getline(decoded_stream, username, ':');
             std::getline(decoded_stream, password, ':');
@@ -1071,9 +1071,10 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   void SetUp() {
     server_middleware_ = std::make_shared<HeaderAuthServerMiddlewareFactory>();
     ASSERT_OK(MakeServer<FlightServerBase>(
-        &server_, &client_, [&](FlightServerOptions* options) {
-          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
-              new TestServerAuthHandler("", ""));
+        &server_, &client_,
+        [&](FlightServerOptions* options) {
+          options->auth_handler =
+              std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("", ""));
           options->middleware.push_back({"header-auth-server", server_middleware_});
           return Status::OK();
         },
@@ -1100,9 +1101,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     ASSERT_EQ(bearer_token.second, std::string(""));
   }
 
-  void TearDown() {
-    ASSERT_OK(server_->Shutdown());
-  }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -2290,13 +2289,9 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   ValidateStatus(status, FlightMethod::DoPut);
 }
 
-TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) {
-  RunValidClientAuth();
-}
+TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); }
 
-TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) {
-  RunInvalidClientAuth();
-}
+TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
 
 }  // namespace flight
 }  // namespace arrow
