@@ -24,6 +24,9 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::*;
 use arrow::datatypes::ArrowNumericType;
+use arrow::util::test_util::seedable_rng;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 
 fn create_array(size: usize) -> Float32Array {
     let mut builder = Float32Builder::new(size);
@@ -32,6 +35,25 @@ fn create_array(size: usize) -> Float32Array {
             builder.append_value(1.0).unwrap();
         } else {
             builder.append_value(0.0).unwrap();
+        }
+    }
+    builder.finish()
+}
+
+fn create_string_array(size: usize, with_nulls: bool) -> StringArray {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = StringBuilder::new(size);
+
+    for _ in 0..size {
+        if with_nulls && rng.gen::<f32>() > 0.5 {
+            builder.append_null().unwrap();
+        } else {
+            let string = seedable_rng()
+                .sample_iter(&Alphanumeric)
+                .take(10)
+                .collect::<String>();
+            builder.append_value(&string).unwrap();
         }
     }
     builder.finish()
@@ -121,10 +143,21 @@ where
     gt_eq_scalar(criterion::black_box(arr_a), criterion::black_box(value_b)).unwrap();
 }
 
+fn bench_like_utf8_scalar(arr_a: &StringArray, value_b: &str) {
+    like_utf8_scalar(criterion::black_box(arr_a), criterion::black_box(value_b)).unwrap();
+}
+
+fn bench_nlike_utf8_scalar(arr_a: &StringArray, value_b: &str) {
+    nlike_utf8_scalar(criterion::black_box(arr_a), criterion::black_box(value_b))
+        .unwrap();
+}
+
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
     let arr_a = create_array(size);
     let arr_b = create_array(size);
+
+    let arr_string = create_string_array(size, false);
 
     c.bench_function("eq Float32", |b| b.iter(|| bench_eq(&arr_a, &arr_b)));
     c.bench_function("eq scalar Float32", |b| {
@@ -154,6 +187,46 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("gt_eq Float32", |b| b.iter(|| bench_gt_eq(&arr_a, &arr_b)));
     c.bench_function("gt_eq scalar Float32", |b| {
         b.iter(|| bench_gt_eq_scalar(&arr_a, 1.0))
+    });
+
+    c.bench_function("like_utf8 scalar equals", |b| {
+        b.iter(|| bench_like_utf8_scalar(&arr_string, "xxxx"))
+    });
+
+    c.bench_function("like_utf8 scalar contains", |b| {
+        b.iter(|| bench_like_utf8_scalar(&arr_string, "%xxxx%"))
+    });
+
+    c.bench_function("like_utf8 scalar ends with", |b| {
+        b.iter(|| bench_like_utf8_scalar(&arr_string, "xxxx%"))
+    });
+
+    c.bench_function("like_utf8 scalar starts with", |b| {
+        b.iter(|| bench_like_utf8_scalar(&arr_string, "%xxxx"))
+    });
+
+    c.bench_function("like_utf8 scalar complex", |b| {
+        b.iter(|| bench_like_utf8_scalar(&arr_string, "%xx_xx%xxx"))
+    });
+
+    c.bench_function("nlike_utf8 scalar equals", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx"))
+    });
+
+    c.bench_function("nlike_utf8 scalar contains", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx%"))
+    });
+
+    c.bench_function("nlike_utf8 scalar ends with", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "xxxx%"))
+    });
+
+    c.bench_function("nlike_utf8 scalar starts with", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xxxx"))
+    });
+
+    c.bench_function("nlike_utf8 scalar complex", |b| {
+        b.iter(|| bench_nlike_utf8_scalar(&arr_string, "%xx_xx%xxx"))
     });
 }
 
