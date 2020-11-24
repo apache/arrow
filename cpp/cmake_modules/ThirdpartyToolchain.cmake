@@ -1799,7 +1799,8 @@ endmacro()
 if(ARROW_BUILD_BENCHMARKS)
   # ArgsProduct() is available since 1.5.2
   set(BENCHMARK_REQUIRED_VERSION 1.5.2)
-  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA" AND "${benchmark_SOURCE}" STREQUAL "SYSTEM")
+  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA"
+     AND "${benchmark_SOURCE}" STREQUAL "SYSTEM")
     # TODO: Remove this workaround once
     # https://github.com/google/benchmark/issues/1046 is resolved.
     #
