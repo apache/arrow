@@ -25,7 +25,6 @@ use crate::scalar::ScalarValue;
 /// Enumeration of types that can be used in a GROUP BY expression (all primitives except
 /// for floating point numerics)
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(u8)]
 pub(crate) enum GroupByScalar {
     UInt8(u8),
     UInt16(u16),
@@ -35,7 +34,7 @@ pub(crate) enum GroupByScalar {
     Int16(i16),
     Int32(i32),
     Int64(i64),
-    Utf8(Box<String>),
+    Utf8(Box<str>),
 }
 
 impl TryFrom<&ScalarValue> for GroupByScalar {
@@ -51,7 +50,7 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::UInt16(Some(v)) => GroupByScalar::UInt16(*v),
             ScalarValue::UInt32(Some(v)) => GroupByScalar::UInt32(*v),
             ScalarValue::UInt64(Some(v)) => GroupByScalar::UInt64(*v),
-            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
+            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(v.clone().into_boxed_str()),
             ScalarValue::Int8(None)
             | ScalarValue::Int16(None)
             | ScalarValue::Int32(None)
@@ -87,7 +86,7 @@ impl From<&GroupByScalar> for ScalarValue {
             GroupByScalar::UInt16(v) => ScalarValue::UInt16(Some(*v)),
             GroupByScalar::UInt32(v) => ScalarValue::UInt32(Some(*v)),
             GroupByScalar::UInt64(v) => ScalarValue::UInt64(Some(*v)),
-            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.clone().to_string())),
+            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.to_string())),
         }
     }
 }
@@ -133,6 +132,6 @@ mod tests {
 
     #[test]
     fn size_of_group_by_scalar() {
-        assert_eq!(std::mem::size_of::<GroupByScalar>(), 16);
+        assert_eq!(std::mem::size_of::<GroupByScalar>(), 24);
     }
 }
