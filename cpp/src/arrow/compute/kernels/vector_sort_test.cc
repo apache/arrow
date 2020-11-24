@@ -376,7 +376,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandom, SortRandomValues) {
 
   Random<TypeParam> rand(0x5487655);
   int times = 5;
-  int length = 1000;
+  int length = 100;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
@@ -399,7 +399,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCount, SortRandomValuesCount) {
 
   RandomRange<TypeParam> rand(0x5487656);
   int times = 5;
-  int length = 4000;
+  int length = 100;
   int range = 2000;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
@@ -421,7 +421,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
 
   Random<TypeParam> rand(0x5487657);
   int times = 5;
-  int length = 4000;
+  int length = 100;
   for (int test = 0; test < times; test++) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
@@ -515,7 +515,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   Random<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
-TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(4000); }
+TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(100); }
 
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
@@ -540,7 +540,7 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
   RandomRange<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
-TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(4000); }
+TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(100); }
 
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {
@@ -601,24 +601,31 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   // Compares two records in the same table.
   class Comparator : public TypeVisitor {
    public:
+    Comparator(const Table& table, const SortOptions& options)
+        : table_(table), options_(options) {
+      for (const auto& sort_key : options_.sort_keys) {
+        sort_columns_.emplace_back(table.GetColumnByName(sort_key.name).get(),
+                                   sort_key.order);
+      }
+    }
+
     // Returns true if the left record is less or equals to the right
     // record, false otherwise.
     //
     // This supports null and NaN.
-    bool operator()(const Table& table, const SortOptions& options, uint64_t lhs,
-                    uint64_t rhs) {
+    bool operator()(uint64_t lhs, uint64_t rhs) {
       lhs_ = lhs;
       rhs_ = rhs;
-      for (const auto& sort_key : options.sort_keys) {
-        auto chunked_array = table.GetColumnByName(sort_key.name);
-        lhs_array_ = FindTargetArray(chunked_array, lhs, lhs_index_);
-        rhs_array_ = FindTargetArray(chunked_array, rhs, rhs_index_);
+      for (const auto& pair : sort_columns_) {
+        const auto& chunked_array = *pair.first;
+        lhs_array_ = FindTargetArray(chunked_array, lhs, &lhs_index_);
+        rhs_array_ = FindTargetArray(chunked_array, rhs, &rhs_index_);
         if (rhs_array_->IsNull(rhs_index_) && lhs_array_->IsNull(lhs_index_)) continue;
         if (rhs_array_->IsNull(rhs_index_)) return true;
         if (lhs_array_->IsNull(lhs_index_)) return false;
         status_ = lhs_array_->type()->Accept(this);
         if (compared_ == 0) continue;
-        if (sort_key.order == SortOrder::Ascending) {
+        if (pair.second == SortOrder::Ascending) {
           return compared_ < 0;
         } else {
           return compared_ > 0;
@@ -652,12 +659,12 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
    private:
     // Finds the target chunk and index in the target chunk from an
     // index in chunked array.
-    const Array* FindTargetArray(std::shared_ptr<ChunkedArray> chunked_array, int64_t i,
-                                 int64_t& chunk_index) {
+    const Array* FindTargetArray(const ChunkedArray& chunked_array, int64_t i,
+                                 int64_t* chunk_index) {
       int64_t offset = 0;
-      for (auto& chunk : chunked_array->chunks()) {
+      for (const auto& chunk : chunked_array.chunks()) {
         if (i < offset + chunk->length()) {
-          chunk_index = i - offset;
+          *chunk_index = i - offset;
           return chunk.get();
         }
         offset += chunk->length();
@@ -691,6 +698,9 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       }
     }
 
+    const Table& table_;
+    const SortOptions& options_;
+    std::vector<std::pair<const ChunkedArray*, SortOrder>> sort_columns_;
     int64_t lhs_;
     const Array* lhs_array_;
     int64_t lhs_index_;
@@ -705,20 +715,20 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   // Validates the sorted indexes are really sorted.
   void Validate(const Table& table, const SortOptions& options, UInt64Array& offsets) {
     ASSERT_OK(offsets.ValidateFull());
-    Comparator comparator;
+    Comparator comparator{table, options};
     for (int i = 1; i < table.num_rows(); i++) {
       uint64_t lhs = offsets.Value(i - 1);
       uint64_t rhs = offsets.Value(i);
-      ASSERT_TRUE(comparator(table, options, lhs, rhs));
+      ASSERT_TRUE(comparator(lhs, rhs));
       ASSERT_OK(comparator.status());
     }
   }
 };
 
 TEST_P(TestTableSortIndicesRandom, Sort) {
-  auto first_sort_key_name = std::get<0>(GetParam());
-  auto null_probability = std::get<1>(GetParam());
-  auto seed = 0x61549225;
+  const auto first_sort_key_name = std::get<0>(GetParam());
+  const auto null_probability = std::get<1>(GetParam());
+  const auto seed = 0x61549225;
   std::vector<std::string> column_names = {
       "uint8", "uint16", "uint32", "uint64", "int8",   "int16",
       "int32", "int64",  "float",  "double", "string",
@@ -731,7 +741,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       {field(column_names[8], float32())}, {field(column_names[9], float64())},
       {field(column_names[10], utf8())},
   };
-  auto length = 4000;
+  const auto length = 100;
   std::vector<std::shared_ptr<Array>> columns = {
       Random<UInt8Type>(seed).Generate(length, null_probability),
       Random<UInt16Type>(seed).Generate(length, null_probability),
@@ -745,17 +755,17 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       Random<DoubleType>(seed).Generate(length, null_probability),
       Random<StringType>(seed).Generate(length, null_probability),
   };
-  auto table = Table::Make(schema(fields), columns, length);
+  const auto table = Table::Make(schema(fields), columns, length);
   std::default_random_engine engine(seed);
   std::uniform_int_distribution<> distribution(0);
-  auto n_sort_keys = 5;
+  const auto n_sort_keys = 5;
   std::vector<SortKey> sort_keys;
-  auto first_sort_key_order =
+  const auto first_sort_key_order =
       (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
   sort_keys.emplace_back(first_sort_key_name, first_sort_key_order);
   for (int i = 1; i < n_sort_keys; ++i) {
-    auto& column_name = column_names[distribution(engine) % column_names.size()];
-    auto order =
+    const auto& column_name = column_names[distribution(engine) % column_names.size()];
+    const auto order =
         (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
     sort_keys.emplace_back(column_name, order);
   }
