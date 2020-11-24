@@ -260,6 +260,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
+  define_option(ARROW_GCS
+                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+  mark_as_advanced(ARROW_GCS) # remove when GCS implementation is complete
+
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   define_option(ARROW_TESTING "Build the Arrow testing libraries" OFF)
