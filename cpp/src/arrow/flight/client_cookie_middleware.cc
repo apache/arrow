@@ -126,7 +126,7 @@ std::chrono::seconds ParseDate(const std::string& date) {
   // Lambda function to read incoming stream to a long.
   auto read_str = [](const std::string& str) {
     char* end_ptr;
-    long val = std::strtol(str.c_str(), &end_ptr, 10);
+    int32_t val = static_cast<int32_t>(std::strtol(str.c_str(), &end_ptr, 10));
     if (end_ptr == str.c_str()) {
       std::cout << "Failure - month" << std::endl;
       val = -1;
