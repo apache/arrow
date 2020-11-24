@@ -19,8 +19,7 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::seq::SliceRandom;
-use rand::Rng;
+use rand::{seq::SliceRandom, rngs::StdRng, Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
@@ -40,6 +39,10 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
+pub fn seedable_rng() -> StdRng {
+    StdRng::seed_from_u64(42)
+}
+
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     let rt = Runtime::new().unwrap();
 
@@ -50,7 +53,7 @@ fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
 
 fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
 
     (0..size)
         .map(|_| {
@@ -65,7 +68,7 @@ fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
 
 fn create_integer_data(size: usize, value_density: f64) -> Vec<Option<u64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
 
     (0..size)
         .map(|_| {
@@ -98,6 +101,8 @@ fn create_context(
         Field::new("u64_narrow", DataType::UInt64, false),
     ]));
 
+    let mut rng = seedable_rng();
+
     // define data.
     let partitions = (0..partitions_len)
         .map(|_| {
@@ -109,7 +114,7 @@ fn create_context(
                     let keys: Vec<String> = (0..batch_size)
                         .map(
                             // use random numbers to avoid spurious compiler optimizations wrt to branching
-                            |_| format!("hi{:?}", vs.choose(&mut rand::thread_rng())),
+                            |_| format!("hi{:?}", vs.choose(&mut rng)),
                         )
                         .collect();
                     let keys: Vec<&str> = keys.iter().map(|e| &**e).collect();
@@ -124,7 +129,7 @@ fn create_context(
                     let integer_values_narrow = (0..batch_size)
                         .map(|_| {
                             *integer_values_narrow_choices
-                                .choose(&mut rand::thread_rng())
+                                .choose(&mut rng)
                                 .unwrap()
                         })
                         .collect::<Vec<u64>>();
@@ -207,6 +212,27 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("aggregate_query_group_by_with_filter 15 12", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t \
+                 WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by_u64 15 12", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t GROUP BY u64_narrow",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by_with_filter_u64 15 12", |b| {
         b.iter(|| {
             query(
                 ctx.clone(),
