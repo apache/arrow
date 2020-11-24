@@ -603,8 +603,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
   // Compares two records in the same table.
   class Comparator : public TypeVisitor {
    public:
-    Comparator(const Table& table, const SortOptions& options)
-        : table_(table), options_(options) {
+    Comparator(const Table& table, const SortOptions& options) : options_(options) {
       for (const auto& sort_key : options_.sort_keys) {
         sort_columns_.emplace_back(table.GetColumnByName(sort_key.name).get(),
                                    sort_key.order);
@@ -700,7 +699,6 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       }
     }
 
-    const Table& table_;
     const SortOptions& options_;
     std::vector<std::pair<const ChunkedArray*, SortOrder>> sort_columns_;
     int64_t lhs_;
