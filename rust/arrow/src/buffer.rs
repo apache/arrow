@@ -38,7 +38,7 @@ use crate::util::utils;
 use crate::util::utils::ceil;
 use bitvec::field::BitField;
 use rayon::prelude::*;
-#[cfg(any(feature = "simd", feature = "avx512"))]
+#[cfg(any(feature = "avx512"))]
 use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
@@ -343,32 +343,29 @@ fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
     scalar_op: F_SCALAR,
 ) -> Buffer
 where
-    F_SIMD: Fn(u8x64, u8x64) -> u8x64,
-    F_SCALAR: Fn(u8, u8) -> u8,
+    F_SIMD: Fn(u8x64, u8x64) -> u8x64 + Send + Sync,
+    F_SCALAR: Fn(u8, u8) -> u8 + Send + Sync,
 {
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut right_chunks = right.data()[right_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let left_chunks = left.data()[left_offset..].par_chunks_exact(lanes);
+    let right_chunks = right.data()[right_offset..].par_chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().par_chunks_exact_mut(lanes);
+
+    let res_remainder = result_chunks.take_remainder();
+    let left_remainder = left_chunks.remainder();
+    let right_remainder = right_chunks.remainder();
 
     result_chunks
-        .borrow_mut()
-        .zip(left_chunks.borrow_mut().zip(right_chunks.borrow_mut()))
+        .zip(left_chunks.zip(right_chunks))
         .for_each(|(res, (left, right))| {
             unsafe { utils::bitwise_bin_op_simd(&left, &right, res, &simd_op) };
         });
 
-    result_chunks
-        .into_remainder()
-        .iter_mut()
-        .zip(
-            left_chunks
-                .remainder()
-                .iter()
-                .zip(right_chunks.remainder().iter()),
-        )
+    res_remainder
+        .into_par_iter()
+        .zip(left_remainder.into_par_iter().zip(right_remainder.into_par_iter()))
         .for_each(|(res, (left, right))| {
             *res = scalar_op(*left, *right);
         });
@@ -390,28 +387,29 @@ fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
     scalar_op: F_SCALAR,
 ) -> Buffer
 where
-    F_SIMD: Fn(u8x64) -> u8x64,
-    F_SCALAR: Fn(u8) -> u8,
+    F_SIMD: Fn(u8x64) -> u8x64 + Send + Sync,
+    F_SCALAR: Fn(u8) -> u8 + Send + Sync,
 {
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let left_chunks = left.data()[left_offset..].par_chunks_exact(lanes);
+    let mut result_chunks = result.data_mut().par_chunks_exact_mut(lanes);
 
-    result_chunks
-        .borrow_mut()
-        .zip(left_chunks.borrow_mut())
-        .for_each(|(res, left)| unsafe {
-            let data_simd = u8x64::from_slice_unaligned_unchecked(left);
-            let simd_result = simd_op(data_simd);
-            simd_result.write_to_slice_unaligned_unchecked(res);
+    let res_remainder = result_chunks.take_remainder();
+    let left_remainder = left_chunks.remainder();
+
+    left_chunks
+        .map(|e| unsafe { u8x64::from_slice_unaligned_unchecked(e) })
+        .map(simd_op)
+        .zip(result_chunks)
+        .for_each(|(e, res)| unsafe {
+            e.write_to_slice_unaligned_unchecked(res)
         });
 
-    result_chunks
-        .into_remainder()
-        .iter_mut()
-        .zip(left_chunks.remainder().iter())
+    res_remainder
+        .into_par_iter()
+        .zip(left_remainder.into_par_iter())
         .for_each(|(res, left)| {
             *res = scalar_op(*left);
         });

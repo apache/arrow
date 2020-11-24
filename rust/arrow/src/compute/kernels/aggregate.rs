@@ -21,9 +21,10 @@ use std::ops::Add;
 
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::ArrowNumericType;
-use bitvec::prelude::BitField;
 use rayon::iter::IndexedParallelIterator;
 use rayon::prelude::*;
+
+use bitvec::prelude::BitField;
 use std::iter::Sum;
 
 /// Helper macro to perform min/max of strings
