@@ -147,7 +147,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
     holder.buffer = valueBuffer;
     holder.precision = precision;
     holder.scale = scale;
-    holder.start = index * TYPE_WIDTH;
+    holder.start = (long) index * TYPE_WIDTH;
   }
 
   /**
@@ -421,7 +421,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, ArrowBuf)} except that it handles the
+   * Same as {@link #set(int, long, ArrowBuf)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
@@ -504,7 +504,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #setSafe(int, int, int, ArrowBuf)} except that it handles
+   * Same as {@link #set(int, int, long, ArrowBuf)} except that it handles
    * the case when the position of new value is beyond the current value
    * capacity of the vector.
    *
