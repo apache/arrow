@@ -14,6 +14,7 @@ Build-Depends:
   libboost-regex-dev,
   libboost-system-dev,
   libbrotli-dev,
+  libbz2-dev,
   libcurl4-openssl-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
@@ -94,7 +95,16 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow300 (= ${binary:Version})
+  libarrow300 (= ${binary:Version}),
+  libbrotli-dev,
+  libbz2-dev,
+  liblz4-dev,
+  libre2-dev,
+  libsnappy-dev,
+  libssl-dev,
+  libutf8proc-dev,
+  libzstd-dev,
+  zlib1g-dev
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files.

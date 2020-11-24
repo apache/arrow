@@ -45,6 +45,8 @@ else
   distribution_version=6
 fi
 
+cmake_pakcage=cmake
+cmake_command=cmake
 have_flight=yes
 have_gandiva=yes
 have_glib=yes
@@ -52,6 +54,8 @@ have_parquet=yes
 install_command="dnf install -y --enablerepo=PowerTools"
 case "${distribution}-${distribution_version}" in
   centos-6)
+    cmake_pakcage=cmake3
+    cmake_command=cmake3
     have_flight=no
     have_gandiva=no
     have_glib=no
@@ -59,6 +63,8 @@ case "${distribution}-${distribution_version}" in
     install_command="yum install -y"
     ;;
   centos-7)
+    cmake_pakcage=cmake3
+    cmake_command=cmake3
     have_flight=no
     have_gandiva=no
     install_command="yum install -y"
@@ -83,6 +89,22 @@ else
     -e "s,baseurl=https://apache.bintray.com/arrow/centos,baseurl=${bintray_base_url},g" \
     /etc/yum.repos.d/Apache-Arrow.repo
 fi
+
+${install_command} --enablerepo=epel arrow-devel-${VERSION}
+${install_command} \
+  ${cmake_package} \
+  gcc-c++ \
+  git \
+  make
+git clone \
+  --branch apache-arrow-${version} \
+  --depth 1 \
+  https://github.com/apache/arrow.git
+pushd arrow/cpp/examples/minimal_build
+${cmake_command} .
+make -j$(nproc)
+./arrow_example
+popd
 
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-devel-${VERSION}
