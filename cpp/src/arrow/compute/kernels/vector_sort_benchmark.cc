@@ -36,28 +36,58 @@ static void ArraySortIndicesBenchmark(benchmark::State& state,
   state.SetItemsProcessed(state.iterations() * values->length());
 }
 
-static void ArraySortIndicesInt64Narrow(benchmark::State& state) {
+static void ChunkedArraySortIndicesBenchmark(
+    benchmark::State& state, const std::shared_ptr<ChunkedArray>& values) {
+  for (auto _ : state) {
+    ABORT_NOT_OK(SortIndices(*values).status());
+  }
+  state.SetItemsProcessed(state.iterations() * values->length());
+}
+
+static void ArraySortIndicesInt64Benchmark(benchmark::State& state, int64_t min,
+                                           int64_t max) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
-
-  auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
+  auto values = rand.Int64(array_size, min, max, args.null_proportion);
 
   ArraySortIndicesBenchmark(state, values);
 }
 
-static void ArraySortIndicesInt64Wide(benchmark::State& state) {
+static void ChunkedArraySortIndicesInt64Benchmark(benchmark::State& state, int64_t min,
+                                                  int64_t max) {
   RegressionArgs args(state);
 
-  const int64_t array_size = args.size / sizeof(int64_t);
+  const int64_t n_chunks = 10;
+  const int64_t array_size = args.size / n_chunks / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
+  ArrayVector chunks;
+  for (int64_t i = 0; i < n_chunks; ++i) {
+    chunks.push_back(rand.Int64(array_size, min, max, args.null_proportion));
+  }
 
-  auto min = std::numeric_limits<int64_t>::min();
-  auto max = std::numeric_limits<int64_t>::max();
-  auto values = rand.Int64(array_size, min, max, args.null_proportion);
+  ChunkedArraySortIndicesBenchmark(state, std::make_shared<ChunkedArray>(chunks));
+}
 
-  ArraySortIndicesBenchmark(state, values);
+static void ArraySortIndicesInt64Narrow(benchmark::State& state) {
+  ArraySortIndicesInt64Benchmark(state, -100, 100);
+}
+
+static void ArraySortIndicesInt64Wide(benchmark::State& state) {
+  const auto min = std::numeric_limits<int64_t>::min();
+  const auto max = std::numeric_limits<int64_t>::max();
+  ArraySortIndicesInt64Benchmark(state, min, max);
+}
+
+static void ChunkedArraySortIndicesInt64Narrow(benchmark::State& state) {
+  ChunkedArraySortIndicesInt64Benchmark(state, -100, 100);
+}
+
+static void ChunkedArraySortIndicesInt64Wide(benchmark::State& state) {
+  const auto min = std::numeric_limits<int64_t>::min();
+  const auto max = std::numeric_limits<int64_t>::max();
+  ChunkedArraySortIndicesInt64Benchmark(state, min, max);
 }
 
 static void TableSortIndicesBenchmark(benchmark::State& state,
@@ -154,6 +184,20 @@ BENCHMARK(ArraySortIndicesInt64Narrow)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(ArraySortIndicesInt64Wide)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ChunkedArraySortIndicesInt64Narrow)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ChunkedArraySortIndicesInt64Wide)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})

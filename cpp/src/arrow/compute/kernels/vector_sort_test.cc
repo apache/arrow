@@ -456,6 +456,7 @@ TEST_F(TestChunkedArraySortIndices, SortNull) {
                                                          "[1]",
                                                      });
   this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 5, 4, 2, 0, 3]");
+  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 4, 1, 5, 0, 3]");
 }
 
 TEST_F(TestChunkedArraySortIndices, SortNaN) {
@@ -465,6 +466,7 @@ TEST_F(TestChunkedArraySortIndices, SortNaN) {
                                                            "[NaN, 1]",
                                                        });
   this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
+  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 1, 6, 4, 5, 0, 3]");
 }
 
 // Base class for testing against random chunked array.
@@ -478,7 +480,7 @@ class TestChunkedArrayRandomBase : public TestBase {
   void TestSortIndices(int length) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
-    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
         for (auto num_chunks : {1, 5, 10}) {
           std::vector<std::shared_ptr<Array>> arrays;

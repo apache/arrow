@@ -19,58 +19,40 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/table.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 namespace internal {
 
 namespace {
 
 // The target chunk in chunked array.
-template <typename ArrayType, typename Enable = void>
-struct ResolvedChunk;
-
-// Not for string-like data.
 template <typename ArrayType>
-struct ResolvedChunk<
-    ArrayType, enable_if_t<!is_base_binary_type<typename ArrayType::TypeClass>::value>> {
-  using c_type = typename ArrayType::TypeClass::c_type;
+struct ResolvedChunk {
+  using ViewType = decltype(std::declval<ArrayType>().GetView(0));
 
   // The target array in chunked array.
   const ArrayType* array;
-
   // The index in the target array.
-  int64_t index;
+  const int64_t index;
 
   ResolvedChunk(const ArrayType* array, int64_t index) : array(array), index(index) {}
 
   bool IsNull() const { return array->IsNull(index); }
 
-  c_type GetView() const { return array->GetView(index); }
-};
-
-// For string-like data.
-template <typename ArrayType>
-struct ResolvedChunk<
-    ArrayType, enable_if_t<is_base_binary_type<typename ArrayType::TypeClass>::value>> {
-  // The target array in chunked array.
-  const ArrayType* array;
-
-  // The index in the target array.
-  int64_t index;
-
-  ResolvedChunk(const ArrayType* array, int64_t index) : array(array), index(index) {}
-
-  bool IsNull() const { return array->IsNull(index); }
-
-  util::string_view GetView() const { return array->GetView(index); }
+  ViewType GetView() const { return array->GetView(index); }
 };
 
 // Finds the target chunk and index in the target chunk from an index
@@ -83,7 +65,7 @@ ResolvedChunk<ArrayType> ResolveChunk(const std::vector<const Array*>& chunks,
   int64_t offset = 0;
   for (size_t i = 0; i < num_chunks; ++i) {
     if (index < offset + chunks[i]->length()) {
-      return ResolvedChunk<ArrayType>(static_cast<const ArrayType*>(chunks[i]),
+      return ResolvedChunk<ArrayType>(checked_cast<const ArrayType*>(chunks[i]),
                                       index - offset);
     }
     offset += chunks[i]->length();
@@ -111,7 +93,7 @@ struct StablePartitioner {
 
 // Move nulls to end of array. Return where null starts.
 //
-// `offset` is for using this to an array in a chunked array.
+// `offset` is used when this is called on a chunk of a chunked array
 template <typename ArrayType, typename Partitioner>
 enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
 PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
@@ -129,7 +111,7 @@ PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& 
 template <typename ArrayType, typename Partitioner>
 enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
 PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-               std::vector<const Array*>& arrays, int64_t null_count) {
+               const std::vector<const Array*>& arrays, int64_t null_count) {
   if (null_count == 0) {
     return indices_end;
   }
@@ -143,7 +125,7 @@ PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
 // Move NaNs and nulls to end of array, nulls after NaN. Return where
 // NaN/null starts.
 //
-// `offset` is for using this to an array in a chunked array.
+// `offset` is used when this is called on a chunk of a chunked array
 template <typename ArrayType, typename Partitioner>
 enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
 PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
@@ -171,7 +153,7 @@ PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& 
 template <typename ArrayType, typename Partitioner>
 enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
 PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-               std::vector<const Array*>& arrays, int64_t null_count) {
+               const std::vector<const Array*>& arrays, int64_t null_count) {
   Partitioner partitioner;
   if (null_count == 0) {
     return partitioner(indices_begin, indices_end, [&arrays](uint64_t ind) {
@@ -280,7 +262,7 @@ class ArrayCompareSorter {
  public:
   // Returns where null starts.
   //
-  // `offset` is for using this to an array in a chunked array.
+  // `offset` is used when this is called on a chunk of a chunked array
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
                  int64_t offset, const ArraySortOptions& options) {
     auto nulls_begin = PartitionNulls<ArrayType, StablePartitioner>(
@@ -335,7 +317,7 @@ class ArrayCountSorter {
 
   // Returns where null starts.
   //
-  // `offset` is for using this to an array in a chunked array.
+  // `offset` is used when this is called on a chunk of a chunked array
   template <typename CounterType>
   uint64_t* SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
                          const ArrayType& values, int64_t offset,
@@ -386,7 +368,7 @@ class ArrayCountOrCompareSorter {
  public:
   // Returns where null starts.
   //
-  // `offset` is for using this to an array in a chunked array.
+  // `offset` is used when this is called on a chunk of a chunked array
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
                  int64_t offset, const ArraySortOptions& options) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -463,7 +445,7 @@ template <typename OutType, typename InType>
 struct ArraySortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    auto& options = ArraySortIndicesState::Get(ctx);
+    const auto& options = ArraySortIndicesState::Get(ctx);
 
     std::shared_ptr<ArrayData> arg0;
     KERNEL_RETURN_IF_ERROR(
@@ -511,7 +493,7 @@ class ChunkedArrayCompareSorter {
  public:
   // Returns where null starts.
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
-                 std::vector<const Array*>& arrays, int64_t null_count,
+                 const std::vector<const Array*>& arrays, int64_t null_count,
                  const ArraySortOptions& options) {
     auto nulls_begin = PartitionNulls<ArrayType, StablePartitioner>(
         indices_begin, indices_end, arrays, null_count);
@@ -596,7 +578,7 @@ class ChunkedArraySorter : public TypeVisitor {
       int64_t null_count = 0;
       uint64_t* left_nulls_begin = indices_begin_;
       for (int i = 0; i < num_chunks; ++i) {
-        const auto array = static_cast<const ArrayType*>(arrays[i]);
+        const auto array = checked_cast<const ArrayType*>(arrays[i]);
         end_offset += array->length();
         null_count += array->null_count();
         uint64_t* right_nulls_begin;
@@ -627,7 +609,7 @@ class ChunkedArraySorter : public TypeVisitor {
   template <typename ArrayType>
   uint64_t* Merge(uint64_t* indices_begin, uint64_t* indices_middle,
                   uint64_t* indices_end, uint64_t* left_nulls_begin,
-                  uint64_t* right_nulls_begin, std::vector<const Array*> arrays,
+                  uint64_t* right_nulls_begin, const std::vector<const Array*>& arrays,
                   int64_t null_count, const SortOrder order) {
     auto left_num_non_nulls = left_nulls_begin - indices_begin;
     auto right_num_non_nulls = right_nulls_begin - indices_middle;
@@ -665,7 +647,8 @@ class ChunkedArraySorter : public TypeVisitor {
   const bool can_use_array_sorter_;
 };
 
-// Sort a table from the back like radix sort.
+// Sort a table using a radix sort-like algorithm.
+// A distinct stable sort is called for each sort key, from the last key to the first.
 class TableRadixSorter {
  public:
   Status Sort(uint64_t* indices_begin, uint64_t* indices_end, const Table& table,
@@ -688,8 +671,8 @@ class TableRadixSorter {
   }
 };
 
-// Sort a table from the beginning.
-class TableFromTheBeginningSorter : public TypeVisitor {
+// Sort a table using a single sort and multiple-key comparisons.
+class MultipleKeyTableSorter : public TypeVisitor {
  private:
   // Preprocessed sort key.
   struct ResolvedSortKey {
@@ -721,16 +704,9 @@ class TableFromTheBeginningSorter : public TypeVisitor {
   class Comparer : public TypeVisitor {
    public:
     Comparer(const Table& table, const std::vector<SortKey>& sort_keys)
-        : TypeVisitor(), status_(Status::OK()) {
-      for (const auto& sort_key : sort_keys) {
-        const auto& chunked_array = table.GetColumnByName(sort_key.name);
-        if (!chunked_array) {
-          status_ = Status::Invalid("Nonexistent sort key column: ", sort_key.name);
-          return;
-        }
-        sort_keys_.emplace_back(*chunked_array, sort_key.order);
-      }
-    }
+        : TypeVisitor(),
+          status_(Status::OK()),
+          sort_keys_(ResolveSortKeys(table, sort_keys, &status_)) {}
 
     Status status() { return status_; }
 
@@ -862,8 +838,22 @@ class TableFromTheBeginningSorter : public TypeVisitor {
       return compared;
     }
 
+    static std::vector<ResolvedSortKey> ResolveSortKeys(
+        const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
+      std::vector<ResolvedSortKey> resolved;
+      for (const auto& sort_key : sort_keys) {
+        const auto& chunked_array = table.GetColumnByName(sort_key.name);
+        if (!chunked_array) {
+          *status = Status::Invalid("Nonexistent sort key column: ", sort_key.name);
+          break;
+        }
+        resolved.emplace_back(*chunked_array, sort_key.order);
+      }
+      return resolved;
+    }
+
     Status status_;
-    std::vector<ResolvedSortKey> sort_keys_;
+    const std::vector<ResolvedSortKey> sort_keys_;
     int64_t current_left_;
     int64_t current_right_;
     size_t current_sort_key_index_;
@@ -871,8 +861,8 @@ class TableFromTheBeginningSorter : public TypeVisitor {
   };
 
  public:
-  TableFromTheBeginningSorter(uint64_t* indices_begin, uint64_t* indices_end,
-                              const Table& table, const SortOptions& options)
+  MultipleKeyTableSorter(uint64_t* indices_begin, uint64_t* indices_end,
+                         const Table& table, const SortOptions& options)
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
         comparer_(table, options.sort_keys) {}
@@ -1117,13 +1107,13 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     // TODO: We should choose suitable sort implementation
     // automatically. The current TableRadixSorter implementation is
-    // faster than TableFromTheBeginningSorter only when the number of
+    // faster than MultipleKeyTableSorter only when the number of
     // sort keys is 2 and counting sort is used. So we always
-    // TableFromTheBeginningSorter for now.
+    // MultipleKeyTableSorter for now.
     //
     // TableRadixSorter sorter;
     // ARROW_RETURN_NOT_OK(sorter.Sort(out_begin, out_end, table, options));
-    TableFromTheBeginningSorter sorter(out_begin, out_end, table, options);
+    MultipleKeyTableSorter sorter(out_begin, out_end, table, options);
     ARROW_RETURN_NOT_OK(sorter.Sort());
     return Datum(out);
   }
