@@ -911,73 +911,48 @@ async fn csv_query_count_one() {
 }
 
 #[tokio::test]
-async fn case_when() {
-    let mut ctx = ExecutionContext::new();
-    register_aggregate_csv_by_sql(&mut ctx).await;
+async fn case_when() -> Result<()> {
+    let mut ctx = create_case_context()?;
     let sql = "SELECT \
         CASE WHEN c1 = 'a' THEN 1 \
              WHEN c1 = 'b' THEN 2 \
              ELSE 999 END \
-        FROM aggregate_test_100 LIMIT 20";
+        FROM t1";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![
-        vec!["999"],
-        vec!["999"],
-        vec!["2"],
-        vec!["1"],
-        vec!["2"],
-        vec!["2"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["999"],
-        vec!["2"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-    ];
+    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["NULL"]];
     assert_eq!(expected, actual);
+    Ok(())
 }
 
 #[tokio::test]
-async fn case_when_with_base_expr() {
-    let mut ctx = ExecutionContext::new();
-    register_aggregate_csv_by_sql(&mut ctx).await;
+async fn case_when_with_base_expr() -> Result<()> {
+    let mut ctx = create_case_context()?;
     let sql = "SELECT \
         CASE c1 WHEN 'a' THEN 1 \
              WHEN 'b' THEN 2 \
              ELSE 999 END \
-        FROM aggregate_test_100 LIMIT 20";
+        FROM t1";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![
-        vec!["999"],
-        vec!["999"],
-        vec!["2"],
-        vec!["1"],
-        vec!["2"],
-        vec!["2"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["1"],
-        vec!["999"],
-        vec!["999"],
-        vec!["2"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-        vec!["999"],
-    ];
+    let expected = vec![vec!["1"], vec!["2"], vec!["999"], vec!["NULL"]];
     assert_eq!(expected, actual);
+    Ok(())
+}
+
+fn create_case_context() -> Result<ExecutionContext> {
+    let mut ctx = ExecutionContext::new();
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, true)]));
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(StringArray::from(vec![
+            Some("a"),
+            Some("b"),
+            Some("c"),
+            None,
+        ]))],
+    )?;
+    let table = MemTable::new(schema, vec![vec![data]])?;
+    ctx.register_table("t1", Box::new(table));
+    Ok(ctx)
 }
 
 #[tokio::test]
