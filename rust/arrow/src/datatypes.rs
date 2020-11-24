@@ -41,7 +41,6 @@ use serde_json::{
 
 use crate::error::{ArrowError, Result};
 use crate::util::bit_ops::BufferBitSlice;
-use std::iter::Sum;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///

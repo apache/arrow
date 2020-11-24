@@ -17,7 +17,7 @@
 
 //! Defines aggregations over Arrow arrays.
 
-use std::ops::{Add, Sub};
+use std::ops::Add;
 
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::ArrowNumericType;
@@ -214,9 +214,8 @@ where
             let data_chunks = data.par_chunks_exact(T::lanes());
             let remainder = data_chunks.remainder();
 
-            let mut agg_sum = T::horizontal_sum(data_chunks
-                .map(T::load)
-                .sum::<T::Simd>());
+            let mut agg_sum =
+                T::horizontal_sum(data_chunks.map(T::load).sum::<T::Simd>());
 
             remainder.iter().for_each(|value| {
                 agg_sum = agg_sum + *value;
@@ -233,22 +232,20 @@ where
             let bit_chunks = bit_slice.par_chunks::<u64>();
             let remainder_bits = bit_chunks.remainder_bits();
 
-            let agg_sum: T::Simd = data_chunks.zip(bit_chunks).map(
-                |(chunk, mask)| {
+            let agg_sum: T::Simd = data_chunks
+                .zip(bit_chunks)
+                .map(|(chunk, mask)| {
                     chunk
                         .par_chunks_exact(T::lanes())
-                        .fold(|| T::init(T::default_value()), |mut acc, chunk| {
+                        .map(|chunk| {
                             let zero = T::init(T::default_value());
                             let vecmask = T::mask_from_u64(mask.load::<u64>());
                             let chunk = T::load(&chunk);
-                            let blended = T::mask_select(vecmask, chunk, zero);
-                            acc = acc + blended;
-
-                            // mask = mask >> T::lanes();
-                            acc
+                            T::mask_select(vecmask, chunk, zero)
                         })
                         .sum::<T::Simd>()
-                }).sum::<T::Simd>();
+                })
+                .sum::<T::Simd>();
 
             let mut agg_sum: T::Native = T::horizontal_sum(agg_sum);
 

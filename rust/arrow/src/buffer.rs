@@ -365,7 +365,11 @@ where
 
     res_remainder
         .into_par_iter()
-        .zip(left_remainder.into_par_iter().zip(right_remainder.into_par_iter()))
+        .zip(
+            left_remainder
+                .into_par_iter()
+                .zip(right_remainder.into_par_iter()),
+        )
         .for_each(|(res, (left, right))| {
             *res = scalar_op(*left, *right);
         });
@@ -403,9 +407,7 @@ where
         .map(|e| unsafe { u8x64::from_slice_unaligned_unchecked(e) })
         .map(simd_op)
         .zip(result_chunks)
-        .for_each(|(e, res)| unsafe {
-            e.write_to_slice_unaligned_unchecked(res)
-        });
+        .for_each(|(e, res)| unsafe { e.write_to_slice_unaligned_unchecked(res) });
 
     res_remainder
         .into_par_iter()
