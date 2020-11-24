@@ -882,7 +882,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 impl DataType {
     /// Parse a data type from a JSON representation
     pub(crate) fn from(json: &Value) -> Result<DataType> {
-        let default_dt_ctx = NullableDataType::new(DataType::Boolean, true);
+        let default_data_type = NullableDataType::new(DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "null" => Ok(DataType::Null),
@@ -1016,17 +1016,17 @@ impl DataType {
                 },
                 Some(s) if s == "list" => {
                     // return a list with any type as its child isn't defined in the map
-                    Ok(DataType::List(Box::new(default_dt_ctx)))
+                    Ok(DataType::List(Box::new(default_data_type)))
                 }
                 Some(s) if s == "largelist" => {
                     // return a largelist with any type as its child isn't defined in the map
-                    Ok(DataType::LargeList(Box::new(default_dt_ctx)))
+                    Ok(DataType::LargeList(Box::new(default_data_type)))
                 }
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
                         Ok(DataType::FixedSizeList(
-                            Box::new(default_dt_ctx),
+                            Box::new(default_data_type),
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
@@ -1156,7 +1156,7 @@ impl DataType {
 }
 
 impl NullableDataType {
-    /// Creates a new data type context
+    /// Creates a new nullable data type
     pub fn new(data_type: DataType, nullable: bool) -> Self {
         NullableDataType {
             data_type,
@@ -1274,20 +1274,20 @@ impl Field {
                                 ));
                             }
                             let nested_field = Self::from(&values[0])?;
-                            let nexted_dt_ctx = NullableDataType::new(
+                            let nexted_data_type = NullableDataType::new(
                                 nested_field.data_type.data_type,
                                 nested_field.data_type.nullable,
                             );
                             match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
-                                        nexted_dt_ctx,
+                                        nexted_data_type,
                                     )),
                                     DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        nexted_dt_ctx,
+                                        nexted_data_type,
                                     )),
                                     DataType::FixedSizeList(_, int) => {
                                         DataType::FixedSizeList(
-                                            Box::new(nexted_dt_ctx),
+                                            Box::new(nexted_data_type),
                                             int,
                                         )
                                     }
@@ -1378,27 +1378,27 @@ impl Field {
     pub fn to_json(&self) -> Value {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
-            DataType::List(type_ctx) => {
+            DataType::List(data_type) => {
                 let item = Field::new(
                     "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
+                    data_type.data_type().clone(),
+                    data_type.is_nullable(),
                 );
                 vec![item.to_json()]
             }
-            DataType::LargeList(type_ctx) => {
+            DataType::LargeList(data_type) => {
                 let item = Field::new(
                     "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
+                    data_type.data_type().clone(),
+                    data_type.is_nullable(),
                 );
                 vec![item.to_json()]
             }
-            DataType::FixedSizeList(type_ctx, _) => {
+            DataType::FixedSizeList(data_type, _) => {
                 let item = Field::new(
                     "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
+                    data_type.data_type().clone(),
+                    data_type.is_nullable(),
                 );
                 vec![item.to_json()]
             }

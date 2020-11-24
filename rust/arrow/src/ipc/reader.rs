@@ -89,7 +89,7 @@ fn create_array(
             buffer_index += 2;
             array
         }
-        List(ref type_ctx) | LargeList(ref type_ctx) => {
+        List(ref nested_type) | LargeList(ref nested_type) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
                 .iter()
@@ -99,7 +99,7 @@ fn create_array(
             buffer_index += 2;
             let triple = create_array(
                 nodes,
-                type_ctx.data_type(),
+                nested_type.data_type(),
                 data,
                 buffers,
                 dictionaries,
@@ -111,7 +111,7 @@ fn create_array(
 
             create_list_array(list_node, data_type, &list_buffers[..], triple.0)
         }
-        FixedSizeList(ref list_field, _) => {
+        FixedSizeList(ref nested_type, _) => {
             let list_node = &nodes[node_index];
             let list_buffers: Vec<Buffer> = buffers[buffer_index..=buffer_index]
                 .iter()
@@ -121,7 +121,7 @@ fn create_array(
             buffer_index += 1;
             let triple = create_array(
                 nodes,
-                list_field.data_type(),
+                nested_type.data_type(),
                 data,
                 buffers,
                 dictionaries,

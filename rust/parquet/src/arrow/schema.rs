@@ -412,16 +412,16 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_repetition(repetition)
                 .build()
         }
-        DataType::List(type_ctx)
-        | DataType::FixedSizeList(type_ctx, _)
-        | DataType::LargeList(type_ctx) => Type::group_type_builder(name)
+        DataType::List(data_type)
+        | DataType::FixedSizeList(data_type, _)
+        | DataType::LargeList(data_type) => Type::group_type_builder(name)
             .with_fields(&mut vec![Arc::new(
                 Type::group_type_builder("list")
                     .with_fields(&mut vec![Arc::new({
                         let list_field = Field::new(
                             "element",
-                            type_ctx.data_type().clone(),
-                            type_ctx.is_nullable(),
+                            data_type.data_type().clone(),
+                            data_type.is_nullable(),
                         );
                         arrow_to_parquet_type(&list_field)?
                     })])

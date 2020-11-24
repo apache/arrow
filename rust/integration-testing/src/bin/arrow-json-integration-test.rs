@@ -418,13 +418,13 @@ fn array_from_json(
             }
             Ok(Arc::new(b.finish()))
         }
-        DataType::List(type_ctx) => {
+        DataType::List(data_type) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_field = Field::new(
                 "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
+                data_type.data_type().clone(),
+                data_type.is_nullable(),
             );
             let child_array = array_from_json(
                 &child_field,
@@ -446,13 +446,13 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(ListArray::from(list_data)))
         }
-        DataType::LargeList(type_ctx) => {
+        DataType::LargeList(data_type) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_field = Field::new(
                 "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
+                data_type.data_type().clone(),
+                data_type.is_nullable(),
             );
             let child_array = array_from_json(
                 &child_field,
@@ -478,12 +478,12 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(LargeListArray::from(list_data)))
         }
-        DataType::FixedSizeList(type_ctx, _) => {
+        DataType::FixedSizeList(data_type, _) => {
             let children = json_col.children.clone().unwrap();
             let child_field = Field::new(
                 "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
+                data_type.data_type().clone(),
+                data_type.is_nullable(),
             );
             let child_array = array_from_json(
                 &child_field,

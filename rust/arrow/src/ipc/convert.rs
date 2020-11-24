@@ -152,12 +152,15 @@ pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
 
 /// Get the Arrow data type from the flatbuffer Field table
 pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataType {
-    get_data_type_context(field, may_be_dictionary)
+    get_nullable_data_type(field, may_be_dictionary)
         .data_type()
         .clone()
 }
 
-fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> NullableDataType {
+fn get_nullable_data_type(
+    field: ipc::Field,
+    may_be_dictionary: bool,
+) -> NullableDataType {
     if let Some(dictionary) = field.dictionary() {
         if may_be_dictionary {
             let int = dictionary.indexType().unwrap();
@@ -172,7 +175,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> Nullable
                 (64, false) => DataType::UInt64,
                 _ => panic!("Unexpected bitwidth and signed"),
             };
-            let value_type = get_data_type_context(field, false).data_type().clone();
+            let value_type = get_nullable_data_type(field, false).data_type().clone();
             return NullableDataType::new(
                 DataType::Dictionary(Box::new(index_type), Box::new(value_type)),
                 // taking nullability from parent field
@@ -279,7 +282,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> Nullable
                 panic!("expect a list to have one child")
             }
             let child_field = children.get(0);
-            DataType::List(Box::new(get_data_type_context(child_field, false)))
+            DataType::List(Box::new(get_nullable_data_type(child_field, false)))
         }
         ipc::Type::LargeList => {
             let children = field.children().unwrap();
@@ -287,7 +290,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> Nullable
                 panic!("expect a large list to have one child")
             }
             let child_field = children.get(0);
-            DataType::LargeList(Box::new(get_data_type_context(child_field, false)))
+            DataType::LargeList(Box::new(get_nullable_data_type(child_field, false)))
         }
         ipc::Type::FixedSizeList => {
             let children = field.children().unwrap();
@@ -297,7 +300,7 @@ fn get_data_type_context(field: ipc::Field, may_be_dictionary: bool) -> Nullable
             let fsl = field.type_as_fixed_size_list().unwrap();
             let child_field = children.get(0);
             DataType::FixedSizeList(
-                Box::new(get_data_type_context(child_field, false)),
+                Box::new(get_nullable_data_type(child_field, false)),
                 fsl.listSize(),
             )
         }
@@ -547,17 +550,20 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 children: Some(fbb.create_vector(&empty_fields[..])),
             }
         }
-        List(ref type_ctx) => {
-            let nested_type =
-                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+        List(ref nested_type) => {
+            let field_type = get_fb_field_type(
+                nested_type.data_type(),
+                nested_type.is_nullable(),
+                fbb,
+            );
             let child = ipc::Field::create(
                 fbb,
                 &ipc::FieldArgs {
                     name: None,
-                    nullable: type_ctx.is_nullable(),
-                    type_type: nested_type.type_type,
-                    type_: Some(nested_type.type_),
-                    children: nested_type.children,
+                    nullable: nested_type.is_nullable(),
+                    type_type: field_type.type_type,
+                    type_: Some(field_type.type_),
+                    children: field_type.children,
                     dictionary: None,
                     custom_metadata: None,
                 },
@@ -568,18 +574,21 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 children: Some(fbb.create_vector(&[child])),
             }
         }
-        LargeList(ref type_ctx) => {
-            let inner_types =
-                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+        LargeList(ref nested_type) => {
+            let field_type = get_fb_field_type(
+                nested_type.data_type(),
+                nested_type.is_nullable(),
+                fbb,
+            );
             let child = ipc::Field::create(
                 fbb,
                 &ipc::FieldArgs {
                     name: None,
-                    nullable: type_ctx.is_nullable(),
-                    type_type: inner_types.type_type,
-                    type_: Some(inner_types.type_),
+                    nullable: nested_type.is_nullable(),
+                    type_type: field_type.type_type,
+                    type_: Some(field_type.type_),
                     dictionary: None,
-                    children: inner_types.children,
+                    children: field_type.children,
                     custom_metadata: None,
                 },
             );
@@ -589,18 +598,21 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 children: Some(fbb.create_vector(&[child])),
             }
         }
-        FixedSizeList(ref type_ctx, len) => {
-            let inner_types =
-                get_fb_field_type(type_ctx.data_type(), type_ctx.is_nullable(), fbb);
+        FixedSizeList(ref nested_type, len) => {
+            let field_type = get_fb_field_type(
+                nested_type.data_type(),
+                nested_type.is_nullable(),
+                fbb,
+            );
             let child = ipc::Field::create(
                 fbb,
                 &ipc::FieldArgs {
                     name: None,
-                    nullable: type_ctx.is_nullable(),
-                    type_type: inner_types.type_type,
-                    type_: Some(inner_types.type_),
+                    nullable: nested_type.is_nullable(),
+                    type_type: field_type.type_type,
+                    type_: Some(field_type.type_),
                     dictionary: None,
-                    children: inner_types.children,
+                    children: field_type.children,
                     custom_metadata: None,
                 },
             );
