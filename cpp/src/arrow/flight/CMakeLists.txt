@@ -214,9 +214,10 @@ if(ARROW_BUILD_INTEGRATION)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::gtest)
 
-  add_executable(flight-test-integration-client-header-auth test_integration_client_header_auth.cc)
-  target_link_libraries(flight-test-integration-client-header-auth ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+  add_executable(flight-test-integration-client-header-auth
+                 test_integration_client_header_auth.cc)
+  target_link_libraries(flight-test-integration-client-header-auth 
+                        ${ARROW_FLIGHT_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES} GTest::gtest)
 
   add_dependencies(arrow_flight flight-test-integration-client
                    flight-test-integration-server
