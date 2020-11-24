@@ -272,6 +272,15 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-pyarrow-integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
+                     ],
+                   },
+                   {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
