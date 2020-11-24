@@ -502,9 +502,9 @@ class TestChunkedArrayRandomBase : public TestBase {
 template <typename Type>
 class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
  public:
-  void SetUp() { this->rand_.reset(new Random<Type>(0x5487655)); }
+  void SetUp() override { this->rand_.reset(new Random<Type>(0x5487655)); }
 
-  void TearDown() { this->rand_.release(); }
+  void TearDown() override { this->rand_.release(); }
 
  protected:
   std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
@@ -523,12 +523,12 @@ TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(4000); }
 template <typename Type>
 class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
  public:
-  void SetUp() {
+  void SetUp() override {
     range_ = 2000;
     rand_.reset(new RandomRange<Type>(0x5487655));
   }
 
-  void TearDown() { rand_.release(); }
+  void TearDown() override { rand_.release(); }
 
  protected:
   std::shared_ptr<Array> GenerateArray(int length, double null_probability) override {
