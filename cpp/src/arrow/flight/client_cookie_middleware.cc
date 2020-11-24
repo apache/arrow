@@ -88,6 +88,84 @@ bool ParseCookieAttribute(std::string cookie_header_value,
   return true;
 }
 
+// Custom parser for the date in format expected for cookies. This is required because
+// Windows doesn't have support for multiple formatting requirements in the cookie
+// formatting.
+//
+// @param date Input formatted date to parse.
+//
+// @return 0 on error, epoch seconds for date otherwise.
+uint64_t ParseDate(const std::string& date) {
+  // Abbreviated months in order.
+  static const std::vector<std::string> months = {
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  };
+
+  // Lambda function to convert abbreviated month string to number.
+  auto month_str_to_int = [](const std::string& month) {
+    std::vector<const std::string>::iterator it = 
+      std::find(months.begin(), months.end(), month);
+    if (it != months.end()) {
+      return (it - months.begin());
+    } else {
+      return -1L;
+    }
+  };
+
+  // Lambda function to look in date string for token using offset and size.
+  auto date_find = [&](const std::string& token, size_t& offset, size_t size) {
+    offset = date.find(token, offset);
+    if (offset == std::string::npos) {
+      return std::string("");
+    }
+    offset += token.length();
+    return date.substr(offset + 1, size);
+  };
+
+  // Lambda function to read incoming stream to a long.
+  auto read_str = [](const std::string& str) {
+    char* end_ptr;
+    long val = std::strtol(str.c_str(), &end_ptr, 10);
+    if (end_ptr == str.c_str()) {
+      val = -1;
+    }
+    return val;
+  };
+
+  // Parse out day, month, year, hour, minute, and second. If any come back empty, return
+  // 0.
+  const std::string comma = ",";
+  size_t offset = 0;
+  const std::string str_day = date_find(comma, offset, 2);
+  const std::string str_month = date_find(str_day, offset, 3);
+  const std::string str_year = date_find(str_month, offset, 4);
+  const std::string str_hour = date_find(str_year, offset, 2);
+  const std::string str_min = date_find(str_hour, offset, 2);
+  const std::string str_sec = date_find(str_min, offset, 2);
+  if ((str_month == "") || (str_day == "") || (str_year == "") || (str_hour == "") ||
+      (str_min == "") || (str_sec == "")) {
+    return 0;
+  }
+
+  // Attempt to convert parsed values to longs. If any come back as -1, return 0.
+  long month = month_str_to_int(str_month);
+  long day = read_str(str_day);
+  long year = read_str(str_year);
+  long hour = read_str(str_hour);
+  long min = read_str(str_min);
+  long sec = read_str(str_sec);
+
+  if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
+      (sec == -1)) {
+    return 0;
+  }
+
+  arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(
+      arrow_vendored::date::year(year) / (month + 1) / day) + (std::chrono::hours(hour)
+          + std::chrono::minutes(min) + std::chrono::seconds(sec));
+  return secs.time_since_epoch().count();
+}
+
 struct Cookie {
   static Cookie parse(const arrow::util::string_view& cookie_header_value) {
     // Parse the cookie string. If the cookie has an expiration, record it.
@@ -130,14 +208,9 @@ struct Cookie {
       } else if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name,
                                                              "expires")) {
         cookie.has_expiry_ = true;
-        int64_t seconds = 0;
-        const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
-        if (arrow::internal::ParseTimestampStrptime(
-                cookie_attr_value.c_str(), cookie_attr_value.size(),
-                COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
-          cookie.expiration_time_ =
-              std::chrono::system_clock::from_time_t(static_cast<time_t>(seconds));
-        }
+        int64_t seconds = ParseDate(cookie_attr_value);
+        cookie.expiration_time_ =
+            std::chrono::system_clock::from_time_t(static_cast<time_t>(seconds));
       }
     }
 
