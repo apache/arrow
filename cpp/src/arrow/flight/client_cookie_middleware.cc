@@ -98,15 +98,15 @@ bool ParseCookieAttribute(std::string cookie_header_value,
 uint64_t ParseDate(const std::string& date) {
   // Abbreviated months in order.
   static const std::vector<std::string> months = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
   };
 
   // Lambda function to convert abbreviated month string to number.
-  auto month_str_to_int = [](const std::string& month) {
-    std::vector<const std::string>::iterator it = 
-      std::find(months.begin(), months.end(), month);
+  auto month_str_to_int = [](std::string month) {
+    std::transform(month.begin(), month.end(), month.begin(), ::toupper);
+    auto it = std::find(months.begin(), months.end(), month);
     if (it != months.end()) {
-      return static_cast<long>(it - months.begin());
+      return static_cast<long>(std::distance(months.begin(), it));
     } else {
       return -1L;
     }
