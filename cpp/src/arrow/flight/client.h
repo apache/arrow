@@ -66,8 +66,8 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
   /// \brief IPC writer options, if applicable for the call.
   ipc::IpcWriteOptions write_options;
 
-  /// \brief Metadata for client to add to context.
-  std::vector<std::pair<std::string, std::string>> metadata;
+  /// \brief Headers for client to add to context.
+  std::vector<std::pair<std::string, std::string>> headers;
 };
 
 /// \brief Indicate that the client attempted to write a message
@@ -194,12 +194,13 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   Status Authenticate(const FlightCallOptions& options,
                       std::unique_ptr<ClientAuthHandler> auth_handler);
 
-  /// \brief Authenticate to the server using basic authentication with base 64 encoding.
+  /// \brief Authenticate to the server using basic HTTP style authentication.
   /// \param[in] username Username to use
   /// \param[in] password Password to use
   /// \param[in] bearer_token Bearer token retreived if applicable
   /// \return Status OK if the client authenticated successfully
-  Status AuthenticateBasicToken(const std::string& username, const std::string& password,
+  Status AuthenticateBasicToken(const FlightCallOptions& options,
+                                const std::string& username, const std::string& password,
                                 std::pair<std::string, std::string>* bearer_token);
 
   /// \brief Perform the indicated action, returning an iterator to the stream

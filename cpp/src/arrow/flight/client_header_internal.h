@@ -44,23 +44,13 @@ void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context,
                                              const std::string& username,
                                              const std::string& password);
 
-/// \brief Client-side middleware for receiving and latching a bearer token.
-class ARROW_FLIGHT_EXPORT ClientBearerTokenFactory : public ClientMiddlewareFactory {
- public:
-  /// \brief Constructor for factory.
-  ///
-  /// \param[out] bearer_token_ pointer to a std::pair of std::strings that the factory
-  ///     will populate with the bearer token that is received from the server.
-  explicit ClientBearerTokenFactory(std::pair<std::string, std::string>* bearer_token_);
-
-  ~ClientBearerTokenFactory();
-
-  void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware);
-
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-};
+/// \brief Get bearer token from incoming headers.
+///
+/// \param headers headers to check for bearer token.
+/// \param[out] bearer_token_ pointer to a std::pair of std::strings that the factory
+///     will populate with the bearer token that is received from the server.
+void ARROW_FLIGHT_EXPORT GetBearerTokenHeader(
+    grpc::ClientContext& context, std::pair<std::string, std::string>* bearer_token);
 
 }  // namespace internal
 }  // namespace flight

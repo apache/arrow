@@ -44,7 +44,7 @@
 #error "gRPC headers should not be in public API"
 #endif
 
-#include "arrow/flight/client_header_auth_middleware_internal.h"
+#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
@@ -1074,7 +1074,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
         &server_, &client_,
         [&](FlightServerOptions* options) {
           options->auth_handler =
-              std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("", ""));
+              std::unique_ptr<ServerAuthHandler>(new NoOpAuthHandler());
           options->middleware.push_back({"header-auth-server", server_middleware_});
           return Status::OK();
         },
@@ -1085,8 +1085,8 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     std::pair<std::string, std::string> bearer_token;
     // Note: Status intentionally ignored because it requires C++ server implementation of
     // header auth. For now it returns an IOError.
-    arrow::Status status =
-        client_->AuthenticateBasicToken(kValidUsername, kValidPassword, &bearer_token);
+    arrow::Status status = client_->AuthenticateBasicToken({}, kValidUsername,
+                                                           kValidPassword, &bearer_token);
     ASSERT_EQ(bearer_token.first, kAuthHeader);
     ASSERT_EQ(bearer_token.second, (std::string(kBearerPrefix) + kBearerToken));
   }
@@ -1096,7 +1096,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
     // Note: Status intentionally ignored because it requires C++ server implementation of
     // header auth. For now it returns an IOError.
     arrow::Status status = client_->AuthenticateBasicToken(
-        kInvalidUsername, kInvalidPassword, &bearer_token);
+        {}, kInvalidUsername, kInvalidPassword, &bearer_token);
     ASSERT_EQ(bearer_token.first, std::string(""));
     ASSERT_EQ(bearer_token.second, std::string(""));
   }
@@ -1107,7 +1107,6 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
   std::shared_ptr<HeaderAuthServerMiddlewareFactory> server_middleware_;
-  std::shared_ptr<internal::ClientBearerTokenFactory> client_middleware_;
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {

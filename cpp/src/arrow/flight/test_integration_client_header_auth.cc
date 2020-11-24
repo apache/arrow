@@ -66,7 +66,7 @@ void TestValidCredentials() {
   // Authenticate credentials and retreive token.
   std::pair<std::string, std::string> bearer_token = std::make_pair("", "");
   ABORT_NOT_OK(
-      client->AuthenticateBasicToken(FLAGS_username, FLAGS_password, &bearer_token));
+      client->AuthenticateBasicToken({}, FLAGS_username, FLAGS_password, &bearer_token));
 
   // Validate token was received.
   if (bearer_token == std::make_pair(std::string(""), std::string(""))) {
@@ -78,7 +78,7 @@ void TestValidCredentials() {
   // Try to list flights, this will force the bearer token to be send and authenticated.
   std::unique_ptr<arrow::flight::FlightListing> listing;
   arrow::flight::FlightCallOptions options;
-  options.metadata.push_back(bearer_token);
+  options.headers.push_back(bearer_token);
   ABORT_NOT_OK(client->ListFlights(options, {}, &listing));
   std::cout << "Test valid credentials was successful." << std::endl;
 }
@@ -100,8 +100,8 @@ void TestInvalidCredentials() {
   std::pair<std::string, std::string> bearer_token = std::make_pair("", "");
   EXPECT_EQ(arrow::StatusCode::IOError,
             client
-                ->AuthenticateBasicToken(FLAGS_username_invalid, FLAGS_password_invalid,
-                                         &bearer_token)
+                ->AuthenticateBasicToken({}, FLAGS_username_invalid,
+                                         FLAGS_password_invalid, &bearer_token)
                 .code());
 
   // Validate token was received.

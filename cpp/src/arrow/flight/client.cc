@@ -50,7 +50,7 @@
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
-#include "arrow/flight/client_header_auth_middleware_internal.h"
+#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
@@ -105,8 +105,8 @@ struct ClientRpc {
               std::chrono::system_clock::now() + options.timeout);
       context.set_deadline(deadline);
     }
-    for (auto metadata : options.metadata) {
-      context.AddMetadata(metadata.first, metadata.second);
+    for (auto header : options.headers) {
+      context.AddMetadata(header.first, header.second);
     }
   }
 
@@ -883,7 +883,7 @@ constexpr char BLANK_ROOT_PEM[] =
 }  // namespace
 class FlightClient::FlightClientImpl {
  public:
-  FlightClientImpl() : interceptor_pointer(NULLPTR) {}
+  FlightClientImpl() {}
 
   Status Connect(const Location& location, const FlightClientOptions& options) {
     const std::string& scheme = location.scheme();
@@ -978,8 +978,8 @@ class FlightClient::FlightClientImpl {
 
     std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
         interceptors;
-    interceptor_pointer = new GrpcClientInterceptorAdapterFactory(options.middleware);
-    interceptors.emplace_back(interceptor_pointer);
+    interceptors.emplace_back(
+        new GrpcClientInterceptorAdapterFactory(std::move(options.middleware)));
 
     stub_ = pb::FlightService::NewStub(
         grpc::experimental::CreateCustomChannelWithInterceptors(
@@ -1008,31 +1008,28 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status AuthenticateBasicToken(const std::string& username, const std::string& password,
-                                std::pair<std::string, std::string>* bearer_token) {
-    // Add bearer token factory to middleware so it can intercept the bearer token.
-    if (interceptor_pointer != NULLPTR) {
-      interceptor_pointer->AddMiddlewareFactory(
-          std::make_shared<internal::ClientBearerTokenFactory>(bearer_token));
-    } else {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Connect must be called before AuthenticateBasicToken.");
-    }
+  Status AuthenticateBasicToken(
+      const FlightCallOptions& options, const std::string& username, 
+      const std::string& password, std::pair<std::string, std::string>* bearer_token) {
+    // Add basic auth headers to outgoing headers.
     ClientRpc rpc({});
     internal::AddBasicAuthHeaders(&rpc.context, username, password);
+
     std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
         stream = stub_->Handshake(&rpc.context);
-
     GrpcClientAuthSender outgoing{stream};
     GrpcClientAuthReader incoming{stream};
-    // Explicitly close our side of the connection
+
+    // Explicitly close our side of the connection.
     bool finished_writes = stream->WritesDone();
-    interceptor_pointer->RemoveMiddlewareFactory();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
     }
+
+    // Grab bearer token from incoming headers.
+    internal::GetBearerTokenHeader(rpc.context, bearer_token);
     return Status::OK();
   }
 
@@ -1218,7 +1215,6 @@ class FlightClient::FlightClientImpl {
       noop_auth_check_;
 #endif
   int64_t write_size_limit_bytes_;
-  GrpcClientInterceptorAdapterFactory* interceptor_pointer;
 };
 
 FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
@@ -1241,10 +1237,10 @@ Status FlightClient::Authenticate(const FlightCallOptions& options,
   return impl_->Authenticate(options, std::move(auth_handler));
 }
 
-Status FlightClient::AuthenticateBasicToken(
+Status FlightClient::AuthenticateBasicToken(const FlightCallOptions& options,
     const std::string& username, const std::string& password,
     std::pair<std::string, std::string>* bearer_token) {
-  return impl_->AuthenticateBasicToken(username, password, bearer_token);
+  return impl_->AuthenticateBasicToken(options, username, password, bearer_token);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
