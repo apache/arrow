@@ -200,9 +200,18 @@ Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
     DCHECK(bytes_obj != NULL);
 
     if (!PyBytes_Check(bytes_obj)) {
-      return Status::TypeError(
-          "Python file read() should have returned a bytes object, got '",
-          Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
+      Py_buffer py_buf_;
+      if (!PyObject_GetBuffer(bytes_obj, &py_buf_, PyBUF_ANY_CONTIGUOUS)) {
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(py_buf_.buf);
+        ARROW_CHECK_NE(data, nullptr) << "Null pointer in Py_buffer";
+        std::memcpy(out, data, py_buf_.len);
+        return py_buf_.len;
+      } else {
+        return Status::TypeError(
+            "Python file read() should have returned a bytes object or an object "
+            "supporting the buffer protocol, got '",
+            Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
+      }
     }
 
     int64_t bytes_read = PyBytes_GET_SIZE(bytes_obj);
