@@ -184,9 +184,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
 
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     if(ARG_REQUIRED_VERSION)
-      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION} MODULE)
+      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION})
     else()
-      find_package(${DEPENDENCY_NAME} MODULE)
+      find_package(${DEPENDENCY_NAME})
     endif()
     if(${${DEPENDENCY_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
@@ -1797,7 +1797,21 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  resolve_dependency(benchmark)
+  # ArgsProduct() is available since 1.5.2
+  set(BENCHMARK_REQUIRED_VERSION 1.5.2)
+  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA"
+     AND "${benchmark_SOURCE}" STREQUAL "SYSTEM")
+    # TODO: Remove this workaround once
+    # https://github.com/google/benchmark/issues/1046 is resolved.
+    #
+    # benchmark doesn't set suitable version when we use released
+    # archive. So the benchmark package on conda-forge isn't report
+    # the real version. We accept all the benchmark package with
+    # conda. Conda users should install benchmark 1.5.2 or later by
+    # ci/conda_env_cpp.yml.
+    set(BENCHMARK_REQUIRED_VERSION 0.0.0)
+  endif()
+  resolve_dependency(benchmark REQUIRED_VERSION ${BENCHMARK_REQUIRED_VERSION})
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(BENCHMARK_INCLUDE_DIR benchmark::benchmark
                       INTERFACE_INCLUDE_DIRECTORIES)

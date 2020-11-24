@@ -15,20 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestSortToIndices < Test::Unit::TestCase
+class TestSortIndices < Test::Unit::TestCase
   include Helper::Buildable
 
   sub_test_case("Integer") do
     def test_no_null
       array = build_int16_array([1, 0, 4, -3])
       assert_equal(build_uint64_array([3, 1, 0, 2]),
-                   array.sort_to_indices)
+                   array.sort_indices(:ascending))
     end
 
     def test_null
       array = build_int16_array([nil, 1, 0, nil, 4, 3])
       assert_equal(build_uint64_array([2, 1, 5, 4, 0, 3]),
-                   array.sort_to_indices)
+                   array.sort_indices(:ascending))
     end
   end
 
@@ -36,13 +36,13 @@ class TestSortToIndices < Test::Unit::TestCase
     def test_no_null
       array = build_string_array(["hello", "world", "a", "z"])
       assert_equal(build_uint64_array([2, 0, 1, 3]),
-                   array.sort_to_indices)
+                   array.sort_indices(:ascending))
     end
 
     def test_null
       array = build_string_array([nil, "b", "a", nil, "c", "d"])
       assert_equal(build_uint64_array([2, 1, 4, 5, 0, 3]),
-                   array.sort_to_indices)
+                   array.sort_indices(:ascending))
     end
   end
 end
