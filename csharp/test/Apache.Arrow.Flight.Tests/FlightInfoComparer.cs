@@ -26,7 +26,7 @@ namespace Apache.Arrow.Flight.Tests
             Assert.Equal(expected.Endpoints, actual.Endpoints);
 
             //Check flight descriptor
-            Assert.Equal(expected.FlightDescriptor, actual.FlightDescriptor);
+            Assert.Equal(expected.Descriptor, actual.Descriptor);
 
             //Check schema
             SchemaComparer.Compare(expected.Schema, actual.Schema);

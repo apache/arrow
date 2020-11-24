@@ -48,17 +48,17 @@ namespace Apache.Arrow.Flight
         }
 
 
-        public static FlightDescriptor Command(byte[] command)
+        public static FlightDescriptor CreateCommandDescriptor(byte[] command)
         {
             return new FlightDescriptor(ByteString.CopyFrom(command));
         }
 
-        public static FlightDescriptor Command(string command)
+        public static FlightDescriptor CreateCommandDescriptor(string command)
         {
             return new FlightDescriptor(ByteString.CopyFromUtf8(command));
         }
 
-        public static FlightDescriptor Path(params string[] paths)
+        public static FlightDescriptor CreatePathDescriptor(params string[] paths)
         {
             return new FlightDescriptor(paths);
         }
@@ -82,7 +82,7 @@ namespace Apache.Arrow.Flight
 
         public IEnumerable<string> Paths => _flightDescriptor.Path;
 
-        public ByteString Cmd => _flightDescriptor.Cmd;
+        public ByteString Command => _flightDescriptor.Cmd;
 
 
         public override int GetHashCode()

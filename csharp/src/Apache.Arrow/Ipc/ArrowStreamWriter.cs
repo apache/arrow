@@ -343,7 +343,7 @@ namespace Apache.Arrow.Ipc
             FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
         }
 
-        private protected Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
         {
             Builder.Clear();
 

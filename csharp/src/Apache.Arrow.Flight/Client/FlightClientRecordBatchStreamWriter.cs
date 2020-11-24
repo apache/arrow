@@ -34,7 +34,11 @@ namespace Apache.Arrow.Flight.Client
 
         protected override void Dispose(bool disposing)
         {
-            CompleteAsync().Wait();
+            if (!_completed)
+            {
+                throw new InvalidOperationException("Dispose called before completing the stream.");
+            }
+
             base.Dispose(disposing);
         }
 

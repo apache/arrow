@@ -46,7 +46,7 @@ namespace Apache.Arrow.Flight.TestWeb
 
         public async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
         {
-            var flightDescriptor = FlightDescriptor.Path(ticket.Ticket.ToStringUtf8());
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor(ticket.Ticket.ToStringUtf8());
 
             if(_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {

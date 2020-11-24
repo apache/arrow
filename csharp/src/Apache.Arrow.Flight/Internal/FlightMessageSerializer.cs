@@ -44,14 +44,14 @@ namespace Apache.Arrow.Flight
             }
 
             ByteBuffer schemaBuffer = ArrowReaderImplementation.CreateByteBuffer(buffer.Slice(bufferPosition));
-            var Schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer));
-            return Schema;
+            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer));
+            return schema;
         }
 
         internal static Schema DecodeSchema(ByteBuffer schemaBuffer)
         {
-            var Schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer));
-            return Schema;
+            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer));
+            return schema;
         }
     }
 }

@@ -17,11 +17,12 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
 using Google.Protobuf;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Internal
+namespace Apache.Arrow.Flight
 {
     public abstract class FlightRecordBatchStreamWriter : IAsyncStreamWriter<RecordBatch>, IDisposable
     {
@@ -66,11 +67,6 @@ namespace Apache.Arrow.Flight.Internal
                 _flightDataStream.Dispose();
                 _disposed = true;
             }
-        }
-
-        ~FlightRecordBatchStreamWriter()
-        {
-            Dispose(false);
         }
 
         public void Dispose()

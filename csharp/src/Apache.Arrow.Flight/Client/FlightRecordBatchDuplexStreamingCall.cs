@@ -72,18 +72,19 @@ namespace Apache.Arrow.Flight.Client
             _disposeAction();
         }
 
-        //
-        // Summary:
-        //     Gets the call status if the call has already finished. Throws InvalidOperationException
-        //     otherwise.
+        /// <summary>
+        /// Gets the call status if the call has already finished. Throws InvalidOperationException otherwise.
+        /// </summary>
+        /// <returns></returns>
         public Status GetStatus()
         {
             return _getStatusFunc();
         }
-        //
-        // Summary:
-        //     Gets the call trailing metadata if the call has already finished. Throws InvalidOperationException
-        //     otherwise.
+
+        /// <summary>
+        /// Gets the call trailing metadata if the call has already finished. Throws InvalidOperationException otherwise.
+        /// </summary>
+        /// <returns></returns>
         public Metadata GetTrailers()
         {
             return _getTrailersFunc();

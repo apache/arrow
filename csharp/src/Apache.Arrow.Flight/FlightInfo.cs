@@ -26,7 +26,7 @@ namespace Apache.Arrow.Flight
         internal FlightInfo(Protocol.FlightInfo flightInfo)
         {
             Schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
-            FlightDescriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
+            Descriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
 
             var endpoints = new List<FlightEndpoint>();
             foreach(var endpoint in flightInfo.Endpoint)
@@ -39,16 +39,16 @@ namespace Apache.Arrow.Flight
             TotalRecords = flightInfo.TotalRecords;
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor flightDescriptor, IReadOnlyList<FlightEndpoint> flightEndpoints, long totalRecords = 0, long totalBytes = 0)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = 0, long totalBytes = 0)
         {
             Schema = schema;
-            FlightDescriptor = flightDescriptor;
-            Endpoints = flightEndpoints;
+            Descriptor = descriptor;
+            Endpoints = endpoints;
             TotalBytes = totalBytes;
             TotalRecords = totalRecords;
         }
 
-        public FlightDescriptor FlightDescriptor { get; }
+        public FlightDescriptor Descriptor { get; }
 
         public Schema Schema { get; }
 
@@ -64,7 +64,7 @@ namespace Apache.Arrow.Flight
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
-                FlightDescriptor = FlightDescriptor.ToProtocol()
+                FlightDescriptor = Descriptor.ToProtocol()
             };
 
             foreach(var endpoint in Endpoints)
