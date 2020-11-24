@@ -17,7 +17,7 @@
 
 //! Defines aggregations over Arrow arrays.
 
-use std::ops::Add;
+use std::ops::{Add, Sub};
 
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::ArrowNumericType;
@@ -194,9 +194,12 @@ where
 ///
 /// Returns `None` if the array is empty or only contains null values.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
+pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
-    T::Native: Add<Output = T::Native>,
+    T: ArrowNumericType,
+    // T::Native: Add<Output = T::Native> + Sum + Sum<T::Simd>,
+    T::Native: Add<Output = T::Native> + Sum,
+    T::Simd: Send + Sync + Sum,
 {
     let null_count = array.null_count();
 
@@ -206,74 +209,58 @@ where
 
     let data: &[T::Native] = array.value_slice(0, array.len());
 
-    let mut vector_sum = T::init(T::default_value());
-    let mut remainder_sum = T::default_value();
-
     match array.data().null_buffer() {
         None => {
-            let data_chunks = data.chunks_exact(64);
+            let data_chunks = data.par_chunks_exact(T::lanes());
             let remainder = data_chunks.remainder();
 
-            data_chunks.for_each(|chunk| {
-                chunk.chunks_exact(T::lanes()).for_each(|chunk| {
-                    let chunk = T::load(&chunk);
-                    vector_sum = vector_sum + chunk;
-                });
-            });
+            let mut agg_sum = T::horizontal_sum(data_chunks
+                .map(T::load)
+                .sum::<T::Simd>());
 
             remainder.iter().for_each(|value| {
-                remainder_sum = remainder_sum + *value;
+                agg_sum = agg_sum + *value;
             });
+
+            Some(agg_sum)
         }
         Some(buffer) => {
             // process data in chunks of 64 elements since we also get 64 bits of validity information at a time
-            let data_chunks = data.chunks_exact(64);
+            let data_chunks = data.par_chunks_exact(64);
             let remainder = data_chunks.remainder();
 
             let bit_slice = buffer.bit_slice().slicing(array.offset(), array.len());
-            let bit_chunks = bit_slice.chunks::<u64>();
+            let bit_chunks = bit_slice.par_chunks::<u64>();
             let remainder_bits = bit_chunks.remainder_bits();
 
-            data_chunks.zip(bit_chunks.into_native_iter()).for_each(
-                |(chunk, mut mask)| {
-                    // split chunks further into slices corresponding to the vector length
-                    // the compiler is able to unroll this inner loop and remove bounds checks
-                    // since the outer chunk size (64) is always a multiple of the number of lanes
-                    chunk.chunks_exact(T::lanes()).for_each(|chunk| {
-                        let zero = T::init(T::default_value());
-                        let vecmask = T::mask_from_u64(mask);
-                        let chunk = T::load(&chunk);
-                        let blended = T::mask_select(vecmask, chunk, zero);
+            let agg_sum: T::Simd = data_chunks.zip(bit_chunks).map(
+                |(chunk, mask)| {
+                    chunk
+                        .par_chunks_exact(T::lanes())
+                        .fold(|| T::init(T::default_value()), |mut acc, chunk| {
+                            let zero = T::init(T::default_value());
+                            let vecmask = T::mask_from_u64(mask.load::<u64>());
+                            let chunk = T::load(&chunk);
+                            let blended = T::mask_select(vecmask, chunk, zero);
+                            acc = acc + blended;
 
-                        vector_sum = vector_sum + blended;
+                            // mask = mask >> T::lanes();
+                            acc
+                        })
+                        .sum::<T::Simd>()
+                }).sum::<T::Simd>();
 
-                        mask = mask >> T::lanes();
-                    });
-                },
-            );
+            let mut agg_sum: T::Native = T::horizontal_sum(agg_sum);
 
             remainder.iter().enumerate().for_each(|(i, value)| {
                 if remainder_bits & (1 << i) != 0 {
-                    remainder_sum = remainder_sum + *value;
+                    agg_sum = agg_sum + *value;
                 }
             });
+
+            Some(agg_sum)
         }
     }
-
-    // calculate horizontal sum of accumulator by writing to a temporary
-    // this is probably faster than extracting individual lanes
-    // the compiler is free to optimize this to something faster
-    let tmp = &mut [T::default_value(); 64];
-    T::write(vector_sum, &mut tmp[0..T::lanes()]);
-
-    let mut total_sum = T::default_value();
-    tmp[0..T::lanes()]
-        .iter()
-        .for_each(|lane| total_sum = total_sum + *lane);
-
-    total_sum = total_sum + remainder_sum;
-
-    Some(total_sum)
 }
 
 #[cfg(test)]

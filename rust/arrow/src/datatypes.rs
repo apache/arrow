@@ -41,6 +41,7 @@ use serde_json::{
 
 use crate::error::{ArrowError, Result};
 use crate::util::bit_ops::BufferBitSlice;
+use std::iter::Sum;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -562,6 +563,9 @@ where
         op: F,
     ) -> Self::Simd;
 
+    /// Horizontal sum of SIMD vector elements
+    fn horizontal_sum(vector: Self::Simd) -> Self::Native;
+
     /// SIMD version of equal
     fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask;
 
@@ -591,7 +595,7 @@ where
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
-    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
+    ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident, $lanes:expr) => {
         #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
@@ -742,6 +746,15 @@ macro_rules! make_numeric_type {
             }
 
             #[inline]
+            fn horizontal_sum(vector: Self::Simd) -> Self::Native {
+                let mut x = vector.extract(0) as Self::Native;
+                for i in 1..Self::Simd::lanes() {
+                    x += vector.extract(i) as Self::Native;
+                }
+                x
+            }
+
+            #[inline]
             fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.eq(right)
             }
@@ -776,6 +789,7 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
+
         #[cfg(any(
             not(any(target_arch = "x86", target_arch = "x86_64")),
             not(feature = "simd")
@@ -784,33 +798,33 @@ macro_rules! make_numeric_type {
     };
 }
 
-make_numeric_type!(Int8Type, i8, i8x64, m8x64);
-make_numeric_type!(Int16Type, i16, i16x32, m16x32);
-make_numeric_type!(Int32Type, i32, i32x16, m32x16);
-make_numeric_type!(Int64Type, i64, i64x8, m64x8);
-make_numeric_type!(UInt8Type, u8, u8x64, m8x64);
-make_numeric_type!(UInt16Type, u16, u16x32, m16x32);
-make_numeric_type!(UInt32Type, u32, u32x16, m32x16);
-make_numeric_type!(UInt64Type, u64, u64x8, m64x8);
-make_numeric_type!(Float32Type, f32, f32x16, m32x16);
-make_numeric_type!(Float64Type, f64, f64x8, m64x8);
+make_numeric_type!(Int8Type, i8, i8x64, m8x64, 64);
+make_numeric_type!(Int16Type, i16, i16x32, m16x32, 32);
+make_numeric_type!(Int32Type, i32, i32x16, m32x16, 16);
+make_numeric_type!(Int64Type, i64, i64x8, m64x8, 8);
+make_numeric_type!(UInt8Type, u8, u8x64, m8x64, 64);
+make_numeric_type!(UInt16Type, u16, u16x32, m16x32, 32);
+make_numeric_type!(UInt32Type, u32, u32x16, m32x16, 16);
+make_numeric_type!(UInt64Type, u64, u64x8, m64x8, 8);
+make_numeric_type!(Float32Type, f32, f32x16, m32x16, 16);
+make_numeric_type!(Float64Type, f64, f64x8, m64x8, 8);
 
-make_numeric_type!(TimestampSecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampMillisecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampMicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(TimestampNanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(Date32Type, i32, i32x16, m32x16);
-make_numeric_type!(Date64Type, i64, i64x8, m64x8);
-make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
-make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
-make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16);
-make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
-make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
-make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
+make_numeric_type!(TimestampSecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(TimestampMillisecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(TimestampMicrosecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(TimestampNanosecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(Date32Type, i32, i32x16, m32x16, 16);
+make_numeric_type!(Date64Type, i64, i64x8, m64x8, 8);
+make_numeric_type!(Time32SecondType, i32, i32x16, m32x16, 16);
+make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16, 16);
+make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16, 16);
+make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8, 8);
+make_numeric_type!(DurationSecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8, 8);
+make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8, 8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
