@@ -737,7 +737,7 @@ pub(crate) fn create_key(
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                vec[i] = GroupByScalar::Utf8(array.value(row).to_string().into_boxed_str())
+                vec[i] = GroupByScalar::Utf8(array.value(row).into())
             }
             _ => {
                 // This is internal because we should have caught this before.
