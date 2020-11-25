@@ -927,9 +927,8 @@ mod tests {
     fn test_filter_array_low_density() {
         // this test exercises the all 0's branch of the filter algorithm
         let mut data_values = (1..=65).collect::<Vec<i32>>();
-        let mut filter_values = (1..=65)
-            .map(|i| !matches!(i % 65, 0))
-            .collect::<Vec<bool>>();
+        let mut filter_values =
+            (1..=65).map(|i| matches!(i % 65, 0)).collect::<Vec<bool>>();
         // set up two more values after the batch
         data_values.extend_from_slice(&[66, 67]);
         filter_values.extend_from_slice(&[false, true]);
