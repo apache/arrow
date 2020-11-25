@@ -34,7 +34,6 @@ libutf8proc
 lz4-c
 make
 ninja
-nlohmann_json>=3.4.0
 pkg-config
 python
 rapidjson
