@@ -46,8 +46,8 @@ void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context,
 
 /// \brief Get bearer token from incoming headers.
 ///
-/// \param headers headers to check for bearer token.
-/// \param[out] bearer_token_ pointer to a std::pair of std::strings that the factory
+/// \param context context that contains headers which hold the bearer token.
+/// \param[out] bearer_token pointer to a std::pair of std::strings that the factory
 ///     will populate with the bearer token that is received from the server.
 void ARROW_FLIGHT_EXPORT GetBearerTokenHeader(
     grpc::ClientContext& context, std::pair<std::string, std::string>* bearer_token);

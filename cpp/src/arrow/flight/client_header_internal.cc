@@ -53,8 +53,8 @@ void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& userna
 
 // Get bearer token from inbound headers.
 //
-// @param headers Incoming headers.
-// @param[out] Bearer token pointer to set.
+// @param context Incoming ClientContext that contains headers.
+// @param bearer_token[out] Bearer token pointer to set.
 void GetBearerTokenHeader(grpc::ClientContext& context,
                           std::pair<std::string, std::string>* bearer_token) {
   // Lambda function to compare characters without case sensitivity.
@@ -62,7 +62,7 @@ void GetBearerTokenHeader(grpc::ClientContext& context,
     return (std::toupper(char1) == std::toupper(char2));
   };
 
-  // Grab the auth token if one exists.
+  // Get the auth token if it exists, this can be in the initial or the trailing metadata.
   auto trailing_headers = context.GetServerTrailingMetadata();
   auto initial_headers = context.GetServerInitialMetadata();
   auto bearer_iter = trailing_headers.find(kAuthHeader);
