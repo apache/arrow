@@ -70,7 +70,7 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
                 offset,
                 buffers,
                 // this is empty because ffi still does not support it.
-            // this is ok because FFI only supports datatypes without childs
+                // this is ok because FFI only supports datatypes without childs
                 vec![],
             )
         }
