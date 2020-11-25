@@ -1014,12 +1014,13 @@ fn create_case_context() -> Result<ExecutionContext> {
 #[tokio::test]
 async fn equijoin() -> Result<()> {
     let mut ctx = create_join_context()?;
-    let sql = "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id";
+    let sql =
+        "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
-        vec!["44", "d", "x"],
         vec!["22", "b", "y"],
+        vec!["44", "d", "x"],
     ];
     assert_eq!(expected, actual);
     Ok(())
