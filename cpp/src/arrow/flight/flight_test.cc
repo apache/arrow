@@ -817,7 +817,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
                                           const std::string& prefix) {
   // Lambda function to compare characters without case sensitivity.
   auto char_compare = [](const char& char1, const char& char2) {
-    return (std::toupper(char1) == std::toupper(char2));
+    return (::toupper(char1) == ::toupper(char2));
   };
 
   auto iter = incoming_headers.find(key);
