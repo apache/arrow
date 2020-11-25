@@ -2645,7 +2645,7 @@ mod tests {
         );
         Ok(())
     }
-
+    #[allow(clippy::redundant_clone)]
     #[test]
     fn test_cast_i64_t64() -> Result<()> {
         let original = vec![1, 2, 3, 4, 5];
