@@ -814,7 +814,7 @@ impl<R: Read> Reader<R> {
                         let builder = builder
                             .as_any_mut()
                             .downcast_mut::<ListBuilder<StringBuilder>>()
-                            .ok_or(ArrowError::JsonError(
+                            .ok_or_else(||ArrowError::JsonError(
                                 "Cast failed for ListBuilder<StringBuilder> during nested data parsing".to_string(),
                             ))?;
                         for val in vals {
@@ -829,7 +829,7 @@ impl<R: Read> Reader<R> {
                         builder.append(true)?;
                     }
                     DataType::Dictionary(_, _) => {
-                        let builder = builder.as_any_mut().downcast_mut::<ListBuilder<StringDictionaryBuilder<DICT_TY>>>().ok_or(ArrowError::JsonError(
+                        let builder = builder.as_any_mut().downcast_mut::<ListBuilder<StringDictionaryBuilder<DICT_TY>>>().ok_or_else(||ArrowError::JsonError(
                             "Cast failed for ListBuilder<StringDictionaryBuilder> during nested data parsing".to_string(),
                         ))?;
                         for val in vals {
