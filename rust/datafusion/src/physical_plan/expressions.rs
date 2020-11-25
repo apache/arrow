@@ -2656,7 +2656,7 @@ mod tests {
         generic_test_cast!(
             Int64Array,
             DataType::Int64,
-            original,
+            original.clone(),
             TimestampNanosecondArray,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
             expected
