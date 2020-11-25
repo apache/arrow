@@ -203,7 +203,7 @@ mod tests {
             count(col("c12")),
         ];
 
-        let df = df.aggregate(group_expr.clone(), aggr_expr.clone())?;
+        let df = df.aggregate(group_expr, aggr_expr)?;
 
         let plan = df.to_logical_plan();
 
