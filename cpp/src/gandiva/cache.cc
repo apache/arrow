@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/logging.h"
 #include "gandiva/cache.h"
+#include "arrow/util/logging.h"
 
 namespace gandiva {
 
@@ -28,7 +28,8 @@ int GetCapacity() {
   if (env_cache_size != nullptr) {
     capacity = std::atoi(env_cache_size);
     if (capacity <= 0) {
-      ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: " << DEFAULT_CACHE_SIZE;
+      ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: "
+                         << DEFAULT_CACHE_SIZE;
       capacity = DEFAULT_CACHE_SIZE;
     }
   } else {
