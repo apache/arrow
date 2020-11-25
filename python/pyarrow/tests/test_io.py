@@ -167,6 +167,7 @@ def test_python_file_read_buffer():
     length = 10
     data = b'0123456798'
     dst_buf = bytearray(data)
+
     class DuckReader:
         def close(self):
             pass
