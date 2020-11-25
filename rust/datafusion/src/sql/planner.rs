@@ -217,7 +217,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             _ => {
                 // https://issues.apache.org/jira/browse/ARROW-10729
                 Err(DataFusionError::NotImplemented(
-                    "JOINS are only supported when using the explicit JOIN ON syntax"
+                    "JOINS are only supported when using the explicit JOIN ON syntax \
+                    (https://issues.apache.org/jira/browse/ARROW-10729)"
                         .to_string(),
                 ))
             }
@@ -263,29 +264,9 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             keys.iter().map(|pair| pair.1.as_str()).collect();
 
                         // return the logical plan representing the join
-                        match LogicalPlanBuilder::from(&left)
+                        LogicalPlanBuilder::from(&left)
                             .join(&right, JoinType::Inner, &left_keys, &right_keys)?
-                            .build()?
-                        {
-                            LogicalPlan::Join {
-                                left,
-                                right,
-                                on,
-                                join_type,
-                                ..
-                            } =>
-                            // rewrite schema
-                            {
-                                Ok(LogicalPlan::Join {
-                                    left,
-                                    right,
-                                    on,
-                                    join_type,
-                                    schema: Arc::new(join_schema),
-                                })
-                            }
-                            _ => unreachable!("Expected join() to return a JOIN plan"),
-                        }
+                            .build()
                     }
                     JoinConstraint::Using(_) => {
                         // https://issues.apache.org/jira/browse/ARROW-10728
