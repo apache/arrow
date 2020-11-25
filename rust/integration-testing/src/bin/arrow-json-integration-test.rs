@@ -536,6 +536,8 @@ fn dictionary_array_from_json(
         | DataType::UInt16
         | DataType::UInt32
         | DataType::UInt64 => {
+            let null_buf = create_null_buf(&json_col);
+
             // build the key data into a buffer, then construct values separately
             let key_field = Field::new_dict(
                 "key",
@@ -555,6 +557,7 @@ fn dictionary_array_from_json(
             let dict_data = ArrayData::builder(field.data_type().clone())
                 .len(keys.len())
                 .add_buffer(keys.data().buffers()[0].clone())
+                .null_bit_buffer(null_buf)
                 .add_child_data(values.data())
                 .build();
 
