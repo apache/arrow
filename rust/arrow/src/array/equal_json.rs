@@ -418,8 +418,8 @@ mod tests {
     }
 
     /// Create a fixed size list of 2 value lengths
-    fn create_fixed_size_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
-        builder: &'a mut FixedSizeListBuilder<Int32Builder>,
+    fn create_fixed_size_list_array<U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
+        builder: &mut FixedSizeListBuilder<Int32Builder>,
         data: T,
     ) -> Result<FixedSizeListArray> {
         for d in data.as_ref() {

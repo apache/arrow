@@ -928,10 +928,7 @@ mod tests {
         // this test exercises the all 0's branch of the filter algorithm
         let mut data_values = (1..=65).collect::<Vec<i32>>();
         let mut filter_values = (1..=65)
-            .map(|i| match i % 65 {
-                0 => true,
-                _ => false,
-            })
+            .map(|i| !matches!(i % 65, 0))
             .collect::<Vec<bool>>();
         // set up two more values after the batch
         data_values.extend_from_slice(&[66, 67]);
@@ -950,10 +947,7 @@ mod tests {
         // this test exercises the all 1's branch of the filter algorithm
         let mut data_values = (1..=65).map(Some).collect::<Vec<_>>();
         let mut filter_values = (1..=65)
-            .map(|i| match i % 65 {
-                0 => false,
-                _ => true,
-            })
+            .map(|i| !matches!(i % 65, 0))
             .collect::<Vec<bool>>();
         // set second data value to null
         data_values[1] = None;
