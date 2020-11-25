@@ -39,21 +39,21 @@ struct CaseInsensitiveComparator
   }
 };
 
-// Parse a cookie header string beginning at the given start_pos and identify the name and
-// value of an attribute.
-//
-// @param cookie_header_value The value of the Set-Cookie header.
-// @param start_pos           An input/output parameter indicating the starting position
-// of the attribute.
-//                            It will store the position of the next attribute when the
-//                            function returns.
-// @param out_key             The name of the attribute.
-// @param out_value           The value of the attribute.
-//
-// @return true if an attribute is found.
-bool ParseCookieAttribute(std::string cookie_header_value,
+/// \brief Parse a cookie header string beginning at the given start_pos and identify
+/// the name and value of an attribute.
+///
+/// \param cookie_header_value The value of the Set-Cookie header.
+/// \param start_pos           An input/output parameter indicating the starting position
+/// of the attribute.
+///                            It will store the position of the next attribute when the
+///                            function returns.
+/// \param out_key             The name of the attribute.
+/// \param out_value           The value of the attribute.
+///
+/// \return true if an attribute is found.
+bool ParseCookieAttribute(const std::string& cookie_header_value,
                           std::string::size_type& start_pos, std::string& out_key,
-                          std::string& out_value) {
+                          std::string* out_value) {
   std::string::size_type equals_pos = cookie_header_value.find('=', start_pos);
   if (std::string::npos == equals_pos) {
     // No cookie attribute.
@@ -63,105 +63,28 @@ bool ParseCookieAttribute(std::string cookie_header_value,
   std::string::size_type semi_col_pos = cookie_header_value.find(';', equals_pos);
   out_key = arrow::internal::TrimString(
       cookie_header_value.substr(start_pos, equals_pos - start_pos));
-  if (std::string::npos == semi_col_pos && semi_col_pos > equals_pos) {
+  if (std::string::npos == semi_col_pos) {
     // Last item - set start pos to end
-    out_value = arrow::internal::TrimString(cookie_header_value.substr(equals_pos + 1));
+    *out_value = arrow::internal::TrimString(cookie_header_value.substr(equals_pos + 1));
     start_pos = std::string::npos;
   } else {
-    out_value = arrow::internal::TrimString(
+    *out_value = arrow::internal::TrimString(
         cookie_header_value.substr(equals_pos + 1, semi_col_pos - equals_pos - 1));
     start_pos = semi_col_pos + 1;
   }
 
   // Key/Value may be URI-encoded.
-  out_key = arrow::internal::UriUnescape(arrow::util::string_view(out_key));
-  out_value = arrow::internal::UriUnescape(arrow::util::string_view(out_value));
+  out_key = arrow::internal::UriUnescape(out_key);
+  *out_value = arrow::internal::UriUnescape(*out_value);
 
   // Strip outer quotes on the value.
-  if (out_value.size() >= 2 && out_value[0] == '"' &&
-      out_value[out_value.size() - 1] == '"') {
-    out_value = out_value.substr(1, out_value.size() - 2);
+  if (out_value->size() >= 2 && (*out_value)[0] == '"' &&
+      (*out_value)[out_value->size() - 1] == '"') {
+    *out_value = out_value->substr(1, out_value->size() - 2);
   }
 
   // Update the start position for subsequent calls to this function.
   return true;
-}
-
-// Custom parser for the date in format expected for cookies. This is required because
-// Windows doesn't have support for multiple formatting requirements in the cookie
-// formatting.
-//
-// @param date Input formatted date to parse.
-//
-// @return 0 on error, epoch seconds for date otherwise.
-std::chrono::seconds ParseDate(const std::string& date) {
-  // Abbreviated months in order.
-  static const std::vector<std::string> months = {
-      "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-
-  // Lambda function to convert abbreviated month string to number.
-  auto month_str_to_int = [](std::string month) {
-    std::transform(month.begin(), month.end(), month.begin(), ::toupper);
-    auto it = std::find(months.begin(), months.end(), month);
-    if (it != months.end()) {
-      return static_cast<int32_t>(std::distance(months.begin(), it));
-    } else {
-      return int32_t(-1);
-    }
-  };
-
-  // Lambda function to look in date string for token using offset and size.
-  auto date_find = [&](const std::string& token, size_t& offset, size_t size) {
-    offset = date.find(token, offset);
-    if (offset == std::string::npos) {
-      return std::string("");
-    }
-    offset += token.length();
-    return date.substr(offset + 1, size);
-  };
-
-  // Lambda function to read incoming stream to a long.
-  auto read_str = [](const std::string& str) {
-    char* end_ptr;
-    int32_t val = static_cast<int32_t>(std::strtol(str.c_str(), &end_ptr, 10));
-    if (end_ptr == str.c_str()) {
-      val = int32_t(-1);
-    }
-    return val;
-  };
-
-  // Parse out day, month, year, hour, minute, and second. If any come back empty, return
-  // 0.
-  size_t offset = 0;
-  const std::string str_day = date_find(",", offset, 2);
-  const std::string str_month = date_find(str_day, offset, 3);
-  const std::string str_year = date_find(str_month, offset, 4);
-  const std::string str_hour = date_find(str_year, offset, 2);
-  const std::string str_min = date_find(str_hour, offset, 2);
-  const std::string str_sec = date_find(str_min, offset, 2);
-  if (str_month.empty() || str_day.empty() || str_year.empty() || str_hour.empty() ||
-      str_min.empty() || str_sec.empty()) {
-    return std::chrono::seconds(0);
-  }
-
-  // Attempt to convert parsed values to longs. If any come back as -1, return 0.
-  int32_t month = month_str_to_int(str_month);
-  int32_t day = read_str(str_day);
-  int32_t year = read_str(str_year);
-  int32_t hour = read_str(str_hour);
-  int32_t min = read_str(str_min);
-  int32_t sec = read_str(str_sec);
-
-  if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
-      (sec == -1)) {
-    return std::chrono::seconds(0);
-  }
-
-  arrow_vendored::date::sys_seconds secs =
-      arrow_vendored::date::sys_days(arrow_vendored::date::year(year) / (month + 1) /
-                                     day) +
-      (std::chrono::hours(hour) + std::chrono::minutes(min) + std::chrono::seconds(sec));
-  return secs.time_since_epoch();
 }
 
 struct Cookie {
@@ -177,7 +100,7 @@ struct Cookie {
     // cookie.
     std::string::size_type pos = 0;
     if (!ParseCookieAttribute(cookie_value_str, pos, cookie.cookie_name_,
-                              cookie.cookie_value_)) {
+                              &cookie.cookie_value_)) {
       // No cookie found. Mark the output cookie as expired.
       cookie.has_expiry_ = true;
       cookie.expiration_time_ = std::chrono::system_clock::now();
@@ -187,7 +110,7 @@ struct Cookie {
     std::string cookie_attr_value;
     while (pos < cookie_value_str.size() &&
            ParseCookieAttribute(cookie_value_str, pos, cookie_attr_name,
-                                cookie_attr_value)) {
+                                &cookie_attr_value)) {
       if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name, "max-age")) {
         // Note: max-age takes precedence over expires. We don't really care about other
         // attributes and will arbitrarily take the first max-age. We can stop the loop
@@ -206,8 +129,14 @@ struct Cookie {
       } else if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name,
                                                              "expires")) {
         cookie.has_expiry_ = true;
-        cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
-            ParseDate(cookie_attr_value));
+        uint64_t seconds = 0;
+        const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
+        if (arrow::internal::ParseTimestampStrptime(
+                cookie_attr_value.c_str(), cookie_attr_value.size(),
+                COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
+          cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
+              std::chrono::seconds(seconds));
+        }
       }
     }
 
@@ -279,10 +208,10 @@ class ClientCookieMiddlewareFactory::Impl {
     ClientCookieMiddlewareFactory::Impl& factory_impl_;
   };
 
-  // Retrieve the cached cookie values as a string.
-  //
-  // @return a string that can be used in a Cookie header representing the cookies that
-  // have been cached.
+  /// \brief Retrieve the cached cookie values as a string.
+  ///
+  /// \return a string that can be used in a Cookie header representing the cookies that
+  /// have been cached.
   std::string GetValidCookiesAsString() {
     const std::lock_guard<std::mutex> guard(mutex_);
 
@@ -298,9 +227,9 @@ class ClientCookieMiddlewareFactory::Impl {
     return cookie_string;
   }
 
-  // Updates the cache of cookies with new Set-Cookie header values.
-  //
-  // @param header_values The range representing header values.
+  /// \brief Updates the cache of cookies with new Set-Cookie header values.
+  ///
+  /// \param header_values The range representing header values.
   void UpdateCachedCookies(const std::pair<CallHeaders::const_iterator,
                                            CallHeaders::const_iterator>& header_values) {
     const std::lock_guard<std::mutex> guard(mutex_);
