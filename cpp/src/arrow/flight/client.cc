@@ -998,9 +998,9 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status AuthenticateBasicToken(const FlightCallOptions& options,
-                                const std::string& username, const std::string& password,
-                                std::pair<std::string, std::string>* bearer_token) {
+  arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
+      const FlightCallOptions& options, const std::string& username,
+      const std::string& password) {
     // Add basic auth headers to outgoing headers.
     ClientRpc rpc(options);
     internal::AddBasicAuthHeaders(&rpc.context, username, password);
@@ -1019,8 +1019,7 @@ class FlightClient::FlightClientImpl {
     }
 
     // Grab bearer token from incoming headers.
-    internal::GetBearerTokenHeader(rpc.context, bearer_token);
-    return Status::OK();
+    return internal::GetBearerTokenHeader(rpc.context);
   }
 
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
@@ -1227,10 +1226,10 @@ Status FlightClient::Authenticate(const FlightCallOptions& options,
   return impl_->Authenticate(options, std::move(auth_handler));
 }
 
-Status FlightClient::AuthenticateBasicToken(
+arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
     const FlightCallOptions& options, const std::string& username,
-    const std::string& password, std::pair<std::string, std::string>* bearer_token) {
-  return impl_->AuthenticateBasicToken(options, username, password, bearer_token);
+    const std::string& password) {
+  return impl_->AuthenticateBasicToken(options, username, password);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,

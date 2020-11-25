@@ -29,6 +29,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/variant.h"
 
@@ -198,11 +199,11 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] username Username to use
   /// \param[in] password Password to use
-  /// \param[in] bearer_token Bearer token retreived if applicable
-  /// \return Status OK if the client authenticated successfully
-  Status AuthenticateBasicToken(const FlightCallOptions& options,
-                                const std::string& username, const std::string& password,
-                                std::pair<std::string, std::string>* bearer_token);
+  /// \return Arrow result with bearer token and status OK if client authenticated
+  /// sucessfully
+  arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
+      const FlightCallOptions& options, const std::string& username,
+      const std::string& password);
 
   /// \brief Perform the indicated action, returning an iterator to the stream
   /// of results, if any

@@ -37,11 +37,11 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
-// Add base64 encoded credentials to the outbound headers.
-//
-// @param context Context object to add the headers to.
-// @param username Username to format and encode.
-// @param password Password to format and encode.
+/// \brief Add base64 encoded credentials to the outbound headers.
+///
+/// \param context Context object to add the headers to.
+/// \param username Username to format and encode.
+/// \param password Password to format and encode.
 void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username,
                          const std::string& password) {
   const std::string credentials = username + ":" + password;
@@ -52,12 +52,12 @@ void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& userna
                          static_cast<unsigned int>(credentials.size())));
 }
 
-// Get bearer token from inbound headers.
-//
-// @param context Incoming ClientContext that contains headers.
-// @param bearer_token[out] Bearer token pointer to set.
-void GetBearerTokenHeader(grpc::ClientContext& context,
-                          std::pair<std::string, std::string>* bearer_token) {
+/// \brief Get bearer token from inbound headers.
+///
+/// \param context Incoming ClientContext that contains headers.
+/// \return Arrow result with bearer token (empty if no bearer token found).
+arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
+    grpc::ClientContext& context) {
   // Lambda function to compare characters without case sensitivity.
   auto char_compare = [](const char& char1, const char& char2) {
     return (::toupper(char1) == ::toupper(char2));
@@ -70,7 +70,7 @@ void GetBearerTokenHeader(grpc::ClientContext& context,
   if (bearer_iter == trailing_headers.end()) {
     bearer_iter = initial_headers.find(kAuthHeader);
     if (bearer_iter == initial_headers.end()) {
-      return;
+      return std::make_pair("", "");
     }
   }
 
@@ -79,9 +79,12 @@ void GetBearerTokenHeader(grpc::ClientContext& context,
   if (bearer_val.size() > strlen(kBearerPrefix)) {
     if (std::equal(bearer_val.begin(), bearer_val.begin() + strlen(kBearerPrefix),
                    kBearerPrefix, char_compare)) {
-      *bearer_token = std::make_pair(kAuthHeader, bearer_val);
+      return std::make_pair(kAuthHeader, bearer_val);
     }
   }
+
+  // The server is not required to provide a bearer token.
+  return std::make_pair("", "");
 }
 
 }  // namespace internal
