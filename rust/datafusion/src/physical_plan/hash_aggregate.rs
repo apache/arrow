@@ -250,6 +250,8 @@ fn group_aggregate_batch(
         key.push(GroupByScalar::UInt32(0));
     }
 
+    let mut key = key.into_boxed_slice();
+
     // 1.1 construct the key from the group values
     // 1.2 construct the mapping key if it does not exist
     // 1.3 add the row' index to `indices`
@@ -387,7 +389,7 @@ impl GroupedHashAggregateStream {
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
 type Accumulators =
-    HashMap<Vec<GroupByScalar>, (AccumulatorSet, Box<Vec<u32>>), RandomState>;
+    HashMap<Box<[GroupByScalar]>, (AccumulatorSet, Box<Vec<u32>>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
@@ -656,7 +658,9 @@ fn create_batch_from_map(
                     GroupByScalar::UInt16(n) => Arc::new(UInt16Array::from(vec![*n])),
                     GroupByScalar::UInt32(n) => Arc::new(UInt32Array::from(vec![*n])),
                     GroupByScalar::UInt64(n) => Arc::new(UInt64Array::from(vec![*n])),
-                    GroupByScalar::Utf8(str) => Arc::new(StringArray::from(vec![&**str])),
+                    GroupByScalar::Utf8(str) => {
+                        Arc::new(StringArray::from(vec![&***str]))
+                    }
                 })
                 .collect::<Vec<ArrayRef>>();
 
@@ -724,7 +728,7 @@ fn finalize_aggregation(
 pub(crate) fn create_key(
     group_by_keys: &[ArrayRef],
     row: usize,
-    vec: &mut Vec<GroupByScalar>,
+    vec: &mut Box<[GroupByScalar]>,
 ) -> Result<()> {
     for i in 0..group_by_keys.len() {
         let col = &group_by_keys[i];
@@ -763,7 +767,7 @@ pub(crate) fn create_key(
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                vec[i] = GroupByScalar::Utf8(array.value(row).into())
+                vec[i] = GroupByScalar::Utf8(Box::new(array.value(row).into()))
             }
             _ => {
                 // This is internal because we should have caught this before.
