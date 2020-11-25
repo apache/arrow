@@ -60,7 +60,7 @@ void GetBearerTokenHeader(grpc::ClientContext& context,
                           std::pair<std::string, std::string>* bearer_token) {
   // Lambda function to compare characters without case sensitivity.
   auto char_compare = [](const char& char1, const char& char2) {
-    return (std::toupper(char1) == std::toupper(char2));
+    return (::toupper(char1) == ::toupper(char2));
   };
 
   // Get the auth token if it exists, this can be in the initial or the trailing metadata.
