@@ -130,7 +130,6 @@ struct Cookie {
         break;
       } else if (arrow::internal::AsciiEqualsCaseInsensitive(cookie_attr_name,
                                                              "expires")) {
-        std::cout << "Expires!" << std::endl;
         cookie.has_expiry_ = true;
         const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
         int64_t seconds = 0;
@@ -156,15 +155,6 @@ struct Cookie {
           static_cast<uint64_t>(expiration_time_.time_since_epoch().count());
       uint64_t current_time = static_cast<uint64_t>(
           std::chrono::system_clock::now().time_since_epoch().count());
-      std::cout << "Expiration time: ";
-      std::cout << expiry_time;
-      std::cout << std::endl;
-      std::cout << "Current time: ";
-      std::cout << current_time;
-      std::cout << std::endl;
-      std::cout << "Expiration time < Current time: ";
-      std::cout << (expiry_time <= current_time);
-      std::cout << std::endl;
       return (expiry_time <= current_time);
     }
     return false;
