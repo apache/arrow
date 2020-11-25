@@ -23,7 +23,7 @@ fn lengths_equal<T: OffsetSizeTrait>(lhs: &[T], rhs: &[T]) -> bool {
     // invariant from `base_equal`
     debug_assert_eq!(lhs.len(), rhs.len());
 
-    if lhs.len() == 0 {
+    if lhs.is_empty() {
         return true;
     }
 

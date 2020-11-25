@@ -89,6 +89,7 @@ mod array_list;
 mod array_primitive;
 mod array_string;
 mod array_struct;
+mod array_union;
 mod builder;
 mod cast;
 mod data;
@@ -98,7 +99,7 @@ mod iterator;
 mod null;
 mod ord;
 mod raw_pointer;
-mod union;
+mod transform;
 
 use crate::datatypes::*;
 
@@ -111,6 +112,7 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array_binary::BinaryArray;
+pub use self::array_binary::DecimalArray;
 pub use self::array_binary::FixedSizeBinaryArray;
 pub use self::array_binary::LargeBinaryArray;
 pub use self::array_dictionary::DictionaryArray;
@@ -121,8 +123,8 @@ pub use self::array_primitive::PrimitiveArray;
 pub use self::array_string::LargeStringArray;
 pub use self::array_string::StringArray;
 pub use self::array_struct::StructArray;
+pub use self::array_union::UnionArray;
 pub use self::null::NullArray;
-pub use self::union::UnionArray;
 
 pub use self::array::make_array;
 
@@ -207,6 +209,7 @@ pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::DecimalBuilder;
 pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::LargeBinaryBuilder;
@@ -218,7 +221,7 @@ pub use self::builder::PrimitiveDictionaryBuilder;
 pub use self::builder::StringBuilder;
 pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
-pub use self::union::UnionBuilder;
+pub use self::builder::UnionBuilder;
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;
@@ -248,6 +251,8 @@ pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
 pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
+
+pub use self::transform::MutableArrayData;
 
 // --------------------- Array Iterator ---------------------
 

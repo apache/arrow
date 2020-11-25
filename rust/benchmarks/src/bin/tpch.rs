@@ -18,22 +18,22 @@
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
 
 use std::path::PathBuf;
-use std::process;
+use std::sync::Arc;
 use std::time::Instant;
 
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
-use datafusion::error::Result;
-use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
-
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::{CsvFile, MemTable, TableProvider};
-use datafusion::physical_plan::csv::CsvReadOptions;
+use datafusion::error::{DataFusionError, Result};
+use datafusion::logical_plan::{and, or, when, LogicalPlan};
+use datafusion::physical_plan::csv::CsvExec;
+use datafusion::prelude::*;
+
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "Benchmarks", about = "Apache Arrow Rust Benchmarks.")]
-struct TpchOpt {
+struct BenchmarkOpt {
     /// Query number
     #[structopt(short, long)]
     query: usize,
@@ -67,94 +67,71 @@ struct TpchOpt {
     mem_table: bool,
 }
 
+#[derive(Debug, StructOpt)]
+struct ConvertOpt {
+    /// Path to csv files
+    #[structopt(parse(from_os_str), required = true, short = "i", long = "input")]
+    input_path: PathBuf,
+
+    /// Output path
+    #[structopt(parse(from_os_str), required = true, short = "o", long = "output")]
+    output_path: PathBuf,
+
+    /// Output file format: `csv` or `parquet`
+    #[structopt(short = "f", long = "format")]
+    file_format: String,
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "TPC-H", about = "TPC-H Benchmarks.")]
+enum TpchOpt {
+    Benchmark(BenchmarkOpt),
+    Convert(ConvertOpt),
+}
+
+const TABLES: &[&str] = &["lineitem", "orders"];
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opt = TpchOpt::from_args();
-    println!("Running benchmarks with the following options: {:?}", opt);
+    match TpchOpt::from_args() {
+        TpchOpt::Benchmark(opt) => benchmark(opt).await,
+        TpchOpt::Convert(opt) => convert_tbl(opt).await,
+    }
+}
 
+async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
+    println!("Running benchmarks with the following options: {:?}", opt);
     let config = ExecutionConfig::new()
         .with_concurrency(opt.concurrency)
         .with_batch_size(opt.batch_size);
     let mut ctx = ExecutionContext::with_config(config);
 
-    let path = opt.path.to_str().unwrap();
+    // register tables
+    for table in TABLES {
+        let table_provider =
+            get_table(opt.path.to_str().unwrap(), table, opt.file_format.as_str())?;
+        if opt.mem_table {
+            println!("Loading table '{}' into memory", table);
+            let start = Instant::now();
 
-    let tableprovider: Box<dyn TableProvider + Send + Sync> =
-        match opt.file_format.as_str() {
-            // dbgen creates .tbl ('|' delimited) files
-            "tbl" => {
-                let path = format!("{}/lineitem.tbl", path);
-                let schema = lineitem_schema();
-                let options = CsvReadOptions::new()
-                    .schema(&schema)
-                    .delimiter(b'|')
-                    .file_extension(".tbl");
-
-                Box::new(CsvFile::try_new(&path, options)?)
-            }
-            "csv" => {
-                let path = format!("{}/lineitem", path);
-                let schema = lineitem_schema();
-                let options = CsvReadOptions::new().schema(&schema).has_header(true);
-
-                Box::new(CsvFile::try_new(&path, options)?)
-            }
-            "parquet" => {
-                let path = format!("{}/lineitem", path);
-                Box::new(ParquetTable::try_new(&path)?)
-            }
-            other => {
-                println!("Invalid file format '{}'", other);
-                process::exit(-1);
-            }
-        };
-
-    if opt.mem_table {
-        println!("Loading data into memory");
-        let start = Instant::now();
-
-        let memtable = MemTable::load(tableprovider.as_ref(), opt.batch_size).await?;
-        println!(
-            "Loaded data into memory in {} ms",
-            start.elapsed().as_millis()
-        );
-
-        ctx.register_table("lineitem", Box::new(memtable));
-    } else {
-        ctx.register_table("lineitem", tableprovider);
+            let memtable =
+                MemTable::load(table_provider.as_ref(), opt.batch_size).await?;
+            println!(
+                "Loaded table '{}' into memory in {} ms",
+                table,
+                start.elapsed().as_millis()
+            );
+            ctx.register_table(table, Box::new(memtable));
+        } else {
+            ctx.register_table(table, table_provider);
+        }
     }
 
-    let sql = match opt.query {
-        1 => {
-            "select
-                l_returnflag,
-                l_linestatus,
-                sum(l_quantity),
-                sum(l_extendedprice),
-                sum(l_extendedprice * (1 - l_discount)),
-                sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)),
-                avg(l_quantity),
-                avg(l_extendedprice),
-                avg(l_discount),
-                count(*)
-            from
-                lineitem
-            where
-                l_shipdate <= '1998-12-01'
-            group by
-                l_returnflag,
-                l_linestatus
-            order by
-                l_returnflag,
-                l_linestatus"
-        }
-
-        _ => unimplemented!("unsupported query"),
-    };
-
+    // run benchmark
     for i in 0..opt.iterations {
         let start = Instant::now();
-        execute_sql(&mut ctx, sql, opt.debug).await?;
+        let plan = create_logical_plan(&mut ctx, opt.query)?;
+        execute_query(&mut ctx, &plan, opt.debug).await?;
         println!(
             "Query {} iteration {} took {} ms",
             opt.query,
@@ -166,8 +143,120 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Result<()> {
-    let plan = ctx.create_logical_plan(sql)?;
+fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<LogicalPlan> {
+    match query {
+        1 => ctx.create_logical_plan(
+            "select
+                    l_returnflag,
+                    l_linestatus,
+                    sum(l_quantity),
+                    sum(l_extendedprice),
+                    sum(l_extendedprice * (1 - l_discount)),
+                    sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)),
+                    avg(l_quantity),
+                    avg(l_extendedprice),
+                    avg(l_discount),
+                    count(*)
+                from
+                    lineitem
+                where
+                    l_shipdate <= '1998-12-01'
+                group by
+                    l_returnflag,
+                    l_linestatus
+                order by
+                    l_returnflag,
+                    l_linestatus",
+        ),
+
+        12 => {
+            // We do not have sufficient SQL support for this query yet
+
+            // "SELECT
+            //     l_shipmode,
+            //     sum(case
+            //         when o_orderpriority = '1-URGENT'
+            //             OR o_orderpriority = '2-HIGH'
+            //             then 1
+            //         else 0
+            //     end) as high_line_count,
+            //     sum(case
+            //         when o_orderpriority <> '1-URGENT'
+            //             AND o_orderpriority <> '2-HIGH'
+            //             then 1
+            //         else 0
+            //     end) AS low_line_count
+            // FROM
+            //     orders,
+            //     lineitem
+            // WHERE
+            //     o_orderkey = l_orderkey
+            //     AND l_shipmode in ('MAIL', 'SHIP')
+            //     AND l_commitdate < l_receiptdate
+            //     AND l_shipdate < l_commitdate
+            //     AND l_receiptdate >= date '1994-01-01'
+            //     AND l_receiptdate < date '1994-01-01' + interval '1' year
+            // GROUP BY
+            //     l_shipmode
+            // ORDER BY
+            //     l_shipmode"
+
+            Ok(ctx
+                .table("lineitem")?
+                .filter(
+                    col("l_shipmode")
+                        .eq(lit("MAIL"))
+                        .or(col("l_shipmode").eq(lit("SHIP"))),
+                )?
+                .filter(col("l_commitdate").lt(col("l_receiptdate")))?
+                .filter(col("l_shipdate").lt(col("l_commitdate")))?
+                .filter(col("l_receiptdate").gt_eq(lit("1994-01-01")))?
+                // we do not support date functions yet, so faking the "+ interval '1' year" part
+                .filter(col("l_receiptdate").lt(lit("1995-01-01")))?
+                .join(
+                    ctx.table("orders")?,
+                    JoinType::Inner,
+                    &["l_orderkey"],
+                    &["o_orderkey"],
+                )?
+                .aggregate(
+                    vec![col("l_shipmode")],
+                    vec![
+                        sum(when(
+                            or(
+                                col("o_orderpriority").eq(lit("1-URGENT")),
+                                col("o_orderpriority").eq(lit("2-HIGH")),
+                            ),
+                            lit(1),
+                        )
+                        .otherwise(lit(0))?)
+                        .alias("high_line_count"),
+                        sum(when(
+                            and(
+                                col("o_orderpriority").not_eq(lit("1-URGENT")),
+                                col("o_orderpriority").not_eq(lit("2-HIGH")),
+                            ),
+                            lit(1),
+                        )
+                        .otherwise(lit(0))?)
+                        .alias("low_line_count"),
+                    ],
+                )?
+                .to_logical_plan())
+        }
+
+        _ => unimplemented!("unsupported query"),
+    }
+}
+
+async fn execute_query(
+    ctx: &mut ExecutionContext,
+    plan: &LogicalPlan,
+    debug: bool,
+) -> Result<()> {
+    if debug {
+        println!("Logical plan:\n{:?}", plan);
+    }
     let plan = ctx.optimize(&plan)?;
     if debug {
         println!("Optimized logical plan:\n{:?}", plan);
@@ -180,23 +269,102 @@ async fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Resu
     Ok(())
 }
 
-fn lineitem_schema() -> Schema {
-    Schema::new(vec![
-        Field::new("l_orderkey", DataType::UInt32, true),
-        Field::new("l_partkey", DataType::UInt32, true),
-        Field::new("l_suppkey", DataType::UInt32, true),
-        Field::new("l_linenumber", DataType::UInt32, true),
-        Field::new("l_quantity", DataType::Float64, true),
-        Field::new("l_extendedprice", DataType::Float64, true),
-        Field::new("l_discount", DataType::Float64, true),
-        Field::new("l_tax", DataType::Float64, true),
-        Field::new("l_returnflag", DataType::Utf8, true),
-        Field::new("l_linestatus", DataType::Utf8, true),
-        Field::new("l_shipdate", DataType::Utf8, true),
-        Field::new("l_commitdate", DataType::Utf8, true),
-        Field::new("l_receiptdate", DataType::Utf8, true),
-        Field::new("l_shipinstruct", DataType::Utf8, true),
-        Field::new("l_shipmode", DataType::Utf8, true),
-        Field::new("l_comment", DataType::Utf8, true),
-    ])
+async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
+    for table in TABLES {
+        let schema = get_schema(table);
+
+        let path = format!("{}/{}.tbl", opt.input_path.to_str().unwrap(), table);
+        let options = CsvReadOptions::new()
+            .schema(&schema)
+            .delimiter(b'|')
+            .file_extension(".tbl");
+
+        let ctx = ExecutionContext::new();
+        let csv = Arc::new(CsvExec::try_new(&path, options, None, 4096)?);
+        let output_path = opt.output_path.to_str().unwrap().to_owned();
+
+        match opt.file_format.as_str() {
+            "csv" => ctx.write_csv(csv, output_path).await?,
+            "parquet" => ctx.write_parquet(csv, output_path).await?,
+            other => {
+                return Err(DataFusionError::NotImplemented(format!(
+                    "Invalid output format: {}",
+                    other
+                )))
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn get_table(
+    path: &str,
+    table: &str,
+    table_format: &str,
+) -> Result<Box<dyn TableProvider + Send + Sync>> {
+    match table_format {
+        // dbgen creates .tbl ('|' delimited) files
+        "tbl" => {
+            let path = format!("{}/{}.tbl", path, table);
+            let schema = get_schema(table);
+            let options = CsvReadOptions::new()
+                .schema(&schema)
+                .delimiter(b'|')
+                .file_extension(".tbl");
+
+            Ok(Box::new(CsvFile::try_new(&path, options)?))
+        }
+        "csv" => {
+            let path = format!("{}/{}", path, table);
+            let schema = get_schema(table);
+            let options = CsvReadOptions::new().schema(&schema).has_header(true);
+
+            Ok(Box::new(CsvFile::try_new(&path, options)?))
+        }
+        "parquet" => {
+            let path = format!("{}/{}", path, table);
+            Ok(Box::new(ParquetTable::try_new(&path)?))
+        }
+        other => {
+            unimplemented!("Invalid file format '{}'", other);
+        }
+    }
+}
+
+fn get_schema(table: &str) -> Schema {
+    match table {
+        "lineitem" => Schema::new(vec![
+            Field::new("l_orderkey", DataType::UInt32, true),
+            Field::new("l_partkey", DataType::UInt32, true),
+            Field::new("l_suppkey", DataType::UInt32, true),
+            Field::new("l_linenumber", DataType::UInt32, true),
+            Field::new("l_quantity", DataType::Float64, true),
+            Field::new("l_extendedprice", DataType::Float64, true),
+            Field::new("l_discount", DataType::Float64, true),
+            Field::new("l_tax", DataType::Float64, true),
+            Field::new("l_returnflag", DataType::Utf8, true),
+            Field::new("l_linestatus", DataType::Utf8, true),
+            Field::new("l_shipdate", DataType::Utf8, true),
+            Field::new("l_commitdate", DataType::Utf8, true),
+            Field::new("l_receiptdate", DataType::Utf8, true),
+            Field::new("l_shipinstruct", DataType::Utf8, true),
+            Field::new("l_shipmode", DataType::Utf8, true),
+            Field::new("l_comment", DataType::Utf8, true),
+        ]),
+
+        "orders" => Schema::new(vec![
+            Field::new("o_orderkey", DataType::UInt32, true),
+            Field::new("custkey", DataType::UInt32, true),
+            Field::new("o_orderstatus", DataType::Utf8, true),
+            Field::new("o_totalprice", DataType::Float64, true),
+            Field::new("o_orderdate", DataType::Utf8, true),
+            Field::new("o_orderpriority", DataType::Utf8, true),
+            Field::new("o_clerk", DataType::Utf8, true),
+            Field::new("o_shippriority", DataType::Utf8, true),
+            Field::new("o_comment", DataType::Utf8, true),
+        ]),
+
+        _ => unimplemented!(),
+    }
 }

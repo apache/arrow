@@ -80,7 +80,9 @@ def _write_table(table, path, **kwargs):
 
 
 def _read_table(*args, **kwargs):
-    return pq.read_table(*args, **kwargs)
+    table = pq.read_table(*args, **kwargs)
+    table.validate(full=True)
+    return table
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
@@ -88,10 +90,10 @@ def _roundtrip_table(table, read_table_kwargs=None,
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
-    buf = io.BytesIO()
-    _write_table(table, buf, **write_table_kwargs)
-    buf.seek(0)
-    return _read_table(buf, use_legacy_dataset=use_legacy_dataset,
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, **write_table_kwargs)
+    reader = pa.BufferReader(writer.getvalue())
+    return _read_table(reader, use_legacy_dataset=use_legacy_dataset,
                        **read_table_kwargs)
 
 
@@ -119,6 +121,40 @@ def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
         table, write_table_kwargs=write_kwargs,
         use_legacy_dataset=use_legacy_dataset)
     return result.to_pandas()
+
+
+def test_large_binary():
+    data = [b'foo', b'bar'] * 50
+    for type in [pa.large_binary(), pa.large_string()]:
+        arr = pa.array(data, type=type)
+        table = pa.Table.from_arrays([arr], names=['strs'])
+        for use_dictionary in [False, True]:
+            _check_roundtrip(table, use_dictionary=use_dictionary)
+
+
+@pytest.mark.large_memory
+def test_large_binary_huge():
+    s = b'xy' * 997
+    data = [s] * ((1 << 33) // len(s))
+    for type in [pa.large_binary(), pa.large_string()]:
+        arr = pa.array(data, type=type)
+        table = pa.Table.from_arrays([arr], names=['strs'])
+        for use_dictionary in [False, True]:
+            _check_roundtrip(table, use_dictionary=use_dictionary)
+        del arr, table
+
+
+@pytest.mark.large_memory
+def test_large_binary_overflow():
+    s = b'x' * (1 << 31)
+    arr = pa.array([s], type=pa.large_binary())
+    table = pa.Table.from_arrays([arr], names=['strs'])
+    for use_dictionary in [False, True]:
+        writer = pa.BufferOutputStream()
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match="Parquet cannot store strings with size 2GB or more"):
+            _write_table(table, writer, use_dictionary=use_dictionary)
 
 
 @parametrize_legacy_dataset
@@ -4444,3 +4480,15 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
+
+
+def test_parquet_compression_roundtrip(tempdir):
+    # ARROW-10480: ensure even with nonstandard Parquet file naming
+    # conventions, writing and then reading a file works. In
+    # particular, ensure that we don't automatically double-compress
+    # the stream due to auto-detecting the extension in the filename
+    table = pa.table([pa.array(range(4))], names=["ints"])
+    path = tempdir / "arrow-10480.pyarrow.gz"
+    pq.write_table(table, path, compression="GZIP")
+    result = pq.read_table(path)
+    assert result.equals(table)

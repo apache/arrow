@@ -427,12 +427,28 @@ void SimpleUnary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 //
 // static void Call(KernelContext*, const ArrayData& arg0, const ArrayData& arg1,
 //                  ArrayData* out)
+// static void Call(KernelContext*, const ArrayData& arg0, const Scalar& arg1,
+//                  ArrayData* out)
+// static void Call(KernelContext*, const Scalar& arg0, const ArrayData& arg1,
+//                  ArrayData* out)
+// static void Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
+//                  Scalar* out)
 template <typename Operator>
 void SimpleBinary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  if (batch[0].kind() == Datum::SCALAR || batch[1].kind() == Datum::SCALAR) {
-    ctx->SetStatus(Status::NotImplemented("NYI"));
-  } else if (batch.length > 0) {
-    Operator::Call(ctx, *batch[0].array(), *batch[1].array(), out->mutable_array());
+  if (batch.length == 0) return;
+
+  if (batch[0].kind() == Datum::ARRAY) {
+    if (batch[1].kind() == Datum::ARRAY) {
+      Operator::Call(ctx, *batch[0].array(), *batch[1].array(), out->mutable_array());
+    } else {
+      Operator::Call(ctx, *batch[0].array(), *batch[1].scalar(), out->mutable_array());
+    }
+  } else {
+    if (batch[1].kind() == Datum::ARRAY) {
+      Operator::Call(ctx, *batch[0].scalar(), *batch[1].array(), out->mutable_array());
+    } else {
+      Operator::Call(ctx, *batch[0].scalar(), *batch[1].scalar(), out->scalar().get());
+    }
   }
 }
 
@@ -631,8 +647,6 @@ struct ScalarUnaryNotNullStateful {
       Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       BoxScalar<OutType>::Box(this->op.template Call<OutValue, Arg0Value>(ctx, arg0_val),
                               out->scalar().get());
-    } else {
-      out->value = MakeNullScalar(arg0.type);
     }
   }
 
@@ -1052,6 +1066,22 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::TIME64:
     case Type::DURATION:
       return Generator<UInt64Type>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// similar to GenerateTypeAgnosticPrimitive, but for variable types
+template <template <typename...> class Generator>
+ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY:
+    case Type::STRING:
+      return Generator<BinaryType>::Exec;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return Generator<LargeBinaryType>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

@@ -18,7 +18,7 @@
 //! Defines the projection execution plan. A projection determines which columns or expressions
 //! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
 //! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
-//! projection expressions.
+//! projection expressions. `SELECT` without `FROM` will only evaluate expressions.
 
 use std::any::Any;
 use std::pin::Pin;
@@ -130,6 +130,7 @@ fn batch_project(
     expressions
         .iter()
         .map(|expr| expr.evaluate(&batch))
+        .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
         .map_or_else(
             |e| Err(DataFusionError::into_arrow_external_error(e)),

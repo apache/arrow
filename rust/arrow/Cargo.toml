@@ -50,9 +50,11 @@ chrono = "0.4"
 flatbuffers = "0.6"
 hex = "0.4"
 prettytable-rs = { version = "0.8.0", optional = true }
+lexical-core = "^0.7"
 
 [features]
 default = []
+avx512 = []
 simd = ["packed_simd"]
 prettyprint = ["prettytable-rs"]
 
@@ -115,4 +117,8 @@ harness = false
 
 [[bench]]
 name = "equal"
+harness = false
+
+[[bench]]
+name = "array_slice"
 harness = false

@@ -86,6 +86,13 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
+  void SetBitsTo(bool v) {
+    BitUtil::SetBitsTo(buffer_->mutable_data(), offset_, length_, v);
+  }
+
+  void CopyFrom(const Bitmap& other);
+  void CopyFromInverted(const Bitmap& other);
+
   /// \brief Visit bits from each bitmap as bitset<N>
   ///
   /// All bitmaps must have identical length.
@@ -110,8 +117,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   ///
   /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor,
-            typename Word =
-                typename internal::call_traits::argument_type<0, Visitor&&>::value_type>
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
   static int64_t VisitWords(const Bitmap (&bitmaps_arg)[N], Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 

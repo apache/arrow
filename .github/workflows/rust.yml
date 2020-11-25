@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2020-04-22]
+        rust: [nightly-2020-11-19]
     env:
       RUST: ${{ matrix.rust }}
     steps:
@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .docker
-          key: debian-10-rust-${{ hashFiles('rust/**.rs') }}
+          key: debian-10-rust-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
           restore-keys: debian-10-rust-
       - name: Setup Python
         uses: actions/setup-python@v1
@@ -96,7 +96,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2020-04-22]
+        rust: [nightly-2020-11-19]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -118,8 +118,8 @@ jobs:
         uses: actions/cache@v1
         with:
           path: rust/target
-          key: windows-rust-${{ hashFiles('rust/**.rs') }}
-          restore-keys: windows-rust-
+          key: windows-rust-v1-${{ hashFiles('rust/**/**.rs', 'rust/**/Cargo.toml') }}
+          restore-keys: windows-rust-v1-
       - name: Build
         shell: bash
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
@@ -134,7 +134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2020-04-22]
+        rust: [nightly-2020-11-19]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1

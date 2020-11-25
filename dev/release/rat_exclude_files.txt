@@ -107,7 +107,7 @@ dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/rules
 dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/source/format
 dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/watch
 dev/tasks/linux-packages/apache-arrow/debian/compat
-dev/tasks/linux-packages/apache-arrow/debian/control
+dev/tasks/linux-packages/apache-arrow/debian/control.in
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-cuda-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-dataset-1.0.install

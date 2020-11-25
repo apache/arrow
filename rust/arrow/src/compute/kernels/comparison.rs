@@ -130,7 +130,7 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
             regex
         } else {
             let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&re_pattern).map_err(|e| {
+            let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
                 ArrowError::ComputeError(format!(
                     "Unable to build regex from LIKE pattern: {}",
                     e
@@ -142,6 +142,57 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
 
         result.append(re.is_match(haystack))?;
     }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+fn is_like_pattern(c: char) -> bool {
+    c == '%' || c == '_'
+}
+
+pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    let null_bit_buffer = left.data().null_buffer().cloned();
+    let mut result = BooleanBufferBuilder::new(left.len());
+
+    if !right.contains(is_like_pattern) {
+        // fast path, can use equals
+        for i in 0..left.len() {
+            result.append(left.value(i) == right)?;
+        }
+    } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
+    {
+        // fast path, can use starts_with
+        for i in 0..left.len() {
+            result.append(left.value(i).starts_with(&right[..right.len() - 1]))?;
+        }
+    } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
+        // fast path, can use ends_with
+        for i in 0..left.len() {
+            result.append(left.value(i).ends_with(&right[1..]))?;
+        }
+    } else {
+        let re_pattern = right.replace("%", ".*").replace("_", ".");
+        let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
+            ArrowError::ComputeError(format!(
+                "Unable to build regex from LIKE pattern: {}",
+                e
+            ))
+        })?;
+
+        for i in 0..left.len() {
+            let haystack = left.value(i);
+            result.append(re.is_match(haystack))?;
+        }
+    };
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -175,7 +226,7 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
             regex
         } else {
             let re_pattern = pat.replace("%", ".*").replace("_", ".");
-            let re = Regex::new(&re_pattern).map_err(|e| {
+            let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
                 ArrowError::ComputeError(format!(
                     "Unable to build regex from LIKE pattern: {}",
                     e
@@ -186,6 +237,52 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
         };
 
         result.append(!re.is_match(haystack))?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
+    let null_bit_buffer = left.data().null_buffer().cloned();
+    let mut result = BooleanBufferBuilder::new(left.len());
+
+    if !right.contains(is_like_pattern) {
+        // fast path, can use equals
+        for i in 0..left.len() {
+            result.append(left.value(i) != right)?;
+        }
+    } else if right.ends_with('%') && !right[..right.len() - 1].contains(is_like_pattern)
+    {
+        // fast path, can use ends_with
+        for i in 0..left.len() {
+            result.append(!left.value(i).starts_with(&right[..right.len() - 1]))?;
+        }
+    } else if right.starts_with('%') && !right[1..].contains(is_like_pattern) {
+        // fast path, can use starts_with
+        for i in 0..left.len() {
+            result.append(!left.value(i).ends_with(&right[1..]))?;
+        }
+    } else {
+        let re_pattern = right.replace("%", ".*").replace("_", ".");
+        let re = Regex::new(&format!("^{}$", re_pattern)).map_err(|e| {
+            ArrowError::ComputeError(format!(
+                "Unable to build regex from LIKE pattern: {}",
+                e
+            ))
+        })?;
+        for i in 0..left.len() {
+            let haystack = left.value(i);
+            result.append(!re.is_match(haystack))?;
+        }
     }
 
     let data = ArrayData::new(
@@ -260,7 +357,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use std::io::Write;
     use std::mem;
 
     let len = left.len();
@@ -283,7 +379,7 @@ where
         let simd_right = T::load(right.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
-            result.write(b).unwrap();
+            result.extend_from_slice(b);
         });
     }
 
@@ -293,7 +389,7 @@ where
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
-            result.write(&b[0..rem_buffer_size]).unwrap();
+            result.extend_from_slice(&b[0..rem_buffer_size]);
         });
     }
 
@@ -321,7 +417,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use std::io::Write;
     use std::mem;
 
     let len = left.len();
@@ -336,7 +431,7 @@ where
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
-            result.write(b).unwrap();
+            result.extend_from_slice(b);
         });
     }
 
@@ -345,7 +440,7 @@ where
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
-            result.write(&b[0..rem_buffer_size]).unwrap();
+            result.extend_from_slice(&b[0..rem_buffer_size]);
         });
     }
 
@@ -1078,17 +1173,64 @@ mod tests {
 
     test_utf8!(
         test_utf8_array_like,
-        vec!["arrow", "arrow", "arrow", "arrow"],
-        vec!["arrow", "ar%", "%ro%", "foo"],
+        vec!["arrow", "arrow", "arrow", "arrow", "arrow", "arrows", "arrow"],
+        vec!["arrow", "ar%", "%ro%", "foo", "arr", "arrow_", "arrow_"],
         like_utf8,
-        vec![true, true, true, false]
+        vec![true, true, true, false, false, true, false]
     );
+
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "%ar%",
+        like_utf8_scalar,
+        vec![true, true, false, false]
+    );
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar_start,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "arrow%",
+        like_utf8_scalar,
+        vec![true, false, true, false]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar_end,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "%arrow",
+        like_utf8_scalar,
+        vec![true, true, false, false]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar_equals,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "arrow",
+        like_utf8_scalar,
+        vec![true, false, false, false]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_like_scalar_one,
+        vec!["arrow", "arrows", "parrow", "arr"],
+        "arrow_",
+        like_utf8_scalar,
+        vec![false, true, false, false]
+    );
+
     test_utf8!(
         test_utf8_array_nlike,
-        vec!["arrow", "arrow", "arrow", "arrow"],
-        vec!["arrow", "ar%", "%ro%", "foo"],
+        vec!["arrow", "arrow", "arrow", "arrow", "arrow", "arrows", "arrow"],
+        vec!["arrow", "ar%", "%ro%", "foo", "arr", "arrow_", "arrow_"],
         nlike_utf8,
-        vec![false, false, false, true]
+        vec![false, false, false, true, true, false, true]
+    );
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar,
+        vec!["arrow", "parquet", "datafusion", "flight"],
+        "%ar%",
+        nlike_utf8_scalar,
+        vec![false, false, true, true]
     );
 
     test_utf8!(
@@ -1104,6 +1246,38 @@ mod tests {
         "arrow",
         eq_utf8_scalar,
         vec![true, false, false, false]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar_start,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "arrow%",
+        nlike_utf8_scalar,
+        vec![false, true, false, true]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar_end,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "%arrow",
+        nlike_utf8_scalar,
+        vec![false, false, true, true]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar_equals,
+        vec!["arrow", "parrow", "arrows", "arr"],
+        "arrow",
+        nlike_utf8_scalar,
+        vec![false, true, true, true]
+    );
+
+    test_utf8_scalar!(
+        test_utf8_array_nlike_scalar_one,
+        vec!["arrow", "arrows", "parrow", "arr"],
+        "arrow_",
+        nlike_utf8_scalar,
+        vec![true, false, true, true]
     );
 
     test_utf8!(

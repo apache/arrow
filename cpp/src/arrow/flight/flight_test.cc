@@ -300,6 +300,23 @@ TEST(TestFlight, GetPort) {
   ASSERT_GT(server->port(), 0);
 }
 
+// CI environments don't have an IPv6 interface configured
+TEST(TestFlight, DISABLED_IpV6Port) {
+  Location location, location2;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("[::1]", 0, &location));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+  ASSERT_GT(server->port(), 0);
+
+  ASSERT_OK(Location::ForGrpcTcp("[::1]", server->port(), &location2));
+  std::unique_ptr<FlightClient> client;
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+  std::unique_ptr<FlightListing> listing;
+  ASSERT_OK(client->ListFlights(&listing));
+}
+
 TEST(TestFlight, BuilderHook) {
   Location location;
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
@@ -1864,7 +1881,11 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(results->Next(&result));
   ASSERT_NE(result, nullptr);
   // Action returns the peer address as the result.
+#ifndef _WIN32
+  // On Windows gRPC sometimes returns a blank peer address, so don't
+  // bother checking for it.
   ASSERT_NE(result->body->ToString(), "");
+#endif
 }
 
 TEST_F(TestBasicAuthHandler, PassAuthenticatedCalls) {

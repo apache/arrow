@@ -31,7 +31,7 @@ use crate::util::test_common::random_numbers_range;
 use rand::distributions::uniform::SampleUniform;
 use std::collections::VecDeque;
 use std::mem;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::vec::IntoIter;
 
 pub trait DataPageBuilder {
@@ -67,7 +67,7 @@ impl DataPageBuilderImpl {
         DataPageBuilderImpl {
             desc,
             encoding: None,
-            mem_tracker: Rc::new(MemTracker::new()),
+            mem_tracker: Arc::new(MemTracker::new()),
             num_values,
             buffer: vec![],
             rep_levels_byte_len: 0,
@@ -245,7 +245,7 @@ pub fn make_pages<T: DataType>(
     let max_def_level = desc.max_def_level();
     let max_rep_level = desc.max_rep_level();
 
-    let mem_tracker = Rc::new(MemTracker::new());
+    let mem_tracker = Arc::new(MemTracker::new());
     let mut dict_encoder = DictEncoder::<T>::new(desc.clone(), mem_tracker);
 
     for i in 0..num_pages {

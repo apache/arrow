@@ -263,9 +263,9 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
 	$(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
     done
     deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control
-    rm -f debian*/control.bak
-    git add debian*/control
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
+    rm -f debian*/control*.bak
+    git add debian*/control*
     cd -
     cd $SOURCE_DIR/../tasks/
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml

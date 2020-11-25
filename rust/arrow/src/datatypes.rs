@@ -145,6 +145,8 @@ pub enum DataType {
     /// This type mostly used to represent low cardinality string
     /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
+    /// Decimal value with precision and scale
+    Decimal(usize, usize),
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -1122,17 +1124,28 @@ impl DataType {
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
+            DataType::Decimal(precision, scale) => {
+                json!({"name": "decimal", "precision": precision, "scale": scale})
+            }
         }
     }
 
     /// Returns true if this type is numeric: (UInt*, Unit*, or Float*)
     pub fn is_numeric(t: &DataType) -> bool {
         use DataType::*;
-        match t {
-            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Float32
-            | Float64 => true,
-            _ => false,
-        }
+        matches!(
+            t,
+            UInt8
+                | UInt16
+                | UInt32
+                | UInt64
+                | Int8
+                | Int16
+                | Int32
+                | Int64
+                | Float32
+                | Float64
+        )
     }
 }
 
@@ -1458,7 +1471,8 @@ impl Field {
             | DataType::FixedSizeList(_, _)
             | DataType::FixedSizeBinary(_)
             | DataType::Utf8
-            | DataType::LargeUtf8 => {
+            | DataType::LargeUtf8
+            | DataType::Decimal(_, _) => {
                 if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
@@ -2586,7 +2600,7 @@ mod tests {
         assert_eq!(Some(VNumber(Number::from(1))), 1u32.into_json_value());
         assert_eq!(Some(VNumber(Number::from(1))), 1u64.into_json_value());
         assert_eq!(
-            Some(VNumber(Number::from_f64(0.01 as f64).unwrap())),
+            Some(VNumber(Number::from_f64(0.01f64).unwrap())),
             0.01.into_json_value()
         );
         assert_eq!(

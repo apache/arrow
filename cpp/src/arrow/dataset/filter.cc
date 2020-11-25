@@ -1718,7 +1718,7 @@ Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
 
   ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(by.fields()));
 
-  ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortToIndices(*fused.indices));
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortIndices(*fused.indices));
   ARROW_ASSIGN_OR_RAISE(Datum sorted, compute::Take(fused.indices, *sort_indices));
   fused.indices = checked_pointer_cast<Int32Array>(sorted.make_array());
 

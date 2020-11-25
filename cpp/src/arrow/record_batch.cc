@@ -262,7 +262,7 @@ Status RecordBatch::ValidateFull() const {
   RETURN_NOT_OK(Validate());
   for (int i = 0; i < num_columns(); ++i) {
     const auto& array = *this->column(i);
-    RETURN_NOT_OK(internal::ValidateArrayData(array));
+    RETURN_NOT_OK(internal::ValidateArrayFull(array));
   }
   return Status::OK();
 }

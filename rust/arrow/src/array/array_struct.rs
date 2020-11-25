@@ -23,13 +23,10 @@ use std::{any::Any, sync::Arc};
 
 use super::{make_array, Array, ArrayData, ArrayDataRef, ArrayRef};
 use crate::datatypes::DataType;
+use crate::error::{ArrowError, Result};
 use crate::{
     buffer::{buffer_bin_or, Buffer},
     datatypes::Field,
-};
-use crate::{
-    error::{ArrowError, Result},
-    util::bit_util,
 };
 
 /// A nested array type where each child (called *field*) is represented by a separate
@@ -133,10 +130,18 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             ));
 
             if let Some(child_null_buffer) = child_datum.null_buffer() {
+                let child_datum_offset = child_datum.offset();
+
                 null = Some(if let Some(null_buffer) = &null {
-                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, child_datum_len)
+                    buffer_bin_or(
+                        null_buffer,
+                        0,
+                        child_null_buffer,
+                        child_datum_offset,
+                        child_datum_len,
+                    )
                 } else {
-                    child_null_buffer.clone()
+                    child_null_buffer.bit_slice(child_datum_offset, child_datum_len)
                 });
             } else if null.is_some() {
                 // when one of the fields has no nulls, them there is no null in the array
@@ -149,7 +154,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             .len(len)
             .child_data(child_data);
         if let Some(null_buffer) = null {
-            let null_count = len - bit_util::count_set_bits(null_buffer.data());
+            let null_count = len - null_buffer.count_set_bits();
             builder = builder.null_count(null_count).null_bit_buffer(null_buffer);
         }
 
@@ -408,7 +413,7 @@ mod tests {
             Err(ArrowError::InvalidArgumentError(e)) => {
                 assert!(e.starts_with("Array of field \"f2\" has length 4, but previous elements have length 3."));
             }
-            _ => assert!(false, "This test got an unexpected error type"),
+            _ => panic!("This test got an unexpected error type"),
         };
     }
 

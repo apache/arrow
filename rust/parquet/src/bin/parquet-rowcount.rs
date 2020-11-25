@@ -57,8 +57,7 @@ fn main() {
         process::exit(1);
     }
 
-    for i in 1..args.len() {
-        let filename = args[i].clone();
+    for filename in args {
         let path = Path::new(&filename);
         let file = File::open(&path).unwrap();
         let parquet_reader = SerializedFileReader::new(file).unwrap();

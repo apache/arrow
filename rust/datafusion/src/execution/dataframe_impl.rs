@@ -23,7 +23,9 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
-use crate::logical_plan::{col, Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{
+    col, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
+};
 use arrow::datatypes::Schema;
 
 use async_trait::async_trait;
@@ -99,6 +101,20 @@ impl DataFrame for DataFrameImpl {
     /// Sort by specified sorting expressions
     fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan).sort(expr)?.build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
+
+    /// Join with another DataFrame
+    fn join(
+        &self,
+        right: Arc<dyn DataFrame>,
+        join_type: JoinType,
+        left_cols: &[&str],
+        right_cols: &[&str],
+    ) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .join(&right.to_logical_plan(), join_type, left_cols, right_cols)?
+            .build()?;
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
@@ -200,6 +216,23 @@ mod tests {
         // the two plans should be identical
         assert_same_plan(&plan, &sql_plan);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join() -> Result<()> {
+        let left = test_table()?.select_columns(vec!["c1", "c2"])?;
+        let right = test_table()?.select_columns(vec!["c1", "c3"])?;
+        let left_rows = left.collect().await?;
+        let right_rows = right.collect().await?;
+        let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
+        let join_rows = join.collect().await?;
+        assert_eq!(1, left_rows.len());
+        assert_eq!(100, left_rows[0].num_rows());
+        assert_eq!(1, right_rows.len());
+        assert_eq!(100, right_rows[0].num_rows());
+        assert_eq!(1, join_rows.len());
+        assert_eq!(2008, join_rows[0].num_rows());
         Ok(())
     }
 

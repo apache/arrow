@@ -34,6 +34,7 @@ use crate::physical_plan::{
 };
 use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
+use std::collections::HashSet;
 
 /// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
 /// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
@@ -77,6 +78,31 @@ pub enum Expr {
     IsNotNull(Box<Expr>),
     /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
+    /// The CASE expression is similar to a series of nested if/else and there are two forms that
+    /// can be used. The first form consists of a series of boolean "when" expressions with
+    /// corresponding "then" expressions, and an optional "else" expression.
+    ///
+    /// CASE WHEN condition THEN result
+    ///      [WHEN ...]
+    ///      [ELSE result]
+    /// END
+    ///
+    /// The second form uses a base expression and then a series of "when" clauses that match on a
+    /// literal value.
+    ///
+    /// CASE expression
+    ///     WHEN value THEN result
+    ///     [WHEN ...]
+    ///     [ELSE result]
+    /// END
+    Case {
+        /// Optional base expression that can be compared to literal values in the "when" expressions
+        expr: Option<Box<Expr>>,
+        /// One or more when/then expressions
+        when_then_expr: Vec<(Box<Expr>, Box<Expr>)>,
+        /// Optional "else" expression
+        else_expr: Option<Box<Expr>>,
+    },
     /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
     Cast {
         /// The expression being cast
@@ -141,6 +167,7 @@ impl Expr {
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
+            Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
@@ -202,6 +229,24 @@ impl Expr {
             Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
+            Expr::Case {
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                // this expression is nullable if any of the input expressions are nullable
+                let then_nullable = when_then_expr
+                    .iter()
+                    .map(|(_, t)| t.nullable(input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                if then_nullable.contains(&true) {
+                    Ok(true)
+                } else if let Some(e) = else_expr {
+                    e.nullable(input_schema)
+                } else {
+                    Ok(false)
+                }
+            }
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::ScalarUDF { .. } => Ok(true),
@@ -342,6 +387,95 @@ impl Expr {
     }
 }
 
+pub struct CaseBuilder {
+    expr: Option<Box<Expr>>,
+    when_expr: Vec<Expr>,
+    then_expr: Vec<Expr>,
+    else_expr: Option<Box<Expr>>,
+}
+
+impl CaseBuilder {
+    pub fn when(&mut self, when: Expr, then: Expr) -> CaseBuilder {
+        self.when_expr.push(when);
+        self.then_expr.push(then);
+        CaseBuilder {
+            expr: self.expr.clone(),
+            when_expr: self.when_expr.clone(),
+            then_expr: self.then_expr.clone(),
+            else_expr: self.else_expr.clone(),
+        }
+    }
+    pub fn otherwise(&mut self, else_expr: Expr) -> Result<Expr> {
+        self.else_expr = Some(Box::new(else_expr));
+        self.build()
+    }
+
+    pub fn end(&self) -> Result<Expr> {
+        self.build()
+    }
+}
+
+impl CaseBuilder {
+    fn build(&self) -> Result<Expr> {
+        // collect all "then" expressions
+        let mut then_expr = self.then_expr.clone();
+        if let Some(e) = &self.else_expr {
+            then_expr.push(e.as_ref().to_owned());
+        }
+
+        let then_types: Vec<DataType> = then_expr
+            .iter()
+            .map(|e| match e {
+                Expr::Literal(_) => e.get_type(&Schema::empty()),
+                _ => Ok(DataType::Null),
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        if then_types.contains(&DataType::Null) {
+            // cannot verify types until execution type
+        } else {
+            let unique_types: HashSet<&DataType> = then_types.iter().collect();
+            if unique_types.len() != 1 {
+                return Err(DataFusionError::Plan(format!(
+                    "CASE expression 'then' values had multiple data types: {:?}",
+                    unique_types
+                )));
+            }
+        }
+
+        Ok(Expr::Case {
+            expr: self.expr.clone(),
+            when_then_expr: self
+                .when_expr
+                .iter()
+                .zip(self.then_expr.iter())
+                .map(|(w, t)| (Box::new(w.clone()), Box::new(t.clone())))
+                .collect(),
+            else_expr: self.else_expr.clone(),
+        })
+    }
+}
+
+/// Create a CASE WHEN statement with literal WHEN expressions for comparison to the base expression.
+pub fn case(expr: Expr) -> CaseBuilder {
+    CaseBuilder {
+        expr: Some(Box::new(expr)),
+        when_expr: vec![],
+        then_expr: vec![],
+        else_expr: None,
+    }
+}
+
+/// Create a CASE WHEN statement with boolean WHEN expressions and no base expression.
+pub fn when(when: Expr, then: Expr) -> CaseBuilder {
+    CaseBuilder {
+        expr: None,
+        when_expr: vec![when],
+        then_expr: vec![then],
+        else_expr: None,
+    }
+}
+
 /// return a new expression l <op> r
 pub fn binary_expr(l: Expr, op: Operator, r: Expr) -> Expr {
     Expr::BinaryExpr {
@@ -352,11 +486,20 @@ pub fn binary_expr(l: Expr, op: Operator, r: Expr) -> Expr {
 }
 
 /// return a new expression with a logical AND
-pub fn and(left: &Expr, right: &Expr) -> Expr {
+pub fn and(left: Expr, right: Expr) -> Expr {
     Expr::BinaryExpr {
-        left: Box::new(left.clone()),
+        left: Box::new(left),
         op: Operator::And,
-        right: Box::new(right.clone()),
+        right: Box::new(right),
+    }
+}
+
+/// return a new expression with a logical OR
+pub fn or(left: Expr, right: Expr) -> Expr {
+    Expr::BinaryExpr {
+        left: Box::new(left),
+        op: Operator::Or,
+        right: Box::new(right),
     }
 }
 
@@ -568,6 +711,24 @@ impl fmt::Debug for Expr {
             Expr::Column(name) => write!(f, "#{}", name),
             Expr::ScalarVariable(var_names) => write!(f, "{}", var_names.join(".")),
             Expr::Literal(v) => write!(f, "{:?}", v),
+            Expr::Case {
+                expr,
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                write!(f, "CASE ")?;
+                if let Some(e) = expr {
+                    write!(f, "{:?} ", e)?;
+                }
+                for (w, t) in when_then_expr {
+                    write!(f, "WHEN {:?} THEN {:?} ", w, t)?;
+                }
+                if let Some(e) = else_expr {
+                    write!(f, "ELSE {:?} ", e)?;
+                }
+                write!(f, "END")
+            }
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }
@@ -689,4 +850,27 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 /// Create field meta-data from an expression, for use in a result set schema
 pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
     expr.iter().map(|e| e.to_field(input_schema)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{col, lit, when};
+    use super::*;
+
+    #[test]
+    fn case_when_same_literal_then_types() -> Result<()> {
+        let _ = when(col("state").eq(lit("CO")), lit(303))
+            .when(col("state").eq(lit("NY")), lit(212))
+            .end()?;
+        Ok(())
+    }
+
+    #[test]
+    fn case_when_different_literal_then_types() -> Result<()> {
+        let maybe_expr = when(col("state").eq(lit("CO")), lit(303))
+            .when(col("state").eq(lit("NY")), lit("212"))
+            .end();
+        assert!(maybe_expr.is_err());
+        Ok(())
+    }
 }

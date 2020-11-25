@@ -23,7 +23,6 @@ use std::sync::Arc;
 
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
-use crate::util::bit_util;
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
 use super::equal::equal;
@@ -31,7 +30,7 @@ use super::equal::equal;
 #[inline]
 fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
     if let Some(ref buf) = null_bit_buffer {
-        len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset, len))
+        len.checked_sub(buf.count_set_bits_offset(offset, len))
             .unwrap()
     } else {
         0
@@ -237,7 +236,7 @@ impl ArrayData {
     #[inline]
     pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
         let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
-        if values.0.len() != 0 || values.2.len() != 0 {
+        if !values.0.is_empty() || !values.2.is_empty() {
             panic!("The buffer is not byte-aligned with its interpretation")
         };
         assert_ne!(self.data_type, DataType::Boolean);

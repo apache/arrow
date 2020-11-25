@@ -44,7 +44,6 @@
 
 use indexmap::map::IndexMap as HashMap;
 use indexmap::set::IndexSet as HashSet;
-use std::cell::RefCell;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -263,125 +262,122 @@ pub fn infer_json_schema<R: Read>(
 
         match record {
             Value::Object(map) => {
-                let res = map
-                    .iter()
-                    .map(|(k, v)| {
-                        match v {
-                            Value::Array(a) => {
-                                // collect the data types in array
-                                let types: Result<Vec<Option<&DataType>>> = a
-                                    .iter()
-                                    .map(|a| match a {
-                                        Value::Null => Ok(None),
-                                        Value::Number(n) => {
-                                            if n.is_i64() {
-                                                Ok(Some(&DataType::Int64))
-                                            } else {
-                                                Ok(Some(&DataType::Float64))
-                                            }
+                let res = map.iter().try_for_each(|(k, v)| {
+                    match v {
+                        Value::Array(a) => {
+                            // collect the data types in array
+                            let types: Result<Vec<Option<&DataType>>> = a
+                                .iter()
+                                .map(|a| match a {
+                                    Value::Null => Ok(None),
+                                    Value::Number(n) => {
+                                        if n.is_i64() {
+                                            Ok(Some(&DataType::Int64))
+                                        } else {
+                                            Ok(Some(&DataType::Float64))
                                         }
-                                        Value::Bool(_) => Ok(Some(&DataType::Boolean)),
-                                        Value::String(_) => Ok(Some(&DataType::Utf8)),
-                                        Value::Array(_) | Value::Object(_) => {
-                                            Err(ArrowError::JsonError(
-                                                "Nested lists and structs not supported"
-                                                    .to_string(),
-                                            ))
-                                        }
-                                    })
-                                    .collect();
-                                match types {
-                                    Ok(types) => {
-                                        // unwrap the Option and discard None values (from
-                                        // JSON nulls)
-                                        let mut types: Vec<&DataType> =
-                                            types.into_iter().filter_map(|t| t).collect();
-                                        types.dedup();
-                                        // if a record contains only nulls, it is not
-                                        // added to values
-                                        if !types.is_empty() {
-                                            let dt = coerce_data_type(types)?;
+                                    }
+                                    Value::Bool(_) => Ok(Some(&DataType::Boolean)),
+                                    Value::String(_) => Ok(Some(&DataType::Utf8)),
+                                    Value::Array(_) | Value::Object(_) => {
+                                        Err(ArrowError::JsonError(
+                                            "Nested lists and structs not supported"
+                                                .to_string(),
+                                        ))
+                                    }
+                                })
+                                .collect();
+                            match types {
+                                Ok(types) => {
+                                    // unwrap the Option and discard None values (from
+                                    // JSON nulls)
+                                    let mut types: Vec<&DataType> =
+                                        types.into_iter().filter_map(|t| t).collect();
+                                    types.dedup();
+                                    // if a record contains only nulls, it is not
+                                    // added to values
+                                    if !types.is_empty() {
+                                        let dt = coerce_data_type(types)?;
 
-                                            if values.contains_key(k) {
-                                                let x = values.get_mut(k).unwrap();
-                                                x.insert(DataType::List(Box::new(
-                                                    Field::new("item", dt, true),
-                                                )));
-                                            } else {
-                                                // create hashset and add value type
-                                                let mut hs = HashSet::new();
-                                                hs.insert(DataType::List(Box::new(
-                                                    Field::new("item", dt, true),
-                                                )));
-                                                values.insert(k.to_string(), hs);
-                                            }
+                                        if values.contains_key(k) {
+                                            let x = values.get_mut(k).unwrap();
+                                            x.insert(DataType::List(Box::new(
+                                                Field::new("item", dt, true),
+                                            )));
+                                        } else {
+                                            // create hashset and add value type
+                                            let mut hs = HashSet::new();
+                                            hs.insert(DataType::List(Box::new(
+                                                Field::new("item", dt, true),
+                                            )));
+                                            values.insert(k.to_string(), hs);
                                         }
-                                        Ok(())
                                     }
-                                    Err(e) => Err(e),
+                                    Ok(())
                                 }
+                                Err(e) => Err(e),
                             }
-                            Value::Bool(_) => {
-                                if values.contains_key(k) {
-                                    let x = values.get_mut(k).unwrap();
-                                    x.insert(DataType::Boolean);
-                                } else {
-                                    // create hashset and add value type
-                                    let mut hs = HashSet::new();
-                                    hs.insert(DataType::Boolean);
-                                    values.insert(k.to_string(), hs);
-                                }
-                                Ok(())
-                            }
-                            Value::Null => {
-                                // do nothing, we treat json as nullable by default when
-                                // inferring
-                                Ok(())
-                            }
-                            Value::Number(n) => {
-                                if n.is_f64() {
-                                    if values.contains_key(k) {
-                                        let x = values.get_mut(k).unwrap();
-                                        x.insert(DataType::Float64);
-                                    } else {
-                                        // create hashset and add value type
-                                        let mut hs = HashSet::new();
-                                        hs.insert(DataType::Float64);
-                                        values.insert(k.to_string(), hs);
-                                    }
-                                } else {
-                                    // default to i64
-                                    if values.contains_key(k) {
-                                        let x = values.get_mut(k).unwrap();
-                                        x.insert(DataType::Int64);
-                                    } else {
-                                        // create hashset and add value type
-                                        let mut hs = HashSet::new();
-                                        hs.insert(DataType::Int64);
-                                        values.insert(k.to_string(), hs);
-                                    }
-                                }
-                                Ok(())
-                            }
-                            Value::String(_) => {
-                                if values.contains_key(k) {
-                                    let x = values.get_mut(k).unwrap();
-                                    x.insert(DataType::Utf8);
-                                } else {
-                                    // create hashset and add value type
-                                    let mut hs = HashSet::new();
-                                    hs.insert(DataType::Utf8);
-                                    values.insert(k.to_string(), hs);
-                                }
-                                Ok(())
-                            }
-                            Value::Object(_) => Err(ArrowError::JsonError(
-                                "Reading nested JSON structs currently not supported"
-                                    .to_string(),
-                            )),
                         }
-                    })
-                    .collect();
+                        Value::Bool(_) => {
+                            if values.contains_key(k) {
+                                let x = values.get_mut(k).unwrap();
+                                x.insert(DataType::Boolean);
+                            } else {
+                                // create hashset and add value type
+                                let mut hs = HashSet::new();
+                                hs.insert(DataType::Boolean);
+                                values.insert(k.to_string(), hs);
+                            }
+                            Ok(())
+                        }
+                        Value::Null => {
+                            // do nothing, we treat json as nullable by default when
+                            // inferring
+                            Ok(())
+                        }
+                        Value::Number(n) => {
+                            if n.is_f64() {
+                                if values.contains_key(k) {
+                                    let x = values.get_mut(k).unwrap();
+                                    x.insert(DataType::Float64);
+                                } else {
+                                    // create hashset and add value type
+                                    let mut hs = HashSet::new();
+                                    hs.insert(DataType::Float64);
+                                    values.insert(k.to_string(), hs);
+                                }
+                            } else {
+                                // default to i64
+                                if values.contains_key(k) {
+                                    let x = values.get_mut(k).unwrap();
+                                    x.insert(DataType::Int64);
+                                } else {
+                                    // create hashset and add value type
+                                    let mut hs = HashSet::new();
+                                    hs.insert(DataType::Int64);
+                                    values.insert(k.to_string(), hs);
+                                }
+                            }
+                            Ok(())
+                        }
+                        Value::String(_) => {
+                            if values.contains_key(k) {
+                                let x = values.get_mut(k).unwrap();
+                                x.insert(DataType::Utf8);
+                            } else {
+                                // create hashset and add value type
+                                let mut hs = HashSet::new();
+                                hs.insert(DataType::Utf8);
+                                values.insert(k.to_string(), hs);
+                            }
+                            Ok(())
+                        }
+                        Value::Object(_) => Err(ArrowError::JsonError(
+                            "Reading nested JSON structs currently not supported"
+                                .to_string(),
+                        )),
+                    }
+                });
                 match res {
                     Ok(()) => {}
                     Err(e) => return Err(e),
@@ -764,15 +760,15 @@ impl<R: Read> Reader<R> {
     where
         DICT_TY: ArrowPrimitiveType + ArrowDictionaryKeyType,
     {
-        let mut builder: RefCell<Box<dyn ArrayBuilder>> = match data_type {
+        let mut builder: Box<dyn ArrayBuilder> = match data_type {
             DataType::Utf8 => {
                 let values_builder = StringBuilder::new(rows.len() * 5);
-                RefCell::new(Box::new(ListBuilder::new(values_builder)))
+                Box::new(ListBuilder::new(values_builder))
             }
             DataType::Dictionary(_, _) => {
                 let values_builder =
                     self.build_string_dictionary_builder::<DICT_TY>(rows.len() * 5)?;
-                RefCell::new(Box::new(ListBuilder::new(values_builder)))
+                Box::new(ListBuilder::new(values_builder))
             }
             e => {
                 return Err(ArrowError::JsonError(format!(
@@ -815,7 +811,6 @@ impl<R: Read> Reader<R> {
                 // them.
                 match data_type {
                     DataType::Utf8 => {
-                        let builder = &mut builder.borrow_mut();
                         let builder = builder
                             .as_any_mut()
                             .downcast_mut::<ListBuilder<StringBuilder>>()
@@ -834,7 +829,6 @@ impl<R: Read> Reader<R> {
                         builder.append(true)?;
                     }
                     DataType::Dictionary(_, _) => {
-                        let builder = &mut builder.borrow_mut();
                         let builder = builder.as_any_mut().downcast_mut::<ListBuilder<StringDictionaryBuilder<DICT_TY>>>().ok_or(ArrowError::JsonError(
                             "Cast failed for ListBuilder<StringDictionaryBuilder> during nested data parsing".to_string(),
                         ))?;
@@ -859,7 +853,7 @@ impl<R: Read> Reader<R> {
             }
         }
 
-        Ok(builder.get_mut().finish() as ArrayRef)
+        Ok(builder.finish() as ArrayRef)
     }
 
     #[inline(always)]

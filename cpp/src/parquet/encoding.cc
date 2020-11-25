@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,6 +29,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/stl_allocator.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split.h"
@@ -51,8 +53,12 @@ template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 
 namespace parquet {
+namespace {
 
 constexpr int64_t kInMemoryDefaultCapacity = 1024;
+// The Parquet spec isn't very clear whether ByteArray lengths are signed or
+// unsigned, but the Java implementation uses signed ints.
+constexpr size_t kMaxByteArraySize = std::numeric_limits<int32_t>::max();
 
 class EncoderImpl : virtual public Encoder {
  public:
@@ -127,6 +133,24 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   }
 
  protected:
+  template <typename ArrayType>
+  void PutBinaryArray(const ArrayType& array) {
+    const int64_t total_bytes =
+        array.value_offset(array.length()) - array.value_offset(0);
+    PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
+
+    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](::arrow::util::string_view view) {
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+          }
+          UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
   ::arrow::BufferBuilder sink_;
 };
 
@@ -201,33 +225,21 @@ void PlainEncoder<DType>::Put(const ::arrow::Array& values) {
   ParquetException::NYI("direct put of " + values.type()->ToString());
 }
 
-void AssertBinary(const ::arrow::Array& values) {
-  if (values.type_id() != ::arrow::Type::BINARY &&
-      values.type_id() != ::arrow::Type::STRING) {
-    throw ParquetException("Only BinaryArray and subclasses supported");
+void AssertBaseBinary(const ::arrow::Array& values) {
+  if (!::arrow::is_base_binary_like(values.type_id())) {
+    throw ParquetException("Only BaseBinaryArray and subclasses supported");
   }
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBinary(values);
-  const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
-  const int64_t total_bytes = data.value_offset(data.length()) - data.value_offset(0);
-  PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + data.length() * sizeof(uint32_t)));
+  AssertBaseBinary(values);
 
-  if (data.null_count() == 0) {
-    // no nulls, just dump the data
-    for (int64_t i = 0; i < data.length(); i++) {
-      auto view = data.GetView(i);
-      UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
-    }
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
   } else {
-    for (int64_t i = 0; i < data.length(); i++) {
-      if (data.IsValid(i)) {
-        auto view = data.GetView(i);
-        UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
-      }
-    }
+    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
 
@@ -592,6 +604,35 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// Indices that have not yet be written out by WriteIndices().
   ArrowPoolVector<int32_t> buffered_indices_;
 
+  template <typename ArrayType>
+  void PutBinaryArray(const ArrayType& array) {
+    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](::arrow::util::string_view view) {
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+          }
+          PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
+  template <typename ArrayType>
+  void PutBinaryDictionaryArray(const ArrayType& array) {
+    DCHECK_EQ(array.null_count(), 0);
+    for (int64_t i = 0; i < array.length(); i++) {
+      auto v = array.GetView(i);
+      if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
+        throw ParquetException("Parquet cannot store strings with size 2GB or more");
+      }
+      dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
+      int32_t unused_memo_index;
+      PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(
+          v.data(), static_cast<int32_t>(v.size()), &unused_memo_index));
+    }
+  }
+
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
 
@@ -731,21 +772,12 @@ void DictEncoderImpl<FLBAType>::Put(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBinary(values);
-  const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
-  if (data.null_count() == 0) {
-    // no nulls, just dump the data
-    for (int64_t i = 0; i < data.length(); i++) {
-      auto view = data.GetView(i);
-      PutByteArray(view.data(), static_cast<int32_t>(view.size()));
-    }
+  AssertBaseBinary(values);
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
   } else {
-    for (int64_t i = 0; i < data.length(); i++) {
-      if (data.IsValid(i)) {
-        auto view = data.GetView(i);
-        PutByteArray(view.data(), static_cast<int32_t>(view.size()));
-      }
-    }
+    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
 
@@ -791,17 +823,14 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const ::arrow::Array& values) {
-  AssertBinary(values);
+  AssertBaseBinary(values);
   AssertCanPutDictionary(this, values);
 
-  const auto& data = checked_cast<const ::arrow::BinaryArray&>(values);
-
-  for (int64_t i = 0; i < data.length(); i++) {
-    auto v = data.GetView(i);
-    dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
-    int32_t unused_memo_index;
-    PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v.data(), static_cast<int32_t>(v.size()),
-                                                 &unused_memo_index));
+  if (::arrow::is_binary_like(values.type_id())) {
+    PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+    PutBinaryDictionaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
   }
 }
 
@@ -2347,6 +2376,8 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
     typename EncodingTraits<DType>::DictAccumulator* builder) {
   ParquetException::NYI("DecodeArrow for ByteStreamSplitDecoder");
 }
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Encoder and decoder factory functions

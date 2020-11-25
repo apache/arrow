@@ -18,7 +18,7 @@
 use std::{
     cmp::min,
     io::{Cursor, Read, Seek, SeekFrom},
-    rc::Rc,
+    sync::Arc,
 };
 
 use byteorder::{ByteOrder, LittleEndian};
@@ -102,7 +102,7 @@ pub fn parse_metadata<R: ChunkReader>(chunk_reader: &R) -> Result<ParquetMetaDat
     let t_file_metadata: TFileMetaData = TFileMetaData::read_from_in_protocol(&mut prot)
         .map_err(|e| ParquetError::General(format!("Could not parse metadata: {}", e)))?;
     let schema = types::from_thrift(&t_file_metadata.schema)?;
-    let schema_descr = Rc::new(SchemaDescriptor::new(schema));
+    let schema_descr = Arc::new(SchemaDescriptor::new(schema));
     let mut row_groups = Vec::new();
     for rg in t_file_metadata.row_groups {
         row_groups.push(RowGroupMetaData::from_thrift(schema_descr.clone(), rg)?);
@@ -214,12 +214,12 @@ mod tests {
     fn test_metadata_column_orders_parse() {
         // Define simple schema, we do not need to provide logical types.
         let mut fields = vec![
-            Rc::new(
+            Arc::new(
                 SchemaType::primitive_type_builder("col1", Type::INT32)
                     .build()
                     .unwrap(),
             ),
-            Rc::new(
+            Arc::new(
                 SchemaType::primitive_type_builder("col2", Type::FLOAT)
                     .build()
                     .unwrap(),
@@ -229,7 +229,7 @@ mod tests {
             .with_fields(&mut fields)
             .build()
             .unwrap();
-        let schema_descr = SchemaDescriptor::new(Rc::new(schema));
+        let schema_descr = SchemaDescriptor::new(Arc::new(schema));
 
         let t_column_orders = Some(vec![
             TColumnOrder::TYPEORDER(TypeDefinedOrder::new()),
@@ -252,7 +252,7 @@ mod tests {
     #[should_panic(expected = "Column order length mismatch")]
     fn test_metadata_column_orders_len_mismatch() {
         let schema = SchemaType::group_type_builder("schema").build().unwrap();
-        let schema_descr = SchemaDescriptor::new(Rc::new(schema));
+        let schema_descr = SchemaDescriptor::new(Arc::new(schema));
 
         let t_column_orders =
             Some(vec![TColumnOrder::TYPEORDER(TypeDefinedOrder::new())]);

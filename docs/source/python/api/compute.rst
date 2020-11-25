@@ -81,6 +81,7 @@ logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 
    and_
    and_kleene
+   any
    invert
    or_
    or_kleene
