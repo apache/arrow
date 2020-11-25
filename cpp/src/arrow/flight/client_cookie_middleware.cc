@@ -130,13 +130,13 @@ struct Cookie {
                                                              "expires")) {
         std::cout << "Expires!" << std::endl;
         cookie.has_expiry_ = true;
-        uint64_t seconds = 0;
         const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
+        int64_t seconds = 0;
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value.c_str(), cookie_attr_value.size(),
                 COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
           cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
-              std::chrono::seconds(seconds));
+              std::chrono::seconds(static_cast<uint64_t>(seconds)));
         }
       }
     }
