@@ -2562,6 +2562,22 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_array_invalid_mask_raises():
+    # ARROW-10742
+    cases = [
+        ([1, 2], np.array([False, False], dtype="O"), "must be boolean dtype"),
+        ([1, 2], np.array([[False], [False]]), "must be 1D array"),
+        ([1, 2, 3], np.array([False, False]), "different length"),
+        (np.array([1, 2]), np.array([False, False],
+                                    dtype="O"), "must be boolean dtype"),
+        (np.array([1, 2]), np.array([[False], [False]]), "must be 1D array"),
+        (np.array([1, 2, 3]), np.array([False, False]), "different length"),
+    ]
+    for obj, mask, msg in cases:
+        with pytest.raises(ValueError, match=msg):
+            pa.array(obj, mask=mask)
+
+
 def test_array_from_large_pyints():
     # ARROW-5430
     with pytest.raises(OverflowError):
