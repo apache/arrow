@@ -10,7 +10,7 @@
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHO UT WARRANTIES OR CONDITIONS OF ANY
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
@@ -19,7 +19,8 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::seq::SliceRandom;
+use rand::Rng;
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
@@ -39,10 +40,6 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
-pub fn seedable_rng() -> StdRng {
-    StdRng::seed_from_u64(42)
-}
-
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     let mut rt = Runtime::new().unwrap();
 
@@ -53,7 +50,7 @@ fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
 
 fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
+    let mut rng = rand::thread_rng();
 
     (0..size)
         .map(|_| {
@@ -68,7 +65,7 @@ fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
 
 fn create_integer_data(size: usize, value_density: f64) -> Vec<Option<u64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = seedable_rng();
+    let mut rng = rand::thread_rng();
 
     (0..size)
         .map(|_| {
@@ -101,8 +98,6 @@ fn create_context(
         Field::new("u64_narrow", DataType::UInt64, false),
     ]));
 
-    let mut rng = seedable_rng();
-
     // define data.
     let partitions = (0..partitions_len)
         .map(|_| {
@@ -114,7 +109,7 @@ fn create_context(
                     let keys: Vec<String> = (0..batch_size)
                         .map(
                             // use random numbers to avoid spurious compiler optimizations wrt to branching
-                            |_| format!("hi{:?}", vs.choose(&mut rng)),
+                            |_| format!("hi{:?}", vs.choose(&mut rand::thread_rng())),
                         )
                         .collect();
                     let keys: Vec<&str> = keys.iter().map(|e| &**e).collect();
@@ -127,7 +122,11 @@ fn create_context(
                     // Integer values between [0, 9].
                     let integer_values_narrow_choices = (0..10).collect::<Vec<u64>>();
                     let integer_values_narrow = (0..batch_size)
-                        .map(|_| *integer_values_narrow_choices.choose(&mut rng).unwrap())
+                        .map(|_| {
+                            *integer_values_narrow_choices
+                                .choose(&mut rand::thread_rng())
+                                .unwrap()
+                        })
                         .collect::<Vec<u64>>();
 
                     RecordBatch::try_new(
@@ -214,27 +213,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t \
                  WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",
-            )
-        })
-    });
-
-    c.bench_function("aggregate_query_group_by_u64 15 12", |b| {
-        b.iter(|| {
-            query(
-                ctx.clone(),
-                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
-                 FROM t GROUP BY u64_narrow",
-            )
-        })
-    });
-
-    c.bench_function("aggregate_query_group_by_with_filter_u64 15 12", |b| {
-        b.iter(|| {
-            query(
-                ctx.clone(),
-                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
-                 FROM t \
-                 WHERE f32 > 10 AND f32 < 20 GROUP BY u64_narrow",
             )
         })
     });
