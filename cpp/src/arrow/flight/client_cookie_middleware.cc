@@ -105,9 +105,9 @@ std::chrono::seconds ParseDate(const std::string& date) {
     std::transform(month.begin(), month.end(), month.begin(), ::toupper);
     auto it = std::find(months.begin(), months.end(), month);
     if (it != months.end()) {
-      return static_cast<int64_t>(std::distance(months.begin(), it));
+      return static_cast<int32_t>(std::distance(months.begin(), it));
     } else {
-      return int64_t(-1);
+      return int32_t(-1);
     }
   };
 
@@ -126,8 +126,7 @@ std::chrono::seconds ParseDate(const std::string& date) {
     char* end_ptr;
     int32_t val = static_cast<int32_t>(std::strtol(str.c_str(), &end_ptr, 10));
     if (end_ptr == str.c_str()) {
-      std::cout << "Failure - month" << std::endl;
-      val = -1;
+      val = int32_t(-1);
     }
     return val;
   };
@@ -148,12 +147,12 @@ std::chrono::seconds ParseDate(const std::string& date) {
   }
 
   // Attempt to convert parsed values to longs. If any come back as -1, return 0.
-  int64_t month = month_str_to_int(str_month);
-  int64_t day = read_str(str_day);
-  int64_t year = read_str(str_year);
-  int64_t hour = read_str(str_hour);
-  int64_t min = read_str(str_min);
-  int64_t sec = read_str(str_sec);
+  int32_t month = month_str_to_int(str_month);
+  int32_t day = read_str(str_day);
+  int32_t year = read_str(str_year);
+  int32_t hour = read_str(str_hour);
+  int32_t min = read_str(str_min);
+  int32_t sec = read_str(str_sec);
 
   if ((year == -1) || (month == -1) || (day == -1) || (hour == -1) || (min == -1) ||
       (sec == -1)) {
