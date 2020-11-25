@@ -21,9 +21,9 @@ namespace Microsoft.Extensions.DependencyInjection
     public static class FlightIGrpcServerBuilderExtensions
     {
         public static IGrpcServerBuilder AddFlightServer<T>(this IGrpcServerBuilder grpcServerBuilder)
-            where T : class, IFlightServer
+            where T : FlightServer
         {
-            grpcServerBuilder.Services.AddScoped<IFlightServer, T>();
+            grpcServerBuilder.Services.AddScoped<FlightServer, T>();
             return grpcServerBuilder;
         }
     }

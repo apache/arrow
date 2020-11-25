@@ -29,8 +29,8 @@ namespace Apache.Arrow.Flight.Server.Internal
     /// </summary>
     internal class FlightServerImplementation : FlightService.FlightServiceBase
     {
-        private readonly IFlightServer _flightServer;
-        public FlightServerImplementation(IFlightServer flightServer)
+        private readonly FlightServer _flightServer;
+        public FlightServerImplementation(FlightServer flightServer)
         {
             _flightServer = flightServer;
         }

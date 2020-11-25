@@ -32,7 +32,7 @@ namespace Apache.Arrow.Flight.TestWeb
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddGrpc()
-                .AddFlightServer<FlightServer>();
+                .AddFlightServer<TestFlightServer>();
 
             services.AddSingleton(new FlightStore());
         }

@@ -23,16 +23,16 @@ using Grpc.Core.Utils;
 
 namespace Apache.Arrow.Flight.TestWeb
 {
-    public class FlightServer : IFlightServer
+    public class TestFlightServer : FlightServer
     {
         private readonly FlightStore _flightStore;
 
-        public FlightServer(FlightStore flightStore)
+        public TestFlightServer(FlightStore flightStore)
         {
             _flightStore = flightStore;
         }
 
-        public async Task DoAction(FlightAction request, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
+        public override async Task DoAction(FlightAction request, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
         {
             switch (request.Type)
             {
@@ -44,7 +44,7 @@ namespace Apache.Arrow.Flight.TestWeb
             }
         }
 
-        public async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
+        public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
         {
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor(ticket.Ticket.ToStringUtf8());
 
@@ -60,7 +60,7 @@ namespace Apache.Arrow.Flight.TestWeb
             }
         }
 
-        public async Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
+        public override async Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
         {
             var flightDescriptor = await requestStream.FlightDescriptor;
 
@@ -77,7 +77,7 @@ namespace Apache.Arrow.Flight.TestWeb
             }
         }
 
-        public Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)
+        public override Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)
         {
             if(_flightStore.Flights.TryGetValue(request, out var flightHolder))
             {
@@ -86,7 +86,7 @@ namespace Apache.Arrow.Flight.TestWeb
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
 
-        public Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
+        public override Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
         {
             if(_flightStore.Flights.TryGetValue(request, out var flightHolder))
             {
@@ -95,7 +95,7 @@ namespace Apache.Arrow.Flight.TestWeb
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
 
-        public async Task ListActions(IAsyncStreamWriter<FlightActionType> responseStream, ServerCallContext context)
+        public override async Task ListActions(IAsyncStreamWriter<FlightActionType> responseStream, ServerCallContext context)
         {
             await responseStream.WriteAsync(new FlightActionType("get", "get a flight"));
             await responseStream.WriteAsync(new FlightActionType("put", "add a flight"));
@@ -103,7 +103,7 @@ namespace Apache.Arrow.Flight.TestWeb
             await responseStream.WriteAsync(new FlightActionType("test", "test action"));
         }
 
-        public async Task ListFlights(FlightCriteria request, IAsyncStreamWriter<FlightInfo> responseStream, ServerCallContext context)
+        public override async Task ListFlights(FlightCriteria request, IAsyncStreamWriter<FlightInfo> responseStream, ServerCallContext context)
         {
             var flightInfos = _flightStore.Flights.Select(x => x.Value.GetFlightInfo()).ToList();
 
