@@ -462,7 +462,7 @@ class ORCFileWriter::Impl {
     std::unique_ptr<ArrowOutputFile> io_wrapper(new ArrowOutputFile(file));
     std::unique_ptr<liborc::Writer> liborc_writer;
     std::unique_ptr<liborc::Type> orcSchema;
-    ORC_THROW_NOT_OK(GetORCType(schema, std::move(orcSchema)));
+    ORC_THROW_NOT_OK(GetORCType(schema, &orcSchema));
     try {
       liborc_writer = createWriter(*orcSchema, io_wrapper.get(), *options);
     } catch (const liborc::ParseError& e) {
