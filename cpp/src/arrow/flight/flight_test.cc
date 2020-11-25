@@ -836,8 +836,6 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
 
 class HeaderAuthServerMiddleware : public ServerMiddleware {
  public:
-  explicit HeaderAuthServerMiddleware() {}
-
   void SendingHeaders(AddCallHeaders* outgoing_headers) override {
     outgoing_headers->AddHeader(kAuthHeader, std::string(kBearerPrefix) + kBearerToken);
   }
