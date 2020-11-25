@@ -509,19 +509,12 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
                 if &var_names[0][0..1] == "@" {
                     Ok(Expr::ScalarVariable(var_names))
-                } else if var_names.len() == 2 {
-                    //TODO we ignore relation name for now meaning we can only support joins
-                    // that result in no duplicate field names
-                    match schema.field_with_name(&var_names[1]) {
-                        Ok(field) => Ok(Expr::Column(field.name().clone())),
-                        Err(_) => Err(DataFusionError::Plan(format!(
-                            "Invalid compound identifier '{:?}' for schema {}",
-                            ids,
-                            schema.to_string()
-                        ))),
-                    }
                 } else {
-                    unimplemented!()
+                    Err(DataFusionError::Plan(format!(
+                        "Invalid compound identifier '{:?}' for schema {}",
+                        var_names,
+                        schema.to_string()
+                    )))
                 }
             }
 
@@ -1098,10 +1091,10 @@ mod tests {
 
     #[test]
     fn equijoin_explicit_syntax() {
-        let sql = "SELECT person.id, orders.order_id \
+        let sql = "SELECT id, order_id \
             FROM person \
             JOIN orders \
-            ON person.id = orders.customer_id";
+            ON id = customer_id";
         let expected = "Projection: #id, #order_id\
         \n  Join: id = customer_id\
         \n    TableScan: person projection=None\
@@ -1111,10 +1104,10 @@ mod tests {
 
     #[test]
     fn equijoin_explicit_syntax_3_tables() {
-        let sql = "SELECT person.id, orders.order_id, lineitem.l_description \
+        let sql = "SELECT id, order_id, l_description \
             FROM person \
-            JOIN orders ON person.id = orders.customer_id \
-            JOIN lineitem ON orders.o_item_id = lineitem.l_item_id";
+            JOIN orders ON id = customer_id \
+            JOIN lineitem ON o_item_id = l_item_id";
         let expected = "Projection: #id, #order_id, #l_description\
             \n  Join: o_item_id = l_item_id\
             \n    Join: id = customer_id\
