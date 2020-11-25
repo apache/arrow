@@ -1334,8 +1334,7 @@ fn common_binary_type(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
-            )
-            .to_string(),
+            ),
         )),
         Some(t) => Ok(t)
     }
@@ -1602,8 +1601,7 @@ pub fn not(
             format!(
                 "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
                 arg, data_type,
-            )
-            .to_string(),
+            ),
         ))
     } else {
         Ok(Arc::new(NotExpr::new(arg)))

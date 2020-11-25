@@ -40,7 +40,6 @@
     clippy::new_without_default,
     clippy::or_fun_call,
     clippy::ptr_arg,
-    clippy::redundant_clone,
     clippy::redundant_field_names,
     clippy::redundant_static_lifetimes,
     clippy::redundant_pattern_matching,

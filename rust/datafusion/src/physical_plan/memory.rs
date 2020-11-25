@@ -117,8 +117,8 @@ impl MemoryStream {
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         Ok(Self {
-            data: data.clone(),
-            schema: schema.clone(),
+            data,
+            schema,
             projection,
             index: 0,
         })

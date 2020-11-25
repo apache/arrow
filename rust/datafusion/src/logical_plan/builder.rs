@@ -92,7 +92,7 @@ impl LogicalPlanBuilder {
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
         let p = ParquetTable::try_new(path)?;
-        let schema = p.schema().clone();
+        let schema = p.schema();
 
         let projected_schema = projection
             .clone()

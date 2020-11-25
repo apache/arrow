@@ -75,7 +75,7 @@ impl ExecutionPlan for SortExec {
     }
 
     fn schema(&self) -> SchemaRef {
-        self.input.schema().clone()
+        self.input.schema()
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {

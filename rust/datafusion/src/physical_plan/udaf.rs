@@ -112,7 +112,7 @@ pub fn create_aggregate_expr(
         fun: fun.clone(),
         args: args.clone(),
         data_type: (fun.return_type)(&arg_types)?.as_ref().clone(),
-        name: name.clone(),
+        name,
     }))
 }
 
