@@ -47,8 +47,9 @@ void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& userna
   const std::string credentials = username + ":" + password;
   context->AddMetadata(
       kAuthHeader,
-      kBasicPrefix + arrow::util::base64_encode((const unsigned char*)credentials.c_str(),
-                                                credentials.size()));
+      kBasicPrefix + arrow::util::base64_encode(
+          static_cast<const unsigned char*>(credentials.c_str()),
+          static_cast<unsigned int>(credentials.size()));
 }
 
 // Get bearer token from inbound headers.
