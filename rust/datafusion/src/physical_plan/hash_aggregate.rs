@@ -266,8 +266,7 @@ fn group_aggregate_batch(
                 let accumulator_set = create_accumulators(aggr_expr)
                     .map_err(DataFusionError::into_arrow_external_error)?;
 
-                accumulators
-                    .insert(key.clone(), (accumulator_set, Box::new(vec![row as u32])));
+                accumulators.insert(key.clone(), (accumulator_set, vec![row as u32]));
             }
             // 1.3
             Some((_, v)) => v.push(row as u32),
@@ -296,7 +295,7 @@ fn group_aggregate_batch(
                                 // 2.3
                                 compute::take(
                                     array,
-                                    &UInt32Array::from(*indices.clone()),
+                                    &UInt32Array::from(indices.clone()),
                                     None, // None: no index check
                                 )
                                 .unwrap()
@@ -389,7 +388,7 @@ impl GroupedHashAggregateStream {
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
 type Accumulators =
-    HashMap<Box<[GroupByScalar]>, (AccumulatorSet, Box<Vec<u32>>), RandomState>;
+    HashMap<Box<[GroupByScalar]>, (AccumulatorSet, Vec<u32>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
