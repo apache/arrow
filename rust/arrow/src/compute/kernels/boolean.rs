@@ -284,7 +284,8 @@ where
                     .bit_slice(left_data.offset(), left.len()),
             ),
         },
-        None => right_combo_buffer,
+        None => right_combo_buffer
+            .map(|rcb| rcb.bit_slice(right_data.offset(), right_data.len())),
     };
 
     // Align/shift left data on offset as needed, since new bitmaps are shifted and aligned to 0 already
