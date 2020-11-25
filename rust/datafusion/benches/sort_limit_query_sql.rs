@@ -93,7 +93,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
-                 ORDER BY 3
+                 ORDER BY c6
                  LIMIT 10",
             )
         })
@@ -106,7 +106,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ctx.clone(),
                 "SELECT c1, c13, c12 \
                  FROM aggregate_test_100 \
-                 ORDER BY 2
+                 ORDER BY c13
                  LIMIT 10",
             )
         })
@@ -119,7 +119,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
-                 ORDER BY 3 DESC, 4 DESC
+                 ORDER BY c6 DESC, c10 DESC
                  LIMIT 10",
             )
         })
@@ -132,7 +132,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
-                 ORDER BY 1, 2
+                 ORDER BY c1, c13
                  LIMIT 10",
             )
         })
