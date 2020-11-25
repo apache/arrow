@@ -195,6 +195,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
                       std::unique_ptr<ClientAuthHandler> auth_handler);
 
   /// \brief Authenticate to the server using basic HTTP style authentication.
+  /// \param[in] options Per-RPC options
   /// \param[in] username Username to use
   /// \param[in] password Password to use
   /// \param[in] bearer_token Bearer token retreived if applicable
