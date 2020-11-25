@@ -32,42 +32,17 @@ use DataType::*;
 pub fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     let mut fbb = FlatBufferBuilder::new();
 
-    let mut fields = vec![];
-    for field in schema.fields() {
-        let fb_field = build_field(&mut fbb, field);
-        fields.push(fb_field);
-    }
-
-    let mut custom_metadata = vec![];
-    for (k, v) in schema.metadata() {
-        let fb_key_name = fbb.create_string(k.as_str());
-        let fb_val_name = fbb.create_string(v.as_str());
-
-        let mut kv_builder = ipc::KeyValueBuilder::new(&mut fbb);
-        kv_builder.add_key(fb_key_name);
-        kv_builder.add_value(fb_val_name);
-        custom_metadata.push(kv_builder.finish());
-    }
-
-    let fb_field_list = fbb.create_vector(&fields);
-    let fb_metadata_list = fbb.create_vector(&custom_metadata);
-
-    let root = {
-        let mut builder = ipc::SchemaBuilder::new(&mut fbb);
-        builder.add_fields(fb_field_list);
-        builder.add_custom_metadata(fb_metadata_list);
-        builder.finish()
-    };
+    let root = schema_to_fb_offset(&mut fbb, schema);
 
     fbb.finish(root, None);
 
     fbb
 }
 
-pub fn schema_to_fb_offset<'a: 'b, 'b>(
-    fbb: &'a mut FlatBufferBuilder,
+pub fn schema_to_fb_offset<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
     schema: &Schema,
-) -> WIPOffset<ipc::Schema<'b>> {
+) -> WIPOffset<ipc::Schema<'a>> {
     let mut fields = vec![];
     for field in schema.fields() {
         let fb_field = build_field(fbb, field);
@@ -306,10 +281,10 @@ pub(crate) struct FBFieldType<'b> {
 }
 
 /// Create an IPC Field from an Arrow Field
-pub(crate) fn build_field<'a: 'b, 'b>(
+pub(crate) fn build_field<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
     field: &Field,
-) -> WIPOffset<ipc::Field<'b>> {
+) -> WIPOffset<ipc::Field<'a>> {
     let fb_field_name = fbb.create_string(field.name().as_str());
     let field_type = get_fb_field_type(field.data_type(), field.is_nullable(), fbb);
 
@@ -340,11 +315,11 @@ pub(crate) fn build_field<'a: 'b, 'b>(
 }
 
 /// Get the IPC type of a data type
-pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
+pub(crate) fn get_fb_field_type<'a>(
     data_type: &DataType,
     is_nullable: bool,
     fbb: &mut FlatBufferBuilder<'a>,
-) -> FBFieldType<'b> {
+) -> FBFieldType<'a> {
     // some IPC implementations expect an empty list for child data, instead of a null value.
     // An empty field list is thus returned for primitive types
     let empty_fields: Vec<WIPOffset<ipc::Field>> = vec![];
@@ -592,12 +567,12 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
 }
 
 /// Create an IPC dictionary encoding
-pub(crate) fn get_fb_dictionary<'a: 'b, 'b>(
+pub(crate) fn get_fb_dictionary<'a>(
     index_type: &DataType,
     dict_id: i64,
     dict_is_ordered: bool,
     fbb: &mut FlatBufferBuilder<'a>,
-) -> WIPOffset<ipc::DictionaryEncoding<'b>> {
+) -> WIPOffset<ipc::DictionaryEncoding<'a>> {
     // We assume that the dictionary index type (as an integer) has already been
     // validated elsewhere, and can safely assume we are dealing with integers
     let mut index_builder = ipc::IntBuilder::new(fbb);

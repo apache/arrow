@@ -781,6 +781,61 @@ TEST_F(TestAnyKernel, Basics) {
 }
 
 //
+// All
+//
+
+class TestPrimitiveAllKernel : public ::testing::Test {
+ public:
+  void AssertAllIs(const Datum& array, bool expected) {
+    ASSERT_OK_AND_ASSIGN(Datum out, All(array));
+    const BooleanScalar& out_all = out.scalar_as<BooleanScalar>();
+    const auto expected_all = static_cast<const BooleanScalar>(expected);
+    ASSERT_EQ(out_all, expected_all);
+  }
+
+  void AssertAllIs(const std::string& json, bool expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertAllIs(array, expected);
+  }
+
+  void AssertAllIs(const std::vector<std::string>& json, bool expected) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertAllIs(array, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<BooleanType>::type_singleton();
+  }
+};
+
+class TestAllKernel : public TestPrimitiveAllKernel {};
+
+TEST_F(TestAllKernel, Basics) {
+  std::vector<std::string> chunked_input0 = {"[]", "[true]"};
+  std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
+  std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
+  std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
+  std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
+  std::vector<std::string> chunked_input5 = {"[false, null]", "[null, true]"};
+
+  this->AssertAllIs("[]", true);
+  this->AssertAllIs("[false]", false);
+  this->AssertAllIs("[true, false]", false);
+  this->AssertAllIs("[null, null, null]", true);
+  this->AssertAllIs("[false, false, false]", false);
+  this->AssertAllIs("[false, false, false, null]", false);
+  this->AssertAllIs("[true, null, true, true]", true);
+  this->AssertAllIs("[false, null, false, true]", false);
+  this->AssertAllIs("[true, null, false, true]", false);
+  this->AssertAllIs(chunked_input0, true);
+  this->AssertAllIs(chunked_input1, true);
+  this->AssertAllIs(chunked_input2, false);
+  this->AssertAllIs(chunked_input3, false);
+  this->AssertAllIs(chunked_input4, false);
+  this->AssertAllIs(chunked_input5, false);
+}
+
+//
 // Mode
 //
 

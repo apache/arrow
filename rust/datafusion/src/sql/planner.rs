@@ -234,8 +234,9 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     ))),
                 }
             }
-            _ => Err(DataFusionError::NotImplemented(
-                "Subqueries are still not supported".to_string(),
+            TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
+            TableFactor::NestedJoin(_) => Err(DataFusionError::NotImplemented(
+                "Nested joins are not supported".to_string(),
             )),
         }
     }
@@ -445,6 +446,42 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Wildcard => Ok(Expr::Wildcard),
+
+            SQLExpr::Case {
+                operand,
+                conditions,
+                results,
+                else_result,
+            } => {
+                let expr = if let Some(e) = operand {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+                let when_expr = conditions
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let then_expr = results
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let else_expr = if let Some(e) = else_result {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+
+                Ok(Expr::Case {
+                    expr,
+                    when_then_expr: when_expr
+                        .iter()
+                        .zip(then_expr.iter())
+                        .map(|(w, t)| (Box::new(w.to_owned()), Box::new(t.to_owned())))
+                        .collect(),
+                    else_expr,
+                })
+            }
 
             SQLExpr::Cast {
                 ref expr,
@@ -701,6 +738,40 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested() {
+        let sql = "SELECT fn2, last_name
+                   FROM (
+                     SELECT fn1 as fn2, last_name, birth_date
+                     FROM (
+                       SELECT first_name AS fn1, last_name, birth_date, age
+                       FROM person
+                     )
+                   )";
+        let expected = "Projection: #fn2, #last_name\
+                        \n  Projection: #fn1 AS fn2, #last_name, #birth_date\
+                        \n    Projection: #first_name AS fn1, #last_name, #birth_date, #age\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested_with_filters() {
+        let sql = "SELECT fn1, age
+                   FROM (
+                     SELECT first_name AS fn1, age
+                     FROM person
+                     WHERE age > 20
+                   )
+                   WHERE fn1 = 'X' AND age < 30";
+        let expected = "Projection: #fn1, #age\
+                        \n  Filter: #fn1 Eq Utf8(\"X\") And #age Lt Int64(30)\
+                        \n    Projection: #first_name AS fn1, #age\
+                        \n      Filter: #age Gt Int64(20)\
+                        \n        TableScan: person projection=None";
         quick_test(sql, expected);
     }
 

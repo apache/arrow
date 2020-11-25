@@ -1790,7 +1790,11 @@ macro_rules! if_then_else {
         let mut builder = <$BUILDER_TYPE>::new($BOOLS.len());
         for i in 0..$BOOLS.len() {
             if $BOOLS.is_null(i) {
-                builder.append_null()?;
+                if false_values.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(false_values.value(i))?;
+                }
             } else if $BOOLS.value(i) {
                 if true_values.is_null(i) {
                     builder.append_null()?;
@@ -3403,7 +3407,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3472,7 +3477,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 

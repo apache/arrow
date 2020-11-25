@@ -99,7 +99,7 @@ BuildRequires:	utf8proc-devel
 %endif
 BuildRequires:	zlib-devel
 
-%if %{use_flight}
+%if %{use_parquet}
 BuildRequires:	openssl-devel
 %endif
 
@@ -155,6 +155,9 @@ cd cpp/build
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DCMAKE_UNITY_BUILD=ON \
+%if %{use_parquet}
+  -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%endif
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %if %{use_ninja}
@@ -269,8 +272,8 @@ Requires:	brotli-devel
 Requires:	bzip2-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel
-%if %{use_flight}
-BuildRequires:	openssl-devel
+%if %{use_parquet}
+Requires:	openssl-devel
 %endif
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
@@ -468,7 +471,6 @@ Summary:	Python integration library for Apache Arrow Flight
 License:	Apache-2.0
 Requires:	%{name}-flight-libs = %{version}-%{release}
 Requires:	%{name}-python-libs = %{version}-%{release}
-Requires:	openssl
 
 %description python-flight-libs
 This package contains the Python integration library for Apache Arrow Flight.
@@ -552,6 +554,7 @@ Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	boost%{boost_version}-program-options
 Requires:	%{name}-libs = %{version}-%{release}
+Requires:	openssl
 
 %description -n parquet-libs
 This package contains the libraries for Apache Parquet C++.

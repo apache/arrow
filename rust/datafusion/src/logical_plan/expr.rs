@@ -70,8 +70,6 @@ pub enum Expr {
         /// Right-hand side of the expression
         right: Box<Expr>,
     },
-    /// Parenthesized expression. E.g. `(foo > bar)` or `(1)`
-    Nested(Box<Expr>),
     /// Negation of an expression. The expression's type must be a boolean to make sense.
     Not(Box<Expr>),
     /// Whether an expression is not Null. This expression is never null.
@@ -213,7 +211,6 @@ impl Expr {
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
-            Expr::Nested(e) => e.get_type(schema),
         }
     }
 
@@ -261,7 +258,6 @@ impl Expr {
                 ..
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
-            Expr::Nested(e) => e.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -770,7 +766,6 @@ impl fmt::Debug for Expr {
                 fmt_function(f, &fun.name, false, args)
             }
             Expr::Wildcard => write!(f, "*"),
-            Expr::Nested(expr) => write!(f, "({:?})", expr),
         }
     }
 }
@@ -804,6 +799,24 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let left = create_name(left, input_schema)?;
             let right = create_name(right, input_schema)?;
             Ok(format!("{} {:?} {}", left, op, right))
+        }
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+        } => {
+            let mut name = "CASE ".to_string();
+            if let Some(e) = expr {
+                name += &format!("{:?} ", e).to_string();
+            }
+            for (w, t) in when_then_expr {
+                name += &format!("WHEN {:?} THEN {:?} ", w, t).to_string();
+            }
+            if let Some(e) = else_expr {
+                name += &format!("ELSE {:?} ", e).to_string();
+            }
+            name += "END";
+            Ok(name)
         }
         Expr::Cast { expr, data_type } => {
             let expr = create_name(expr, input_schema)?;

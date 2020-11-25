@@ -119,6 +119,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 set(ARROW_FLIGHT_SRCS
     client.cc
     client_cookie_middleware.cc
+    client_header_internal.cc
     internal.cc
     protocol_internal.cc
     serialization_internal.cc

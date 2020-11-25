@@ -244,6 +244,30 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
     }
   }
 
+  BitBlockCount NextOrNotBlock() {
+    static constexpr int64_t kMaxBlockSize = std::numeric_limits<int16_t>::max();
+    switch (has_bitmap_) {
+      case HasBitmap::BOTH: {
+        BitBlockCount block = binary_counter_.NextOrNotWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::ONE: {
+        BitBlockCount block = unary_counter_.NextWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::NONE:
+      default: {
+        const int16_t block_size =
+            static_cast<int16_t>(std::min(kMaxBlockSize, length_ - position_));
+        position_ += block_size;
+        // All values are non-null
+        return {block_size, block_size};
+      }
+    }
+  }
+
  private:
   enum class HasBitmap : int { BOTH, ONE, NONE };
 

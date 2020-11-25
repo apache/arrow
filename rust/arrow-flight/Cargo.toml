@@ -31,7 +31,7 @@ tonic = "0.3"
 bytes = "0.5"
 prost = "0.6"
 prost-derive = "0.6"
-tokio = {version = "0.3", features = ["macros"]}
+tokio = { version = "0.2", features = ["macros"] }
 futures = { version = "0.3", default-features = false, features = ["alloc"]}
 
 [build-dependencies]
