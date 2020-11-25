@@ -2369,8 +2369,10 @@ mod tests {
             ]);
             let a = $A_ARRAY::from($A_VEC);
             let b = $B_ARRAY::from($B_VEC);
-            let batch =
-                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
+            let batch = RecordBatch::try_new(
+                Arc::new(schema.clone()),
+                vec![Arc::new(a), Arc::new(b)],
+            )?;
 
             // verify that we can construct the expression
             let expression = binary(col("a"), $OP, col("b"), &schema)?;
@@ -2587,7 +2589,8 @@ mod tests {
         ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
             let schema = Schema::new(vec![Field::new("a", $A_TYPE, false)]);
             let a = $A_ARRAY::from($A_VEC);
-            let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+            let batch =
+                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
             // verify that we can construct the expression
             let expression = cast(col("a"), &schema, $TYPE)?;
