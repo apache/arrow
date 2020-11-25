@@ -234,8 +234,9 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     ))),
                 }
             }
-            _ => Err(DataFusionError::NotImplemented(
-                "Subqueries are still not supported".to_string(),
+            TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
+            TableFactor::NestedJoin(_) => Err(DataFusionError::NotImplemented(
+                "Nested joins are not supported".to_string(),
             )),
         }
     }
@@ -701,6 +702,40 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested() {
+        let sql = "SELECT fn2, last_name
+                   FROM (
+                     SELECT fn1 as fn2, last_name, birth_date
+                     FROM (
+                       SELECT first_name AS fn1, last_name, birth_date, age
+                       FROM person
+                     )
+                   )";
+        let expected = "Projection: #fn2, #last_name\
+                        \n  Projection: #fn1 AS fn2, #last_name, #birth_date\
+                        \n    Projection: #first_name AS fn1, #last_name, #birth_date, #age\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested_with_filters() {
+        let sql = "SELECT fn1, age
+                   FROM (
+                     SELECT first_name AS fn1, age
+                     FROM person
+                     WHERE age > 20
+                   )
+                   WHERE fn1 = 'X' AND age < 30";
+        let expected = "Projection: #fn1, #age\
+                        \n  Filter: #fn1 Eq Utf8(\"X\") And #age Lt Int64(30)\
+                        \n    Projection: #first_name AS fn1, #age\
+                        \n      Filter: #age Gt Int64(20)\
+                        \n        TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
