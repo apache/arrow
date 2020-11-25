@@ -464,7 +464,7 @@ mod tests {
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &vec![lit(value1.clone()), lit(value2.clone())],
+            &vec![lit(value1), lit(value2)],
             &schema,
         )?;
 
