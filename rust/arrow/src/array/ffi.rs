@@ -37,7 +37,6 @@ impl TryFrom<ffi::ArrowArray> for ArrayData {
         let buffers = value.buffers()?;
         let null_bit_buffer = value.null_bit_buffer();
 
-        // todo: no child data yet...
         Ok(ArrayData::new(
             data_type,
             len,
@@ -45,6 +44,8 @@ impl TryFrom<ffi::ArrowArray> for ArrayData {
             null_bit_buffer,
             offset,
             buffers,
+            // this is empty because ffi still does not support it.
+            // this is ok because FFI only supports datatypes without childs
             vec![],
         ))
     }
@@ -60,7 +61,6 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
         let buffers = value.buffers().to_vec();
         let null_buffer = value.null_buffer().cloned();
 
-        // todo: no child data yet...
         unsafe {
             ffi::ArrowArray::try_new(
                 value.data_type(),
@@ -69,6 +69,8 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
                 null_buffer,
                 offset,
                 buffers,
+                // this is empty because ffi still does not support it.
+            // this is ok because FFI only supports datatypes without childs
                 vec![],
             )
         }
