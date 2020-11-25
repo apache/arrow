@@ -608,15 +608,22 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   std::string clean_copy(buf, length);
   struct tm result;
   memset(&result, 0, sizeof(struct tm));
+#if __CYGWIN__
+  printf("cygwin environment\n");
+#endif
 #ifdef _WIN32
+  printf("arrow_strptime\n");
   char* ret = arrow_strptime(clean_copy.c_str(), format, &result);
 #else
+  printf("strptime\n");
   char* ret = strptime(clean_copy.c_str(), format, &result);
 #endif
   if (ret == NULLPTR) {
+    printf("ret == NULLPTR\n");
     return false;
   }
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
+    printf("!allow_trailing_chars\n");
     return false;
   }
   // ignore the time part

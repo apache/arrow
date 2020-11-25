@@ -22,6 +22,8 @@
 #include <mutex>
 #include <string>
 
+#include <iostream>
+
 #include "arrow/flight/platform.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
@@ -132,6 +134,7 @@ struct Cookie {
         cookie.has_expiry_ = true;
         const char* COOKIE_EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT";
         int64_t seconds = 0;
+        std::cout << "Checking " << cookie_attr_value << std::endl;
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value.c_str(), cookie_attr_value.size(),
                 COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
