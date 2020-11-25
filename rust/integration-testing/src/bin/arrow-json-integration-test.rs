@@ -16,7 +16,6 @@
 // under the License.
 
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
@@ -39,9 +38,6 @@ use arrow::{
 };
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    eprintln!("{:?}", args);
-
     let matches = App::new("rust arrow-json-integration-test")
         .arg(Arg::with_name("integration")
             .long("integration"))
