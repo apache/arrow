@@ -90,12 +90,6 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
     let arrow_file = File::create(arrow_name)?;
     let mut writer = FileWriter::try_new(arrow_file, &json_file.schema)?;
 
-    if !json_file.dictionaries.is_empty() {
-        return Err(ArrowError::JsonError(
-            "Writing dictionaries not yet supported".to_string(),
-        ));
-    }
-
     for b in json_file.batches {
         writer.write(&b)?;
     }
@@ -704,7 +698,8 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
 struct ArrowFile {
     schema: Schema,
     // we can evolve this into a concrete Arrow type
-    dictionaries: HashMap<i64, ArrowJsonDictionaryBatch>,
+    // this is temporarily not being read from
+    _dictionaries: HashMap<i64, ArrowJsonDictionaryBatch>,
     batches: Vec<RecordBatch>,
 }
 
@@ -735,7 +730,7 @@ fn read_json_file(json_name: &str) -> Result<ArrowFile> {
     }
     Ok(ArrowFile {
         schema,
-        dictionaries,
+        _dictionaries: dictionaries,
         batches,
     })
 }
