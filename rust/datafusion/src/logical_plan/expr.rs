@@ -800,6 +800,24 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let right = create_name(right, input_schema)?;
             Ok(format!("{} {:?} {}", left, op, right))
         }
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+        } => {
+            let mut name = "CASE ".to_string();
+            if let Some(e) = expr {
+                name += &format!("{:?} ", e).to_string();
+            }
+            for (w, t) in when_then_expr {
+                name += &format!("WHEN {:?} THEN {:?} ", w, t).to_string();
+            }
+            if let Some(e) = else_expr {
+                name += &format!("ELSE {:?} ", e).to_string();
+            }
+            name += "END";
+            Ok(name)
+        }
         Expr::Cast { expr, data_type } => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("CAST({} AS {:?})", expr, data_type))

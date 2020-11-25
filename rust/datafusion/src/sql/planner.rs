@@ -447,6 +447,42 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
             SQLExpr::Wildcard => Ok(Expr::Wildcard),
 
+            SQLExpr::Case {
+                operand,
+                conditions,
+                results,
+                else_result,
+            } => {
+                let expr = if let Some(e) = operand {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+                let when_expr = conditions
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let then_expr = results
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let else_expr = if let Some(e) = else_result {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+
+                Ok(Expr::Case {
+                    expr,
+                    when_then_expr: when_expr
+                        .iter()
+                        .zip(then_expr.iter())
+                        .map(|(w, t)| (Box::new(w.to_owned()), Box::new(t.to_owned())))
+                        .collect(),
+                    else_expr,
+                })
+            }
+
             SQLExpr::Cast {
                 ref expr,
                 ref data_type,
