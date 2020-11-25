@@ -484,185 +484,8 @@ impl<R: Read> Reader<R> {
 
         let rows = &rows[..];
         let projection = self.projection.clone().unwrap_or_else(Vec::new);
-        let arrays: Result<Vec<ArrayRef>> =
-            self.schema
-                .clone()
-                .fields()
-                .iter()
-                .filter(|field| {
-                    if projection.is_empty() {
-                        return true;
-                    }
-                    projection.contains(field.name())
-                })
-                .map(|field| {
-                    match field.data_type().clone() {
-                        DataType::Null => unimplemented!(),
-                        DataType::Boolean => self.build_boolean_array(rows, field.name()),
-                        DataType::Float64 => {
-                            self.build_primitive_array::<Float64Type>(rows, field.name())
-                        }
-                        DataType::Float32 => {
-                            self.build_primitive_array::<Float32Type>(rows, field.name())
-                        }
-                        DataType::Int64 => {
-                            self.build_primitive_array::<Int64Type>(rows, field.name())
-                        }
-                        DataType::Int32 => {
-                            self.build_primitive_array::<Int32Type>(rows, field.name())
-                        }
-                        DataType::Int16 => {
-                            self.build_primitive_array::<Int16Type>(rows, field.name())
-                        }
-                        DataType::Int8 => {
-                            self.build_primitive_array::<Int8Type>(rows, field.name())
-                        }
-                        DataType::UInt64 => {
-                            self.build_primitive_array::<UInt64Type>(rows, field.name())
-                        }
-                        DataType::UInt32 => {
-                            self.build_primitive_array::<UInt32Type>(rows, field.name())
-                        }
-                        DataType::UInt16 => {
-                            self.build_primitive_array::<UInt16Type>(rows, field.name())
-                        }
-                        DataType::UInt8 => {
-                            self.build_primitive_array::<UInt8Type>(rows, field.name())
-                        }
-                        DataType::Timestamp(unit, _) => match unit {
-                            TimeUnit::Second => self
-                                .build_primitive_array::<TimestampSecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            TimeUnit::Microsecond => self
-                                .build_primitive_array::<TimestampMicrosecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            TimeUnit::Millisecond => self
-                                .build_primitive_array::<TimestampMillisecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            TimeUnit::Nanosecond => self
-                                .build_primitive_array::<TimestampNanosecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                        },
-                        DataType::Date64(_) => {
-                            self.build_primitive_array::<Date64Type>(rows, field.name())
-                        }
-                        DataType::Date32(_) => {
-                            self.build_primitive_array::<Date32Type>(rows, field.name())
-                        }
-                        DataType::Time64(unit) => match unit {
-                            TimeUnit::Microsecond => self
-                                .build_primitive_array::<Time64MicrosecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            TimeUnit::Nanosecond => self
-                                .build_primitive_array::<Time64NanosecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            _ => unimplemented!(),
-                        },
-                        DataType::Time32(unit) => match unit {
-                            TimeUnit::Second => self
-                                .build_primitive_array::<Time32SecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            TimeUnit::Millisecond => self
-                                .build_primitive_array::<Time32MillisecondType>(
-                                    rows,
-                                    field.name(),
-                                ),
-                            _ => unimplemented!(),
-                        },
-                        DataType::Utf8 => {
-                            let mut builder = StringBuilder::new(rows.len());
-                            for row in rows {
-                                if let Some(value) = row.get(field.name()) {
-                                    if let Some(str_v) = value.as_str() {
-                                        builder.append_value(str_v)?
-                                    } else {
-                                        builder.append(false)?
-                                    }
-                                } else {
-                                    builder.append(false)?
-                                }
-                            }
-                            Ok(Arc::new(builder.finish()) as ArrayRef)
-                        }
-                        DataType::List(ref t) => {
-                            match t.data_type() {
-                                DataType::Int8 => {
-                                    self.build_list_array::<Int8Type>(rows, field.name())
-                                }
-                                DataType::Int16 => {
-                                    self.build_list_array::<Int16Type>(rows, field.name())
-                                }
-                                DataType::Int32 => {
-                                    self.build_list_array::<Int32Type>(rows, field.name())
-                                }
-                                DataType::Int64 => {
-                                    self.build_list_array::<Int64Type>(rows, field.name())
-                                }
-                                DataType::UInt8 => {
-                                    self.build_list_array::<UInt8Type>(rows, field.name())
-                                }
-                                DataType::UInt16 => self
-                                    .build_list_array::<UInt16Type>(rows, field.name()),
-                                DataType::UInt32 => self
-                                    .build_list_array::<UInt32Type>(rows, field.name()),
-                                DataType::UInt64 => self
-                                    .build_list_array::<UInt64Type>(rows, field.name()),
-                                DataType::Float32 => self
-                                    .build_list_array::<Float32Type>(rows, field.name()),
-                                DataType::Float64 => self
-                                    .build_list_array::<Float64Type>(rows, field.name()),
-                                DataType::Null => unimplemented!(),
-                                DataType::Boolean => {
-                                    self.build_boolean_list_array(rows, field.name())
-                                }
-                                ref dtype @ DataType::Utf8 => {
-                                    // UInt64Type passed down below is a fake type for dictionary builder.
-                                    // It is there to make compiler happy.
-                                    self.list_array_string_array_builder::<UInt64Type>(
-                                        &dtype,
-                                        field.name(),
-                                        rows,
-                                    )
-                                }
-                                DataType::Dictionary(ref key_ty, _) => self
-                                    .build_wrapped_list_array(rows, field.name(), key_ty),
-                                ref e => Err(ArrowError::JsonError(format!(
-                            "Data type is currently not supported in a list : {:?}",
-                            e
-                        ))),
-                            }
-                        }
-                        DataType::Dictionary(ref key_ty, ref val_ty) => self
-                            .build_string_dictionary_array(
-                                rows,
-                                field.name(),
-                                key_ty,
-                                val_ty,
-                            ),
-                        DataType::Struct(_) => Err(ArrowError::JsonError(
-                            "struct types are not yet supported".to_string(),
-                        )),
-                        _ => Err(ArrowError::JsonError(format!(
-                            "{:?} type is not supported",
-                            field.data_type()
-                        ))),
-                    }
-                })
-                .collect();
+        // TODO: build struct array
+        let arrays = self.build_struct_array(rows, "", self.schema.fields(), &projection);
 
         let projected_fields: Vec<Field> = if projection.is_empty() {
             self.schema.fields().to_vec()
@@ -1020,6 +843,214 @@ impl<R: Read> Reader<R> {
             builder.append(true)?
         }
         Ok(Arc::new(builder.finish()))
+    }
+
+    fn build_struct_array(
+        &self,
+        rows: &[Value],
+        col_name: &str,
+        struct_fields: &[Field],
+        projection: &[String],
+    ) -> Result<Vec<ArrayRef>> {
+        let arrays: Result<Vec<ArrayRef>> =
+            struct_fields
+                .iter()
+                .filter(|field| {
+                    if projection.is_empty() {
+                        return true;
+                    }
+                    projection.contains(field.name())
+                })
+                .map(|field| {
+                    match field.data_type() {
+                        DataType::Null => unimplemented!(),
+                        DataType::Boolean => self.build_boolean_array(rows, field.name()),
+                        DataType::Float64 => {
+                            self.build_primitive_array::<Float64Type>(rows, field.name())
+                        }
+                        DataType::Float32 => {
+                            self.build_primitive_array::<Float32Type>(rows, field.name())
+                        }
+                        DataType::Int64 => {
+                            self.build_primitive_array::<Int64Type>(rows, field.name())
+                        }
+                        DataType::Int32 => {
+                            self.build_primitive_array::<Int32Type>(rows, field.name())
+                        }
+                        DataType::Int16 => {
+                            self.build_primitive_array::<Int16Type>(rows, field.name())
+                        }
+                        DataType::Int8 => {
+                            self.build_primitive_array::<Int8Type>(rows, field.name())
+                        }
+                        DataType::UInt64 => {
+                            self.build_primitive_array::<UInt64Type>(rows, field.name())
+                        }
+                        DataType::UInt32 => {
+                            self.build_primitive_array::<UInt32Type>(rows, field.name())
+                        }
+                        DataType::UInt16 => {
+                            self.build_primitive_array::<UInt16Type>(rows, field.name())
+                        }
+                        DataType::UInt8 => {
+                            self.build_primitive_array::<UInt8Type>(rows, field.name())
+                        }
+                        DataType::Timestamp(unit, _) => match unit {
+                            TimeUnit::Second => self
+                                .build_primitive_array::<TimestampSecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            TimeUnit::Microsecond => self
+                                .build_primitive_array::<TimestampMicrosecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            TimeUnit::Millisecond => self
+                                .build_primitive_array::<TimestampMillisecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            TimeUnit::Nanosecond => self
+                                .build_primitive_array::<TimestampNanosecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                        },
+                        DataType::Date64(_) => {
+                            self.build_primitive_array::<Date64Type>(rows, field.name())
+                        }
+                        DataType::Date32(_) => {
+                            self.build_primitive_array::<Date32Type>(rows, field.name())
+                        }
+                        DataType::Time64(unit) => match unit {
+                            TimeUnit::Microsecond => self
+                                .build_primitive_array::<Time64MicrosecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            TimeUnit::Nanosecond => self
+                                .build_primitive_array::<Time64NanosecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            _ => unimplemented!(),
+                        },
+                        DataType::Time32(unit) => match unit {
+                            TimeUnit::Second => self
+                                .build_primitive_array::<Time32SecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            TimeUnit::Millisecond => self
+                                .build_primitive_array::<Time32MillisecondType>(
+                                    rows,
+                                    field.name(),
+                                ),
+                            _ => unimplemented!(),
+                        },
+                        DataType::Utf8 => {
+                            let mut builder = StringBuilder::new(rows.len());
+                            for row in rows {
+                                if let Some(value) = row.get(field.name()) {
+                                    if let Some(str_v) = value.as_str() {
+                                        builder.append_value(str_v)?
+                                    } else {
+                                        builder.append(false)?
+                                    }
+                                } else {
+                                    builder.append(false)?
+                                }
+                            }
+                            Ok(Arc::new(builder.finish()) as ArrayRef)
+                        }
+                        DataType::List(ref t) => {
+                            match t.data_type() {
+                                DataType::Int8 => {
+                                    self.build_list_array::<Int8Type>(rows, field.name())
+                                }
+                                DataType::Int16 => {
+                                    self.build_list_array::<Int16Type>(rows, field.name())
+                                }
+                                DataType::Int32 => {
+                                    self.build_list_array::<Int32Type>(rows, field.name())
+                                }
+                                DataType::Int64 => {
+                                    self.build_list_array::<Int64Type>(rows, field.name())
+                                }
+                                DataType::UInt8 => {
+                                    self.build_list_array::<UInt8Type>(rows, field.name())
+                                }
+                                DataType::UInt16 => self
+                                    .build_list_array::<UInt16Type>(rows, field.name()),
+                                DataType::UInt32 => self
+                                    .build_list_array::<UInt32Type>(rows, field.name()),
+                                DataType::UInt64 => self
+                                    .build_list_array::<UInt64Type>(rows, field.name()),
+                                DataType::Float32 => self
+                                    .build_list_array::<Float32Type>(rows, field.name()),
+                                DataType::Float64 => self
+                                    .build_list_array::<Float64Type>(rows, field.name()),
+                                DataType::Null => unimplemented!(),
+                                DataType::Boolean => {
+                                    self.build_boolean_list_array(rows, field.name())
+                                }
+                                ref dtype @ DataType::Utf8 => {
+                                    // UInt64Type passed down below is a fake type for dictionary builder.
+                                    // It is there to make compiler happy.
+                                    self.list_array_string_array_builder::<UInt64Type>(
+                                        &dtype,
+                                        field.name(),
+                                        rows,
+                                    )
+                                }
+                                DataType::Dictionary(ref key_ty, _) => self
+                                    .build_wrapped_list_array(rows, field.name(), key_ty),
+                                ref e => Err(ArrowError::JsonError(format!(
+                            "Data type is currently not supported in a list : {:?}",
+                            e
+                        ))),
+                            }
+                        }
+                        DataType::Dictionary(ref key_ty, ref val_ty) => self
+                            .build_string_dictionary_array(
+                                rows,
+                                field.name(),
+                                key_ty,
+                                val_ty,
+                            ),
+                        DataType::Struct(fields) => {
+                            // TODO: add a check limiting recursion
+                            let struct_rows = rows
+                                .iter()
+                                .map(|row| row.as_object().map(|v| v.get(field.name())))
+                                .map(|v| match v.flatten() {
+                                    Some(v) => v.clone(),
+                                    None => Value::Object(Default::default()),
+                                })
+                                .collect::<Vec<Value>>();
+                            let arrays = self.build_struct_array(
+                                &struct_rows,
+                                col_name,
+                                fields,
+                                &[],
+                            )?;
+                            let field_arrays = fields
+                                .iter()
+                                .zip(arrays)
+                                .map(|(f, a)| (f.clone(), a))
+                                .collect::<Vec<(Field, ArrayRef)>>();
+                            let array = StructArray::from(field_arrays);
+                            Ok(Arc::new(array) as ArrayRef)
+                        }
+                        _ => Err(ArrowError::JsonError(format!(
+                            "{:?} type is not supported",
+                            field.data_type()
+                        ))),
+                    }
+                })
+                .collect();
+        arrays
     }
 
     #[inline(always)]
@@ -1557,6 +1588,45 @@ mod tests {
             assert_eq!("array", dd.value(5));
             assert_eq!("2.4", dd.value(6));
         }
+    }
+
+    #[test]
+    fn test_nested_struct_json_arrays() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new(
+                "b",
+                DataType::List(Box::new(Field::new("item", DataType::Float32, true))),
+                true,
+            ),
+            Field::new(
+                "c",
+                DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+                true,
+            ),
+            Field::new("d", DataType::Float64, false),
+            Field::new(
+                "e",
+                DataType::Struct(vec![
+                    Field::new("f", DataType::Boolean, true),
+                    Field::new(
+                        "g",
+                        DataType::Struct(vec![Field::new("h", DataType::Utf8, true)]),
+                        true,
+                    ),
+                ]),
+                true,
+            ),
+        ]));
+        let builder = ReaderBuilder::new().with_schema(schema).with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/nested_structs.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        // build expected output
+        let g = batch.column(4);
+        dbg!(g);
     }
 
     #[test]
