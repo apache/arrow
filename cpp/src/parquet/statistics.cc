@@ -27,7 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -297,14 +297,16 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     T min = Helper::DefaultMin();
     T max = Helper::DefaultMax();
 
-    ::arrow::internal::BitmapReader reader(valid_bits, valid_bits_offset, length);
-    for (int64_t i = 0; i < length; i++, reader.Next()) {
-      if (reader.IsSet()) {
-        auto val = values[i];
-        min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
-        max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
-      }
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(
+        valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; i++) {
+            const auto val = values[i + position];
+            min = Helper::Min(type_length_, min,
+                              Helper::Coalesce(val, Helper::DefaultMin()));
+            max = Helper::Max(type_length_, max,
+                              Helper::Coalesce(val, Helper::DefaultMax()));
+          }
+        });
 
     return {min, max};
   }

@@ -22,6 +22,8 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
 namespace compute {
@@ -41,19 +43,22 @@ template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_
 enable_if_t<std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
     const ArrayType& array, int64_t& nan_count) {
   CounterMap<CType> value_counts_map;
+  const ArrayData& data = *array.data();
+  const CType* values = data.GetValues<CType>(1);
 
   nan_count = 0;
   if (array.length() > array.null_count()) {
-    VisitArrayDataInline<typename ArrayType::TypeClass>(
-        *array.data(),
-        [&](CType value) {
-          if (std::isnan(value)) {
-            ++nan_count;
-          } else {
-            ++value_counts_map[value];
-          }
-        },
-        []() {});
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                                         [&](int64_t pos, int64_t len) {
+                                           for (int64_t i = 0; i < len; ++i) {
+                                             const auto value = values[pos + i];
+                                             if (std::isnan(value)) {
+                                               ++nan_count;
+                                             } else {
+                                               ++value_counts_map[value];
+                                             }
+                                           }
+                                         });
   }
 
   return value_counts_map;
@@ -64,25 +69,37 @@ template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_
 enable_if_t<!std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
     const ArrayType& array) {
   CounterMap<CType> value_counts_map;
+  const ArrayData& data = *array.data();
+  const CType* values = data.GetValues<CType>(1);
 
   if (array.length() > array.null_count()) {
-    VisitArrayDataInline<typename ArrayType::TypeClass>(
-        *array.data(), [&](CType value) { ++value_counts_map[value]; }, []() {});
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                                         [&](int64_t pos, int64_t len) {
+                                           for (int64_t i = 0; i < len; ++i) {
+                                             ++value_counts_map[values[pos + i]];
+                                           }
+                                         });
   }
 
   return value_counts_map;
 }
 
-// vector based counter for bool/int8 or integers with small value range
+// vector based counter for int8 or integers with small value range
 template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
 CounterMap<CType> CountValuesByVector(const ArrayType& array, CType min, CType max) {
   const int range = static_cast<int>(max - min);
   DCHECK(range >= 0 && range < 64 * 1024 * 1024);
+  const ArrayData& data = *array.data();
+  const CType* values = data.GetValues<CType>(1);
 
   std::vector<int64_t> value_counts_vector(range + 1);
   if (array.length() > array.null_count()) {
-    VisitArrayDataInline<typename ArrayType::TypeClass>(
-        *array.data(), [&](CType value) { ++value_counts_vector[value - min]; }, []() {});
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                                         [&](int64_t pos, int64_t len) {
+                                           for (int64_t i = 0; i < len; ++i) {
+                                             ++value_counts_vector[values[pos + i] - min];
+                                           }
+                                         });
   }
 
   // Transfer value counts to a map to be consistent with other chunks
@@ -104,18 +121,21 @@ CounterMap<CType> CountValuesByMapOrVector(const ArrayType& array) {
   // see https://issues.apache.org/jira/browse/ARROW-9873
   static constexpr int kMinArraySize = 8192 / sizeof(CType);
   static constexpr int kMaxValueRange = 16384;
+  const ArrayData& data = *array.data();
+  const CType* values = data.GetValues<CType>(1);
 
   if ((array.length() - array.null_count()) >= kMinArraySize) {
     CType min = std::numeric_limits<CType>::max();
     CType max = std::numeric_limits<CType>::min();
 
-    VisitArrayDataInline<typename ArrayType::TypeClass>(
-        *array.data(),
-        [&](CType value) {
-          min = std::min(min, value);
-          max = std::max(max, value);
-        },
-        []() {});
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                                         [&](int64_t pos, int64_t len) {
+                                           for (int64_t i = 0; i < len; ++i) {
+                                             const auto value = values[pos + i];
+                                             min = std::min(min, value);
+                                             max = std::max(max, value);
+                                           }
+                                         });
 
     if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
       return CountValuesByVector(array, min, max);
@@ -124,9 +144,24 @@ CounterMap<CType> CountValuesByMapOrVector(const ArrayType& array) {
   return CountValuesByMap(array);
 }
 
-// bool, int8
+// bool
 template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<std::is_integral<CType>::value && sizeof(CType) == 1, CounterMap<CType>>
+enable_if_t<is_boolean_type<typename ArrayType::TypeClass>::value, CounterMap<CType>>
+CountValues(const ArrayType& array, int64_t& nan_count) {
+  // we need just count ones and zeros
+  CounterMap<CType> map;
+  if (array.length() > array.null_count()) {
+    map[true] = array.true_count();
+    map[false] = array.length() - array.null_count() - map[true];
+  }
+  nan_count = 0;
+  return map;
+}
+
+// int8
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<is_integer_type<typename ArrayType::TypeClass>::value && sizeof(CType) == 1,
+            CounterMap<CType>>
 CountValues(const ArrayType& array, int64_t& nan_count) {
   using Limits = std::numeric_limits<CType>;
   nan_count = 0;
@@ -135,7 +170,8 @@ CountValues(const ArrayType& array, int64_t& nan_count) {
 
 // int16/32/64
 template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<std::is_integral<CType>::value && (sizeof(CType) > 1), CounterMap<CType>>
+enable_if_t<is_integer_type<typename ArrayType::TypeClass>::value && (sizeof(CType) > 1),
+            CounterMap<CType>>
 CountValues(const ArrayType& array, int64_t& nan_count) {
   nan_count = 0;
   return CountValuesByMapOrVector(array);

@@ -20,6 +20,7 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
 
 namespace arrow {
@@ -49,18 +50,24 @@ struct VarStdState {
     using SumType =
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
     SumType sum = 0;
-    VisitArrayDataInline<ArrowType>(
-        *array.data(), [&sum](CType value) { sum += static_cast<SumType>(value); },
-        []() {});
+
+    const ArrayData& data = *array.data();
+    const CType* values = data.GetValues<CType>(1);
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                                         [&](int64_t pos, int64_t len) {
+                                           for (int64_t i = 0; i < len; ++i) {
+                                             sum += static_cast<SumType>(values[pos + i]);
+                                           }
+                                         });
 
     double mean = static_cast<double>(sum) / count, m2 = 0;
-    VisitArrayDataInline<ArrowType>(
-        *array.data(),
-        [mean, &m2](CType value) {
-          double v = static_cast<double>(value);
-          m2 += (v - mean) * (v - mean);
-        },
-        []() {});
+    arrow::internal::VisitSetBitRunsVoid(
+        data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
+          for (int64_t i = 0; i < len; ++i) {
+            const double v = static_cast<double>(values[pos + i]);
+            m2 += (v - mean) * (v - mean);
+          }
+        });
 
     this->count = count;
     this->mean = mean;
@@ -89,13 +96,16 @@ struct VarStdState {
       if (count > 0) {
         int64_t sum = 0;
         int128_t square_sum = 0;
-        VisitArrayDataInline<ArrowType>(
-            *slice->data(),
-            [&sum, &square_sum](CType value) {
-              sum += value;
-              square_sum += static_cast<uint64_t>(value) * value;
-            },
-            []() {});
+        const ArrayData& data = *slice->data();
+        const CType* values = data.GetValues<CType>(1);
+        arrow::internal::VisitSetBitRunsVoid(
+            data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
+              for (int64_t i = 0; i < len; ++i) {
+                const auto value = values[pos + i];
+                sum += value;
+                square_sum += static_cast<uint64_t>(value) * value;
+              }
+            });
 
         const double mean = static_cast<double>(sum) / count;
         // calculate m2 = square_sum - sum * sum / count

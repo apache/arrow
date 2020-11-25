@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
@@ -588,37 +589,9 @@ class PrimitiveFilterImpl {
 
   void ExecNonNull() {
     // Fast filter when values and filter are not null
-    // Bit counters used for both null_selection behaviors
-    BitBlockCounter filter_counter(filter_data_, filter_offset_, values_length_);
-
-    int64_t in_position = 0;
-    BitBlockCount current_block = filter_counter.NextWord();
-    while (in_position < values_length_) {
-      if (current_block.AllSet()) {
-        int64_t run_length = 0;
-        // If we've found a all-true block, then we scan forward until we find
-        // a block that has some false values (or we reach the end
-        while (current_block.length > 0 && current_block.AllSet()) {
-          run_length += current_block.length;
-          current_block = filter_counter.NextWord();
-        }
-        WriteValueSegment(in_position, run_length);
-        in_position += run_length;
-      } else if (current_block.NoneSet()) {
-        // Nothing selected
-        in_position += current_block.length;
-        current_block = filter_counter.NextWord();
-      } else {
-        // Some values selected
-        for (int64_t i = 0; i < current_block.length; ++i) {
-          if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-            WriteValue(in_position);
-          }
-          ++in_position;
-        }
-        current_block = filter_counter.NextWord();
-      }
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(
+        filter_data_, filter_offset_, values_length_,
+        [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
   }
 
   void Exec() {
@@ -872,8 +845,6 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         data_builder.Reserve(static_cast<int64_t>(mean_value_length * output_length))); \
   }                                                                                     \
   int64_t space_available = data_builder.capacity();                                    \
-  int64_t in_position = 0;                                                              \
-  int64_t out_position = 0;                                                             \
   offset_type offset = 0;
 
 #define APPEND_RAW_DATA(DATA, NBYTES)                                  \
@@ -900,45 +871,25 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArrayData& values,
                                ArrayData* out) {
   using offset_type = typename Type::offset_type;
   const auto filter_data = filter.buffers[1]->data();
-  const int64_t filter_offset = filter.offset;
-  BitBlockCounter filter_counter(filter_data, filter.offset, filter.length);
+
   BINARY_FILTER_SETUP_COMMON();
 
-  while (in_position < filter.length) {
-    BitBlockCount filter_block = filter_counter.NextWord();
-    if (filter_block.NoneSet()) {
-      // For this exceedingly common case in low-selectivity filters we can
-      // skip further analysis of the data and move on to the next block.
-      in_position += filter_block.length;
-    } else {
-      // Simpler path: no filter values are null
-      if (filter_block.AllSet()) {
-        // Fastest path: filter values are all true and not null
+  RETURN_NOT_OK(arrow::internal::VisitSetBitRuns(
+      filter_data, filter.offset, filter.length, [&](int64_t position, int64_t length) {
         // Bulk-append raw data
-        offset_type block_data_bytes =
-            (raw_offsets[in_position + filter_block.length] - raw_offsets[in_position]);
-        APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
+        const offset_type run_data_bytes =
+            (raw_offsets[position + length] - raw_offsets[position]);
+        APPEND_RAW_DATA(raw_data + raw_offsets[position], run_data_bytes);
         // Append offsets
-        offset_type cur_offset = raw_offsets[in_position];
-        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+        offset_type cur_offset = raw_offsets[position];
+        for (int64_t i = 0; i < length; ++i) {
           offset_builder.UnsafeAppend(offset);
-          offset += raw_offsets[in_position + 1] - cur_offset;
-          cur_offset = raw_offsets[in_position + 1];
+          offset += raw_offsets[i + position + 1] - cur_offset;
+          cur_offset = raw_offsets[i + position + 1];
         }
-        out_position += filter_block.length;
-      } else {  // !filter_block.AllSet()
-        // Some of the filter values are false, but all not null
-        // All the values are not-null, so we can skip null checking for
-        // them
-        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-          if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
-            offset_builder.UnsafeAppend(offset);
-            APPEND_SINGLE_VALUE();
-          }
-        }
-      }
-    }
-  }
+        return Status::OK();
+      }));
+
   offset_builder.UnsafeAppend(offset);
   out->length = output_length;
   RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
@@ -976,6 +927,8 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
 
   BINARY_FILTER_SETUP_COMMON();
 
+  int64_t in_position = 0;
+  int64_t out_position = 0;
   while (in_position < filter.length) {
     BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
     BitBlockCount values_valid_block = values_valid_counter.NextWord();
