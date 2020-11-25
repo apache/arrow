@@ -17,9 +17,7 @@
 
 #include "arrow/flight/client_cookie_middleware.h"
 
-// Platform-specific defines
 #include <chrono>
-#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
