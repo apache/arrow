@@ -1195,7 +1195,7 @@ class TestCookieMiddleware : public ::testing::Test {
  public:
   // Setup function creates middleware factory and starts it up.
   void SetUp() {
-    factory_ = std::make_shared<ClientCookieMiddlewareFactory>();
+    factory_ = GetCookieFactory();
     CallInfo callInfo;
     factory_->StartCall(callInfo, &middleware_);
   }
@@ -1338,7 +1338,7 @@ class TestCookieMiddleware : public ::testing::Test {
 
   std::vector<std::string> expected_cookies_;
   std::unique_ptr<ClientMiddleware> middleware_;
-  std::shared_ptr<ClientCookieMiddlewareFactory> factory_;
+  std::shared_ptr<ClientMiddlewareFactory> factory_;
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {

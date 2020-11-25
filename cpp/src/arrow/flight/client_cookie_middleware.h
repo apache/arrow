@@ -26,20 +26,7 @@
 namespace arrow {
 namespace flight {
 
-/// \brief Client-side middleware for sending/receiving HTTP cookies.
-class ARROW_FLIGHT_EXPORT ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
- public:
-  ClientCookieMiddlewareFactory();
-
-  ~ClientCookieMiddlewareFactory();
-
-  void StartCall(const CallInfo& info,
-                 std::unique_ptr<ClientMiddleware>* middleware) override;
-
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-};
+ARROW_FLIGHT_EXPORT std::shared_ptr<ClientMiddlewareFactory> GetCookieFactory();
 
 }  // namespace flight
 }  // namespace arrow
