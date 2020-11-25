@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import static java.util.Arrays.copyOf;
+
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 import javax.net.ssl.SSLException;
 
@@ -59,6 +61,7 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
@@ -121,24 +124,48 @@ public class FlightClient implements AutoCloseable {
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
-    return callApiWithRetry(o -> {
-      final Iterator<Flight.FlightInfo> flights;
+    final Iterator<Flight.FlightInfo> flights;
+    // TODO: Handle the case where CredentialCallOption is supplied.
+    // TODO: Move the common pre-processing to helper method.
+    options = copyOf(options, options.length + 1);
+    options[options.length - 1] = bearerAuthCredentialCallOption;
+    CallOption[] finalOptions = options;
+    Supplier<Iterator<Flight.FlightInfo>> func = () -> CallOptions.wrapStub(blockingStub, finalOptions)
+            .listFlights(criteria.asCriteria());
+    try {
+      flights = func.get();
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+
+    Iterator<Flight.FlightInfo> wrappedFlightIterator = new WrappedFlightIterator(flights, func, options);
+    return () -> StatusUtils.wrapIterator(wrappedFlightIterator, t -> {
       try {
-        flights = CallOptions.wrapStub(blockingStub, options)
-                .listFlights(criteria.asCriteria());
-      } catch (StatusRuntimeException sre) {
-        throw StatusUtils.fromGrpcRuntimeException(sre);
+        return new FlightInfo(t);
+      } catch (URISyntaxException e) {
+        // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+        // itself wouldn't be able to construct an invalid Location.
+        throw new RuntimeException(e);
       }
-      return () -> StatusUtils.wrapIterator(flights, t -> {
-        try {
-          return new FlightInfo(t);
-        } catch (URISyntaxException e) {
-          // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-          // itself wouldn't be able to construct an invalid Location.
-          throw new RuntimeException(e);
-        }
-      });
-    }, options);
+    });
+    //    return callApiWithRetry(o -> {
+    //      final Iterator<Flight.FlightInfo> flights;
+    //      try {
+    //        flights = CallOptions.wrapStub(blockingStub, options)
+    //                .listFlights(criteria.asCriteria());
+    //      } catch (StatusRuntimeException sre) {
+    //        throw StatusUtils.fromGrpcRuntimeException(sre);
+    //      }
+    //      return () -> StatusUtils.wrapIterator(flights, t -> {
+    //        try {
+    //          return new FlightInfo(t);
+    //        } catch (URISyntaxException e) {
+    //          // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+    //          // itself wouldn't be able to construct an invalid Location.
+    //          throw new RuntimeException(e);
+    //        }
+    //      });
+    //    }, options);
   }
 
   /**
@@ -147,16 +174,14 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for the call.
    */
   public Iterable<ActionType> listActions(CallOption... options) {
-    return callApiWithRetry(o -> {
-      final Iterator<Flight.ActionType> actions;
-      try {
-        actions = CallOptions.wrapStub(blockingStub, o)
-                .listActions(Empty.getDefaultInstance());
-      } catch (StatusRuntimeException sre) {
-        throw StatusUtils.fromGrpcRuntimeException(sre);
-      }
-      return () -> StatusUtils.wrapIterator(actions, ActionType::new);
-    }, options);
+    final Iterator<Flight.ActionType> actions;
+    try {
+      actions = CallOptions.wrapStub(blockingStub, options)
+              .listActions(Empty.getDefaultInstance());
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+    return () -> StatusUtils.wrapIterator(actions, ActionType::new);
   }
 
   /**
@@ -399,26 +424,53 @@ public class FlightClient implements AutoCloseable {
   /**
    * Helper Method to retry the Flight API call if it encounters FlightStatusCode.TOKEN_EXPIRED.
    * @param func Function to execute.
-   * @param options RPC-layer hints for this call.
-   * @param <R> The return type of the function.
+   * @param <T> The return type of the function.
    * @return The result of the function.
    */
-  private <R> R callApiWithRetry(Function<CallOption[], R> func, CallOption... options) {
-    R result = null;
-    try {
-      // TODO: Call the apply function immediately rather than lazily.
-      result = func.apply(options);
-    } catch (FlightRuntimeException ex) {
-      // Retry the API call when TOKEN_EXPIRED is encountered.
-      if (ex.status().code() == FlightStatusCode.TOKEN_EXPIRED) {
-        for (int i = 0; i < options.length; i++) {
-          if (options[i] instanceof CredentialCallOption) {
-            // TODO: Find a better way to differentiate between the type of credential writer being used.
-            options[i] = basicAuthCredentialCallOption;
-            break;
+  private <T> T callApiWithRetry(Supplier<T> func) {
+    // TODO: Do the common Pre-processing here.
+    return func.get();
+  }
+
+  /**
+   * Wrapper class to wrap the iterator.
+   * @param <T> The type of iterator.
+   */
+  public class WrappedFlightIterator<T> implements Iterator<T> {
+    private Iterator<T> itr;
+    Supplier<Iterator<T>> func;
+    private final CallOption[] options;
+
+    /**
+     * Public constructor TODO.
+     * @param iterator The iterator to use TODO.
+     * @param options Calloption to use TODO.
+     */
+    public WrappedFlightIterator(Iterator<T> iterator, Supplier<Iterator<T>> func, CallOption... options) {
+      this.itr = iterator;
+      this.func = func;
+      this.options = options;
+    }
+
+    @Override
+    public boolean hasNext() {
+      try {
+        return itr.hasNext();
+      } catch (StatusRuntimeException ex) {
+        // Retry the API call when TOKEN_EXPIRED is encountered.
+        if (ex.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
+          //        Arrays.stream(options).anyMatch(o -> o instanceof CredentialCallOption).findFirst()
+          for (int i = 0; i < options.length; i++) {
+            if (options[i] instanceof CredentialCallOption) {
+              // TODO: Find a better way to differentiate between the type of credential writer being used.
+              options[i] = basicAuthCredentialCallOption;
+              break;
+            }
           }
         }
-        result = func.apply(options);
+        // TODO: Retry using Basic headers.
+        this.itr = func.get();
+        boolean hasNext = itr.hasNext();
         for (FlightClientMiddleware.Factory factory : middleware) {
           if (factory instanceof ClientIncomingAuthHeaderMiddleware.Factory) {
             bearerAuthCredentialCallOption = (
@@ -427,9 +479,14 @@ public class FlightClient implements AutoCloseable {
             break;
           }
         }
+        return hasNext;
       }
     }
-    return result;
+
+    @Override
+    public T next() {
+      return itr.next();
+    }
   }
 
   /** A pair of a reader and a writer for a DoExchange call. */

@@ -141,10 +141,10 @@ public class TestRetryWithExpiredToken {
     final CredentialCallOption bearerToken = client
             .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
     Assert.assertTrue(ImmutableList.copyOf(client
-            .listFlights(Criteria.ALL, bearerToken))
+            .listFlights(Criteria.ALL))
             .isEmpty());
     Assert.assertTrue(ImmutableList.copyOf(client
-            .listFlights(Criteria.ALL, bearerToken))
+            .listFlights(Criteria.ALL))
             .isEmpty());
   }
 
@@ -179,7 +179,7 @@ public class TestRetryWithExpiredToken {
     @Override
     protected AuthResult validateBearer(String bearerToken) {
       if (bearerToken.equals("Token_1")) {
-        throw CallStatus.TOKEN_EXPIRED.withDescription("Token expired.").toRuntimeException();
+        throw CallStatus.UNAUTHENTICATED.withDescription("Token expired.").toRuntimeException();
       }
       return new AuthResult() {
         @Override
