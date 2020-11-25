@@ -23,6 +23,10 @@
 #include <utf8proc.h>
 #endif
 
+#ifdef ARROW_WITH_RE2
+#include <re2/re2.h>
+#endif
+
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/buffer_builder.h"
@@ -1231,6 +1235,198 @@ void AddSplit(FunctionRegistry* registry) {
 }
 
 // ----------------------------------------------------------------------
+// replace substring
+
+template <typename Type, typename Derived>
+struct ReplaceSubStringBase {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using offset_type = typename Type::offset_type;
+  using ValueDataBuilder = TypedBufferBuilder<uint8_t>;
+  using OffsetBuilder = TypedBufferBuilder<offset_type>;
+  using State = OptionsWrapper<ReplaceSubstringOptions>;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    Derived derived(ctx, State::Get(ctx));
+    if (ctx->status().ok()) {
+      derived.Replace(ctx, batch, out);
+    }
+  }
+  void Replace(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::shared_ptr<ValueDataBuilder> value_data_builder =
+        std::make_shared<ValueDataBuilder>();
+    std::shared_ptr<OffsetBuilder> offset_builder = std::make_shared<OffsetBuilder>();
+
+    if (batch[0].kind() == Datum::ARRAY) {
+      // We already know how many strings we have, so we can use Reserve/UnsafeAppend
+      KERNEL_RETURN_IF_ERROR(ctx, offset_builder->Reserve(batch[0].array()->length));
+
+      const ArrayData& input = *batch[0].array();
+      KERNEL_RETURN_IF_ERROR(ctx, offset_builder->Append(0));  // offsets start at 0
+      KERNEL_RETURN_IF_ERROR(
+          ctx, VisitArrayDataInline<Type>(
+                   input,
+                   [&](util::string_view s) {
+                     RETURN_NOT_OK(static_cast<Derived&>(*this).ReplaceString(
+                         s, value_data_builder.get()));
+                     offset_builder->UnsafeAppend(
+                         static_cast<offset_type>(value_data_builder->length()));
+                     return Status::OK();
+                   },
+                   [&]() {
+                     // offset for null value
+                     offset_builder->UnsafeAppend(
+                         static_cast<offset_type>(value_data_builder->length()));
+                     return Status::OK();
+                   }));
+      ArrayData* output = out->mutable_array();
+      KERNEL_RETURN_IF_ERROR(ctx, value_data_builder->Finish(&output->buffers[2]));
+      KERNEL_RETURN_IF_ERROR(ctx, offset_builder->Finish(&output->buffers[1]));
+    } else {
+      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
+      auto result = std::make_shared<ScalarType>();
+      if (input.is_valid) {
+        util::string_view s = static_cast<util::string_view>(*input.value);
+        KERNEL_RETURN_IF_ERROR(
+            ctx, static_cast<Derived&>(*this).ReplaceString(s, value_data_builder.get()));
+        KERNEL_RETURN_IF_ERROR(ctx, value_data_builder->Finish(&result->value));
+        result->is_valid = true;
+      }
+      out->value = result;
+    }
+  }
+};
+
+template <typename Type>
+struct ReplaceSubString : ReplaceSubStringBase<Type, ReplaceSubString<Type>> {
+  using Base = ReplaceSubStringBase<Type, ReplaceSubString<Type>>;
+  using ValueDataBuilder = typename Base::ValueDataBuilder;
+  using offset_type = typename Base::offset_type;
+
+  ReplaceSubstringOptions options;
+  explicit ReplaceSubString(KernelContext* ctx, ReplaceSubstringOptions options)
+      : options(options) {}
+
+  Status ReplaceString(util::string_view s, ValueDataBuilder* builder) {
+    const char* i = s.begin();
+    const char* end = s.end();
+    int64_t max_replacements = options.max_replacements;
+    while ((i < end) && (max_replacements != 0)) {
+      const char* pos =
+          std::search(i, end, options.pattern.begin(), options.pattern.end());
+      if (pos == end) {
+        RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                      static_cast<offset_type>(end - i)));
+        i = end;
+      } else {
+        // the string before the pattern
+        RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                      static_cast<offset_type>(pos - i)));
+        // the replacement
+        RETURN_NOT_OK(
+            builder->Append(reinterpret_cast<const uint8_t*>(options.replacement.data()),
+                            options.replacement.length()));
+        // skip pattern
+        i = pos + options.pattern.length();
+        max_replacements--;
+      }
+    }
+    // if we exited early due to max_replacements, add the trailing part
+    RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                  static_cast<offset_type>(end - i)));
+    return Status::OK();
+  }
+};
+
+const FunctionDoc replace_substring_doc(
+    "Replace non-overlapping substrings that match pattern by replacement",
+    ("For each string in `strings`, replace non-overlapping substrings that match\n"
+     "`pattern` by `replacement`. If `max_replacements != -1`, it determines the\n"
+     "maximum amount of replacements made, counting from the left. Null values emit\n"
+     "null."),
+    {"strings"}, "ReplaceSubstringOptions");
+
+#ifdef ARROW_WITH_RE2
+template <typename Type>
+struct ReplaceSubStringRE2 : ReplaceSubStringBase<Type, ReplaceSubStringRE2<Type>> {
+  using Base = ReplaceSubStringBase<Type, ReplaceSubStringRE2<Type>>;
+  using ValueDataBuilder = typename Base::ValueDataBuilder;
+  using offset_type = typename Base::offset_type;
+
+  ReplaceSubstringOptions options;
+  RE2 regex_find;
+  RE2 regex_replacement;
+  explicit ReplaceSubStringRE2(KernelContext* ctx, ReplaceSubstringOptions options)
+      : options(options),
+        regex_find("(" + options.pattern + ")"),
+        regex_replacement(options.pattern) {
+    // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
+    // we have 2 regex, one with () around it, one without.
+    if (!(regex_find.ok() && regex_replacement.ok())) {
+      ctx->SetStatus(Status::Invalid("Regular expression error"));
+      return;
+    }
+  }
+  Status ReplaceString(util::string_view s, ValueDataBuilder* builder) {
+    re2::StringPiece replacement(options.replacement);
+    if (options.max_replacements == -1) {
+      std::string s_copy(s.to_string());
+      re2::RE2::GlobalReplace(&s_copy, regex_replacement, replacement);
+      RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
+                                    s_copy.length()));
+      return Status::OK();
+    }
+    // Since RE2 does not have the concept of max_replacements, we have to do some work
+    // ourselves.
+    // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
+    const char* i = s.begin();
+    const char* end = s.end();
+    re2::StringPiece piece(s.data(), s.length());
+
+    int64_t max_replacements = options.max_replacements;
+    while ((i < end) && (max_replacements != 0)) {
+      std::string found;
+      if (!re2::RE2::FindAndConsume(&piece, regex_find, &found)) {
+        RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                      static_cast<offset_type>(end - i)));
+        i = end;
+      } else {
+        // wind back to the beginning of the match
+        const char* pos = piece.begin() - found.length();
+        // the string before the pattern
+        RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                      static_cast<offset_type>(pos - i)));
+        // replace the pattern in what we found
+        if (!re2::RE2::Replace(&found, regex_replacement, replacement)) {
+          return Status::Invalid("Regex found, but replacement failed");
+        }
+        RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
+                                      static_cast<offset_type>(found.length())));
+        // skip pattern
+        i = piece.begin();
+        max_replacements--;
+      }
+    }
+    // If we exited early due to max_replacements, add the trailing part
+    RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                  static_cast<offset_type>(end - i)));
+    return Status::OK();
+  }
+};
+
+const FunctionDoc replace_substring_regex_doc(
+    "Replace non-overlapping substrings that match regex `pattern` by `replacement`",
+    ("For each string in `strings`, replace non-overlapping substrings that match the\n"
+     "regular expression `pattern` by `replacement` using the Google RE2 library.\n"
+     "If `max_replacements != -1`, it determines the maximum amount of replacements\n"
+     "made, counting from the left. Note that if the pattern contains groups,\n"
+     "backreferencing macan be used. Null values emit null."),
+    {"strings"}, "ReplaceSubstringOptions");
+
+#endif
+
+// ----------------------------------------------------------------------
 // strptime string parsing
 
 using StrptimeState = OptionsWrapper<StrptimeOptions>;
@@ -1904,6 +2100,14 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddBinaryLength(registry);
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
+  MakeUnaryStringBatchKernelWithState<ReplaceSubString>("replace_substring", registry,
+                                                        &replace_substring_doc,
+                                                        MemAllocation::NO_PREALLOCATE);
+#ifdef ARROW_WITH_RE2
+  MakeUnaryStringBatchKernelWithState<ReplaceSubStringRE2>(
+      "replace_substring_regex", registry, &replace_substring_regex_doc,
+      MemAllocation::NO_PREALLOCATE);
+#endif
   AddStrptime(registry);
 }
 
