@@ -2278,7 +2278,7 @@ mod tests {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
         let batch =
-            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
+            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
@@ -2306,7 +2306,7 @@ mod tests {
         let a = Int32Array::from(vec![2, 4, 6, 8, 10]);
         let b = Int32Array::from(vec![2, 5, 4, 8, 8]);
         let batch =
-            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
+            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b OR a == b"
         let expr = binary_simple(
@@ -2370,7 +2370,7 @@ mod tests {
             let a = $A_ARRAY::from($A_VEC);
             let b = $B_ARRAY::from($B_VEC);
             let batch =
-                RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
+                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
 
             // verify that we can construct the expression
             let expression = binary(col("a"), $OP, col("b"), &schema)?;
@@ -2587,7 +2587,7 @@ mod tests {
         ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
             let schema = Schema::new(vec![Field::new("a", $A_TYPE, false)]);
             let a = $A_ARRAY::from($A_VEC);
-            let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
+            let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
             // verify that we can construct the expression
             let expression = cast(col("a"), &schema, $TYPE)?;

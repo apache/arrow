@@ -125,7 +125,7 @@ mod tests {
     async fn empty() -> Result<()> {
         let schema = test::aggr_test_schema();
 
-        let empty = EmptyExec::new(false, schema);
+        let empty = EmptyExec::new(false, schema.clone());
         assert_eq!(empty.schema(), schema);
 
         // we should have no results
