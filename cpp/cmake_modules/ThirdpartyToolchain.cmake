@@ -1346,6 +1346,7 @@ macro(build_protobuf)
         -DBUILD_SHARED_LIBS=OFF
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
+        -Dprotobuf_MSVC_STATIC_RUNTIME=OFF
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
     if(ZLIB_ROOT)
@@ -2360,6 +2361,8 @@ macro(build_grpc)
   if(GFLAGS_VENDORED)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
+  resolve_dependency(RE2)
+  add_dependencies(grpc_dependencies re2_ep)
 
   add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
                    ZLIB::ZLIB)
@@ -2409,6 +2412,12 @@ macro(build_grpc)
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
+      -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG
+      -DgRPC_MSVC_STATIC_RUNTIME=OFF
+      -DgRPC_RE2_PROVIDER=package
+      -DRE2_ROOT_DIR=${RE2_PREFIX}
+      -Dre2_ROOT=${RE2_PREFIX}
+      -DCMAKE_POLICY_DEFAULT_CMP0074=NEW
       -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
       -DCMAKE_C_FLAGS=${EP_C_FLAGS}
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}

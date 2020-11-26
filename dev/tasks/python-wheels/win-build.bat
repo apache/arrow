@@ -24,8 +24,7 @@
 
 @rem create conda environment for compiling
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
-    --file=arrow\ci\conda_env_cpp.yml ^
-    --file=arrow\ci\conda_env_python.yml ^
+    cmake ninja pkg-config numpy=1.19 ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -66,10 +65,16 @@ cmake -A "%ARCH%" ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DOPENSSL_ROOT_DIR=%CONDA_PREFIX_CMAKE_STYLE%/Library ^
       .. || exit /B
+cmake ^
+  --build . ^
+  --config Release ^
+  --parallel %NUMBER_OF_PROCESSORS% ^
+  --target grpc_ep || exit /B
 cmake ^
   --build . ^
   --config Release ^
