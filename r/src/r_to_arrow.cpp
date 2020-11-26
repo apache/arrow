@@ -407,9 +407,18 @@ inline Status VisitFactor(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   return Status::OK();
 }
 
-template <class VisitorFunc>
-inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+template <typename T>
+inline Status VisitDataFrame(SEXP x, R_xlen_t size, T* converter);
+
+template <typename T>
+inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
+  if (converter->type()->id() == Type::STRUCT) {
+    return VisitDataFrame(x, size, converter);
+  }
+
   RVectorType rtype = GetVectorType(x);
+  auto func = [&converter](RScalar* obj) { return converter->Append(obj); };
+  using VisitorFunc = decltype(func);
 
   switch (rtype) {
     case BOOLEAN:
@@ -448,8 +457,7 @@ inline Status VisitVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
 template <typename T>
 Status Extend(T* converter, SEXP x, R_xlen_t size) {
   RETURN_NOT_OK(converter->Reserve(size));
-  return VisitVector(x, size,
-                     [&converter](RScalar* obj) { return converter->Append(obj); });
+  return VisitVector(x, size, converter);
 }
 
 using RConverter = Converter<RScalar*, RConversionOptions>;
@@ -610,8 +618,6 @@ class RDictionaryConverter<U, enable_if_has_string_view<U>>
   RBytesView view_;
 };
 
-class RStructConverter;
-
 template <typename T, typename Enable = void>
 struct RConverterTrait;
 
@@ -642,10 +648,11 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     SEXP obj = *reinterpret_cast<SEXP*>(value->data);
     R_xlen_t size = XLENGTH(obj);
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
-
     return Extend(this->value_converter_.get(), obj, size);
   }
 };
+
+class RStructConverter;
 
 template <>
 struct RConverterTrait<StructType> {
@@ -654,14 +661,45 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  Status Append(RScalar* value) override { return Status::OK(); }
+  Status Append(RScalar* value) override {
+    return Status::NotImplemented("RStructConverter does not use Append()");
+  }
+
+  Status Reserve(int64_t additional_capacity) override {
+    // in contrast with StructConverter, this does not Reserve()
+    // on children, because it will be done as part of Visit() > Extend()
+    return this->builder_->Reserve(additional_capacity);
+  }
+
+  Status Visit(SEXP x, R_xlen_t size) {
+    // iterate over columns of x
+    R_xlen_t n_columns = XLENGTH(x);
+    if (!Rf_inherits(x, "data.frame")) {
+      return Status::Invalid("Can only convert data frames to Struct type");
+    }
+
+    auto struct_builder = checked_cast<StructBuilder*>(this->builder().get());
+    for (R_xlen_t i = 0; i < size; i++) {
+      RETURN_NOT_OK(struct_builder->Append());
+    }
+
+    for (R_xlen_t i = 0; i < n_columns; i++) {
+      RETURN_NOT_OK(Extend(this->children_[i].get(), VECTOR_ELT(x, i), size));
+    }
+
+    return Status::OK();
+  }
 
  protected:
   Status Init(MemoryPool* pool) override {
-    RETURN_NOT_OK((StructConverter<RConverter, RConverterTrait>::Init(pool)));
-    return Status::OK();
+    return StructConverter<RConverter, RConverterTrait>::Init(pool);
   }
 };
+
+template <typename T>
+inline Status VisitDataFrame(SEXP x, R_xlen_t size, T* converter) {
+  return static_cast<RStructConverter*>(converter)->Visit(x, size);
+}
 
 template <>
 struct RConverterTrait<DictionaryType> {
@@ -684,8 +722,8 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
 
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
-
   StopIfNotOk(Extend(converter.get(), x, options.size));
+
   return ValueOrStop(converter->ToArray());
 }
 
