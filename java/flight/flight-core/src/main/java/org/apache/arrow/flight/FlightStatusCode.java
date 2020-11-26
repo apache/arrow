@@ -71,10 +71,6 @@ public enum FlightStatusCode {
    * should send this code only if it has not done any work.
    */
   UNAVAILABLE,
-  /**
-   * The access token specified in the request header has expired.
-   */
-  TOKEN_EXPIRED,
   ;
 
   /**

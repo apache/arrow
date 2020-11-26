@@ -24,7 +24,6 @@ import org.apache.arrow.flight.auth2.AuthUtilities;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.BearerTokenAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
-import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -43,10 +42,7 @@ import com.google.common.collect.ImmutableList;
 public class TestRetryWithExpiredToken {
 
   private static final String USERNAME_1 = "flight1";
-  private static final String USERNAME_2 = "flight2";
-  private static final String NO_USERNAME = "";
   private static final String PASSWORD_1 = "woohoo1";
-  private static final String PASSWORD_2 = "woohoo2";
   private BufferAllocator allocator;
   private FlightServer server;
   private FlightClient client;
@@ -63,7 +59,7 @@ public class TestRetryWithExpiredToken {
       @Override
       public void listFlights(CallContext context, Criteria criteria,
                               StreamListener<FlightInfo> listener) {
-        if (!context.peerIdentity().equals(USERNAME_1) && !context.peerIdentity().equals(USERNAME_2)) {
+        if (!context.peerIdentity().equals(USERNAME_1)) {
           listener.onError(new IllegalArgumentException("Invalid username"));
           return;
         }
@@ -72,7 +68,7 @@ public class TestRetryWithExpiredToken {
 
       @Override
       public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
-        if (!context.peerIdentity().equals(USERNAME_1) && !context.peerIdentity().equals(USERNAME_2)) {
+        if (!context.peerIdentity().equals(USERNAME_1)) {
           listener.error(new IllegalArgumentException("Invalid username"));
           return;
         }
@@ -117,8 +113,6 @@ public class TestRetryWithExpiredToken {
     final String identity;
     if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
       identity = USERNAME_1;
-    } else if (USERNAME_2.equals(username) && PASSWORD_2.equals(password)) {
-      identity = USERNAME_2;
     } else {
       throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
     }
@@ -127,19 +121,11 @@ public class TestRetryWithExpiredToken {
 
   @Test
   public void validAuthWithBearerAuthServer() throws IOException {
-    testValidAuth(client);
+    testListFlightsWithRetry(client);
   }
 
-  private void testValidAuth(FlightClient client) {
-    //    GeneratedTestBearerTokenAuthenticator generatedBearerTokenAuthenticatorMock
-    //            = spy(GeneratedTestBearerTokenAuthenticator.class);
-    //    when(generatedBearerTokenAuthenticatorMock.authenticate(any()))
-    //            .thenCallRealMethod()
-    //            .thenThrow(CallStatus.TOKEN_EXPIRED.toRuntimeException())
-    //            .thenCallRealMethod();
-
-    final CredentialCallOption bearerToken = client
-            .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
+  private void testListFlightsWithRetry(FlightClient client) {
+    client.authenticateBasicToken(USERNAME_1, PASSWORD_1);
     Assert.assertTrue(ImmutableList.copyOf(client
             .listFlights(Criteria.ALL))
             .isEmpty());

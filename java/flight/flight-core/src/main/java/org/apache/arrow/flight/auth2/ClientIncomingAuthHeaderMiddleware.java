@@ -34,14 +34,16 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
    */
   public static class Factory implements FlightClientMiddleware.Factory {
     private final ClientHeaderHandler headerHandler;
-    private CredentialCallOption credentialCallOption;
+    private CredentialCallOption basicCredentialCallOption;
+    private CredentialCallOption bearerCredentialCallOption;
 
     /**
      * Construct a factory with the given header handler.
      * @param headerHandler The header handler that will be used for handling incoming headers from the flight server.
      */
-    public Factory(ClientHeaderHandler headerHandler) {
+    public Factory(ClientHeaderHandler headerHandler, CredentialCallOption basicCredentialCallOption) {
       this.headerHandler = headerHandler;
+      this.basicCredentialCallOption = basicCredentialCallOption;
     }
 
     @Override
@@ -49,12 +51,12 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
       return new ClientIncomingAuthHeaderMiddleware(this);
     }
 
-    void setCredentialCallOption(CredentialCallOption callOption) {
-      this.credentialCallOption = callOption;
+    private void setBearerCredentialCallOption(CredentialCallOption callOption) {
+      this.bearerCredentialCallOption = callOption;
     }
 
-    public CredentialCallOption getCredentialCallOption() {
-      return credentialCallOption;
+    public CredentialCallOption getBearerCredentialCallOption() {
+      return bearerCredentialCallOption;
     }
   }
 
@@ -64,12 +66,17 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+    if (null != factory.bearerCredentialCallOption) {
+      factory.bearerCredentialCallOption.getCredentialWriter().accept(outgoingHeaders);
+    } else {
+      factory.basicCredentialCallOption.getCredentialWriter().accept(outgoingHeaders);
+    }
   }
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-    factory.setCredentialCallOption(
-            factory.headerHandler.getCredentialCallOptionFromIncomingHeaders(incomingHeaders));
+    factory.setBearerCredentialCallOption(factory.headerHandler
+              .getCredentialCallOptionFromIncomingHeaders(incomingHeaders));
   }
 
   @Override

@@ -17,8 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import static java.util.Arrays.copyOf;
-
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -91,8 +89,7 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
-  private CredentialCallOption basicAuthCredentialCallOption;
-  private CredentialCallOption bearerAuthCredentialCallOption;
+  private boolean retryFlightCall = false;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
@@ -123,22 +120,10 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for the call.
    * @return FlightInfo Iterable
    */
-  public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
-    final Iterator<Flight.FlightInfo> flights;
-    // TODO: Handle the case where CredentialCallOption is supplied.
-    // TODO: Move the common pre-processing to helper method.
-    options = copyOf(options, options.length + 1);
-    options[options.length - 1] = bearerAuthCredentialCallOption;
-    CallOption[] finalOptions = options;
-    Supplier<Iterator<Flight.FlightInfo>> func = () -> CallOptions.wrapStub(blockingStub, finalOptions)
-            .listFlights(criteria.asCriteria());
-    try {
-      flights = func.get();
-    } catch (StatusRuntimeException sre) {
-      throw StatusUtils.fromGrpcRuntimeException(sre);
-    }
-
-    Iterator<Flight.FlightInfo> wrappedFlightIterator = new WrappedFlightIterator(flights, func, options);
+  public Iterable<FlightInfo> listFlights(Criteria criteria, final CallOption... options) {
+    Iterator<Flight.FlightInfo> wrappedFlightIterator = new WrappedFlightIterator<>(
+        () -> CallOptions.wrapStub(blockingStub, options)
+                .listFlights(criteria.asCriteria()), retryFlightCall);
     return () -> StatusUtils.wrapIterator(wrappedFlightIterator, t -> {
       try {
         return new FlightInfo(t);
@@ -148,24 +133,6 @@ public class FlightClient implements AutoCloseable {
         throw new RuntimeException(e);
       }
     });
-    //    return callApiWithRetry(o -> {
-    //      final Iterator<Flight.FlightInfo> flights;
-    //      try {
-    //        flights = CallOptions.wrapStub(blockingStub, options)
-    //                .listFlights(criteria.asCriteria());
-    //      } catch (StatusRuntimeException sre) {
-    //        throw StatusUtils.fromGrpcRuntimeException(sre);
-    //      }
-    //      return () -> StatusUtils.wrapIterator(flights, t -> {
-    //        try {
-    //          return new FlightInfo(t);
-    //        } catch (URISyntaxException e) {
-    //          // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-    //          // itself wouldn't be able to construct an invalid Location.
-    //          throw new RuntimeException(e);
-    //        }
-    //      });
-    //    }, options);
   }
 
   /**
@@ -177,7 +144,7 @@ public class FlightClient implements AutoCloseable {
     final Iterator<Flight.ActionType> actions;
     try {
       actions = CallOptions.wrapStub(blockingStub, options)
-              .listActions(Empty.getDefaultInstance());
+          .listActions(Empty.getDefaultInstance());
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
@@ -226,12 +193,13 @@ public class FlightClient implements AutoCloseable {
    */
   public Optional<CredentialCallOption> authenticateBasicToken(String username, String password) {
     final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
-            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler(),
+                    new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
     middleware.add(clientAuthMiddleware);
-    basicAuthCredentialCallOption = new CredentialCallOption(new BasicAuthCredentialWriter(username, password));
-    handshake(basicAuthCredentialCallOption);
-    bearerAuthCredentialCallOption = clientAuthMiddleware.getCredentialCallOption();
-    return Optional.ofNullable(bearerAuthCredentialCallOption);
+    handshake();
+    retryFlightCall = true;
+    // TODO: Update authenticateBasicToken to not return a bearer token to the client application.
+    return Optional.ofNullable(clientAuthMiddleware.getBearerCredentialCallOption());
   }
 
   /**
@@ -422,70 +390,53 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Helper Method to retry the Flight API call if it encounters FlightStatusCode.TOKEN_EXPIRED.
-   * @param func Function to execute.
-   * @param <T> The return type of the function.
-   * @return The result of the function.
-   */
-  private <T> T callApiWithRetry(Supplier<T> func) {
-    // TODO: Do the common Pre-processing here.
-    return func.get();
-  }
-
-  /**
-   * Wrapper class to wrap the iterator.
+   * Wrapper class to wrap the iterator and handle auth failures and retry.
    * @param <T> The type of iterator.
    */
-  public class WrappedFlightIterator<T> implements Iterator<T> {
-    private Iterator<T> itr;
-    Supplier<Iterator<T>> func;
-    private final CallOption[] options;
+  public static class WrappedFlightIterator<T> implements Iterator<T> {
+    final Supplier<Iterator<T>> supplier;
+    final Iterator<T> itr;
+    final boolean enableRetry;
 
     /**
-     * Public constructor TODO.
-     * @param iterator The iterator to use TODO.
-     * @param options Calloption to use TODO.
+     * WrappedFlightIterator constructor.
+     * @param supplier The iterator supplier.
+     * @param enableRetry Retry if first call fails.
      */
-    public WrappedFlightIterator(Iterator<T> iterator, Supplier<Iterator<T>> func, CallOption... options) {
-      this.itr = iterator;
-      this.func = func;
-      this.options = options;
+    public WrappedFlightIterator(Supplier<Iterator<T>> supplier, boolean enableRetry) {
+      this.supplier = supplier;
+      this.itr = supplier.get();
+      this.enableRetry = enableRetry;
     }
 
     @Override
     public boolean hasNext() {
       try {
         return itr.hasNext();
-      } catch (StatusRuntimeException ex) {
-        // Retry the API call when TOKEN_EXPIRED is encountered.
-        if (ex.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
-          //        Arrays.stream(options).anyMatch(o -> o instanceof CredentialCallOption).findFirst()
-          for (int i = 0; i < options.length; i++) {
-            if (options[i] instanceof CredentialCallOption) {
-              // TODO: Find a better way to differentiate between the type of credential writer being used.
-              options[i] = basicAuthCredentialCallOption;
-              break;
-            }
-          }
+      } catch (StatusRuntimeException e) {
+        if (enableRetry && e.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
+          // TODO: Retry Iterator from the last known position.
+          // TODO: Log the retry explicitly stating the token authentication failed and retrying
+          // the failed operation.
+          return supplier.get().hasNext();
         }
-        // TODO: Retry using Basic headers.
-        this.itr = func.get();
-        boolean hasNext = itr.hasNext();
-        for (FlightClientMiddleware.Factory factory : middleware) {
-          if (factory instanceof ClientIncomingAuthHeaderMiddleware.Factory) {
-            bearerAuthCredentialCallOption = (
-                    (ClientIncomingAuthHeaderMiddleware.Factory) factory)
-                    .getCredentialCallOption();
-            break;
-          }
-        }
-        return hasNext;
+        throw e;
       }
     }
 
     @Override
     public T next() {
-      return itr.next();
+      try {
+        return itr.next();
+      } catch (StatusRuntimeException e) {
+        if (enableRetry && e.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
+          // TODO: Retry Iterator from the last known position.
+          // TODO: Log the retry explicitly stating the token authentication failed and retrying
+          // the failed operation.
+          return supplier.get().next();
+        }
+        throw e;
+      }
     }
   }
 
