@@ -333,6 +333,14 @@ impl<R: Read> Reader<R> {
             }
         }
 
+        // Initialize batch_records with StringRecords so they
+        // can be reused accross batches
+        let mut batch_records = Vec::with_capacity(batch_size);
+        let record = StringRecord::new();
+        for _ in 0..batch_size {
+            batch_records.push(record.clone());
+        }
+
         Self {
             schema,
             projection,
@@ -340,7 +348,7 @@ impl<R: Read> Reader<R> {
             line_number: if has_header { start + 1 } else { start },
             batch_size,
             end,
-            batch_records: vec![],
+            batch_records,
         }
     }
 }
@@ -350,12 +358,7 @@ impl<R: Read> Iterator for Reader<R> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let remaining = self.end - self.line_number;
-        if self.batch_records.capacity() == 0 {
-            let record = StringRecord::new();
-            for _ in 0..self.batch_size {
-                self.batch_records.push(record.clone());
-            }
-        }
+
         let mut read_records = 0;
         for i in 0..min(self.batch_size, remaining) {
             match self.reader.read_record(&mut self.batch_records[i]) {
