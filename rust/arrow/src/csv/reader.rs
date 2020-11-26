@@ -335,14 +335,21 @@ impl<R: Read> Iterator for Reader<R> {
 
         let mut rows = Vec::with_capacity(self.batch_size);
 
-        for _ in 0..self.batch_size {
+        for i in 0..self.batch_size {
             match self.reader.read_record(&mut record) {
                 Ok(true) => rows.push(record.clone()),
                 Ok(false) => break,
-                Err(_) => return None, // TODO ERROR
+                Err(e) => {
+                    return Some(Err(ArrowError::ParseError(format!(
+                        "Error parsing line {}: {:?}",
+                        self.line_number + i,
+                        e
+                    ))))
+                }
             }
         }
 
+        // return early if no data was loaded
         if rows.is_empty() {
             return None;
         }
