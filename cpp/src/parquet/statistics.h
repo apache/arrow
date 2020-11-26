@@ -206,8 +206,8 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] null_count number of null values
   /// \param[in] distinct_count number of distinct values
   /// \param[in] has_min_max whether the min/max statistics are set
-  /// \param[in] has_null_count whether the min/max statistics are set
-  /// \param[in] has_distinct_count whether the min/max statistics are set
+  /// \param[in] has_null_count whether the null_count statistics are set
+  /// \param[in] has_distinct_count whether the distinct_count statistics are set
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
