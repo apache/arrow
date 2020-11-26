@@ -99,9 +99,8 @@ impl SqlDataSource for Postgres {
         batch_size: usize,
     ) -> Result<Vec<RecordBatch>> {
         // create iterator
-        let iterator = PostgresReadIterator::try_new(
-            connection, query, limit, batch_size
-        )?;
+        let iterator =
+            PostgresReadIterator::try_new(connection, query, limit, batch_size)?;
         iterator.collect()
     }
 }
@@ -151,11 +150,11 @@ impl PostgresReadIterator {
             .as_str(),
         )?;
         let batch = read_from_binary(reader, &self.schema)?;
-        println!(
-            "Read {} records from offset {}",
-            batch.num_rows(),
-            self.read_records
-        );
+        // println!(
+        //     "Read {} records from offset {}",
+        //     batch.num_rows(),
+        //     self.read_records
+        // );
         self.read_records += batch.num_rows();
         if batch.num_rows() == 0 {
             self.is_complete = true;
@@ -187,9 +186,7 @@ impl Iterator for PostgresReadIterator {
     type Item = arrow::error::Result<RecordBatch>;
     fn next(&mut self) -> Option<Self::Item> {
         self.read_batch()
-            .map_err(|e| {
-                arrow::error::ArrowError::SqlError(e.to_string())
-            })
+            .map_err(|e| arrow::error::ArrowError::SqlError(e.to_string()))
             .transpose()
     }
 }
@@ -566,7 +563,10 @@ where
             let col_length = i32::from_be_bytes(bytes);
             // populate offsets for types that need them
             match schema.field(i).data_type() {
-                DataType::Binary | DataType::LargeBinary | DataType::Utf8 | DataType::LargeUtf8 => {
+                DataType::Binary
+                | DataType::LargeBinary
+                | DataType::Utf8
+                | DataType::LargeUtf8 => {
                     offset_buffers[i].push(col_length);
                 }
                 DataType::FixedSizeBinary(binary_size) => {
@@ -665,8 +665,7 @@ where
                     );
                     arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
-                DataType::Binary
-                | DataType::Utf8 => {
+                DataType::Binary | DataType::Utf8 => {
                     // recontruct offsets
                     let mut offset = 0;
                     let mut offsets = vec![0];
@@ -685,8 +684,7 @@ where
                     );
                     arrays.push(arrow::array::make_array(Arc::new(data)))
                 }
-                DataType::LargeBinary
-                | DataType::LargeUtf8 => {
+                DataType::LargeBinary | DataType::LargeUtf8 => {
                     // recontruct offsets
                     let mut offset = 0i64;
                     let mut offsets = vec![0i64];

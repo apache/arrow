@@ -28,9 +28,9 @@ pub mod postgres;
 /// a SQL data source, used to read data from a SQL database into Arrow batches
 pub trait SqlDataSource {
     /// Get the schema of a table
-    /// 
-    /// A reader (e.g. DataFusion) is expected to use this even for queries, 
-    /// as it could be useful to know what a table looks like, before parsing 
+    ///
+    /// A reader (e.g. DataFusion) is expected to use this even for queries,
+    /// as it could be useful to know what a table looks like, before parsing
     /// its schema by projecting only the necessary columns
     fn get_table_schema(connection: &str, table_name: &str) -> Result<Schema>;
 
@@ -61,11 +61,8 @@ pub trait SqlDataSink {
     /// Create a new table from an Arrow schema reference
     ///
     /// TODO: provide options such as whether to overwrite existing table
-    fn create_table(
-        connection: &str,
-        table_name: &str,
-        schema: &SchemaRef,
-    ) -> Result<()>;
+    fn create_table(connection: &str, table_name: &str, schema: &SchemaRef)
+        -> Result<()>;
 
     /// Write record batches to a SQL table
     ///
