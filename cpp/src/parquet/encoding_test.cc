@@ -43,13 +43,6 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 
-// TODO(hatemhelal): investigate whether this can be replaced with GTEST_SKIP in a future
-// gtest release that contains https://github.com/google/googletest/pull/1544
-#define SKIP_TEST_IF(condition) \
-  if (condition) {              \
-    return;                     \
-  }
-
 namespace parquet {
 
 namespace test {
@@ -495,7 +488,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   void CheckDecodeArrowNonNullUsingDenseBuilder() {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
-      SKIP_TEST_IF(null_count_ > 0)
+      if (null_count_ > 0) {
+        GTEST_SKIP();
+      }
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
@@ -508,7 +503,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   void CheckDecodeArrowNonNullUsingDictBuilder() {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
-      SKIP_TEST_IF(null_count_ > 0)
+      if (null_count_ > 0) {
+        GTEST_SKIP();
+      }
       auto builder = CreateDictBuilder();
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, builder.get());
       CheckDict(actual_num_values, *builder);
