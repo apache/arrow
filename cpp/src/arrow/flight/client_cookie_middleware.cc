@@ -18,6 +18,7 @@
 #include "arrow/flight/client_cookie_middleware.h"
 
 #include <chrono>
+#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -192,10 +193,16 @@ struct Cookie {
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value_str.c_str(), cookie_attr_value_str.size(),
                 COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
+          std::cout << "seconds " << seconds << std::endl;
           cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
               std::chrono::seconds(seconds));
+          std::cout << "Expiration time - ";
+          std::cout << cookie.expiration_time_.time_since_epoch().count() << std::endl;
+          std::cout << "Now - ";
+          std::cout << std::chrono::system_clock::now().time_since_epoch().count() << std::endl;
         } else {
           // Force expiration.
+          std::cout << "Failed" << std::endl;
           cookie.expiration_time_ = std::chrono::system_clock::now();
         }
       }

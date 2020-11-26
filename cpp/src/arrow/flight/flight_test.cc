@@ -2566,8 +2566,8 @@ TEST_F(TestCookieMiddleware, Expires) {
   AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
-  AddAndValidate("id0=0; expires=Wed, 01 Jan 3000 22:15:36 GMT;");
-  AddAndValidate("id1=0; expires=Wed, 01 Jan 3000 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Fri, 01 Jan 2038 22:15:36 GMT");
   SetExpired("id0=0");
   AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
   SetExpired("id1=0");
