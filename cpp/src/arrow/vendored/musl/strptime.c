@@ -5,7 +5,6 @@
 
 #include <ctype.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -30,8 +29,6 @@
 
 char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__restrict tm)
 {
-	printf("strptime str '%s'\n", s);
-	printf("strptime fmt '%s'\n", f);
 	int i, w, neg, adj, min, range, *dest, dummy;
 #ifdef HAVE_LANGINFO
 	const char *ex;
@@ -40,7 +37,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 	int want_century = 0, century = 0, relyear = 0;
 	while (*f) {
 		if (*f != '%') {
-			printf("!= %%: %c\n", *f);
 			if (isspace(*f)) for (; *s && isspace(*s); s++);
 			else if (*s != *f) return 0;
 			else s++;
@@ -50,18 +46,12 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		f++;
 		if (*f == '+') f++;
 		if (isdigit(*f)) {
-			printf("isdigit %c\n", *f);
 			char *new_f;
 			w=strtoul(f, &new_f, 10);
 			f = new_f;
-		} else {
-			printf("else %c\n", *f);
-			w=-1;
-		}
+		} else { w=-1; }
 		adj=0;
-		char c = *f++;
-		printf("case %c\n", c);
-		switch (c) {
+		switch (*f++) {
 #ifdef HAVE_LANGINFO
 		case 'a': case 'A':
 			dest = &tm->tm_wday;
@@ -77,7 +67,7 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			s = strptime(s, nl_langinfo(D_T_FMT), tm);
 			if (!s) return 0;
 			break;
-#endif //%d %m %Y %H:%M:%S
+#endif
 		case 'C':
 			dest = &century;
 			if (w<0) w=2;
@@ -87,7 +77,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			dest = &tm->tm_mday;
 			min = 1;
 			range = 31;
-			printf("d\n");
 			goto numeric_range;
 		case 'D':
 			s = strptime(s, "%m/%d/%y", tm);
@@ -97,7 +86,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			dest = &tm->tm_hour;
 			min = 0;
 			range = 24;
-			printf("H\n");
 			goto numeric_range;
 		case 'I':
 			dest = &tm->tm_hour;
@@ -115,13 +103,11 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			min = 1;
 			range = 12;
 			adj = 1;
-			printf("m\n");
 			goto numeric_range;
 		case 'M':
 			dest = &tm->tm_min;
 			min = 0;
 			range = 60;
-			printf("M\n");
 			goto numeric_range;
 		case 'n': case 't':
 			for (; *s && isspace(*s); s++);
@@ -157,7 +143,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			dest = &tm->tm_sec;
 			min = 0;
 			range = 61;
-			printf("s\n");
 			goto numeric_range;
 		case 'T':
 			s = strptime(s, "%H:%M:%S", tm);
@@ -195,7 +180,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			if (w<0) w=4;
 			adj = 1900;
 			want_century = 0;
-			printf("Y\n");
 			goto numeric_digits;
 		case '%':
 			if (*s++ != '%') return 0;
@@ -203,18 +187,11 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		default:
 			return 0;
 		numeric_range:
-			printf("numeric_range\n");
-			if (!isdigit(*s)) {
-				printf("!isdigit %s\n", s);
-				return 0;
-			}
+			if (!isdigit(*s)) return 0;
 			*dest = 0;
 			for (i=1; i<=min+range && isdigit(*s); i*=10)
 				*dest = *dest * 10 + *s++ - '0';
-			if (*dest - min >= range) { 
-				printf("dest-min >= range %d %d >= %d\n", *dest, min, range);
-				return 0;
-			}
+			if (*dest - min >= range) return 0;
 			*dest -= adj;
 			switch((char *)dest - (char *)tm) {
 			case offsetof(struct tm, tm_yday):
@@ -222,14 +199,10 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			}
 			goto update;
 		numeric_digits:
-			printf("numeric_digits\n");
 			neg = 0;
 			if (*s == '+') s++;
 			else if (*s == '-') neg=1, s++;
-			if (!isdigit(*s)) {
-				printf("!isdigit %s\n", s);
-				return 0;
-			}
+			if (!isdigit(*s)) return 0;
 			for (*dest=i=0; i<w && isdigit(*s); i++)
 				*dest = *dest * 10 + *s++ - '0';
 			if (neg) *dest = -*dest;
@@ -258,6 +231,6 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		if (want_century & 2) tm->tm_year += century * 100 - 1900;
 		else if (tm->tm_year <= 68) tm->tm_year += 100;
 	}
-	printf("Returning %s\n", s);
 	return (char *)s;
 }
+ 

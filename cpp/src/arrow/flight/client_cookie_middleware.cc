@@ -18,7 +18,6 @@
 #include "arrow/flight/client_cookie_middleware.h"
 
 #include <chrono>
-#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -102,15 +101,12 @@ void FixDate(std::string* date) {
 
   // String is currently in regular format: 'Wed, 01 Jan 3000 22:15:36 GMT'
   // Start by removing semicolon and trimming space.
-  std::cout << "Before trim: " << *date << std::endl;
   *date = arrow::internal::TrimString(date->substr(date->find(",") + 1));
-  std::cout << "After trim: " << *date << std::endl;
 
   // String is now in trimmed format: '01 Jan 3000 22:15:36 GMT'
   // Now swap month to proper month format for Windows.
   // Start by removing case sensitivity.
   std::transform(date->begin(), date->end(), date->begin(), ::toupper);
-  std::cout << "After transform: " << *date << std::endl;
 
   // Loop through months.
   for (size_t i = 0; i < months.size(); i++) {
@@ -126,7 +122,6 @@ void FixDate(std::string* date) {
 
       // Replace symbolic month with numeric month.
       date->replace(it, months[i].length(), padded_month);
-      std::cout << "After transform: " << *date << std::endl;
 
       // String is now in format: '01 01 3000 22:15:36 GMT'.
       break;
@@ -136,13 +131,11 @@ void FixDate(std::string* date) {
   // String is now in format '01 01 3000 22:15:36'.
   auto it = date->find(" GMT");
   date->erase(it, 4);
-  std::cout << "After erase: " << *date << std::endl;
 
   // Sometimes a semicolon is added at the end, if this is the case, remove it.
   if (date->back() == ';') {
     date->pop_back();
   }
-  std::cout << "After pop: " << *date << std::endl;
 }
 
 struct Cookie {
@@ -196,12 +189,11 @@ struct Cookie {
         int64_t seconds = 0;
         FixDate(&cookie_attr_value_str);
         const char* COOKIE_EXPIRES_FORMAT = "%d %m %Y %H:%M:%S";
-        std::cout << "Cookie string: " << cookie_attr_value_str << std::endl;
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value_str.c_str(), cookie_attr_value_str.size(),
                 COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
           cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
-              std::chrono::seconds(static_cast<uint64_t>(seconds)));
+              std::chrono::seconds(seconds));
         } else {
           // Force expiration.
           cookie.expiration_time_ = std::chrono::system_clock::now();
@@ -214,16 +206,7 @@ struct Cookie {
 
   bool IsExpired() const {
     // Check if current-time is less than creation time.
-    if (has_expiry_) {
-      // Converting std::chrono time_points to uint64_t ticks because MinGW returns a
-      // negative number for large values.
-      uint64_t expiry_time =
-          static_cast<uint64_t>(expiration_time_.time_since_epoch().count());
-      uint64_t current_time = static_cast<uint64_t>(
-          std::chrono::system_clock::now().time_since_epoch().count());
-      return (expiry_time <= current_time);
-    }
-    return false;
+    return (has_expiry_ && (expiration_time_ <= std::chrono::system_clock::now()));
   }
 
   std::string AsCookieString() {
