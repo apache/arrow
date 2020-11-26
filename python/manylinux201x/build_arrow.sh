@@ -62,7 +62,7 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 mkdir -p /io/dist
 
 # Must pass PYTHON_VERSION env variable
-# possible values are: 3.5 3.6 3.7 3.8
+# possible values are: 3.6 3.7 3.8
 
 UNICODE_WIDTH=32  # Dummy value, irrelevant for Python 3
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
