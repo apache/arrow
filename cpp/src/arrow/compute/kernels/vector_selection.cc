@@ -1837,19 +1837,113 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   if (table.num_rows() != filter.length()) {
     return Status::Invalid("Filter inputs must all be the same length");
   }
-
-  // The selection vector "trick" cannot currently be easily applied on Table
-  // because either the filter or the columns may be ChunkedArray, so we use
-  // Filter recursively on the columns for now until a more efficient
-  // implementation of Take with chunked data is available.
-  auto new_columns = table.columns();
-  for (auto& column : new_columns) {
-    ARROW_ASSIGN_OR_RAISE(
-        Datum out_column,
-        Filter(column, filter, *static_cast<const FilterOptions*>(options), ctx));
-    column = out_column.chunked_array();
+  if (table.num_rows() == 0) {
+    return Table::Make(table.schema(), table.columns(), 0);
   }
-  return Table::Make(table.schema(), std::move(new_columns));
+
+  // Fetch filter chunks
+  const auto& filter_opts = *static_cast<const FilterOptions*>(options);
+  ArrayDataVector filter_chunks;
+  switch (filter.kind()) {
+    case Datum::ARRAY:
+      filter_chunks.push_back(filter.array());
+      break;
+    case Datum::CHUNKED_ARRAY: {
+      const auto& chunked_array = filter.chunked_array();
+      filter_chunks.reserve(chunked_array->num_chunks());
+      for (const auto& filter_chunk : chunked_array->chunks()) {
+        filter_chunks.push_back(filter_chunk->data());
+      }
+    } break;
+    default:
+      return Status::NotImplemented("Filter should be array-like");
+  }
+
+  // Instead of filtering each column with the boolean filter
+  // (which would be slow if the table has a large number of columns: ARROW-10569),
+  // convert each filter slice to take indices.
+  // We just have to be careful to choose the right filter slice size to match
+  // the table chunking.
+
+  const int num_columns = table.num_columns();
+  TableBatchReader batch_reader(table);
+  std::shared_ptr<RecordBatch> in_batch;
+  std::shared_ptr<ArrayData> filter_chunk;
+  auto filter_chunk_it = filter_chunks.begin();
+  int64_t row_index = 0;
+  int64_t in_batch_start_row = 0;
+  int64_t in_batch_offset = 0;
+  int64_t filter_chunk_start_row = 0;
+  int64_t filter_chunk_offset = 0;
+  std::vector<ArrayVector> out_columns(num_columns);
+  int64_t out_num_rows = 0;
+
+  // Fetch first batch
+  RETURN_NOT_OK(batch_reader.ReadNext(&in_batch));
+  DCHECK_NE(in_batch, nullptr);
+  // Fetch first filter chunk
+  filter_chunk = *filter_chunk_it++;
+
+  while (row_index < table.num_rows()) {
+    // Fetch next batch if necessary
+    if (row_index == in_batch_start_row + in_batch->num_rows()) {
+      in_batch_start_row += in_batch->num_rows();
+      in_batch_offset = 0;
+      RETURN_NOT_OK(batch_reader.ReadNext(&in_batch));
+      DCHECK_NE(in_batch, nullptr);
+    }
+    DCHECK_LT(row_index, in_batch_start_row + in_batch->num_rows());
+    // Fetch next filter chunk if necessary
+    if (row_index == filter_chunk_start_row + filter_chunk->length) {
+      filter_chunk_start_row += filter_chunk->length;
+      filter_chunk_offset = 0;
+      DCHECK_NE(filter_chunk_it, filter_chunks.end());
+      filter_chunk = *filter_chunk_it++;
+    }
+    DCHECK_LT(row_index, filter_chunk_start_row + filter_chunk->length);
+
+    // We'll take as many input batch rows as possible with the remaining filter array,
+    // while avoiding to cross chunk boundaries.
+    int64_t chunk_rows = std::min(in_batch->num_rows() - in_batch_offset,
+                                  filter_chunk->length - filter_chunk_offset);
+    DCHECK_GT(chunk_rows, 0);
+
+    // Compute take indices for the chunk
+    const auto filter_slice = filter_chunk->Slice(filter_chunk_offset, chunk_rows);
+    ARROW_ASSIGN_OR_RAISE(
+        const auto indices,
+        GetTakeIndices(*filter_slice, filter_opts.null_selection_behavior,
+                       ctx->memory_pool()));
+
+    if (indices->length > 0) {
+      // Take from all input batch columns
+      for (int i = 0; i < num_columns; ++i) {
+        const auto column_slice =
+            in_batch->column(i)->data()->Slice(in_batch_offset, chunk_rows);
+        ARROW_ASSIGN_OR_RAISE(Datum out, Take(column_slice, Datum(indices),
+                                              TakeOptions::NoBoundsCheck(), ctx));
+        out_columns[i].push_back(std::move(out).make_array());
+      }
+      out_num_rows += indices->length;
+    }
+
+    in_batch_offset += chunk_rows;
+    filter_chunk_offset += chunk_rows;
+    row_index += chunk_rows;
+  }
+  // All pointers at end
+  DCHECK_EQ(row_index, table.num_rows());
+  DCHECK_EQ(in_batch_offset, in_batch->num_rows());
+  DCHECK_EQ(filter_chunk_offset, filter_chunk->length);
+  DCHECK_EQ(in_batch_start_row + in_batch_offset, row_index);
+  DCHECK_EQ(filter_chunk_start_row + filter_chunk_offset, row_index);
+
+  ChunkedArrayVector out_chunks(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    out_chunks[i] = std::make_shared<ChunkedArray>(std::move(out_columns[i]),
+                                                   table.column(i)->type());
+  }
+  return Table::Make(table.schema(), std::move(out_chunks), out_num_rows);
 }
 
 static auto kDefaultFilterOptions = FilterOptions::Defaults();
