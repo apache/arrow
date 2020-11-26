@@ -49,7 +49,9 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			char *new_f;
 			w=strtoul(f, &new_f, 10);
 			f = new_f;
-		} else { w=-1; }
+		} else { 
+			w=-1; 
+		}
 		adj=0;
 		switch (*f++) {
 #ifdef HAVE_LANGINFO
@@ -233,4 +235,3 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 	}
 	return (char *)s;
 }
- 
