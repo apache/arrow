@@ -138,11 +138,17 @@ struct RBytesView {
   }
 
   Status ParseRaw(RScalar* value) {
-    if (value->rtype != BINARY) {
-      return Status::Invalid("cannot parse binary");
+    SEXP raw;
+
+    if (value->rtype == LIST || value->rtype == BINARY) {
+      raw = *reinterpret_cast<SEXP*>(value->data);
+      if (TYPEOF(raw) != RAWSXP) {
+        return Status::Invalid("can only handle RAW vectors");
+      }
+    } else {
+      return Status::NotImplemented("cannot parse binary with RBytesView::ParseRaw()");
     }
 
-    SEXP raw = *reinterpret_cast<SEXP*>(value->data);
     bytes = reinterpret_cast<const char*>(RAW_RO(raw));
     size = XLENGTH(raw);
     is_utf8 = false;
@@ -164,7 +170,7 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to bool");
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const RConversionOptions&,
@@ -176,7 +182,7 @@ class RValue {
   static Result<float> Convert(const FloatType*, const RConversionOptions&,
                                RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to float");
   }
 
   static Result<double> Convert(const DoubleType*, const RConversionOptions&,
@@ -187,7 +193,7 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to double");
   }
 
   static Result<uint8_t> Convert(const UInt8Type*, const RConversionOptions&,
@@ -198,25 +204,25 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to uint8");
   }
 
   static Result<int8_t> Convert(const Int8Type*, const RConversionOptions&,
                                 RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to int8");
   }
 
   static Result<int16_t> Convert(const Int16Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to int16");
   }
 
   static Result<uint16_t> Convert(const UInt16Type*, const RConversionOptions&,
                                   RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to uint16");
   }
 
   static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
@@ -227,13 +233,13 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to int32");
   }
 
   static Result<uint32_t> Convert(const UInt32Type*, const RConversionOptions&,
                                   RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to uint32");
   }
 
   static Result<int64_t> Convert(const Int64Type*, const RConversionOptions&,
@@ -250,43 +256,43 @@ class RValue {
   static Result<uint64_t> Convert(const UInt64Type*, const RConversionOptions&,
                                   RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to uint64");
   }
 
   static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to date32");
   }
 
   static Result<int64_t> Convert(const Date64Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to date64");
   }
 
   static Result<int32_t> Convert(const Time32Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to time32");
   }
 
   static Result<int64_t> Convert(const Time64Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to time64");
   }
 
   static Result<Decimal128> Convert(const Decimal128Type*, const RConversionOptions&,
                                     RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to decimal128");
   }
 
   static Result<Decimal256> Convert(const Decimal256Type*, const RConversionOptions&,
                                     RScalar* value) {
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to decimal256");
   }
 
   template <typename T>
@@ -301,17 +307,25 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to string");
   }
 
   static Status Convert(const BaseBinaryType*, const RConversionOptions&, RScalar* value,
                         RBytesView& view) {
-    if (value->rtype == BINARY) {
-      return view.ParseRaw(value);
+    switch (value->rtype) {
+      case BINARY:
+      case LIST:
+        return view.ParseRaw(value);
+
+      case STRING:
+        return Status::NotImplemented("conversion string -> binary");
+
+      default:
+        break;
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::Invalid("invalid conversion to binary");
   }
 
   static Status Convert(const FixedSizeBinaryType* type, const RConversionOptions&,
@@ -319,9 +333,8 @@ class RValue {
     ARROW_RETURN_NOT_OK(view.ParseRaw(value));
     if (view.size != type->byte_width()) {
       return Status::Invalid("invalid size");
-    } else {
-      return Status::OK();
     }
+    return Status::OK();
   }
 };
 
@@ -439,6 +452,10 @@ inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
 
     case INTEGER64:
       return VisitInt64Vector<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
+
+    case BINARY:
+      return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
 
     case LIST:
       return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
