@@ -23,7 +23,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -615,11 +614,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   char* ret = strptime(clean_copy.c_str(), format, &result);
 #endif
   if (ret == NULLPTR) {
-    std::cout << "NULLPTR" << std::endl;
     return false;
   }
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
-    std::cout << "!NULLPTR" << std::endl;
     return false;
   }
   // ignore the time part
