@@ -58,7 +58,7 @@ enum RVectorType {
   UINT8,
   INT32,
   FLOAT64,
-  INTEGER64,
+  INT64,
   COMPLEX,
   STRING,
   DATAFRAME,
@@ -88,8 +88,10 @@ RVectorType GetVectorType(SEXP x) {
     case CPLXSXP:
       return COMPLEX;
     case REALSXP: {
-      if (Rf_inherits(x, "integer64")) {
-        return INTEGER64;
+      if (Rf_inherits(x, "Date")) {
+        return DATE;
+      } else if (Rf_inherits(x, "integer64")) {
+        return INT64;
       } else if (Rf_inherits(x, "POSIXct")) {
         return TIMESTAMP;
       } else if (Rf_inherits(x, "difftime")) {
@@ -245,7 +247,7 @@ class RValue {
   static Result<int64_t> Convert(const Int64Type*, const RConversionOptions&,
                                  RScalar* value) {
     // TODO: handle conversion from other types
-    if (value->rtype == INTEGER64) {
+    if (value->rtype == INT64) {
       return *reinterpret_cast<int64_t*>(value->data);
     }
 
@@ -261,13 +263,23 @@ class RValue {
 
   static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
                                  RScalar* value) {
+    if (value->rtype == DATE) {
+      return static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
+    }
+
     // TODO: improve error
     return Status::Invalid("invalid conversion to date32");
   }
 
   static Result<int64_t> Convert(const Date64Type*, const RConversionOptions&,
                                  RScalar* value) {
-    // TODO: improve error
+    constexpr static int64_t kMillisecondsPerDay = 86400000;
+
+    if (value->rtype == DATE) {
+      return static_cast<int64_t>(*reinterpret_cast<double*>(value->data) *
+                                  kMillisecondsPerDay);
+    }
+
     return Status::Invalid("invalid conversion to date64");
   }
 
@@ -390,7 +402,7 @@ inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
 
 template <class VisitorFunc>
 inline Status VisitInt64Vector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
-  RScalar obj{INTEGER64, nullptr, false};
+  RScalar obj{INT64, nullptr, false};
   cpp11::doubles values(x);
   for (double value : values) {
     obj.data = reinterpret_cast<void*>(&value);
@@ -446,11 +458,15 @@ inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
     case FLOAT64:
       return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
+    case DATE:
+      return VisitRPrimitiveVector<DATE, double, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
+
     case STRING:
       return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
 
-    case INTEGER64:
+    case INT64:
       return VisitInt64Vector<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
 
     case BINARY:
