@@ -50,12 +50,10 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
+use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-use crate::{
-    array::{ArrayRef, PrimitiveArray, StringBuilder},
-};
 
 use self::csv_crate::{Error, StringRecord};
 
