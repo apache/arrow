@@ -164,6 +164,19 @@ pub enum LogicalPlan {
         /// The schema description of the output
         projected_schema: SchemaRef,
     },
+    /// Produces records by scanning a SQL database
+    SqlScan {
+        /// The database connection
+        connection: String,
+        /// The SQL query executed
+        query: String,
+        /// The schema of the query
+        schema: SchemaRef,
+        /// Optional column indices to use as projection
+        projection: Option<Vec<usize>>,
+        /// The schema description of the output
+        projected_schema: SchemaRef,
+    },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
         /// Whether to produce a placeholder row
@@ -222,6 +235,9 @@ impl LogicalPlan {
                 projected_schema, ..
             } => &projected_schema,
             LogicalPlan::ParquetScan {
+                projected_schema, ..
+            } => &projected_schema,
+            LogicalPlan::SqlScan {
                 projected_schema, ..
             } => &projected_schema,
             LogicalPlan::TableScan {
@@ -330,6 +346,7 @@ impl LogicalPlan {
             | LogicalPlan::InMemoryScan { .. }
             | LogicalPlan::ParquetScan { .. }
             | LogicalPlan::CsvScan { .. }
+            | LogicalPlan::SqlScan { .. }
             | LogicalPlan::EmptyRelation { .. }
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. } => true,
@@ -546,6 +563,11 @@ impl LogicalPlan {
                         ref projection,
                         ..
                     } => write!(f, "ParquetScan: {} projection={:?}", path, projection),
+                    LogicalPlan::SqlScan {
+                        ref query,
+                        ref projection,
+                        ..
+                    } => write!(f, "SqlScan: {} projection={:?}", query, projection),
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
                         for i in 0..expr.len() {

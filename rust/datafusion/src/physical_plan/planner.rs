@@ -38,6 +38,7 @@ use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
+use crate::physical_plan::sql::SqlExec;
 use crate::physical_plan::udf;
 use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
@@ -185,6 +186,17 @@ impl DefaultPhysicalPlanner {
                 path, projection, ..
             } => Ok(Arc::new(ParquetExec::try_new(
                 path,
+                projection.to_owned(),
+                batch_size,
+            )?)),
+            LogicalPlan::SqlScan {
+                connection,
+                query,
+                projection,
+                ..
+            } => Ok(Arc::new(SqlExec::try_new(
+                connection,
+                query,
                 projection.to_owned(),
                 batch_size,
             )?)),

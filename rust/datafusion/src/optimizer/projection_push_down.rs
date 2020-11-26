@@ -329,6 +329,28 @@ fn optimize_plan(
                 projected_schema: projected_schema,
             })
         }
+        LogicalPlan::SqlScan {
+            connection,
+            query,
+            schema,
+            projection,
+            ..
+        } => {
+            let (projection, projected_schema) = get_projected_schema(
+                &schema,
+                projection,
+                required_columns,
+                has_projection,
+            )?;
+
+            Ok(LogicalPlan::SqlScan {
+                connection: connection.to_owned(),
+                query: query.to_owned(),
+                schema: schema.clone(),
+                projection: Some(projection),
+                projected_schema,
+            })
+        }
         LogicalPlan::Explain {
             verbose,
             plan,

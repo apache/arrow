@@ -28,9 +28,11 @@ use futures::{StreamExt, TryStreamExt};
 use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
+use parquet::arrow::ArrowWriter;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
+use crate::datasource::sql::SqlTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
@@ -53,7 +55,6 @@ use crate::sql::{
 };
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
-use parquet::arrow::ArrowWriter;
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -240,6 +241,28 @@ impl ExecutionContext {
         )))
     }
 
+    /// Creates a DataFrame for reading a SQL data source.
+    pub fn read_sql_source(
+        &mut self,
+        connection: &str,
+        query: &str,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let sql = SqlTable::try_new(connection, query)?;
+
+        let table_scan = LogicalPlan::SqlScan {
+            connection: connection.to_string(),
+            query: query.to_string(),
+            schema: sql.schema().clone(),
+            projection: None,
+            projected_schema: sql.schema(),
+        };
+
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
     /// Creates a DataFrame for reading a custom TableProvider
     pub fn read_table(
         &mut self,
@@ -275,6 +298,19 @@ impl ExecutionContext {
     /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
         let table = ParquetTable::try_new(&filename)?;
+        self.register_table(name, Box::new(table));
+        Ok(())
+    }
+
+    /// Register a SQL data source so that it can be referenced from SQL statements
+    /// executed against this context.
+    pub fn register_sql_source(
+        &mut self,
+        name: &str,
+        connection: &str,
+        query: &str,
+    ) -> Result<()> {
+        let table = SqlTable::try_new(&connection, &query)?;
         self.register_table(name, Box::new(table));
         Ok(())
     }

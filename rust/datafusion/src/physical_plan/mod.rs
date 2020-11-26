@@ -245,6 +245,7 @@ pub mod parquet;
 pub mod planner;
 pub mod projection;
 pub mod sort;
+pub mod sql;
 pub mod string_expressions;
 pub mod type_coercion;
 pub mod udaf;
