@@ -56,7 +56,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-use self::csv_crate::{Error, StringRecord};
+use self::csv_crate::StringRecord;
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -234,8 +234,7 @@ pub struct Reader<R: Read> {
     end: usize,
     // number of records per batch
     batch_size: usize,
-
-    // String records
+    // Vector that can hold the string records of the batches
     rows: Vec<StringRecord>,
 }
 
@@ -320,12 +319,14 @@ impl<R: Read> Reader<R> {
             Some((start, end)) => (start, end),
         };
 
-        let rows = Vec::with_capacity(batch_size);
+        // First we will skip `start` rows
+        // note that this skips by iteration. This is because in general it is not possible
+        // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
+        // which is a slow operation that scales with the number of columns
 
         let mut record = StringRecord::new();
-        let start_line = if has_header { start + 1 } else { start };
         // skip first start_line items
-        for _ in 0..start_line {
+        for _ in 0..start {
             let res = csv_reader.read_record(&mut record);
             if !res.unwrap_or(false) {
                 break;
@@ -336,10 +337,10 @@ impl<R: Read> Reader<R> {
             schema,
             projection,
             reader: csv_reader,
-            line_number: start_line,
+            line_number: if has_header { start + 1 } else { start },
             batch_size,
             end,
-            rows,
+            rows: vec![],
         }
     }
 }
@@ -348,12 +349,19 @@ impl<R: Read> Iterator for Reader<R> {
     type Item = Result<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut record = StringRecord::new();
-        self.rows.clear();
         let remaining = self.end - self.line_number;
+        if self.rows.capacity() == 0 {
+            let record = StringRecord::new();
+            for _ in 0..self.batch_size {
+                self.rows.push(record.clone());
+            }
+        }
+        let mut read_records = 0;
         for i in 0..min(self.batch_size, remaining) {
-            match self.reader.read_record(&mut record) {
-                Ok(true) => self.rows.push(record.clone()),
+            match self.reader.read_record(&mut self.rows[i]) {
+                Ok(true) => {
+                    read_records += 1;
+                }
                 Ok(false) => break,
                 Err(e) => {
                     return Some(Err(ArrowError::ParseError(format!(
@@ -366,13 +374,13 @@ impl<R: Read> Iterator for Reader<R> {
         }
 
         // return early if no data was loaded
-        if self.rows.is_empty() {
+        if read_records == 0 {
             return None;
         }
 
         // parse the batches into a RecordBatch
         let result = parse(
-            &self.rows,
+            &self.rows[..read_records],
             &self.schema.fields(),
             &self.projection,
             self.line_number,
