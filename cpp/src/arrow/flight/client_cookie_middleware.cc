@@ -195,7 +195,7 @@ struct Cookie {
         cookie.has_expiry_ = true;
         int64_t seconds = 0;
         FixDate(&cookie_attr_value_str);
-        const char* COOKIE_EXPIRES_FORMAT = "%d %m %Y %H:%M:%S GMT";
+        const char* COOKIE_EXPIRES_FORMAT = "%d %m %Y %H:%M:%S";
         std::cout << "Cookie string: " << cookie_attr_value_str << std::endl;
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value_str.c_str(), cookie_attr_value_str.size(),
