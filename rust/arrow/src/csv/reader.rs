@@ -233,6 +233,9 @@ pub struct Reader<R: Read> {
     end: usize,
     // number of records per batch
     batch_size: usize,
+
+    // String records
+    rows: Vec<StringRecord>
 }
 
 impl<R> fmt::Debug for Reader<R>
@@ -316,6 +319,8 @@ impl<R: Read> Reader<R> {
             Some((start, end)) => (start, end),
         };
 
+        let rows = Vec::with_capacity(batch_size);
+
         Self {
             schema,
             projection,
@@ -323,6 +328,7 @@ impl<R: Read> Reader<R> {
             line_number: if has_header { start + 1 } else { start },
             batch_size,
             end,
+            rows
         }
     }
 }
@@ -332,12 +338,10 @@ impl<R: Read> Iterator for Reader<R> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut record = StringRecord::new();
-
-        let mut rows = Vec::with_capacity(self.batch_size);
-
+        self.rows.clear();
         for i in 0..self.batch_size {
             match self.reader.read_record(&mut record) {
-                Ok(true) => rows.push(record.clone()),
+                Ok(true) => self.rows.push(record.clone()),
                 Ok(false) => break,
                 Err(e) => {
                     return Some(Err(ArrowError::ParseError(format!(
@@ -350,19 +354,19 @@ impl<R: Read> Iterator for Reader<R> {
         }
 
         // return early if no data was loaded
-        if rows.is_empty() {
+        if self.rows.is_empty() {
             return None;
         }
 
         // parse the batches into a RecordBatch
         let result = parse(
-            &rows,
+            &self.rows,
             &self.schema.fields(),
             &self.projection,
             self.line_number,
         );
 
-        self.line_number += rows.len();
+        self.line_number += self.rows.len();
 
         Some(result)
     }
