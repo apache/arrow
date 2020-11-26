@@ -325,7 +325,7 @@ impl<R: Read> Reader<R> {
         // which is a slow operation that scales with the number of columns
 
         let mut record = StringRecord::new();
-        // skip first start_line items
+        // skip first start items
         for _ in 0..start {
             let res = csv_reader.read_record(&mut record);
             if !res.unwrap_or(false) {
