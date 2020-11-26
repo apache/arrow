@@ -42,11 +42,11 @@
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use std::collections::HashSet;
+use std::fmt;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
-use std::{collections::HashSet, iter::Skip};
-use std::{fmt, iter::Take};
 
 use csv as csv_crate;
 
@@ -55,10 +55,9 @@ use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 use crate::{
     array::{ArrayRef, PrimitiveArray, StringBuilder},
-    util::buffered_iterator::Buffered,
 };
 
-use self::csv_crate::{Error, StringRecord, StringRecordsIntoIter};
+use self::csv_crate::{Error, StringRecord};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -229,10 +228,13 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter:
-        Buffered<Skip<Take<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
+    reader: csv_crate::Reader<BufReader<R>>,
     /// Current line number
     line_number: usize,
+    // max rows
+    end: usize,
+    // number of records per batch
+    batch_size: usize,
 }
 
 impl<R> fmt::Debug for Reader<R>
@@ -310,26 +312,19 @@ impl<R: Read> Reader<R> {
         }
 
         let csv_reader = reader_builder.from_reader(buf_reader);
-        let record_iter = csv_reader.into_records();
 
         let (start, end) = match bounds {
             None => (0, usize::MAX),
             Some((start, end)) => (start, end),
         };
-        // Create an iterator that:
-        // * skips the first `start` items
-        // * runs up to `end` items
-        // * buffers `batch_size` items
-        // note that this skips by iteration. This is because in general it is not possible
-        // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
-        // which is a slow operation that scales with the number of columns
-        let record_iter = Buffered::new(record_iter.take(end).skip(start), batch_size);
 
         Self {
             schema,
             projection,
-            record_iter,
+            reader: csv_reader,
             line_number: if has_header { start + 1 } else { start },
+            batch_size,
+            end,
         }
     }
 }
@@ -338,19 +333,18 @@ impl<R: Read> Iterator for Reader<R> {
     type Item = Result<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let rows = match self.record_iter.next() {
-            Some(Ok(r)) => r,
-            Some(Err(e)) => {
-                return Some(Err(ArrowError::ParseError(format!(
-                    "Error parsing line {}: {:?}",
-                    self.line_number + self.record_iter.n(),
-                    e
-                ))));
-            }
-            None => return None,
-        };
+        let mut record = StringRecord::new();
 
-        // return early if no data was loaded
+        let mut rows = Vec::with_capacity(self.batch_size);
+
+        for _ in 0..self.batch_size {
+            match self.reader.read_record(&mut record) {
+                Ok(true) => rows.push(record.clone()),
+                Ok(false) => break,
+                Err(_) => return None, // TODO ERROR
+            }
+        }
+
         if rows.is_empty() {
             return None;
         }
