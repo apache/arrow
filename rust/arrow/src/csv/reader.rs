@@ -40,6 +40,7 @@
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
+use core::cmp::min;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
@@ -312,7 +313,7 @@ impl<R: Read> Reader<R> {
             reader_builder.delimiter(c);
         }
 
-        let csv_reader = reader_builder.from_reader(buf_reader);
+        let mut csv_reader = reader_builder.from_reader(buf_reader);
 
         let (start, end) = match bounds {
             None => (0, usize::MAX),
@@ -321,11 +322,21 @@ impl<R: Read> Reader<R> {
 
         let rows = Vec::with_capacity(batch_size);
 
+        let mut record = StringRecord::new();
+        let start_line = if has_header { start + 1 } else { start };
+        // skip first start_line items
+        for _ in 0..start_line {
+            let res = csv_reader.read_record(&mut record);
+            if !res.unwrap_or(false) {
+                break;
+            }
+        }
+
         Self {
             schema,
             projection,
             reader: csv_reader,
-            line_number: if has_header { start + 1 } else { start },
+            line_number: start_line,
             batch_size,
             end,
             rows,
