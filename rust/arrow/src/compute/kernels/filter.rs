@@ -325,7 +325,7 @@ impl FilterContext {
         let filter_bytes = filter_buffer.data();
 
         // add to the resulting len so is is a multiple of the size of u64
-        let pad_addional_len = (8 - filter_bytes.len() % 8) % 8;
+        let pad_addional_len = 8 - filter_bytes.len() % 8;
 
         // transmute filter_bytes to &[u64]
         let mut u64_buffer = MutableBuffer::new(filter_bytes.len() + pad_addional_len);
