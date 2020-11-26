@@ -351,6 +351,15 @@ TEST(TestAdapterWriteConverter, typeFixedSizeListZero) {
   EXPECT_EQ(out->getKind(), liborc::TypeKind::LIST);
   EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::INT);
 }
+TEST(TestAdapterWriteConverter, typeStructTrivial) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  auto sharedPtrArrowType = struct_(xFields);
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 0);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::STRUCT);
+}
 TEST(TestAdapterWriteConverter, typeStructSingleton) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -388,6 +397,26 @@ TEST(TestAdapterWriteConverter, typeMap) {
   EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
   EXPECT_EQ(out->getSubtype(1)->getKind(), liborc::TypeKind::INT);
 }
+TEST(TestAdapterWriteConverter, typeDenseUnionTrivial) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  auto sharedPtrArrowType = dense_union(xFields);
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 0);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::UNION);
+}
+TEST(TestAdapterWriteConverter, typeDenseUnionSingleton) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  xFields.push_back(std::make_shared<Field>("a", utf8()));
+  auto sharedPtrArrowType = dense_union(xFields);
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::UNION);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
+}
 TEST(TestAdapterWriteConverter, typeDenseUnion) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -401,6 +430,26 @@ TEST(TestAdapterWriteConverter, typeDenseUnion) {
   EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
   EXPECT_EQ(out->getSubtype(1)->getKind(), liborc::TypeKind::INT);
 }
+TEST(TestAdapterWriteConverter, typeSparseUnionTrivial) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  auto sharedPtrArrowType = sparse_union(xFields);
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 0);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::UNION);
+}
+TEST(TestAdapterWriteConverter, typeSparseUnionSingleton) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  xFields.push_back(std::make_shared<Field>("b", int32()));
+  auto sharedPtrArrowType = sparse_union(xFields);
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::UNION);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::INT);
+}
 TEST(TestAdapterWriteConverter, typeSparseUnion) {
   std::vector<std::shared_ptr<Field>> xFields;
   xFields.push_back(std::make_shared<Field>("a", utf8()));
@@ -413,6 +462,118 @@ TEST(TestAdapterWriteConverter, typeSparseUnion) {
   EXPECT_EQ(out->getKind(), liborc::TypeKind::UNION);
   EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
   EXPECT_EQ(out->getSubtype(1)->getKind(), liborc::TypeKind::INT);
+}
+TEST(TestAdapterWriteConverter, typeListOfList) {
+  auto sharedPtrArrowSubtype = list(std::make_shared<Field>("a", int32()));
+  auto sharedPtrArrowType = list(std::make_shared<Field>("a", sharedPtrArrowSubtype));
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getKind(), liborc::TypeKind::INT);
+}
+TEST(TestAdapterWriteConverter, typeListOfMap) {
+  auto sharedPtrArrowSubtype = map(utf8(), int32());
+  auto sharedPtrArrowType = list(std::make_shared<Field>("a", sharedPtrArrowSubtype));
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtypeCount(), 2);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::MAP);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(1)->getKind(), liborc::TypeKind::INT);
+}
+TEST(TestAdapterWriteConverter, typeListOfStructOfLists) {
+  auto sharedPtrArrowSubsubtype0 = list(std::make_shared<Field>("a", int8()));
+  auto sharedPtrArrowSubsubtype1 = list(std::make_shared<Field>("b", float64()));
+  auto sharedPtrArrowSubsubtype2 = list(std::make_shared<Field>("c", date32()));
+  std::vector<std::shared_ptr<Field>> xFields;
+  xFields.push_back(std::make_shared<Field>("a", sharedPtrArrowSubsubtype0));
+  xFields.push_back(std::make_shared<Field>("b", sharedPtrArrowSubsubtype1));
+  xFields.push_back(std::make_shared<Field>("c", sharedPtrArrowSubsubtype2));
+  auto sharedPtrArrowSubtype = struct_(xFields);
+  auto sharedPtrArrowType = list(std::make_shared<Field>("x", sharedPtrArrowSubtype));
+  DataType* type = sharedPtrArrowType.get();
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(type, &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtypeCount(), 3);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRUCT);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(1)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(1)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(2)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(2)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getSubtype(0)->getKind(),
+            liborc::TypeKind::BYTE);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(1)->getSubtype(0)->getKind(),
+            liborc::TypeKind::DOUBLE);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(2)->getSubtype(0)->getKind(),
+            liborc::TypeKind::DATE);
+}
+TEST(TestAdapterWriteConverter, schemaTrivial) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(sharedPtrSchema.get(), &out));
+  EXPECT_EQ(out->getSubtypeCount(), 0);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::STRUCT);
+}
+TEST(TestAdapterWriteConverter, schemaSingleton) {
+  std::vector<std::shared_ptr<Field>> xFields;
+  xFields.push_back(std::make_shared<Field>("a", utf8()));
+  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(sharedPtrSchema.get(), &out));
+  EXPECT_EQ(out->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::STRUCT);
+  EXPECT_EQ(out->getFieldName(0), "a");
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::STRING);
+}
+TEST(TestAdapterWriteConverter, schemaMixed1) {
+  auto sharedPtrArrowSubsubtype0 = list(std::make_shared<Field>("a", large_utf8()));
+  auto sharedPtrArrowSubtype0 =
+      list(std::make_shared<Field>("a", sharedPtrArrowSubsubtype0));
+  auto sharedPtrArrowSubtype1 = list(std::make_shared<Field>("b", decimal(30, 4)));
+  auto sharedPtrArrowSubtype2 =
+      list(std::make_shared<Field>("c", timestamp(TimeUnit::type::MICRO)));
+  std::vector<std::shared_ptr<Field>> xFields;
+  xFields.push_back(std::make_shared<Field>("a", sharedPtrArrowSubtype0));
+  xFields.push_back(std::make_shared<Field>("b", sharedPtrArrowSubtype1));
+  xFields.push_back(std::make_shared<Field>("c", sharedPtrArrowSubtype2));
+  xFields.push_back(std::make_shared<Field>("d", boolean()));
+  xFields.push_back(std::make_shared<Field>("e", fixed_size_binary(5)));
+  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  ORC_UNIQUE_PTR<liborc::Type> out;
+  (void)(adapters::orc::GetORCType(sharedPtrSchema.get(), &out));
+  EXPECT_EQ(out->getSubtypeCount(), 5);
+  EXPECT_EQ(out->getKind(), liborc::TypeKind::STRUCT);
+  EXPECT_EQ(out->getFieldName(0), "a");
+  EXPECT_EQ(out->getFieldName(1), "b");
+  EXPECT_EQ(out->getFieldName(2), "c");
+  EXPECT_EQ(out->getFieldName(3), "d");
+  EXPECT_EQ(out->getFieldName(4), "e");
+  EXPECT_EQ(out->getSubtype(0)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(1)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(1)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(2)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(2)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(3)->getKind(), liborc::TypeKind::BOOLEAN);
+  EXPECT_EQ(out->getSubtype(4)->getKind(), liborc::TypeKind::BINARY);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getSubtypeCount(), 1);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getKind(), liborc::TypeKind::LIST);
+  EXPECT_EQ(out->getSubtype(1)->getSubtype(0)->getKind(), liborc::TypeKind::DECIMAL);
+  EXPECT_EQ(out->getSubtype(2)->getSubtype(0)->getKind(), liborc::TypeKind::TIMESTAMP);
+  EXPECT_EQ(out->getSubtype(0)->getSubtype(0)->getSubtype(0)->getKind(),
+            liborc::TypeKind::STRING);
 }
 
 // WriteORC tests
