@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iosteam>
 #include <limits>
 #include <memory>
 #include <string>
@@ -613,6 +614,12 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
 #else
   char* ret = strptime(clean_copy.c_str(), format, &result);
 #endif
+  std::cout << "tm_year " << result.tm_year << std::endl;
+  std::cout << "tm_mon " << result.tm_mon << std::endl;
+  std::cout << "tm_mday " << result.tm_mday << std::endl;
+  std::cout << "tm_min " << result.tm_min << std::endl;
+  std::cout << "tm_sec " << result.tm_sec << std::endl;
+  std::cout << "tm_hour " << result.tm_hour << std::endl;
   if (ret == NULLPTR) {
     return false;
   }

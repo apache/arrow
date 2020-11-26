@@ -30,7 +30,8 @@
 
 char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__restrict tm)
 {
-	printf("strptime\n");
+	printf("strptime str '%s'\n", s);
+	printf("strptime fmt '%s'\n", f);
 	int i, w, neg, adj, min, range, *dest, dummy;
 #ifdef HAVE_LANGINFO
 	const char *ex;
