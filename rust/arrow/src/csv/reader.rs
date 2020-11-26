@@ -235,7 +235,7 @@ pub struct Reader<R: Read> {
     batch_size: usize,
 
     // String records
-    rows: Vec<StringRecord>
+    rows: Vec<StringRecord>,
 }
 
 impl<R> fmt::Debug for Reader<R>
@@ -328,7 +328,7 @@ impl<R: Read> Reader<R> {
             line_number: if has_header { start + 1 } else { start },
             batch_size,
             end,
-            rows
+            rows,
         }
     }
 }
@@ -339,7 +339,8 @@ impl<R: Read> Iterator for Reader<R> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut record = StringRecord::new();
         self.rows.clear();
-        for i in 0..self.batch_size {
+        let remaining = self.end - self.line_number;
+        for i in 0..min(self.batch_size, remaining) {
             match self.reader.read_record(&mut record) {
                 Ok(true) => self.rows.push(record.clone()),
                 Ok(false) => break,
