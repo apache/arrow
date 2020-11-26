@@ -128,7 +128,7 @@ void FixDate(std::string* date) {
       break;
     }
   }
-  
+
   // String is now in format '01 01 3000 22:15:36'.
   auto it = date->find(" GMT");
   date->erase(it, 4);
