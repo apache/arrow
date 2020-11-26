@@ -18,6 +18,7 @@
 #include "arrow/flight/client_cookie_middleware.h"
 
 #include <chrono>
+#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -39,6 +40,8 @@ struct CaseInsensitiveComparator
   }
 };
 
+using CookiePair = arrow::util::optional<std::pair<std::string, std::string>>;
+
 /// \brief Parse a cookie header string beginning at the given start_pos and identify
 /// the name and value of an attribute.
 ///
@@ -49,7 +52,6 @@ struct CaseInsensitiveComparator
 ///                            function returns.
 ///
 /// \return Optional cookie key value pair.
-using CookiePair = arrow::util::optional<std::pair<std::string, std::string>>;
 CookiePair ParseCookieAttribute(const std::string& cookie_header_value,
                                 std::string::size_type& start_pos) {
   std::string::size_type equals_pos = cookie_header_value.find('=', start_pos);
@@ -96,16 +98,19 @@ void FixDate(std::string* date) {
 
   // The date comes in with the following format: Wed, 01 Jan 3000 22:15:36 GMT
   // Symbolics are not supported by Windows parsing, so we need to convert to
-  // the following format: 01 01 3000 22:15:36 GMT
+  // the following format: 01 01 3000 22:15:36
 
   // String is currently in regular format: 'Wed, 01 Jan 3000 22:15:36 GMT'
   // Start by removing semicolon and trimming space.
+  std::cout << "Before trim: " << *date << std::endl;
   *date = arrow::internal::TrimString(date->substr(date->find(",") + 1));
+  std::cout << "After trim: " << *date << std::endl;
 
   // String is now in trimmed format: '01 Jan 3000 22:15:36 GMT'
   // Now swap month to proper month format for Windows.
   // Start by removing case sensitivity.
   std::transform(date->begin(), date->end(), date->begin(), ::toupper);
+  std::cout << "After transform: " << *date << std::endl;
 
   // Loop through months.
   for (size_t i = 0; i < months.size(); i++) {
@@ -121,12 +126,23 @@ void FixDate(std::string* date) {
 
       // Replace symbolic month with numeric month.
       date->replace(it, months[i].length(), padded_month);
+      std::cout << "After transform: " << *date << std::endl;
 
-      // String is now in desired format: '01 01 3000 22:15:36 GMT'.
-      // Break loop so function can exit.
+      // String is now in format: '01 01 3000 22:15:36 GMT'.
       break;
     }
   }
+  
+  // String is now in format '01 01 3000 22:15:36'.
+  auto it = date->find(" GMT");
+  date->erase(it, 4);
+  std::cout << "After erase: " << *date << std::endl;
+
+  // Sometimes a semicolon is added at the end, if this is the case, remove it.
+  if (date->back() == ';') {
+    date->pop_back();
+  }
+  std::cout << "After pop: " << *date << std::endl;
 }
 
 struct Cookie {
@@ -180,11 +196,15 @@ struct Cookie {
         int64_t seconds = 0;
         FixDate(&cookie_attr_value_str);
         const char* COOKIE_EXPIRES_FORMAT = "%d %m %Y %H:%M:%S GMT";
+        std::cout << "Cookie string: " << cookie_attr_value_str << std::endl;
         if (arrow::internal::ParseTimestampStrptime(
                 cookie_attr_value_str.c_str(), cookie_attr_value_str.size(),
                 COOKIE_EXPIRES_FORMAT, false, true, arrow::TimeUnit::SECOND, &seconds)) {
           cookie.expiration_time_ = std::chrono::time_point<std::chrono::system_clock>(
               std::chrono::seconds(static_cast<uint64_t>(seconds)));
+        } else {
+          // Force expiration.
+          cookie.expiration_time_ = std::chrono::system_clock::now();
         }
       }
     }
