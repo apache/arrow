@@ -18,7 +18,6 @@
 #include "arrow/flight/client_cookie_middleware.h"
 
 #include <chrono>
-#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
