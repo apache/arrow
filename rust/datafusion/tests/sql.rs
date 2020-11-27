@@ -1079,6 +1079,18 @@ async fn equijoin_implicit_syntax_reversed() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn cartesian_join() -> Result<()> {
+    let ctx = create_join_context()?;
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 ORDER BY t1_id";
+    let maybe_plan = ctx.create_logical_plan(&sql);
+    assert_eq!(
+        "This feature is not implemented: Cartesian joins are not supported",
+        &format!("{}", maybe_plan.err().unwrap())
+    );
+    Ok(())
+}
+
 fn create_join_context() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 

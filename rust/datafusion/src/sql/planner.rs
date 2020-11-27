@@ -372,7 +372,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         }
                         left
                     }
-                    _ => return Err(DataFusionError::NotImplemented("TBD".to_string())),
+                    _ => {
+                        return Err(DataFusionError::NotImplemented(
+                            "Cartesian joins are not supported".to_string(),
+                        ))
+                    }
                 }
             }
         };
