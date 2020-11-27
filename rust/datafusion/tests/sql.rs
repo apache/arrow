@@ -1067,8 +1067,7 @@ async fn equijoin_implicit_syntax() -> Result<()> {
 #[tokio::test]
 async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
     let mut ctx = create_join_context()?;
-    let sql =
-        "SELECT t1_id, t1_name, t2_name \
+    let sql = "SELECT t1_id, t1_name, t2_name \
         FROM t1, t2 \
         WHERE t1_id > 0 \
         AND t1_id = t2_id \

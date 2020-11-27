@@ -21,7 +21,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
-use crate::logical_plan::{lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan, and};
+use crate::logical_plan::{
+    and, lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
+};
 use crate::scalar::ScalarValue;
 use crate::{
     error::{DataFusionError, Result},
@@ -316,78 +318,75 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             ));
         }
 
-        let plan = match self.plan_from_tables(&select.from)? {
-            plans if plans.len() == 1 => plans[0].clone(),
-            plans => {
-                match &select.selection {
-                    Some(predicate_expr) => {
-                        // build join schema
-                        let mut fields = vec![];
-                        for plan in &plans {
-                            let schema = plan.schema();
-                            for field in schema.fields() {
-                                fields.push(field.clone());
-                            }
-                        }
-                        let join_schema = Schema::new(fields);
+        let plans = self.plan_from_tables(&select.from)?;
 
-                        let filter_expr =
-                            self.sql_to_rex(predicate_expr, &join_schema)?;
-                        let mut possible_join_keys = vec![];
-                        extract_possible_join_keys(
-                            &filter_expr,
-                            &mut possible_join_keys,
-                        )?;
-
-                        let mut left = plans[0].clone();
-                        for i in 1..plans.len() {
-                            let right = &plans[i];
-                            let left_schema = left.schema();
-                            let right_schema = right.schema();
-                            let mut left_keys = vec![];
-                            let mut right_keys = vec![];
-                            for (l, r) in &possible_join_keys {
-                                if left_schema.field_with_name(l).is_ok()
-                                    && right_schema.field_with_name(r).is_ok()
-                                {
-                                    left_keys.push(l.as_str());
-                                    right_keys.push(r.as_str());
-                                } else if left_schema.field_with_name(r).is_ok()
-                                    && right_schema.field_with_name(l).is_ok()
-                                {
-                                    left_keys.push(r.as_str());
-                                    right_keys.push(l.as_str());
-                                }
-                            }
-                            if left_keys.len() == 0 {
-                                return Err(DataFusionError::NotImplemented(
-                                    "Cartesian joins are not supported".to_string(),
-                                ));
-                            } else {
-                                let builder = LogicalPlanBuilder::from(&left);
-                                left = builder
-                                    .join(
-                                        right,
-                                        JoinType::Inner,
-                                        &left_keys,
-                                        &right_keys,
-                                    )?
-                                    .build()?;
-                            }
-                        }
-                        left
+        let plan = match &select.selection {
+            Some(predicate_expr) => {
+                // build join schema
+                let mut fields = vec![];
+                for plan in &plans {
+                    let schema = plan.schema();
+                    for field in schema.fields() {
+                        fields.push(field.clone());
                     }
-                    _ => {
+                }
+                let join_schema = Schema::new(fields);
+
+                let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
+                let mut possible_join_keys = vec![];
+                extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
+
+                let mut left = plans[0].clone();
+                for i in 1..plans.len() {
+                    let right = &plans[i];
+                    let left_schema = left.schema();
+                    let right_schema = right.schema();
+                    let mut left_keys = vec![];
+                    let mut right_keys = vec![];
+                    for (l, r) in &possible_join_keys {
+                        if left_schema.field_with_name(l).is_ok()
+                            && right_schema.field_with_name(r).is_ok()
+                        {
+                            left_keys.push(l.as_str());
+                            right_keys.push(r.as_str());
+                        } else if left_schema.field_with_name(r).is_ok()
+                            && right_schema.field_with_name(l).is_ok()
+                        {
+                            left_keys.push(r.as_str());
+                            right_keys.push(l.as_str());
+                        }
+                    }
+                    if left_keys.len() == 0 {
                         return Err(DataFusionError::NotImplemented(
                             "Cartesian joins are not supported".to_string(),
-                        ))
+                        ));
+                    } else {
+                        let builder = LogicalPlanBuilder::from(&left);
+                        left = builder
+                            .join(right, JoinType::Inner, &left_keys, &right_keys)?
+                            .build()?;
                     }
+                }
+
+                // remove join expressions from filter
+                match remove_join_expressions(&filter_expr)? {
+                    Some(filter_expr) => {
+                        LogicalPlanBuilder::from(&left).filter(filter_expr)?.build()
+                    }
+                    _ => Ok(left),
+                }
+            }
+            None => {
+                if plans.len() == 1 {
+                    Ok(plans[0].clone())
+                } else {
+                    Err(DataFusionError::NotImplemented(
+                        "Cartesian joins are not supported".to_string(),
+                    ))
                 }
             }
         };
-
-        // filter (also known as selection) first
-        let plan = self.filter(&plan, &select.selection)?;
+        let plan = plan?;
 
         let projection_expr: Vec<Expr> = select
             .projection
@@ -408,20 +407,6 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             self.project(&plan, projection_expr)?
         };
         Ok(plan)
-    }
-
-    /// Apply a filter to the plan
-    fn filter(
-        &self,
-        plan: &LogicalPlan,
-        predicate: &Option<SQLExpr>,
-    ) -> Result<LogicalPlan> {
-        match *predicate {
-            Some(ref predicate_expr) => LogicalPlanBuilder::from(&plan)
-                .filter(self.sql_to_rex(predicate_expr, &plan.schema())?)?
-                .build(),
-            _ => Ok(plan.clone()),
-        }
     }
 
     /// Wrap a plan in a projection
@@ -789,9 +774,9 @@ fn remove_join_expressions(expr: &Expr) -> Result<Option<Expr>> {
                     _ => Ok(None),
                 }
             }
-            _ => Ok(Some(expr.clone()))
+            _ => Ok(Some(expr.clone())),
         },
-        _ => Ok(Some(expr.clone()))
+        _ => Ok(Some(expr.clone())),
     }
 }
 
@@ -843,15 +828,15 @@ fn extract_possible_join_keys(
                     accum.push((l.to_owned(), r.to_owned()));
                     Ok(())
                 }
-                _ => Ok(())
+                _ => Ok(()),
             },
             Operator::And => {
                 extract_possible_join_keys(left, accum)?;
                 extract_possible_join_keys(right, accum)
             }
-            _ => Ok(())
+            _ => Ok(()),
         },
-        _ => Ok(())
+        _ => Ok(()),
     }
 }
 
