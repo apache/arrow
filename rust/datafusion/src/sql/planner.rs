@@ -333,6 +333,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 let join_schema = Schema::new(fields);
 
                 let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
+
+                // look for expressions of the form `<column> = <column>`
                 let mut possible_join_keys = vec![];
                 extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
 
@@ -769,8 +771,8 @@ fn remove_join_expressions(expr: &Expr) -> Result<Option<Expr>> {
                 let r = remove_join_expressions(right)?;
                 match (l, r) {
                     (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
-                    (Some(expr), _) => Ok(Some(expr.clone())),
-                    (_, Some(expr)) => Ok(Some(expr.clone())),
+                    (Some(ll), _) => Ok(Some(ll.clone())),
+                    (_, Some(rr)) => Ok(Some(rr.clone())),
                     _ => Ok(None),
                 }
             }
