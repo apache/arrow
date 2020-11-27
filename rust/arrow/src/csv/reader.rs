@@ -56,7 +56,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-use self::csv_crate::StringRecord;
+use self::csv_crate::{ByteRecord, StringRecord};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -231,11 +231,11 @@ pub struct Reader<R: Read> {
     reader: csv_crate::Reader<R>,
     /// Current line number
     line_number: usize,
-    // max rows
+    /// Maximum number of rows to read
     end: usize,
-    // number of records per batch
+    /// Number of records per batch
     batch_size: usize,
-    // Vector that can hold the string records of the batches
+    /// Vector that can hold the `StringRecord`s of the batches
     batch_records: Vec<StringRecord>,
 }
 
@@ -287,7 +287,7 @@ impl<R: Read> Reader<R> {
         }
     }
 
-    /// Create a new CsvReader from a `BufReader<R: Read>
+    /// Create a new CsvReader from a Reader
     ///
     /// This constructor allows you more flexibility in what records are processed by the
     /// csv reader.
@@ -319,10 +319,10 @@ impl<R: Read> Reader<R> {
         // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
         // which is a slow operation that scales with the number of columns
 
-        let mut record = StringRecord::new();
-        // skip first start items
+        let mut record = ByteRecord::new();
+        // Skip first start items
         for _ in 0..start {
-            let res = csv_reader.read_record(&mut record);
+            let res = csv_reader.read_byte_record(&mut record);
             if !res.unwrap_or(false) {
                 break;
             }
