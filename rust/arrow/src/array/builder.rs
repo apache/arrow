@@ -150,13 +150,6 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// ```
     fn is_empty(&self) -> bool;
 
-    /// Returns the actual capacity (number of elements) of the internal buffer.
-    ///
-    /// Note: the internal capacity returned by this method might be larger than
-    /// what you'd expect after setting the capacity in the `new()` or `reserve()`
-    /// functions.
-    fn capacity(&self) -> usize;
-
     /// Increases the number of elements in the internal buffer by `n`
     /// and resizes the buffer as needed.
     ///
@@ -271,11 +264,6 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         self.len == 0
     }
 
-    fn capacity(&self) -> usize {
-        let byte_capacity = self.buffer.capacity();
-        byte_capacity / T::get_byte_width()
-    }
-
     #[inline]
     fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = (self.len + i) * mem::size_of::<T::Native>();
@@ -286,9 +274,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     #[inline]
     fn reserve(&mut self, n: usize) {
-        let new_capacity = self.len + n;
-        let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
-        self.buffer.reserve(byte_capacity);
+        self.buffer.reserve(mem::size_of::<T::Native>() * n);
     }
 
     #[inline]
@@ -349,10 +335,6 @@ impl BooleanBufferBuilder {
         self.len == 0
     }
 
-    pub fn capacity(&self) -> usize {
-        self.buffer.capacity() * 8
-    }
-
     #[inline]
     pub fn advance(&mut self, i: usize) -> Result<()> {
         let new_buffer_len = bit_util::ceil(self.len + i, 8);
@@ -363,27 +345,15 @@ impl BooleanBufferBuilder {
 
     #[inline]
     pub fn reserve(&mut self, n: usize) {
-        let new_capacity = self.len + n;
-        if new_capacity > self.capacity() {
-            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
-            let existing_capacity = self.buffer.capacity();
-            let new_capacity = self.buffer.reserve(new_byte_capacity);
-            self.buffer
-                .set_null_bits(existing_capacity, new_capacity - existing_capacity);
-        }
+        let new_byte_capacity = bit_util::ceil(self.len + n, 8);
+        self.buffer.resize(new_byte_capacity);
     }
 
     #[inline]
     pub fn append(&mut self, v: bool) -> Result<()> {
         self.reserve(1);
         if v {
-            let data = unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.buffer.raw_data_mut(),
-                    self.buffer.capacity(),
-                )
-            };
-            bit_util::set_bit(data, self.len);
+            bit_util::set_bit(self.buffer.data_mut(), self.len);
         }
         self.len += 1;
         Ok(())
@@ -393,13 +363,7 @@ impl BooleanBufferBuilder {
     pub fn append_n(&mut self, n: usize, v: bool) -> Result<()> {
         self.reserve(n);
         if n != 0 && v {
-            let data = unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.buffer.raw_data_mut(),
-                    self.buffer.capacity(),
-                )
-            };
-            (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
+            let data = self.buffer.data_mut();
         }
         self.len += n;
         Ok(())
@@ -412,12 +376,7 @@ impl BooleanBufferBuilder {
 
         for v in slice {
             if *v {
-                // For performance the `len` of the buffer is not
-                // updated on each append but is updated in the
-                // `freeze` method instead.
-                unsafe {
-                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
-                }
+                bit_util::set_bit(self.buffer.data_mut(), self.len);
             }
             self.len += 1;
         }
@@ -489,11 +448,6 @@ impl BooleanBuilder {
             values_builder: BooleanBufferBuilder::new(capacity),
             bitmap_builder: BooleanBufferBuilder::new(capacity),
         }
-    }
-
-    /// Returns the capacity of this builder measured in slots of type `T`
-    pub fn capacity(&self) -> usize {
-        self.values_builder.capacity()
     }
 
     /// Appends a value of type `T` into the builder
@@ -633,11 +587,6 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
             values_builder: BufferBuilder::<T>::new(capacity),
             bitmap_builder: BooleanBufferBuilder::new(capacity),
         }
-    }
-
-    /// Returns the capacity of this builder measured in slots of type `T`
-    pub fn capacity(&self) -> usize {
-        self.values_builder.capacity()
     }
 
     /// Appends a value of type `T` into the builder
@@ -2365,7 +2314,6 @@ mod tests {
     fn test_builder_i32_empty() {
         let mut b = Int32BufferBuilder::new(5);
         assert_eq!(0, b.len());
-        assert_eq!(16, b.capacity());
         let a = b.finish();
         assert_eq!(0, a.len());
     }
@@ -2384,7 +2332,6 @@ mod tests {
         for i in 0..5 {
             b.append(i).unwrap();
         }
-        assert_eq!(16, b.capacity());
         let a = b.finish();
         assert_eq!(20, a.len());
     }
@@ -2392,11 +2339,9 @@ mod tests {
     #[test]
     fn test_builder_i32_grow_buffer() {
         let mut b = Int32BufferBuilder::new(2);
-        assert_eq!(16, b.capacity());
         for i in 0..20 {
             b.append(i).unwrap();
         }
-        assert_eq!(32, b.capacity());
         let a = b.finish();
         assert_eq!(80, a.len());
     }
@@ -2404,39 +2349,19 @@ mod tests {
     #[test]
     fn test_builder_finish() {
         let mut b = Int32BufferBuilder::new(5);
-        assert_eq!(16, b.capacity());
         for i in 0..10 {
             b.append(i).unwrap();
         }
         let mut a = b.finish();
         assert_eq!(40, a.len());
         assert_eq!(0, b.len());
-        assert_eq!(0, b.capacity());
 
         // Try build another buffer after cleaning up.
         for i in 0..20 {
             b.append(i).unwrap()
         }
-        assert_eq!(32, b.capacity());
         a = b.finish();
         assert_eq!(80, a.len());
-    }
-
-    #[test]
-    fn test_reserve() {
-        let mut b = UInt8BufferBuilder::new(2);
-        assert_eq!(64, b.capacity());
-        b.reserve(64);
-        assert_eq!(64, b.capacity());
-        b.reserve(65);
-        assert_eq!(128, b.capacity());
-
-        let mut b = Int32BufferBuilder::new(2);
-        assert_eq!(16, b.capacity());
-        b.reserve(16);
-        assert_eq!(16, b.capacity());
-        b.reserve(17);
-        assert_eq!(32, b.capacity());
     }
 
     #[test]
@@ -2487,14 +2412,12 @@ mod tests {
         b.append(false).unwrap();
         b.append(true).unwrap();
         assert_eq!(4, b.len());
-        assert_eq!(512, b.capacity());
         let buffer = b.finish();
         assert_eq!(1, buffer.len());
 
         let mut b = BooleanBufferBuilder::new(4);
         b.append_slice(&[false, true, false, true]).unwrap();
         assert_eq!(4, b.len());
-        assert_eq!(512, b.capacity());
         let buffer = b.finish();
         assert_eq!(1, buffer.len());
     }
@@ -2505,7 +2428,6 @@ mod tests {
         let bytes = [8, 16, 32, 64].to_byte_slice();
         b.write_bytes(bytes, 4);
         assert_eq!(4, b.len());
-        assert_eq!(16, b.capacity());
         let buffer = b.finish();
         assert_eq!(16, buffer.len());
     }

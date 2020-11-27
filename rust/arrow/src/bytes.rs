@@ -23,7 +23,7 @@ use core::slice;
 use std::sync::Arc;
 use std::{fmt::Debug, fmt::Formatter};
 
-use crate::{ffi, memory};
+use crate::ffi;
 
 /// Mode of deallocating memory regions
 pub enum Deallocation {
@@ -56,10 +56,7 @@ impl Debug for Deallocation {
 /// foreign deallocator to deallocate the region when it is no longer needed.
 pub struct Bytes {
     /// The raw pointer to be begining of the region
-    ptr: *const u8,
-
-    /// The number of bytes visible to this region. This is always smaller than its capacity (when avaliable).
-    len: usize,
+    ptr: Vec<u8>,
 
     /// how to deallocate this region
     deallocation: Deallocation,
@@ -78,10 +75,9 @@ impl Bytes {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
-    pub unsafe fn new(ptr: *const u8, len: usize, deallocation: Deallocation) -> Bytes {
+    pub unsafe fn new(ptr: Vec<vec>, deallocation: Deallocation) -> Bytes {
         Bytes {
             ptr,
-            len,
             deallocation,
         }
     }
@@ -93,12 +89,12 @@ impl Bytes {
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.len
+        self.data.len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     #[inline]
@@ -144,23 +140,10 @@ impl PartialEq for Bytes {
 
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "Bytes {{ ptr: {:?}, len: {}, data: ", self.ptr, self.len,)?;
+        write!(f, "Bytes {{ data: ")?;
 
         f.debug_list().entries(self.as_slice().iter()).finish()?;
 
         write!(f, " }}")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dealloc_native() {
-        let capacity = 5;
-        let a = memory::allocate_aligned(capacity);
-        // create Bytes and release it. This will make `a` be an invalid pointer, but it is defined behavior
-        unsafe { Bytes::new(a, 3, Deallocation::Native(capacity)) };
     }
 }

@@ -24,9 +24,9 @@ use std::{
 };
 
 use super::{
-    array::print_long_array, raw_pointer::as_aligned_pointer, raw_pointer::RawPtrBox,
-    Array, ArrayData, ArrayDataRef, FixedSizeListArray, GenericBinaryIter,
-    GenericListArray, LargeListArray, ListArray, OffsetSizeTrait,
+    array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
+    FixedSizeListArray, GenericBinaryIter, GenericListArray, LargeListArray, ListArray,
+    OffsetSizeTrait,
 };
 use crate::util::bit_util;
 use crate::{buffer::Buffer, datatypes::ToByteSlice};
@@ -209,9 +209,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayDataRef>
         let value_data = data.buffers()[1].raw_data();
         Self {
             data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(
-                raw_value_offsets,
-            )),
+            value_offsets: RawPtrBox::new(raw_value_offsets as *const OffsetSize),
             value_data: RawPtrBox::new(value_data),
         }
     }

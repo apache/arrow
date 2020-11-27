@@ -29,7 +29,6 @@ use super::array::print_long_array;
 use super::raw_pointer::RawPtrBox;
 use super::*;
 use crate::buffer::{Buffer, MutableBuffer};
-use crate::memory;
 use crate::util::bit_util;
 
 /// Number of seconds in a day
@@ -431,10 +430,6 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
             "PrimitiveArray data should contain a single buffer only (values buffer)"
         );
         let raw_values = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned::<u8>(raw_values, mem::align_of::<T::Native>()),
-            "memory is not aligned"
-        );
         Self {
             data,
             raw_values: RawPtrBox::new(raw_values as *const T::Native),
@@ -466,13 +461,6 @@ mod tests {
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
         }
-
-        assert_eq!(64, arr.get_buffer_memory_size());
-        let internals_of_primitive_array = 8 + 72; // RawPtrBox & Arc<ArrayData> combined.
-        assert_eq!(
-            arr.get_buffer_memory_size() + internals_of_primitive_array,
-            arr.get_array_memory_size()
-        );
     }
 
     #[test]
@@ -492,13 +480,6 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
-
-        assert_eq!(128, arr.get_buffer_memory_size());
-        let internals_of_primitive_array = 8 + 72 + 16; // RawPtrBox & Arc<ArrayData> and it's null_bitmap combined.
-        assert_eq!(
-            arr.get_buffer_memory_size() + internals_of_primitive_array,
-            arr.get_array_memory_size()
-        );
     }
 
     #[test]

@@ -177,7 +177,7 @@ impl ArrayData {
     pub fn get_buffer_memory_size(&self) -> usize {
         let mut size = 0;
         for buffer in &self.buffers {
-            size += buffer.capacity();
+            size += buffer.len();
         }
         if let Some(bitmap) = &self.null_bitmap {
             size += bitmap.get_buffer_memory_size()
@@ -200,7 +200,7 @@ impl ArrayData {
         // Calculate rest of the fields top down which contain actual data
         for buffer in &self.buffers {
             size += mem::size_of_val(&buffer);
-            size += buffer.capacity();
+            size += buffer.len();
         }
         if let Some(bitmap) = &self.null_bitmap {
             size += bitmap.get_array_memory_size()

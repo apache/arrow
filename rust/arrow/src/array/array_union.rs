@@ -414,16 +414,6 @@ mod tests {
             let value = slot.value(0);
             assert_eq!(expected_value, &value);
         }
-
-        assert_eq!(
-            4 * 8 * 4 * mem::size_of::<i32>(),
-            union.get_buffer_memory_size()
-        );
-        let internals_of_union_array = (8 + 72) + (union.boxed_fields.len() * 144); // Arc<ArrayData> & Vec<ArrayRef> combined.
-        assert_eq!(
-            union.get_buffer_memory_size() + internals_of_union_array,
-            union.get_array_memory_size()
-        );
     }
 
     #[test]

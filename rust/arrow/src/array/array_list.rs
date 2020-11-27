@@ -23,8 +23,8 @@ use std::mem;
 use num::Num;
 
 use super::{
-    array::print_long_array, make_array, raw_pointer::as_aligned_pointer,
-    raw_pointer::RawPtrBox, Array, ArrayDataRef, ArrayRef,
+    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
+    ArrayRef,
 };
 use crate::datatypes::ArrowNativeType;
 use crate::datatypes::DataType;
@@ -118,7 +118,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
         );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_offsets: *const OffsetSize = as_aligned_pointer(raw_value_offsets);
+        let value_offsets = raw_value_offsets as *const OffsetSize;
         unsafe {
             assert!(
                 (*value_offsets.offset(0)).is_zero(),
@@ -301,7 +301,6 @@ mod tests {
         array::Int32Array,
         buffer::Buffer,
         datatypes::{Field, ToByteSlice},
-        memory,
         util::bit_util,
     };
 
@@ -777,37 +776,6 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
-            .add_child_data(value_data)
-            .build();
-        ListArray::from(list_data);
-    }
-
-    #[test]
-    #[should_panic(expected = "memory is not aligned")]
-    fn test_primitive_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
-        let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
-        let buf2 = buf.slice(1);
-        let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
-        Int32Array::from(array_data);
-    }
-
-    #[test]
-    #[should_panic(expected = "memory is not aligned")]
-    fn test_list_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
-        let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
-        let buf2 = buf.slice(1);
-
-        let values: [i32; 8] = [0; 8];
-        let value_data = ArrayData::builder(DataType::Int32)
-            .add_buffer(Buffer::from(values.to_byte_slice()))
-            .build();
-
-        let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
-        let list_data = ArrayData::builder(list_data_type)
-            .add_buffer(buf2)
             .add_child_data(value_data)
             .build();
         ListArray::from(list_data);
