@@ -220,6 +220,7 @@ std::string Datum::ToString() const {
         }
         ss << values[i].ToString();
       }
+      ss << ')';
       return ss.str();
     }
     default:
@@ -229,14 +230,12 @@ std::string Datum::ToString() const {
 }
 
 ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
-  ValueDescr::Shape shape = ValueDescr::SCALAR;
   for (const auto& descr : args) {
     if (descr.shape == ValueDescr::ARRAY) {
-      shape = ValueDescr::ARRAY;
-      break;
+      return ValueDescr::ARRAY;
     }
   }
-  return shape;
+  return ValueDescr::SCALAR;
 }
 
 }  // namespace arrow
