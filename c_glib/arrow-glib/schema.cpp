@@ -360,6 +360,21 @@ garrow_schema_replace_field(GArrowSchema *schema,
 }
 
 /**
+ * garrow_schema_has_metadata:
+ * @schema: A #GArrowSchema.
+ *
+ * Returns: %TRUE if the schema has metadata, %FALSE otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_schema_has_metadata(GArrowSchema *schema)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  return arrow_schema->HasMetadata();
+}
+
+/**
  * garrow_schema_get_metadata:
  * @schema: A #GArrowSchema.
  *
