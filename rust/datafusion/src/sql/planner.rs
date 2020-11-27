@@ -211,18 +211,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn plan_tables_with_joins(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
+    fn plan_from_tables(&self, from: &Vec<TableWithJoins>) -> Result<Vec<LogicalPlan>> {
         match from.len() {
-            0 => Ok(LogicalPlanBuilder::empty(true).build()?),
-            1 => self.plan_table_with_joins(&from[0]),
-            _ => {
-                // https://issues.apache.org/jira/browse/ARROW-10729
-                Err(DataFusionError::NotImplemented(
-                    "JOINS are only supported when using the explicit JOIN ON syntax \
-                    (https://issues.apache.org/jira/browse/ARROW-10729)"
-                        .to_string(),
-                ))
-            }
+            0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
+            _ => from
+                .iter()
+                .map(|t| self.plan_table_with_joins(t))
+                .collect::<Result<Vec<_>>>(),
         }
     }
 
@@ -323,7 +318,64 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             ));
         }
 
-        let plan = self.plan_tables_with_joins(&select.from)?;
+        let plan = match self.plan_from_tables(&select.from)? {
+            plans if plans.len() == 1 => plans[0].clone(),
+            plans => {
+                match &select.selection {
+                    Some(predicate_expr) => {
+                        // build join schema
+                        let mut join_schema = plans[0].schema().clone();
+                        for i in 1..plans.len() {
+                            let mut fields = join_schema.fields().clone();
+                            for field in plans[i].schema().fields() {
+                                fields.push(field.clone());
+                            }
+                            join_schema = Arc::new(Schema::new(fields));
+                        }
+
+                        let filter_expr =
+                            self.sql_to_rex(predicate_expr, &join_schema)?;
+                        let mut possible_join_keys = vec![];
+                        extract_join_keys(&filter_expr, &mut possible_join_keys)?;
+
+                        let mut left = plans[0].clone();
+                        for i in 1..plans.len() {
+                            let right = &plans[i];
+                            let mut left_keys = vec![];
+                            let mut right_keys = vec![];
+                            for (l, r) in &possible_join_keys {
+                                if left.schema().field_with_name(l).is_ok()
+                                    && right.schema().field_with_name(r).is_ok()
+                                {
+                                    left_keys.push(l.as_str());
+                                    right_keys.push(r.as_str());
+                                } else if left.schema().field_with_name(r).is_ok()
+                                    && right.schema().field_with_name(l).is_ok()
+                                {
+                                    left_keys.push(r.as_str());
+                                    right_keys.push(l.as_str());
+                                }
+                            }
+                            if left_keys.len() == 0 {
+                                panic!()
+                            } else {
+                                let builder = LogicalPlanBuilder::from(&left);
+                                left = builder
+                                    .join(
+                                        right,
+                                        JoinType::Inner,
+                                        &left_keys,
+                                        &right_keys,
+                                    )?
+                                    .build()?;
+                            }
+                        }
+                        left
+                    }
+                    _ => return Err(DataFusionError::NotImplemented("TBD".to_string())),
+                }
+            }
+        };
 
         // filter (also known as selection) first
         let plan = self.filter(&plan, &select.selection)?;

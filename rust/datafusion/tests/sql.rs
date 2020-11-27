@@ -1049,6 +1049,36 @@ async fn equijoin() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn equijoin_implicit_syntax() -> Result<()> {
+    let mut ctx = create_join_context()?;
+    let sql =
+        "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t1_id = t2_id ORDER BY t1_id";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["11", "a", "z"],
+        vec!["22", "b", "y"],
+        vec!["44", "d", "x"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn equijoin_implicit_syntax_reversed() -> Result<()> {
+    let mut ctx = create_join_context()?;
+    let sql =
+        "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t2_id = t1_id ORDER BY t1_id";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["11", "a", "z"],
+        vec!["22", "b", "y"],
+        vec!["44", "d", "x"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
 fn create_join_context() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
