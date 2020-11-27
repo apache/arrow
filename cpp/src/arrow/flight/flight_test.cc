@@ -1188,9 +1188,7 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   std::shared_ptr<BearerAuthServerMiddlewareFactory> bearer_middleware_;
 };
 
-// This test has functions that allow adding and removing cookies from a list of cookies.
-// It also automatically adds cookies to an internal list of tracked cookies when they
-// are passed to the middleware.
+// This test keeps an internal cookie cache and compares that with the middleware.
 class TestCookieMiddleware : public ::testing::Test {
  public:
   // Setup function creates middleware factory and starts it up.
@@ -1200,24 +1198,32 @@ class TestCookieMiddleware : public ::testing::Test {
     factory_->StartCall(callInfo, &middleware_);
   }
 
-  // Function to add cookie to middleware.
-  void AddCookie(const std::string& cookie) {
+  // Function to add incoming cookies to middleware and validate them.
+  void AddAndValidate(const std::string& incoming_cookie) {
+    // Add cookie
     CallHeaders call_headers;
     call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                       arrow::util::string_view(cookie)));
+                                       arrow::util::string_view(incoming_cookie)));
     middleware_->ReceivedHeaders(call_headers);
-  }
+    expected_cookie_cache_.UpdateCachedCookies(call_headers);
 
-  // Function to get cookies from middleware.
-  std::string GetCookies() {
+    // Get cookie from middleware.
     TestCallHeaders add_call_headers;
     middleware_->SendingHeaders(&add_call_headers);
-    return add_call_headers.GetCookies();
+    const std::string actual_cookies = add_call_headers.GetCookies();
+
+    // Validate cookie
+    const std::string expected_cookies = expected_cookie_cache_.GetValidCookiesAsString();
+    const std::vector<std::string> split_expected_cookies =
+        SplitCookies(expected_cookies);
+    const std::vector<std::string> split_actual_cookies = SplitCookies(actual_cookies);
+    EXPECT_EQ(split_expected_cookies, split_actual_cookies);
   }
 
   // Function to take a list of cookies and split them into a vector of individual
-  // cookies.
-  std::vector<std::string> SplitCookies(const std::string& cookies) {
+  // cookies. This is done because the cookie cache is a map so ordering is not
+  // necessarily consistent.
+  static std::vector<std::string> SplitCookies(const std::string& cookies) {
     std::vector<std::string> split_cookies;
     std::string::size_type pos1 = 0;
     std::string::size_type pos2 = 0;
@@ -1231,89 +1237,6 @@ class TestCookieMiddleware : public ::testing::Test {
     }
     std::sort(split_cookies.begin(), split_cookies.end());
     return split_cookies;
-  }
-
-  // Function to check if expected cookies and actual cookies are equal.
-  void CheckEqual() {
-    std::sort(expected_cookies_.begin(), expected_cookies_.end());
-    std::vector<std::string> split_actual_cookies = SplitCookies(GetCookies());
-    EXPECT_EQ(expected_cookies_, split_actual_cookies);
-  }
-
-  // Function to add incoming cookies to middleware and validate them.
-  void AddAndValidate(const std::string& incoming_cookie) {
-    AddCookie(incoming_cookie);
-    AddExpected(incoming_cookie);
-    CheckEqual();
-  }
-
-  // Function to add an expired cookie to middleware and validate that it was removed.
-  void AddExpiredAndValidate(const std::string& incoming_cookie) {
-    AddCookie(incoming_cookie);
-    CheckEqual();
-  }
-
-  // Function to convert format so that it is key="val" and not key=val.
-  void ConvertFormat(const std::string& incoming_cookie, std::string& outgoing_cookie) {
-    // Grab the first key value pair from the incoming cookie string.
-    std::string::size_type pos = 0;
-    const std::string key_val_pair = arrow::internal::TrimString(
-        ((pos = incoming_cookie.find(';')) != std::string::npos)
-            ? incoming_cookie.substr(0, pos)
-            : incoming_cookie.substr(0));
-    // Split the key value pair into the key and value.
-    pos = key_val_pair.find('=');
-    ASSERT_NE(std::string::npos, pos);
-    std::string key = key_val_pair.substr(0, pos);
-    std::string val = key_val_pair.substr(pos + 1);
-
-    // Add key/value pair to outgoing cookie, need to add double quotes around the value
-    // if there isn't any there already.
-    outgoing_cookie =
-        key + "=" +
-        (((val[0] == '\"') && (val[val.size() - 1] == '\"')) ? val : "\"" + val + "\"");
-  }
-
-  // Function to find cookie matching a given key.
-  std::vector<std::string>::iterator FindCookieByKey(const std::string& key) {
-    auto collision = [key](const std::string& str1) {
-      const std::string::size_type pos = str1.find('=');
-      const std::string old_key = str1.substr(0, pos);
-      return key == old_key;
-    };
-    return std::find_if(expected_cookies_.begin(), expected_cookies_.end(), collision);
-  }
-
-  // Function to add new cookie or replace existing cookie.
-  void AddOrReplace(const std::string& new_cookie) {
-    // Get position of '=' to get the key.
-    const std::string::size_type pos = new_cookie.find('=');
-    ASSERT_NE(std::string::npos, pos);
-
-    // Get iterator of vector using key. If it exists, replace it, else insert normally.
-    std::vector<std::string>::iterator it = FindCookieByKey(new_cookie.substr(0, pos));
-    if (it != expected_cookies_.end()) {
-      *it = new_cookie;
-    } else {
-      expected_cookies_.push_back(new_cookie);
-    }
-  }
-
-  // Function to add a cookie to the list of expected cookies.
-  void AddExpected(const std::string& incoming_cookie) {
-    std::string new_cookie;
-    ConvertFormat(incoming_cookie, new_cookie);
-    AddOrReplace(new_cookie);
-  }
-
-  // Function to set a cookie as expired.
-  void SetExpired(const std::string& cookie) {
-    std::string::size_type pos = cookie.find('=');
-    ASSERT_NE(std::string::npos, pos);
-    std::vector<std::string>::iterator it = FindCookieByKey(cookie.substr(0, pos));
-    if (it != expected_cookies_.end()) {
-      it = expected_cookies_.erase(it);
-    }
   }
 
  protected:
@@ -1336,9 +1259,66 @@ class TestCookieMiddleware : public ::testing::Test {
     std::string outbound_cookie_;
   };
 
-  std::vector<std::string> expected_cookies_;
+  internal::CookieCache expected_cookie_cache_;
   std::unique_ptr<ClientMiddleware> middleware_;
   std::shared_ptr<ClientMiddlewareFactory> factory_;
+};
+
+// This test is used to test the parsing capabilities of the cookie framework.
+class TestCookieParsing : public ::testing::Test {
+ public:
+  void VerifyParseCookie(const std::string& cookie_str, bool expired) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(expired, cookie.IsExpired());
+  }
+
+  void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(name, cookie.GetName());
+  }
+
+  void VerifyCookieString(const std::string& cookie_str,
+                          const std::string& cookie_as_string) {
+    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
+  }
+
+  void VerifyCookieDateConverson(std::string date, const std::string& converted_date) {
+    internal::Cookie::ConvertCookieDate(&date);
+    EXPECT_EQ(converted_date, date);
+  }
+
+  void VerifyCookieAttributeParsing(
+      const std::string cookie_str, std::string::size_type start_pos,
+      const util::optional<std::pair<std::string, std::string>> cookie_attribute,
+      const std::string::size_type start_pos_after) {
+    util::optional<std::pair<std::string, std::string>> attr =
+        internal::Cookie::ParseCookieAttribute(cookie_str, &start_pos);
+
+    if (cookie_attribute == util::nullopt) {
+      EXPECT_EQ(cookie_attribute, attr);
+    } else {
+      EXPECT_EQ(cookie_attribute.value(), attr.value());
+    }
+    EXPECT_EQ(start_pos_after, start_pos);
+  }
+
+  void AddCookieVerifyCache(const std::vector<std::string>& cookies,
+                            const std::string& expected_cookies) {
+    internal::CookieCache cookie_cache;
+    for (auto& cookie : cookies) {
+      // Add cookie
+      CallHeaders call_headers;
+      call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
+                                         arrow::util::string_view(cookie)));
+      cookie_cache.UpdateCachedCookies(call_headers);
+    }
+    const std::string actual_cookies = cookie_cache.GetValidCookiesAsString();
+    const std::vector<std::string> actual_split_cookies =
+        TestCookieMiddleware::SplitCookies(actual_cookies);
+    const std::vector<std::string> expected_split_cookies =
+        TestCookieMiddleware::SplitCookies(expected_cookies);
+  }
 };
 
 TEST_F(TestErrorMiddleware, TestMetadata) {
@@ -2549,29 +2529,117 @@ TEST_F(TestCookieMiddleware, Overwrite) {
 }
 
 TEST_F(TestCookieMiddleware, MaxAge) {
-  AddExpiredAndValidate("id0=0; max-age=0;");
-  AddExpiredAndValidate("id1=0; max-age=-1;");
-  AddExpiredAndValidate("id2=0; max-age=0");
-  AddExpiredAndValidate("id3=0; max-age=-1");
+  AddAndValidate("id0=0; max-age=0;");
+  AddAndValidate("id1=0; max-age=-1;");
+  AddAndValidate("id2=0; max-age=0");
+  AddAndValidate("id3=0; max-age=-1");
   AddAndValidate("id4=0; max-age=1");
   AddAndValidate("id5=0; max-age=1");
-  SetExpired("id4=0");
-  AddExpiredAndValidate("id4=0; max-age=0");
-  SetExpired("id5=0");
-  AddExpiredAndValidate("id5=0; max-age=0");
+  AddAndValidate("id4=0; max-age=0");
+  AddAndValidate("id5=0; max-age=0");
 }
 
 TEST_F(TestCookieMiddleware, Expires) {
-  AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT;");
-  AddExpiredAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
-  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
-  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT;");
+  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
   AddAndValidate("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;");
   AddAndValidate("id1=0; expires=Fri, 01 Jan 2038 22:15:36 GMT");
-  SetExpired("id0=0");
-  AddExpiredAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
-  SetExpired("id1=0");
-  AddExpiredAndValidate("id1=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
+  AddAndValidate("id1=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
+}
+
+TEST_F(TestCookieParsing, Expired) {
+  VerifyParseCookie("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;", true);
+  VerifyParseCookie("id1=0; max-age=-1;", true);
+  VerifyParseCookie("id0=0; max-age=0;", true);
+}
+
+TEST_F(TestCookieParsing, Invalid) {
+  VerifyParseCookie("id1=0; expires=0, 0 0 0 0:0:0 GMT;", true);
+  VerifyParseCookie("id1=0; expires=Fri, 01 FOO 2038 22:15:36 GMT", true);
+  VerifyParseCookie("id1=0; expires=foo", true);
+  VerifyParseCookie("id1=0; expires=", true);
+  VerifyParseCookie("id1=0; max-age=FOO", true);
+  VerifyParseCookie("id1=0; max-age=", true);
+}
+
+TEST_F(TestCookieParsing, NoExpiry) {
+  VerifyParseCookie("id1=0;", false);
+  VerifyParseCookie("id1=0; noexpiry=Fri, 01 Jan 2038 22:15:36 GMT", false);
+  VerifyParseCookie("id1=0; noexpiry=\"Fri, 01 Jan 2038 22:15:36 GMT\"", false);
+  VerifyParseCookie("id1=0; nomax-age=-1", false);
+  VerifyParseCookie("id1=0; nomax-age=\"-1\"", false);
+  VerifyParseCookie("id1=0; randomattr=foo", false);
+}
+
+TEST_F(TestCookieParsing, NotExpired) {
+  VerifyParseCookie("id5=0; max-age=1", false);
+  VerifyParseCookie("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;", false);
+}
+
+TEST_F(TestCookieParsing, GetName) {
+  VerifyCookieName("id1=1; foo=bar;", "id1");
+  VerifyCookieName("id1=1; foo=bar", "id1");
+  VerifyCookieName("id2=2;", "id2");
+  VerifyCookieName("id4=\"4\"", "id4");
+  VerifyCookieName("id5=5; foo=bar; baz=buz;", "id5");
+}
+
+TEST_F(TestCookieParsing, ToString) {
+  VerifyCookieString("id1=1; foo=bar;", "id1=\"1\"");
+  VerifyCookieString("id1=1; foo=bar", "id1=\"1\"");
+  VerifyCookieString("id2=2;", "id2=\"2\"");
+  VerifyCookieString("id4=\"4\"", "id4=\"4\"");
+  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=\"5\"");
+}
+
+TEST_F(TestCookieParsing, DateConversion) {
+  VerifyCookieDateConverson("Mon, 01 jan 2038 22:15:36 GMT;", "01 01 2038 22:15:36");
+  VerifyCookieDateConverson("TUE, 10 Feb 2038 22:15:36 GMT", "10 02 2038 22:15:36");
+  VerifyCookieDateConverson("WED, 20 MAr 2038 22:15:36 GMT;", "20 03 2038 22:15:36");
+  VerifyCookieDateConverson("thu, 15 APR 2038 22:15:36 GMT", "15 04 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 30 mAY 2038 22:15:36 GMT;", "30 05 2038 22:15:36");
+  VerifyCookieDateConverson("Sat, 03 juN 2038 22:15:36 GMT", "03 06 2038 22:15:36");
+  VerifyCookieDateConverson("Sun, 01 JuL 2038 22:15:36 GMT;", "01 07 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 06 aUg 2038 22:15:36 GMT", "06 08 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 SEP 2038 22:15:36 GMT;", "01 09 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 OCT 2038 22:15:36 GMT", "01 10 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 Nov 2038 22:15:36 GMT;", "01 11 2038 22:15:36");
+  VerifyCookieDateConverson("Fri, 01 deC 2038 22:15:36 GMT", "01 12 2038 22:15:36");
+  VerifyCookieDateConverson("", "");
+  VerifyCookieDateConverson("Fri, 01 INVALID 2038 22:15:36 GMT;",
+                            "01 INVALID 2038 22:15:36");
+}
+
+TEST_F(TestCookieParsing, ParseCookieAttribute) {
+  VerifyCookieAttributeParsing("", 0, util::nullopt, std::string::npos);
+
+  std::string cookie_string = "attr0=0; attr1=1; attr2=2; attr3=3";
+  auto attr_length = std::string("attr0=0;").length();
+  std::string::size_type start_pos = 0;
+  VerifyCookieAttributeParsing(cookie_string, start_pos, std::make_pair("attr0", "0"),
+                               cookie_string.find("attr0=0;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr1", "1"),
+                               cookie_string.find("attr1=1;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr2", "2"),
+                               cookie_string.find("attr2=2;") + attr_length);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
+                               std::make_pair("attr3", "3"), std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length - 1)),
+                               util::nullopt, std::string::npos);
+  VerifyCookieAttributeParsing(cookie_string, std::string::npos, util::nullopt,
+                               std::string::npos);
+}
+
+TEST_F(TestCookieParsing, CookieCache) {
+  AddCookieVerifyCache({"id0=0;"}, "");
+  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=\"1\"");
+  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=\"0\"; id1=\"1\"");
+  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=\"0\"; id1=\"1\"; id2=\"2\"");
 }
 
 }  // namespace flight
