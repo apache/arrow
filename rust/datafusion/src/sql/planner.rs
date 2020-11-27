@@ -338,6 +338,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 let mut possible_join_keys = vec![];
                 extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
 
+                let mut join_keys = vec![];
+
                 let mut left = plans[0].clone();
                 for i in 1..plans.len() {
                     let right = &plans[i];
@@ -351,11 +353,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         {
                             left_keys.push(l.as_str());
                             right_keys.push(r.as_str());
+                            join_keys.push((l, r));
                         } else if left_schema.field_with_name(r).is_ok()
                             && right_schema.field_with_name(l).is_ok()
                         {
                             left_keys.push(r.as_str());
                             right_keys.push(l.as_str());
+                            join_keys.push((r, l));
                         }
                     }
                     if left_keys.len() == 0 {
@@ -371,7 +375,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
 
                 // remove join expressions from filter
-                match remove_join_expressions(&filter_expr)? {
+                match remove_join_expressions(&filter_expr, &join_keys)? {
                     Some(filter_expr) => {
                         LogicalPlanBuilder::from(&left).filter(filter_expr)?.build()
                     }
@@ -756,19 +760,25 @@ fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
 }
 
 /// Remove join expressions from a filter expression
-fn remove_join_expressions(expr: &Expr) -> Result<Option<Expr>> {
+fn remove_join_expressions(
+    expr: &Expr,
+    join_columns: &[(&String, &String)],
+) -> Result<Option<Expr>> {
     match expr {
         Expr::BinaryExpr { left, op, right } => match op {
             Operator::Eq => match (left.as_ref(), right.as_ref()) {
-                (Expr::Column(_), Expr::Column(_)) => {
-                    // filter this out
-                    Ok(None)
+                (Expr::Column(l), Expr::Column(r)) => {
+                    if join_columns.contains(&(l, r)) || join_columns.contains(&(r, l)) {
+                        Ok(None)
+                    } else {
+                        Ok(Some(expr.clone()))
+                    }
                 }
                 _ => Ok(Some(expr.clone())),
             },
             Operator::And => {
-                let l = remove_join_expressions(left)?;
-                let r = remove_join_expressions(right)?;
+                let l = remove_join_expressions(left, join_columns)?;
+                let r = remove_join_expressions(right, join_columns)?;
                 match (l, r) {
                     (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
                     (Some(ll), _) => Ok(Some(ll.clone())),
