@@ -975,6 +975,16 @@ mod tests {
     }
 
     #[test]
+    fn select_where_nullif_division() {
+        let sql = "SELECT c3/(c4+c5) \
+                   FROM aggregate_test_100 WHERE c3/nullif(c4+c5, 0) > 0.1";
+        let expected = "Projection: #c3 Divide #c4 Plus #c5\
+            \n  Filter: #c3 Divide nullif(#c4 Plus #c5, Int64(0)) Gt Float64(0.1)\
+            \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_order_by() {
         let sql = "SELECT id FROM person ORDER BY id";
         let expected = "Sort: #id ASC NULLS FIRST\
