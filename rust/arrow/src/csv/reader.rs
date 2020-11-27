@@ -46,7 +46,7 @@ use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
 use std::fmt;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use csv as csv_crate;
@@ -93,7 +93,7 @@ fn infer_field_schema(string: &str) -> DataType {
 ///
 /// Return infered schema and number of records used for inference.
 fn infer_file_schema<R: Read + Seek>(
-    reader: &mut BufReader<R>,
+    reader: &mut R,
     delimiter: u8,
     max_read_records: Option<usize>,
     has_header: bool,
@@ -200,7 +200,7 @@ pub fn infer_schema_from_files(
 
     for fname in files.iter() {
         let (schema, records_read) = infer_file_schema(
-            &mut BufReader::new(File::open(fname)?),
+            &mut File::open(fname)?,
             delimiter,
             Some(records_to_read),
             has_header,
@@ -228,7 +228,7 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    reader: csv_crate::Reader<BufReader<R>>,
+    reader: csv_crate::Reader<R>,
     /// Current line number
     line_number: usize,
     // max rows
@@ -267,14 +267,8 @@ impl<R: Read> Reader<R> {
         bounds: Bounds,
         projection: Option<Vec<usize>>,
     ) -> Self {
-        Self::from_buf_reader(
-            BufReader::new(reader),
-            schema,
-            has_header,
-            delimiter,
-            batch_size,
-            bounds,
-            projection,
+        Self::from_reader(
+            reader, schema, has_header, delimiter, batch_size, bounds, projection,
         )
     }
 
@@ -297,8 +291,8 @@ impl<R: Read> Reader<R> {
     ///
     /// This constructor allows you more flexibility in what records are processed by the
     /// csv reader.
-    pub fn from_buf_reader(
-        buf_reader: BufReader<R>,
+    pub fn from_reader(
+        reader: R,
         schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
@@ -313,7 +307,7 @@ impl<R: Read> Reader<R> {
             reader_builder.delimiter(c);
         }
 
-        let mut csv_reader = reader_builder.from_reader(buf_reader);
+        let mut csv_reader = reader_builder.from_reader(reader);
 
         let (start, end) = match bounds {
             None => (0, usize::MAX),
@@ -667,15 +661,14 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
+    pub fn build<R: Read + Seek>(self, mut reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
-        let mut buf_reader = BufReader::new(reader);
         let delimiter = self.delimiter.unwrap_or(b',');
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
                 let (inferred_schema, _) = infer_file_schema(
-                    &mut buf_reader,
+                    &mut reader,
                     delimiter,
                     self.max_records,
                     self.has_header,
@@ -684,8 +677,8 @@ impl ReaderBuilder {
                 Arc::new(inferred_schema)
             }
         };
-        Ok(Reader::from_buf_reader(
-            buf_reader,
+        Ok(Reader::from_reader(
+            reader,
             schema,
             self.has_header,
             self.delimiter,
@@ -763,8 +756,8 @@ mod tests {
         let both_files = file_with_headers
             .chain(Cursor::new("\n".to_string()))
             .chain(file_without_headers);
-        let mut csv = Reader::from_buf_reader(
-            BufReader::new(both_files),
+        let mut csv = Reader::from_reader(
+            both_files,
             Arc::new(schema),
             true,
             None,
