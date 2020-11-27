@@ -15,7 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::{ArrayData, OffsetSizeTrait};
+use crate::buffer::Buffer;
+use crate::util::bit_util::get_bit;
+use crate::{
+    array::data::count_nulls,
+    array::{ArrayData, OffsetSizeTrait},
+};
 
 use super::utils::equal_len;
 
@@ -46,6 +51,8 @@ fn offset_value_equal<T: OffsetSizeTrait>(
 pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
     lhs: &ArrayData,
     rhs: &ArrayData,
+    lhs_nulls: Option<&Buffer>,
+    rhs_nulls: Option<&Buffer>,
     lhs_start: usize,
     rhs_start: usize,
     len: usize,
@@ -57,8 +64,11 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
     let lhs_values = &lhs.buffers()[1].data()[lhs.offset()..];
     let rhs_values = &rhs.buffers()[1].data()[rhs.offset()..];
 
-    if lhs.null_count() == 0
-        && rhs.null_count() == 0
+    let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
+    let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
+
+    if lhs_null_count == 0
+        && rhs_null_count == 0
         && !lhs_values.is_empty()
         && !rhs_values.is_empty()
     {
@@ -76,8 +86,13 @@ pub(super) fn variable_sized_equal<T: OffsetSizeTrait>(
             let lhs_pos = lhs_start + i;
             let rhs_pos = rhs_start + i;
 
-            let lhs_is_null = lhs.is_null(lhs_pos);
-            let rhs_is_null = rhs.is_null(rhs_pos);
+            // the null bits can still be `None`, so we don't unwrap
+            let lhs_is_null = !lhs_nulls
+                .map(|v| get_bit(v.data(), lhs_pos))
+                .unwrap_or(false);
+            let rhs_is_null = !rhs_nulls
+                .map(|v| get_bit(v.data(), rhs_pos))
+                .unwrap_or(false);
 
             lhs_is_null
                 || (lhs_is_null == rhs_is_null)
