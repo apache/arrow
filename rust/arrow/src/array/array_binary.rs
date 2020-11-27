@@ -467,8 +467,6 @@ impl DecimalArray {
 
     fn from_bytes_to_i128(b: &[u8]) -> i128 {
         assert!(b.len() <= 16, "DecimalArray supports only up to size 16");
-        // println!("First as bytes: {:?}", (-11697 as i64).to_be_bytes());
-        // println!("First as bytes: {:?}", (-11697 as i64).to_le_bytes());
         let first_bit = b[b.len() - 1] & 128u8 == 128u8;
         let mut result = if first_bit { [255u8; 16] } else { [0u8; 16] };
         for (i, v) in b.iter().enumerate() {
