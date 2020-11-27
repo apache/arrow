@@ -172,7 +172,7 @@ class RValue {
     }
 
     // TODO: improve error
-    return Status::Invalid("invalid conversion to bool");
+    return Status::Invalid("invalid conversion to bool, expecting a logical vector");
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const RConversionOptions&,
@@ -370,7 +370,7 @@ bool is_NA<uint8_t>(uint8_t value) {
 
 template <>
 bool is_NA<cpp11::r_bool>(cpp11::r_bool value) {
-  return false;
+  return value == NA_LOGICAL;
 }
 
 template <>
