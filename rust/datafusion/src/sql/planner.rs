@@ -38,12 +38,15 @@ use crate::{
 use arrow::datatypes::*;
 
 use super::parser::ExplainPlan;
+use crate::prelude::JoinType;
 use sqlparser::ast::{
-    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Query, Select, SelectItem,
-    SetExpr, TableFactor, TableWithJoins, UnaryOperator, Value,
+    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Join, JoinConstraint,
+    JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins,
+    UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
+use sqlparser::parser::ParserError::ParserError;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
@@ -207,27 +210,97 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn from_join_to_plan(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
-        if from.len() == 0 {
-            return Ok(LogicalPlanBuilder::empty(true).build()?);
+    fn plan_tables_with_joins(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
+        match from.len() {
+            0 => Ok(LogicalPlanBuilder::empty(true).build()?),
+            1 => self.plan_table_with_joins(&from[0]),
+            _ => {
+                // https://issues.apache.org/jira/browse/ARROW-10729
+                Err(DataFusionError::NotImplemented(
+                    "JOINS are only supported when using the explicit JOIN ON syntax \
+                    (https://issues.apache.org/jira/browse/ARROW-10729)"
+                        .to_string(),
+                ))
+            }
         }
-        if from.len() != 1 {
-            return Err(DataFusionError::NotImplemented(
-                "FROM with multiple tables is still not implemented".to_string(),
-            ));
-        };
-        let relation = &from[0].relation;
+    }
+
+    fn plan_table_with_joins(&self, t: &TableWithJoins) -> Result<LogicalPlan> {
+        let left = self.create_relation(&t.relation)?;
+        match t.joins.len() {
+            0 => Ok(left),
+            n => {
+                let mut left = self.parse_relation_join(&left, &t.joins[0])?;
+                for i in 1..n {
+                    left = self.parse_relation_join(&left, &t.joins[i])?;
+                }
+                Ok(left)
+            }
+        }
+    }
+
+    fn parse_relation_join(
+        &self,
+        left: &LogicalPlan,
+        join: &Join,
+    ) -> Result<LogicalPlan> {
+        let right = self.create_relation(&join.relation)?;
+        match &join.join_operator {
+            JoinOperator::Inner(constraint) => {
+                match constraint {
+                    JoinConstraint::On(sql_expr) => {
+                        let mut keys: Vec<(String, String)> = vec![];
+                        let join_schema =
+                            create_join_schema(left.schema(), &right.schema())?;
+
+                        // parse ON expression
+                        let expr = self.sql_to_rex(sql_expr, &join_schema)?;
+
+                        // extract join keys
+                        extract_join_keys(&expr, &mut keys)?;
+                        let left_keys: Vec<&str> =
+                            keys.iter().map(|pair| pair.0.as_str()).collect();
+                        let right_keys: Vec<&str> =
+                            keys.iter().map(|pair| pair.1.as_str()).collect();
+
+                        // return the logical plan representing the join
+                        LogicalPlanBuilder::from(&left)
+                            .join(&right, JoinType::Inner, &left_keys, &right_keys)?
+                            .build()
+                    }
+                    JoinConstraint::Using(_) => {
+                        // https://issues.apache.org/jira/browse/ARROW-10728
+                        Err(DataFusionError::NotImplemented(
+                            "JOIN with USING is not supported (https://issues.apache.org/jira/browse/ARROW-10728)".to_string(),
+                        ))
+                    }
+                    JoinConstraint::Natural => {
+                        // https://issues.apache.org/jira/browse/ARROW-10727
+                        Err(DataFusionError::NotImplemented(
+                            "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
+                        ))
+                    }
+                }
+            }
+            other => Err(DataFusionError::NotImplemented(format!(
+                "Unsupported JOIN operator {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn create_relation(&self, relation: &TableFactor) -> Result<LogicalPlan> {
         match relation {
             TableFactor::Table { name, .. } => {
-                let name = name.to_string();
-                match self.schema_provider.get_table_meta(&name) {
-                    Some(schema) => Ok(LogicalPlanBuilder::scan(
+                let table_name = name.to_string();
+                match self.schema_provider.get_table_meta(&table_name) {
+                    Some(schema) => LogicalPlanBuilder::scan(
                         "default",
-                        &name,
+                        &table_name,
                         schema.as_ref(),
                         None,
                     )?
-                    .build()?),
+                    .build(),
                     None => Err(DataFusionError::Plan(format!(
                         "no schema found for table {}",
                         name
@@ -235,9 +308,9 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
             }
             TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
-            TableFactor::NestedJoin(_) => Err(DataFusionError::NotImplemented(
-                "Nested joins are not supported".to_string(),
-            )),
+            TableFactor::NestedJoin(table_with_joins) => {
+                self.plan_table_with_joins(table_with_joins)
+            }
         }
     }
 
@@ -249,7 +322,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             ));
         }
 
-        let plan = self.from_join_to_plan(&select.from)?;
+        let plan = self.plan_tables_with_joins(&select.from)?;
 
         // filter (also known as selection) first
         let plan = self.filter(&plan, &select.selection)?;
@@ -628,6 +701,53 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     }
 }
 
+fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
+    let mut fields = vec![];
+    for field in left.fields() {
+        fields.push(field.clone());
+    }
+    for field in right.fields() {
+        fields.push(field.clone());
+    }
+    Ok(Schema::new(fields))
+}
+
+/// Parse equijoin ON condition which could be a single Eq or multiple conjunctive Eqs
+///
+/// Examples
+///
+/// foo = bar
+/// foo = bar AND bar = baz AND ...
+///
+fn extract_join_keys(expr: &Expr, accum: &mut Vec<(String, String)>) -> Result<()> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    accum.push((l.to_owned(), r.to_owned()));
+                    Ok(())
+                }
+                other => Err(DataFusionError::SQL(ParserError(format!(
+                    "Unsupported expression '{:?}' in JOIN condition",
+                    other
+                )))),
+            },
+            Operator::And => {
+                extract_join_keys(left, accum)?;
+                extract_join_keys(right, accum)
+            }
+            other => Err(DataFusionError::SQL(ParserError(format!(
+                "Unsupported expression '{:?}' in JOIN condition",
+                other
+            )))),
+        },
+        other => Err(DataFusionError::SQL(ParserError(format!(
+            "Unsupported expression '{:?}' in JOIN condition",
+            other
+        )))),
+    }
+}
+
 /// Determine if an expression is an aggregate expression or not
 fn is_aggregate_expr(e: &Expr) -> bool {
     match e {
@@ -969,9 +1089,38 @@ mod tests {
         quick_test(sql, expected);
     }
 
+    #[test]
+    fn equijoin_explicit_syntax() {
+        let sql = "SELECT id, order_id \
+            FROM person \
+            JOIN orders \
+            ON id = customer_id";
+        let expected = "Projection: #id, #order_id\
+        \n  Join: id = customer_id\
+        \n    TableScan: person projection=None\
+        \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn equijoin_explicit_syntax_3_tables() {
+        let sql = "SELECT id, order_id, l_description \
+            FROM person \
+            JOIN orders ON id = customer_id \
+            JOIN lineitem ON o_item_id = l_item_id";
+        let expected = "Projection: #id, #order_id, #l_description\
+            \n  Join: o_item_id = l_item_id\
+            \n    Join: id = customer_id\
+            \n      TableScan: person projection=None\
+            \n      TableScan: orders projection=None\
+            \n    TableScan: lineitem projection=None";
+        quick_test(sql, expected);
+    }
+
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         let planner = SqlToRel::new(&MockSchemaProvider {});
-        let ast = DFParser::parse_sql(&sql).unwrap();
+        let result = DFParser::parse_sql(&sql);
+        let ast = result.unwrap();
         planner.statement_to_plan(&ast[0])
     }
 
@@ -998,6 +1147,22 @@ mod tests {
                         DataType::Timestamp(TimeUnit::Nanosecond, None),
                         false,
                     ),
+                ]))),
+                "orders" => Some(Arc::new(Schema::new(vec![
+                    Field::new("order_id", DataType::UInt32, false),
+                    Field::new("customer_id", DataType::UInt32, false),
+                    Field::new("o_item_id", DataType::Utf8, false),
+                    Field::new("qty", DataType::Int32, false),
+                    Field::new("price", DataType::Float64, false),
+                    Field::new(
+                        "birth_date",
+                        DataType::Timestamp(TimeUnit::Nanosecond, None),
+                        false,
+                    ),
+                ]))),
+                "lineitem" => Some(Arc::new(Schema::new(vec![
+                    Field::new("l_item_id", DataType::UInt32, false),
+                    Field::new("l_description", DataType::Utf8, false),
                 ]))),
                 "aggregate_test_100" => Some(Arc::new(Schema::new(vec![
                     Field::new("c1", DataType::Utf8, false),
