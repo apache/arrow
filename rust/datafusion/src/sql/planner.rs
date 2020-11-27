@@ -21,9 +21,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
-use crate::logical_plan::{
-    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
-};
+use crate::logical_plan::{lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan, and};
 use crate::scalar::ScalarValue;
 use crate::{
     error::{DataFusionError, Result},
@@ -336,7 +334,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         let filter_expr =
                             self.sql_to_rex(predicate_expr, &join_schema)?;
                         let mut possible_join_keys = vec![];
-                        extract_join_keys(&filter_expr, &mut possible_join_keys)?;
+                        extract_possible_join_keys(
+                            &filter_expr,
+                            &mut possible_join_keys,
+                        )?;
 
                         let mut left = plans[0].clone();
                         for i in 1..plans.len() {
@@ -767,6 +768,33 @@ fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
     Ok(Schema::new(fields))
 }
 
+/// Remove join expressions from a filter expression
+fn remove_join_expressions(expr: &Expr) -> Result<Option<Expr>> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(_), Expr::Column(_)) => {
+                    // filter this out
+                    Ok(None)
+                }
+                _ => Ok(Some(expr.clone())),
+            },
+            Operator::And => {
+                let l = remove_join_expressions(left)?;
+                let r = remove_join_expressions(right)?;
+                match (l, r) {
+                    (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
+                    (Some(expr), _) => Ok(Some(expr.clone())),
+                    (_, Some(expr)) => Ok(Some(expr.clone())),
+                    _ => Ok(None),
+                }
+            }
+            _ => Ok(Some(expr.clone()))
+        },
+        _ => Ok(Some(expr.clone()))
+    }
+}
+
 /// Parse equijoin ON condition which could be a single Eq or multiple conjunctive Eqs
 ///
 /// Examples
@@ -800,6 +828,30 @@ fn extract_join_keys(expr: &Expr, accum: &mut Vec<(String, String)>) -> Result<(
             "Unsupported expression '{:?}' in JOIN condition",
             other
         )))),
+    }
+}
+
+/// Extract join keys from a WHERE clause
+fn extract_possible_join_keys(
+    expr: &Expr,
+    accum: &mut Vec<(String, String)>,
+) -> Result<()> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    accum.push((l.to_owned(), r.to_owned()));
+                    Ok(())
+                }
+                _ => Ok(())
+            },
+            Operator::And => {
+                extract_possible_join_keys(left, accum)?;
+                extract_possible_join_keys(right, accum)
+            }
+            _ => Ok(())
+        },
+        _ => Ok(())
     }
 }
 

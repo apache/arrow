@@ -1065,6 +1065,26 @@ async fn equijoin_implicit_syntax() -> Result<()> {
 }
 
 #[tokio::test]
+async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
+    let mut ctx = create_join_context()?;
+    let sql =
+        "SELECT t1_id, t1_name, t2_name \
+        FROM t1, t2 \
+        WHERE t1_id > 0 \
+        AND t1_id = t2_id \
+        AND t2_id < 99 \
+        ORDER BY t1_id";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["11", "a", "z"],
+        vec!["22", "b", "y"],
+        vec!["44", "d", "x"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn equijoin_implicit_syntax_reversed() -> Result<()> {
     let mut ctx = create_join_context()?;
     let sql =
