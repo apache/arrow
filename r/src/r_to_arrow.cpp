@@ -159,11 +159,33 @@ struct RBytesView {
   }
 };
 
+template <typename Int>
+Result<float> IntegerScalarToFloat32Safe(int64_t value) {
+  constexpr int64_t kFloatMax = 1LL << 24;
+  constexpr int64_t kFloatMin = -(1LL << 24);
+
+  if (value < kFloatMin || value > kFloatMax) {
+    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
+                           " representable by a IEEE 754 single precision value");
+  }
+  return static_cast<float>(value);
+}
+
+template <typename Int>
+Result<double> IntegerScalarToDoubleSafe(int64_t value) {
+  constexpr int64_t kDoubleMax = 1LL << 53;
+  constexpr int64_t kDoubleMin = -(1LL << 53);
+
+  if (value < kDoubleMin || value > kDoubleMax) {
+    return Status::Invalid("Integer value ", value, " is outside of the range exactly",
+                           " representable by a IEEE 754 double precision value");
+  }
+  return static_cast<double>(value);
+}
+
 class RValue {
  public:
   static bool IsNull(RScalar* obj) { return obj->null; }
-
-  // TODO: generalise
 
   static Result<bool> Convert(const BooleanType*, const RConversionOptions&,
                               RScalar* value) {
@@ -171,30 +193,50 @@ class RValue {
       return *reinterpret_cast<bool*>(value->data);
     }
 
-    // TODO: improve error
     return Status::Invalid("invalid conversion to bool, expecting a logical vector");
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const RConversionOptions&,
                                   RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion");
+    return Status::NotImplemented("conversion to half float from R not implemented");
   }
 
   static Result<float> Convert(const FloatType*, const RConversionOptions&,
                                RScalar* value) {
-    // TODO: improve error
+    switch (value->rtype) {
+      case FLOAT64:
+        return static_cast<float>(*reinterpret_cast<double*>(value->data));
+      case INT32:
+        return IntegerScalarToFloat32Safe<int>(*reinterpret_cast<int*>(value->data));
+      case UINT8:
+        return IntegerScalarToFloat32Safe<uint8_t>(
+            *reinterpret_cast<unsigned char*>(value->data));
+      case INT64:
+        return IntegerScalarToFloat32Safe<int64_t>(
+            *reinterpret_cast<int64_t*>(value->data));
+      default:
+        break;
+    }
     return Status::Invalid("invalid conversion to float");
   }
 
   static Result<double> Convert(const DoubleType*, const RConversionOptions&,
                                 RScalar* value) {
-    // TODO: handle conversion from other types
-    if (value->rtype == FLOAT64) {
-      return *reinterpret_cast<double*>(value->data);
+    switch (value->rtype) {
+      case FLOAT64:
+        return static_cast<float>(*reinterpret_cast<double*>(value->data));
+      case INT32:
+        return IntegerScalarToDoubleSafe<int>(*reinterpret_cast<int*>(value->data));
+      case UINT8:
+        return IntegerScalarToDoubleSafe<uint8_t>(
+            *reinterpret_cast<unsigned char*>(value->data));
+      case INT64:
+        return IntegerScalarToDoubleSafe<int64_t>(
+            *reinterpret_cast<int64_t*>(value->data));
+      default:
+        break;
     }
 
-    // TODO: improve error
     return Status::Invalid("invalid conversion to double");
   }
 
