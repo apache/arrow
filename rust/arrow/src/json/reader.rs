@@ -50,9 +50,11 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::array::*;
+use crate::buffer::MutableBuffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
+use crate::util::bit_util;
 
 /// Coerce data type during inference
 ///
@@ -373,7 +375,7 @@ pub fn infer_json_schema<R: Read>(
                             Ok(())
                         }
                         Value::Object(_) => Err(ArrowError::JsonError(
-                            "Reading nested JSON structs currently not supported"
+                            "Inferring schema from nested JSON structs currently not supported"
                                 .to_string(),
                         )),
                     }
@@ -484,8 +486,7 @@ impl<R: Read> Reader<R> {
 
         let rows = &rows[..];
         let projection = self.projection.clone().unwrap_or_else(Vec::new);
-        // TODO: build struct array
-        let arrays = self.build_struct_array(rows, "", self.schema.fields(), &projection);
+        let arrays = self.build_struct_array(rows, self.schema.fields(), &projection);
 
         let projected_fields: Vec<Field> = if projection.is_empty() {
             self.schema.fields().to_vec()
@@ -848,7 +849,6 @@ impl<R: Read> Reader<R> {
     fn build_struct_array(
         &self,
         rows: &[Value],
-        col_name: &str,
         struct_fields: &[Field],
         projection: &[String],
     ) -> Result<Vec<ArrayRef>> {
@@ -1021,27 +1021,42 @@ impl<R: Read> Reader<R> {
                             ),
                         DataType::Struct(fields) => {
                             // TODO: add a check limiting recursion
+                            let len = rows.len();
+                            let num_bytes = bit_util::ceil(len, 8);
+                            let mut null_buffer = MutableBuffer::new(num_bytes)
+                                .with_bitset(num_bytes, false);
                             let struct_rows = rows
                                 .iter()
-                                .map(|row| row.as_object().map(|v| v.get(field.name())))
-                                .map(|v| match v.flatten() {
-                                    Some(v) => v.clone(),
-                                    None => Value::Object(Default::default()),
+                                .enumerate()
+                                .map(|(i, row)| {
+                                    (
+                                        i,
+                                        row.as_object()
+                                            .map(|v| v.get(field.name()))
+                                            .flatten(),
+                                    )
+                                })
+                                .map(|(i, v)| match v {
+                                    // we want the field as an object, if it's not, we treat as null
+                                    Some(Value::Object(value)) => {
+                                        bit_util::set_bit(null_buffer.data_mut(), i);
+                                        Value::Object(value.clone())
+                                    }
+                                    _ => Value::Object(Default::default()),
                                 })
                                 .collect::<Vec<Value>>();
-                            let arrays = self.build_struct_array(
-                                &struct_rows,
-                                col_name,
-                                fields,
-                                &[],
-                            )?;
-                            let field_arrays = fields
-                                .iter()
-                                .zip(arrays)
-                                .map(|(f, a)| (f.clone(), a))
-                                .collect::<Vec<(Field, ArrayRef)>>();
-                            let array = StructArray::from(field_arrays);
-                            Ok(Arc::new(array) as ArrayRef)
+                            let arrays =
+                                self.build_struct_array(&struct_rows, fields, &[])?;
+                            // construct a struct array's data in order to set null buffer
+                            let data_type = DataType::Struct(fields.clone());
+                            let data = ArrayDataBuilder::new(data_type)
+                                .len(len)
+                                .null_bit_buffer(null_buffer.freeze())
+                                .child_data(
+                                    arrays.into_iter().map(|a| a.data()).collect(),
+                                )
+                                .build();
+                            Ok(make_array(data))
                         }
                         _ => Err(ArrowError::JsonError(format!(
                             "{:?} type is not supported",
@@ -1186,7 +1201,10 @@ impl ReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::datatypes::DataType::{Dictionary, List};
+    use crate::{
+        buffer::Buffer,
+        datatypes::DataType::{Dictionary, List},
+    };
 
     use super::*;
     use flate2::read::GzDecoder;
@@ -1592,41 +1610,50 @@ mod tests {
 
     #[test]
     fn test_nested_struct_json_arrays() {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new(
-                "b",
-                DataType::List(Box::new(Field::new("item", DataType::Float32, true))),
-                true,
-            ),
-            Field::new(
-                "c",
-                DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
-                true,
-            ),
-            Field::new("d", DataType::Float64, false),
-            Field::new(
-                "e",
-                DataType::Struct(vec![
-                    Field::new("f", DataType::Boolean, true),
-                    Field::new(
-                        "g",
-                        DataType::Struct(vec![Field::new("h", DataType::Utf8, true)]),
-                        true,
-                    ),
-                ]),
-                true,
-            ),
-        ]));
+        let c_field = Field::new(
+            "c",
+            DataType::Struct(vec![Field::new("d", DataType::Utf8, true)]),
+            true,
+        );
+        let a_field = Field::new(
+            "a",
+            DataType::Struct(vec![
+                Field::new("b", DataType::Boolean, true),
+                c_field.clone(),
+            ]),
+            true,
+        );
+        let schema = Arc::new(Schema::new(vec![a_field.clone()]));
         let builder = ReaderBuilder::new().with_schema(schema).with_batch_size(64);
         let mut reader: Reader<File> = builder
             .build::<File>(File::open("test/data/nested_structs.json").unwrap())
             .unwrap();
-        let batch = reader.next().unwrap().unwrap();
 
         // build expected output
-        let g = batch.column(4);
-        dbg!(g);
+        let d = StringArray::from(vec![Some("text"), None, Some("text"), None]);
+        let c = ArrayDataBuilder::new(c_field.data_type().clone())
+            .null_count(2)
+            .len(4)
+            .add_child_data(d.data())
+            .null_bit_buffer(Buffer::from(vec![0b00000101]))
+            .build();
+        let b = BooleanArray::from(vec![Some(true), Some(false), Some(true), None]);
+        let a = ArrayDataBuilder::new(a_field.data_type().clone())
+            .null_count(1)
+            .len(4)
+            .add_child_data(b.data())
+            .add_child_data(c)
+            .null_bit_buffer(Buffer::from(vec![0b00000111]))
+            .build();
+        let expected = make_array(a);
+
+        // compare `a` with result from json reader
+        let batch = reader.next().unwrap().unwrap();
+        let read = batch.column(0);
+        assert!(
+            expected.data_ref() == read.data_ref(),
+            format!("{:?} != {:?}", expected.data(), read.data())
+        );
     }
 
     #[test]
