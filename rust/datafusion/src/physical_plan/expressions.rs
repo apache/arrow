@@ -1334,8 +1334,7 @@ fn common_binary_type(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
-            )
-            .to_string(),
+            ),
         )),
         Some(t) => Ok(t)
     }
@@ -1602,8 +1601,7 @@ pub fn not(
             format!(
                 "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
                 arg, data_type,
-            )
-            .to_string(),
+            ),
         ))
     } else {
         Ok(Arc::new(NotExpr::new(arg)))
@@ -2279,10 +2277,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![Arc::new(a), Arc::new(b)],
-        )?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
@@ -2309,10 +2305,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![2, 4, 6, 8, 10]);
         let b = Int32Array::from(vec![2, 5, 4, 8, 8]);
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![Arc::new(a), Arc::new(b)],
-        )?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b OR a == b"
         let expr = binary_simple(
@@ -2342,7 +2336,7 @@ mod tests {
         // create an arbitrary record bacth
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // create and evaluate a literal expression
         let literal_expr = lit(ScalarValue::from(42i32));
@@ -2520,8 +2514,8 @@ mod tests {
             StringArray::from(vec![Some("not one"), Some("two"), None, Some("four")]);
 
         let schema = Arc::new(Schema::new(vec![
-            Field::new("dict", dict_type.clone(), true),
-            Field::new("str", string_type.clone(), true),
+            Field::new("dict", dict_type, true),
+            Field::new("str", string_type, true),
         ]));
 
         let batch = RecordBatch::try_new(
@@ -2654,7 +2648,7 @@ mod tests {
         );
         Ok(())
     }
-
+    #[allow(clippy::redundant_clone)]
     #[test]
     fn test_cast_i64_t64() -> Result<()> {
         let original = vec![1, 2, 3, 4, 5];
@@ -3208,8 +3202,8 @@ mod tests {
 
         // should handle have negative values in result (for signed)
         apply_arithmetic::<Int32Type>(
-            schema.clone(),
-            vec![b.clone(), a.clone()],
+            schema,
+            vec![b, a],
             Operator::Minus,
             Int32Array::from(vec![0, 0, -1, -4, -11]),
         )?;
@@ -3323,7 +3317,7 @@ mod tests {
     fn is_null_op() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
@@ -3344,7 +3338,7 @@ mod tests {
     fn is_not_null_op() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
@@ -3488,7 +3482,7 @@ mod tests {
     fn case_test_batch() -> Result<RecordBatch> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), Some("baz"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
         Ok(batch)
     }
 }

@@ -179,9 +179,10 @@ pub fn return_type(
     if arg_types.len() == 0 {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
-        return Err(DataFusionError::Plan(
-            format!("Function '{}' requires at least one argument", fun).to_string(),
-        ));
+        return Err(DataFusionError::Plan(format!(
+            "Function '{}' requires at least one argument",
+            fun
+        )));
     }
 
     // the return type of the built in function. Eventually there
@@ -463,7 +464,7 @@ mod tests {
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &vec![lit(value1.clone()), lit(value2.clone())],
+            &vec![lit(value1), lit(value2)],
             &schema,
         )?;
 

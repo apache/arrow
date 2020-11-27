@@ -93,9 +93,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     pub fn query_to_plan(&self, query: &Query) -> Result<LogicalPlan> {
         let plan = match &query.body {
             SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
-            _ => Err(DataFusionError::NotImplemented(
-                format!("Query {} not implemented yet", query.body).to_owned(),
-            )),
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "Query {} not implemented yet",
+                query.body
+            ))),
         }?;
 
         let plan = self.order_by(&plan, &query.order_by)?;
@@ -143,7 +144,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             name: name.clone(),
             location: location.clone(),
             file_type: file_type.clone(),
-            has_header: has_header.clone(),
+            has_header: *has_header,
         })
     }
 
@@ -665,10 +666,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::ScalarUDF {
-                            fun: fm.clone(),
-                            args,
-                        })
+                        Ok(Expr::ScalarUDF { fun: fm, args })
                     }
                     None => match self.schema_provider.get_aggregate_meta(&name) {
                         Some(fm) => {
@@ -678,10 +676,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                                 .map(|a| self.sql_to_rex(a, schema))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            Ok(Expr::AggregateUDF {
-                                fun: fm.clone(),
-                                args,
-                            })
+                            Ok(Expr::AggregateUDF { fun: fm, args })
                         }
                         _ => Err(DataFusionError::Plan(format!(
                             "Invalid function '{}'",

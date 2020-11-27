@@ -180,7 +180,7 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> RecordBatch {
         .map(|i| limit(batch.column(i), n))
         .collect();
 
-    RecordBatch::try_new(batch.schema().clone(), limited_columns).unwrap()
+    RecordBatch::try_new(batch.schema(), limited_columns).unwrap()
 }
 
 /// A Limit stream limits the stream to up to `limit` rows.
@@ -231,7 +231,7 @@ impl Stream for LimitStream {
 impl RecordBatchStream for LimitStream {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
-        self.input.schema().clone()
+        self.input.schema()
     }
 }
 

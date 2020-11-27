@@ -141,7 +141,7 @@ impl ExecutionPlan for MergeExec {
 
                 Ok(Box::pin(MergeStream {
                     input: receiver,
-                    schema: self.schema().clone(),
+                    schema: self.schema(),
                 }))
             }
         }
