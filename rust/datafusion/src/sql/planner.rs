@@ -338,44 +338,43 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 let mut possible_join_keys = vec![];
                 extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
 
-                let mut join_keys = vec![];
-
+                let mut all_join_keys = vec![];
                 let mut left = plans[0].clone();
                 for i in 1..plans.len() {
                     let right = &plans[i];
                     let left_schema = left.schema();
                     let right_schema = right.schema();
-                    let mut left_keys = vec![];
-                    let mut right_keys = vec![];
+                    let mut join_keys = vec![];
                     for (l, r) in &possible_join_keys {
                         if left_schema.field_with_name(l).is_ok()
                             && right_schema.field_with_name(r).is_ok()
                         {
-                            left_keys.push(l.as_str());
-                            right_keys.push(r.as_str());
-                            join_keys.push((l, r));
+                            join_keys.push((l.as_str(), r.as_str()));
                         } else if left_schema.field_with_name(r).is_ok()
                             && right_schema.field_with_name(l).is_ok()
                         {
-                            left_keys.push(r.as_str());
-                            right_keys.push(l.as_str());
-                            join_keys.push((r, l));
+                            join_keys.push((r.as_str(), l.as_str()));
                         }
                     }
-                    if left_keys.len() == 0 {
+                    if join_keys.len() == 0 {
                         return Err(DataFusionError::NotImplemented(
                             "Cartesian joins are not supported".to_string(),
                         ));
                     } else {
+                        let left_keys: Vec<_> =
+                            join_keys.iter().map(|(l, _)| *l).collect();
+                        let right_keys: Vec<_> =
+                            join_keys.iter().map(|(_, r)| *r).collect();
                         let builder = LogicalPlanBuilder::from(&left);
                         left = builder
                             .join(right, JoinType::Inner, &left_keys, &right_keys)?
                             .build()?;
                     }
+                    all_join_keys.extend_from_slice(&join_keys);
                 }
 
                 // remove join expressions from filter
-                match remove_join_expressions(&filter_expr, &join_keys)? {
+                match remove_join_expressions(&filter_expr, &all_join_keys)? {
                     Some(filter_expr) => {
                         LogicalPlanBuilder::from(&left).filter(filter_expr)?.build()
                     }
@@ -762,7 +761,7 @@ fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
 /// Remove join expressions from a filter expression
 fn remove_join_expressions(
     expr: &Expr,
-    join_columns: &[(&String, &String)],
+    join_columns: &[(&str, &str)],
 ) -> Result<Option<Expr>> {
     match expr {
         Expr::BinaryExpr { left, op, right } => match op {
