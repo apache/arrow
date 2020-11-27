@@ -203,6 +203,7 @@ libarrow_glib_la_cpp_headers +=			\
 endif
 
 libarrow_glib_la_cpp_internal_headers =		\
+	internal-hash-table.hpp			\
 	internal-index.hpp
 
 libarrow_glib_la_SOURCES =			\
