@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use arrow::util::pretty;
+use std::time::Instant;
 
+use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::prelude::*;
 
@@ -31,26 +32,60 @@ async fn main() -> Result<()> {
     // we can also use to run examples
 
     // create local execution context
-    let mut ctx = ExecutionContext::new();
+    let config = ExecutionConfig::new().with_batch_size(1024 * 1024);
+    let mut ctx = ExecutionContext::with_config(config);
 
-    // register csv file with the execution context
+    // register sql table with the execution context
+    let start = Instant::now();
     ctx.register_sql_source(
         "nyctaxi",
         "postgres://postgres:password@localhost:5432/postgres",
-        "select * from nyc_yellow_taxi limit 1048576 * 2",
+        "select * from nyc_yellow_taxi limit 10000000",
     )?;
+    println!("Registered source in {} ms", start.elapsed().as_millis());
 
     // execute the query
     let df = ctx.sql(
         "SELECT vendorId, RateCodeID, MIN(passenger_count) as min_passengers, \
         MAX(passenger_count) as max_passengers, \
-        AVG(passenger_count) as avg_passengers \
+        AVG(passenger_count) as avg_passengers, \
+        COUNT(passenger_count) as count_passengers \
         FROM nyctaxi \
         WHERE trip_distance > 10.0 AND passenger_count > 0 \
         GROUP BY vendorId, RateCodeID \
         ORDER BY RateCodeID DESC",
     )?;
     let results = df.collect().await?;
+
+    println!("Total query time was {} ms", start.elapsed().as_millis());
+
+    // print the results
+    pretty::print_batches(&results)?;
+
+    // now try with pushing the query to PostgreSQL
+
+    // register sql query with the execution context
+    let query = "SELECT a.\"vendorId\", a.\"RateCodeID\", MIN(a.passenger_count) as min_passengers, \
+    MAX(a.passenger_count) as max_passengers, \
+    CAST(AVG(a.passenger_count) AS DOUBLE PRECISION) as avg_passengers, \
+    COUNT(a.passenger_count) as count_passengers \
+    FROM ( SELECT * FROM nyc_yellow_taxi limit 10000000) a \
+    WHERE a.trip_distance > 10.0 AND a.passenger_count > 0 \
+    GROUP BY a.\"vendorId\", a.\"RateCodeID\" \
+    ORDER BY a.\"RateCodeID\" DESC";
+    let start = Instant::now();
+    ctx.register_sql_source(
+        "nyctaxi2",
+        "postgres://postgres:password@localhost:5432/postgres",
+        query,
+    )?;
+    println!("Registered source in {} ms", start.elapsed().as_millis());
+
+    // execute the query
+    let df = ctx.sql("select * from nyctaxi2")?;
+    let results = df.collect().await?;
+
+    println!("Total query time was {} ms", start.elapsed().as_millis());
 
     // print the results
     pretty::print_batches(&results)?;
