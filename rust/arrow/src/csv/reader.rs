@@ -129,11 +129,12 @@ fn infer_file_schema<R: Read + Seek>(
     let mut records_count = 0;
     let mut fields = vec![];
 
-    for result in csv_reader
-        .records()
-        .take(max_read_records.unwrap_or(std::usize::MAX))
-    {
-        let record = result?;
+    let mut record = StringRecord::new();
+    let max_records = max_read_records.unwrap_or(usize::MAX);
+    while records_count < max_records {
+        if !csv_reader.read_record(&mut record)? {
+            break;
+        }
         records_count += 1;
 
         for i in 0..header_length {
