@@ -40,13 +40,13 @@ namespace internal {
 
 /// \brief Case insensitive comparator for use by cookie caching map. Cookies are not
 /// case sensitive.
-struct CaseInsensitiveComparator
+struct ARROW_FLIGHT_EXPORT CaseInsensitiveComparator
     : public std::binary_function<std::string, std::string, bool> {
   bool operator()(const std::string& lhs, const std::string& rhs) const;
 };
 
 /// \brief Class to represent a cookie.
-class Cookie {
+class ARROW_FLIGHT_EXPORT Cookie {
  public:
   /// \brief Parse function to parse a cookie header value and return a Cookie object.
   ///
@@ -94,7 +94,7 @@ class Cookie {
 };
 
 /// \brief Class to handle updating a cookie cache.
-class CookieCache {
+class ARROW_FLIGHT_EXPORT CookieCache {
  public:
   /// \brief Updates the cache of cookies with new Set-Cookie header values.
   ///
