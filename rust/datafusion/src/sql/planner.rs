@@ -324,14 +324,14 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 match &select.selection {
                     Some(predicate_expr) => {
                         // build join schema
-                        let mut join_schema = plans[0].schema().clone();
-                        for i in 1..plans.len() {
-                            let mut fields = join_schema.fields().clone();
-                            for field in plans[i].schema().fields() {
+                        let mut fields = vec![];
+                        for plan in &plans {
+                            let schema = plan.schema();
+                            for field in schema.fields() {
                                 fields.push(field.clone());
                             }
-                            join_schema = Arc::new(Schema::new(fields));
                         }
+                        let join_schema = Schema::new(fields);
 
                         let filter_expr =
                             self.sql_to_rex(predicate_expr, &join_schema)?;
@@ -341,23 +341,27 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         let mut left = plans[0].clone();
                         for i in 1..plans.len() {
                             let right = &plans[i];
+                            let left_schema = left.schema();
+                            let right_schema = right.schema();
                             let mut left_keys = vec![];
                             let mut right_keys = vec![];
                             for (l, r) in &possible_join_keys {
-                                if left.schema().field_with_name(l).is_ok()
-                                    && right.schema().field_with_name(r).is_ok()
+                                if left_schema.field_with_name(l).is_ok()
+                                    && right_schema.field_with_name(r).is_ok()
                                 {
                                     left_keys.push(l.as_str());
                                     right_keys.push(r.as_str());
-                                } else if left.schema().field_with_name(r).is_ok()
-                                    && right.schema().field_with_name(l).is_ok()
+                                } else if left_schema.field_with_name(r).is_ok()
+                                    && right_schema.field_with_name(l).is_ok()
                                 {
                                     left_keys.push(r.as_str());
                                     right_keys.push(l.as_str());
                                 }
                             }
                             if left_keys.len() == 0 {
-                                panic!()
+                                return Err(DataFusionError::NotImplemented(
+                                    "Cartesian joins are not supported".to_string(),
+                                ));
                             } else {
                                 let builder = LogicalPlanBuilder::from(&left);
                                 left = builder
