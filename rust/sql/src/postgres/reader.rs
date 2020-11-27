@@ -34,7 +34,8 @@ use postgres::types::*;
 use postgres::{Client, NoTls, Row};
 
 use super::{
-    Postgres, PostgresReadIterator, EPOCH_DAYS, EPOCH_MICROS, MAGIC, UNSUPPORTED_TYPE_ERR,
+    Buffers, Postgres, PostgresReadIterator, EPOCH_DAYS, EPOCH_MICROS, MAGIC,
+    UNSUPPORTED_TYPE_ERR,
 };
 use crate::SqlDataSource;
 
@@ -125,6 +126,13 @@ impl PostgresReadIterator {
             )
             .unwrap();
         let schema = row_to_schema(&row).expect("Unable to get schema from row");
+        let field_len = schema.fields().len();
+        // allocate read buffers
+        let buffers = Buffers {
+            data_buffers: vec![Vec::with_capacity(batch_size); field_len],
+            null_buffers: vec![Vec::with_capacity(batch_size); field_len],
+            offset_buffers: vec![Vec::with_capacity(batch_size); field_len],
+        };
         Ok(Self {
             client,
             query: query.to_string(),
@@ -133,6 +141,7 @@ impl PostgresReadIterator {
             schema,
             read_records: 0,
             is_complete: false,
+            buffers,
         })
     }
 
@@ -149,7 +158,7 @@ impl PostgresReadIterator {
             )
             .as_str(),
         )?;
-        let batch = read_from_binary(reader, &self.schema)?;
+        let batch = read_from_binary(reader, &self.schema, &mut self.buffers)?;
         // println!(
         //     "Read {} records from offset {}",
         //     batch.num_rows(),
@@ -239,7 +248,9 @@ impl TryFrom<PgDataType> for Field {
             // "inet" => Err(UNSUPPORTED_TYPE_ERR),
             "interval" => Ok(DataType::Interval(IntervalUnit::DayTime)), // TODO: use appropriate unit
             // "name" => Err(UNSUPPORTED_TYPE_ERR),
-            "numeric" => Ok(DataType::Float64),
+            // "numeric" => Ok(DataType::Float64),
+            "serial" => Ok(DataType::UInt32),
+            "bigserial" => Ok(DataType::UInt64),
             // "oid" => Err(UNSUPPORTED_TYPE_ERR),
             "real" => Ok(DataType::Float32),
             "smallint" => Ok(DataType::Int16),
@@ -464,7 +475,11 @@ fn row_to_schema(row: &postgres::Row) -> Result<Schema> {
 }
 
 /// Consume binary data from reader, and convert it to a RecordBatch
-fn read_from_binary<R>(mut reader: R, schema: &Schema) -> Result<RecordBatch>
+fn read_from_binary<R>(
+    mut reader: R,
+    schema: &Schema,
+    buffers: &mut Buffers,
+) -> Result<RecordBatch>
 where
     R: Read,
 {
@@ -487,21 +502,31 @@ where
     let _size = u32::from_be_bytes(bytes);
 
     // iterate through rows
-    read_rows(&mut reader, schema)
+    read_rows(&mut reader, schema, buffers)
 }
 
 /// Read row tuples
-fn read_rows<R>(mut reader: R, schema: &Schema) -> Result<RecordBatch>
+fn read_rows<R>(
+    mut reader: R,
+    schema: &Schema,
+    buffers: &mut Buffers,
+) -> Result<RecordBatch>
 where
     R: Read,
 {
     let mut is_done = false;
     let field_len = schema.fields().len();
 
-    // TODO: given fixed batch sizes, we could reuse these across record batches
-    let mut buffers: Vec<Vec<u8>> = vec![vec![]; field_len];
-    let mut null_buffers: Vec<Vec<bool>> = vec![vec![]; field_len];
-    let mut offset_buffers: Vec<Vec<i32>> = vec![vec![]; field_len];
+    // clear buffers
+    buffers.data_buffers.iter_mut().for_each(|b| {
+        b.clear();
+    });
+    buffers.null_buffers.iter_mut().for_each(|b| {
+        b.clear();
+    });
+    buffers.offset_buffers.iter_mut().for_each(|b| {
+        b.clear();
+    });
 
     let default_values: Vec<Vec<u8>> = schema
         .fields()
@@ -557,6 +582,7 @@ where
         let size = size as usize;
         // in almost all cases, the tuple length should equal schema field length
         assert_eq!(size, field_len);
+        #[allow(clippy::needless_range_loop)]
         for i in 0..field_len {
             let mut bytes = [0u8; 4];
             reader.read_exact(&mut bytes)?;
@@ -567,10 +593,10 @@ where
                 | DataType::LargeBinary
                 | DataType::Utf8
                 | DataType::LargeUtf8 => {
-                    offset_buffers[i].push(col_length);
+                    buffers.offset_buffers[i].push(col_length);
                 }
                 DataType::FixedSizeBinary(binary_size) => {
-                    offset_buffers[i].push(record_num * binary_size);
+                    buffers.offset_buffers[i].push(record_num * binary_size);
                 }
                 DataType::List(_) => {}
                 DataType::FixedSizeList(_, _) => {}
@@ -580,17 +606,17 @@ where
             // populate values
             if col_length == -1 {
                 // null value
-                null_buffers[i].push(false);
-                buffers[i].write_all(default_values[i].as_slice())?;
+                buffers.null_buffers[i].push(false);
+                buffers.data_buffers[i].write_all(default_values[i].as_slice())?;
             } else {
-                null_buffers[i].push(true);
+                buffers.null_buffers[i].push(true);
                 // big endian data, needs to be converted to little endian
                 let mut data = read_col(
                     &mut reader,
                     schema.field(i).data_type(),
                     col_length as usize,
                 )?;
-                buffers[i].append(&mut data);
+                buffers.data_buffers[i].append(&mut data);
             }
         }
     }
@@ -598,8 +624,9 @@ where
     let mut arrays = Vec::with_capacity(schema.fields().len());
     // build record batches
     buffers
-        .into_iter()
-        .zip(null_buffers.into_iter())
+        .data_buffers
+        .iter()
+        .zip(buffers.null_buffers.iter())
         .zip(schema.fields().iter())
         .enumerate()
         .for_each(|(i, ((b, n), f))| {
@@ -669,7 +696,7 @@ where
                     // recontruct offsets
                     let mut offset = 0;
                     let mut offsets = vec![0];
-                    offset_buffers[i].iter().for_each(|o| {
+                    buffers.offset_buffers[i].iter().for_each(|o| {
                         offsets.push(offset + o);
                         offset += o;
                     });
@@ -688,10 +715,13 @@ where
                     // recontruct offsets
                     let mut offset = 0i64;
                     let mut offsets = vec![0i64];
-                    offset_buffers[i].iter().map(|o| *o as i64).for_each(|o| {
-                        offsets.push(offset + o);
-                        offset += o;
-                    });
+                    buffers.offset_buffers[i]
+                        .iter()
+                        .map(|o| *o as i64)
+                        .for_each(|o| {
+                            offsets.push(offset + o);
+                            offset += o;
+                        });
                     let data = ArrayData::new(
                         f.data_type().clone(),
                         n.len(),

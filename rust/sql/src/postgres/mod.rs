@@ -39,4 +39,12 @@ pub struct PostgresReadIterator {
     schema: arrow::datatypes::Schema,
     read_records: usize,
     is_complete: bool,
+    buffers: Buffers,
+}
+
+/// Buffers that can be preallocated, to reduce overall allocations
+pub(super) struct Buffers {
+    pub(super) data_buffers: Vec<Vec<u8>>,
+    pub(super) null_buffers: Vec<Vec<bool>>,
+    pub(super) offset_buffers: Vec<Vec<i32>>,
 }
