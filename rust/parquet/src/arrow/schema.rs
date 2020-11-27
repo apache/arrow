@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use arrow::{array::DecimalArray, datatypes::{DataType, DateUnit, Field, Schema, TimeUnit}};
 use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
@@ -400,10 +400,10 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
-        DataType::Decimal(_, _) => {
+        DataType::Decimal(precision, _) => {
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
                 .with_repetition(repetition)
-                .with_length(10)
+                .with_length(DecimalArray::calc_fixed_byte_size(*precision))
                 .build()
         }
         DataType::Utf8 | DataType::LargeUtf8 => {

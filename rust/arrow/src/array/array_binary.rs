@@ -467,12 +467,14 @@ impl DecimalArray {
 
     fn from_bytes_to_i128(b: &[u8]) -> i128 {
         assert!(b.len() <= 16, "DecimalArray supports only up to size 16");
-        let first_bit = b[0] & 128u8 == 128u8;
+        // println!("First as bytes: {:?}", (-11697 as i64).to_be_bytes());
+        // println!("First as bytes: {:?}", (-11697 as i64).to_le_bytes());
+        let first_bit = b[b.len() - 1] & 128u8 == 128u8;
         let mut result = if first_bit { [255u8; 16] } else { [0u8; 16] };
         for (i, v) in b.iter().enumerate() {
-            result[i + (16 - b.len())] = *v;
+            result[i] = *v;
         }
-        i128::from_be_bytes(result)
+        i128::from_le_bytes(result)
     }
 
     /// Returns the byte size per value for Decimal arrays with a given precision
@@ -549,7 +551,7 @@ impl From<ArrayDataRef> for DecimalArray {
             DataType::Decimal(precision, scale) => (*precision, *scale),
             _ => panic!("Expected data type to be Decimal"),
         };
-        let length = Self::calc_fixed_byte_size(precision);
+        let length = 16;
         Self {
             data,
             value_data: RawPtrBox::new(value_data),
@@ -950,11 +952,9 @@ mod tests {
 
     #[test]
     fn test_decimal_array() {
-        let values: [u8; 20] = [
-            0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75,
-            36, 64,
-        ];
-
+        // let val_8887: [u8; 16] = [192, 219, 180, 17, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        // let val_neg_8887: [u8; 16] = [64, 36, 75, 238, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+        let values: [u8; 32] = [192, 219, 180, 17, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 36, 75, 238, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
         let array_data = ArrayData::builder(DataType::Decimal(23, 6))
             .len(2)
             .add_buffer(Buffer::from(&values[..]))
@@ -962,15 +962,12 @@ mod tests {
         let decimal_array = DecimalArray::from(array_data);
         assert_eq!(8_887_000_000, decimal_array.value(0));
         assert_eq!(-8_887_000_000, decimal_array.value(1));
-        assert_eq!(10, decimal_array.value_length());
+        assert_eq!(16, decimal_array.value_length());
     }
 
     #[test]
     fn test_decimal_array_fmt_debug() {
-        let values: [u8; 20] = [
-            0, 0, 0, 0, 0, 2, 17, 180, 219, 192, 255, 255, 255, 255, 255, 253, 238, 75,
-            36, 64,
-        ];
+        let values: [u8; 32] = [192, 219, 180, 17, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 36, 75, 238, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
         let array_data = ArrayData::builder(DataType::Decimal(23, 6))
             .len(2)
             .add_buffer(Buffer::from(&values[..]))

@@ -337,6 +337,19 @@ fn create_primitive_array(
             }
             builder.build()
         }
+        Decimal(_, _) => {
+            // read 3 buffers
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..2].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
+        }
         t => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
@@ -978,6 +991,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal"
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(

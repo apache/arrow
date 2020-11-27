@@ -1971,7 +1971,7 @@ impl DecimalBuilder {
     /// array
     pub fn new(capacity: usize, precision: usize, scale: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
-        let byte_width = DecimalArray::calc_fixed_byte_size(precision);
+        let byte_width = 16;
         Self {
             builder: FixedSizeListBuilder::new(values_builder, byte_width),
             precision,
@@ -2005,7 +2005,7 @@ impl DecimalBuilder {
                 "DecimalBuilder only supports values up to 16 bytes.".to_string(),
             ));
         }
-        let res = v.to_be_bytes();
+        let res = v.to_le_bytes();
         let start_byte = 16 - size;
         Ok(res[start_byte..16].to_vec())
     }
@@ -3612,8 +3612,8 @@ mod tests {
         assert_eq!(&DataType::Decimal(23, 6), decimal_array.data_type());
         assert_eq!(3, decimal_array.len());
         assert_eq!(1, decimal_array.null_count());
-        assert_eq!(20, decimal_array.value_offset(2));
-        assert_eq!(10, decimal_array.value_length());
+        assert_eq!(32, decimal_array.value_offset(2));
+        assert_eq!(16, decimal_array.value_length());
     }
 
     #[test]

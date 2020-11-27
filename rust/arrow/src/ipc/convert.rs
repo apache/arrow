@@ -270,6 +270,10 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
 
             DataType::Struct(fields)
         }
+        ipc::Type::Decimal => {
+            let fsb = field.type_as_decimal().unwrap();
+            DataType::Decimal(fsb.precision() as usize, fsb.scale() as usize)
+        }
         t => unimplemented!("Type {:?} not supported", t),
     }
 }
