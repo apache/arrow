@@ -18,4 +18,3 @@
 # llvmdev=9 or later require Visual Studio 2017
 clangdev=8
 llvmdev=8
-re2
