@@ -402,8 +402,8 @@ mod tests {
     use crate::error::Result;
     use std::{convert::TryFrom, sync::Arc};
 
-    fn create_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
-        builder: &'a mut ListBuilder<Int32Builder>,
+    fn create_list_array<U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
+        builder: &mut ListBuilder<Int32Builder>,
         data: T,
     ) -> Result<ListArray> {
         for d in data.as_ref() {
