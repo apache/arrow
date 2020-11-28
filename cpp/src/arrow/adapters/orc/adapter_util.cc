@@ -670,7 +670,6 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
           initSubarrayArrowSet = subarrayArrowOffset,
           initSubarrayORCOffset = subarrayORCOffset,
           subarrayORCLength = batch->offsets[orcOffset];
-  ;
   // Let the subbatches take care of itself. Don't manipulate it here.
   keyBatch->resize(subarrayORCLength);
   elementBatch->resize(subarrayORCLength);

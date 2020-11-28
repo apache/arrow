@@ -892,8 +892,9 @@ TEST(TestAdapterWriteNumerical, writeBooleanChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], 1);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -907,8 +908,9 @@ TEST(TestAdapterWriteNumerical, writeBooleanChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], 1);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -1289,8 +1291,9 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      };
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -1304,8 +1307,9 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    };
   }
   writer->add(*batch);
   writer->close();
@@ -1596,8 +1600,9 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      };
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -1611,8 +1616,9 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    };
   }
   writer->add(*batch);
   writer->close();
@@ -2411,8 +2417,9 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      };
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -2426,8 +2433,9 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    };
   }
   writer->add(*batch);
   writer->close();
@@ -2718,8 +2726,9 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_FLOAT_EQ(x->data[i], i + resultOffset + 0.5);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      };
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -2733,8 +2742,9 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_FLOAT_EQ(x->data[i], i + resultOffset + 0.5);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    };
   }
   writer->add(*batch);
   writer->close();
@@ -3025,8 +3035,9 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_DOUBLE_EQ(x->data[i], i + resultOffset + 0.5);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -3040,8 +3051,9 @@ TEST(TestAdapterWriteNumerical, writeDoubleChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_DOUBLE_EQ(x->data[i], i + resultOffset + 0.5);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -3566,8 +3578,9 @@ TEST(TestAdapterWriteNumerical, writeDecimal128ChunkedMultibatch) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(Decimal128(x->values[i].toDecimalString(6)),
                   Decimal128(std::to_string(i + resultOffset) + ".567891"));
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -3582,8 +3595,9 @@ TEST(TestAdapterWriteNumerical, writeDecimal128ChunkedMultibatch) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(Decimal128(x->values[i].toDecimalString(6)),
                 Decimal128(std::to_string(i + resultOffset) + ".567891"));
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -3646,8 +3660,9 @@ TEST(TestAdapterWriteNumerical, writeDecimal128ChunkedMultibatchZero) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(Decimal128(x->values[i].toDecimalString(0)),
                   Decimal128(std::to_string(i + resultOffset)));
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -3662,8 +3677,9 @@ TEST(TestAdapterWriteNumerical, writeDecimal128ChunkedMultibatchZero) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(Decimal128(x->values[i].toDecimalString(0)),
                 Decimal128(std::to_string(i + resultOffset)));
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -3956,8 +3972,9 @@ TEST(TestAdapterWriteTime, writeDate32ChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset + 18584);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -3971,8 +3988,9 @@ TEST(TestAdapterWriteTime, writeDate32ChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset + 18584);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -4272,8 +4290,9 @@ TEST(TestAdapterWriteTime, writeDate64ChunkedMultibatch) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], 1605758461);
         EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 552) * 1000000);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -4288,8 +4307,9 @@ TEST(TestAdapterWriteTime, writeDate64ChunkedMultibatch) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], 1605758461);
       EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 552) * 1000000);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -4835,8 +4855,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchSecond) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset + 1605758461);
         EXPECT_EQ(x->nanoseconds[i], 0);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -4851,8 +4872,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchSecond) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset + 1605758461);
       EXPECT_EQ(x->nanoseconds[i], 0);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -4918,8 +4940,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchMilli) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], 1605758461);
         EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 398) * 1000000);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -4934,8 +4957,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchMilli) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], 1605758461);
       EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 398) * 1000000);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -5001,8 +5025,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchMicro) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], 1605758461);
         EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 398538) * 1000);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -5017,8 +5042,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchMicro) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], 1605758461);
       EXPECT_EQ(x->nanoseconds[i], (i + resultOffset + 398538) * 1000);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -5084,8 +5110,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchNano) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], 1605758461);
         EXPECT_EQ(x->nanoseconds[i], i + resultOffset + 398038293);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -5100,8 +5127,9 @@ TEST(TestAdapterWriteTime, writeTimestampChunkedMultibatchNano) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], 1605758461);
       EXPECT_EQ(x->nanoseconds[i], i + resultOffset + 398038293);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -5406,8 +5434,9 @@ TEST(TestAdapterWriteBinary, writeStringChunkedMultibatch) {
           EXPECT_EQ(x->length[i], 7);
         else
           EXPECT_EQ(x->length[i], 6);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -5427,8 +5456,9 @@ TEST(TestAdapterWriteBinary, writeStringChunkedMultibatch) {
         EXPECT_EQ(x->length[i], 7);
       else
         EXPECT_EQ(x->length[i], 6);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -5729,8 +5759,9 @@ TEST(TestAdapterWriteBinary, writeLargeStringChunkedMultibatch) {
           EXPECT_EQ(x->length[i], 7);
         else
           EXPECT_EQ(x->length[i], 6);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -5750,8 +5781,9 @@ TEST(TestAdapterWriteBinary, writeLargeStringChunkedMultibatch) {
         EXPECT_EQ(x->length[i], 7);
       else
         EXPECT_EQ(x->length[i], 6);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -6061,8 +6093,9 @@ TEST(TestAdapterWriteBinary, writeBinaryChunkedMultibatch) {
         EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
         EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
         EXPECT_EQ(x->length[i], 2);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -6080,8 +6113,9 @@ TEST(TestAdapterWriteBinary, writeBinaryChunkedMultibatch) {
       EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
       EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
       EXPECT_EQ(x->length[i], 2);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -6392,8 +6426,9 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedMultibatch) {
         EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
         EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
         EXPECT_EQ(x->length[i], 2);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -6411,8 +6446,9 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedMultibatch) {
       EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
       EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
       EXPECT_EQ(x->length[i], 2);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -6971,8 +7007,9 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedMultibatch) {
         EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
         EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
         EXPECT_EQ(x->length[i], 2);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -6990,8 +7027,9 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedMultibatch) {
       EXPECT_EQ(x->data[i][0], (char)(i + resultOffset));
       EXPECT_EQ(x->data[i][1], (char)(i + resultOffset));
       EXPECT_EQ(x->length[i], 2);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -7054,8 +7092,9 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->length[i], 0);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -7069,8 +7108,9 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->length[i], 0);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -10393,6 +10433,7 @@ TEST(TestAdapterWriteNested, writeLargeListChunkedMultibatch) {
 }
 
 // FixedSizeList
+// writeFixedSizeListZeroEmpty not allowed
 TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
@@ -10404,51 +10445,6 @@ TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   std::shared_ptr<FixedSizeListArray> array =
       std::static_pointer_cast<FixedSizeListArray>(
           FixedSizeListArray::FromArrays(valuesArray, 3).ValueOrDie());
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::ListVectorBatch* x =
-      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
-  liborc::LongVectorBatch* a =
-      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-
-  EXPECT_EQ(x->numElements, 0);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 0);
-  EXPECT_FALSE(a->hasNulls);
-
-  EXPECT_EQ(x->offsets[0], 0);
-
-  EXPECT_EQ(arrowOffset, 0);
-  EXPECT_EQ(orcOffset, 0);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeFixedSizeListZeroEmpty) {
-  auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 0);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  Int32Builder valuesBuilder;
-  std::shared_ptr<Array> valuesArray;
-  (void)(valuesBuilder.Finish(&valuesArray));
-
-  std::shared_ptr<FixedSizeListArray> array =
-      std::static_pointer_cast<FixedSizeListArray>(
-          FixedSizeListArray::FromArrays(valuesArray, 0).ValueOrDie());
 
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(
@@ -10543,7 +10539,7 @@ TEST(TestAdapterWriteNested, writeFixedSizeListAllNulls) {
   writer->add(*batch);
   writer->close();
 }
-TEST(TestAdapterWriteNested, writeFixedSizeListZeroLength) {
+TEST(TestAdapterWriteNested, writeFixedSizeListZeroNoNulls) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 0);
   DataType* arrowType = sharedPtrArrowType.get();
 
@@ -10837,6 +10833,249 @@ TEST(TestAdapterWriteNested, writeFixedSizeListMixed2) {
 
   EXPECT_EQ(arrowOffset, 4);
   EXPECT_EQ(orcOffset, 4);
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNested, writeFixedSizeListChunkedEmpty) {
+  auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, sharedPtrArrowType);
+  DataType* arrowType = sharedPtrArrowType.get();
+
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(a->numElements, 0);
+  EXPECT_FALSE(a->hasNulls);
+
+  writer->add(*batch);
+  writer->close();
+}
+TEST(TestAdapterWriteNested, writeFixedSizeListZeroChunkedEmpty) {
+  auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 0);
+  ArrayVector av;
+  std::shared_ptr<ChunkedArray> carray =
+      std::make_shared<ChunkedArray>(av, sharedPtrArrowType);
+  DataType* arrowType = sharedPtrArrowType.get();
+
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(a->numElements, 0);
+  EXPECT_FALSE(a->hasNulls);
+
+  writer->add(*batch);
+  writer->close();
+}
+
+TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
+  auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
+  DataType* arrowType = sharedPtrArrowType.get();
+
+  Int32Builder valuesBuilder0, offsetsBuilder0, valuesBuilder2, offsetsBuilder2,
+      valuesBuilder4, offsetsBuilder4;
+  std::shared_ptr<Array> valuesArray0, offsetsArray0, valuesArray2, offsetsArray2,
+      valuesArray4, offsetsArray4;
+  (void)(valuesBuilder0.Finish(&valuesArray0));
+  (void)(offsetsBuilder0.Append(0));
+  (void)(offsetsBuilder0.Finish(&offsetsArray0));
+  (void)(valuesBuilder2.Finish(&valuesArray2));
+  (void)(offsetsBuilder2.Append(0));
+  (void)(offsetsBuilder2.Finish(&offsetsArray2));
+  (void)(valuesBuilder4.Finish(&valuesArray4));
+  (void)(offsetsBuilder4.Append(0));
+  (void)(offsetsBuilder4.Finish(&offsetsArray4));
+
+  std::shared_ptr<ListArray> array0 =
+      ListArray::FromArrays(*offsetsArray0, *valuesArray0).ValueOrDie();
+  std::shared_ptr<ListArray> array2 =
+      ListArray::FromArrays(*offsetsArray2, *valuesArray2).ValueOrDie();
+  std::shared_ptr<ListArray> array4 =
+      ListArray::FromArrays(*offsetsArray4, *valuesArray4).ValueOrDie();
+
+  Int32Builder valuesBuilder1, offsetsBuilder1, valuesBuilder3, offsetsBuilder3;
+
+  int32_t offsets1[3] = {0, 1, 3};
+
+  BufferBuilder builder1;
+  (void)(builder1.Resize(12));
+  (void)(builder1.Append(offsets1, 12));
+  std::shared_ptr<arrow::Buffer> offsetsBuffer1;
+  if (!builder1.Finish(&offsetsBuffer1).ok()) {
+    FAIL() << "The offsets buffer can not be constructed!";
+  }
+
+  int32_t offsets3[3] = {0, 0, 4};
+
+  BufferBuilder builder3;
+  (void)(builder3.Resize(12));
+  (void)(builder3.Append(offsets3, 12));
+  std::shared_ptr<arrow::Buffer> offsetsBuffer3;
+  if (!builder3.Finish(&offsetsBuffer3).ok()) {
+    FAIL() << "The offsets buffer can not be constructed!";
+  }
+
+  std::shared_ptr<Array> valuesArray1, valuesArray3;
+  (void)(valuesBuilder1.AppendNull());
+  (void)(valuesBuilder1.Append(2));
+  (void)(valuesBuilder1.Append(3));
+  (void)(valuesBuilder1.Finish(&valuesArray1));
+  (void)(valuesBuilder3.AppendNull());
+  (void)(valuesBuilder3.Append(8));
+  (void)(valuesBuilder3.Append(9));
+  (void)(valuesBuilder3.AppendNull());
+  (void)(valuesBuilder3.Finish(&valuesArray3));
+
+  uint8_t bitmap1 = 1;  // 00000001
+  auto maybeBuffer1 = AllocateBuffer(1);
+  if (!maybeBuffer1.ok()) {
+    FAIL() << "Buffer not created successfully";
+  }
+  std::shared_ptr<Buffer> bitmapBuffer1 = *std::move(maybeBuffer1);
+  uint8_t* bufferData1 = bitmapBuffer1->mutable_data();
+  std::memcpy(bufferData1, &bitmap1, 1);
+
+  uint8_t bitmap3 = 3;  // 00000011
+  auto maybeBuffer3 = AllocateBuffer(1);
+  if (!maybeBuffer3.ok()) {
+    FAIL() << "Buffer not created successfully";
+  }
+  std::shared_ptr<Buffer> bitmapBuffer3 = *std::move(maybeBuffer3);
+  uint8_t* bufferData3 = bitmapBuffer3->mutable_data();
+  std::memcpy(bufferData3, &bitmap3, 1);
+
+  auto array1 = std::make_shared<ListArray>(sharedPtrArrowType, 2, offsetsBuffer1,
+                                            valuesArray1, bitmapBuffer1);
+  auto array3 = std::make_shared<ListArray>(sharedPtrArrowType, 2, offsetsBuffer3,
+                                            valuesArray3, bitmapBuffer3);
+
+  ArrayVector av;
+  av.push_back(array0);
+  av.push_back(array1);
+  av.push_back(array2);
+  av.push_back(array3);
+  av.push_back(array4);
+  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+
+  // RecordProperty("l", carray->length());
+  // RecordProperty("l0", carray->chunk(0)->length());
+  // RecordProperty("l1", carray->chunk(1)->length());
+  // RecordProperty("l2", carray->chunk(2)->length());
+  // RecordProperty("l3", carray->chunk(3)->length());
+  // RecordProperty("l4", carray->chunk(4)->length());
+
+  // auto a1 = std::static_pointer_cast<ListArray>(carray->chunk(1));
+  // auto a11 = std::static_pointer_cast<Int32Array>(a1->values());
+  // RecordProperty("l11", a11->length());
+  // auto a3 = std::static_pointer_cast<ListArray>(carray->chunk(3));
+  // auto a31 = std::static_pointer_cast<Int32Array>(a3->values());
+  // RecordProperty("l31", a31->length());
+
+  // for (int i = 0; i < 2; i++) {
+  //   RecordProperty("xn" + std::to_string(i), a1->IsNull(i));
+  // }
+  // for (int i = 0; i < 2; i++) {
+  //   RecordProperty("xn" + std::to_string(i + 2), a3->IsNull(i));
+  // }
+  // for (int i = 0; i < 3; i++) {
+  //   RecordProperty("v" + std::to_string(i), a11->Value(i));
+  //   RecordProperty("an" + std::to_string(i), a11->IsNull(i));
+  // }
+  // for (int i = 0; i < 4; i++) {
+  //   RecordProperty("v" + std::to_string(i + 3), a31->Value(i));
+  //   RecordProperty("an" + std::to_string(i + 3), a31->IsNull(i));
+  // }
+
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  int64_t arrowIndexOffset = 0;
+  int arrowChunkOffset = 0;
+
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
+                                       batchSize, carray.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+
+  EXPECT_EQ(x->numElements, 4);
+  EXPECT_TRUE(x->hasNulls);
+  EXPECT_EQ(a->numElements, 7);
+  EXPECT_TRUE(a->hasNulls);
+
+  EXPECT_EQ(x->notNull[0], 1);
+  EXPECT_EQ(x->notNull[1], 0);
+  EXPECT_EQ(x->notNull[2], 1);
+  EXPECT_EQ(x->notNull[3], 1);
+
+  EXPECT_EQ(x->offsets[0], 0);
+  EXPECT_EQ(x->offsets[1], 1);
+  EXPECT_EQ(x->offsets[2], 3);
+  EXPECT_EQ(x->offsets[3], 3);
+  EXPECT_EQ(x->offsets[4], 7);
+
+  EXPECT_EQ(a->notNull[0], 0);
+  EXPECT_EQ(a->notNull[1], 1);
+  EXPECT_EQ(a->notNull[2], 1);
+  EXPECT_EQ(a->notNull[3], 0);
+  EXPECT_EQ(a->notNull[4], 1);
+  EXPECT_EQ(a->notNull[5], 1);
+  EXPECT_EQ(a->notNull[6], 0);
+
+  EXPECT_EQ(a->data[1], 2);
+  EXPECT_EQ(a->data[2], 3);
+  EXPECT_EQ(a->data[4], 8);
+  EXPECT_EQ(a->data[5], 9);
+
   writer->add(*batch);
   writer->close();
 }
