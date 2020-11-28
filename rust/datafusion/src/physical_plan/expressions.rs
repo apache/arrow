@@ -3242,7 +3242,7 @@ mod tests {
 
         let lit_array = Arc::new(Int32Array::from(vec![2; a.len()]));
 
-        let result = nullif_func(&[a.clone(), lit_array])?;
+        let result = nullif_func(&[a, lit_array])?;
 
         assert_eq!(result.len(), a_len);
 
@@ -3270,7 +3270,7 @@ mod tests {
 
         let lit_array = Arc::new(Int32Array::from(vec![1; a.len()]));
 
-        let result = nullif_func(&[a.clone(), lit_array])?;
+        let result = nullif_func(&[a, lit_array])?;
         assert_eq!(result.len(), a_len);
 
         let expected = Int32Array::from(vec![
