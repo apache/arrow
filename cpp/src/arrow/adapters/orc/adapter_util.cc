@@ -597,6 +597,7 @@ Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   batch->numElements = orcOffset;
   int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
           initSubarrayORCOffset = batch->offsets[initORCOffset];
+  elementBatch->resize(batch->offsets[orcOffset]);
   // Let the subbatch take care of itself. Don't manipulate it here.
   RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
                           initSubarrayORCOffset, batch->offsets[orcOffset],
@@ -629,6 +630,7 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
   batch->numElements += numProcessedSubarrays;
   int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
           initSubarrayORCOffset = batch->offsets[initORCOffset];
+  elementBatch->resize(batch->offsets[orcOffset]);
   // Let the subbatch take care of itself. Don't manipulate it here.
   RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
                           initSubarrayORCOffset, batch->offsets[orcOffset],
@@ -667,11 +669,11 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
           subarrayORCOffset = batch->offsets[initORCOffset],
           initSubarrayArrowSet = subarrayArrowOffset,
           initSubarrayORCOffset = subarrayORCOffset,
-          subarrayORCLength = batch->offsets[initORCOffset] +
-                              array->value_offset(arrowOffset) -
-                              array->value_offset(initArrowOffset);
+          subarrayORCLength = batch->offsets[orcOffset];
   ;
   // Let the subbatches take care of itself. Don't manipulate it here.
+  keyBatch->resize(subarrayORCLength);
+  elementBatch->resize(subarrayORCLength);
   RETURN_NOT_OK(FillBatch(keyType, keyBatch, subarrayArrowOffset, subarrayORCOffset,
                           subarrayORCLength, keyArray));
   subarrayORCOffset = initSubarrayORCOffset;
