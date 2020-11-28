@@ -618,7 +618,7 @@ mod tests {
             assert_eq!(None, arr.value_as_datetime(i));
             assert_eq!(None, arr.value_as_date(i));
             let time = arr.value_as_time(i).unwrap();
-            assert_eq!(item, time.format("%H:%M:%S%.3f").to_string());
+            assert_eq!(*item, time.format("%H:%M:%S%.3f").to_string());
         }
     }
 
