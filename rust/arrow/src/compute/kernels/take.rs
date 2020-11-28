@@ -212,39 +212,57 @@ where
 
     let array = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
-    let num_bytes = bit_util::ceil(data_len, 8);
-    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-
-    let null_slice = null_buf.data_mut();
+    let null_count = array.null_count();
 
     // This iteration is implemented with a while loop, rather than a
     // map()/collect(), since the while loop performs better in the benchmarks.
     let mut new_values: Vec<T::Native> = Vec::with_capacity(data_len);
-    let mut i = 0;
-    while i < data_len {
-        let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
-            ArrowError::ComputeError("Cast to usize failed".to_string())
-        })?;
+    let nulls;
 
-        if array.is_null(index) {
-            bit_util::unset_bit(null_slice, i);
+    if null_count == 0 {
+        // Just taking indices without null checking
+        for i in 0..data_len {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            new_values.push(array.value(index));
         }
+        nulls = indices.data_ref().null_buffer().cloned();
+    } else {
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
 
-        new_values.push(array.value(index));
+        let null_slice = null_buf.data_mut();
 
-        i += 1;
+        for i in 0..data_len {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            if array.is_null(index) {
+                bit_util::unset_bit(null_slice, i);
+            }
+
+            new_values.push(array.value(index));
+        }
+        nulls = match indices.data_ref().null_buffer() {
+            Some(buffer) => Some(buffer_bin_and(
+                buffer,
+                0,
+                &null_buf.freeze(),
+                0,
+                indices.len(),
+            )),
+            None => Some(null_buf.freeze()),
+        };
     }
-
-    let nulls = match indices.data_ref().null_buffer() {
-        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, indices.len()),
-        None => null_buf.freeze(),
-    };
 
     let data = ArrayData::new(
         T::DATA_TYPE,
         indices.len(),
         None,
-        Some(nulls),
+        nulls,
         0,
         vec![Buffer::from(new_values.to_byte_slice())],
         vec![],
