@@ -674,7 +674,7 @@ fn get_bool_array_slice(array: &arrow_array::BooleanArray) -> Vec<bool> {
     let mut values = Vec::with_capacity(array.len() - array.null_count());
     for i in 0..array.len() {
         if array.is_valid(i) {
-            values.push(array.value(i).into())
+            values.push(array.value(i))
         }
     }
     values
