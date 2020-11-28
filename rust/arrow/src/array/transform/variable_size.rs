@@ -67,9 +67,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 let (offset_buffer, values_buffer) = mutable.buffers.split_at_mut(1);
                 let offset_buffer = &mut offset_buffer[0];
                 let values_buffer = &mut values_buffer[0];
-                offset_buffer.reserve(
-                    offset_buffer.len() + array.len() * std::mem::size_of::<T>(),
-                );
+                offset_buffer.reserve(array.len() * std::mem::size_of::<T>());
 
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {

@@ -21,12 +21,8 @@
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
-use crate::{
-    bytes::{Bytes, Deallocation},
-    ffi,
-};
+use crate::bytes::{Bytes, Deallocation};
 
-use std::cmp;
 use std::convert::AsRef;
 use std::fmt::Debug;
 use std::mem;
@@ -44,34 +40,44 @@ use crate::util::bit_util::ceil;
 #[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
 
-/// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
-/// boundary. Buffer is immutable.
+/// Buffer is a shared contiguous memory region.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Buffer {
     /// Reference-counted pointer to the internal byte buffer.
     data: Arc<Bytes>,
 
-    /// The offset into the buffer.
+    /// The offset into contiguous memory region
     offset: usize,
 }
 
 impl Buffer {
+    pub(crate) fn new(data: Bytes) -> Self {
+        Self {
+            data: Arc::new(data),
+            offset: 0,
+        }
+    }
+
     /// Returns the number of bytes in the buffer
+    #[inline]
     pub fn len(&self) -> usize {
         self.data.len() - self.offset
     }
 
     /// Returns whether the buffer is empty.
+    #[inline]
     pub fn is_empty(&self) -> bool {
-        self.data.len() - self.offset == 0
+        self.len() == 0
     }
 
     /// Returns the byte slice stored in this buffer
+    #[inline]
     pub fn data(&self) -> &[u8] {
         &self.data.as_slice()[self.offset..]
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
+    #[inline]
     pub fn slice(&self, offset: usize) -> Self {
         assert!(
             offset <= self.len(),
@@ -87,8 +93,9 @@ impl Buffer {
     ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
+    #[inline]
     pub fn raw_data(&self) -> *const u8 {
-        unsafe { self.data.raw_data().add(self.offset) }
+        self.data.as_slice()[self.offset..].as_ptr()
     }
 
     /// View buffer as typed slice.
@@ -101,6 +108,7 @@ impl Buffer {
     ///
     /// Also `typed_data::<bool>` is unsafe as `0x00` and `0x01` are the only valid values for
     /// `bool` in Rust.  However, `bool` arrays in Arrow are bit-packed which breaks this condition.
+    #[inline]
     pub unsafe fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
         from_raw_parts(
@@ -112,6 +120,7 @@ impl Buffer {
     /// Returns a slice of this buffer starting at a certain bit offset.
     /// If the offset is byte-aligned the returned buffer is a shallow clone,
     /// otherwise a new buffer is allocated and filled with a copy of the bits in the range.
+    #[inline]
     pub fn bit_slice(&self, offset: usize, len: usize) -> Self {
         if offset % 8 == 0 && len % 8 == 0 {
             return self.slice(offset / 8);
@@ -149,11 +158,8 @@ impl Buffer {
 /// allocated memory region.
 impl<T: AsRef<[u8]>> From<T> for Buffer {
     fn from(p: T) -> Self {
-        let a = p.as_ref();
-        Self {
-            data: Arc::new(a.to_vec()),
-            offset: 0,
-        }
+        let bytes = unsafe { Bytes::new(p.as_ref().to_vec(), Deallocation::Native) };
+        Buffer::new(bytes)
     }
 }
 
@@ -597,9 +603,6 @@ impl Not for &Buffer {
     }
 }
 
-unsafe impl Sync for Buffer {}
-unsafe impl Send for Buffer {}
-
 /// Similar to `Buffer`, but is growable and can be mutated. A mutable buffer can be
 /// converted into a immutable buffer via the `freeze` method.
 #[derive(Debug)]
@@ -609,6 +612,7 @@ pub struct MutableBuffer {
 
 impl MutableBuffer {
     /// Allocate a new mutable buffer with initial capacity to be `capacity`.
+    #[inline]
     pub fn new(capacity: usize) -> Self {
         Self {
             data: Vec::with_capacity(capacity),
@@ -616,6 +620,7 @@ impl MutableBuffer {
     }
 
     /// creates a new [MutableBuffer] where every bit is initialized to `0`
+    #[inline]
     pub fn new_null(len: usize) -> Self {
         let num_bytes = bit_util::ceil(len, 8);
         MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
@@ -627,6 +632,7 @@ impl MutableBuffer {
     /// This is useful when one wants to clear (or set) the bits and then manipulate
     /// the buffer directly (e.g., modifying the buffer by holding a mutable reference
     /// from `data_mut()`).
+    #[inline]
     pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
         assert!(end <= self.data.capacity());
         let v = if val { 255 } else { 0 };
@@ -642,6 +648,7 @@ impl MutableBuffer {
     /// This is used to initialize the bits in a buffer, however, it has no impact on the
     /// `len` of the buffer and so can be used to initialize the memory region from
     /// `len` to `capacity`.
+    #[inline]
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
         assert!(start + count <= self.data.capacity());
         unsafe {
@@ -649,14 +656,10 @@ impl MutableBuffer {
         }
     }
 
-    /// Ensures that this buffer has at least `capacity` slots in this buffer. This will
-    /// also ensure the new capacity will be a multiple of 64 bytes.
-    ///
-    /// Returns the new capacity for this buffer.
-    pub fn reserve(&mut self, capacity: usize) {
-        if capacity < self.data.capacity() {
-            self.data.reserve(self.data.capacity() - capacity);
-        }
+    /// Reserves capacity for at least `additional` more bytes
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.data.reserve(additional);
     }
 
     /// Resizes the buffer so that the `len` will equal to the `new_len`.
@@ -666,6 +669,7 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
+    #[inline]
     pub fn resize(&mut self, new_len: usize) {
         self.data.resize(new_len, 0);
     }
@@ -683,26 +687,28 @@ impl MutableBuffer {
     }
 
     /// Clear all existing data from this buffer.
+    #[inline]
     pub fn clear(&mut self) {
         self.data.clear()
     }
 
     /// Returns the data stored in this buffer as a slice.
+    #[inline]
     pub fn data(&self) -> &[u8] {
         &self.data
     }
 
     /// Returns the data stored in this buffer as a mutable slice.
+    #[inline]
     pub fn data_mut(&mut self) -> &mut [u8] {
         &mut self.data
     }
 
     /// Freezes this buffer and return an immutable version of it.
+    #[inline]
     pub fn freeze(self) -> Buffer {
-        Buffer {
-            data: Arc::new(self.data),
-            offset: 0,
-        }
+        let data = unsafe { Bytes::new(self.data.to_vec(), Deallocation::Native) };
+        Buffer::new(data)
     }
 
     /// View buffer as typed slice.

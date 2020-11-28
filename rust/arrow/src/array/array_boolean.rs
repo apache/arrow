@@ -24,7 +24,6 @@ use std::{convert::From, sync::Arc};
 use super::*;
 use super::{array::print_long_array, raw_pointer::RawPtrBox};
 use crate::buffer::{Buffer, MutableBuffer};
-use crate::memory;
 use crate::util::bit_util;
 
 /// Array of bools
@@ -148,10 +147,6 @@ impl From<ArrayDataRef> for BooleanArray {
             "BooleanArray data should contain a single buffer only (values buffer)"
         );
         let raw_values = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned::<u8>(raw_values, mem::align_of::<bool>()),
-            "memory is not aligned"
-        );
         Self {
             data,
             raw_values: RawPtrBox::new(raw_values as *const u8),
@@ -185,9 +180,7 @@ impl<Ptr: Borrow<Option<bool>>> FromIterator<Ptr> for BooleanArray {
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
         let mut val_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
 
-        let data = unsafe {
-            std::slice::from_raw_parts_mut(val_buf.raw_data_mut(), val_buf.capacity())
-        };
+        let data = val_buf.data_mut();
 
         let null_slice = null_buf.data_mut();
         iter.enumerate().for_each(|(i, item)| {

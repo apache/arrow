@@ -117,8 +117,6 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
-    ///
-    /// assert!(builder.capacity() >= 10);
     /// ```
     fn new(capacity: usize) -> Self;
 
@@ -178,8 +176,6 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.reserve(10);
-    ///
-    /// assert!(builder.capacity() >= 20);
     /// ```
     fn reserve(&mut self, n: usize);
 
@@ -364,6 +360,7 @@ impl BooleanBufferBuilder {
         self.reserve(n);
         if n != 0 && v {
             let data = self.buffer.data_mut();
+            (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
         }
         self.len += n;
         Ok(())

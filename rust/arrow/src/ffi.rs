@@ -78,10 +78,13 @@ To export an array, create an `ArrowArray` using [ArrowArray::try_new].
 
 use std::{ffi::CStr, ffi::CString, iter, mem::size_of, ptr, sync::Arc};
 
-use crate::buffer::Buffer;
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use crate::{
+    buffer::Buffer,
+    bytes::{Bytes, Deallocation},
+};
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions
@@ -391,12 +394,14 @@ unsafe fn create_buffer(
     let buffers = array.buffers as *mut *const u8;
 
     assert!(index < array.n_buffers as usize);
-    let ptr = *buffers.add(index);
+    let ptr = *buffers.add(index) as *mut u8;
 
     if ptr.is_null() {
         None
     } else {
-        Some(Buffer::from_unowned(ptr, len, array))
+        let data = Vec::from_raw_parts(ptr, len, len);
+        let bytes = Bytes::new(data, Deallocation::Foreign(array));
+        Some(Buffer::new(bytes))
     }
 }
 

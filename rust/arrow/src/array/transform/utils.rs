@@ -53,7 +53,7 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
     mut last_offset: T,
     offsets: &[T],
 ) {
-    buffer.reserve(buffer.len() + offsets.len() * std::mem::size_of::<T>());
+    buffer.reserve(offsets.len() * std::mem::size_of::<T>());
     offsets.windows(2).for_each(|offsets| {
         // compute the new offset
         let length = offsets[1] - offsets[0];

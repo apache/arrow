@@ -59,7 +59,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
 
                 let buffer = &mut mutable.buffers[0];
                 let delta_len = array.len() - array.null_count();
-                buffer.reserve(buffer.len() + delta_len * std::mem::size_of::<T>());
+                buffer.reserve(delta_len * std::mem::size_of::<T>());
 
                 let child = &mut mutable.child_data[0];
                 (start..start + len).for_each(|i| {

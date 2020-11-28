@@ -19,16 +19,15 @@
 //! how to de-allocate itself, [`Bytes`].
 //! Note that this is a low-level functionality of this crate.
 
-use core::slice;
-use std::sync::Arc;
 use std::{fmt::Debug, fmt::Formatter};
+use std::{mem::ManuallyDrop, sync::Arc};
 
 use crate::ffi;
 
 /// Mode of deallocating memory regions
 pub enum Deallocation {
-    /// Native deallocation, using Rust deallocator with Arrow-specific memory aligment
-    Native(usize),
+    /// Native deallocation, using the native deallocator
+    Native,
     /// Foreign interface, via a callback
     Foreign(Arc<ffi::FFI_ArrowArray>),
 }
@@ -36,8 +35,8 @@ pub enum Deallocation {
 impl Debug for Deallocation {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            Deallocation::Native(capacity) => {
-                write!(f, "Deallocation::Native {{ capacity: {} }}", capacity)
+            Deallocation::Native => {
+                write!(f, "Deallocation::Native")
             }
             Deallocation::Foreign(_) => {
                 write!(f, "Deallocation::Foreign {{ capacity: unknown }}")
@@ -48,43 +47,33 @@ impl Debug for Deallocation {
 
 /// A continuous, fixed-size, immutable memory region that knows how to de-allocate itself.
 /// This structs' API is inspired by the `bytes::Bytes`, but it is not limited to using rust's
-/// global allocator nor u8 aligmnent.
+/// global allocator, which is useful for FFI.
 ///
-/// In the most common case, this buffer is allocated using [`allocate_aligned`](memory::allocate_aligned)
-/// and deallocated accordingly [`free_aligned`](memory::free_aligned).
+/// In the most common case, this buffer's memory is managed by the Global allocator.
 /// When the region is allocated by an foreign allocator, [Deallocation::Foreign], this calls the
 /// foreign deallocator to deallocate the region when it is no longer needed.
 pub struct Bytes {
-    /// The raw pointer to be begining of the region
-    ptr: Vec<u8>,
+    /// The bytes
+    data: ManuallyDrop<Vec<u8>>,
 
     /// how to deallocate this region
     deallocation: Deallocation,
 }
 
+unsafe impl Send for Bytes {}
+unsafe impl Sync for Bytes {}
+
 impl Bytes {
-    /// Takes ownership of an allocated memory region,
-    ///
-    /// # Arguments
-    ///
-    /// * `ptr` - Pointer to raw parts
-    /// * `len` - Length of raw parts in **bytes**
-    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
-    pub unsafe fn new(ptr: Vec<vec>, deallocation: Deallocation) -> Bytes {
-        Bytes {
-            ptr,
+    pub unsafe fn new(data: Vec<u8>, deallocation: Deallocation) -> Self {
+        Self {
+            data: ManuallyDrop::new(data),
             deallocation,
         }
     }
 
     #[inline]
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        &self.data[..]
     }
 
     #[inline]
@@ -97,19 +86,9 @@ impl Bytes {
         self.len() == 0
     }
 
-    #[inline]
-    pub fn raw_data(&self) -> *const u8 {
-        self.ptr
-    }
-
-    #[inline]
-    pub fn raw_data_mut(&mut self) -> *mut u8 {
-        self.ptr as *mut u8
-    }
-
     pub fn capacity(&self) -> usize {
         match self.deallocation {
-            Deallocation::Native(capacity) => capacity,
+            Deallocation::Native => self.data.capacity(),
             // we cannot determine this in general,
             // and thus we state that this is externally-owned memory
             Deallocation::Foreign(_) => 0,
@@ -121,13 +100,11 @@ impl Drop for Bytes {
     #[inline]
     fn drop(&mut self) {
         match &self.deallocation {
-            Deallocation::Native(capacity) => {
-                if !self.ptr.is_null() {
-                    unsafe { memory::free_aligned(self.ptr as *mut u8, *capacity) };
-                }
+            Deallocation::Native => {
+                unsafe { ManuallyDrop::drop(&mut self.data) };
             }
-            // foreign interface knows how to deallocate itself.
-            Deallocation::Foreign(_) => (),
+            // foreign interface deallocates itself. As such, we forget the vector
+            Deallocation::Foreign(_) => {}
         }
     }
 }
