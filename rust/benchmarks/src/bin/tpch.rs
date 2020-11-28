@@ -16,10 +16,6 @@
 // under the License.
 
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
-use mimalloc::MiMalloc;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 use std::path::PathBuf;
 use std::sync::Arc;
