@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, Field, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
@@ -86,26 +86,15 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
-        let num_rows = batch.num_rows();
         let mut levels = vec![];
-        let batch_level = LevelInfo {
-            definition: vec![1; num_rows],
-            repetition: None,
-            definition_mask: vec![(true, 1); num_rows],
-            array_offsets: (0..=(num_rows as i64)).collect(),
-            array_mask: vec![true; num_rows],
-            max_definition: 1,
-            is_list: false,
-            is_nullable: true, // setting as null treats non-null structs correctly
-        };
-        // TODO: between `max_definition` and `level` below, one might have to be 0
+        let batch_level = LevelInfo::new_from_batch(batch);
         batch
             .columns()
             .iter()
             .zip(batch.schema().fields())
             .for_each(|(array, field)| {
                 let mut array_levels =
-                    calculate_array_levels(array, field, 1, &batch_level);
+                    batch_level.calculate_array_levels(array, field, 1);
                 levels.append(&mut array_levels);
             });
         // reverse levels so we can use Vec::pop(&mut self)
@@ -121,7 +110,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
         self.writer.close_row_group(row_group_writer)
     }
 
-    /// Close and finalise the underlying Parquet writer
+    /// Close and finalize the underlying Parquet writer
     pub fn close(&mut self) -> Result<()> {
         self.writer.close()
     }
@@ -318,357 +307,6 @@ fn write_leaf(
     Ok(written as i64)
 }
 
-/// Compute nested levels of the Arrow array, recursing into lists and structs
-/// Returns a list of `LevelInfo`, where each level is for nested primitive arrays.
-///
-/// The algorithm works by eagerly incrementing non-null values, and decrementing
-/// when a value is null.
-///
-/// *Examples:*
-///
-/// A record batch always starts at a populated definition = level 1.
-/// When a batch only has a primitive, i.e. `<batch<primitive[a]>>, column `a`
-/// can only have a maximum level of 1 if it is not null.
-/// If it is null, we decrement by 1, such that the null slots will = level 0.
-///
-/// If a batch has nested arrays (list, struct, union, etc.), then the incrementing
-/// takes place.
-/// A `<batch<struct[a]<primitive[b]>>` will have up to 2 levels (if nullable).
-/// When calculating levels for `a`, if the struct slot is not empty, we
-/// increment by 1, such that we'd have `[2, 2, 2]` if all 3 slots are not null.
-/// If there is an empty slot, we decrement, leaving us with `[2, 0, 2]` as the
-/// null slot effectively means that no record is populated for the row altogether.
-///
-/// *Lists*
-///
-/// TODO
-///
-/// *Non-nullable arrays*
-///
-/// If an array is non-nullable, this is accounted for when converting the Arrow
-/// schema to a Parquet schema.
-/// When dealing with `<batch<primitive[_]>>` there is no issue, as the meximum
-/// level will always be = 1.
-///
-/// When dealing with nested types, the logic becomes a bit complicate.
-/// A non-nullable struct; `<batch<struct{non-null}[a]<primitive[b]>>>` will only
-/// have 1 maximum level, where 0 means `b` is nul, and 1 means `b` is not null.
-///
-/// We account for the above by checking if the `Field` is nullable, and adjusting
-/// the [inc|dec]rement accordingly.
-fn calculate_array_levels(
-    array: &arrow_array::ArrayRef,
-    field: &Field,
-    level: i16,
-    level_info: &LevelInfo,
-) -> Vec<LevelInfo> {
-    match array.data_type() {
-        ArrowDataType::Null => vec![LevelInfo {
-            definition: level_info
-                .definition
-                .iter()
-                .map(|d| (d - 1).max(0))
-                .collect(),
-            repetition: level_info.repetition.clone(),
-            definition_mask: level_info.definition_mask.clone(),
-            array_offsets: level_info.array_offsets.clone(),
-            array_mask: level_info.array_mask.clone(),
-            max_definition: level,
-            is_list: level_info.is_list,
-            is_nullable: true, // always nullable as all values are nulls
-        }],
-        ArrowDataType::Boolean
-        | ArrowDataType::Int8
-        | ArrowDataType::Int16
-        | ArrowDataType::Int32
-        | ArrowDataType::Int64
-        | ArrowDataType::UInt8
-        | ArrowDataType::UInt16
-        | ArrowDataType::UInt32
-        | ArrowDataType::UInt64
-        | ArrowDataType::Float16
-        | ArrowDataType::Float32
-        | ArrowDataType::Float64
-        | ArrowDataType::Utf8
-        | ArrowDataType::LargeUtf8
-        | ArrowDataType::Timestamp(_, _)
-        | ArrowDataType::Date32(_)
-        | ArrowDataType::Date64(_)
-        | ArrowDataType::Time32(_)
-        | ArrowDataType::Time64(_)
-        | ArrowDataType::Duration(_)
-        | ArrowDataType::Interval(_)
-        | ArrowDataType::Binary
-        | ArrowDataType::LargeBinary => vec![LevelInfo {
-            definition: get_primitive_def_levels(array, field, &level_info.definition),
-            repetition: level_info.repetition.clone(),
-            definition_mask: level_info.definition_mask.clone(),
-            array_offsets: level_info.array_offsets.clone(),
-            array_mask: level_info.array_mask.clone(),
-            is_list: level_info.is_list,
-            max_definition: level,
-            is_nullable: field.is_nullable(),
-        }],
-        ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
-        ArrowDataType::Decimal(_, _) => unimplemented!(),
-        ArrowDataType::List(list_field) | ArrowDataType::LargeList(list_field) => {
-            let array_data = array.data();
-            let child_data = array_data.child_data().get(0).unwrap();
-            // get offsets, accounting for large offsets if present
-            let offsets: Vec<i64> = {
-                if let ArrowDataType::LargeList(_) = array.data_type() {
-                    unsafe { array_data.buffers()[0].typed_data::<i64>() }.to_vec()
-                } else {
-                    let offsets = unsafe { array_data.buffers()[0].typed_data::<i32>() };
-                    offsets.to_vec().into_iter().map(|v| v as i64).collect()
-                }
-            };
-            let child_array = arrow_array::make_array(child_data.clone());
-
-            let mut list_def_levels = Vec::with_capacity(child_array.len());
-            let mut list_rep_levels = Vec::with_capacity(child_array.len());
-            let rep_levels: Vec<i16> = level_info
-                .repetition
-                .clone()
-                .map(|l| l.to_vec())
-                .unwrap_or_else(|| vec![0i16; level_info.definition.len()]);
-            level_info
-                .definition
-                .iter()
-                .zip(rep_levels)
-                .zip(offsets.windows(2))
-                .for_each(|((parent_def_level, parent_rep_level), window)| {
-                    if *parent_def_level == 0 {
-                        // parent is null, list element must also be null
-                        list_def_levels.push(0);
-                        list_rep_levels.push(0);
-                    } else {
-                        // parent is not null, check if list is empty or null
-                        let start = window[0];
-                        let end = window[1];
-                        let len = end - start;
-                        if len == 0 {
-                            list_def_levels.push(*parent_def_level - 1);
-                            list_rep_levels.push(parent_rep_level);
-                        } else {
-                            list_def_levels.push(*parent_def_level);
-                            list_rep_levels.push(parent_rep_level);
-                            for _ in 1..len {
-                                list_def_levels.push(*parent_def_level);
-                                list_rep_levels.push(parent_rep_level + 1);
-                            }
-                        }
-                    }
-                });
-
-            // if datatype is a primitive, we can construct levels of the child array
-            match child_array.data_type() {
-                // TODO: The behaviour of a <list<null>> is untested
-                ArrowDataType::Null => vec![LevelInfo {
-                    definition: list_def_levels,
-                    repetition: Some(list_rep_levels),
-                    definition_mask: level_info.definition_mask.clone(), // TODO: list mask
-                    array_offsets: offsets,
-                    array_mask: level_info.array_mask.clone(), // TODO: list mask
-                    is_list: true,
-                    is_nullable: list_field.is_nullable(),
-                    max_definition: level + 1, // TODO: compute correctly
-                }],
-                ArrowDataType::Boolean
-                | ArrowDataType::Int8
-                | ArrowDataType::Int16
-                | ArrowDataType::Int32
-                | ArrowDataType::Int64
-                | ArrowDataType::UInt8
-                | ArrowDataType::UInt16
-                | ArrowDataType::UInt32
-                | ArrowDataType::UInt64
-                | ArrowDataType::Float16
-                | ArrowDataType::Float32
-                | ArrowDataType::Float64
-                | ArrowDataType::Timestamp(_, _)
-                | ArrowDataType::Date32(_)
-                | ArrowDataType::Date64(_)
-                | ArrowDataType::Time32(_)
-                | ArrowDataType::Time64(_)
-                | ArrowDataType::Duration(_)
-                | ArrowDataType::Interval(_) => {
-                    let def_levels = get_primitive_def_levels(
-                        &child_array,
-                        list_field,
-                        &list_def_levels[..],
-                    );
-                    vec![LevelInfo {
-                        definition: def_levels,
-                        repetition: Some(list_rep_levels),
-                        array_mask: vec![],
-                        array_offsets: vec![],
-                        definition_mask: vec![],
-                        is_list: true,
-                        is_nullable: list_field.is_nullable(),
-                        max_definition: level + 1, // TODO: update
-                    }]
-                }
-                ArrowDataType::Binary
-                | ArrowDataType::Utf8
-                | ArrowDataType::LargeUtf8 => unimplemented!(),
-                ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
-                ArrowDataType::Decimal(_, _) => unimplemented!(),
-                ArrowDataType::LargeBinary => unimplemented!(),
-                ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
-                    // nested list
-                    unimplemented!()
-                }
-                ArrowDataType::FixedSizeList(_, _) => unimplemented!(),
-                ArrowDataType::Struct(_) => {
-                    let struct_level_info = LevelInfo {
-                        definition: list_def_levels,
-                        repetition: Some(list_rep_levels),
-                        definition_mask: vec![],
-                        array_offsets: vec![],
-                        array_mask: vec![],
-                        max_definition: level + 1,
-                        is_list: list_field.is_nullable(),
-                        is_nullable: true, // // indicates a nesting level of 2 (list + struct)
-                    };
-                    calculate_array_levels(
-                        array,
-                        list_field,
-                        level + 1, // indicates a nesting level of 2 (list + struct)
-                        &struct_level_info,
-                    )
-                }
-                ArrowDataType::Union(_) => unimplemented!(),
-                ArrowDataType::Dictionary(_, _) => unimplemented!(),
-            }
-        }
-        ArrowDataType::FixedSizeList(_, _) => unimplemented!(),
-        ArrowDataType::Struct(struct_fields) => {
-            let struct_array: &arrow_array::StructArray = array
-                .as_any()
-                .downcast_ref::<arrow_array::StructArray>()
-                .expect("Unable to get struct array");
-            let array_len = struct_array.len();
-            let mut struct_def_levels = Vec::with_capacity(array_len);
-            let mut struct_mask = Vec::with_capacity(array_len);
-            // we can have a <struct<struct<_>>, in which case we should check
-            // the parent struct in the child struct's offsets
-            for (i, def_level) in level_info.definition.iter().enumerate() {
-                if *def_level == level {
-                    if !field.is_nullable() {
-                        // push the level as is
-                        struct_def_levels.push(level);
-                    } else if struct_array.is_valid(i) {
-                        // Increment to indicate that this value is not null
-                        // The next level will decrement if it is null
-                        // we can check if current value is null
-                        struct_def_levels.push(level + 1);
-                    } else {
-                        // decrement to show that only the previous level is populated
-                        // we only decrement if previous field is nullable
-                        struct_def_levels.push(level - (level_info.is_nullable as i16));
-                    }
-                } else {
-                    struct_def_levels.push(*def_level);
-                }
-                // TODO: is it more efficient to use `bitvec` here?
-                struct_mask.push(struct_array.is_valid(i));
-            }
-            // trying to create levels for struct's fields
-            let mut struct_levels = vec![];
-            let struct_level_info = LevelInfo {
-                definition: struct_def_levels,
-                // TODO: inherit the parent's repetition? (relevant for <list<struct<_>>)
-                repetition: level_info.repetition.clone(),
-                // Is it correct to increment this by 1 level?
-                definition_mask: level_info
-                    .definition_mask
-                    .iter()
-                    .map(|(state, index)| (*state, index + 1))
-                    .collect(),
-                // logically, a struct should inherit its parent's offsets
-                array_offsets: level_info.array_offsets.clone(),
-                // this should be just the struct's mask, not its parent's
-                array_mask: struct_mask,
-                max_definition: level_info.max_definition + (field.is_nullable() as i16),
-                is_list: level_info.is_list,
-                is_nullable: field.is_nullable(),
-            };
-            struct_array
-                .columns()
-                .into_iter()
-                .zip(struct_fields)
-                .for_each(|(col, struct_field)| {
-                    let mut levels = calculate_array_levels(
-                        col,
-                        struct_field,
-                        level + (field.is_nullable() as i16),
-                        &struct_level_info,
-                    );
-                    struct_levels.append(&mut levels);
-                });
-            struct_levels
-        }
-        ArrowDataType::Union(_) => unimplemented!(),
-        ArrowDataType::Dictionary(_, _) => {
-            // Need to check for these cases not implemented in C++:
-            // - "Writing DictionaryArray with nested dictionary type not yet supported"
-            // - "Writing DictionaryArray with null encoded in dictionary type not yet supported"
-            vec![LevelInfo {
-                definition: get_primitive_def_levels(
-                    array,
-                    field,
-                    &level_info.definition,
-                ),
-                repetition: level_info.repetition.clone(),
-                definition_mask: level_info.definition_mask.clone(),
-                array_offsets: level_info.array_offsets.clone(),
-                array_mask: level_info.array_mask.clone(),
-                is_list: level_info.is_list,
-                max_definition: level,
-                is_nullable: field.is_nullable(),
-            }]
-        }
-    }
-}
-
-/// Get the definition levels of the numeric array, with level 0 being null and 1 being not null
-/// In the case where the array in question is a child of either a list or struct, the levels
-/// are incremented in accordance with the `level` parameter.
-/// Parent levels are either 0 or 1, and are used to higher (correct terminology?) leaves as null
-///
-/// TODO: (a comment to remove, note to help me reduce the mental bookkeeping)
-/// We want an array's levels to be additive here, i.e. if we have an array that
-/// comes from <batch<primitive>>, we should consume &[0; array.len()], so that
-/// we add values to it, instead of subtract values
-///
-/// An alternaitve is to pass the max level, and use it to compute whether we
-/// should increment (though this is likely tricker)
-fn get_primitive_def_levels(
-    array: &arrow_array::ArrayRef,
-    field: &Field,
-    parent_def_levels: &[i16],
-) -> Vec<i16> {
-    let mut array_index = 0;
-    let max_def_level = parent_def_levels.iter().max().unwrap();
-    let mut primitive_def_levels = vec![];
-    parent_def_levels.iter().for_each(|def_level| {
-        // TODO: if field is non-nullable, can its parent be nullable? Ideally shouldn't
-        // being non-null means that for a level > 1, then we should subtract 1?
-        if !field.is_nullable() && *max_def_level > 1 {
-            primitive_def_levels.push(*def_level - 1);
-            array_index += 1;
-        } else if def_level < max_def_level {
-            primitive_def_levels.push(*def_level);
-            array_index += 1;
-        } else {
-            primitive_def_levels.push(def_level - array.is_null(array_index) as i16);
-            array_index += 1;
-        }
-    });
-    primitive_def_levels
-}
-
 macro_rules! def_get_binary_array_fn {
     ($name:ident, $ty:ty) => {
         fn $name(array: &$ty) -> Vec<ByteArray> {
@@ -835,7 +473,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "repetitions might be incorrect, will be addressed as part of ARROW-9728"]
     fn arrow_writer_non_null() {
         // define schema
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
@@ -854,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "list support is incomplete"]
+    #[ignore = "ARROW-10766: list support is incomplete"]
     fn arrow_writer_list() {
         // define schema
         let schema = Schema::new(vec![Field::new(
@@ -880,6 +517,7 @@ mod tests {
         .len(5)
         .add_buffer(a_value_offsets)
         .add_child_data(a_values.data())
+        .null_bit_buffer(Buffer::from(vec![0b00011011]))
         .build();
         let a = ListArray::from(a_list_data);
 
@@ -953,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "list support is incomplete"]
+    #[ignore = "ARROW-10766: list support is incomplete"]
     fn arrow_writer_complex() {
         // define schema
         let struct_field_d = Field::new("d", DataType::Float64, true);
@@ -1052,8 +690,38 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting on inheritance of nested structs, ARROW-10684"]
     fn arrow_writer_2_level_struct_non_null() {
+        // tests writing <struct<struct<primitive>>
+        let field_c = Field::new("c", DataType::Int32, false);
+        let field_b = Field::new("b", DataType::Struct(vec![field_c]), false);
+        let field_a = Field::new("a", DataType::Struct(vec![field_b.clone()]), false);
+        let schema = Schema::new(vec![field_a.clone()]);
+
+        // create data
+        let c = Int32Array::from(vec![1,2,3,4,5,6]);
+        let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
+            .len(6)
+            .add_child_data(c.data())
+            .build();
+        let b = StructArray::from(b_data);
+        let a_data = ArrayDataBuilder::new(field_a.data_type().clone())
+            .len(6)
+            .add_child_data(b.data())
+            .build();
+        let a = StructArray::from(a_data);
+
+        assert_eq!(a.null_count(), 0);
+        assert_eq!(a.column(0).null_count(), 0);
+
+        // build a racord batch
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]).unwrap();
+
+        roundtrip("test_arrow_writer_2_level_struct_non_null.parquet", batch);
+    }
+
+    #[test]
+    #[ignore = "waiting on inheritance of nested structs, ARROW-10684"]
+    fn arrow_writer_2_level_struct_mixed_null() {
         // tests writing <struct<struct<primitive>>
         let field_c = Field::new("c", DataType::Int32, false);
         let field_b = Field::new("b", DataType::Struct(vec![field_c]), true);
@@ -1081,7 +749,7 @@ mod tests {
         // build a racord batch
         let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]).unwrap();
 
-        roundtrip("test_arrow_writer_2_level_struct_non_null.parquet", batch);
+        roundtrip("test_arrow_writer_2_level_struct_mixed_null.parquet", batch);
     }
 
     const SMALL_SIZE: usize = 100;
@@ -1430,7 +1098,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "list support is incomplete"]
+    #[ignore = "ARROW-10766: list support is incomplete"]
     fn list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
@@ -1455,7 +1123,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "list support is incomplete"]
+    #[ignore = "ARROW-10766: list support is incomplete"]
     fn large_list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
