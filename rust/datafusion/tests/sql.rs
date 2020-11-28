@@ -1065,6 +1065,7 @@ async fn equijoin_implicit_syntax() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore] // see https://issues.apache.org/jira/browse/ARROW-10760
 async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
     let mut ctx = create_join_context()?;
     let sql = "SELECT t1_id, t1_name, t2_name \

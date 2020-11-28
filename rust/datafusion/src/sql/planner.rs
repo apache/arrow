@@ -47,6 +47,7 @@ use sqlparser::ast::{
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
+use std::collections::HashSet;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
@@ -325,11 +326,9 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 // build join schema
                 let mut fields = vec![];
                 for plan in &plans {
-                    let schema = plan.schema();
-                    for field in schema.fields() {
-                        fields.push(field.clone());
-                    }
+                    fields.extend_from_slice(&plan.schema().fields());
                 }
+                check_unique_columns(&fields)?;
                 let join_schema = Schema::new(fields);
 
                 let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
@@ -749,13 +748,23 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
 fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
     let mut fields = vec![];
-    for field in left.fields() {
-        fields.push(field.clone());
-    }
-    for field in right.fields() {
-        fields.push(field.clone());
-    }
+    fields.extend_from_slice(&left.fields());
+    fields.extend_from_slice(&right.fields());
+    check_unique_columns(&fields)?;
     Ok(Schema::new(fields))
+}
+
+fn check_unique_columns(fields: &[Field]) -> Result<()> {
+    // Until https://issues.apache.org/jira/browse/ARROW-10732 is implemented, we need
+    // to ensure that schemas have unique field names
+    let unique_field_names = fields.iter().map(|f| f.name()).collect::<HashSet<_>>();
+    if unique_field_names.len() == fields.len() {
+        Ok(())
+    } else {
+        Err(DataFusionError::Plan(
+            "JOIN would result in schema with duplicate column names".to_string(),
+        ))
+    }
 }
 
 /// Remove join expressions from a filter expression
@@ -1267,11 +1276,6 @@ mod tests {
                     Field::new("o_item_id", DataType::Utf8, false),
                     Field::new("qty", DataType::Int32, false),
                     Field::new("price", DataType::Float64, false),
-                    Field::new(
-                        "birth_date",
-                        DataType::Timestamp(TimeUnit::Nanosecond, None),
-                        false,
-                    ),
                 ]))),
                 "lineitem" => Some(Arc::new(Schema::new(vec![
                     Field::new("l_item_id", DataType::UInt32, false),
