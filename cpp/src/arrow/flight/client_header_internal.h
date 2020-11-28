@@ -98,7 +98,7 @@ class ARROW_FLIGHT_EXPORT CookieCache {
  public:
   /// \brief Updates the cache of cookies with new Set-Cookie header values.
   ///
-  /// \param header_values The range representing header values.
+  /// \param incoming_headers The range representing header values.
   void UpdateCachedCookies(const CallHeaders& incoming_headers);
 
   /// \brief Retrieve the cached cookie values as a string. This function discards
