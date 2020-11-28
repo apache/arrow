@@ -789,8 +789,8 @@ fn remove_join_expressions(
                 let r = remove_join_expressions(right, join_columns)?;
                 match (l, r) {
                     (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
-                    (Some(ll), _) => Ok(Some(ll.clone())),
-                    (_, Some(rr)) => Ok(Some(rr.clone())),
+                    (Some(ll), _) => Ok(Some(ll)),
+                    (_, Some(rr)) => Ok(Some(rr)),
                     _ => Ok(None),
                 }
             }
