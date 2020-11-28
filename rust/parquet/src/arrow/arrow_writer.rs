@@ -86,7 +86,6 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
             ));
         }
         // compute the definition and repetition levels of the batch
-        let num_rows = batch.num_rows();
         let mut levels = vec![];
         let batch_level = LevelInfo::new_from_batch(batch);
         batch
@@ -771,7 +770,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "waiting on inheritance of nested structs, ARROW-10684"]
     fn arrow_writer_2_level_struct_non_null() {
         // tests writing <struct<struct<primitive>>
         let field_c = Field::new("c", DataType::Int32, false);
