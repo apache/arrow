@@ -135,18 +135,23 @@ Flight RPC
 | Flight RPC Feature          | C++   | Java  | Go    | JavaScript | C#    | Rust  |
 |                             |       |       |       |            |       |       |
 +=============================+=======+=======+=======+============+=======+=======+
-| gRPC transport              | ✓     | ✓     |       |            |       |       |
+| gRPC transport              | ✓     | ✓     |       |            | ✓ (1) |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
-| gRPC + TLS transport        | ✓     | ✓     |       |            |       |       |
+| gRPC + TLS transport        | ✓     | ✓     |       |            | ✓     |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
-| RPC error codes             | ✓     | ✓     |       |            |       |       |
+| RPC error codes             | ✓     | ✓     |       |            | ✓     |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
-| Authentication handlers     | ✓     | ✓     |       |            |       |       |
+| Authentication handlers     | ✓     | ✓     |       |            | ✓ (2) |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
 | Custom client middleware    | ✓     | ✓     |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
 | Custom server middleware    | ✓     | ✓     |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
+
+Notes:
+
+* \(1) No support for handshake or DoExchange.
+* \(2) Support using AspNetCore authentication handlers.
 
 .. seealso::
    The :ref:`flight-rpc` specification.

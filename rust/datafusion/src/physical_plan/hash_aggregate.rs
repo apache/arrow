@@ -808,7 +808,7 @@ mod tests {
                 )
                 .unwrap(),
                 RecordBatch::try_new(
-                    schema.clone(),
+                    schema,
                     vec![
                         Arc::new(UInt32Array::from(vec![2, 3, 3, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),

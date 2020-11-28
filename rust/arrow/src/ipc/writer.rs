@@ -20,11 +20,12 @@
 //! The `FileWriter` and `StreamWriter` have similar interfaces,
 //! however the `FileWriter` expects a reader that supports `Seek`ing
 
+use std::collections::HashMap;
 use std::io::{BufWriter, Write};
 
 use flatbuffers::FlatBufferBuilder;
 
-use crate::array::ArrayDataRef;
+use crate::array::{ArrayDataRef, ArrayRef};
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -112,6 +113,8 @@ pub struct FileWriter<W: Write> {
     record_blocks: Vec<ipc::Block>,
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
+    /// Keeps track of dictionaries that have been written
+    last_written_dictionaries: HashMap<i64, ArrayRef>,
 }
 
 impl<W: Write> FileWriter<W> {
@@ -143,6 +146,7 @@ impl<W: Write> FileWriter<W> {
             dictionary_blocks: vec![],
             record_blocks: vec![],
             finished: false,
+            last_written_dictionaries: HashMap::new(),
         })
     }
 
@@ -153,6 +157,7 @@ impl<W: Write> FileWriter<W> {
                 "Cannot write record batch to file writer as it is closed".to_string(),
             ));
         }
+        self.write_dictionaries(&batch)?;
         let message = Message::RecordBatch(batch, &self.write_options);
         let (meta, data) =
             write_message(&mut self.writer, &message, &self.write_options)?;
@@ -164,6 +169,51 @@ impl<W: Write> FileWriter<W> {
         );
         self.record_blocks.push(block);
         self.block_offsets += meta + data;
+        Ok(())
+    }
+
+    fn write_dictionaries(&mut self, batch: &RecordBatch) -> Result<()> {
+        // TODO: handle nested dictionaries
+
+        let schema = batch.schema();
+        for (i, field) in schema.fields().iter().enumerate() {
+            let column = batch.column(i);
+
+            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
+                let dict_id = field.dict_id();
+                let dict_data = column.data();
+                let dict_values = &dict_data.child_data()[0];
+
+                // If a dictionary with this id was already emitted, check if it was the same.
+                if let Some(last_dictionary) =
+                    self.last_written_dictionaries.get(&dict_id)
+                {
+                    if last_dictionary.data().child_data()[0] == *dict_values {
+                        // Same dictionary values => no need to emit it again
+                        continue;
+                    } else {
+                        return Err(ArrowError::InvalidArgumentError(
+                            "Dictionary replacement detected when writing IPC file format. \
+                             Arrow IPC files only support a single dictionary for a given field \
+                             across all batches.".to_string()));
+                    }
+                }
+
+                self.last_written_dictionaries
+                    .insert(dict_id, column.clone());
+
+                let message =
+                    Message::DictionaryBatch(dict_id, dict_values, &self.write_options);
+
+                let (meta, data) =
+                    write_message(&mut self.writer, &message, &self.write_options)?;
+
+                let block =
+                    ipc::Block::new(self.block_offsets as i64, meta as i32, data as i64);
+                self.dictionary_blocks.push(block);
+                self.block_offsets += meta + data;
+            }
+        }
         Ok(())
     }
 
@@ -216,6 +266,8 @@ pub struct StreamWriter<W: Write> {
     schema: Schema,
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
+    /// Keeps track of dictionaries that have been written
+    last_written_dictionaries: HashMap<i64, ArrayRef>,
 }
 
 impl<W: Write> StreamWriter<W> {
@@ -239,6 +291,7 @@ impl<W: Write> StreamWriter<W> {
             write_options,
             schema: schema.clone(),
             finished: false,
+            last_written_dictionaries: HashMap::new(),
         })
     }
 
@@ -249,8 +302,44 @@ impl<W: Write> StreamWriter<W> {
                 "Cannot write record batch to stream writer as it is closed".to_string(),
             ));
         }
+        self.write_dictionaries(&batch)?;
+
         let message = Message::RecordBatch(batch, &self.write_options);
         write_message(&mut self.writer, &message, &self.write_options)?;
+        Ok(())
+    }
+
+    fn write_dictionaries(&mut self, batch: &RecordBatch) -> Result<()> {
+        // TODO: handle nested dictionaries
+
+        let schema = batch.schema();
+        for (i, field) in schema.fields().iter().enumerate() {
+            let column = batch.column(i);
+
+            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
+                let dict_id = field.dict_id();
+                let dict_data = column.data();
+                let dict_values = &dict_data.child_data()[0];
+
+                // If a dictionary with this id was already emitted, check if it was the same.
+                if let Some(last_dictionary) =
+                    self.last_written_dictionaries.get(&dict_id)
+                {
+                    if last_dictionary.data().child_data()[0] == *dict_values {
+                        // Same dictionary values => no need to emit it again
+                        continue;
+                    }
+                }
+
+                self.last_written_dictionaries
+                    .insert(dict_id, column.clone());
+
+                let message =
+                    Message::DictionaryBatch(dict_id, dict_values, &self.write_options);
+
+                write_message(&mut self.writer, &message, &self.write_options)?;
+            }
+        }
         Ok(())
     }
 
@@ -307,7 +396,7 @@ pub fn schema_to_bytes(schema: &Schema, write_options: &IpcWriteOptions) -> Enco
 enum Message<'a> {
     Schema(&'a Schema, &'a IpcWriteOptions),
     RecordBatch(&'a RecordBatch, &'a IpcWriteOptions),
-    DictionaryBatch(&'a IpcWriteOptions),
+    DictionaryBatch(i64, &'a ArrayDataRef, &'a IpcWriteOptions),
 }
 
 impl<'a> Message<'a> {
@@ -318,8 +407,8 @@ impl<'a> Message<'a> {
             Message::RecordBatch(batch, options) => {
                 record_batch_to_bytes(*batch, *options)
             }
-            Message::DictionaryBatch(_) => {
-                unimplemented!("Writing dictionary batches not implemented")
+            Message::DictionaryBatch(dict_id, array_data, options) => {
+                dictionary_batch_to_bytes(*dict_id, *array_data, *options)
             }
         }
     }
@@ -440,6 +529,65 @@ pub fn record_batch_to_bytes(
     }
 }
 
+/// Write dictionary values into a tuple of bytes, one for the header (ipc::Message) and the other for the data
+pub fn dictionary_batch_to_bytes(
+    dict_id: i64,
+    array_data: &ArrayDataRef,
+    write_options: &IpcWriteOptions,
+) -> EncodedData {
+    let mut fbb = FlatBufferBuilder::new();
+
+    let mut nodes: Vec<ipc::FieldNode> = vec![];
+    let mut buffers: Vec<ipc::Buffer> = vec![];
+    let mut arrow_data: Vec<u8> = vec![];
+
+    write_array_data(
+        &array_data,
+        &mut buffers,
+        &mut arrow_data,
+        &mut nodes,
+        0,
+        array_data.len(),
+        array_data.null_count(),
+    );
+
+    // write data
+    let buffers = fbb.create_vector(&buffers);
+    let nodes = fbb.create_vector(&nodes);
+
+    let root = {
+        let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
+        batch_builder.add_length(array_data.len() as i64);
+        batch_builder.add_nodes(nodes);
+        batch_builder.add_buffers(buffers);
+        batch_builder.finish()
+    };
+
+    let root = {
+        let mut batch_builder = ipc::DictionaryBatchBuilder::new(&mut fbb);
+        batch_builder.add_id(dict_id);
+        batch_builder.add_data(root);
+        batch_builder.finish().as_union_value()
+    };
+
+    let root = {
+        let mut message_builder = ipc::MessageBuilder::new(&mut fbb);
+        message_builder.add_version(write_options.metadata_version);
+        message_builder.add_header_type(ipc::MessageHeader::DictionaryBatch);
+        message_builder.add_bodyLength(arrow_data.len() as i64);
+        message_builder.add_header(root);
+        message_builder.finish()
+    };
+
+    fbb.finish(root, None);
+    let finished_data = fbb.finished_data();
+
+    EncodedData {
+        ipc_message: finished_data.to_vec(),
+        arrow_data,
+    }
+}
+
 /// Write a record batch to the writer, writing the message size before the message
 /// if the record batch is being written to a stream
 fn write_continuation<W: Write>(
@@ -509,19 +657,22 @@ fn write_array_data(
         offset = write_buffer(buffer, &mut buffers, &mut arrow_data, offset);
     });
 
-    // recursively write out nested structures
-    array_data.child_data().iter().for_each(|data_ref| {
-        // write the nested data (e.g list data)
-        offset = write_array_data(
-            data_ref,
-            &mut buffers,
-            &mut arrow_data,
-            &mut nodes,
-            offset,
-            data_ref.len(),
-            data_ref.null_count(),
-        );
-    });
+    if !matches!(array_data.data_type(), DataType::Dictionary(_, _)) {
+        // recursively write out nested structures
+        array_data.child_data().iter().for_each(|data_ref| {
+            // write the nested data (e.g list data)
+            offset = write_array_data(
+                data_ref,
+                &mut buffers,
+                &mut arrow_data,
+                &mut nodes,
+                offset,
+                data_ref.len(),
+                data_ref.null_count(),
+            );
+        });
+    }
+
     offset
 }
 
@@ -665,6 +816,7 @@ mod tests {
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
@@ -708,6 +860,7 @@ mod tests {
         let paths = vec![
             "generated_interval",
             "generated_datetime",
+            "generated_dictionary",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",

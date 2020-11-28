@@ -45,7 +45,7 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
         ],
     )
     .unwrap();
-    let provider = MemTable::new(dual_schema.clone(), vec![vec![batch.clone()]]).unwrap();
+    let provider = MemTable::new(dual_schema, vec![vec![batch]]).unwrap();
     Box::new(provider)
 }
 
@@ -262,7 +262,7 @@ pub fn build_table_i32(
     ]);
 
     RecordBatch::try_new(
-        Arc::new(schema.clone()),
+        Arc::new(schema),
         vec![
             Arc::new(Int32Array::from(a.1.clone())),
             Arc::new(Int32Array::from(b.1.clone())),

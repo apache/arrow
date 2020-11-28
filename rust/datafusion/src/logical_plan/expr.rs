@@ -305,32 +305,32 @@ impl Expr {
 
     /// Equal
     pub fn eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Eq, other.clone())
+        binary_expr(self.clone(), Operator::Eq, other)
     }
 
     /// Not equal
     pub fn not_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotEq, other.clone())
+        binary_expr(self.clone(), Operator::NotEq, other)
     }
 
     /// Greater than
     pub fn gt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Gt, other.clone())
+        binary_expr(self.clone(), Operator::Gt, other)
     }
 
     /// Greater than or equal to
     pub fn gt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::GtEq, other.clone())
+        binary_expr(self.clone(), Operator::GtEq, other)
     }
 
     /// Less than
     pub fn lt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Lt, other.clone())
+        binary_expr(self.clone(), Operator::Lt, other)
     }
 
     /// Less than or equal to
     pub fn lt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::LtEq, other.clone())
+        binary_expr(self.clone(), Operator::LtEq, other)
     }
 
     /// And
@@ -350,17 +350,17 @@ impl Expr {
 
     /// Calculate the modulus of two expressions
     pub fn modulus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Modulus, other.clone())
+        binary_expr(self.clone(), Operator::Modulus, other)
     }
 
     /// like (string) another expression
     pub fn like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Like, other.clone())
+        binary_expr(self.clone(), Operator::Like, other)
     }
 
     /// not like another expression
     pub fn not_like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotLike, other.clone())
+        binary_expr(self.clone(), Operator::NotLike, other)
     }
 
     /// Alias
@@ -807,13 +807,13 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         } => {
             let mut name = "CASE ".to_string();
             if let Some(e) = expr {
-                name += &format!("{:?} ", e).to_string();
+                name += &format!("{:?} ", e);
             }
             for (w, t) in when_then_expr {
-                name += &format!("WHEN {:?} THEN {:?} ", w, t).to_string();
+                name += &format!("WHEN {:?} THEN {:?} ", w, t);
             }
             if let Some(e) = else_expr {
-                name += &format!("ELSE {:?} ", e).to_string();
+                name += &format!("ELSE {:?} ", e);
             }
             name += "END";
             Ok(name)
