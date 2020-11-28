@@ -27,7 +27,7 @@ use arrow_array::Array;
 use super::levels::LevelInfo;
 use super::schema::add_encoded_arrow_schema_to_metadata;
 
-use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
+use crate::column::writer::ColumnWriter;
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
 use crate::{
@@ -195,96 +195,17 @@ fn write_leaves(
             }
             Ok(())
         }
-        ArrowDataType::Dictionary(key_type, value_type) => {
-            use arrow_array::{PrimitiveArray, StringArray};
-            use ArrowDataType::*;
-            use ColumnWriter::*;
+        ArrowDataType::Dictionary(_, value_type) => {
+            // cast dictionary to a primitive
+            let array = arrow::compute::cast(array, value_type)?;
 
-            let array = &**array;
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
-            let levels = levels.pop().expect("Levels exhausted");
-
-            macro_rules! dispatch_dictionary {
-                ($($kt: pat, $vt: pat, $w: ident => $kat: ty, $vat: ty,)*) => (
-                    match (&**key_type, &**value_type, &mut col_writer) {
-                        $(($kt, $vt, $w(writer)) => write_dict::<$kat, $vat, _>(array, writer, levels),)*
-                        (kt, vt, _) => unreachable!("Shouldn't be attempting to write dictionary of <{:?}, {:?}>", kt, vt),
-                    }
-                );
-            }
-
-            if let (UInt8, UInt32, Int32ColumnWriter(writer)) =
-                (&**key_type, &**value_type, &mut col_writer)
-            {
-                let typed_array = array
-                    .as_any()
-                    .downcast_ref::<arrow_array::UInt8DictionaryArray>()
-                    .expect("Unable to get dictionary array");
-
-                let keys = typed_array.keys();
-
-                let value_buffer = typed_array.values();
-                let value_array =
-                    arrow::compute::cast(&value_buffer, &ArrowDataType::Int32)?;
-
-                let values = value_array
-                    .as_any()
-                    .downcast_ref::<arrow_array::Int32Array>()
-                    .unwrap();
-
-                use std::convert::TryFrom;
-                // This removes NULL values from the keys, but
-                // they're encoded by the levels, so that's fine.
-
-                // nevi-me: if we materialize values by iterating on the array, can't we instead 'just' cast to the values?
-                // in the failing dictionary test, the materialized values here are incorrect (missing 22345678)
-                let materialized_values: Vec<_> = keys
-                    .into_iter()
-                    .flatten()
-                    .map(|key| {
-                        usize::try_from(key)
-                            .unwrap_or_else(|k| panic!("key {} does not fit in usize", k))
-                    })
-                    .map(|key| values.value(key))
-                    .collect();
-
-                let materialized_primitive_array =
-                    PrimitiveArray::<arrow::datatypes::Int32Type>::from(
-                        materialized_values,
-                    );
-
-                // I added this because we need to consider dictionaries in structs correctly,
-                // I don't think it's the cause for the failing test though, as the materialized_p_arr
-                // in the test is incorrect when it gets here (missing 22345678 value)
-                let indices = filter_array_indices(&levels);
-                let values = get_numeric_array_slice::<Int32Type, _>(
-                    &materialized_primitive_array,
-                    &indices,
-                );
-
-                writer.write_batch(
-                    values.as_slice(),
-                    Some(levels.definition.as_slice()),
-                    levels.repetition.as_deref(),
-                )?;
-                row_group_writer.close_column(col_writer)?;
-
-                return Ok(());
-            }
-
-            dispatch_dictionary!(
-                Int8, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int8Type, StringArray,
-                Int16, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int16Type, StringArray,
-                Int32, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int32Type, StringArray,
-                Int64, Utf8, ByteArrayColumnWriter => arrow::datatypes::Int64Type, StringArray,
-                UInt8, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt8Type, StringArray,
-                UInt16, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt16Type, StringArray,
-                UInt32, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt32Type, StringArray,
-                UInt64, Utf8, ByteArrayColumnWriter => arrow::datatypes::UInt64Type, StringArray,
+            write_leaf(
+                &mut col_writer,
+                &array,
+                levels.pop().expect("Levels exhausted"),
             )?;
-
             row_group_writer.close_column(col_writer)?;
-
             Ok(())
         }
         ArrowDataType::Float16 => Err(ParquetError::ArrowError(
@@ -297,67 +218,6 @@ fn write_leaves(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
     }
-}
-
-trait Materialize<K, V> {
-    type Output;
-
-    // Materialize the packed dictionary. The writer will later repack it.
-    fn materialize(&self) -> Vec<Self::Output>;
-}
-
-impl<K> Materialize<K, arrow_array::StringArray> for dyn Array
-where
-    K: arrow::datatypes::ArrowDictionaryKeyType,
-{
-    type Output = ByteArray;
-
-    fn materialize(&self) -> Vec<Self::Output> {
-        use arrow::datatypes::ArrowNativeType;
-
-        let typed_array = self
-            .as_any()
-            .downcast_ref::<arrow_array::DictionaryArray<K>>()
-            .expect("Unable to get dictionary array");
-
-        let keys = typed_array.keys();
-
-        let value_buffer = typed_array.values();
-        let values = value_buffer
-            .as_any()
-            .downcast_ref::<arrow_array::StringArray>()
-            .unwrap();
-
-        // This removes NULL values from the keys, but
-        // they're encoded by the levels, so that's fine.
-        keys.into_iter()
-            .flatten()
-            .map(|key| {
-                key.to_usize()
-                    .unwrap_or_else(|| panic!("key {:?} does not fit in usize", key))
-            })
-            .map(|key| values.value(key))
-            .map(ByteArray::from)
-            .collect()
-    }
-}
-
-fn write_dict<K, V, T>(
-    array: &(dyn Array + 'static),
-    writer: &mut ColumnWriterImpl<T>,
-    levels: LevelInfo,
-) -> Result<()>
-where
-    T: DataType,
-    dyn Array: Materialize<K, V, Output = T::T>,
-{
-    writer.write_batch(
-        &array.materialize(),
-        Some(levels.definition.as_slice()),
-        levels.repetition.as_deref(),
-    )?;
-
-    Ok(())
 }
 
 fn write_leaf(
@@ -1192,6 +1052,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "waiting on inheritance of nested structs, ARROW-10684"]
     fn arrow_writer_2_level_struct_non_null() {
         // tests writing <struct<struct<primitive>>
         let field_c = Field::new("c", DataType::Int32, false);
