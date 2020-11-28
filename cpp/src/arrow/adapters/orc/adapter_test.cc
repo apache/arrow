@@ -10438,6 +10438,51 @@ TEST(TestAdapterWriteNested, writeFixedSizeListEmpty) {
   writer->add(*batch);
   writer->close();
 }
+TEST(TestAdapterWriteNested, writeFixedSizeListZeroEmpty) {
+  auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 0);
+  DataType* arrowType = sharedPtrArrowType.get();
+
+  Int32Builder valuesBuilder;
+  std::shared_ptr<Array> valuesArray;
+  (void)(valuesBuilder.Finish(&valuesArray));
+
+  std::shared_ptr<FixedSizeListArray> array =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray, 0).ValueOrDie());
+
+  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  int64_t arrowOffset = 0;
+  int64_t orcOffset = 0;
+  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
+                                       array.get());
+  if (!st.ok()) {
+    FAIL() << "ORC ColumnBatch not successfully filled";
+  }
+
+  EXPECT_EQ(x->numElements, 0);
+  EXPECT_FALSE(x->hasNulls);
+  EXPECT_EQ(a->numElements, 0);
+  EXPECT_FALSE(a->hasNulls);
+
+  EXPECT_EQ(x->offsets[0], 0);
+
+  EXPECT_EQ(arrowOffset, 0);
+  EXPECT_EQ(orcOffset, 0);
+  writer->add(*batch);
+  writer->close();
+}
 TEST(TestAdapterWriteNested, writeFixedSizeListAllNulls) {
   auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
