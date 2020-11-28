@@ -532,7 +532,7 @@ namespace Apache.Arrow.Ipc
         /// <returns>
         /// The number of bytes written to the stream.
         /// </returns>
-        private long WriteMessage<T>(
+        private protected long WriteMessage<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength)
             where T : struct
         {
@@ -562,7 +562,7 @@ namespace Apache.Arrow.Ipc
         /// <returns>
         /// The number of bytes written to the stream.
         /// </returns>
-        private async ValueTask<long> WriteMessageAsync<T>(
+        private protected virtual async ValueTask<long> WriteMessageAsync<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength,
             CancellationToken cancellationToken)
             where T : struct
