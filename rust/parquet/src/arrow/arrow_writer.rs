@@ -686,6 +686,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "waiting on inheritance of nested structs, ARROW-10684"]
     fn arrow_writer_2_level_struct_non_null() {
         // tests writing <struct<struct<primitive>>
         let field_c = Field::new("c", DataType::Int32, false);
