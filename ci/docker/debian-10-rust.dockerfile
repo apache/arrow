@@ -37,7 +37,8 @@ ARG rust=nightly-2020-11-24
 
 # freeze the version for deterministic builds
 RUN rustup default ${rust} && \
-    rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
+    rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu && \
+    rustup toolchain add stable-x86_64-unknown-linux-gnu
 
 # Compile a dummy program, so that the dependencies are compiled and cached on a layer
 # see https://stackoverflow.com/a/58474618/931303 for details
