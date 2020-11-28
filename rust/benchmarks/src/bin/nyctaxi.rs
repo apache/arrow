@@ -92,7 +92,7 @@ async fn datafusion_sql_benchmarks(
     debug: bool,
 ) -> Result<()> {
     let mut queries = HashMap::new();
-    queries.insert("fare_amt_by_passenger", "SELECT passenger_count, MIN(fare_amount), MIN(fare_amount), SUM(fare_amount) FROM tripdata GROUP BY passenger_count");
+    queries.insert("fare_amt_by_passenger", "SELECT passenger_count, MIN(fare_amount), MAX(fare_amount), SUM(fare_amount) FROM tripdata GROUP BY passenger_count");
     for (name, sql) in &queries {
         println!("Executing '{}'", name);
         for i in 0..iterations {
