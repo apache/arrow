@@ -43,7 +43,7 @@ namespace Apache.Arrow.Ipc
         public abstract ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();
 
-        protected static T ReadMessage<T>(ByteBuffer bb)
+        internal static T ReadMessage<T>(ByteBuffer bb)
             where T : struct, IFlatbufferObject
         {
             Type returnType = typeof(T);

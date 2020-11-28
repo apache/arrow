@@ -20,6 +20,7 @@ syntax = "proto3";
 
 option java_package = "org.apache.arrow.flight.impl";
 option go_package = "github.com/apache/arrow/go/flight;flight";
+option csharp_namespace = "Apache.Arrow.Flight.Protocol";
 
 package arrow.flight.protocol;
 

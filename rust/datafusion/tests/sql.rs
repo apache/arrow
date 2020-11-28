@@ -537,6 +537,29 @@ async fn csv_query_avg_multi_batch() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_nullif_divide_by_0() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c8/nullif(c7, 0) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    let actual = &actual[80..90]; // We just want to compare rows 80-89
+    let expected = vec![
+        vec!["258"],
+        vec!["664"],
+        vec!["NULL"],
+        vec!["22"],
+        vec!["164"],
+        vec!["448"],
+        vec!["365"],
+        vec!["1640"],
+        vec!["671"],
+        vec!["203"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_count() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
@@ -1008,6 +1031,65 @@ fn create_case_context() -> Result<ExecutionContext> {
     )?;
     let table = MemTable::new(schema, vec![vec![data]])?;
     ctx.register_table("t1", Box::new(table));
+    Ok(ctx)
+}
+
+#[tokio::test]
+async fn equijoin() -> Result<()> {
+    let mut ctx = create_join_context()?;
+    let sql =
+        "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["11", "a", "z"],
+        vec!["22", "b", "y"],
+        vec!["44", "d", "x"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+fn create_join_context() -> Result<ExecutionContext> {
+    let mut ctx = ExecutionContext::new();
+
+    let t1_schema = Arc::new(Schema::new(vec![
+        Field::new("t1_id", DataType::UInt32, true),
+        Field::new("t1_name", DataType::Utf8, true),
+    ]));
+    let t1_data = RecordBatch::try_new(
+        t1_schema.clone(),
+        vec![
+            Arc::new(UInt32Array::from(vec![11, 22, 33, 44])),
+            Arc::new(StringArray::from(vec![
+                Some("a"),
+                Some("b"),
+                Some("c"),
+                Some("d"),
+            ])),
+        ],
+    )?;
+    let t1_table = MemTable::new(t1_schema, vec![vec![t1_data]])?;
+    ctx.register_table("t1", Box::new(t1_table));
+
+    let t2_schema = Arc::new(Schema::new(vec![
+        Field::new("t2_id", DataType::UInt32, true),
+        Field::new("t2_name", DataType::Utf8, true),
+    ]));
+    let t2_data = RecordBatch::try_new(
+        t2_schema.clone(),
+        vec![
+            Arc::new(UInt32Array::from(vec![11, 22, 44, 55])),
+            Arc::new(StringArray::from(vec![
+                Some("z"),
+                Some("y"),
+                Some("x"),
+                Some("w"),
+            ])),
+        ],
+    )?;
+    let t2_table = MemTable::new(t2_schema, vec![vec![t2_data]])?;
+    ctx.register_table("t2", Box::new(t2_table));
+
     Ok(ctx)
 }
 

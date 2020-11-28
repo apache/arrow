@@ -99,7 +99,7 @@ fn issue_filters(
 
     // add a new filter node with the predicates
     let plan = LogicalPlan::Filter {
-        predicate: predicate.clone(),
+        predicate,
         input: Arc::new(plan.clone()),
     };
 

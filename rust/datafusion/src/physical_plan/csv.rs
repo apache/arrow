@@ -252,7 +252,7 @@ impl CsvStream {
         let file = File::open(filename)?;
         let reader = csv::Reader::new(
             file,
-            schema.clone(),
+            schema,
             has_header,
             delimiter,
             batch_size,

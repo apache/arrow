@@ -264,7 +264,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader DAY_MILLIS = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * IntervalDayVector.TYPE_WIDTH;
+        final long size = (long) count * IntervalDayVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -281,7 +281,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT1 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * TinyIntVector.TYPE_WIDTH;
+        final long size = (long) count * TinyIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -296,7 +296,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT2 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * SmallIntVector.TYPE_WIDTH;
+        final long size = (long) count * SmallIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -311,7 +311,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * IntVector.TYPE_WIDTH;
+        final long size = (long) count * IntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -326,7 +326,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT8 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * BigIntVector.TYPE_WIDTH;
+        final long size = (long) count * BigIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -342,7 +342,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader UINT1 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * TinyIntVector.TYPE_WIDTH;
+        final long size = (long) count * TinyIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -357,7 +357,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader UINT2 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * SmallIntVector.TYPE_WIDTH;
+        final long size = (long) count * SmallIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -372,7 +372,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader UINT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * IntVector.TYPE_WIDTH;
+        final long size = (long) count * IntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -387,7 +387,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader UINT8 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * BigIntVector.TYPE_WIDTH;
+        final long size = (long) count * BigIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -403,7 +403,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader FLOAT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * Float4Vector.TYPE_WIDTH;
+        final long size = (long) count * Float4Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -418,7 +418,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader FLOAT8 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * Float8Vector.TYPE_WIDTH;
+        final long size = (long) count * Float8Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -433,7 +433,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader DECIMAL = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * DecimalVector.TYPE_WIDTH;
+        final long size = (long) count * DecimalVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -450,7 +450,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader DECIMAL256 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * Decimal256Vector.TYPE_WIDTH;
+        final long size = (long) count * Decimal256Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -464,114 +464,78 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
+    ArrowBuf readBinaryValues(
+        BufferAllocator allocator, int count) throws IOException {
+      ArrayList<byte[]> values = new ArrayList<>(count);
+      long bufferSize = 0L;
+      for (int i = 0; i < count; i++) {
+        parser.nextToken();
+        final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
+        values.add(value);
+        bufferSize += value.length;
+      }
+
+      ArrowBuf buf = allocator.buffer(bufferSize);
+
+      for (byte[] value : values) {
+        buf.writeBytes(value);
+      }
+
+      return buf;
+    }
+
+    ArrowBuf readStringValues(
+        BufferAllocator allocator, int count) throws IOException {
+      ArrayList<byte[]> values = new ArrayList<>(count);
+      long bufferSize = 0L;
+      for (int i = 0; i < count; i++) {
+        parser.nextToken();
+        final byte[] value = parser.getValueAsString().getBytes(UTF_8);
+        values.add(value);
+        bufferSize += value.length;
+      }
+
+      ArrowBuf buf = allocator.buffer(bufferSize);
+
+      for (byte[] value : values) {
+        buf.writeBytes(value);
+      }
+
+      return buf;
+    }
 
     BufferReader FIXEDSIZEBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-          parser.nextToken();
-          final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
-          values.add(value);
-        }
-
-        int byteWidth = count > 0 ? values.get(0).length : 0;
-        ArrowBuf buf = allocator.buffer(byteWidth * count);
-        for (byte[] value : values) {
-          buf.writeBytes(value);
-        }
-
-        return buf;
+        return readBinaryValues(allocator, count);
       }
     };
 
     BufferReader VARCHAR = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = new ArrayList<>();
-        int bufferSize = 0;
-        for (int i = 0; i < count; i++) {
-          parser.nextToken();
-          final byte[] value = parser.getValueAsString().getBytes(UTF_8);
-          values.add(value);
-          bufferSize += value.length;
-
-        }
-
-        ArrowBuf buf = allocator.buffer(bufferSize);
-
-        for (byte[] value : values) {
-          buf.writeBytes(value);
-        }
-
-        return buf;
+        return readStringValues(allocator, count);
       }
     };
 
     BufferReader LARGEVARCHAR = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = new ArrayList<>();
-        long bufferSize = 0L;
-        for (int i = 0; i < count; i++) {
-          parser.nextToken();
-          final byte[] value = parser.getValueAsString().getBytes(UTF_8);
-          values.add(value);
-          bufferSize += value.length;
-        }
-
-        ArrowBuf buf = allocator.buffer(bufferSize);
-
-        for (byte[] value : values) {
-          buf.writeBytes(value);
-        }
-
-        return buf;
+        return readStringValues(allocator, count);
       }
     };
 
     BufferReader VARBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = new ArrayList<>();
-        int bufferSize = 0;
-        for (int i = 0; i < count; i++) {
-          parser.nextToken();
-          final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
-          values.add(value);
-          bufferSize += value.length;
-
-        }
-
-        ArrowBuf buf = allocator.buffer(bufferSize);
-
-        for (byte[] value : values) {
-          buf.writeBytes(value);
-        }
-
-        return buf;
+        return readBinaryValues(allocator, count);
       }
     };
 
     BufferReader LARGEVARBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrayList<byte[]> values = new ArrayList<>();
-        long bufferSize = 0L;
-        for (int i = 0; i < count; i++) {
-          parser.nextToken();
-          final byte[] value = decodeHexSafe(parser.readValueAs(String.class));
-          values.add(value);
-          bufferSize += value.length;
-        }
-
-        ArrowBuf buf = allocator.buffer(bufferSize);
-
-        for (byte[] value : values) {
-          buf.writeBytes(value);
-        }
-
-        return buf;
+        return readBinaryValues(allocator, count);
       }
     };
   }
