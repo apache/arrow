@@ -28,7 +28,7 @@ export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 pushd ${source_dir}
 
 # run unit tests excluding arrow, which is run separately
-cargo test --exclude arrow
+cargo test --workspace --exclude arrow
 
 # test datafusion examples
 pushd datafusion
