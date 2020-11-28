@@ -66,6 +66,9 @@ GArrowSchema    *garrow_schema_replace_field    (GArrowSchema *schema,
                                                  GArrowField *field,
                                                  GError **error);
 
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_schema_has_metadata(GArrowSchema *schema);
 GARROW_AVAILABLE_IN_0_17
 GHashTable *
 garrow_schema_get_metadata(GArrowSchema *schema);
