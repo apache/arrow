@@ -1293,7 +1293,7 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMultibatch) {
         EXPECT_EQ(x->data[i], i + resultOffset);
       } else {
         EXPECT_FALSE(x->notNull[i]);
-      };
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -1309,7 +1309,7 @@ TEST(TestAdapterWriteNumerical, writeInt8ChunkedMultibatch) {
       EXPECT_EQ(x->data[i], i + resultOffset);
     } else {
       EXPECT_FALSE(x->notNull[i]);
-    };
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -1602,7 +1602,7 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMultibatch) {
         EXPECT_EQ(x->data[i], i + resultOffset);
       } else {
         EXPECT_FALSE(x->notNull[i]);
-      };
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -1618,7 +1618,7 @@ TEST(TestAdapterWriteNumerical, writeInt16ChunkedMultibatch) {
       EXPECT_EQ(x->data[i], i + resultOffset);
     } else {
       EXPECT_FALSE(x->notNull[i]);
-    };
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -1902,8 +1902,9 @@ TEST(TestAdapterWriteNumerical, writeInt32ChunkedMultibatch) {
       if ((i + resultOffset) % 2) {
         EXPECT_TRUE(x->notNull[i]);
         EXPECT_EQ(x->data[i], i + resultOffset);
-      } else
+      } else {
         EXPECT_FALSE(x->notNull[i]);
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -1917,8 +1918,9 @@ TEST(TestAdapterWriteNumerical, writeInt32ChunkedMultibatch) {
     if ((i + resultOffset) % 2) {
       EXPECT_TRUE(x->notNull[i]);
       EXPECT_EQ(x->data[i], i + resultOffset);
-    } else
+    } else {
       EXPECT_FALSE(x->notNull[i]);
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -2419,7 +2421,7 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMultibatch) {
         EXPECT_EQ(x->data[i], i + resultOffset);
       } else {
         EXPECT_FALSE(x->notNull[i]);
-      };
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -2435,7 +2437,7 @@ TEST(TestAdapterWriteNumerical, writeInt64ChunkedMultibatch) {
       EXPECT_EQ(x->data[i], i + resultOffset);
     } else {
       EXPECT_FALSE(x->notNull[i]);
-    };
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -2728,7 +2730,7 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMultibatch) {
         EXPECT_FLOAT_EQ(x->data[i], i + resultOffset + 0.5);
       } else {
         EXPECT_FALSE(x->notNull[i]);
-      };
+      }
     }
     resultOffset = resultOffset + batchSize;
     batch->clear();
@@ -2744,7 +2746,7 @@ TEST(TestAdapterWriteNumerical, writeFloatChunkedMultibatch) {
       EXPECT_FLOAT_EQ(x->data[i], i + resultOffset + 0.5);
     } else {
       EXPECT_FALSE(x->notNull[i]);
-    };
+    }
   }
   writer->add(*batch);
   writer->close();
@@ -5378,14 +5380,16 @@ TEST(TestAdapterWriteBinary, writeStringChunkedMultibatch) {
       (void)(builder1.Append(("Test " + std::to_string(i)).c_str()));
       // RecordProperty("value" + std::to_string(i), ("Test " +
       // std::to_string(i)).c_str());
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (int i = 500; i < 1000; i++) {
     if (i % 2) {
       (void)(builder3.Append(("Test " + std::to_string(i)).c_str()));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -5703,14 +5707,16 @@ TEST(TestAdapterWriteBinary, writeLargeStringChunkedMultibatch) {
   for (int i = 0; i < 500; i++) {
     if (i % 2) {
       (void)(builder1.Append(("Test " + std::to_string(i)).c_str()));
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (int i = 500; i < 1000; i++) {
     if (i % 2) {
       (void)(builder3.Append(("Test " + std::to_string(i)).c_str()));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -6037,16 +6043,18 @@ TEST(TestAdapterWriteBinary, writeBinaryChunkedMultibatch) {
       a[0] = i;
       a[1] = i;
       (void)(builder1.Append(a, 2));
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (char i = 50; i < 100; i++) {
     if (i % 2) {
       a[0] = i;
       a[1] = i;
       (void)(builder3.Append(a, 2));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -6370,16 +6378,18 @@ TEST(TestAdapterWriteBinary, writeLargeBinaryChunkedMultibatch) {
       a[0] = i;
       a[1] = i;
       (void)(builder1.Append(a, 2));
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (char i = 50; i < 100; i++) {
     if (i % 2) {
       a[0] = i;
       a[1] = i;
       (void)(builder3.Append(a, 2));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -6951,16 +6961,18 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryChunkedMultibatch) {
       a[0] = i;
       a[1] = i;
       (void)(builder1.Append(a));
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (char i = 50; i < 100; i++) {
     if (i % 2) {
       a[0] = i;
       a[1] = i;
       (void)(builder3.Append(a));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -7042,14 +7054,16 @@ TEST(TestAdapterWriteBinary, writeFixedSizeBinaryZeroChunkedMultibatch) {
   for (char i = 0; i < 50; i++) {
     if (i % 2) {
       (void)(builder1.Append(""));
-    } else
+    } else {
       (void)(builder1.AppendNull());
+    }
   }
   for (char i = 50; i < 100; i++) {
     if (i % 2) {
       (void)(builder3.Append(""));
-    } else
+    } else {
       (void)(builder3.AppendNull());
+    }
   }
   std::shared_ptr<Array> array0, array1, array2, array3, array4;
   (void)(builder0.Finish(&array0));
@@ -10906,63 +10920,42 @@ TEST(TestAdapterWriteNested, writeFixedSizeListZeroChunkedEmpty) {
   writer->add(*batch);
   writer->close();
 }
-
 TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
-  auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
+  auto sharedPtrArrowType = fixed_size_list(std::make_shared<Field>("a", int32()), 3);
   DataType* arrowType = sharedPtrArrowType.get();
 
-  Int32Builder valuesBuilder0, offsetsBuilder0, valuesBuilder2, offsetsBuilder2,
-      valuesBuilder4, offsetsBuilder4;
-  std::shared_ptr<Array> valuesArray0, offsetsArray0, valuesArray2, offsetsArray2,
-      valuesArray4, offsetsArray4;
+  Int32Builder valuesBuilder0, valuesBuilder2, valuesBuilder4;
+  std::shared_ptr<Array> valuesArray0, valuesArray2, valuesArray4;
   (void)(valuesBuilder0.Finish(&valuesArray0));
-  (void)(offsetsBuilder0.Append(0));
-  (void)(offsetsBuilder0.Finish(&offsetsArray0));
   (void)(valuesBuilder2.Finish(&valuesArray2));
-  (void)(offsetsBuilder2.Append(0));
-  (void)(offsetsBuilder2.Finish(&offsetsArray2));
   (void)(valuesBuilder4.Finish(&valuesArray4));
-  (void)(offsetsBuilder4.Append(0));
-  (void)(offsetsBuilder4.Finish(&offsetsArray4));
 
-  std::shared_ptr<ListArray> array0 =
-      ListArray::FromArrays(*offsetsArray0, *valuesArray0).ValueOrDie();
-  std::shared_ptr<ListArray> array2 =
-      ListArray::FromArrays(*offsetsArray2, *valuesArray2).ValueOrDie();
-  std::shared_ptr<ListArray> array4 =
-      ListArray::FromArrays(*offsetsArray4, *valuesArray4).ValueOrDie();
+  std::shared_ptr<FixedSizeListArray> array0 =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray0, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array2 =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray2, 3).ValueOrDie());
+  std::shared_ptr<FixedSizeListArray> array4 =
+      std::static_pointer_cast<FixedSizeListArray>(
+          FixedSizeListArray::FromArrays(valuesArray4, 3).ValueOrDie());
 
-  Int32Builder valuesBuilder1, offsetsBuilder1, valuesBuilder3, offsetsBuilder3;
-
-  int32_t offsets1[3] = {0, 1, 3};
-
-  BufferBuilder builder1;
-  (void)(builder1.Resize(12));
-  (void)(builder1.Append(offsets1, 12));
-  std::shared_ptr<arrow::Buffer> offsetsBuffer1;
-  if (!builder1.Finish(&offsetsBuffer1).ok()) {
-    FAIL() << "The offsets buffer can not be constructed!";
-  }
-
-  int32_t offsets3[3] = {0, 0, 4};
-
-  BufferBuilder builder3;
-  (void)(builder3.Resize(12));
-  (void)(builder3.Append(offsets3, 12));
-  std::shared_ptr<arrow::Buffer> offsetsBuffer3;
-  if (!builder3.Finish(&offsetsBuffer3).ok()) {
-    FAIL() << "The offsets buffer can not be constructed!";
-  }
+  Int32Builder valuesBuilder1, valuesBuilder3;
 
   std::shared_ptr<Array> valuesArray1, valuesArray3;
   (void)(valuesBuilder1.AppendNull());
   (void)(valuesBuilder1.Append(2));
   (void)(valuesBuilder1.Append(3));
+  (void)(valuesBuilder1.AppendNull());
+  (void)(valuesBuilder1.Append(5));
+  (void)(valuesBuilder1.Append(6));
   (void)(valuesBuilder1.Finish(&valuesArray1));
   (void)(valuesBuilder3.AppendNull());
   (void)(valuesBuilder3.Append(8));
   (void)(valuesBuilder3.Append(9));
   (void)(valuesBuilder3.AppendNull());
+  (void)(valuesBuilder3.Append(11));
+  (void)(valuesBuilder3.Append(12));
   (void)(valuesBuilder3.Finish(&valuesArray3));
 
   uint8_t bitmap1 = 1;  // 00000001
@@ -10983,10 +10976,10 @@ TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
   uint8_t* bufferData3 = bitmapBuffer3->mutable_data();
   std::memcpy(bufferData3, &bitmap3, 1);
 
-  auto array1 = std::make_shared<ListArray>(sharedPtrArrowType, 2, offsetsBuffer1,
-                                            valuesArray1, bitmapBuffer1);
-  auto array3 = std::make_shared<ListArray>(sharedPtrArrowType, 2, offsetsBuffer3,
-                                            valuesArray3, bitmapBuffer3);
+  auto array1 = std::make_shared<FixedSizeListArray>(sharedPtrArrowType, 2, valuesArray1,
+                                                     bitmapBuffer1);
+  auto array3 = std::make_shared<FixedSizeListArray>(sharedPtrArrowType, 2, valuesArray3,
+                                                     bitmapBuffer3);
 
   ArrayVector av;
   av.push_back(array0);
@@ -11049,7 +11042,7 @@ TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
 
   EXPECT_EQ(x->numElements, 4);
   EXPECT_TRUE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 7);
+  EXPECT_EQ(a->numElements, 12);
   EXPECT_TRUE(a->hasNulls);
 
   EXPECT_EQ(x->notNull[0], 1);
@@ -11058,10 +11051,10 @@ TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
   EXPECT_EQ(x->notNull[3], 1);
 
   EXPECT_EQ(x->offsets[0], 0);
-  EXPECT_EQ(x->offsets[1], 1);
-  EXPECT_EQ(x->offsets[2], 3);
-  EXPECT_EQ(x->offsets[3], 3);
-  EXPECT_EQ(x->offsets[4], 7);
+  EXPECT_EQ(x->offsets[1], 3);
+  EXPECT_EQ(x->offsets[2], 6);
+  EXPECT_EQ(x->offsets[3], 9);
+  EXPECT_EQ(x->offsets[4], 12);
 
   EXPECT_EQ(a->notNull[0], 0);
   EXPECT_EQ(a->notNull[1], 1);
@@ -11070,11 +11063,20 @@ TEST(TestAdapterWriteNested, writeFixedSizeListChunkedMixed) {
   EXPECT_EQ(a->notNull[4], 1);
   EXPECT_EQ(a->notNull[5], 1);
   EXPECT_EQ(a->notNull[6], 0);
+  EXPECT_EQ(a->notNull[7], 1);
+  EXPECT_EQ(a->notNull[8], 1);
+  EXPECT_EQ(a->notNull[9], 0);
+  EXPECT_EQ(a->notNull[10], 1);
+  EXPECT_EQ(a->notNull[11], 1);
 
   EXPECT_EQ(a->data[1], 2);
   EXPECT_EQ(a->data[2], 3);
-  EXPECT_EQ(a->data[4], 8);
-  EXPECT_EQ(a->data[5], 9);
+  EXPECT_EQ(a->data[4], 5);
+  EXPECT_EQ(a->data[5], 6);
+  EXPECT_EQ(a->data[7], 8);
+  EXPECT_EQ(a->data[8], 9);
+  EXPECT_EQ(a->data[10], 11);
+  EXPECT_EQ(a->data[11], 12);
 
   writer->add(*batch);
   writer->close();
