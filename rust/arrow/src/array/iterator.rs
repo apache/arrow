@@ -225,10 +225,10 @@ mod tests {
         let result: StringArray = array
             .iter()
             .map(|e| {
-                e.and_then(|e| {
+                e.map(|e| {
                     let mut a = e.to_string();
                     a.push('b');
-                    Some(a)
+                    a
                 })
             })
             .collect();

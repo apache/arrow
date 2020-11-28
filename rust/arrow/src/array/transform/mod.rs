@@ -159,7 +159,7 @@ impl<'a> std::fmt::Debug for MutableArrayData<'a> {
     }
 }
 
-fn build_extend<'a>(array: &'a ArrayData) -> Extend<'a> {
+fn build_extend(array: &ArrayData) -> Extend {
     use crate::datatypes::*;
     match array.data_type() {
         DataType::Boolean => boolean::build_extend(array),
