@@ -370,6 +370,7 @@ where
     let mut offsets = Vec::with_capacity(data_len + 1);
     let mut values = Vec::with_capacity(data_len);
     let mut length_so_far = OffsetSize::zero();
+    offsets.push(length_so_far);
 
     let nulls;
     if null_count == 0 && indices.null_count() == 0 {
@@ -399,12 +400,11 @@ where
             }
             offsets.push(length_so_far);
         }
-        nulls = None
+        nulls = indices.data_ref().null_buffer().cloned();
     } else {
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
         let null_slice = null_buf.data_mut();
 
-        offsets.push(length_so_far);
         for i in 0..data_len {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
