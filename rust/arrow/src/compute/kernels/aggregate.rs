@@ -20,7 +20,12 @@
 use std::ops::Add;
 
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
-use crate::datatypes::ArrowNumericType;
+use crate::datatypes::{ArrowNativeType, ArrowNumericType};
+
+#[inline]
+fn is_nan<T: ArrowNativeType + PartialOrd>(a: T) -> bool {
+    !(a == a)
+}
 
 /// Helper macro to perform min/max of strings
 fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
@@ -62,8 +67,9 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
+    T::Native: ArrowNativeType,
 {
-    min_max_helper(array, |a, b| a > b)
+    min_max_helper(array, |a, b| is_nan(*a) > is_nan(*b) || a > b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -71,8 +77,9 @@ where
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
+    T::Native: ArrowNativeType,
 {
-    min_max_helper(array, |a, b| a < b)
+    min_max_helper(array, |a, b| is_nan(*a) < is_nan(*b) || a < b)
 }
 
 /// Returns the maximum value in the string array, according to the natural order.
@@ -186,44 +193,36 @@ mod simd {
     use std::ops::Add;
 
     pub(super) trait SimdAggregate<T: ArrowNumericType> {
+        type ScalarAccumulator;
+        type SimdAccumulator;
+
         /// Returns the identity value for this aggregation function
-        fn init_accumulator_scalar() -> T::Native;
+        fn init_accumulator_scalar() -> Self::ScalarAccumulator;
 
         /// Returns a vector filled with the identity value for this aggregation function
-        #[inline]
-        fn init_accumulator_chunk() -> T::Simd {
-            T::init(Self::init_accumulator_scalar())
-        }
+        fn init_accumulator_chunk() -> Self::SimdAccumulator;
 
         /// Updates the accumulator with the values of one chunk
-        fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd);
+        fn accumulate_chunk_non_null(
+            accumulator: &mut Self::SimdAccumulator,
+            chunk: T::Simd,
+        );
 
         /// Updates the accumulator with the values of one chunk according to the given vector mask
         fn accumulate_chunk_nullable(
-            accumulator: &mut T::Simd,
+            accumulator: &mut Self::SimdAccumulator,
             chunk: T::Simd,
             mask: T::SimdMask,
         );
 
         /// Updates the accumulator with one value
-        fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native);
+        fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T::Native);
 
         /// Reduces the vector lanes of the accumulator to a single value
-        #[inline]
-        fn reduce(accumulator: T::Simd) -> T::Native {
-            // reduce by first writing to a temporary and then use scalar operations
-            // this should be about the same performance as extracting individual lanes
-            // but allows us to reuse the scalar reduction logic
-            let tmp = &mut [T::default_value(); 64];
-            T::write(accumulator, &mut tmp[0..T::lanes()]);
-
-            let mut reduced = Self::init_accumulator_scalar();
-            tmp[0..T::lanes()]
-                .iter()
-                .for_each(|value| Self::accumulate_scalar(&mut reduced, *value));
-
-            reduced
-        }
+        fn reduce(
+            simd_accumulator: Self::SimdAccumulator,
+            scalar_accumulator: Self::ScalarAccumulator,
+        ) -> Option<T::Native>;
     }
 
     pub(super) struct SumAggregate<T: ArrowNumericType> {
@@ -234,8 +233,15 @@ mod simd {
     where
         T::Native: Add<Output = T::Native>,
     {
-        fn init_accumulator_scalar() -> T::Native {
+        type ScalarAccumulator = T::Native;
+        type SimdAccumulator = T::Simd;
+
+        fn init_accumulator_scalar() -> Self::ScalarAccumulator {
             T::default_value()
+        }
+
+        fn init_accumulator_chunk() -> Self::SimdAccumulator {
+            T::init(Self::init_accumulator_scalar())
         }
 
         fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd) {
@@ -256,6 +262,27 @@ mod simd {
         fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
             *accumulator = *accumulator + value
         }
+
+        fn reduce(
+            simd_accumulator: Self::SimdAccumulator,
+            scalar_accumulator: Self::ScalarAccumulator,
+        ) -> Option<T::Native> {
+            // we can't use T::lanes() as the slice len because it is not const,
+            // instead always reserve the maximum number of lanes
+            let mut tmp = [T::default_value(); 64];
+            let slice = &mut tmp[0..T::lanes()];
+            T::write(simd_accumulator, slice);
+
+            let mut reduced = Self::init_accumulator_scalar();
+            slice
+                .into_iter()
+                .for_each(|value| Self::accumulate_scalar(&mut reduced, *value));
+
+            Self::accumulate_scalar(&mut reduced, scalar_accumulator);
+
+            // result can not be None because we checked earlier for the null count
+            Some(reduced)
+        }
     }
 
     pub(super) struct MinAggregate<T: ArrowNumericType> {
@@ -266,31 +293,81 @@ mod simd {
     where
         T::Native: PartialOrd,
     {
-        fn init_accumulator_scalar() -> T::Native {
-            T::identity_for_min_op()
+        type ScalarAccumulator = (T::Native, bool);
+        type SimdAccumulator = (T::Simd, T::SimdMask);
+
+        fn init_accumulator_scalar() -> Self::ScalarAccumulator {
+            (T::default_value(), false)
         }
 
-        fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd) {
-            let cmp_mask = T::lt(chunk, *accumulator);
+        fn init_accumulator_chunk() -> Self::SimdAccumulator {
+            (T::init(T::default_value()), T::mask_init(false))
+        }
 
-            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
+        fn accumulate_chunk_non_null(
+            accumulator: &mut Self::SimdAccumulator,
+            chunk: T::Simd,
+        ) {
+            let acc_is_nan = !T::eq(accumulator.0, accumulator.0);
+            let cmp_mask = !accumulator.1 | (acc_is_nan | T::lt(chunk, accumulator.0));
+
+            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.1 = T::mask_init(true);
         }
 
         fn accumulate_chunk_nullable(
-            accumulator: &mut T::Simd,
+            accumulator: &mut Self::SimdAccumulator,
             chunk: T::Simd,
             vecmask: T::SimdMask,
         ) {
-            let identity = Self::init_accumulator_chunk();
-            let blended = T::mask_select(vecmask, chunk, identity);
-            let cmp_mask = T::lt(blended, *accumulator);
+            let acc_is_nan = !T::eq(accumulator.0, accumulator.0);
+            let cmp_mask =
+                !accumulator.1 | (vecmask & (acc_is_nan | T::lt(chunk, accumulator.0)));
 
-            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
+            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.1 |= vecmask;
         }
 
-        fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
-            if value < *accumulator {
-                *accumulator = value
+        fn accumulate_scalar(
+            accumulator: &mut Self::ScalarAccumulator,
+            value: T::Native,
+        ) {
+            if !accumulator.1 {
+                accumulator.0 = value;
+            } else {
+                let acc_is_nan = accumulator.0 != accumulator.0;
+                if acc_is_nan || value < accumulator.0 {
+                    accumulator.0 = value
+                }
+            }
+            accumulator.1 = true
+        }
+
+        fn reduce(
+            simd_accumulator: Self::SimdAccumulator,
+            scalar_accumulator: Self::ScalarAccumulator,
+        ) -> Option<T::Native> {
+            // we can't use T::lanes() as the slice len because it is not const,
+            // instead always reserve the maximum number of lanes
+            let mut tmp = [T::default_value(); 64];
+            let slice = &mut tmp[0..T::lanes()];
+            T::write(simd_accumulator.0, slice);
+
+            let mut reduced = Self::init_accumulator_scalar();
+            slice
+                .into_iter()
+                .enumerate()
+                .filter(|(i, _value)| T::mask_get(&simd_accumulator.1, *i))
+                .for_each(|(_i, value)| Self::accumulate_scalar(&mut reduced, *value));
+
+            if scalar_accumulator.1 {
+                Self::accumulate_scalar(&mut reduced, scalar_accumulator.0);
+            }
+
+            if reduced.1 {
+                Some(reduced.0)
+            } else {
+                None
             }
         }
     }
@@ -303,31 +380,81 @@ mod simd {
     where
         T::Native: PartialOrd,
     {
-        fn init_accumulator_scalar() -> T::Native {
-            T::identity_for_max_op()
+        type ScalarAccumulator = (T::Native, bool);
+        type SimdAccumulator = (T::Simd, T::SimdMask);
+
+        fn init_accumulator_scalar() -> Self::ScalarAccumulator {
+            (T::default_value(), false)
         }
 
-        fn accumulate_chunk_non_null(accumulator: &mut T::Simd, chunk: T::Simd) {
-            let cmp_mask = T::gt(chunk, *accumulator);
+        fn init_accumulator_chunk() -> Self::SimdAccumulator {
+            (T::init(T::default_value()), T::mask_init(false))
+        }
 
-            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
+        fn accumulate_chunk_non_null(
+            accumulator: &mut Self::SimdAccumulator,
+            chunk: T::Simd,
+        ) {
+            let chunk_is_nan = !T::eq(chunk, chunk);
+            let cmp_mask = chunk_is_nan | T::gt(chunk, accumulator.0);
+
+            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.1 = T::mask_init(true);
         }
 
         fn accumulate_chunk_nullable(
-            accumulator: &mut T::Simd,
+            accumulator: &mut Self::SimdAccumulator,
             chunk: T::Simd,
             vecmask: T::SimdMask,
         ) {
-            let identity = Self::init_accumulator_chunk();
-            let blended = T::mask_select(vecmask, chunk, identity);
-            let cmp_mask = T::gt(blended, *accumulator);
+            let chunk_is_nan = !T::eq(chunk, chunk);
+            let cmp_mask =
+                !accumulator.1 | (vecmask & (chunk_is_nan | T::gt(chunk, accumulator.0)));
 
-            *accumulator = T::mask_select(cmp_mask, chunk, *accumulator);
+            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.1 |= vecmask;
         }
 
-        fn accumulate_scalar(accumulator: &mut T::Native, value: T::Native) {
-            if value > *accumulator {
-                *accumulator = value
+        fn accumulate_scalar(
+            accumulator: &mut Self::ScalarAccumulator,
+            value: T::Native,
+        ) {
+            if !accumulator.1 {
+                accumulator.0 = value;
+            } else {
+                let value_is_nan = value != value;
+                if value_is_nan || value > accumulator.0 {
+                    accumulator.0 = value
+                }
+            }
+            accumulator.1 = true;
+        }
+
+        fn reduce(
+            simd_accumulator: Self::SimdAccumulator,
+            scalar_accumulator: Self::ScalarAccumulator,
+        ) -> Option<T::Native> {
+            // we can't use T::lanes() as the slice len because it is not const,
+            // instead always reserve the maximum number of lanes
+            let mut tmp = [T::default_value(); 64];
+            let slice = &mut tmp[0..T::lanes()];
+            T::write(simd_accumulator.0, slice);
+
+            let mut reduced = Self::init_accumulator_scalar();
+            slice
+                .into_iter()
+                .enumerate()
+                .filter(|(i, _value)| T::mask_get(&simd_accumulator.1, *i))
+                .for_each(|(_i, value)| Self::accumulate_scalar(&mut reduced, *value));
+
+            if scalar_accumulator.1 {
+                Self::accumulate_scalar(&mut reduced, scalar_accumulator.0);
+            }
+
+            if reduced.1 {
+                Some(reduced.0)
+            } else {
+                None
             }
         }
     }
@@ -393,10 +520,7 @@ mod simd {
             }
         }
 
-        let mut total = A::reduce(chunk_acc);
-        A::accumulate_scalar(&mut total, rem_acc);
-
-        Some(total)
+        A::reduce(chunk_acc, rem_acc)
     }
 }
 
@@ -407,6 +531,10 @@ mod simd {
 pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: Add<Output = T::Native>,
+    T::SimdMask: std::ops::Not<Output = T::SimdMask>
+        + std::ops::BitAnd<Output = T::SimdMask>
+        + std::ops::BitOr<Output = T::SimdMask>
+        + std::ops::BitOrAssign,
 {
     use simd::*;
 
@@ -418,6 +546,10 @@ where
 pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
+    T::SimdMask: std::ops::Not<Output = T::SimdMask>
+        + std::ops::BitAnd<Output = T::SimdMask>
+        + std::ops::BitOr<Output = T::SimdMask>
+        + std::ops::BitOrAssign,
 {
     use simd::*;
 
@@ -429,6 +561,10 @@ where
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
+    T::SimdMask: std::ops::Not<Output = T::SimdMask>
+        + std::ops::BitAnd<Output = T::SimdMask>
+        + std::ops::BitOr<Output = T::SimdMask>
+        + std::ops::BitOrAssign,
 {
     use simd::*;
 
@@ -619,36 +755,53 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
+    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
     fn test_primitive_min_max_float_all_nans_non_null() {
         let a: Float64Array = (0..100).map(|_| Some(f64::NAN)).collect();
-        assert!(min(&a).unwrap().is_nan());
         assert!(max(&a).unwrap().is_nan());
+        dbg!(min(&a));
+        assert!(min(&a).unwrap().is_nan());
     }
 
     #[test]
-    #[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
-    fn test_primitive_min_max_float_all_nans_nullable() {
+    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
+    fn test_primitive_min_max_float_first_nan_nonnull() {
         let a: Float64Array = (0..100)
             .map(|i| {
-                if i == 0 || i == 99 {
+                if i == 0 {
                     Some(f64::NAN)
                 } else {
                     Some(i as f64)
                 }
             })
             .collect();
-        // scalar implementation folds with the first value and returns NaN
         assert_eq!(Some(1.0), min(&a));
-        assert_eq!(Some(98.0), max(&a));
+        assert!(max(&a).unwrap().is_nan());
     }
 
     #[test]
-    #[ignore = "scalar implementation folds with the first value and returns NaN"]
-    fn test_primitive_min_max_float_first_last_nan() {
+    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
+    fn test_primitive_min_max_float_last_nan_nonnull() {
         let a: Float64Array = (0..100)
             .map(|i| {
-                if i == 0 || i == 99 {
+                if i == 99 {
+                    Some(f64::NAN)
+                } else {
+                    Some((i + 1) as f64)
+                }
+            })
+            .collect();
+        // scalar implementation folds with the first value and returns NaN
+        assert_eq!(Some(1.0), min(&a));
+        assert!(max(&a).unwrap().is_nan());
+    }
+
+    #[test]
+    //#[ignore = "scalar implementation folds with the first value and returns NaN"]
+    fn test_primitive_min_max_float_first_nan_nullable() {
+        let a: Float64Array = (0..100)
+            .map(|i| {
+                if i == 0 {
                     Some(f64::NAN)
                 } else if i % 2 == 0 {
                     None
@@ -659,7 +812,26 @@ mod tests {
             .collect();
         // scalar implementation folds with the first value and returns NaN
         assert_eq!(Some(1.0), min(&a));
-        assert_eq!(Some(97.0), max(&a));
+        assert!(max(&a).unwrap().is_nan());
+    }
+
+    #[test]
+    //#[ignore = "scalar implementation folds with the first value and returns NaN"]
+    fn test_primitive_min_max_float_last_nan_nullable() {
+        let a: Float64Array = (0..100)
+            .map(|i| {
+                if i == 99 {
+                    Some(f64::NAN)
+                } else if i % 2 == 0 {
+                    None
+                } else {
+                    Some(i as f64)
+                }
+            })
+            .collect();
+        // scalar implementation folds with the first value and returns NaN
+        assert_eq!(Some(1.0), min(&a));
+        assert!(max(&a).unwrap().is_nan());
     }
 
     #[test]
@@ -678,7 +850,7 @@ mod tests {
             })
             .collect();
         assert_eq!(Some(f64::NEG_INFINITY), min(&a));
-        assert_eq!(Some(f64::INFINITY), max(&a));
+        assert!(max(&a).unwrap().is_nan());
     }
 
     #[test]
