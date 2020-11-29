@@ -398,6 +398,12 @@ if(PYARROW_BUILD_HDFS)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _hdfs)
 endif()
 
+if(PYARROW_BUILD_RADOS)
+  set(RADOS_LINK_LIBS arrow_dataset_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _rados)
+  set(ARROW_RADOS ON)
+endif()
+
 if(PYARROW_BUILD_CUDA)
   # Arrow CUDA
   find_package(ArrowCUDA REQUIRED)
@@ -612,4 +618,8 @@ endif()
 
 if(PYARROW_BUILD_PLASMA)
   target_link_libraries(_plasma PRIVATE ${PLASMA_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_RADOS)
+  target_link_libraries(_rados PRIVATE ${RADOS_LINK_LIBS})
 endif()

@@ -133,6 +133,29 @@ Result<std::shared_ptr<Dataset>> RadosDataset::ReplaceSchema(
                                         std::move(cluster_));
 }
 
+Result<std::shared_ptr<Dataset>> RadosDataset::Make(
+    RadosDatasetFactoryOptions factory_option) {
+  auto cluster = std::make_shared<RadosCluster>(factory_option.pool_name_,
+                                                factory_option.ceph_config_path_);
+  cluster->flags_ = factory_option.flags_;
+  cluster->cls_name_ = factory_option.cls_name_;
+  cluster->user_name_ = factory_option.user_name_;
+  cluster->cluster_name_ = factory_option.cluster_name_;
+  cluster->rados_interface_ = new RadosWrapper();
+  cluster->io_ctx_interface_ = new IoCtxWrapper();
+  cluster->Connect();
+
+  RadosObjectVector objects;
+  for (std::string& id : factory_option.objects_) {
+    objects.push_back(std::make_shared<RadosObject>(id));
+  }
+
+  FinishOptions options;
+  ARROW_ASSIGN_OR_RAISE(auto factory, RadosDatasetFactory::Make(objects, cluster));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish(options));
+  return dataset;
+}
+
 FragmentIterator RadosDataset::GetFragmentsImpl(std::shared_ptr<Expression>) {
   auto schema = this->schema();
   auto cluster = this->cluster();
