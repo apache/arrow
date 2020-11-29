@@ -361,11 +361,6 @@ fn get_bool_array_slice(
 /// Given a level's information, calculate the offsets required to index an array
 /// correctly.
 fn filter_array_indices(level: &LevelInfo) -> Vec<usize> {
-    // TODO: we don't quite get the def levels right all the time, so for now we recalculate it
-    // this has the downside that if no values are populated, the slicing will be wrong
-
-    // TODO: we should reliably track this, to avoid finding the max value
-    let max_def = level.definition.iter().max().cloned().unwrap();
     let mut filtered = vec![];
     // remove slots that are false from definition_mask
     let mut index = 0;
@@ -375,7 +370,7 @@ fn filter_array_indices(level: &LevelInfo) -> Vec<usize> {
         .zip(&level.definition_mask)
         .for_each(|(def, (mask, _))| {
             if *mask {
-                if *def == max_def {
+                if *def == level.max_definition {
                     filtered.push(index);
                 }
                 index += 1;
@@ -698,7 +693,7 @@ mod tests {
         let schema = Schema::new(vec![field_a.clone()]);
 
         // create data
-        let c = Int32Array::from(vec![1,2,3,4,5,6]);
+        let c = Int32Array::from(vec![1, 2, 3, 4, 5, 6]);
         let b_data = ArrayDataBuilder::new(field_b.data_type().clone())
             .len(6)
             .add_child_data(c.data())

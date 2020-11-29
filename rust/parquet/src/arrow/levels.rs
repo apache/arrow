@@ -170,7 +170,8 @@ impl LevelInfo {
                 definition_mask: self.definition_mask.clone(),
                 array_offsets: self.array_offsets.clone(),
                 array_mask: self.array_mask.clone(),
-                max_definition: level,
+                // nulls will have all definitions being 0, so max value is reduced
+                max_definition: level - 1,
                 is_list: self.is_list,
                 is_nullable: true, // always nullable as all values are nulls
             }],
@@ -208,7 +209,9 @@ impl LevelInfo {
                     array_offsets: self.array_offsets.clone(),
                     array_mask: self.array_mask.clone(),
                     is_list: self.is_list,
-                    max_definition: level,
+                    // if the current value is non-null, but it's a child of another, we reduce
+                    // the max definition to indicate that all its applicable values can be taken
+                    max_definition: level - ((!field.is_nullable() && level > 1) as i16),
                     is_nullable: field.is_nullable(),
                 }]
             }
