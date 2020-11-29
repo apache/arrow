@@ -36,6 +36,7 @@ RUN apt-get update -y -q && \
         libsnappy-dev \
         libradospp-dev \
         rados-objclass-dev \
+        python3-dev \
         libssl-dev \
         make \
         ninja-build \

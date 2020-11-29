@@ -34,6 +34,17 @@
 namespace arrow {
 namespace dataset {
 
+class ARROW_DS_EXPORT RadosDatasetFactoryOptions {
+ public:
+  std::vector<std::string> objects_;
+  std::string pool_name_;
+  std::string user_name_;
+  std::string cluster_name_;
+  std::string ceph_config_path_;
+  uint64_t flags_;
+  std::string cls_name_;
+};
+
 /// \brief An abstraction to encapsulate information about a
 /// RADOS object. Currently, it holds only the object ID.
 class ARROW_DS_EXPORT RadosObject {
@@ -179,6 +190,10 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
       : Dataset(std::move(schema)),
         get_objects_(new VectorObjectGenerator(std::move(objects))),
         cluster_(std::move(cluster)) {}
+
+  /// \brief Create a RadosDataset
+  ///
+  static Result<std::shared_ptr<Dataset>> Make(RadosDatasetFactoryOptions factory_option);
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 

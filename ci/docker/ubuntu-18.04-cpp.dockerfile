@@ -81,6 +81,7 @@ RUN apt-get update -y -q && \
         libsnappy-dev \
         librados-dev \
         rados-objclass-dev \
+        python3-dev \
         libssl-dev \
         libutf8proc-dev \
         libzstd-dev \
