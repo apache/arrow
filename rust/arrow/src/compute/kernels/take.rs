@@ -435,7 +435,7 @@ where
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
         .add_buffer(Buffer::from(&values[..]));
     if let Some(null_buffer) = nulls {
-        data = data.add_buffer(null_buffer);
+        data = data.null_bit_buffer(null_buffer);
     }
     Ok(Arc::new(GenericStringArray::<OffsetSize>::from(
         data.build(),
