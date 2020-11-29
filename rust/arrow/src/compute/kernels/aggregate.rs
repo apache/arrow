@@ -156,10 +156,13 @@ where
             data_chunks
                 .zip(bit_chunks.iter())
                 .for_each(|(chunk, mask)| {
-                    chunk.iter().enumerate().for_each(|(i, value)| {
-                        if (mask & (1 << i)) != 0 {
+                    // index_mask has value 1 << i in the loop
+                    let mut index_mask = 1;
+                    chunk.iter().for_each(|value| {
+                        if (mask & index_mask) != 0 {
                             sum = sum + *value;
                         }
+                        index_mask <<= 1;
                     });
                 });
 
