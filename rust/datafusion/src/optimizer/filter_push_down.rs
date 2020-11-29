@@ -80,13 +80,20 @@ fn get_predicates<'a>(
         .unzip()
 }
 
-/// returns all predicates in `state` that cannot be pushed down on a join op
-/// this happens when the filter depends on both sides of the join.
+// returns 3 (potentially overlaping) sets of predicates:
+// * pushable to left: its columns are all on the left
+// * pushable to right: its columns is all on the right
+// * keep: the set of columns is not in only either left or right
+// Note that a predicate can be both pushed to the left and to the right.
 fn get_join_predicates<'a>(
     state: &'a State,
     left: &Schema,
     right: &Schema,
-) -> Predicates<'a> {
+) -> (
+    Vec<&'a HashSet<String>>,
+    Vec<&'a HashSet<String>>,
+    Predicates<'a>,
+) {
     let left_columns = &left
         .fields()
         .iter()
@@ -98,14 +105,42 @@ fn get_join_predicates<'a>(
         .map(|f| f.name().clone())
         .collect::<HashSet<_>>();
 
-    state
+    let filters = state
         .filters
         .iter()
-        .filter(|(_, columns)| {
-            !columns.is_subset(left_columns) || !columns.is_subset(right_columns)
+        .map(|(predicate, columns)| {
+            (
+                (predicate, columns),
+                (
+                    columns,
+                    left_columns.intersection(columns).collect::<HashSet<_>>(),
+                    right_columns.intersection(columns).collect::<HashSet<_>>(),
+                ),
+            )
         })
-        .map(|&(ref a, ref b)| (a, b))
-        .unzip()
+        .collect::<Vec<_>>();
+
+    let pushable_to_left = filters
+        .iter()
+        .filter(|(_, (columns, left, _))| left.len() == columns.len())
+        .map(|((_, b), _)| *b)
+        .collect();
+    let pushable_to_right = filters
+        .iter()
+        .filter(|(_, (columns, _, right))| right.len() == columns.len())
+        .map(|((_, b), _)| *b)
+        .collect();
+    let keep = filters
+        .iter()
+        .filter(|(_, (columns, left, right))| {
+            // predicates whose columns are not in only one side of the join need to remain
+            let all_in_left = left.len() == columns.len();
+            let all_in_right = right.len() == columns.len();
+            !all_in_left && !all_in_right
+        })
+        .map(|((ref a, ref b), _)| (a, b))
+        .unzip();
+    (pushable_to_left, pushable_to_right, keep)
 }
 
 /// Optimizes the plan
@@ -119,6 +154,8 @@ fn push_down(state: &State, plan: &LogicalPlan) -> Result<LogicalPlan> {
     utils::from_plan(&plan, &expr, &new_inputs)
 }
 
+/// returns a new [LogicalPlan] that wraps `plan` in a [LogicalPlan::Filter] with
+/// its predicate be all `predicates` ANDed.
 fn add_filter(plan: LogicalPlan, predicates: &[&Expr]) -> LogicalPlan {
     // reduce filters to a single filter with an AND
     let predicate = predicates
@@ -134,15 +171,26 @@ fn add_filter(plan: LogicalPlan, predicates: &[&Expr]) -> LogicalPlan {
     }
 }
 
-// remove all filters from `filters` that contain any of `predicate_columns`
-fn filter_filters(
+// remove all filters from `filters` that are in `predicate_columns`
+fn remove_filters(
     filters: &[(Expr, HashSet<String>)],
     predicate_columns: &[&HashSet<String>],
 ) -> Vec<(Expr, HashSet<String>)> {
-    // remove all filters from the state that cannot be pushed further down
     filters
         .iter()
         .filter(|(_, columns)| !predicate_columns.contains(&columns))
+        .cloned()
+        .collect::<Vec<_>>()
+}
+
+// keeps all filters from `filters` that are in `predicate_columns`
+fn keep_filters(
+    filters: &[(Expr, HashSet<String>)],
+    predicate_columns: &[&HashSet<String>],
+) -> Vec<(Expr, HashSet<String>)> {
+    filters
+        .iter()
+        .filter(|(_, columns)| predicate_columns.contains(&columns))
         .cloned()
         .collect::<Vec<_>>()
 }
@@ -154,16 +202,16 @@ fn issue_filters(
     used_columns: HashSet<String>,
     plan: &LogicalPlan,
 ) -> Result<LogicalPlan> {
-    let predicates = get_predicates(&state, &used_columns);
+    let (predicates, predicate_columns) = get_predicates(&state, &used_columns);
 
-    if predicates.0.is_empty() {
+    if predicates.is_empty() {
         // all filters can be pushed down => optimize inputs and return new plan
         return push_down(&state, plan);
     }
 
-    let plan = add_filter(plan.clone(), &predicates.0);
+    let plan = add_filter(plan.clone(), &predicates);
 
-    state.filters = filter_filters(&state.filters, &predicates.1);
+    state.filters = remove_filters(&state.filters, &predicate_columns);
 
     // continue optimization over all input nodes by cloning the current state (i.e. each node is independent)
     push_down(&state, &plan)
@@ -244,19 +292,29 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
             issue_filters(state, used_columns, plan)
         }
         LogicalPlan::Join { left, right, .. } => {
-            // join is not filter-commutable with predicates that depend on both sides
-            let (predicates, predicate_columns) =
+            let (pushable_to_left, pushable_to_right, keep) =
                 get_join_predicates(&state, &left.schema(), &right.schema());
 
-            if predicates.is_empty() {
-                return push_down(&state, plan);
+            let mut left_state = state.clone();
+            left_state.filters = keep_filters(&left_state.filters, &pushable_to_left);
+            let left = optimize(left, left_state)?;
+
+            let mut right_state = state.clone();
+            right_state.filters = keep_filters(&right_state.filters, &pushable_to_right);
+            let right = optimize(right, right_state)?;
+
+            // create a new Join with the new `left` and `right`
+            let expr = utils::expressions(&plan);
+            let plan = utils::from_plan(&plan, &expr, &vec![left, right])?;
+
+            if keep.0.is_empty() {
+                Ok(plan)
             } else {
-                let plan = add_filter(plan.clone(), &predicates);
+                // wrap the join on the filter whose predicates must be kept
+                let plan = add_filter(plan, &keep.0);
+                state.filters = remove_filters(&state.filters, &keep.1);
 
-                state.filters = filter_filters(&state.filters, &predicate_columns);
-
-                // continue optimization over all input nodes by cloning the current state (i.e. each node is independent)
-                push_down(&state, &plan)
+                Ok(plan)
             }
         }
         _ => {
@@ -654,8 +712,9 @@ mod tests {
         Ok(())
     }
 
+    /// post-join predicates on a column common to both sides is pushed to both sides
     #[test]
-    fn filters_join() -> Result<()> {
+    fn filter_join_on_common_independent() -> Result<()> {
         let table_scan = test_table_scan()?;
         let left = LogicalPlanBuilder::from(&table_scan).build()?;
         let right = LogicalPlanBuilder::from(&table_scan)
@@ -689,9 +748,9 @@ mod tests {
         Ok(())
     }
 
-    /// verify that predicates with columns from both sides of a join are not pushed down.
+    /// post-join predicates with columns from both sides are not pushed
     #[test]
-    fn filters_join_filter_from_both() -> Result<()> {
+    fn filter_join_on_common_dependent() -> Result<()> {
         let table_scan = test_table_scan()?;
         let left = LogicalPlanBuilder::from(&table_scan)
             .project(vec![col("a"), col("c")])?
@@ -701,6 +760,7 @@ mod tests {
             .build()?;
         let plan = LogicalPlanBuilder::from(&left)
             .join(&right, JoinType::Inner, &["a"], &["a"])?
+            // "b" and "c" are not shared by either side: they are only available together after the join
             .filter(col("c").lt_eq(col("b")))?
             .build()?;
 
@@ -718,6 +778,45 @@ mod tests {
 
         // expected is equal: no push-down
         let expected = &format!("{:?}", plan);
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// post-join predicates with columns from one side of a join are pushed only to that side
+    #[test]
+    fn filter_join_on_one_side() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let left = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a"), col("b")])?
+            .build()?;
+        let right = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a"), col("c")])?
+            .build()?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, JoinType::Inner, &["a"], &["a"])?
+            .filter(col("b").lt_eq(lit(1i64)))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #b LtEq Int64(1)\
+            \n  Join: a = a\
+            \n    Projection: #a, #b\
+            \n      TableScan: test projection=None\
+            \n    Projection: #a, #c\
+            \n      TableScan: test projection=None"
+        );
+
+        let expected = "\
+        Join: a = a\
+        \n  Projection: #a, #b\
+        \n    Filter: #b LtEq Int64(1)\
+        \n      TableScan: test projection=None\
+        \n  Projection: #a, #c\
+        \n    TableScan: test projection=None";
+
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }
