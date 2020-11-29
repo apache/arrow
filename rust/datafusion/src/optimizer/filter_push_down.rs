@@ -14,6 +14,8 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
+use arrow::datatypes::Schema;
+
 use crate::error::Result;
 use crate::logical_plan::Expr;
 use crate::logical_plan::{and, LogicalPlan};
@@ -57,38 +59,67 @@ struct State {
     filters: Vec<(Expr, HashSet<String>)>,
 }
 
-/// builds a new [LogicalPlan] from `plan` by issuing new [LogicalPlan::Filter] if any of the filters
-/// in `state` depend on the columns `used_columns`.
-fn issue_filters(
-    mut state: State,
-    used_columns: HashSet<String>,
-    plan: &LogicalPlan,
-) -> Result<LogicalPlan> {
-    // pick all filters in the current state that depend on any of `used_columns`
-    let (predicates, predicate_columns): (Vec<_>, Vec<_>) = state
+type Predicates<'a> = (Vec<&'a Expr>, Vec<&'a HashSet<String>>);
+
+/// returns all predicates in `state` that depend on any of `used_columns`
+fn get_predicates<'a>(
+    state: &'a State,
+    used_columns: &HashSet<String>,
+) -> Predicates<'a> {
+    state
         .filters
         .iter()
         .filter(|(_, columns)| {
             columns
-                .intersection(&used_columns)
+                .intersection(used_columns)
                 .collect::<HashSet<_>>()
                 .len()
                 > 0
         })
         .map(|&(ref a, ref b)| (a, b))
-        .unzip();
+        .unzip()
+}
 
-    if predicates.is_empty() {
-        // all filters can be pushed down => optimize inputs and return new plan
-        let new_inputs = utils::inputs(&plan)
-            .iter()
-            .map(|input| optimize(input, state.clone()))
-            .collect::<Result<Vec<_>>>()?;
+/// returns all predicates in `state` that cannot be pushed down on a join op
+/// this happens when the filter depends on both sides of the join.
+fn get_join_predicates<'a>(
+    state: &'a State,
+    left: &Schema,
+    right: &Schema,
+) -> Predicates<'a> {
+    let left_columns = &left
+        .fields()
+        .iter()
+        .map(|f| f.name().clone())
+        .collect::<HashSet<_>>();
+    let right_columns = &right
+        .fields()
+        .iter()
+        .map(|f| f.name().clone())
+        .collect::<HashSet<_>>();
 
-        let expr = utils::expressions(&plan);
-        return utils::from_plan(&plan, &expr, &new_inputs);
-    }
+    state
+        .filters
+        .iter()
+        .filter(|(_, columns)| {
+            !columns.is_subset(left_columns) || !columns.is_subset(right_columns)
+        })
+        .map(|&(ref a, ref b)| (a, b))
+        .unzip()
+}
 
+/// Optimizes the plan
+fn push_down(state: &State, plan: &LogicalPlan) -> Result<LogicalPlan> {
+    let new_inputs = utils::inputs(&plan)
+        .iter()
+        .map(|input| optimize(input, state.clone()))
+        .collect::<Result<Vec<_>>>()?;
+
+    let expr = utils::expressions(&plan);
+    utils::from_plan(&plan, &expr, &new_inputs)
+}
+
+fn add_filter(plan: LogicalPlan, predicates: &[&Expr]) -> LogicalPlan {
     // reduce filters to a single filter with an AND
     let predicate = predicates
         .iter()
@@ -97,28 +128,45 @@ fn issue_filters(
             and(acc, (*predicate).to_owned())
         });
 
-    // add a new filter node with the predicates
-    let plan = LogicalPlan::Filter {
+    LogicalPlan::Filter {
         predicate,
-        input: Arc::new(plan.clone()),
-    };
+        input: Arc::new(plan),
+    }
+}
 
+// remove all filters from `filters` that contain any of `predicate_columns`
+fn filter_filters(
+    filters: &[(Expr, HashSet<String>)],
+    predicate_columns: &[&HashSet<String>],
+) -> Vec<(Expr, HashSet<String>)> {
     // remove all filters from the state that cannot be pushed further down
-    state.filters = state
-        .filters
+    filters
         .iter()
         .filter(|(_, columns)| !predicate_columns.contains(&columns))
         .cloned()
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
+
+/// builds a new [LogicalPlan] from `plan` by issuing new [LogicalPlan::Filter] if any of the filters
+/// in `state` depend on the columns `used_columns`.
+fn issue_filters(
+    mut state: State,
+    used_columns: HashSet<String>,
+    plan: &LogicalPlan,
+) -> Result<LogicalPlan> {
+    let predicates = get_predicates(&state, &used_columns);
+
+    if predicates.0.is_empty() {
+        // all filters can be pushed down => optimize inputs and return new plan
+        return push_down(&state, plan);
+    }
+
+    let plan = add_filter(plan.clone(), &predicates.0);
+
+    state.filters = filter_filters(&state.filters, &predicates.1);
 
     // continue optimization over all input nodes by cloning the current state (i.e. each node is independent)
-    let new_inputs = utils::inputs(&plan)
-        .iter()
-        .map(|input| optimize(input, state.clone()))
-        .collect::<Result<Vec<_>>>()?;
-
-    let expr = utils::expressions(&plan);
-    utils::from_plan(&plan, &expr, &new_inputs)
+    push_down(&state, &plan)
 }
 
 fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
@@ -183,7 +231,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
         }
         LogicalPlan::Sort { .. } => {
             // sort is filter-commutable
-            issue_filters(state, HashSet::new(), plan)
+            push_down(&state, plan)
         }
         LogicalPlan::Limit { input, .. } => {
             // limit is _not_ filter-commutable => collect all columns from its input
@@ -195,9 +243,21 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
                 .collect::<HashSet<_>>();
             issue_filters(state, used_columns, plan)
         }
-        LogicalPlan::Join { .. } => {
-            // join is filter-commutable
-            issue_filters(state, HashSet::new(), plan)
+        LogicalPlan::Join { left, right, .. } => {
+            // join is not filter-commutable with predicates that depend on both sides
+            let (predicates, predicate_columns) =
+                get_join_predicates(&state, &left.schema(), &right.schema());
+
+            if predicates.is_empty() {
+                return push_down(&state, plan);
+            } else {
+                let plan = add_filter(plan.clone(), &predicates);
+
+                state.filters = filter_filters(&state.filters, &predicate_columns);
+
+                // continue optimization over all input nodes by cloning the current state (i.e. each node is independent)
+                push_down(&state, &plan)
+            }
         }
         _ => {
             // all other plans are _not_ filter-commutable
@@ -625,6 +685,39 @@ mod tests {
         \n  Projection: #a\
         \n    Filter: #a LtEq Int64(1)\
         \n      TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// verify that predicates with columns from both sides of a join are not pushed down.
+    #[test]
+    fn filters_join_filter_from_both() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let left = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a"), col("c")])?
+            .build()?;
+        let right = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a"), col("b")])?
+            .build()?;
+        let plan = LogicalPlanBuilder::from(&left)
+            .join(&right, JoinType::Inner, &["a"], &["a"])?
+            .filter(col("c").lt_eq(col("b")))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #c LtEq #b\
+            \n  Join: a = a\
+            \n    Projection: #a, #c\
+            \n      TableScan: test projection=None\
+            \n    Projection: #a, #b\
+            \n      TableScan: test projection=None"
+        );
+
+        // expected is equal: no push-down
+        let expected = &format!("{:?}", plan);
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }
