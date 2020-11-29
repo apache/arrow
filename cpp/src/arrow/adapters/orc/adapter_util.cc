@@ -626,8 +626,7 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
       batch->notNull[orcOffset] = true;
     }
   }
-  int64_t numProcessedSubarrays = orcOffset - initORCOffset;
-  batch->numElements += numProcessedSubarrays;
+  batch->numElements = orcOffset;
   int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
           initSubarrayORCOffset = batch->offsets[initORCOffset];
   elementBatch->resize(batch->offsets[orcOffset]);
@@ -664,7 +663,7 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
       batch->notNull[orcOffset] = true;
     }
   }
-  batch->numElements += orcOffset - initORCOffset;
+  batch->numElements = orcOffset;
   int64_t subarrayArrowOffset = array->value_offset(initArrowOffset),
           subarrayORCOffset = batch->offsets[initORCOffset],
           initSubarrayArrowSet = subarrayArrowOffset,
@@ -682,9 +681,48 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   return Status::OK();
 }
 
-Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
-                      int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
-                      Array* parray) {
+Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
+                           int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
+                           Array* parray) {
+  auto array = checked_cast<DenseUnionArray*>(parray);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(cbatch);
+  std::size_t size = type->fields().size();
+  int64_t arrowLength = array->length();
+  if (!arrowLength) return Status::OK();
+  // int64_t initORCOffset = orcOffset;
+  // int64_t initArrowOffset = arrowOffset;
+  std::vector<int64_t> subarrayORCOffset(size, 0), subarrayArrowOffset(size, -1),
+      subarrayElementCount(size, 0);
+  for (int64_t i = 0; i < orcOffset; i++) {
+    subarrayORCOffset[batch->tags[i]]++;
+  }
+  // First fill fields of ColumnVectorBatch
+  // For the parent type no nulls exist
+  for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
+    int tag = array->child_id(arrowOffset);
+    batch->tags[orcOffset] = tag;
+    batch->offsets[orcOffset] = orcOffset;
+    subarrayElementCount[tag]++;
+    if (subarrayArrowOffset[tag] == -1) {
+      subarrayArrowOffset[tag] = array->value_offset(arrowOffset);
+    }
+  }
+  batch->numElements = orcOffset;
+  // Fill the fields
+  for (std::size_t i = 0; i < size; i++) {
+    if (subarrayArrowOffset[i] >= 0) {
+      RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->children[i],
+                              subarrayArrowOffset[i], subarrayORCOffset[i],
+                              subarrayORCOffset[i] + subarrayElementCount[i],
+                              array->field(i).get()));
+    }
+  }
+  return Status::OK();
+}
+
+Status FillSparseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
+                            int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
+                            Array* parray) {
   auto array = checked_cast<UnionArray*>(parray);
   auto batch = checked_cast<liborc::UnionVectorBatch*>(cbatch);
   std::size_t size = type->fields().size();
@@ -699,7 +737,9 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
     batch->tags[orcOffset] = tag;
     batch->offsets[orcOffset] = orcOffset;
   }
-  batch->numElements += orcOffset - initORCOffset;
+  batch->numElements = orcOffset;
+  // int64_t finalORCOffset = orcOffset;
+  // int64_t finalArrowOffset = arrowOffset;
   // Fill the fields
   for (std::size_t i = 0; i < size; i++) {
     orcOffset = initORCOffset;
@@ -707,6 +747,8 @@ Status FillUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
     RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->children[i], arrowOffset,
                             orcOffset, length, array->field(i).get()));
   }
+  // orcOffset = finalORCOffset;
+  // arrowOffset = finalArrowOffset;
   return Status::OK();
 }
 
@@ -811,8 +853,9 @@ Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
     case Type::type::MAP:
       return FillMapBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::DENSE_UNION:
+      return FillDenseUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     case Type::type::SPARSE_UNION:
-      return FillUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
+      return FillSparseUnionBatch(type, cbatch, arrowOffset, orcOffset, length, parray);
     default: {
       return Status::Invalid("Unknown or unsupported Arrow type kind: ", kind);
     }
