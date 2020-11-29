@@ -297,15 +297,12 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
-        array::ArrayData,
-        array::Int32Array,
-        buffer::Buffer,
-        datatypes::{Field, ToByteSlice},
-        memory,
-        util::bit_util,
+        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::ToByteSlice,
+        memory, util::bit_util,
     };
 
     use super::*;
+    use crate::datatypes::NullableDataType;
 
     #[test]
     fn test_list_array() {
@@ -321,7 +318,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_buffer(value_offsets.clone())
@@ -391,7 +388,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::LargeList(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(3)
             .add_buffer(value_offsets.clone())
@@ -457,7 +454,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type = DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Int32, false)),
+            Box::new(NullableDataType::new(DataType::Int32, false)),
             3,
         );
         let list_data = ArrayData::builder(list_data_type.clone())
@@ -526,7 +523,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type = DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Int32, false)),
+            Box::new(NullableDataType::new(DataType::Int32, false)),
             3,
         );
         let list_data = ArrayData::builder(list_data_type)
@@ -560,7 +557,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(9)
             .add_buffer(value_offsets)
@@ -625,7 +622,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::LargeList(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(9)
             .add_buffer(value_offsets)
@@ -688,7 +685,7 @@ mod tests {
 
         // Construct a fixed size list array from the above two
         let list_data_type = DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Int32, false)),
+            Box::new(NullableDataType::new(DataType::Int32, false)),
             2,
         );
         let list_data = ArrayData::builder(list_data_type)
@@ -739,7 +736,7 @@ mod tests {
             .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
             .build();
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_child_data(value_data)
@@ -754,7 +751,7 @@ mod tests {
     fn test_list_array_invalid_child_array_len() {
         let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -773,7 +770,7 @@ mod tests {
         let value_offsets = Buffer::from(&[2, 2, 5, 7].to_byte_slice());
 
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -805,7 +802,7 @@ mod tests {
             .build();
 
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .add_buffer(buf2)
             .add_child_data(value_data)

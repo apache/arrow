@@ -39,11 +39,12 @@ use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
+use arrow::datatypes::NullableDataType;
 use arrow::{
     array::ArrayRef,
     compute::kernels::length::length,
     datatypes::TimeUnit,
-    datatypes::{DataType, Field, Schema},
+    datatypes::{DataType, Schema},
     record_batch::RecordBatch,
 };
 use fmt::{Debug, Formatter};
@@ -207,7 +208,7 @@ pub fn return_type(
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
         BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
-            Box::new(Field::new("item", arg_types[0].clone(), true)),
+            Box::new(NullableDataType::new(arg_types[0].clone(), true)),
             arg_types.len() as i32,
         )),
         BuiltinScalarFunction::NullIf => {
@@ -484,7 +485,10 @@ mod tests {
         assert_eq!(
             expr.data_type(&schema)?,
             // type equals to a common coercion
-            DataType::FixedSizeList(Box::new(Field::new("item", expected_type, true)), 2)
+            DataType::FixedSizeList(
+                Box::new(NullableDataType::new(expected_type, true)),
+                2
+            )
         );
 
         // evaluate works

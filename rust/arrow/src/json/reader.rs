@@ -66,20 +66,16 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
         1 => Ok(dt[0].clone()),
         2 => {
             // there can be a case where a list and scalar both exist
-            if dt.contains(&&DataType::List(Box::new(Field::new(
-                "item",
+            if dt.contains(&&DataType::List(Box::new(NullableDataType::new(
                 DataType::Float64,
                 true,
-            )))) || dt.contains(&&DataType::List(Box::new(Field::new(
-                "item",
+            )))) || dt.contains(&&DataType::List(Box::new(NullableDataType::new(
                 DataType::Int64,
                 true,
-            )))) || dt.contains(&&DataType::List(Box::new(Field::new(
-                "item",
+            )))) || dt.contains(&&DataType::List(Box::new(NullableDataType::new(
                 DataType::Boolean,
                 true,
-            )))) || dt.contains(&&DataType::List(Box::new(Field::new(
-                "item",
+            )))) || dt.contains(&&DataType::List(Box::new(NullableDataType::new(
                 DataType::Utf8,
                 true,
             )))) {
@@ -90,14 +86,12 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                 match (dt[0], dt[1]) {
                     (t1, DataType::List(e)) if e.data_type() == &DataType::Float64 => {
                         if t1 == &DataType::Float64 {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 DataType::Float64,
                                 true,
                             ))))
                         } else {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 coerce_data_type(vec![t1, &DataType::Float64])?,
                                 true,
                             ))))
@@ -105,14 +99,12 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                     }
                     (t1, DataType::List(e)) if e.data_type() == &DataType::Int64 => {
                         if t1 == &DataType::Int64 {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 DataType::Int64,
                                 true,
                             ))))
                         } else {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 coerce_data_type(vec![t1, &DataType::Int64])?,
                                 true,
                             ))))
@@ -120,14 +112,12 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                     }
                     (t1, DataType::List(e)) if e.data_type() == &DataType::Boolean => {
                         if t1 == &DataType::Boolean {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 DataType::Boolean,
                                 true,
                             ))))
                         } else {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 coerce_data_type(vec![t1, &DataType::Boolean])?,
                                 true,
                             ))))
@@ -135,14 +125,12 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                     }
                     (t1, DataType::List(e)) if e.data_type() == &DataType::Utf8 => {
                         if t1 == &DataType::Utf8 {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 DataType::Utf8,
                                 true,
                             ))))
                         } else {
-                            Ok(DataType::List(Box::new(Field::new(
-                                "item",
+                            Ok(DataType::List(Box::new(NullableDataType::new(
                                 coerce_data_type(vec![t1, &DataType::Utf8])?,
                                 true,
                             ))))
@@ -162,8 +150,7 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
         _ => {
             // TODO(nevi_me) It's possible to have [float, int, list(float)], which should
             // return list(float). Will hash this out later
-            Ok(DataType::List(Box::new(Field::new(
-                "item",
+            Ok(DataType::List(Box::new(NullableDataType::new(
                 DataType::Utf8,
                 true,
             ))))
@@ -304,13 +291,13 @@ pub fn infer_json_schema<R: Read>(
                                         if values.contains_key(k) {
                                             let x = values.get_mut(k).unwrap();
                                             x.insert(DataType::List(Box::new(
-                                                Field::new("item", dt, true),
+                                                NullableDataType::new(dt, true),
                                             )));
                                         } else {
                                             // create hashset and add value type
                                             let mut hs = HashSet::new();
                                             hs.insert(DataType::List(Box::new(
-                                                Field::new("item", dt, true),
+                                                NullableDataType::new(dt, true),
                                             )));
                                             values.insert(k.to_string(), hs);
                                         }
@@ -1435,12 +1422,12 @@ mod tests {
         assert_eq!(&DataType::Int64, a.1.data_type());
         let b = schema.column_with_name("b").unwrap();
         assert_eq!(
-            &DataType::List(Box::new(Field::new("item", DataType::Float64, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::Float64, true))),
             b.1.data_type()
         );
         let c = schema.column_with_name("c").unwrap();
         assert_eq!(
-            &DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::Boolean, true))),
             c.1.data_type()
         );
         let d = schema.column_with_name("d").unwrap();
@@ -1493,35 +1480,35 @@ mod tests {
         use crate::datatypes::DataType::*;
 
         assert_eq!(
-            List(Box::new(Field::new("item", Float64, true))),
+            List(Box::new(NullableDataType::new(Float64, true))),
             coerce_data_type(vec![
                 &Float64,
-                &List(Box::new(Field::new("item", Float64, true)))
+                &List(Box::new(NullableDataType::new(Float64, true)))
             ])
             .unwrap()
         );
         assert_eq!(
-            List(Box::new(Field::new("item", Float64, true))),
+            List(Box::new(NullableDataType::new(Float64, true))),
             coerce_data_type(vec![
                 &Float64,
-                &List(Box::new(Field::new("item", Int64, true)))
+                &List(Box::new(NullableDataType::new(Int64, true)))
             ])
             .unwrap()
         );
         assert_eq!(
-            List(Box::new(Field::new("item", Int64, true))),
+            List(Box::new(NullableDataType::new(Int64, true))),
             coerce_data_type(vec![
                 &Int64,
-                &List(Box::new(Field::new("item", Int64, true)))
+                &List(Box::new(NullableDataType::new(Int64, true)))
             ])
             .unwrap()
         );
         // boolean and number are incompatible, return utf8
         assert_eq!(
-            List(Box::new(Field::new("item", Utf8, true))),
+            List(Box::new(NullableDataType::new(Utf8, true))),
             coerce_data_type(vec![
                 &Boolean,
-                &List(Box::new(Field::new("item", Float64, true)))
+                &List(Box::new(NullableDataType::new(Float64, true)))
             ])
             .unwrap()
         );
@@ -1554,17 +1541,17 @@ mod tests {
             assert_eq!(&DataType::Int64, a.1.data_type());
             let b = schema.column_with_name("b").unwrap();
             assert_eq!(
-                &DataType::List(Box::new(Field::new("item", DataType::Float64, true))),
+                &DataType::List(Box::new(NullableDataType::new(DataType::Float64, true))),
                 b.1.data_type()
             );
             let c = schema.column_with_name("c").unwrap();
             assert_eq!(
-                &DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+                &DataType::List(Box::new(NullableDataType::new(DataType::Boolean, true))),
                 c.1.data_type()
             );
             let d = schema.column_with_name("d").unwrap();
             assert_eq!(
-                &DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+                &DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
                 d.1.data_type()
             );
 
@@ -1804,8 +1791,7 @@ mod tests {
     fn test_list_of_string_dictionary_from_json() {
         let schema = Schema::new(vec![Field::new(
             "events",
-            List(Box::new(Field::new(
-                "item",
+            List(Box::new(NullableDataType::new(
                 Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
                 true,
             ))),
@@ -1828,8 +1814,7 @@ mod tests {
 
         let events = schema.column_with_name("events").unwrap();
         assert_eq!(
-            &List(Box::new(Field::new(
-                "item",
+            &List(Box::new(NullableDataType::new(
                 Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
                 true
             ))),
@@ -1863,8 +1848,7 @@ mod tests {
     fn test_list_of_string_dictionary_from_json_with_nulls() {
         let schema = Schema::new(vec![Field::new(
             "events",
-            List(Box::new(Field::new(
-                "item",
+            List(Box::new(NullableDataType::new(
                 Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
                 true,
             ))),
@@ -1889,8 +1873,7 @@ mod tests {
 
         let events = schema.column_with_name("events").unwrap();
         assert_eq!(
-            &List(Box::new(Field::new(
-                "item",
+            &List(Box::new(NullableDataType::new(
                 Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
                 true
             ))),
@@ -2031,17 +2014,17 @@ mod tests {
             Field::new("a", DataType::Int64, true),
             Field::new(
                 "b",
-                DataType::List(Box::new(Field::new("item", DataType::Float64, true))),
+                DataType::List(Box::new(NullableDataType::new(DataType::Float64, true))),
                 true,
             ),
             Field::new(
                 "c",
-                DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
+                DataType::List(Box::new(NullableDataType::new(DataType::Boolean, true))),
                 true,
             ),
             Field::new(
                 "d",
-                DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+                DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
                 true,
             ),
         ]);

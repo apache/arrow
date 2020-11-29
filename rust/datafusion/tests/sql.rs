@@ -25,7 +25,7 @@ extern crate datafusion;
 use arrow::{array::*, datatypes::TimeUnit};
 use arrow::{datatypes::Int32Type, datatypes::Int64Type, record_batch::RecordBatch};
 use arrow::{
-    datatypes::{DataType, Field, Schema, SchemaRef},
+    datatypes::{DataType, Field, NullableDataType, Schema, SchemaRef},
     util::display::array_value_to_string,
 };
 
@@ -142,12 +142,12 @@ async fn parquet_list_columns() {
     let schema = Arc::new(Schema::new(vec![
         Field::new(
             "int64_list",
-            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Int64, true))),
             true,
         ),
         Field::new(
             "utf8_list",
-            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+            DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
             true,
         ),
     ]));

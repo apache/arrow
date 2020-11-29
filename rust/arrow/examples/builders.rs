@@ -25,7 +25,9 @@ use arrow::array::{
     StringArray, StructArray,
 };
 use arrow::buffer::Buffer;
-use arrow::datatypes::{DataType, Date64Type, Field, Time64NanosecondType, ToByteSlice};
+use arrow::datatypes::{
+    DataType, Date64Type, Field, NullableDataType, Time64NanosecondType, ToByteSlice,
+};
 
 fn main() {
     // Primitive Arrays
@@ -100,7 +102,7 @@ fn main() {
 
     // Construct a list array from the above two
     let list_data_type =
-        DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        DataType::List(Box::new(NullableDataType::new(DataType::Int32, false)));
     let list_data = ArrayData::builder(list_data_type)
         .len(3)
         .add_buffer(value_offsets)

@@ -1237,7 +1237,7 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         let b = cast(
             &array,
-            &DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
         )
         .unwrap();
         assert_eq!(5, b.len());
@@ -1267,7 +1267,7 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         let b = cast(
             &array,
-            &DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
         )
         .unwrap();
         assert_eq!(5, b.len());
@@ -1300,7 +1300,7 @@ mod tests {
         let array = array.slice(2, 4);
         let b = cast(
             &array,
-            &DataType::List(Box::new(Field::new("item", DataType::Float64, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::Float64, true))),
         )
         .unwrap();
         assert_eq!(4, b.len());
@@ -1377,7 +1377,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -1387,7 +1387,7 @@ mod tests {
 
         let cast_array = cast(
             &list_array,
-            &DataType::List(Box::new(Field::new("item", DataType::UInt16, true))),
+            &DataType::List(Box::new(NullableDataType::new(DataType::UInt16, true))),
         )
         .unwrap();
         // 3 negative values should get lost when casting to unsigned,
@@ -1436,7 +1436,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -1446,8 +1446,7 @@ mod tests {
 
         cast(
             &list_array,
-            &DataType::List(Box::new(Field::new(
-                "item",
+            &DataType::List(Box::new(NullableDataType::new(
                 DataType::Timestamp(TimeUnit::Microsecond, None),
                 true,
             ))),
@@ -2854,7 +2853,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -2876,7 +2875,7 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::LargeList(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
@@ -2896,7 +2895,7 @@ mod tests {
 
         // Construct a fixed size list array from the above two
         let list_data_type = DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Int32, true)),
+            Box::new(NullableDataType::new(DataType::Int32, true)),
             2,
         );
         let list_data = ArrayData::builder(list_data_type)
@@ -2989,12 +2988,12 @@ mod tests {
             LargeBinary,
             Utf8,
             LargeUtf8,
-            List(Box::new(Field::new("item", DataType::Int8, true))),
-            List(Box::new(Field::new("item", DataType::Utf8, true))),
-            FixedSizeList(Box::new(Field::new("item", DataType::Int8, true)), 10),
-            FixedSizeList(Box::new(Field::new("item", DataType::Utf8, false)), 10),
-            LargeList(Box::new(Field::new("item", DataType::Int8, true))),
-            LargeList(Box::new(Field::new("item", DataType::Utf8, false))),
+            List(Box::new(NullableDataType::new(DataType::Int8, true))),
+            List(Box::new(NullableDataType::new(DataType::Utf8, true))),
+            FixedSizeList(Box::new(NullableDataType::new(DataType::Int8, true)), 10),
+            FixedSizeList(Box::new(NullableDataType::new(DataType::Utf8, false)), 10),
+            LargeList(Box::new(NullableDataType::new(DataType::Int8, true))),
+            LargeList(Box::new(NullableDataType::new(DataType::Utf8, false))),
             Struct(vec![
                 Field::new("f1", DataType::Int32, false),
                 Field::new("f2", DataType::Utf8, true),

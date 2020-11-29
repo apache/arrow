@@ -688,11 +688,7 @@ mod tests {
             Field::new("c3", DataType::Utf8, true),
             Field::new(
                 "c4",
-                DataType::List(Box::new(Field::new(
-                    "custom_item",
-                    DataType::Int32,
-                    false,
-                ))),
+                DataType::List(Box::new(NullableDataType::new(DataType::Int32, false))),
                 true,
             ),
         ]);
@@ -762,7 +758,7 @@ mod tests {
             Field::new("utf8s", DataType::Utf8, true),
             Field::new(
                 "lists",
-                DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
+                DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
                 true,
             ),
             Field::new(
@@ -839,7 +835,7 @@ mod tests {
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
         let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)

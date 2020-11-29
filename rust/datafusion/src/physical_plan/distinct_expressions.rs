@@ -22,7 +22,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, Field};
+use arrow::datatypes::{DataType, Field, NullableDataType};
 
 use ahash::RandomState;
 use std::collections::HashSet;
@@ -81,7 +81,10 @@ impl AggregateExpr for DistinctCount {
             .map(|data_type| {
                 Field::new(
                     &format_state_name(&self.name, "count distinct"),
-                    DataType::List(Box::new(Field::new("item", data_type.clone(), true))),
+                    DataType::List(Box::new(NullableDataType::new(
+                        data_type.clone(),
+                        true,
+                    ))),
                     false,
                 )
             })

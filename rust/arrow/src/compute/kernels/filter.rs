@@ -1080,7 +1080,7 @@ mod tests {
         let value_offsets = Buffer::from(&[0i64, 3, 6, 8, 8].to_byte_slice());
 
         let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)));
+            DataType::LargeList(Box::new(NullableDataType::new(DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)

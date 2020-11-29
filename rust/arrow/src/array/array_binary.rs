@@ -596,7 +596,7 @@ impl Array for DecimalArray {
 
 #[cfg(test)]
 mod tests {
-    use crate::datatypes::Field;
+    use crate::datatypes::NullableDataType;
 
     use super::*;
 
@@ -908,7 +908,7 @@ mod tests {
             .build();
 
         let array_data = ArrayData::builder(DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Binary, false)),
+            Box::new(NullableDataType::new(DataType::Binary, false)),
             4,
         ))
         .len(3)

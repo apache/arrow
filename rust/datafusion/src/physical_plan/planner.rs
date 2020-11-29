@@ -786,7 +786,7 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "Extension planner for NoOp created an ExecutionPlan with mismatched schema. LogicalPlan schema: Schema { fields: [Field { name: \"a\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }, ExecutionPlan schema: Schema { fields: [Field { name: \"b\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }";
+        let expected_error = "Extension planner for NoOp created an ExecutionPlan with mismatched schema. LogicalPlan schema: Schema { fields: [Field { name: \"a\", data_type: NullableDataType { data_type: Int32, nullable: false }, dict_id: 0, dict_is_ordered: false }], metadata: {} }, ExecutionPlan schema: Schema { fields: [Field { name: \"b\", data_type: NullableDataType { data_type: Int32, nullable: false }, dict_id: 0, dict_is_ordered: false }], metadata: {} }";
 
         match plan {
             Ok(_) => assert!(false, "Expected planning failure"),

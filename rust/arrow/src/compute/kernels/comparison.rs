@@ -776,8 +776,8 @@ fn new_all_set_buffer(len: usize) -> Buffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::datatypes::{Int8Type, ToByteSlice};
-    use crate::{array::Int32Array, datatypes::Field};
+    use crate::array::Int32Array;
+    use crate::datatypes::{Int8Type, NullableDataType, ToByteSlice};
 
     #[test]
     fn test_primitive_array_eq() {
@@ -1046,7 +1046,7 @@ mod tests {
         .data();
         let value_offsets = Buffer::from(&[0i64, 3, 6, 6, 9].to_byte_slice());
         let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));
+            DataType::LargeList(Box::new(NullableDataType::new(DataType::Int32, true)));
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)
