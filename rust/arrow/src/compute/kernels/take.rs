@@ -389,10 +389,11 @@ where
     } else if null_count == 0 {
         for i in 0..data_len {
             if indices.is_valid(i) {
-                let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
-                    ArrowError::ComputeError("Cast to usize failed".to_string())
-                })?;
-    
+                let index =
+                    ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                        ArrowError::ComputeError("Cast to usize failed".to_string())
+                    })?;
+
                 let s = array.value(index);
 
                 length_so_far += OffsetSize::from_usize(s.len()).unwrap();
