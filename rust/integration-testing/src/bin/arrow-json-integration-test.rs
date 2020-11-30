@@ -408,14 +408,9 @@ fn array_from_json(
             }
             Ok(Arc::new(b.finish()))
         }
-        DataType::List(type_ctx) => {
+        DataType::List(child_field) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
-            let child_field = Field::new(
-                "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
-            );
             let child_array = array_from_json(
                 &child_field,
                 children.get(0).unwrap().clone(),
@@ -436,14 +431,9 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(ListArray::from(list_data)))
         }
-        DataType::LargeList(type_ctx) => {
+        DataType::LargeList(child_field) => {
             let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
-            let child_field = Field::new(
-                "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
-            );
             let child_array = array_from_json(
                 &child_field,
                 children.get(0).unwrap().clone(),
@@ -468,13 +458,8 @@ fn array_from_json(
                 .build();
             Ok(Arc::new(LargeListArray::from(list_data)))
         }
-        DataType::FixedSizeList(type_ctx, _) => {
+        DataType::FixedSizeList(child_field, _) => {
             let children = json_col.children.clone().unwrap();
-            let child_field = Field::new(
-                "element",
-                type_ctx.data_type().clone(),
-                type_ctx.is_nullable(),
-            );
             let child_array = array_from_json(
                 &child_field,
                 children.get(0).unwrap().clone(),
@@ -495,8 +480,8 @@ fn array_from_json(
                 .len(json_col.count)
                 .null_bit_buffer(null_buf);
 
-            for (f, col) in fields.iter().zip(json_col.children.unwrap()) {
-                let array = array_from_json(f, col, dictionaries)?;
+            for (field, col) in fields.iter().zip(json_col.children.unwrap()) {
+                let array = array_from_json(field, col, dictionaries)?;
                 array_data = array_data.add_child_data(array.data());
             }
 

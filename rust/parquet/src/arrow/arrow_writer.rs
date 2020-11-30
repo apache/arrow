@@ -688,8 +688,8 @@ mod tests {
     use std::sync::Arc;
 
     use arrow::array::*;
+    use arrow::datatypes::ToByteSlice;
     use arrow::datatypes::{DataType, Field, Schema, UInt32Type, UInt8Type};
-    use arrow::datatypes::{NullableDataType, ToByteSlice};
     use arrow::record_batch::RecordBatch;
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
@@ -776,7 +776,7 @@ mod tests {
         // define schema
         let schema = Schema::new(vec![Field::new(
             "a",
-            DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
             false,
         )]);
 
@@ -789,9 +789,11 @@ mod tests {
             arrow::buffer::Buffer::from(&[0, 1, 3, 3, 6, 10].to_byte_slice());
 
         // Construct a list array from the above two
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(
-            NullableDataType::new(DataType::Int32, true),
-        )))
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "items",
+            DataType::Int32,
+            true,
+        ))))
         .len(5)
         .add_buffer(a_value_offsets)
         .add_child_data(a_values.data())
@@ -874,7 +876,7 @@ mod tests {
         let struct_field_f = Field::new("f", DataType::Float32, true);
         let struct_field_g = Field::new(
             "g",
-            DataType::List(Box::new(NullableDataType::new(DataType::Int16, false))),
+            DataType::List(Box::new(Field::new("items", DataType::Int16, false))),
             false,
         );
         let struct_field_e = Field::new(
@@ -1295,9 +1297,11 @@ mod tests {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
             arrow::buffer::Buffer::from(&[0, 1, 3, 3, 6, 10].to_byte_slice());
-        let a_list_data = ArrayData::builder(DataType::List(Box::new(
-            NullableDataType::new(DataType::Int32, true),
-        )))
+        let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
+            "item",
+            DataType::Int32,
+            true,
+        ))))
         .len(5)
         .add_buffer(a_value_offsets)
         .add_child_data(a_values.data())
@@ -1318,9 +1322,11 @@ mod tests {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
             arrow::buffer::Buffer::from(&[0i64, 1, 3, 3, 6, 10].to_byte_slice());
-        let a_list_data = ArrayData::builder(DataType::LargeList(Box::new(
-            NullableDataType::new(DataType::Int32, true),
-        )))
+        let a_list_data = ArrayData::builder(DataType::LargeList(Box::new(Field::new(
+            "large_item",
+            DataType::Int32,
+            true,
+        ))))
         .len(5)
         .add_buffer(a_value_offsets)
         .add_child_data(a_values.data())

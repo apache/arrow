@@ -125,11 +125,11 @@ pub enum DataType {
     /// A variable-length string in Unicode with UFT-8 encoding and 64-bit offsets.
     LargeUtf8,
     /// A list of some logical data type with variable length.
-    List(Box<NullableDataType>),
+    List(Box<Field>),
     /// A list of some logical data type with fixed length.
-    FixedSizeList(Box<NullableDataType>, i32),
+    FixedSizeList(Box<Field>, i32),
     /// A list of some logical data type with variable length and 64-bit offsets.
-    LargeList(Box<NullableDataType>),
+    LargeList(Box<Field>),
     /// A nested datatype that contains a number of sub-fields.
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
@@ -147,13 +147,6 @@ pub enum DataType {
     Dictionary(Box<DataType>, Box<DataType>),
     /// Decimal value with precision and scale
     Decimal(usize, usize),
-}
-
-/// Extends data type with nullability
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct NullableDataType {
-    data_type: DataType,
-    nullable: bool,
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -196,7 +189,8 @@ pub enum IntervalUnit {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Field {
     name: String,
-    data_type: NullableDataType,
+    data_type: DataType,
+    nullable: bool,
     dict_id: i64,
     dict_is_ordered: bool,
 }
@@ -882,7 +876,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 impl DataType {
     /// Parse a data type from a JSON representation
     pub(crate) fn from(json: &Value) -> Result<DataType> {
-        let default_dt_ctx = NullableDataType::new(DataType::Boolean, true);
+        let default_field = Field::new("", DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "null" => Ok(DataType::Null),
@@ -1016,17 +1010,17 @@ impl DataType {
                 },
                 Some(s) if s == "list" => {
                     // return a list with any type as its child isn't defined in the map
-                    Ok(DataType::List(Box::new(default_dt_ctx)))
+                    Ok(DataType::List(Box::new(default_field)))
                 }
                 Some(s) if s == "largelist" => {
                     // return a largelist with any type as its child isn't defined in the map
-                    Ok(DataType::LargeList(Box::new(default_dt_ctx)))
+                    Ok(DataType::LargeList(Box::new(default_field)))
                 }
                 Some(s) if s == "fixedsizelist" => {
                     // return a list with any type as its child isn't defined in the map
                     if let Some(Value::Number(size)) = map.get("listSize") {
                         Ok(DataType::FixedSizeList(
-                            Box::new(default_dt_ctx),
+                            Box::new(default_field),
                             size.as_i64().unwrap() as i32,
                         ))
                     } else {
@@ -1155,34 +1149,13 @@ impl DataType {
     }
 }
 
-impl NullableDataType {
-    /// Creates a new data type context
-    pub fn new(data_type: DataType, nullable: bool) -> Self {
-        NullableDataType {
-            data_type,
-            nullable,
-        }
-    }
-
-    /// Returns an immutable reference to the data type
-    #[inline]
-    pub const fn data_type(&self) -> &DataType {
-        &self.data_type
-    }
-
-    /// Indicates whether in this data type context null values are eligible
-    #[inline]
-    pub const fn is_nullable(&self) -> bool {
-        self.nullable
-    }
-}
-
 impl Field {
     /// Creates a new field
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {
         Field {
             name: name.to_string(),
-            data_type: NullableDataType::new(data_type, nullable),
+            data_type,
+            nullable,
             dict_id: 0,
             dict_is_ordered: false,
         }
@@ -1198,7 +1171,8 @@ impl Field {
     ) -> Self {
         Field {
             name: name.to_string(),
-            data_type: NullableDataType::new(data_type, nullable),
+            data_type,
+            nullable,
             dict_id,
             dict_is_ordered,
         }
@@ -1213,13 +1187,13 @@ impl Field {
     /// Returns an immutable reference to the `Field`'s  data-type
     #[inline]
     pub const fn data_type(&self) -> &DataType {
-        self.data_type.data_type()
+        &self.data_type
     }
 
     /// Indicates whether this `Field` supports null values
     #[inline]
     pub const fn is_nullable(&self) -> bool {
-        self.data_type.nullable
+        self.nullable
     }
 
     /// Returns the dictionary ID
@@ -1273,21 +1247,16 @@ impl Field {
                                     "Field 'children' must have one element for a list data type".to_string(),
                                 ));
                             }
-                            let nested_field = Self::from(&values[0])?;
-                            let nexted_dt_ctx = NullableDataType::new(
-                                nested_field.data_type.data_type,
-                                nested_field.data_type.nullable,
-                            );
                             match data_type {
                                     DataType::List(_) => DataType::List(Box::new(
-                                        nexted_dt_ctx,
+                                        Self::from(&values[0])?,
                                     )),
                                     DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        nexted_dt_ctx,
+                                        Self::from(&values[0])?,
                                     )),
                                     DataType::FixedSizeList(_, int) => {
                                         DataType::FixedSizeList(
-                                            Box::new(nexted_dt_ctx),
+                                            Box::new(Self::from(&values[0])?),
                                             int,
                                         )
                                     }
@@ -1363,7 +1332,8 @@ impl Field {
                 };
                 Ok(Field {
                     name,
-                    data_type: NullableDataType::new(data_type, nullable),
+                    nullable,
+                    data_type,
                     dict_id,
                     dict_is_ordered,
                 })
@@ -1378,36 +1348,15 @@ impl Field {
     pub fn to_json(&self) -> Value {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
-            DataType::List(type_ctx) => {
-                let item = Field::new(
-                    "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
-                );
-                vec![item.to_json()]
-            }
-            DataType::LargeList(type_ctx) => {
-                let item = Field::new(
-                    "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
-                );
-                vec![item.to_json()]
-            }
-            DataType::FixedSizeList(type_ctx, _) => {
-                let item = Field::new(
-                    "item",
-                    type_ctx.data_type().clone(),
-                    type_ctx.is_nullable(),
-                );
-                vec![item.to_json()]
-            }
+            DataType::List(field) => vec![field.to_json()],
+            DataType::LargeList(field) => vec![field.to_json()],
+            DataType::FixedSizeList(field, _) => vec![field.to_json()],
             _ => vec![],
         };
         match self.data_type() {
             DataType::Dictionary(ref index_type, ref value_type) => json!({
                 "name": self.name,
-                "nullable": self.data_type.nullable,
+                "nullable": self.nullable,
                 "type": value_type.to_json(),
                 "children": children,
                 "dictionary": {
@@ -1418,8 +1367,8 @@ impl Field {
             }),
             _ => json!({
                 "name": self.name,
-                "nullable": self.data_type.is_nullable(),
-                "type": self.data_type.data_type().to_json(),
+                "nullable": self.nullable,
+                "type": self.data_type.to_json(),
                 "children": children
             }),
         }
@@ -1448,8 +1397,8 @@ impl Field {
                     .to_string(),
             ));
         }
-        match &mut self.data_type.data_type {
-            DataType::Struct(nested_fields) => match &from.data_type.data_type {
+        match &mut self.data_type {
+            DataType::Struct(nested_fields) => match &from.data_type {
                 DataType::Struct(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
@@ -1472,7 +1421,7 @@ impl Field {
                     ));
                 }
             },
-            DataType::Union(nested_fields) => match &from.data_type.data_type {
+            DataType::Union(nested_fields) => match &from.data_type {
                 DataType::Union(from_nested_fields) => {
                     for from_field in from_nested_fields {
                         let mut is_new_field = true;
@@ -1524,7 +1473,7 @@ impl Field {
             | DataType::Utf8
             | DataType::LargeUtf8
             | DataType::Decimal(_, _) => {
-                if self.data_type.data_type != from.data_type.data_type {
+                if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
                             .to_string(),
@@ -1532,8 +1481,8 @@ impl Field {
                 }
             }
         }
-        if from.data_type.nullable {
-            self.data_type.nullable = from.data_type.nullable;
+        if from.nullable {
+            self.nullable = from.nullable;
         }
 
         Ok(())
@@ -1542,7 +1491,7 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.data_type.data_type)
+        write!(f, "{}: {:?}", self.name, self.data_type)
     }
 }
 
@@ -1862,12 +1811,12 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"last_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"address\",\"data_type\":{\"data_type\":{\"Struct\":\
-             [{\"name\":\"street\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"zip\",\"data_type\":{\"data_type\":\"UInt16\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}\
-             ]},\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}]}",
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"address\",\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}\
+             ]},\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}]}",
             serialized
         );
 
@@ -2048,24 +1997,23 @@ mod tests {
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
                 Field::new(
                     "c21",
-                    DataType::List(Box::new(NullableDataType::new(
-                        DataType::Boolean,
-                        true,
-                    ))),
+                    DataType::List(Box::new(Field::new("item", DataType::Boolean, true))),
                     false,
                 ),
                 Field::new(
                     "c22",
                     DataType::FixedSizeList(
-                        Box::new(NullableDataType::new(DataType::Boolean, false)),
+                        Box::new(Field::new("bools", DataType::Boolean, false)),
                         5,
                     ),
                     false,
                 ),
                 Field::new(
                     "c23",
-                    DataType::List(Box::new(NullableDataType::new(
-                        DataType::List(Box::new(NullableDataType::new(
+                    DataType::List(Box::new(Field::new(
+                        "inner_list",
+                        DataType::List(Box::new(Field::new(
+                            "struct",
                             DataType::Struct(vec![]),
                             true,
                         ))),
@@ -2101,8 +2049,10 @@ mod tests {
                 Field::new("c33", DataType::LargeUtf8, true),
                 Field::new(
                     "c34",
-                    DataType::LargeList(Box::new(NullableDataType::new(
-                        DataType::LargeList(Box::new(NullableDataType::new(
+                    DataType::LargeList(Box::new(Field::new(
+                        "inner_large_list",
+                        DataType::LargeList(Box::new(Field::new(
+                            "struct",
                             DataType::Struct(vec![]),
                             false,
                         ))),
@@ -2330,7 +2280,7 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
+                                "name": "bools",
                                 "nullable": false,
                                 "type": {
                                     "name": "bool"
@@ -2347,14 +2297,14 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
+                                "name": "inner_list",
                                 "nullable": false,
                                 "type": {
                                     "name": "list"
                                 },
                                 "children": [
                                     {
-                                        "name": "item",
+                                        "name": "struct",
                                         "nullable": true,
                                         "type": {
                                             "name": "struct"
@@ -2487,14 +2437,14 @@ mod tests {
                         },
                         "children": [
                             {
-                                "name": "item",
+                                "name": "inner_large_list",
                                 "nullable": true,
                                 "type": {
                                     "name": "largelist"
                                 },
                                 "children": [
                                     {
-                                        "name": "item",
+                                        "name": "struct",
                                         "nullable": false,
                                         "type": {
                                             "name": "struct"
@@ -2561,8 +2511,8 @@ mod tests {
         assert_eq!(schema.to_string(), "first_name: Utf8, \
         last_name: Utf8, \
         address: Struct([\
-        Field { name: \"street\", data_type: NullableDataType { data_type: Utf8, nullable: false }, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: NullableDataType { data_type: UInt16, nullable: false }, dict_id: 0, dict_is_ordered: false }])")
+        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
+        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
     }
 
     #[test]
@@ -2795,34 +2745,6 @@ mod tests {
         .is_err());
 
         Ok(())
-    }
-
-    #[test]
-    fn test_compare_nested_types() {
-        let list_type_a = &DataType::List(Box::new(NullableDataType::new(
-            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
-            true,
-        )));
-        let list_type_b = &DataType::List(Box::new(NullableDataType::new(
-            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
-            true,
-        )));
-
-        assert_eq!(list_type_a, list_type_b);
-    }
-
-    #[test]
-    fn test_compare_mismatching_types() {
-        let list_type_a = &DataType::LargeList(Box::new(NullableDataType::new(
-            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
-            true,
-        )));
-        let list_type_b = &DataType::LargeList(Box::new(NullableDataType::new(
-            DataType::Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)),
-            false,
-        )));
-
-        assert_ne!(list_type_a, list_type_b);
     }
 }
 
