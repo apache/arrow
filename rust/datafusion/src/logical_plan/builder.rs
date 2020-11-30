@@ -204,6 +204,7 @@ impl LogicalPlanBuilder {
             let physical_join_type = match join_type {
                 JoinType::Inner => hash_utils::JoinType::Inner,
                 JoinType::Left => hash_utils::JoinType::Left,
+                JoinType::Right => hash_utils::JoinType::Right,
             };
             let physical_schema = hash_utils::build_join_schema(
                 self.plan.schema(),

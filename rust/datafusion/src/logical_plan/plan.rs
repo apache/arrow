@@ -48,6 +48,8 @@ pub enum JoinType {
     Inner,
     /// Left join
     Left,
+    /// Right join
+    Right,
 }
 
 /// A LogicalPlan represents the different types of relational
