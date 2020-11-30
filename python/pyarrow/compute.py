@@ -40,6 +40,8 @@ from pyarrow._compute import (  # noqa
     StrptimeOptions,
     TakeOptions,
     VarianceOptions,
+    ArraySortOptions,
+    SortOptions,
     # Functions
     function_registry,
     call_function,
@@ -155,7 +157,7 @@ def _handle_options(name, option_class, options, kwargs):
             "Function {!r} expected a {} parameter, got {}"
             .format(name, option_class, type(options)))
 
-    return options
+    return option_class()
 
 
 _wrapper_template = dedent("""\

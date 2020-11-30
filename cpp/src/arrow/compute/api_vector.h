@@ -77,6 +77,8 @@ struct ARROW_EXPORT SortKey {
 struct ARROW_EXPORT ArraySortOptions : public FunctionOptions {
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending) : order(order) {}
 
+  static ArraySortOptions Defaults() { return ArraySortOptions{}; }
+
   SortOrder order;
 };
 
