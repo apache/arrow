@@ -723,32 +723,30 @@ Status FillDenseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbat
 Status FillSparseUnionBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
                             int64_t& arrowOffset, int64_t& orcOffset, int64_t length,
                             Array* parray) {
-  auto array = checked_cast<UnionArray*>(parray);
+  auto array = checked_cast<SparseUnionArray*>(parray);
   auto batch = checked_cast<liborc::UnionVectorBatch*>(cbatch);
   std::size_t size = type->fields().size();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t initORCOffset = orcOffset;
-  int64_t initArrowOffset = arrowOffset;
+  // int64_t initORCOffset = orcOffset;
+  // int64_t initArrowOffset = arrowOffset;
+  std::vector<int64_t> subarrayORCOffset(size, 0);
+  for (int64_t i = 0; i < orcOffset; i++) {
+    subarrayORCOffset[batch->tags[i]]++;
+  }
   // First fill fields of ColumnVectorBatch
   // For the parent type no nulls exist
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
+    int64_t arrowDummy = 0;
     int tag = array->child_id(arrowOffset);
     batch->tags[orcOffset] = tag;
     batch->offsets[orcOffset] = orcOffset;
+    RETURN_NOT_OK(FillBatch(type->field(tag)->type().get(), batch->children[tag],
+                            arrowDummy, subarrayORCOffset[tag],
+                            subarrayORCOffset[tag] + 1,
+                            array->field(tag)->Slice(arrowOffset, 1).get()));
   }
   batch->numElements = orcOffset;
-  // int64_t finalORCOffset = orcOffset;
-  // int64_t finalArrowOffset = arrowOffset;
-  // Fill the fields
-  for (std::size_t i = 0; i < size; i++) {
-    orcOffset = initORCOffset;
-    arrowOffset = initArrowOffset;
-    RETURN_NOT_OK(FillBatch(type->field(i)->type().get(), batch->children[i], arrowOffset,
-                            orcOffset, length, array->field(i).get()));
-  }
-  // orcOffset = finalORCOffset;
-  // arrowOffset = finalArrowOffset;
   return Status::OK();
 }
 
