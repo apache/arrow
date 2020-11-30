@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, NullableDataType, Schema, TimeUnit};
+use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
 use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
@@ -412,25 +412,18 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_repetition(repetition)
                 .build()
         }
-        DataType::List(type_ctx)
-        | DataType::FixedSizeList(type_ctx, _)
-        | DataType::LargeList(type_ctx) => Type::group_type_builder(name)
-            .with_fields(&mut vec![Arc::new(
-                Type::group_type_builder("list")
-                    .with_fields(&mut vec![Arc::new({
-                        let list_field = Field::new(
-                            "element",
-                            type_ctx.data_type().clone(),
-                            type_ctx.is_nullable(),
-                        );
-                        arrow_to_parquet_type(&list_field)?
-                    })])
-                    .with_repetition(Repetition::REPEATED)
-                    .build()?,
-            )])
-            .with_logical_type(LogicalType::LIST)
-            .with_repetition(Repetition::REQUIRED)
-            .build(),
+        DataType::List(f) | DataType::FixedSizeList(f, _) | DataType::LargeList(f) => {
+            Type::group_type_builder(name)
+                .with_fields(&mut vec![Arc::new(
+                    Type::group_type_builder("list")
+                        .with_fields(&mut vec![Arc::new(arrow_to_parquet_type(f)?)])
+                        .with_repetition(Repetition::REPEATED)
+                        .build()?,
+                )])
+                .with_logical_type(LogicalType::LIST)
+                .with_repetition(Repetition::REQUIRED)
+                .build()
+        }
         DataType::Struct(fields) => {
             if fields.is_empty() {
                 return Err(ArrowError(
@@ -545,7 +538,8 @@ impl ParquetTypeConverter<'_> {
         if self.is_self_included() {
             self.to_primitive_type_inner().map(|dt| {
                 if self.is_repeated() {
-                    Some(DataType::List(Box::new(NullableDataType::new(
+                    Some(DataType::List(Box::new(Field::new(
+                        self.schema.name(),
                         dt,
                         self.is_nullable(),
                     ))))
@@ -644,7 +638,8 @@ impl ParquetTypeConverter<'_> {
         if self.is_repeated() {
             self.to_struct().map(|opt| {
                 opt.map(|dt| {
-                    DataType::List(Box::new(NullableDataType::new(
+                    DataType::List(Box::new(Field::new(
+                        self.schema.name(),
                         dt,
                         self.is_nullable(),
                     )))
@@ -736,7 +731,8 @@ impl ParquetTypeConverter<'_> {
 
                 item_type.map(|opt| {
                     opt.map(|dt| {
-                        DataType::List(Box::new(NullableDataType::new(
+                        DataType::List(Box::new(Field::new(
+                            list_item.name(),
                             dt,
                             list_item.is_optional(),
                         )))
@@ -756,9 +752,7 @@ mod tests {
 
     use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 
-    use arrow::datatypes::{
-        DataType, DateUnit, Field, IntervalUnit, NullableDataType, TimeUnit,
-    };
+    use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, TimeUnit};
 
     use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
     use crate::{
@@ -917,7 +911,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
+                DataType::List(Box::new(Field::new("list", DataType::Utf8, true))),
                 false,
             ));
         }
@@ -931,7 +925,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
+                DataType::List(Box::new(Field::new("list", DataType::Utf8, true))),
                 true,
             ));
         }
@@ -950,10 +944,10 @@ mod tests {
         // }
         {
             let arrow_inner_list =
-                DataType::List(Box::new(NullableDataType::new(DataType::Int32, true)));
+                DataType::List(Box::new(Field::new("list", DataType::Int32, true)));
             arrow_fields.push(Field::new(
                 "array_of_arrays",
-                DataType::List(Box::new(NullableDataType::new(arrow_inner_list, true))),
+                DataType::List(Box::new(Field::new("list", arrow_inner_list, true))),
                 true,
             ));
         }
@@ -967,7 +961,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(DataType::Utf8, true))),
+                DataType::List(Box::new(Field::new("element", DataType::Utf8, true))),
                 true,
             ));
         }
@@ -979,7 +973,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
+                DataType::List(Box::new(Field::new("element", DataType::Int32, true))),
                 true,
             ));
         }
@@ -998,7 +992,7 @@ mod tests {
             ]);
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(arrow_struct, true))),
+                DataType::List(Box::new(Field::new("element", arrow_struct, true))),
                 true,
             ));
         }
@@ -1015,7 +1009,7 @@ mod tests {
                 DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(arrow_struct, true))),
+                DataType::List(Box::new(Field::new("array", arrow_struct, true))),
                 true,
             ));
         }
@@ -1032,7 +1026,7 @@ mod tests {
                 DataType::Struct(vec![Field::new("str", DataType::Utf8, false)]);
             arrow_fields.push(Field::new(
                 "my_list",
-                DataType::List(Box::new(NullableDataType::new(arrow_struct, true))),
+                DataType::List(Box::new(Field::new("my_list_tuple", arrow_struct, true))),
                 true,
             ));
         }
@@ -1042,7 +1036,7 @@ mod tests {
         {
             arrow_fields.push(Field::new(
                 "name",
-                DataType::List(Box::new(NullableDataType::new(DataType::Int32, true))),
+                DataType::List(Box::new(Field::new("name", DataType::Int32, true))),
                 true,
             ));
         }
@@ -1208,7 +1202,8 @@ mod tests {
 
             let inner_group_list = Field::new(
                 "innerGroup",
-                DataType::List(Box::new(NullableDataType::new(
+                DataType::List(Box::new(Field::new(
+                    "innerGroup",
                     DataType::Struct(vec![Field::new("leaf3", DataType::Int32, true)]),
                     true,
                 ))),
@@ -1217,7 +1212,8 @@ mod tests {
 
             let outer_group_list = Field::new(
                 "outerGroup",
-                DataType::List(Box::new(NullableDataType::new(
+                DataType::List(Box::new(Field::new(
+                    "outerGroup",
                     DataType::Struct(vec![
                         Field::new("leaf2", DataType::Int32, true),
                         inner_group_list,
@@ -1293,7 +1289,7 @@ mod tests {
             Field::new("string", DataType::Utf8, true),
             Field::new(
                 "bools",
-                DataType::List(Box::new(NullableDataType::new(DataType::Boolean, true))),
+                DataType::List(Box::new(Field::new("bools", DataType::Boolean, true))),
                 true,
             ),
             Field::new("date", DataType::Date32(DateUnit::Day), true),
@@ -1363,7 +1359,7 @@ mod tests {
             Field::new("string", DataType::Utf8, true),
             Field::new(
                 "bools",
-                DataType::List(Box::new(NullableDataType::new(DataType::Boolean, true))),
+                DataType::List(Box::new(Field::new("element", DataType::Boolean, true))),
                 true,
             ),
             Field::new("date", DataType::Date32(DateUnit::Day), true),
@@ -1386,7 +1382,8 @@ mod tests {
                     Field::new("uint32", DataType::UInt32, false),
                     Field::new(
                         "int32",
-                        DataType::List(Box::new(NullableDataType::new(
+                        DataType::List(Box::new(Field::new(
+                            "element",
                             DataType::Int32,
                             true,
                         ))),
@@ -1499,10 +1496,7 @@ mod tests {
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
                 Field::new(
                     "c21",
-                    DataType::List(Box::new(NullableDataType::new(
-                        DataType::Boolean,
-                        true,
-                    ))),
+                    DataType::List(Box::new(Field::new("list", DataType::Boolean, true))),
                     false,
                 ),
                 // Field::new(
@@ -1597,7 +1591,8 @@ mod tests {
             vec![
                 Field::new(
                     "c21",
-                    DataType::List(Box::new(NullableDataType::new(
+                    DataType::List(Box::new(Field::new(
+                        "array",
                         DataType::Boolean,
                         true,
                     ))),
@@ -1606,15 +1601,17 @@ mod tests {
                 Field::new(
                     "c22",
                     DataType::FixedSizeList(
-                        Box::new(NullableDataType::new(DataType::Boolean, false)),
+                        Box::new(Field::new("items", DataType::Boolean, false)),
                         5,
                     ),
                     false,
                 ),
                 Field::new(
                     "c23",
-                    DataType::List(Box::new(NullableDataType::new(
-                        DataType::LargeList(Box::new(NullableDataType::new(
+                    DataType::List(Box::new(Field::new(
+                        "items",
+                        DataType::LargeList(Box::new(Field::new(
+                            "items",
                             DataType::Struct(vec![
                                 Field::new("a", DataType::Int16, true),
                                 Field::new("b", DataType::Float64, false),

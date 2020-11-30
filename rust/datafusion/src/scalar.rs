@@ -23,7 +23,10 @@ use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
     UInt32Builder, UInt64Builder, UInt8Builder,
 };
-use arrow::{array::ArrayRef, datatypes::DataType};
+use arrow::{
+    array::ArrayRef,
+    datatypes::{DataType, Field},
+};
 use arrow::{
     array::{
         Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
@@ -34,7 +37,6 @@ use arrow::{
 };
 
 use crate::error::{DataFusionError, Result};
-use arrow::datatypes::NullableDataType;
 
 /// Represents a dynamically typed, nullable single value.
 /// This is the single-valued counter-part of arrow’s `Array`.
@@ -134,7 +136,7 @@ impl ScalarValue {
             ScalarValue::Utf8(_) => DataType::Utf8,
             ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
             ScalarValue::List(_, data_type) => {
-                DataType::List(Box::new(NullableDataType::new(data_type.clone(), true)))
+                DataType::List(Box::new(Field::new("item", data_type.clone(), true)))
             }
             ScalarValue::Date32(_) => DataType::Date32(DateUnit::Day),
         }
