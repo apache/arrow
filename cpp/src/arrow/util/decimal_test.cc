@@ -987,40 +987,34 @@ TEST(Decimal128Test, Divide) {
 }
 
 TEST(Decimal128Test, Rescale) {
-  ASSERT_EQ(Decimal128(11100), Decimal128(111).Rescale(0, 2).ValueOrDie());
-  ASSERT_EQ(Decimal128(111), Decimal128(11100).Rescale(2, 0).ValueOrDie());
-  ASSERT_EQ(Decimal128(5), Decimal128(500000).Rescale(6, 1).ValueOrDie());
-  ASSERT_EQ(Decimal128(500000), Decimal128(5).Rescale(1, 6).ValueOrDie());
-  ASSERT_TRUE(Decimal128(555555).Rescale(6, 1).status().IsInvalid());
+  ASSERT_OK_AND_EQ(Decimal128(11100), Decimal128(111).Rescale(0, 2));
+  ASSERT_OK_AND_EQ(Decimal128(111), Decimal128(11100).Rescale(2, 0));
+  ASSERT_OK_AND_EQ(Decimal128(5), Decimal128(500000).Rescale(6, 1));
+  ASSERT_OK_AND_EQ(Decimal128(500000), Decimal128(5).Rescale(1, 6));
+  ASSERT_RAISES(Invalid, Decimal128(555555).Rescale(6, 1));
 
   // Test some random numbers.
-  Decimal128 multiplier(1);
-  for (int delta_scale = 0; delta_scale < 29;
-       delta_scale++, multiplier *= Decimal128(10)) {
-    for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-      for (auto value : GetRandomNumbers<Int32Type>(16)) {
-        Decimal128 unscaled_value = Decimal128(value);
-        Decimal128 scaled_value = unscaled_value * multiplier;
-        int32_t new_scale = original_scale + delta_scale;
-        ASSERT_EQ(scaled_value,
-                  unscaled_value.Rescale(original_scale, new_scale).ValueOrDie());
-        ASSERT_EQ(unscaled_value,
-                  scaled_value.Rescale(new_scale, original_scale).ValueOrDie());
+  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
+    for (auto value : GetRandomNumbers<Int32Type>(16)) {
+      Decimal128 unscaled_value = Decimal128(value);
+      Decimal128 scaled_value = unscaled_value;
+      for (int32_t new_scale = original_scale; new_scale < original_scale + 29;
+           new_scale++, scaled_value *= Decimal128(10)) {
+        ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
+        ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
       }
     }
   }
 
-  Decimal128 value(1);
-  for (int delta_scale = 0; delta_scale < 39; delta_scale++, value *= Decimal128(10)) {
-    for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-      int32_t new_scale = original_scale + delta_scale;
+  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
+    Decimal128 value(1);
+    for (int32_t new_scale = original_scale; new_scale < original_scale + 39;
+         new_scale++, value *= Decimal128(10)) {
       Decimal128 negative_value = value * -1;
-      ASSERT_EQ(value, Decimal128(1).Rescale(original_scale, new_scale).ValueOrDie());
-      ASSERT_EQ(negative_value,
-                Decimal128(-1).Rescale(original_scale, new_scale).ValueOrDie());
-      ASSERT_EQ(Decimal128(1), value.Rescale(new_scale, original_scale).ValueOrDie());
-      ASSERT_EQ(Decimal128(-1),
-                negative_value.Rescale(new_scale, original_scale).ValueOrDie());
+      ASSERT_OK_AND_EQ(value, Decimal128(1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(negative_value, Decimal128(-1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(Decimal128(1), value.Rescale(new_scale, original_scale));
+      ASSERT_OK_AND_EQ(Decimal128(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
 }
@@ -1393,40 +1387,34 @@ TEST(Decimal256Test, Divide) {
 }
 
 TEST(Decimal256Test, Rescale) {
-  ASSERT_EQ(Decimal256(11100), Decimal256(111).Rescale(0, 2).ValueOrDie());
-  ASSERT_EQ(Decimal256(111), Decimal256(11100).Rescale(2, 0).ValueOrDie());
-  ASSERT_EQ(Decimal256(5), Decimal256(500000).Rescale(6, 1).ValueOrDie());
-  ASSERT_EQ(Decimal256(500000), Decimal256(5).Rescale(1, 6).ValueOrDie());
-  ASSERT_TRUE(Decimal256(555555).Rescale(6, 1).status().IsInvalid());
+  ASSERT_OK_AND_EQ(Decimal256(11100), Decimal256(111).Rescale(0, 2));
+  ASSERT_OK_AND_EQ(Decimal256(111), Decimal256(11100).Rescale(2, 0));
+  ASSERT_OK_AND_EQ(Decimal256(5), Decimal256(500000).Rescale(6, 1));
+  ASSERT_OK_AND_EQ(Decimal256(500000), Decimal256(5).Rescale(1, 6));
+  ASSERT_RAISES(Invalid, Decimal256(555555).Rescale(6, 1));
 
   // Test some random numbers.
-  Decimal256 multiplier(1);
-  for (int delta_scale = 0; delta_scale < 68;
-       delta_scale++, multiplier *= Decimal256(10)) {
-    for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-      for (auto value : GetRandomNumbers<Int32Type>(16)) {
-        Decimal256 unscaled_value = Decimal256(value);
-        Decimal256 scaled_value = unscaled_value * multiplier;
-        int32_t new_scale = original_scale + delta_scale;
-        ASSERT_EQ(scaled_value,
-                  unscaled_value.Rescale(original_scale, new_scale).ValueOrDie());
-        ASSERT_EQ(unscaled_value,
-                  scaled_value.Rescale(new_scale, original_scale).ValueOrDie());
+  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
+    for (auto value : GetRandomNumbers<Int32Type>(16)) {
+      Decimal256 unscaled_value = Decimal256(value);
+      Decimal256 scaled_value = unscaled_value;
+      for (int32_t new_scale = original_scale; new_scale < original_scale + 68;
+           new_scale++, scaled_value *= Decimal256(10)) {
+        ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
+        ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
       }
     }
   }
 
-  Decimal256 value(1);
-  for (int delta_scale = 0; delta_scale < 77; delta_scale++, value *= Decimal256(10)) {
-    for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-      int32_t new_scale = original_scale + delta_scale;
+  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
+    Decimal256 value(1);
+    for (int32_t new_scale = original_scale; new_scale < original_scale + 77;
+         new_scale++, value *= Decimal256(10)) {
       Decimal256 negative_value = value * -1;
-      ASSERT_EQ(value, Decimal256(1).Rescale(original_scale, new_scale).ValueOrDie());
-      ASSERT_EQ(negative_value,
-                Decimal256(-1).Rescale(original_scale, new_scale).ValueOrDie());
-      ASSERT_EQ(Decimal256(1), value.Rescale(new_scale, original_scale).ValueOrDie());
-      ASSERT_EQ(Decimal256(-1),
-                negative_value.Rescale(new_scale, original_scale).ValueOrDie());
+      ASSERT_OK_AND_EQ(value, Decimal256(1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(negative_value, Decimal256(-1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(Decimal256(1), value.Rescale(new_scale, original_scale));
+      ASSERT_OK_AND_EQ(Decimal256(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
 }
