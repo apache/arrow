@@ -223,12 +223,12 @@ where
 
     if null_count == 0 {
         // Take indices without null checking
-        for i in 0..data_len {
+        for (i, elem) in data.iter_mut().enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
 
-            data[i] = array.value(index);
+            *elem = array.value(index);
         }
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
@@ -237,7 +237,7 @@ where
 
         let null_slice = null_buf.data_mut();
 
-        for i in 0..data_len {
+        for (i, elem) in data.iter_mut().enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
@@ -246,7 +246,7 @@ where
                 bit_util::unset_bit(null_slice, i);
             }
 
-            data[i] = array.value(index);
+            *elem = array.value(index);
         }
         nulls = match indices.data_ref().null_buffer() {
             Some(buffer) => Some(buffer_bin_and(
