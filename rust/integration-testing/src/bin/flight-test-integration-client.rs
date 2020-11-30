@@ -248,37 +248,60 @@ async fn upload_data(
     descriptor: FlightDescriptor,
     original_data: Vec<RecordBatch>,
 ) -> Result {
+    eprintln!("In upload_data");
     let (mut upload_tx, upload_rx) = mpsc::channel(10);
 
     let mut schema_flight_data = FlightData::from(&*schema);
     schema_flight_data.flight_descriptor = Some(descriptor.clone());
     upload_tx.send(schema_flight_data).await?;
 
-    let mut upload_rx_container = Some(upload_rx);
-    let mut resp = None;
+    let mut original_data_iter = original_data.iter().enumerate();
 
-    for (counter, batch) in original_data.iter().enumerate() {
+    if let Some((counter, first_batch)) = original_data_iter.next() {
+        eprintln!("Some batches");
+
         let metadata = counter.to_string().into_bytes();
+        eprintln!("sending batch {:?}", metadata);
 
-        let mut batch = FlightData::from(batch);
+        let mut batch = FlightData::from(first_batch);
         batch.app_metadata = metadata.clone();
 
         upload_tx.send(batch).await?;
+        let outer = client.do_put(Request::new(upload_rx)).await?;
+        let mut inner = outer.into_inner();
 
-        if let Some(upload_rx) = upload_rx_container.take() {
-            let outer = client.do_put(Request::new(upload_rx)).await?;
-            let inner = outer.into_inner();
-            resp = Some(inner);
-        }
+        let r = inner
+            .next()
+            .await
+            .expect("No response received")
+            .expect("Invalid response received");
+        assert_eq!(metadata, r.app_metadata);
+        eprintln!("received ack for batch {:?}", metadata);
 
-        if let Some(inner) = resp.as_mut() {
+        for (counter, batch) in original_data_iter {
+
+            let metadata = counter.to_string().into_bytes();
+            eprintln!("sending batch {:?}", metadata);
+
+            let mut batch = FlightData::from(batch);
+            batch.app_metadata = metadata.clone();
+
+            upload_tx.send(batch).await?;
             let r = inner
                 .next()
                 .await
                 .expect("No response received")
                 .expect("Invalid response received");
             assert_eq!(metadata, r.app_metadata);
+            eprintln!("received ack for batch {:?}", metadata);
         }
+    } else {
+        eprintln!("No batches");
+
+        let outer = client.do_put(Request::new(upload_rx)).await?;
+        let inner = outer.into_inner();
+
+        dbg!(&inner);
     }
 
     Ok(())
