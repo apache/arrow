@@ -279,7 +279,6 @@ async fn upload_data(
         eprintln!("received ack for batch {:?}", metadata);
 
         for (counter, batch) in original_data_iter {
-
             let metadata = counter.to_string().into_bytes();
             eprintln!("sending batch {:?}", metadata);
 

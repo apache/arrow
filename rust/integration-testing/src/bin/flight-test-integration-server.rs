@@ -136,9 +136,7 @@ impl FlightService for FlightServiceImpl {
                     Status::not_found(format!("Could not find flight. {}", path[0]))
                 })?;
 
-
-
-//                let schema_result = SchemaResult::from(&flight.schema);
+                //                let schema_result = SchemaResult::from(&flight.schema);
 
                 use arrow::ipc::{writer::IpcWriteOptions, MetadataVersion};
                 // use arrow_flight::utils;
@@ -158,13 +156,14 @@ impl FlightService for FlightServiceImpl {
 
                 //let mut ss = schema_result.schema;
                 //                ss.splice(0..0, vec![u8::MAX, u8::MAX, u8::MAX, u8::MAX]);
-//                let ss = schema_result.schema;
+                //                let ss = schema_result.schema;
 
                 let mut ss = vec![];
 
                 let wo = IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap();
                 let msg = arrow::ipc::writer::Message::Schema(&flight.schema, &wo);
-                arrow::ipc::writer::write_message(&mut ss, &msg, &wo).expect("write_message");
+                arrow::ipc::writer::write_message(&mut ss, &msg, &wo)
+                    .expect("write_message");
 
                 let info = FlightInfo {
                     schema: ss,
@@ -242,15 +241,15 @@ impl FlightService for FlightServiceImpl {
                 match arrow_batch_result {
                     Ok(batch) => chunks.push(batch),
                     Err(e) => {
-                                            eprintln!("send #3");
-response_tx
-                        .send(Err(Status::invalid_argument(format!(
-                            "Could not convert to RecordBatch: {:?}",
-                            e
-                        ))))
-                        .await
+                        eprintln!("send #3");
+                        response_tx
+                            .send(Err(Status::invalid_argument(format!(
+                                "Could not convert to RecordBatch: {:?}",
+                                e
+                            ))))
+                            .await
                             .expect("Error sending error")
-                    },
+                    }
                 }
             }
 
