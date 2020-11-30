@@ -727,7 +727,7 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
 
     uint32_t subseconds_count = 0;
     if (ARROW_PREDICT_FALSE(
-            !detail::ParseSubSeconds(s + 8, length - 8, unit, &subseconds_count))) {
+            !detail::ParseSubSeconds(s + 9, length - 9, unit, &subseconds_count))) {
       return false;
     }
 
