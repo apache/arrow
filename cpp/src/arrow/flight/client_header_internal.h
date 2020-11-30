@@ -23,7 +23,6 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/result.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/value_parsing.h"
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
@@ -34,15 +33,28 @@
 #include <grpc++/grpc++.h>
 #endif
 
+#include <chrono>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+
 namespace arrow {
 namespace flight {
 namespace internal {
 
 /// \brief Case insensitive comparator for use by cookie caching map. Cookies are not
 /// case sensitive.
-struct ARROW_FLIGHT_EXPORT CaseInsensitiveComparator
-    : public std::binary_function<std::string, std::string, bool> {
-  bool operator()(const std::string& lhs, const std::string& rhs) const;
+class ARROW_FLIGHT_EXPORT CaseInsensitiveComparator {
+ public:
+  bool operator()(const std::string& t1, const std::string& t2) const;
+};
+
+/// \brief Case insensitive hasher for use by cookie caching map. Cookies are not
+/// case sensitive.
+class ARROW_FLIGHT_EXPORT CaseInsensitiveHash {
+ public:
+  size_t operator()(const std::string& key) const;
 };
 
 /// \brief Class to represent a cookie.
@@ -114,7 +126,8 @@ class ARROW_FLIGHT_EXPORT CookieCache {
 
   // Mutex must be used to protect cookie cache.
   std::mutex mutex_;
-  std::map<std::string, Cookie, CaseInsensitiveComparator> cookies;
+  std::unordered_map<std::string, Cookie, CaseInsensitiveHash, CaseInsensitiveComparator>
+      cookies;
 };
 
 /// \brief Add basic authentication header key value pair to context.

@@ -26,6 +26,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/value_parsing.h"
 
 #ifdef _WIN32
 #define strcasecmp stricmp
@@ -55,6 +56,13 @@ using CookieHeaderPair =
 bool CaseInsensitiveComparator::operator()(const std::string& lhs,
                                            const std::string& rhs) const {
   return strcasecmp(lhs.c_str(), rhs.c_str()) < 0;
+}
+
+size_t CaseInsensitiveHash::operator()(const std::string& key) const {
+  std::string upper_string = key;
+  std::transform(upper_string.begin(), upper_string.end(), upper_string.begin(),
+                 ::toupper);
+  return std::hash<std::string>{}(upper_string);
 }
 
 Cookie Cookie::parse(const arrow::util::string_view& cookie_header_value) {
@@ -252,8 +260,7 @@ void CookieCache::UpdateCachedCookies(const CallHeaders& incoming_headers) {
 
     // Cache cookies regardless of whether or not they are expired. The server may have
     // explicitly sent a Set-Cookie to expire a cached cookie.
-    std::pair<std::map<std::string, Cookie, CaseInsensitiveComparator>::iterator, bool>
-        insertable = cookies.insert({cookie.GetName(), cookie});
+    auto insertable = cookies.insert({cookie.GetName(), cookie});
 
     // Force overwrite on insert collision.
     if (!insertable.second) {
