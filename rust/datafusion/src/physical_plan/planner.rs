@@ -301,6 +301,7 @@ impl DefaultPhysicalPlanner {
                 let right = self.create_physical_plan(right, ctx_state)?;
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
+                    JoinType::Left => hash_utils::JoinType::Left,
                 };
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,

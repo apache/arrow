@@ -285,15 +285,14 @@ fn build_batch_from_indices(
             .map(|array| array.as_ref())
             .collect::<Vec<_>>();
         let capacity = arrays.iter().map(|array| array.len()).sum();
-        let mut mutable = MutableArrayData::new(arrays, capacity);
+        let mut mutable = MutableArrayData::new(arrays, true, capacity);
 
         let array = if is_left {
             // build the array using the left
             for (join_index, _) in indices {
                 match join_index {
                     Some((batch, row)) => mutable.extend(*batch, *row, *row + 1),
-                    // something like `mutable.extend_nulls(*row, *row + 1)`
-                    None => unimplemented!(),
+                    None => mutable.extend_nulls(1),
                 }
             }
             make_array(Arc::new(mutable.freeze()))
@@ -302,8 +301,7 @@ fn build_batch_from_indices(
             for (_, join_index) in indices {
                 match join_index {
                     Some((batch, row)) => mutable.extend(*batch, *row, *row + 1),
-                    // something like `mutable.extend_nulls(*row, *row + 1)`
-                    None => unimplemented!(),
+                    None => mutable.extend_nulls(1),
                 }
             }
             make_array(Arc::new(mutable.freeze()))
@@ -384,6 +382,31 @@ fn build_join_indexes(
             }
             Ok(indexes)
         }
+        JoinType::Left => {
+            // left => left keys
+            let keys = left.keys();
+
+            let mut indexes = Vec::new(); // unknown a prior size
+            for key in keys {
+                let left_indexes = left.get(key).unwrap();
+
+                // for every item on the left and right with this key, add the respective pair
+                if let Some(right_indexes) = right.get(key) {
+                    left_indexes.iter().for_each(|x| {
+                        right_indexes.iter().for_each(|y| {
+                            // on an inner join, left and right indices are present
+                            indexes.push((Some(*x), Some(*y)));
+                        })
+                    })
+                } else {
+                    // key not on the right => push Nones
+                    left_indexes.iter().for_each(|x| {
+                        indexes.push((Some(*x), None));
+                    })
+                }
+            }
+            Ok(indexes)
+        }
     }
 }
 
@@ -435,12 +458,13 @@ mod tests {
         left: Arc<dyn ExecutionPlan>,
         right: Arc<dyn ExecutionPlan>,
         on: &[(&str, &str)],
+        join_type: &JoinType,
     ) -> Result<HashJoinExec> {
         let on: Vec<_> = on
             .iter()
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
-        HashJoinExec::try_new(left, right, &on, &JoinType::Inner)
+        HashJoinExec::try_new(left, right, &on, join_type)
     }
 
     /// Asserts that the rows are the same, taking into account that their order
@@ -457,7 +481,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn join_one() -> Result<()> {
+    async fn join_inner_one() -> Result<()> {
         let left = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b1", &vec![4, 5, 5]), // this has a repetition
@@ -470,7 +494,7 @@ mod tests {
         );
         let on = &[("b1", "b1")];
 
-        let join = join(left, right, on)?;
+        let join = join(left, right, on, &JoinType::Inner)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
@@ -487,7 +511,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn join_one_no_shared_column_names() -> Result<()> {
+    async fn join_inner_one_no_shared_column_names() -> Result<()> {
         let left = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b1", &vec![4, 5, 5]), // this has a repetition
@@ -500,7 +524,7 @@ mod tests {
         );
         let on = &[("b1", "b2")];
 
-        let join = join(left, right, on)?;
+        let join = join(left, right, on, &JoinType::Inner)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "b2", "c2"]);
@@ -517,7 +541,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn join_two() -> Result<()> {
+    async fn join_inner_two() -> Result<()> {
         let left = build_table(
             ("a1", &vec![1, 2, 2]),
             ("b2", &vec![1, 2, 2]),
@@ -530,7 +554,7 @@ mod tests {
         );
         let on = &[("a1", "a1"), ("b2", "b2")];
 
-        let join = join(left, right, on)?;
+        let join = join(left, right, on, &JoinType::Inner)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
@@ -549,7 +573,7 @@ mod tests {
 
     /// Test where the left has 2 parts, the right with 1 part => 1 part
     #[tokio::test]
-    async fn join_one_two_parts_left() -> Result<()> {
+    async fn join_inner_one_two_parts_left() -> Result<()> {
         let batch1 = build_table_i32(
             ("a1", &vec![1, 2]),
             ("b2", &vec![1, 2]),
@@ -569,7 +593,7 @@ mod tests {
         );
         let on = &[("a1", "a1"), ("b2", "b2")];
 
-        let join = join(left, right, on)?;
+        let join = join(left, right, on, &JoinType::Inner)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b2", "c1", "c2"]);
@@ -588,7 +612,7 @@ mod tests {
 
     /// Test where the left has 1 part, the right has 2 parts => 2 parts
     #[tokio::test]
-    async fn join_one_two_parts_right() -> Result<()> {
+    async fn join_inner_one_two_parts_right() -> Result<()> {
         let left = build_table(
             ("a1", &vec![1, 2, 3]),
             ("b1", &vec![4, 5, 5]), // this has a repetition
@@ -609,7 +633,7 @@ mod tests {
 
         let on = &[("b1", "b1")];
 
-        let join = join(left, right, on)?;
+        let join = join(left, right, on, &JoinType::Inner)?;
 
         let columns = columns(&join.schema());
         assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
@@ -629,6 +653,36 @@ mod tests {
         assert_eq!(batches.len(), 1);
         let result = format_batch(&batches[0]);
         let expected = vec!["2,5,8,30,90", "3,5,9,30,90"];
+
+        assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_left_one() -> Result<()> {
+        let left = build_table(
+            ("a1", &vec![1, 2, 3]),
+            ("b1", &vec![4, 5, 7]), // 7 does not exist on the right
+            ("c1", &vec![7, 8, 9]),
+        );
+        let right = build_table(
+            ("a2", &vec![10, 20, 30]),
+            ("b1", &vec![4, 5, 6]),
+            ("c2", &vec![70, 80, 90]),
+        );
+        let on = &[("b1", "b1")];
+
+        let join = join(left, right, on, &JoinType::Left)?;
+
+        let columns = columns(&join.schema());
+        assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
+
+        let stream = join.execute(0).await?;
+        let batches = common::collect(stream).await?;
+
+        let result = format_batch(&batches[0]);
+        let expected = vec!["1,4,7,10,70", "2,5,8,20,80", "3,7,9,NULL,NULL"];
 
         assert_same_rows(&result, &expected);
 

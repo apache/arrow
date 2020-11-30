@@ -32,6 +32,8 @@ type ExtendNullBits<'a> = Box<Fn(&mut _MutableArrayData, usize, usize) + 'a>;
 // this is dynamic because different data_types influence how buffers and childs are extended.
 type Extend<'a> = Box<Fn(&mut _MutableArrayData, usize, usize, usize) + 'a>;
 
+type ExtendNulls = Box<Fn(&mut _MutableArrayData, usize) -> ()>;
+
 /// A mutable [ArrayData] that knows how to freeze itself into an [ArrayData].
 /// This is just a data container.
 #[derive(Debug)]
@@ -91,7 +93,7 @@ impl<'a> _MutableArrayData<'a> {
     }
 }
 
-fn build_extend_nulls(array: &ArrayData) -> ExtendNullBits {
+fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits {
     if let Some(bitmap) = array.null_bitmap() {
         let bytes = bitmap.bits.data();
         Box::new(move |mutable, start, len| {
@@ -103,6 +105,15 @@ fn build_extend_nulls(array: &ArrayData) -> ExtendNullBits {
                 array.offset() + start,
                 len,
             );
+        })
+    } else if use_nulls {
+        Box::new(|mutable, _, len| {
+            utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
+            let write_data = mutable.null_buffer.data_mut();
+            let offset = mutable.len;
+            (0..len).for_each(|i| {
+                bit_util::set_bit(write_data, offset + i);
+            });
         })
     } else {
         Box::new(|_, _, _| {})
@@ -119,10 +130,10 @@ fn build_extend_nulls(array: &ArrayData) -> ExtendNullBits {
 /// use arrow::{array::{Int32Array, Array, MutableArrayData}};
 ///
 /// let array = Int32Array::from(vec![1, 2, 3, 4, 5]).data();
-/// // Create a new `MutableArrayData` from an array and with a capacity.
+/// // Create a new `MutableArrayData` from an array and with a capacity of 4.
 /// // Capacity here is equivalent to `Vec::with_capacity`
 /// let arrays = vec![array.as_ref()];
-/// let mut mutable = MutableArrayData::new(arrays, 4);
+/// let mut mutable = MutableArrayData::new(arrays, false, 4);
 /// mutable.extend(0, 1, 3); // extend from the slice [1..3], [2,3]
 /// mutable.extend(0, 0, 3); // extend from the slice [0..3], [1,2,3]
 /// // `.freeze()` to convert `MutableArrayData` into a `ArrayData`.
@@ -142,12 +153,16 @@ pub struct MutableArrayData<'a> {
     // at the end, when freezing [_MutableArrayData].
     dictionary: Option<ArrayDataRef>,
 
-    // the function used to extend values. This function's lifetime is bound to the array
+    // function used to extend values from arrays. This function's lifetime is bound to the array
     // because it reads values from it.
     extend_values: Vec<Extend<'a>>,
-    // the function used to extend nulls. This function's lifetime is bound to the array
+    // function used to extend nulls from arrays. This function's lifetime is bound to the array
     // because it reads nulls from it.
-    extend_nulls: Vec<ExtendNullBits<'a>>,
+    extend_null_bits: Vec<ExtendNullBits<'a>>,
+
+    // function used to extend nulls.
+    // this is independent of the arrays and therefore has no lifetime.
+    extend_nulls: ExtendNulls,
 }
 
 impl<'a> std::fmt::Debug for MutableArrayData<'a> {
@@ -214,10 +229,65 @@ fn build_extend(array: &ArrayData) -> Extend {
     }
 }
 
+fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
+    use crate::datatypes::*;
+    Box::new(match data_type {
+        DataType::Boolean => boolean::extend_nulls,
+        DataType::UInt8 => primitive::extend_nulls::<u8>,
+        DataType::UInt16 => primitive::extend_nulls::<u16>,
+        DataType::UInt32 => primitive::extend_nulls::<u32>,
+        DataType::UInt64 => primitive::extend_nulls::<u64>,
+        DataType::Int8 => primitive::extend_nulls::<i8>,
+        DataType::Int16 => primitive::extend_nulls::<i16>,
+        DataType::Int32 => primitive::extend_nulls::<i32>,
+        DataType::Int64 => primitive::extend_nulls::<i64>,
+        DataType::Float32 => primitive::extend_nulls::<f32>,
+        DataType::Float64 => primitive::extend_nulls::<f64>,
+        DataType::Date32(_)
+        | DataType::Time32(_)
+        | DataType::Interval(IntervalUnit::YearMonth) => primitive::extend_nulls::<i32>,
+        DataType::Date64(_)
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(IntervalUnit::DayTime) => primitive::extend_nulls::<i64>,
+        DataType::Utf8 | DataType::Binary => variable_size::extend_nulls::<i32>,
+        DataType::LargeUtf8 | DataType::LargeBinary => variable_size::extend_nulls::<i64>,
+        DataType::List(_) => list::extend_nulls::<i32>,
+        DataType::LargeList(_) => list::extend_nulls::<i64>,
+        DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
+            DataType::UInt8 => primitive::extend_nulls::<u8>,
+            DataType::UInt16 => primitive::extend_nulls::<u16>,
+            DataType::UInt32 => primitive::extend_nulls::<u32>,
+            DataType::UInt64 => primitive::extend_nulls::<u64>,
+            DataType::Int8 => primitive::extend_nulls::<i8>,
+            DataType::Int16 => primitive::extend_nulls::<i16>,
+            DataType::Int32 => primitive::extend_nulls::<i32>,
+            DataType::Int64 => primitive::extend_nulls::<i64>,
+            _ => unreachable!(),
+        },
+        //DataType::Struct(_) => structure::build_extend(array),
+        DataType::Float16 => unreachable!(),
+        /*
+        DataType::Null => {}
+        DataType::FixedSizeBinary(_) => {}
+        DataType::FixedSizeList(_, _) => {}
+        DataType::Union(_) => {}
+        */
+        _ => {
+            todo!("Take and filter operations still not supported for this datatype")
+        }
+    })
+}
+
 impl<'a> MutableArrayData<'a> {
     /// returns a new [MutableArrayData] with capacity to `capacity` slots and specialized to create an
-    /// [ArrayData] from `array`
-    pub fn new(arrays: Vec<&'a ArrayData>, capacity: usize) -> Self {
+    /// [ArrayData] from multiple `arrays`.
+    ///
+    /// `use_nulls` is a flag used to optimize insertions. It should be `false` if the only source of nulls
+    /// are the arrays themselves and `true` if the user plans to call [MutableArrayData::extend_nulls].
+    /// In other words, if `use_nulls` is `false`, calling [MutableArrayData::extend_nulls] should not be used.
+    pub fn new(arrays: Vec<&'a ArrayData>, use_nulls: bool, capacity: usize) -> Self {
         let data_type = arrays[0].data_type();
         use crate::datatypes::*;
 
@@ -321,7 +391,7 @@ impl<'a> MutableArrayData<'a> {
                     .iter()
                     .map(|array| array.child_data()[0].as_ref())
                     .collect::<Vec<_>>();
-                vec![MutableArrayData::new(childs, capacity)]
+                vec![MutableArrayData::new(childs, use_nulls, capacity)]
             }
             // the dictionary type just appends keys and clones the values.
             DataType::Dictionary(_, _) => vec![],
@@ -336,9 +406,11 @@ impl<'a> MutableArrayData<'a> {
             _ => None,
         };
 
-        let extend_nulls = arrays
+        let extend_nulls = build_extend_nulls(data_type);
+
+        let extend_null_bits = arrays
             .iter()
-            .map(|array| build_extend_nulls(array))
+            .map(|array| build_extend_null_bits(array, use_nulls))
             .collect();
 
         let null_bytes = bit_util::ceil(capacity, 8);
@@ -355,10 +427,11 @@ impl<'a> MutableArrayData<'a> {
             child_data,
         };
         Self {
-            arrays: arrays.to_vec(),
+            arrays,
             data,
             dictionary,
             extend_values,
+            extend_null_bits,
             extend_nulls,
         }
     }
@@ -369,8 +442,15 @@ impl<'a> MutableArrayData<'a> {
     /// This function panics if the range is out of bounds, i.e. if `start + len >= array.len()`.
     pub fn extend(&mut self, index: usize, start: usize, end: usize) {
         let len = end - start;
-        (self.extend_nulls[index])(&mut self.data, start, len);
+        (self.extend_null_bits[index])(&mut self.data, start, len);
         (self.extend_values[index])(&mut self.data, index, start, len);
+        self.data.len += len;
+    }
+
+    /// Extends this [MutableArrayData] with null elements, disregarding the bound arrays
+    pub fn extend_nulls(&mut self, len: usize) {
+        self.data.null_count += len;
+        (self.extend_nulls)(&mut self.data, len);
         self.data.len += len;
     }
 
@@ -396,7 +476,7 @@ mod tests {
     fn test_primitive() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]).data();
         let arrays = vec![b.as_ref()];
-        let mut a = MutableArrayData::new(arrays, 3);
+        let mut a = MutableArrayData::new(arrays, false, 3);
         a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
@@ -410,7 +490,7 @@ mod tests {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
         let b = b.slice(1, 2).data();
         let arrays = vec![b.as_ref()];
-        let mut a = MutableArrayData::new(arrays, 2);
+        let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
@@ -424,11 +504,27 @@ mod tests {
         let b = UInt8Array::from(vec![Some(1), None, Some(3)]);
         let b = b.slice(1, 2).data();
         let arrays = vec![b.as_ref()];
-        let mut a = MutableArrayData::new(arrays, 2);
+        let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
         let array = UInt8Array::from(Arc::new(result));
         let expected = UInt8Array::from(vec![None, Some(3)]);
+        assert_eq!(array, expected);
+    }
+
+    #[test]
+    fn test_primitive_null_offset_nulls() {
+        let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
+        let b = b.slice(1, 2).data();
+        let arrays = vec![b.as_ref()];
+        let mut a = MutableArrayData::new(arrays, true, 2);
+        a.extend(0, 0, 2);
+        a.extend_nulls(3);
+        a.extend(0, 1, 2);
+        let result = a.freeze();
+        let array = UInt8Array::from(Arc::new(result));
+        let expected =
+            UInt8Array::from(vec![Some(2), Some(3), None, None, None, Some(3)]);
         assert_eq!(array, expected);
     }
 
@@ -445,7 +541,7 @@ mod tests {
         let array = builder.finish().data();
         let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(arrays, 0);
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
         mutable.extend(0, 0, 1);
 
         let result = mutable.freeze();
@@ -469,7 +565,7 @@ mod tests {
             StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
         let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(arrays, 0);
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
@@ -490,7 +586,7 @@ mod tests {
 
         let arrays = vec![&array];
 
-        let mut mutable = MutableArrayData::new(arrays, 0);
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 0, 3);
 
@@ -502,12 +598,51 @@ mod tests {
     }
 
     #[test]
+    fn test_string_offsets() {
+        let array =
+            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let array = array.slice(1, 3);
+
+        let arrays = vec![&array];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 0, 3);
+
+        let result = mutable.freeze();
+        let result = StringArray::from(Arc::new(result));
+
+        let expected = StringArray::from(vec![Some("bc"), None, Some("defh")]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_string_null_offset_nulls() {
+        let array =
+            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let array = array.slice(1, 3);
+
+        let arrays = vec![&array];
+
+        let mut mutable = MutableArrayData::new(arrays, true, 0);
+
+        mutable.extend(0, 1, 3);
+        mutable.extend_nulls(1);
+
+        let result = mutable.freeze();
+        let result = StringArray::from(Arc::new(result));
+
+        let expected = StringArray::from(vec![None, Some("defh"), None]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_bool() {
         let array =
             BooleanArray::from(vec![Some(false), Some(true), None, Some(false)]).data();
         let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(arrays, 0);
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
@@ -544,7 +679,7 @@ mod tests {
         );
         let arrays = vec![array.as_ref()];
 
-        let mut mutable = MutableArrayData::new(arrays, 0);
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
