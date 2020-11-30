@@ -638,10 +638,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            SQLExpr::UnaryOp { ref op, ref expr } => match *op {
-                UnaryOperator::Not => {
+            SQLExpr::UnaryOp { ref op, ref expr } => match (op, expr) {
+                (UnaryOperator::Not, _) => {
                     Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
-                }
+                },
+                (UnaryOperator::Minus, box SQLExpr::Value(Value::Number(n))) =>
+                    // Parse negative numbers properly
+                    Ok(lit(-n.parse::<f64>().unwrap())),
                 _ => Err(DataFusionError::Internal(format!(
                     "SQL binary operator cannot be interpreted as a unary operator"
                 ))),
