@@ -44,7 +44,7 @@ default = ["cli"]
 cli = ["rustyline"]
 
 [dependencies]
-ahash = "0.5"
+ahash = "0.6"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"] }
 sqlparser = "0.6.1"
