@@ -28,6 +28,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
+#include "arrow/stl_iterator.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -46,6 +47,7 @@ class BaseBinaryArray : public FlatArray {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
+  using IteratorType = stl::ArrayIterator<BaseBinaryArray<TYPE>>;
 
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
@@ -114,6 +116,10 @@ class BaseBinaryArray : public FlatArray {
       return 0;
     }
   }
+
+  IteratorType begin() { return IteratorType(*this); }
+
+  IteratorType end() { return IteratorType(*this, length()); }
 
  protected:
   // For subclasses
@@ -203,6 +209,7 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
 class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
  public:
   using TypeClass = FixedSizeBinaryType;
+  using IteratorType = stl::ArrayIterator<FixedSizeBinaryArray>;
 
   explicit FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data);
 
@@ -223,6 +230,10 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   int32_t byte_width() const { return byte_width_; }
 
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
+
+  IteratorType begin() { return IteratorType(*this); }
+
+  IteratorType end() { return IteratorType(*this, length()); }
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data) {

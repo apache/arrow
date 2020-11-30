@@ -621,6 +621,7 @@ add_arrow_test(table_test
 
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
+add_arrow_test(stl_iterator_test)
 
 if(ARROW_COMPUTE)
   # This unit test uses compute code
