@@ -115,14 +115,17 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
-        metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value);
+        metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value,
+        metadata.statistics.__isset.null_count,
+        metadata.statistics.__isset.distinct_count);
   }
   // Default behavior
   return MakeStatistics<DType>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      metadata.statistics.__isset.max || metadata.statistics.__isset.min);
+      metadata.statistics.__isset.max || metadata.statistics.__isset.min,
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
