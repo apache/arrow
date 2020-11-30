@@ -566,6 +566,17 @@ pub(crate) fn get_fb_field_type<'a>(
             // type in the DictionaryEncoding metadata in the parent field
             get_fb_field_type(value_type, is_nullable, fbb)
         }
+        Decimal(precision, scale) => {
+            let mut builder = ipc::DecimalBuilder::new(fbb);
+            builder.add_precision(*precision as i32);
+            builder.add_scale(*scale as i32);
+            builder.add_bitWidth(128);
+            FBFieldType {
+                type_type: ipc::Type::Decimal,
+                type_: builder.finish().as_union_value(),
+                children: Some(fbb.create_vector(&empty_fields[..])),
+            }
+        }
         t => unimplemented!("Type {:?} not supported", t),
     }
 }
