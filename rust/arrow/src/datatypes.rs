@@ -1156,7 +1156,7 @@ impl DataType {
 }
 
 impl NullableDataType {
-    /// Creates a new data type context
+    /// Creates a new `NullableDataType`
     pub fn new(data_type: DataType, nullable: bool) -> Self {
         NullableDataType {
             data_type,
