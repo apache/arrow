@@ -41,6 +41,9 @@ use serde_json::{
 
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -193,7 +196,7 @@ pub enum IntervalUnit {
 /// Contains the meta-data for a single relative type.
 ///
 /// The `Schema` object is an ordered collection of `Field` objects.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Field {
     name: String,
     data_type: NullableDataType,
@@ -1546,6 +1549,96 @@ impl fmt::Display for Field {
     }
 }
 
+impl Serialize for Field {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // 5 is the number of fields in the struct.
+        let mut state = serializer.serialize_struct("Field", 5)?;
+        state.serialize_field("name", &self.name)?;
+        state.serialize_field("data_type", &self.data_type.data_type)?;
+        state.serialize_field("nullable", &self.data_type.nullable)?;
+        state.serialize_field("dict_id", &self.dict_id)?;
+        state.serialize_field("dict_is_ordered", &self.dict_is_ordered)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Field {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        const FIELDS: &'static [&'static str] = &[
+            "name",
+            "data_type",
+            "nullable",
+            "dict_id",
+            "dict_is_ordered",
+        ];
+        struct FieldVisitor;
+        impl<'de> Visitor<'de> for FieldVisitor {
+            type Value = Field;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("`name`, `data_type` and `nullable` fields")
+            }
+
+            fn visit_map<V>(
+                self,
+                mut map: V,
+            ) -> core::result::Result<Self::Value, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut name: Option<&str> = None;
+                let mut data_type: Option<DataType> = None;
+                let mut nullable: Option<bool> = None;
+                let mut dict_id: Option<i64> = None;
+                let mut dict_is_ordered: Option<bool> = None;
+
+                while let Some(key) = map.next_key::<&str>()? {
+                    match key {
+                        "name" => name = Some(map.next_value::<&str>()?),
+                        "data_type" => data_type = Some(map.next_value::<DataType>()?),
+                        "nullable" => nullable = Some(map.next_value::<bool>()?),
+                        "dict_id" => dict_id = Some(map.next_value::<i64>()?),
+                        "dict_is_ordered" => {
+                            dict_is_ordered = Some(map.next_value::<bool>()?)
+                        }
+                        _ => Err(serde::de::Error::unknown_field(key, FIELDS))?,
+                    };
+                }
+
+                let name = name.ok_or_else(|| serde::de::Error::missing_field("name"))?;
+                let data_type = data_type
+                    .ok_or_else(|| serde::de::Error::missing_field("data_type"))?;
+                let nullable = nullable
+                    .ok_or_else(|| serde::de::Error::missing_field("nullable"))?;
+
+                if dict_id.is_some() {
+                    let dict_id = dict_id.unwrap();
+                    let dict_is_ordered = dict_is_ordered.ok_or_else(|| {
+                        serde::de::Error::missing_field("dict_is_ordered")
+                    })?;
+                    return Ok(Field::new_dict(
+                        name,
+                        data_type,
+                        nullable,
+                        dict_id,
+                        dict_is_ordered,
+                    ));
+                }
+
+                Ok(Field::new(name, data_type, nullable))
+            }
+        }
+
+        Ok(deserializer.deserialize_struct("Field", FIELDS, FieldVisitor)?)
+    }
+}
+
 /// Describes the meta-data of an ordered sequence of relative types.
 ///
 /// Note that this information is only part of the meta-data and not part of the physical
@@ -1862,12 +1955,12 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"last_name\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"address\",\"data_type\":{\"data_type\":{\"Struct\":\
-             [{\"name\":\"street\",\"data_type\":{\"data_type\":\"Utf8\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false},\
-             {\"name\":\"zip\",\"data_type\":{\"data_type\":\"UInt16\",\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}\
-             ]},\"nullable\":false},\"dict_id\":0,\"dict_is_ordered\":false}]}",
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"address\",\"data_type\":{\"Struct\":\
+             [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"zip\",\"data_type\":\"UInt16\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}\
+             ]},\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false}]}",
             serialized
         );
 
