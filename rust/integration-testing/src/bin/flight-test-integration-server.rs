@@ -214,41 +214,60 @@ impl FlightService for FlightServiceImpl {
         tokio::spawn(async move {
             let mut chunks = vec![];
             let mut uploaded_chunks = uploaded_chunks.lock().await;
+            let mut dictionaries_by_field = vec![];
 
-            while let Some(Ok(more_flight_data)) = input_stream.next().await {
-                eprintln!("send #1");
-                let stream_result = response_tx
-                    .send(Ok(PutResult {
-                        app_metadata: more_flight_data.app_metadata.clone(),
-                    }))
-                    .await;
-                if let Err(e) = stream_result {
-                    eprintln!("send #2");
-                    response_tx
-                        .send(Err(Status::internal(format!(
-                            "Could not send PutResult: {:?}",
-                            e
-                        ))))
-                        .await
-                        .expect("Error sending error");
-                }
+            while let Some(Ok(data)) = input_stream.next().await {
+                let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
 
-                // This `unwrap` is fine because `flight_data_to_arrow_batch` always returns `Some`
-                let arrow_batch_result =
-                    flight_data_to_arrow_batch(&more_flight_data, schema_ref.clone())
-                        .expect("flight_data_to_arrow_batch didn't actually return Some");
+                match message.header_type() {
+                    // CAROLTODO: Fix compiler errors here
+                    ipc::MessageHeader::Schema => {
+                        // TODO: send an error to the stream
+                        eprintln!("Not expecting a schema when messages are read");
+                    }
+                    ipc::MessageHeader::RecordBatch => {
+                        eprintln!("send #1");
+                        let stream_result = response_tx
+                            .send(Ok(PutResult {
+                                app_metadata: more_flight_data.app_metadata.clone(),
+                            }))
+                            .await;
+                        if let Err(e) = stream_result {
+                            eprintln!("send #2");
+                            response_tx
+                                .send(Err(Status::internal(format!(
+                                    "Could not send PutResult: {:?}",
+                                    e
+                                ))))
+                                .await
+                                .expect("Error sending error");
+                        }
 
-                match arrow_batch_result {
-                    Ok(batch) => chunks.push(batch),
-                    Err(e) => {
-                        eprintln!("send #3");
-                        response_tx
-                            .send(Err(Status::invalid_argument(format!(
-                                "Could not convert to RecordBatch: {:?}",
-                                e
-                            ))))
-                            .await
-                            .expect("Error sending error")
+                        // TODO: handle None which means parse failure
+                        if let Some(ipc_batch) = message.header_as_record_batch() {
+                            let arrow_batch_result = reader::read_record_batch(
+                                &data.data_body,
+                                ipc_batch,
+                                schema_ref.clone(),
+                                &dictionaries_by_field,
+                            );
+                            match arrow_batch_result {
+                                Ok(batch) => chunks.push(batch),
+                                Err(e) => {
+                                    eprintln!("send #3");
+                                    response_tx
+                                        .send(Err(Status::invalid_argument(format!(
+                                            "Could not convert to RecordBatch: {:?}",
+                                            e
+                                        ))))
+                                        .await
+                                        .expect("Error sending error")
+                                }
+                            }
+                        }
+                    }
+                    ipc::MessageHeader::DictionaryBatch => {
+                        // CAROLTODO: And fill in with a call to read_dictionary here
                     }
                 }
             }

@@ -132,6 +132,7 @@ pub fn flight_data_to_arrow_batch(
 ) -> Option<Result<RecordBatch>> {
     // check that the data_header is a record batch message
     let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
+    // This assumes there are no dictionaries
     let dictionaries_by_field = Vec::new();
 
     message
