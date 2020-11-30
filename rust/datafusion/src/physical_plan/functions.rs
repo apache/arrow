@@ -36,6 +36,7 @@ use super::{
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
+use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
 use arrow::{
@@ -121,6 +122,8 @@ pub enum BuiltinScalarFunction {
     ToTimestamp,
     /// construct an array from columns
     Array,
+    /// SQL NULLIF()
+    NullIf,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -155,6 +158,7 @@ impl FromStr for BuiltinScalarFunction {
             "concat" => BuiltinScalarFunction::Concat,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "array" => BuiltinScalarFunction::Array,
+            "nullif" => BuiltinScalarFunction::NullIf,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -179,14 +183,14 @@ pub fn return_type(
     if arg_types.len() == 0 {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
-        return Err(DataFusionError::Plan(
-            format!("Function '{}' requires at least one argument", fun).to_string(),
-        ));
+        return Err(DataFusionError::Plan(format!(
+            "Function '{}' requires at least one argument",
+            fun
+        )));
     }
 
-    // the return type of the built in function. Eventually there
-    // will be built-in functions whose return type depends on the
-    // incoming type.
+    // the return type of the built in function.
+    // Some built-in functions' return type depends on the incoming type.
     match fun {
         BuiltinScalarFunction::Length => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::Int64,
@@ -206,6 +210,11 @@ pub fn return_type(
             Box::new(Field::new("item", arg_types[0].clone(), true)),
             arg_types.len() as i32,
         )),
+        BuiltinScalarFunction::NullIf => {
+            // NULLIF has two args and they might get coerced, get a preview of this
+            let coerced_types = data_types(arg_types, &signature(fun));
+            coerced_types.map(|typs| typs[0].clone())
+        }
         _ => Ok(DataType::Float64),
     }
 }
@@ -235,6 +244,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Trunc => math_expressions::trunc,
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
+        BuiltinScalarFunction::NullIf => nullif_func,
         BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
@@ -273,6 +283,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
+        }
+        BuiltinScalarFunction::NullIf => {
+            Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
@@ -463,7 +476,7 @@ mod tests {
 
         let expr = create_physical_expr(
             &BuiltinScalarFunction::Array,
-            &vec![lit(value1.clone()), lit(value2.clone())],
+            &vec![lit(value1), lit(value2)],
             &schema,
         )?;
 

@@ -60,6 +60,8 @@ fn offset_value_equal<T: OffsetSizeTrait>(
         && equal_range(
             lhs_values,
             rhs_values,
+            lhs_values.null_buffer(),
+            rhs_values.null_buffer(),
             lhs_start,
             rhs_start,
             lhs_len.to_usize().unwrap(),
@@ -86,6 +88,8 @@ pub(super) fn list_equal<T: OffsetSizeTrait>(
         ) && equal_range(
             lhs_values,
             rhs_values,
+            lhs_values.null_buffer(),
+            rhs_values.null_buffer(),
             lhs_offsets[lhs_start].to_usize().unwrap(),
             rhs_offsets[rhs_start].to_usize().unwrap(),
             (lhs_offsets[len] - lhs_offsets[lhs_start])

@@ -537,6 +537,29 @@ async fn csv_query_avg_multi_batch() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_nullif_divide_by_0() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c8/nullif(c7, 0) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    let actual = &actual[80..90]; // We just want to compare rows 80-89
+    let expected = vec![
+        vec!["258"],
+        vec!["664"],
+        vec!["NULL"],
+        vec!["22"],
+        vec!["164"],
+        vec!["448"],
+        vec!["365"],
+        vec!["1640"],
+        vec!["671"],
+        vec!["203"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_count() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;

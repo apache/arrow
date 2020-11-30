@@ -40,6 +40,8 @@ pub(super) fn dictionary_equal<T: ArrowNativeType>(
             equal_range(
                 lhs_values,
                 rhs_values,
+                lhs_values.null_buffer(),
+                rhs_values.null_buffer(),
                 lhs_keys[lhs_pos].to_usize().unwrap(),
                 rhs_keys[rhs_pos].to_usize().unwrap(),
                 1,
@@ -58,6 +60,8 @@ pub(super) fn dictionary_equal<T: ArrowNativeType>(
                     && equal_range(
                         lhs_values,
                         rhs_values,
+                        lhs_values.null_buffer(),
+                        rhs_values.null_buffer(),
                         lhs_keys[lhs_pos].to_usize().unwrap(),
                         rhs_keys[rhs_pos].to_usize().unwrap(),
                         1,

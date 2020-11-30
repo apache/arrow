@@ -164,6 +164,21 @@ new: bool
     SCHEMA
   end
 
+  def test_has_metadata
+    fields = [
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+      Arrow::Field.new("required", Arrow::BooleanDataType.new),
+    ]
+    schema = Arrow::Schema.new(fields)
+    assert do
+      not schema.has_metadata?
+    end
+    schema_with_metadata = schema.with_metadata("key" => "value")
+    assert do
+      schema_with_metadata.has_metadata?
+    end
+  end
+
   sub_test_case("#metadata") do
     def setup
       require_gi_bindings(3, 4, 2)

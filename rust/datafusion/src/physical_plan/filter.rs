@@ -54,7 +54,7 @@ impl FilterExec {
     ) -> Result<Self> {
         match predicate.data_type(input.schema().as_ref())? {
             DataType::Boolean => Ok(Self {
-                predicate: predicate.clone(),
+                predicate,
                 input: input.clone(),
             }),
             other => Err(DataFusionError::Plan(format!(

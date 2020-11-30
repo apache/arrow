@@ -133,15 +133,7 @@
 #![warn(missing_debug_implementations)]
 #![deny(clippy::redundant_clone)]
 // introduced to ignore lint errors when upgrading from 2020-04-22 to 2020-11-14
-#![allow(
-    clippy::bind_instead_of_map,
-    clippy::float_equality_without_abs,
-    clippy::match_like_matches_macro,
-    clippy::needless_lifetimes,
-    clippy::needless_range_loop,
-    clippy::or_fun_call,
-    clippy::type_complexity
-)]
+#![allow(clippy::float_equality_without_abs, clippy::type_complexity)]
 
 mod arch;
 pub mod array;

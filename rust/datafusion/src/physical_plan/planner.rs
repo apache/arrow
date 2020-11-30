@@ -190,7 +190,7 @@ impl DefaultPhysicalPlanner {
             )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr = expr
                     .iter()
                     .map(|e| {
@@ -210,7 +210,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let groups = group_expr
                     .iter()
@@ -253,14 +253,14 @@ impl DefaultPhysicalPlanner {
                 input, predicate, ..
             } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let sort_expr = expr
                     .iter()
