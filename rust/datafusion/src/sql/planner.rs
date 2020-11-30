@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
+    and, lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
 };
 use crate::scalar::ScalarValue;
 use crate::{
@@ -47,6 +47,7 @@ use sqlparser::ast::{
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
+use std::collections::HashSet;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
@@ -211,18 +212,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn plan_tables_with_joins(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
+    fn plan_from_tables(&self, from: &Vec<TableWithJoins>) -> Result<Vec<LogicalPlan>> {
         match from.len() {
-            0 => Ok(LogicalPlanBuilder::empty(true).build()?),
-            1 => self.plan_table_with_joins(&from[0]),
-            _ => {
-                // https://issues.apache.org/jira/browse/ARROW-10729
-                Err(DataFusionError::NotImplemented(
-                    "JOINS are only supported when using the explicit JOIN ON syntax \
-                    (https://issues.apache.org/jira/browse/ARROW-10729)"
-                        .to_string(),
-                ))
-            }
+            0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
+            _ => from
+                .iter()
+                .map(|t| self.plan_table_with_joins(t))
+                .collect::<Result<Vec<_>>>(),
         }
     }
 
@@ -323,10 +319,78 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             ));
         }
 
-        let plan = self.plan_tables_with_joins(&select.from)?;
+        let plans = self.plan_from_tables(&select.from)?;
 
-        // filter (also known as selection) first
-        let plan = self.filter(&plan, &select.selection)?;
+        let plan = match &select.selection {
+            Some(predicate_expr) => {
+                // build join schema
+                let mut fields = vec![];
+                for plan in &plans {
+                    fields.extend_from_slice(&plan.schema().fields());
+                }
+                check_unique_columns(&fields)?;
+                let join_schema = Schema::new(fields);
+
+                let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
+
+                // look for expressions of the form `<column> = <column>`
+                let mut possible_join_keys = vec![];
+                extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
+
+                let mut all_join_keys = vec![];
+                let mut left = plans[0].clone();
+                for i in 1..plans.len() {
+                    let right = &plans[i];
+                    let left_schema = left.schema();
+                    let right_schema = right.schema();
+                    let mut join_keys = vec![];
+                    for (l, r) in &possible_join_keys {
+                        if left_schema.field_with_name(l).is_ok()
+                            && right_schema.field_with_name(r).is_ok()
+                        {
+                            join_keys.push((l.as_str(), r.as_str()));
+                        } else if left_schema.field_with_name(r).is_ok()
+                            && right_schema.field_with_name(l).is_ok()
+                        {
+                            join_keys.push((r.as_str(), l.as_str()));
+                        }
+                    }
+                    if join_keys.len() == 0 {
+                        return Err(DataFusionError::NotImplemented(
+                            "Cartesian joins are not supported".to_string(),
+                        ));
+                    } else {
+                        let left_keys: Vec<_> =
+                            join_keys.iter().map(|(l, _)| *l).collect();
+                        let right_keys: Vec<_> =
+                            join_keys.iter().map(|(_, r)| *r).collect();
+                        let builder = LogicalPlanBuilder::from(&left);
+                        left = builder
+                            .join(right, JoinType::Inner, &left_keys, &right_keys)?
+                            .build()?;
+                    }
+                    all_join_keys.extend_from_slice(&join_keys);
+                }
+
+                // remove join expressions from filter
+                match remove_join_expressions(&filter_expr, &all_join_keys)? {
+                    Some(filter_expr) => {
+                        LogicalPlanBuilder::from(&left).filter(filter_expr)?.build()
+                    }
+                    _ => Ok(left),
+                }
+            }
+            None => {
+                if plans.len() == 1 {
+                    Ok(plans[0].clone())
+                } else {
+                    Err(DataFusionError::NotImplemented(
+                        "Cartesian joins are not supported".to_string(),
+                    ))
+                }
+            }
+        };
+        let plan = plan?;
 
         let projection_expr: Vec<Expr> = select
             .projection
@@ -347,20 +411,6 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             self.project(&plan, projection_expr)?
         };
         Ok(plan)
-    }
-
-    /// Apply a filter to the plan
-    fn filter(
-        &self,
-        plan: &LogicalPlan,
-        predicate: &Option<SQLExpr>,
-    ) -> Result<LogicalPlan> {
-        match *predicate {
-            Some(ref predicate_expr) => LogicalPlanBuilder::from(&plan)
-                .filter(self.sql_to_rex(predicate_expr, &plan.schema())?)?
-                .build(),
-            _ => Ok(plan.clone()),
-        }
     }
 
     /// Wrap a plan in a projection
@@ -698,13 +748,56 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
 fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
     let mut fields = vec![];
-    for field in left.fields() {
-        fields.push(field.clone());
-    }
-    for field in right.fields() {
-        fields.push(field.clone());
-    }
+    fields.extend_from_slice(&left.fields());
+    fields.extend_from_slice(&right.fields());
+    check_unique_columns(&fields)?;
     Ok(Schema::new(fields))
+}
+
+fn check_unique_columns(fields: &[Field]) -> Result<()> {
+    // Until https://issues.apache.org/jira/browse/ARROW-10732 is implemented, we need
+    // to ensure that schemas have unique field names
+    let unique_field_names = fields.iter().map(|f| f.name()).collect::<HashSet<_>>();
+    if unique_field_names.len() == fields.len() {
+        Ok(())
+    } else {
+        Err(DataFusionError::Plan(
+            "JOIN would result in schema with duplicate column names".to_string(),
+        ))
+    }
+}
+
+/// Remove join expressions from a filter expression
+fn remove_join_expressions(
+    expr: &Expr,
+    join_columns: &[(&str, &str)],
+) -> Result<Option<Expr>> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    if join_columns.contains(&(l, r)) || join_columns.contains(&(r, l)) {
+                        Ok(None)
+                    } else {
+                        Ok(Some(expr.clone()))
+                    }
+                }
+                _ => Ok(Some(expr.clone())),
+            },
+            Operator::And => {
+                let l = remove_join_expressions(left, join_columns)?;
+                let r = remove_join_expressions(right, join_columns)?;
+                match (l, r) {
+                    (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
+                    (Some(ll), _) => Ok(Some(ll)),
+                    (_, Some(rr)) => Ok(Some(rr)),
+                    _ => Ok(None),
+                }
+            }
+            _ => Ok(Some(expr.clone())),
+        },
+        _ => Ok(Some(expr.clone())),
+    }
 }
 
 /// Parse equijoin ON condition which could be a single Eq or multiple conjunctive Eqs
@@ -740,6 +833,30 @@ fn extract_join_keys(expr: &Expr, accum: &mut Vec<(String, String)>) -> Result<(
             "Unsupported expression '{:?}' in JOIN condition",
             other
         )))),
+    }
+}
+
+/// Extract join keys from a WHERE clause
+fn extract_possible_join_keys(
+    expr: &Expr,
+    accum: &mut Vec<(String, String)>,
+) -> Result<()> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    accum.push((l.to_owned(), r.to_owned()));
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+            Operator::And => {
+                extract_possible_join_keys(left, accum)?;
+                extract_possible_join_keys(right, accum)
+            }
+            _ => Ok(()),
+        },
+        _ => Ok(()),
     }
 }
 
@@ -1159,11 +1276,6 @@ mod tests {
                     Field::new("o_item_id", DataType::Utf8, false),
                     Field::new("qty", DataType::Int32, false),
                     Field::new("price", DataType::Float64, false),
-                    Field::new(
-                        "birth_date",
-                        DataType::Timestamp(TimeUnit::Nanosecond, None),
-                        false,
-                    ),
                 ]))),
                 "lineitem" => Some(Arc::new(Schema::new(vec![
                     Field::new("l_item_id", DataType::UInt32, false),
