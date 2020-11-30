@@ -26,8 +26,11 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::{array::DecimalArray, datatypes::{DataType, DateUnit, Field, Schema, TimeUnit}};
 use arrow::ipc::writer;
+use arrow::{
+    array::DecimalArray,
+    datatypes::{DataType, DateUnit, Field, Schema, TimeUnit},
+};
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};

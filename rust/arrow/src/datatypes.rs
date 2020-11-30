@@ -901,13 +901,14 @@ impl DataType {
                         Some(p) => Ok(p.as_u64().unwrap() as usize),
                         None => Err(ArrowError::ParseError(
                             "Expecting a precision for decimal".to_string(),
-                        ))
+                        )),
                     };
                     let scale = match map.get("scale") {
                         Some(s) => Ok(s.as_u64().unwrap() as usize),
                         _ => Err(ArrowError::ParseError(
                             "Expecting a scale for decimal".to_string(),
-                        ))};
+                        )),
+                    };
 
                     Ok(DataType::Decimal(precision?, scale?))
                 }
