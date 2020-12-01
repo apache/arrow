@@ -464,24 +464,6 @@ class ARROW_DS_EXPORT CustomExpression : public Expression {
   CustomExpression() : Expression(ExpressionType::CUSTOM) {}
 };
 
-ARROW_DS_EXPORT std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
-                                                 std::shared_ptr<Expression> rhs);
-
-ARROW_DS_EXPORT std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions);
-
-ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
-
-ARROW_DS_EXPORT std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
-                                                std::shared_ptr<Expression> rhs);
-
-ARROW_DS_EXPORT std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions);
-
-ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
-
-ARROW_DS_EXPORT std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand);
-
-ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
-
 inline std::shared_ptr<Expression> scalar(std::shared_ptr<Scalar> value) {
   return std::make_shared<ScalarExpression>(std::move(value));
 }
@@ -490,43 +472,6 @@ template <typename T>
 auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
   return scalar(MakeScalar(std::forward<T>(value)));
 }
-
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                      \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                            \
-      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) { \
-    return std::make_shared<ComparisonExpression>(CompareOperator::NAME, lhs, rhs);     \
-  }                                                                                     \
-                                                                                        \
-  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<     \
-                            Expression, typename std::decay<T>::type>::value>::type>    \
-  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                    \
-    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(),                      \
-                                scalar(std::forward<T>(rhs)));                          \
-  }                                                                                     \
-                                                                                        \
-  inline ComparisonExpression operator OP(const Expression& lhs,                        \
-                                          const Expression& rhs) {                      \
-    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(), rhs.Copy());         \
-  }
-COMPARISON_FACTORY(EQUAL, equal, ==)
-COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
-COMPARISON_FACTORY(GREATER, greater, >)
-COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
-COMPARISON_FACTORY(LESS, less, <)
-COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
-#undef COMPARISON_FACTORY
-
-inline std::shared_ptr<Expression> field_ref(std::string name) {
-  return std::make_shared<FieldExpression>(std::move(name));
-}
-
-inline namespace string_literals {
-// clang-format off
-inline FieldExpression operator"" _(const char* name, size_t name_length) {
-  // clang-format on
-  return FieldExpression({name, name_length});
-}
-}  // namespace string_literals
 
 template <typename T, typename Enable>
 bool Expression::Equals(T&& t) const {

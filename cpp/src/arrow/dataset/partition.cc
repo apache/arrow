@@ -49,81 +49,47 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
-      return scalar(true);
+    Result<Expression2> Parse(const std::string& path) const override {
+      return literal(true);
     }
 
-    Result<std::string> Format(const Expression& expr) const override {
+    Result<std::string> Format(const Expression2& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
 
     Result<PartitionedBatches> Partition(
         const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {scalar(true)}};
+      return PartitionedBatches{{batch}, {literal(true)}};
     }
   };
 
   return std::make_shared<DefaultPartitioning>();
 }
 
-Status KeyValuePartitioning::VisitKeys(
-    const Expression& expr,
-    const std::function<Status(const std::string& name,
-                               const std::shared_ptr<Scalar>& value)>& visitor) {
-  return VisitConjunctionMembers(expr, [visitor](const Expression& expr) {
-    if (expr.type() != ExpressionType::COMPARISON) {
-      return Status::OK();
-    }
-
-    const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
-    if (cmp.op() != compute::CompareOperator::EQUAL) {
-      return Status::OK();
-    }
-
-    auto lhs = cmp.left_operand().get();
-    auto rhs = cmp.right_operand().get();
-    if (lhs->type() != ExpressionType::FIELD) std::swap(lhs, rhs);
-
-    if (lhs->type() != ExpressionType::FIELD || rhs->type() != ExpressionType::SCALAR) {
-      return Status::OK();
-    }
-
-    return visitor(checked_cast<const FieldExpression*>(lhs)->name(),
-                   checked_cast<const ScalarExpression*>(rhs)->value());
-  });
-}
-
-Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>>
-KeyValuePartitioning::GetKeys(const Expression& expr) {
-  std::unordered_map<std::string, std::shared_ptr<Scalar>> keys;
-  RETURN_NOT_OK(
-      VisitKeys(expr, [&](const std::string& name, const std::shared_ptr<Scalar>& value) {
-        keys.emplace(name, value);
-        return Status::OK();
-      }));
-  return keys;
-}
-
-Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
+Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression2& expr,
                                                       RecordBatchProjector* projector) {
-  return KeyValuePartitioning::VisitKeys(
-      expr, [projector](const std::string& name, const std::shared_ptr<Scalar>& value) {
-        ARROW_ASSIGN_OR_RAISE(auto match,
-                              FieldRef(name).FindOneOrNone(*projector->schema()));
-        if (!match) {
-          return Status::OK();
-        }
-        return projector->SetDefaultValue(match, value);
-      });
+  ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
+  for (const auto& ref_value : known_values) {
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          ref_value.first.FindOneOrNone(*projector->schema()));
+
+    if (!match) continue;
+    RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
+  }
+  return Status::OK();
 }
 
 inline std::shared_ptr<Expression> ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
-  ExpressionVector equality_expressions(values->size());
+  std::vector<Expression2> equality_expressions(values->size());
   for (size_t i = 0; i < values->size(); ++i) {
     const std::string& name = row->type->field(static_cast<int>(i))->name();
-    equality_expressions[i] = equal(field_ref(name), scalar(std::move(values->at(i))));
+    equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
   }
   return and_(std::move(equality_expressions));
 }
@@ -147,7 +113,7 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
 
   if (by_fields.empty()) {
     // no fields to group by; return the whole batch
-    return PartitionedBatches{{batch}, {scalar(true)}};
+    return PartitionedBatches{{batch}, {literal(true)}};
   }
 
   ARROW_ASSIGN_OR_RAISE(auto by,
@@ -168,11 +134,10 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   return out;
 }
 
-Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
-    const Key& key) const {
+Result<Expression2> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
   if (!match) {
-    return scalar(true);
+    return literal(true);
   }
 
   auto field_index = match[0];
@@ -209,41 +174,49 @@ Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), key.value));
   }
 
-  return equal(field_ref(field->name()), scalar(std::move(converted)));
+  return equal(field_ref(field->name()), literal(std::move(converted)));
 }
 
-Result<std::shared_ptr<Expression>> KeyValuePartitioning::Parse(
-    const std::string& path) const {
-  ExpressionVector expressions;
+Result<Expression2> KeyValuePartitioning::Parse(const std::string& path) const {
+  std::vector<Expression2> expressions;
 
   for (const Key& key : ParseKeys(path)) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
-
-    if (expr->Equals(true)) continue;
-
+    if (expr == literal(true)) continue;
     expressions.push_back(std::move(expr));
   }
 
-  return and_(std::move(expressions));
+  auto parsed = and_(std::move(expressions));
+  ARROW_ASSIGN_OR_RAISE(std::tie(parsed, std::ignore), parsed.Bind(*schema_))
+  return parsed;
 }
 
-Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
+Result<std::string> KeyValuePartitioning::Format(const Expression2& expr) const {
+  if (!expr.IsBound()) {
+    return Status::Invalid("formatted partition expressions must be bound");
+  }
+
   std::vector<Scalar*> values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
-  RETURN_NOT_OK(VisitKeys(expr, [&](const std::string& name,
-                                    const std::shared_ptr<Scalar>& value) {
-    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(name).FindOneOrNone(*schema_));
-    if (match) {
-      const auto& field = schema_->field(match[0]);
-      if (!value->type->Equals(field->type())) {
-        return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
-                                 ") is invalid for ", field->ToString());
-      }
-
-      values[match[0]] = value.get();
+  ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
+  for (const auto& ref_value : known_values) {
+    if (!ref_value.second.is_scalar()) {
+      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }
-    return Status::OK();
-  }));
+
+    ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
+    if (!match) continue;
+
+    const auto& value = ref_value.second.scalar();
+
+    const auto& field = schema_->field(match[0]);
+    if (!value->type->Equals(field->type())) {
+      return Status::TypeError("scalar ", value->ToString(), " (of type ", *value->type,
+                               ") is invalid for ", field->ToString());
+    }
+
+    values[match[0]] = value.get();
+  }
 
   return FormatValues(values);
 }

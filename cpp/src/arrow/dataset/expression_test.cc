@@ -28,6 +28,7 @@
 
 #include "arrow/compute/registry.h"
 #include "arrow/dataset/expression_internal.h"
+#include "arrow/dataset/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
 using testing::UnorderedElementsAreArray;
@@ -38,11 +39,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
-
-const Schema kBoringSchema{{
-    field("i32", int32()),
-    field("f32", float32()),
-}};
 
 #define EXPECT_OK ARROW_EXPECT_OK
 
@@ -89,6 +85,78 @@ TEST(Expression2, Hash) {
   EXPECT_TRUE(set.emplace(call("widgetify", {})).second);
 
   EXPECT_EQ(set.size(), 6);
+}
+
+TEST(Expression2, IsScalarExpression) {
+  EXPECT_TRUE(literal(true).IsScalarExpression());
+
+  auto arr = ArrayFromJSON(int8(), "[]");
+  EXPECT_FALSE(literal(arr).IsScalarExpression());
+
+  EXPECT_TRUE(field_ref("a").IsScalarExpression());
+
+  EXPECT_TRUE(equal(field_ref("a"), literal(1)).IsScalarExpression());
+
+  EXPECT_FALSE(equal(field_ref("a"), literal(arr)).IsScalarExpression());
+
+  EXPECT_TRUE(call("is_in", {field_ref("a")}, compute::SetLookupOptions{arr, true})
+                  .IsScalarExpression());
+
+  // non scalar function
+  EXPECT_FALSE(call("take", {field_ref("a"), literal(arr)}).IsScalarExpression());
+}
+
+TEST(Expression2, IsSatisfiable) {
+  EXPECT_TRUE(literal(true).IsSatisfiable());
+  EXPECT_FALSE(literal(false).IsSatisfiable());
+
+  auto null = std::make_shared<BooleanScalar>();
+  EXPECT_FALSE(literal(null).IsSatisfiable());
+
+  EXPECT_TRUE(field_ref("a").IsSatisfiable());
+
+  EXPECT_TRUE(equal(field_ref("a"), literal(1)).IsSatisfiable());
+
+  // NB: no constant folding here
+  EXPECT_TRUE(equal(literal(0), literal(1)).IsSatisfiable());
+
+  // When a top level conjunction contains an Expression2 which is certain to evaluate to
+  // null, it can only evaluate to null or false.
+  auto null_or_false = and_(literal(null), field_ref("a"));
+  // This may appear in satisfiable filters if coalesced
+  EXPECT_TRUE(call("is_null", {null_or_false}).IsSatisfiable());
+  // ... but at the top level it is not satisfiable.
+  // This special case arises when (for example) an absent column has made
+  // one member of the conjunction always-null. This is fairly common and
+  // would be a worthwhile optimization to support.
+  // EXPECT_FALSE(null_or_false).IsSatisfiable());
+}
+
+TEST(Expression2, FieldsInExpression) {
+  auto ExpectFieldsAre = [](Expression2 expr, std::vector<FieldRef> expected) {
+    EXPECT_THAT(FieldsInExpression(expr), testing::ContainerEq(expected));
+  };
+
+  ExpectFieldsAre(literal(true), {});
+
+  ExpectFieldsAre(field_ref("a"), {"a"});
+
+  ExpectFieldsAre(equal(field_ref("a"), literal(1)), {"a"});
+
+  ExpectFieldsAre(equal(field_ref("a"), field_ref("b")), {"a", "b"});
+
+  ExpectFieldsAre(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("a"), literal(2))),
+      {"a", "a"});
+
+  ExpectFieldsAre(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("b"), literal(2))),
+      {"a", "b"});
+
+  ExpectFieldsAre(or_(and_(not_(equal(field_ref("a"), literal(1))),
+                           equal(field_ref("b"), literal(2))),
+                      not_(less(field_ref("c"), literal(3)))),
+                  {"a", "b", "c"});
 }
 
 TEST(Expression2, BindLiteral) {
@@ -161,6 +229,18 @@ TEST(Expression2, BindCall) {
                 expr.Bind(Schema({field("a", int32()), field("b", int32())})));
 }
 
+TEST(Expression2, BindDictionaryTransparent) {
+  auto expr = call("equal", {field_ref("a"), field_ref("b")});
+  EXPECT_FALSE(expr.IsBound());
+
+  ASSERT_OK_AND_ASSIGN(
+      std::tie(expr, std::ignore),
+      expr.Bind(Schema({field("a", utf8()), field("b", dictionary(int32(), utf8()))})));
+
+  EXPECT_EQ(expr.descr(), ValueDescr::Array(boolean()));
+  EXPECT_TRUE(expr.IsBound());
+}
+
 TEST(Expression2, BindNestedCall) {
   auto expr =
       call("add", {field_ref("a"),
@@ -208,34 +288,47 @@ TEST(Expression2, ExecuteFieldRef) {
     {"a": 0.0},
     {"a": -1}
   ])"),
-              MakeNullScalar(float64()));
+              MakeNullScalar(null()));
 }
 
-Result<Datum> NaiveExecuteScalarExpression(const Expression2& expr,
-                                           ExpressionState* state, const Datum& input) {
+Result<Datum> NaiveExecuteScalarExpression(const Expression2& expr, const Datum& input) {
   auto call = expr.call();
   if (call == nullptr) {
     // already tested execution of field_ref, execution of literal is trivial
-    return ExecuteScalarExpression(expr, state, input);
+    return ExecuteScalarExpression(expr, /*state=*/nullptr, input);
   }
-
-  auto call_state = checked_cast<CallState*>(state);
 
   std::vector<Datum> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
-    auto argument_state = call_state->argument_states[i].get();
-    ARROW_ASSIGN_OR_RAISE(arguments[i], NaiveExecuteScalarExpression(
-                                            call->arguments[i], argument_state, input));
+    ARROW_ASSIGN_OR_RAISE(arguments[i],
+                          NaiveExecuteScalarExpression(call->arguments[i], input));
 
-    EXPECT_EQ(call->arguments[i].descr(), arguments[i].descr());
+    if (RequriesDictionaryTransparency(*call)) {
+      RETURN_NOT_OK(EnsureNotDictionary(&arguments[i]));
+    }
   }
 
   ARROW_ASSIGN_OR_RAISE(auto function,
                         compute::GetFunctionRegistry()->GetFunction(call->function));
-  ARROW_ASSIGN_OR_RAISE(auto expected_kernel,
-                        function->DispatchExact(GetDescriptors(call->arguments)));
+
+  auto descrs = GetDescriptors(call->arguments);
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    if (RequriesDictionaryTransparency(*call)) {
+      RETURN_NOT_OK(EnsureNotDictionary(&descrs[i]));
+    }
+    EXPECT_EQ(arguments[i].descr(), descrs[i]);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto expected_kernel, function->DispatchExact(descrs));
 
   EXPECT_EQ(call->kernel, expected_kernel);
+
+  auto options = call->options;
+  if (RequriesDictionaryTransparency(*call)) {
+    auto non_dict_call = *call;
+    RETURN_NOT_OK(EnsureNotDictionary(&non_dict_call));
+    options = non_dict_call.options;
+  }
 
   compute::ExecContext exec_context;
   return function->Execute(arguments, call->options.get(), &exec_context);
@@ -247,8 +340,7 @@ void AssertExecute(Expression2 expr, Datum in) {
 
   ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, state.get(), in));
 
-  ASSERT_OK_AND_ASSIGN(Datum expected,
-                       NaiveExecuteScalarExpression(expr, state.get(), in));
+  ASSERT_OK_AND_ASSIGN(Datum expected, NaiveExecuteScalarExpression(expr, in));
 
   AssertDatumsEqual(actual, expected, /*verbose=*/true);
 }
@@ -277,7 +369,7 @@ TEST(Expression2, ExecuteCall) {
     {"a": "12/11/1900"}
   ])"));
 
-  AssertExecute(project({"a + 3.5"}, {call("add", {field_ref("a"), literal(3.5)})}),
+  AssertExecute(project({call("add", {field_ref("a"), literal(3.5)})}, {"a + 3.5"}),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
@@ -285,18 +377,51 @@ TEST(Expression2, ExecuteCall) {
   ])"));
 }
 
+TEST(Expression2, ExecuteDictionaryTransparent) {
+  AssertExecute(
+      equal(field_ref("a"), field_ref("b")),
+      ArrayFromJSON(
+          struct_({field("a", dictionary(int32(), utf8())), field("b", utf8())}), R"([
+    {"a": "hi", "b": "hi"},
+    {"a": "",   "b": ""},
+    {"a": "hi", "b": "hello"}
+  ])"));
+
+  Datum dict_set = ArrayFromJSON(dictionary(int32(), utf8()), R"(["a"])");
+  AssertExecute(call("is_in", {field_ref("a")},
+                     compute::SetLookupOptions{dict_set,
+                                               /*skip_nulls=*/false}),
+                ArrayFromJSON(struct_({field("a", utf8())}), R"([
+    {"a": "a"},
+    {"a": "good"},
+    {"a": null}
+  ])"));
+}
+
 struct {
   void operator()(Expression2 expr, Expression2 expected) {
-    std::shared_ptr<ExpressionState> state;
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, state), expr.Bind(kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(std::tie(expected, std::ignore), expected.Bind(kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto actual, FoldConstants(expr, state.get()));
-    EXPECT_EQ(actual, expected);
-    if (actual == expr) {
-      // no change -> must be identical
-      EXPECT_TRUE(Identical(actual, expr));
-    }
+    this->operator()(expr, expected,
+                     [](Expression2::BoundWithState, Expression2::BoundWithState,
+                        Expression2::BoundWithState) {});
   }
+
+  template <typename ExtraExpectations>
+  void operator()(Expression2 expr, Expression2 unbound_expected,
+                  const ExtraExpectations& expect) {
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto folded, FoldConstants(bound));
+
+    EXPECT_EQ(folded.first, expected.first);
+
+    if (folded.first == expr) {
+      // no change -> must be identical
+      EXPECT_TRUE(Identical(folded.first, expr));
+    }
+
+    expect(bound, folded, expected);
+  }
+
 } ExpectFoldsTo;
 
 TEST(Expression2, FoldConstants) {
@@ -345,6 +470,21 @@ TEST(Expression2, FoldConstants) {
                                      }),
                                 literal(2),
                             }));
+
+  compute::SetLookupOptions in_123(ArrayFromJSON(int32(), "[1,2,3]"), true);
+  ExpectFoldsTo(
+      call("is_in",
+           {call("add", {field_ref("i32"), call("multiply", {literal(2), literal(3)})})},
+           in_123),
+      call("is_in", {call("add", {field_ref("i32"), literal(6)})}, in_123),
+      [](Expression2::BoundWithState bound, Expression2::BoundWithState folded,
+         Expression2::BoundWithState) {
+        const compute::KernelState* state = bound.second->Get(bound.first);
+        const compute::KernelState* folded_state = folded.second->Get(folded.first);
+        EXPECT_EQ(folded_state, state) << "The kernel state associated with is_in (the "
+                                          "hash table for looking up membership) "
+                                          "must be associated with the folded is_in call";
+      });
 }
 
 TEST(Expression2, FoldConstantsBoolean) {
@@ -356,113 +496,113 @@ TEST(Expression2, FoldConstantsBoolean) {
   auto true_ = literal(true);
   auto false_ = literal(false);
 
-  ExpectFoldsTo(call("and_kleene", {false_, whatever}), false_);
-  ExpectFoldsTo(call("and_kleene", {true_, whatever}), whatever);
+  ExpectFoldsTo(and_(false_, whatever), false_);
+  ExpectFoldsTo(and_(true_, whatever), whatever);
 
-  ExpectFoldsTo(call("or_kleene", {true_, whatever}), true_);
-  ExpectFoldsTo(call("or_kleene", {false_, whatever}), whatever);
+  ExpectFoldsTo(or_(true_, whatever), true_);
+  ExpectFoldsTo(or_(false_, whatever), whatever);
 }
 
 TEST(Expression2, ExtractKnownFieldValues) {
   struct {
     void operator()(Expression2 guarantee,
                     std::unordered_map<FieldRef, Datum, FieldRef::Hash> expected) {
+      ASSERT_OK_AND_ASSIGN(std::tie(guarantee, std::ignore),
+                           guarantee.Bind(*kBoringSchema));
       ASSERT_OK_AND_ASSIGN(auto actual, ExtractKnownFieldValues(guarantee));
-      EXPECT_THAT(actual, UnorderedElementsAreArray(expected));
+      EXPECT_THAT(actual, UnorderedElementsAreArray(expected))
+          << "  guarantee: " << guarantee.ToString();
     }
   } ExpectKnown;
 
-  ExpectKnown(call("equal", {field_ref("a"), literal(3)}), {{"a", Datum(3)}});
+  ExpectKnown(equal(field_ref("i32"), literal(3)), {{"i32", Datum(3)}});
 
-  ExpectKnown(call("greater", {field_ref("a"), literal(3)}), {});
+  ExpectKnown(greater(field_ref("i32"), literal(3)), {});
 
   // FIXME known null should be expressed with is_null rather than equality
   auto null_int32 = std::make_shared<Int32Scalar>();
-  ExpectKnown(call("equal", {field_ref("a"), literal(null_int32)}),
-              {{"a", Datum(null_int32)}});
-
-  ExpectKnown(call("and_kleene", {call("equal", {field_ref("a"), literal(3)}),
-                                  call("equal", {literal(1), field_ref("b")})}),
-              {{"a", Datum(3)}, {"b", Datum(1)}});
-
-  ExpectKnown(call("and_kleene",
-                   {call("equal", {field_ref("a"), literal(3)}),
-                    call("and_kleene", {call("equal", {field_ref("b"), literal(2)}),
-                                        call("equal", {literal(1), field_ref("c")})})}),
-              {{"a", Datum(3)}, {"b", Datum(2)}, {"c", Datum(1)}});
-
-  ExpectKnown(call("and_kleene",
-                   {call("or_kleene", {call("equal", {field_ref("a"), literal(3)}),
-                                       call("equal", {field_ref("a"), literal(4)})}),
-                    call("equal", {literal(1), field_ref("b")})}),
-              {{"b", Datum(1)}});
+  ExpectKnown(equal(field_ref("i32"), literal(null_int32)), {{"i32", Datum(null_int32)}});
 
   ExpectKnown(
-      call("and_kleene",
-           {call("equal", {field_ref("a"), literal(3)}),
-            call("and_kleene", {call("and_kleene", {field_ref("b"), field_ref("d")}),
-                                call("equal", {literal(1), field_ref("c")})})}),
-      {{"a", Datum(3)}, {"c", Datum(1)}});
+      and_({equal(field_ref("i32"), literal(3)), equal(literal(1.5F), field_ref("f32"))}),
+      {{"i32", Datum(3)}, {"f32", Datum(1.5F)}});
+
+  ExpectKnown(
+      and_({equal(field_ref("i32"), literal(3)), equal(literal(2.F), field_ref("f32")),
+            equal(literal(1), field_ref("i32_req"))}),
+      {{"i32", Datum(3)}, {"f32", Datum(2.F)}, {"i32_req", Datum(1)}});
+
+  ExpectKnown(
+      and_(or_(equal(field_ref("i32"), literal(3)), equal(field_ref("i32"), literal(4))),
+           equal(literal(2.F), field_ref("f32"))),
+      {{"f32", Datum(2.F)}});
+
+  ExpectKnown(and_({equal(field_ref("i32"), literal(3)),
+                    equal(field_ref("f32"), field_ref("f32_req")),
+                    equal(literal(1), field_ref("i32_req"))}),
+              {{"i32", Datum(3)}, {"i32_req", Datum(1)}});
 }
 
 TEST(Expression2, ReplaceFieldsWithKnownValues) {
-  auto ExpectSimplifiesTo =
+  auto ExpectReplacesTo =
       [](Expression2 expr,
          std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values,
-         Expression2 expected) {
-        ASSERT_OK_AND_ASSIGN(auto actual,
-                             ReplaceFieldsWithKnownValues(known_values, expr));
-        EXPECT_EQ(actual, expected);
+         Expression2 unbound_expected) {
+        ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(auto replaced,
+                             ReplaceFieldsWithKnownValues(known_values, bound));
 
-        if (actual == expr) {
+        EXPECT_EQ(replaced.first, expected.first);
+
+        if (replaced.first == expr) {
           // no change -> must be identical
-          EXPECT_TRUE(Identical(actual, expr));
+          EXPECT_TRUE(Identical(replaced.first, expr));
         }
       };
 
-  std::unordered_map<FieldRef, Datum, FieldRef::Hash> a_is_3{{"a", Datum(3)}};
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_is_3{{"i32", Datum(3)}};
 
-  ExpectSimplifiesTo(literal(1), a_is_3, literal(1));
+  ExpectReplacesTo(literal(1), i32_is_3, literal(1));
 
-  ExpectSimplifiesTo(field_ref("a"), a_is_3, literal(3));
+  ExpectReplacesTo(field_ref("i32"), i32_is_3, literal(3));
 
-  ExpectSimplifiesTo(field_ref("b"), a_is_3, field_ref("b"));
+  ExpectReplacesTo(field_ref("b"), i32_is_3, field_ref("b"));
 
-  ExpectSimplifiesTo(call("equal", {field_ref("a"), literal(1)}), a_is_3,
-                     call("equal", {literal(3), literal(1)}));
+  ExpectReplacesTo(equal(field_ref("i32"), literal(1)), i32_is_3,
+                   equal(literal(3), literal(1)));
 
-  ExpectSimplifiesTo(call("add",
-                          {
-                              call("subtract",
-                                   {
-                                       field_ref("a"),
-                                       call("multiply", {literal(2), literal(3)}),
-                                   }),
-                              literal(2),
-                          }),
-                     a_is_3,
-                     call("add", {
-                                     call("subtract",
-                                          {
-                                              literal(3),
-                                              call("multiply", {literal(2), literal(3)}),
-                                          }),
-                                     literal(2),
-                                 }));
+  ExpectReplacesTo(call("add",
+                        {
+                            call("subtract",
+                                 {
+                                     field_ref("i32"),
+                                     call("multiply", {literal(2), literal(3)}),
+                                 }),
+                            literal(2),
+                        }),
+                   i32_is_3,
+                   call("add", {
+                                   call("subtract",
+                                        {
+                                            literal(3),
+                                            call("multiply", {literal(2), literal(3)}),
+                                        }),
+                                   literal(2),
+                               }));
 }
 
 struct {
-  void operator()(Expression2 expr, Expression2 expected) const {
-    ASSERT_OK_AND_ASSIGN(auto actual, Canonicalize(expr));
-    EXPECT_EQ(actual, expected);
+  void operator()(Expression2 expr, Expression2 unbound_expected) const {
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto actual, Canonicalize(bound));
 
-    if (expr.IsBound()) {
-      EXPECT_TRUE(actual.IsBound());
-    }
+    EXPECT_EQ(actual.first, expected.first);
 
-    if (actual == expr) {
+    if (actual.first == expr) {
       // no change -> must be identical
-      EXPECT_TRUE(Identical(actual, expr));
+      EXPECT_TRUE(Identical(actual.first, expr));
     }
   }
 } ExpectCanonicalizesTo;
@@ -472,8 +612,8 @@ TEST(Expression2, CanonicalizeTrivial) {
 
   ExpectCanonicalizesTo(field_ref("b"), field_ref("b"));
 
-  ExpectCanonicalizesTo(call("equal", {field_ref("a"), field_ref("b")}),
-                        call("equal", {field_ref("a"), field_ref("b")}));
+  ExpectCanonicalizesTo(equal(field_ref("i32"), field_ref("i32_req")),
+                        equal(field_ref("i32"), field_ref("i32_req")));
 }
 
 TEST(Expression2, CanonicalizeAnd) {
@@ -481,95 +621,79 @@ TEST(Expression2, CanonicalizeAnd) {
   auto true_ = literal(true);
   auto null_ = literal(std::make_shared<BooleanScalar>());
 
-  auto a = field_ref("a");
+  auto b = field_ref("bool");
   auto c = call("equal", {literal(1), literal(2)});
 
-  auto and_ = [](Expression2 l, Expression2 r) { return call("and_kleene", {l, r}); };
-
   // no change possible:
-  ExpectCanonicalizesTo(and_(a, c), and_(a, c));
+  ExpectCanonicalizesTo(and_(b, c), and_(b, c));
 
   // literals are placed innermost
-  ExpectCanonicalizesTo(and_(a, true_), and_(true_, a));
-  ExpectCanonicalizesTo(and_(true_, a), and_(true_, a));
+  ExpectCanonicalizesTo(and_(b, true_), and_(true_, b));
+  ExpectCanonicalizesTo(and_(true_, b), and_(true_, b));
 
-  ExpectCanonicalizesTo(and_(a, and_(true_, c)), and_(and_(true_, a), c));
-  ExpectCanonicalizesTo(and_(a, and_(and_(true_, true_), c)),
-                        and_(and_(and_(true_, true_), a), c));
-  ExpectCanonicalizesTo(and_(a, and_(and_(true_, null_), c)),
-                        and_(and_(and_(null_, true_), a), c));
-  ExpectCanonicalizesTo(and_(a, and_(and_(true_, null_), and_(c, null_))),
-                        and_(and_(and_(and_(null_, null_), true_), a), c));
+  ExpectCanonicalizesTo(and_(b, and_(true_, c)), and_(and_(true_, b), c));
+  ExpectCanonicalizesTo(and_(b, and_(and_(true_, true_), c)),
+                        and_(and_(and_(true_, true_), b), c));
+  ExpectCanonicalizesTo(and_(b, and_(and_(true_, null_), c)),
+                        and_(and_(and_(null_, true_), b), c));
+  ExpectCanonicalizesTo(and_(b, and_(and_(true_, null_), and_(c, null_))),
+                        and_(and_(and_(and_(null_, null_), true_), b), c));
 
   // catches and_kleene even when it's a subexpression
-  ExpectCanonicalizesTo(call("is_valid", {and_(a, true_)}),
-                        call("is_valid", {and_(true_, a)}));
+  ExpectCanonicalizesTo(call("is_valid", {and_(b, true_)}),
+                        call("is_valid", {and_(true_, b)}));
 }
 
 TEST(Expression2, CanonicalizeComparison) {
-  // some aliases for brevity:
-  auto equal = [](Expression2 l, Expression2 r) { return call("equal", {l, r}); };
-  auto less = [](Expression2 l, Expression2 r) { return call("less", {l, r}); };
-  auto greater = [](Expression2 l, Expression2 r) { return call("greater", {l, r}); };
+  ExpectCanonicalizesTo(equal(literal(1), field_ref("i32")),
+                        equal(field_ref("i32"), literal(1)));
 
-  ExpectCanonicalizesTo(equal(literal(1), field_ref("a")),
-                        equal(field_ref("a"), literal(1)));
+  ExpectCanonicalizesTo(equal(field_ref("i32"), literal(1)),
+                        equal(field_ref("i32"), literal(1)));
 
-  ExpectCanonicalizesTo(equal(field_ref("a"), literal(1)),
-                        equal(field_ref("a"), literal(1)));
+  ExpectCanonicalizesTo(less(literal(1), field_ref("i32")),
+                        greater(field_ref("i32"), literal(1)));
 
-  ExpectCanonicalizesTo(less(literal(1), field_ref("a")),
-                        greater(field_ref("a"), literal(1)));
-
-  ExpectCanonicalizesTo(less(field_ref("a"), literal(1)),
-                        less(field_ref("a"), literal(1)));
+  ExpectCanonicalizesTo(less(field_ref("i32"), literal(1)),
+                        less(field_ref("i32"), literal(1)));
 }
 
 struct Simplify {
-  Expression2 filter;
+  Expression2 expr;
 
   struct Expectable {
-    Expression2 filter, guarantee;
+    Expression2 expr, guarantee;
 
-    void Expect(Expression2 expected) {
-      std::shared_ptr<ExpressionState> state;
-      ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(kBoringSchema));
+    void Expect(Expression2 unbound_expected) {
+      ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(std::tie(guarantee, std::ignore),
+                           guarantee.Bind(*kBoringSchema));
 
-      ASSERT_OK_AND_ASSIGN(std::tie(expected, std::ignore), expected.Bind(kBoringSchema));
-      ASSERT_OK_AND_ASSIGN(auto simplified,
-                           SimplifyWithGuarantee(filter, state.get(), guarantee));
-      EXPECT_EQ(simplified, expected) << "  original:   " << filter.ToString() << "\n"
-                                      << "  guarantee:  " << guarantee.ToString() << "\n"
-                                      << (simplified == filter ? "  (no change)\n" : "");
+      ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(bound, guarantee));
 
-      if (simplified == filter) {
-        EXPECT_TRUE(Identical(simplified, filter));
+      ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+      EXPECT_EQ(simplified.first, expected.first)
+          << "  original:   " << expr.ToString() << "\n"
+          << "  guarantee:  " << guarantee.ToString() << "\n"
+          << (simplified.first == bound.first ? "  (no change)\n" : "");
+
+      if (simplified.first == bound.first) {
+        EXPECT_TRUE(Identical(simplified.first, bound.first));
       }
     }
-    void ExpectUnchanged() { Expect(filter); }
+    void ExpectUnchanged() { Expect(expr); }
     void Expect(bool constant) { Expect(literal(constant)); }
   };
 
-  Expectable WithGuarantee(Expression2 guarantee) { return {filter, guarantee}; }
+  Expectable WithGuarantee(Expression2 guarantee) { return {expr, guarantee}; }
 };
 
 TEST(Expression2, SingleComparisonGuarantees) {
-  // some aliases for brevity:
-  auto equal = [](Expression2 l, Expression2 r) { return call("equal", {l, r}); };
-  auto less = [](Expression2 l, Expression2 r) { return call("less", {l, r}); };
-  auto greater = [](Expression2 l, Expression2 r) { return call("greater", {l, r}); };
-  auto not_equal = [](Expression2 l, Expression2 r) { return call("not_equal", {l, r}); };
-  auto less_equal = [](Expression2 l, Expression2 r) {
-    return call("less_equal", {l, r});
-  };
-  auto greater_equal = [](Expression2 l, Expression2 r) {
-    return call("greater_equal", {l, r});
-  };
   auto i32 = field_ref("i32");
 
   // i32 is guaranteed equal to 3, so the projection can just materialize that constant
   // and need not incur IO
-  Simplify{project({"i32 + 1"}, {call("add", {i32, literal(1)})})}
+  Simplify{project({call("add", {i32, literal(1)})}, {"i32 + 1"})}
       .WithGuarantee(equal(i32, literal(3)))
       .Expect(literal(
           std::make_shared<StructScalar>(ScalarVector{std::make_shared<Int32Scalar>(4)},
@@ -658,7 +782,7 @@ TEST(Expression2, SingleComparisonGuarantees) {
                               {"i32"}));
 
         std::shared_ptr<ExpressionState> state;
-        ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(*kBoringSchema));
         ASSERT_OK_AND_ASSIGN(Datum evaluated,
                              ExecuteScalarExpression(filter, state.get(), input));
 
@@ -681,48 +805,135 @@ TEST(Expression2, SingleComparisonGuarantees) {
 
 TEST(Expression2, SimplifyWithGuarantee) {
   // drop both members of a conjunctive filter
-  Simplify{call("and_kleene",
-                {
-                    call("equal", {field_ref("i32"), literal(2)}),
-                    call("equal", {field_ref("f32"), literal(3.5F)}),
-                })}
-      .WithGuarantee(call("and_kleene",
-                          {
-                              call("greater_equal", {field_ref("i32"), literal(0)}),
-                              call("less_equal", {field_ref("i32"), literal(1)}),
-                          }))
+  Simplify{
+      and_(equal(field_ref("i32"), literal(2)), equal(field_ref("f32"), literal(3.5F)))}
+      .WithGuarantee(and_(greater_equal(field_ref("i32"), literal(0)),
+                          less_equal(field_ref("i32"), literal(1))))
       .Expect(false);
 
   // drop one member of a conjunctive filter
-  Simplify{call("and_kleene",
-                {
-                    call("equal", {field_ref("i32"), literal(0)}),
-                    call("equal", {field_ref("f32"), literal(3.5F)}),
-                })}
-      .WithGuarantee(call("equal", {field_ref("i32"), literal(0)}))
-      .Expect(call("equal", {field_ref("f32"), literal(3.5F)}));
+  Simplify{
+      and_(equal(field_ref("i32"), literal(0)), equal(field_ref("f32"), literal(3.5F)))}
+      .WithGuarantee(equal(field_ref("i32"), literal(0)))
+      .Expect(equal(field_ref("f32"), literal(3.5F)));
 
   // drop both members of a disjunctive filter
-  Simplify{call("or_kleene",
-                {
-                    call("equal", {field_ref("i32"), literal(0)}),
-                    call("equal", {field_ref("f32"), literal(3.5F)}),
-                })}
-      .WithGuarantee(call("equal", {field_ref("i32"), literal(0)}))
+  Simplify{
+      or_(equal(field_ref("i32"), literal(0)), equal(field_ref("f32"), literal(3.5F)))}
+      .WithGuarantee(equal(field_ref("i32"), literal(0)))
       .Expect(true);
 
   // drop one member of a disjunctive filter
-  Simplify{call("or_kleene",
-                {
-                    call("equal", {field_ref("i32"), literal(0)}),
-                    call("equal", {field_ref("i32"), literal(3)}),
-                })}
-      .WithGuarantee(call("and_kleene",
-                          {
-                              call("greater_equal", {field_ref("i32"), literal(0)}),
-                              call("less_equal", {field_ref("i32"), literal(1)}),
-                          }))
-      .Expect(call("equal", {field_ref("i32"), literal(0)}));
+  Simplify{or_(equal(field_ref("i32"), literal(0)), equal(field_ref("i32"), literal(3)))}
+      .WithGuarantee(and_(greater_equal(field_ref("i32"), literal(0)),
+                          less_equal(field_ref("i32"), literal(1))))
+      .Expect(equal(field_ref("i32"), literal(0)));
+}
+
+TEST(Expression2, SimplifyThenExecute) {
+  auto filter =
+      and_({equal(field_ref("f32"), literal(0.F)),
+            call("is_in", {field_ref("i32")},
+                 compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true})});
+
+  ASSERT_OK_AND_ASSIGN(auto bound, filter.Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto guarantee,
+                       equal(field_ref("f32"), literal(0.F)).Bind(*kBoringSchema));
+
+  ASSERT_OK_AND_ASSIGN(bound, SimplifyWithGuarantee(bound, guarantee.first));
+
+  auto input = RecordBatchFromJSON(kBoringSchema, R"([
+      {"i32": 0, "f32": -0.1},
+      {"i32": 0, "f32":  0.3},
+      {"i32": 1, "f32":  0.2},
+      {"i32": 2, "f32": -0.1},
+      {"i32": 0, "f32":  0.1},
+      {"i32": 0, "f32": null},
+      {"i32": 0, "f32":  1.0}
+  ])");
+  ASSERT_OK_AND_ASSIGN(Datum evaluated,
+                       ExecuteScalarExpression(bound.first, bound.second.get(), input));
+}
+
+TEST(Expression2, Filter) {
+  auto ExpectFilter = [](Expression2 filter, std::string batch_json) {
+    ASSERT_OK_AND_ASSIGN(auto s, kBoringSchema->AddField(0, field("in", boolean())));
+    auto batch = RecordBatchFromJSON(s, batch_json);
+    auto expected_mask = batch->column(0);
+
+    std::shared_ptr<ExpressionState> state;
+    ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(Datum mask, ExecuteScalarExpression(filter, state.get(), batch));
+
+    AssertDatumsEqual(expected_mask, mask);
+  };
+
+  ExpectFilter(equal(field_ref("i32"), literal(0)), R"([
+      {"i32": 0, "f32": -0.1, "in": 1},
+      {"i32": 0, "f32":  0.3, "in": 1},
+      {"i32": 1, "f32":  0.2, "in": 0},
+      {"i32": 2, "f32": -0.1, "in": 0},
+      {"i32": 0, "f32":  0.1, "in": 1},
+      {"i32": 0, "f32": null, "in": 1},
+      {"i32": 0, "f32":  1.0, "in": 1}
+  ])");
+}
+
+TEST(Expression2, SerializationRoundTrips) {
+  auto ExpectRoundTrips = [](const Expression2& expr) {
+    ASSERT_OK_AND_ASSIGN(auto serialized, Serialize(expr));
+    ASSERT_OK_AND_ASSIGN(Expression2 roundtripped, Deserialize(*serialized));
+    EXPECT_EQ(expr, roundtripped);
+  };
+
+  ExpectRoundTrips(literal(MakeNullScalar(null())));
+
+  ExpectRoundTrips(literal(MakeNullScalar(int32())));
+
+  ExpectRoundTrips(
+      literal(MakeNullScalar(struct_({field("i", int32()), field("s", utf8())}))));
+
+  ExpectRoundTrips(literal(true));
+
+  ExpectRoundTrips(literal(false));
+
+  ExpectRoundTrips(literal(1));
+
+  ExpectRoundTrips(literal(1.125));
+
+  ExpectRoundTrips(literal("stringy strings"));
+
+  ExpectRoundTrips(field_ref("field"));
+
+  ExpectRoundTrips(greater(field_ref("a"), literal(0.25)));
+
+  ExpectRoundTrips(
+      or_({equal(field_ref("a"), literal(1)), not_equal(field_ref("b"), literal("hello")),
+           equal(field_ref("b"), literal("foo bar"))}));
+
+  ExpectRoundTrips(not_(field_ref("alpha")));
+
+  compute::CastOptions to_float64;
+  to_float64.to_type = float64();
+  ExpectRoundTrips(
+      call("is_in", {call("cast", {field_ref("version")}, to_float64)},
+           compute::SetLookupOptions{ArrayFromJSON(float64(), "[0.5, 1.0, 2.0]"), true}));
+
+  ExpectRoundTrips(call("is_valid", {field_ref("validity")}));
+
+  ExpectRoundTrips(and_({and_(greater_equal(field_ref("x"), literal(-1.5)),
+                              less(field_ref("x"), literal(0.0))),
+                         and_(greater_equal(field_ref("y"), literal(0.0)),
+                              less(field_ref("y"), literal(1.5))),
+                         and_(greater(field_ref("z"), literal(1.5)),
+                              less_equal(field_ref("z"), literal(3.0)))}));
+
+  ExpectRoundTrips(and_({equal(field_ref("year"), literal(int16_t(1999))),
+                         equal(field_ref("month"), literal(int8_t(12))),
+                         equal(field_ref("day"), literal(int8_t(31))),
+                         equal(field_ref("hour"), literal(int8_t(0))),
+                         equal(field_ref("alpha"), literal(int32_t(0))),
+                         equal(field_ref("beta"), literal(3.25f))}));
 }
 
 }  // namespace dataset

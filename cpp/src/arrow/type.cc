@@ -1501,7 +1501,7 @@ std::shared_ptr<Schema> Schema::WithMetadata(
   return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& Schema::metadata() const {
   return impl_->metadata_;
 }
 

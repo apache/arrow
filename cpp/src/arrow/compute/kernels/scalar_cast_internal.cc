@@ -191,6 +191,8 @@ void CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 }
 
 void CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (batch[0].is_scalar()) return;
+
   ArrayData* output = out->mutable_array();
   std::shared_ptr<Array> nulls;
   Status s = MakeArrayOfNull(output->type, batch.length).Value(&nulls);
@@ -251,7 +253,7 @@ static bool CanCastFromDictionary(Type::type type_id) {
 
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
   // From null to this type
-  DCHECK_OK(func->AddKernel(Type::NA, {InputType::Array(null())}, out_ty, CastFromNull));
+  DCHECK_OK(func->AddKernel(Type::NA, {null()}, out_ty, CastFromNull));
 
   // From dictionary to this type
   if (CanCastFromDictionary(out_type_id)) {

@@ -50,6 +50,43 @@
 namespace arrow {
 namespace dataset {
 
+const std::shared_ptr<Schema> kBoringSchema = schema({
+    field("i32", int32()),
+    field("i32_req", int32(), /*nullable=*/false),
+    field("f32", float32()),
+    field("f32_req", float32(), /*nullable=*/false),
+    field("bool", boolean()),
+});
+
+inline namespace string_literals {
+// clang-format off
+inline FieldExpression operator"" _(const char* name, size_t name_length) {
+  // clang-format on
+  return FieldExpression({name, name_length});
+}
+}  // namespace string_literals
+
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                   \
+  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<  \
+                            Expression, typename std::decay<T>::type>::value>::type> \
+  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                 \
+    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(),                   \
+                                scalar(std::forward<T>(rhs)));                       \
+  }                                                                                  \
+                                                                                     \
+  inline ComparisonExpression operator OP(const Expression& lhs,                     \
+                                          const Expression& rhs) {                   \
+    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(), rhs.Copy());      \
+  }
+
+COMPARISON_FACTORY(EQUAL, equal, ==)
+COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
+COMPARISON_FACTORY(GREATER, greater, >)
+COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
+COMPARISON_FACTORY(LESS, less, <)
+COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
+#undef COMPARISON_FACTORY
+
 using fs::internal::GetAbstractPathExtension;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -66,7 +103,7 @@ template <typename Gen>
 class GeneratedRecordBatch : public RecordBatchReader {
  public:
   GeneratedRecordBatch(std::shared_ptr<Schema> schema, Gen gen)
-      : schema_(schema), gen_(gen) {}
+      : schema_(std::move(schema)), gen_(gen) {}
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -101,8 +138,6 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
 
 class DatasetFixtureMixin : public ::testing::Test {
  public:
-  DatasetFixtureMixin() : ctx_(std::make_shared<ScanContext>()) {}
-
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
   void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
@@ -141,7 +176,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a dataset.
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    auto it = dataset->GetFragments(options_->filter);
+    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter2.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(auto it, dataset->GetFragments(predicate));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
@@ -186,11 +222,17 @@ class DatasetFixtureMixin : public ::testing::Test {
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     schema_ = schema(std::move(fields));
     options_ = ScanOptions::Make(schema_);
+    SetFilter(literal(true));
+  }
+
+  void SetFilter(Expression2 filter) {
+    ASSERT_OK_AND_ASSIGN(std::tie(options_->filter2, ctx_->expression_state),
+                         filter.Bind(*schema_));
   }
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> ctx_;
+  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 /// \brief A dummy FileFormat implementation
@@ -321,14 +363,13 @@ struct MakeFileSystemDatasetMixin {
   }
 
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
-                   std::shared_ptr<Expression> root_partition = scalar(true),
-                   ExpressionVector partitions = {}) {
+                   Expression2 root_partition = literal(true),
+                   std::vector<Expression2> partitions = {},
+                   std::shared_ptr<Schema> s = kBoringSchema) {
     auto n_fragments = infos.size();
     if (partitions.empty()) {
-      partitions.resize(n_fragments, scalar(true));
+      partitions.resize(n_fragments, literal(true));
     }
-
-    auto s = schema({});
 
     MakeFileSystem(infos);
     auto format = std::make_shared<DummyFileFormat>(s);
@@ -340,19 +381,15 @@ struct MakeFileSystemDatasetMixin {
         continue;
       }
 
+      ASSERT_OK_AND_ASSIGN(std::tie(partitions[i], std::ignore), partitions[i].Bind(*s));
       ASSERT_OK_AND_ASSIGN(auto fragment,
                            format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 
+    ASSERT_OK_AND_ASSIGN(std::tie(root_partition, std::ignore), root_partition.Bind(*s));
     ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format, fs_,
                                                            std::move(fragments)));
-  }
-
-  void MakeDatasetFromPathlist(const std::string& pathlist,
-                               std::shared_ptr<Expression> root_partition = scalar(true),
-                               ExpressionVector partitions = {}) {
-    MakeDataset(ParsePathList(pathlist), root_partition, partitions);
   }
 
   std::shared_ptr<fs::FileSystem> fs_;
@@ -387,49 +424,24 @@ void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> ex
               testing::UnorderedElementsAreArray(expected));
 }
 
-// A frozen shared_ptr<Expression> with behavior expected by GTest
-struct TestExpression : util::EqualityComparable<TestExpression>,
-                        util::ToStringOstreamable<TestExpression> {
-  // NOLINTNEXTLINE runtime/explicit
-  TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
-
-  // NOLINTNEXTLINE runtime/explicit
-  TestExpression(const Expression& e) : expression(e.Copy()) {}
-
-  std::shared_ptr<Expression> expression;
-
-  using util::EqualityComparable<TestExpression>::operator==;
-  bool Equals(const TestExpression& other) const {
-    return expression->Equals(other.expression);
-  }
-
-  std::string ToString() const { return expression->ToString(); }
-
-  friend bool operator==(const std::shared_ptr<Expression>& lhs,
-                         const TestExpression& rhs) {
-    return TestExpression(lhs) == rhs;
-  }
-
-  friend void PrintTo(const TestExpression& expr, std::ostream* os) {
-    *os << expr.ToString();
-  }
-};
-
-static std::vector<TestExpression> PartitionExpressionsOf(
-    const FragmentVector& fragments) {
-  std::vector<TestExpression> partition_expressions;
+static std::vector<Expression2> PartitionExpressionsOf(const FragmentVector& fragments) {
+  std::vector<Expression2> partition_expressions;
   std::transform(fragments.begin(), fragments.end(),
                  std::back_inserter(partition_expressions),
                  [](const std::shared_ptr<Fragment>& fragment) {
-                   return TestExpression(fragment->partition_expression());
+                   return fragment->partition_expression();
                  });
   return partition_expressions;
 }
 
-void AssertFragmentsHavePartitionExpressions(FragmentIterator it,
-                                             ExpressionVector expected) {
+void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
+                                             std::vector<Expression2> expected) {
+  ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
+  for (auto& expr : expected) {
+    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(*dataset->schema()));
+  }
   // Ordering is not guaranteed.
-  EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(it))),
+  EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
               testing::UnorderedElementsAreArray(expected));
 }
 
@@ -456,7 +468,7 @@ struct ArithmeticDatasetFixture {
   /// 2},
   static std::string JSONRecordFor(int64_t n) {
     std::stringstream ss;
-    int32_t n_i32 = static_cast<int32_t>(n);
+    auto n_i32 = static_cast<int32_t>(n);
 
     ss << "{";
     ss << "\"i64\": " << n << ", ";
@@ -579,6 +591,9 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
     scan_options_ = ScanOptions::Make(source_schema_);
+    ASSERT_OK_AND_ASSIGN(
+        std::tie(scan_options_->filter2, scan_context_->expression_state),
+        literal(true).Bind(*source_schema_));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
@@ -741,7 +756,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     }
     EXPECT_THAT(actual_paths, testing::UnorderedElementsAreArray(expected_paths));
 
-    for (auto maybe_fragment : written_->GetFragments()) {
+    ASSERT_OK_AND_ASSIGN(auto written_fragments_it, written_->GetFragments());
+    for (auto maybe_fragment : written_fragments_it) {
       ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
 
       ASSERT_OK_AND_ASSIGN(auto actual_physical_schema, fragment->ReadPhysicalSchema());

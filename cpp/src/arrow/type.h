@@ -1690,7 +1690,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// \brief The custom key-value metadata, if any
   ///
   /// \return metadata may be null
-  std::shared_ptr<const KeyValueMetadata> metadata() const;
+  const std::shared_ptr<const KeyValueMetadata>& metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
   /// \param[in] show_metadata when true, if KeyValueMetadata is non-empty,

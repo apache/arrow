@@ -70,6 +70,7 @@ Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
 Datum::Datum(std::string value)
     : value(std::make_shared<StringScalar>(std::move(value))) {}
+Datum::Datum(const char* value) : value(std::make_shared<StringScalar>(value)) {}
 
 Datum::Datum(const ChunkedArray& value)
     : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
@@ -197,6 +198,8 @@ static std::string FormatValueDescr(const ValueDescr& descr) {
 }
 
 std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
+
+void PrintTo(const ValueDescr& descr, std::ostream* os) { *os << descr.ToString(); }
 
 std::string Datum::ToString() const {
   switch (this->kind()) {

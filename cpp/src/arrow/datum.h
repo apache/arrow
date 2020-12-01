@@ -89,6 +89,8 @@ struct ARROW_EXPORT ValueDescr {
   bool operator!=(const ValueDescr& other) const { return !(*this == other); }
 
   std::string ToString() const;
+
+  ARROW_EXPORT friend void PrintTo(const ValueDescr&, std::ostream*);
 };
 
 /// \brief For use with scalar functions, returns the broadcasted Value::Shape
@@ -161,6 +163,7 @@ struct ARROW_EXPORT Datum {
   explicit Datum(float value);
   explicit Datum(double value);
   explicit Datum(std::string value);
+  explicit Datum(const char* value);
 
   Datum::Kind kind() const {
     switch (this->value.index()) {

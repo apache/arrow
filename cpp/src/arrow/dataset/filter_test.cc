@@ -45,28 +45,53 @@ using string_literals::operator"" _;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+// A frozen shared_ptr<Expression> with behavior expected by GTest
+struct TestExpression : util::EqualityComparable<TestExpression>,
+                        util::ToStringOstreamable<TestExpression> {
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
+
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(const Expression& e) : expression(e.Copy()) {}
+
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(const Expression2& e) : expression(e) {}
+
+  std::shared_ptr<Expression> expression;
+
+  using util::EqualityComparable<TestExpression>::operator==;
+  bool Equals(const TestExpression& other) const {
+    return expression->Equals(other.expression);
+  }
+
+  std::string ToString() const { return expression->ToString(); }
+
+  friend bool operator==(const std::shared_ptr<Expression>& lhs,
+                         const TestExpression& rhs) {
+    return TestExpression(lhs) == rhs;
+  }
+
+  friend void PrintTo(const TestExpression& expr, std::ostream* os) {
+    *os << expr.ToString();
+  }
+};
+
 using E = TestExpression;
 
 class ExpressionsTest : public ::testing::Test {
  public:
-  void AssertSimplifiesTo(const Expression& expr, const Expression& given,
-                          const Expression& expected) {
-    ASSERT_OK_AND_ASSIGN(auto expr_type, expr.Validate(*schema_));
-    ASSERT_OK_AND_ASSIGN(auto given_type, given.Validate(*schema_));
-    ASSERT_OK_AND_ASSIGN(auto expected_type, expected.Validate(*schema_));
+  void AssertSimplifiesTo(E expr, E given, E expected) {
+    ASSERT_OK_AND_ASSIGN(auto expr_type, expr.expression->Validate(*schema_));
+    ASSERT_OK_AND_ASSIGN(auto given_type, given.expression->Validate(*schema_));
+    ASSERT_OK_AND_ASSIGN(auto expected_type, expected.expression->Validate(*schema_));
 
     EXPECT_TRUE(expr_type->Equals(expected_type));
     EXPECT_TRUE(given_type->Equals(boolean()));
 
-    auto simplified = expr.Assume(given);
-    ASSERT_EQ(E{simplified}, E{expected})
+    auto simplified = expr.expression->Assume(given.expression);
+    ASSERT_EQ(simplified, expected)
         << "  simplification of: " << expr.ToString() << std::endl
         << "              given: " << given.ToString() << std::endl;
-  }
-
-  void AssertSimplifiesTo(const Expression& expr, const Expression& given,
-                          const std::shared_ptr<Expression>& expected) {
-    AssertSimplifiesTo(expr, given, *expected);
   }
 
   std::shared_ptr<DataType> ns = timestamp(TimeUnit::NANO);
@@ -77,16 +102,6 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<Expression> always = scalar(true);
   std::shared_ptr<Expression> never = scalar(false);
 };
-
-TEST_F(ExpressionsTest, StringRepresentation) {
-  ASSERT_EQ("a"_.ToString(), "a");
-  ASSERT_EQ(("a"_ > int32_t(3)).ToString(), "(a > 3:int32)");
-  ASSERT_EQ(("a"_ > int32_t(3) and "a"_ < int32_t(4)).ToString(),
-            "((a > 3:int32) and (a < 4:int32))");
-  ASSERT_EQ(("f"_ > double(4)).ToString(), "(f > 4:double)");
-  ASSERT_EQ("f"_.CastTo(float64()).ToString(), "(cast f to double)");
-  ASSERT_EQ("f"_.CastLike("a"_).ToString(), "(cast f like a)");
-}
 
 TEST_F(ExpressionsTest, Equality) {
   ASSERT_EQ(E{"a"_}, E{"a"_});
@@ -114,7 +129,7 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 3, "b"_ == 4);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ >= 3, "b"_ == 3 or "b"_ == 4);
 
-  AssertSimplifiesTo("f"_ > 0.5 and "f"_ < 1.5, not("f"_ < 0.0 or "f"_ > 1.0),
+  AssertSimplifiesTo("f"_ > 0.5 and "f"_ < 1.5, not_("f"_ < 0.0 or "f"_ > 1.0),
                      "f"_ > 0.5);
 
   AssertSimplifiesTo("b"_ == 4, "a"_ == 0, "b"_ == 4);
@@ -125,7 +140,7 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 3, "a"_ == 3);
   AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 0, *never);
 
-  AssertSimplifiesTo("a"_ == 0 or not"b"_.IsValid(), "b"_ == 3, "a"_ == 0);
+  AssertSimplifiesTo("a"_ == 0 or not_("b"_.IsValid()), "b"_ == 3, "a"_ == 0);
 }
 
 TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
@@ -142,20 +157,6 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
   ASSERT_OK_AND_ASSIGN(auto b_dict, dict_set_123->GetScalar(0));
   AssertSimplifiesTo("b_dict"_.In(dict_set_123), "a"_ == 3 and "b_dict"_ == b_dict,
                      *always);
-}
-
-TEST_F(ExpressionsTest, SimplificationToNull) {
-  auto null = scalar(std::make_shared<BooleanScalar>());
-  auto null32 = scalar(std::make_shared<Int32Scalar>());
-
-  AssertSimplifiesTo(*equal(field_ref("b"), null32), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32), "b"_ == 3, *null);
-
-  // Kleene logic applies here
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) and "b"_ > 3, "b"_ == 3, *never);
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) and "b"_ > 2, "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) or "b"_ > 3, "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) or "b"_ > 2, "b"_ == 3, *always);
 }
 
 class FilterTest : public ::testing::Test {
@@ -442,165 +443,6 @@ TEST_F(FilterTest, KleeneTruthTables) {
 
     {"a":false,  "b":false,  "in":false}
   ])");
-}
-
-class TakeExpression : public CustomExpression {
- public:
-  TakeExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> dictionary)
-      : operand_(std::move(operand)), dictionary_(std::move(dictionary)) {}
-
-  std::string ToString() const override {
-    return dictionary_->ToString() + "[" + operand_->ToString() + "]";
-  }
-
-  std::shared_ptr<Expression> Copy() const override {
-    return std::make_shared<TakeExpression>(*this);
-  }
-
-  bool Equals(const Expression& other) const override {
-    // in a real CustomExpression this would need to be more sophisticated
-    return other.type() == ExpressionType::CUSTOM && ToString() == other.ToString();
-  }
-
-  Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override {
-    ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
-    if (!is_integer(operand_type->id())) {
-      return Status::TypeError("Take indices must be integral, not ", *operand_type);
-    }
-    return dictionary_->type();
-  }
-
-  class Evaluator : public TreeEvaluator {
-   public:
-    using TreeEvaluator::TreeEvaluator;
-
-    using TreeEvaluator::Evaluate;
-
-    Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
-                           MemoryPool* pool) const override {
-      if (expr.type() == ExpressionType::CUSTOM) {
-        const auto& take_expr = checked_cast<const TakeExpression&>(expr);
-        return EvaluateTake(take_expr, batch, pool);
-      }
-      return TreeEvaluator::Evaluate(expr, batch, pool);
-    }
-
-    Result<Datum> EvaluateTake(const TakeExpression& take_expr, const RecordBatch& batch,
-                               MemoryPool* pool) const {
-      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
-
-      if (indices.kind() == Datum::SCALAR) {
-        ARROW_ASSIGN_OR_RAISE(auto indices_array,
-                              MakeArrayFromScalar(*indices.scalar(), batch.num_rows(),
-                                                  default_memory_pool()));
-        indices = Datum(indices_array->data());
-      }
-
-      DCHECK_EQ(indices.kind(), Datum::ARRAY);
-      compute::ExecContext ctx(pool);
-      ARROW_ASSIGN_OR_RAISE(Datum out,
-                            compute::Take(take_expr.dictionary_->data(), indices,
-                                          compute::TakeOptions(), &ctx));
-      return std::move(out);
-    }
-  };
-
- private:
-  std::shared_ptr<Expression> operand_;
-  std::shared_ptr<Array> dictionary_;
-};
-
-TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
-  auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
-  auto take_b_is_half = (TakeExpression(field_ref("b"), dict) == 0.5);
-
-  // no special Assume logic was provided for TakeExpression so we should just ignore it
-  // (logically the below *could* be simplified to false but we haven't implemented that)
-  AssertSimplifiesTo(take_b_is_half, "b"_ == 3, take_b_is_half);
-
-  // custom expressions will not interfere with simplification of other subexpressions and
-  // can be dropped if other subexpressions simplify trivially
-
-  // ("b"_ > 5).Assume("b"_ == 3) simplifies to false regardless of take, so the and will
-  // be false
-  AssertSimplifiesTo("b"_ > 5 and take_b_is_half, "b"_ == 3, *never);
-
-  // ("b"_ > 5).Assume("b"_ == 6) simplifies to true regardless of take, so it can be
-  // dropped
-  AssertSimplifiesTo("b"_ > 5 and take_b_is_half, "b"_ == 6, take_b_is_half);
-
-  // ("b"_ > 5).Assume("b"_ == 6) simplifies to true regardless of take, so the or will be
-  // true
-  AssertSimplifiesTo(take_b_is_half or "b"_ > 5, "b"_ == 6, *always);
-
-  // ("b"_ > 5).Assume("b"_ == 3) simplifies to true regardless of take, so it can be
-  // dropped
-  AssertSimplifiesTo(take_b_is_half or "b"_ > 5, "b"_ == 3, take_b_is_half);
-}
-
-TEST_F(FilterTest, EvaluateTakeExpression) {
-  evaluator_ = std::make_shared<TakeExpression::Evaluator>();
-
-  auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
-
-  AssertFilter(TakeExpression(field_ref("b"), dict) == 0.5,
-               {field("b", int32()), field("f", float64())}, R"([
-      {"b": 3, "f": -0.1, "in": 0},
-      {"b": 2, "f":  0.3, "in": 1},
-      {"b": 1, "f":  0.2, "in": 0},
-      {"b": 2, "f": -0.1, "in": 1},
-      {"b": 4, "f":  0.1, "in": 0},
-      {"b": null, "f": 0.0, "in": null},
-      {"b": 0, "f":  1.0, "in": 0}
-  ])");
-}
-
-void AssertFieldsInExpression(std::shared_ptr<Expression> expr,
-                              std::vector<std::string> expected) {
-  EXPECT_THAT(FieldsInExpression(expr), testing::ContainerEq(expected));
-}
-
-TEST(FieldsInExpressionTest, Basic) {
-  AssertFieldsInExpression(scalar(true), {});
-
-  AssertFieldsInExpression(("a"_).Copy(), {"a"});
-  AssertFieldsInExpression(("a"_ == 1).Copy(), {"a"});
-  AssertFieldsInExpression(("a"_ == "b"_).Copy(), {"a", "b"});
-
-  AssertFieldsInExpression(("a"_ == 1 || "a"_ == 2).Copy(), {"a", "a"});
-  AssertFieldsInExpression(("a"_ == 1 || "b"_ == 2).Copy(), {"a", "b"});
-  AssertFieldsInExpression((not("a"_ == 1) && ("b"_ == 2 || not("c"_ < 3))).Copy(),
-                           {"a", "b", "c"});
-}
-
-TEST(ExpressionSerializationTest, RoundTrips) {
-  std::vector<TestExpression> exprs{
-      scalar(MakeNullScalar(null())),
-      scalar(MakeNullScalar(int32())),
-      scalar(MakeNullScalar(struct_({field("i", int32()), field("s", utf8())}))),
-      scalar(true),
-      scalar(false),
-      scalar(1),
-      scalar(1.125),
-      scalar("stringy strings"),
-      "field"_,
-      "a"_ > 0.25,
-      "a"_ == 1 or "b"_ != "hello" or "b"_ == "foo bar",
-      not"alpha"_,
-      "valid"_ and "a"_.CastLike("b"_) >= "b"_,
-      "version"_.CastTo(float64()).In(ArrayFromJSON(float64(), "[0.5, 1.0, 2.0]")),
-      "validity"_.IsValid(),
-      ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
-          ("z"_ > 1.5 and "z"_ <= 3.0),
-      "year"_ == int16_t(1999) and "month"_ == int8_t(12) and "day"_ == int8_t(31) and
-          "hour"_ == int8_t(0) and "alpha"_ == int32_t(0) and "beta"_ == 3.25f,
-  };
-
-  for (const auto& expr : exprs) {
-    ASSERT_OK_AND_ASSIGN(auto serialized, expr.expression->Serialize());
-    ASSERT_OK_AND_ASSIGN(E roundtripped, Expression::Deserialize(*serialized));
-    ASSERT_EQ(expr, roundtripped);
-  }
 }
 
 void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
