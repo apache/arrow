@@ -148,13 +148,13 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "GCPSDK")
+    # find_package doesn't recognize GCPSDK, only storage_client
+    message(FATAL_ERROR "build_dependency is never called on ${DEPENDENCY_NAME}")
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
     build_glog()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GCPSDK")
-    # find_package doesn't recognize GCPSDK, only storage_client
-    message(FATAL_ERROR "build_dependency is never called on ${DEPENDENCY_NAME}")
   elseif("${DEPENDENCY_NAME}" STREQUAL "gRPC")
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
@@ -459,6 +459,14 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_GCPSDK_URL})
+  set(GCPSDK_SOURCE_URL "$ENV{ARROW_GCPSDK_URL}")
+else()
+  set_urls(GCPSDK_SOURCE_URL
+           "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GCPSDK_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
 if(DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
@@ -474,14 +482,6 @@ else()
   set_urls(GLOG_SOURCE_URL
            "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
            "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_GCPSDK_URL})
-  set(GCPSDK_SOURCE_URL "$ENV{ARROW_GCPSDK_URL}")
-else()
-  set_urls(GCPSDK_SOURCE_URL
-           "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GCPSDK_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -2457,9 +2457,7 @@ macro(build_absl_once)
                         ${EP_LOG_OPTIONS}
                         URL ${ABSL_SOURCE_URL}
                         CMAKE_ARGS ${ABSL_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS}
-                        EXCLUDE_FROM_ALL ON
-    )# only build if depended on (by gRPC or google-cloud-cpp)
+                        BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ${ABSL_LIBRARIES})
   endif()
 endmacro()
@@ -3061,7 +3059,7 @@ macro(build_google_cloud_cpp)
                                    "${CRC32C_INCLUDE}/include")
   add_dependencies(Crc32c::crc32c crc32c_ep)
 
-  # "Build" nhlomann-json
+  # "Build" nlohmann-json
   set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
   set(NLOHMANN_JSON_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -3096,6 +3094,9 @@ macro(build_google_cloud_cpp)
   list(APPEND GCPSDK_PREFIX_PATH_LIST ${ABSL_PREFIX})
   list(APPEND GCPSDK_PREFIX_PATH_LIST ${CRC32C_PREFIX})
   list(APPEND GCPSDK_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+  if(CARES_VENDORED)
+    list(APPEND GCPSDK_PREFIX_PATH_LIST ${CARES_PREFIX})
+  endif()
 
   set(GCPSDK_PREFIX_PATH_LIST_SEP_CHAR "|")
   list(JOIN GCPSDK_PREFIX_PATH_LIST ${GCPSDK_PREFIX_PATH_LIST_SEP_CHAR}
