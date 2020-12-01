@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/type_traits.h"
 
 namespace arrow {
 namespace util {
@@ -31,15 +32,14 @@ namespace util {
 ///
 /// Simplifications from std::variant:
 ///
-/// - Strictly defaultable. The first type of T... must be nothrow default constructible
+/// - Strictly defaultable. The first type of T... should be nothrow default constructible
 ///   and it will be used for default Variants.
 ///
 /// - Never valueless_by_exception. std::variant supports a state outside those specified
 ///   by T... to which it can return in the event that a constructor throws. If a Variant
 ///   would become valueless_by_exception it will instead return to its default state.
 ///
-/// - Strictly nothrow move constructible and assignable, which is also required of each
-///   of T...
+/// - Strictly nothrow move constructible and assignable
 ///
 /// - Less sophisticated type deduction. std::variant<bool, std::string>("hello") will
 ///   intelligently construct std::string while Variant<bool, std::string>("hello") will
@@ -122,14 +122,14 @@ struct VariantStorage {
   VariantStorage() = default;
   VariantStorage(const VariantStorage&) {}
   VariantStorage& operator=(const VariantStorage&) { return *this; }
-  VariantStorage(VariantStorage&&) {}
-  VariantStorage& operator=(VariantStorage&&) { return *this; }
+  VariantStorage(VariantStorage&&) noexcept {}
+  VariantStorage& operator=(VariantStorage&&) noexcept { return *this; }
   ~VariantStorage() {
     static_assert(offsetof(VariantStorage, data_) == 0,
                   "(void*)&VariantStorage::data_ == (void*)this");
   }
 
-  typename std::aligned_union<0, T...>::type data_;
+  typename arrow::internal::aligned_union<0, T...>::type data_;
   uint8_t index_ = 0;
 };
 
@@ -155,10 +155,6 @@ struct VariantImpl<Variant<T...>> : VariantStorage<T...> {
 
 template <typename... M, typename H, typename... T>
 struct VariantImpl<Variant<M...>, H, T...> : VariantImpl<Variant<M...>, T...> {
-  static_assert(std::is_nothrow_move_constructible<H>::value &&
-                    std::is_nothrow_move_assignable<H>::value,
-                "All members must be nothrow move constructible and assignable.");
-
   using VariantType = Variant<M...>;
   using Impl = VariantImpl<VariantType, T...>;
 
@@ -261,8 +257,6 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
 
  public:
   using default_type = typename util::detail::first<T...>::type;
-  static_assert(std::is_nothrow_default_constructible<default_type>::value,
-                "The first member must be nothrow default constructible.");
 
   Variant() noexcept { construct_default(); }
 
