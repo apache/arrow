@@ -2748,35 +2748,36 @@ mod tests {
         use chrono::{NaiveDate, NaiveTime};
 
         let a = StringArray::from(vec![
-            "2000-01-01",
-            "2000-2-2",
-            "2000-00-00",
-            "2000-01-01T12:00:00",
-            "2000",
+            "2000-01-01",          // valid date with leading 0s
+            "2000-2-2",            // valid date without leading 0s
+            "2000-00-00",          // invalid month and day
+            "2000-01-01T12:00:00", // date + time is invalid
+            "2000",                // just a year is invalid
         ]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
 
         let zero_time = NaiveTime::from_hms(0, 0, 0);
-
+        // test valid inputs
         let date_value = (NaiveDate::from_ymd(2000, 1, 1)
             .and_time(zero_time)
             .timestamp()
             / SECONDS_IN_DAY) as i32;
-        assert_eq!(true, c.is_valid(0));
+        assert_eq!(true, c.is_valid(0)); // "2000-01-01"
         assert_eq!(date_value, c.value(0));
 
         let date_value = (NaiveDate::from_ymd(2000, 2, 2)
             .and_time(zero_time)
             .timestamp()
             / SECONDS_IN_DAY) as i32;
-        assert_eq!(true, c.is_valid(1));
+        assert_eq!(true, c.is_valid(1)); // "2000-2-2"
         assert_eq!(date_value, c.value(1));
 
-        assert_eq!(false, c.is_valid(2));
-        assert_eq!(false, c.is_valid(3));
-        assert_eq!(false, c.is_valid(4));
+        // test invalid inputs
+        assert_eq!(false, c.is_valid(2)); // "2000-00-00"
+        assert_eq!(false, c.is_valid(3)); // "2000-01-01T12:00:00"
+        assert_eq!(false, c.is_valid(4)); // "2000"
     }
 
     #[test]
