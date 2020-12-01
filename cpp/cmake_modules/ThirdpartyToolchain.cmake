@@ -1682,7 +1682,7 @@ set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(GTest)
+  resolve_dependency(GTest REQUIRED_VERSION 1.10.0)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
