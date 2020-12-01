@@ -284,12 +284,15 @@ so that we can attempt to improve the script.
 ## Known installation issues
 
 * On CentOS, if you are using a more modern `devtoolset`, you may need to set
-the environment variables `CC` and `CXX` (e.g., in the R `Makeconf` file).
-These may be set to system defaults (e.g., `CC=/usr/bin/gcc CXX=/usr/bin/g++`)
-or they may be set to use the `gcc`/`g++` from the devtoolset. In the latter
-case, you will have to make sure that the system arrow dependencies are not
-used (i.e., make sure the system variable `ARROW_USE_PKG_CONFIG` is false).
-Otherwise the compiler mismatch between the arrow system libraries and the R
+the environment variables `CC` and `CXX` either in the shell or in R's `Makeconf`.
+For CentOS 7 and above, both the Arrow system packages and the C++ binaries
+for R are built with the default system compilers. If you want to use either of these 
+and you have a `devtoolset` installed, set `CC=/usr/bin/gcc CXX=/usr/bin/g++` 
+to use the system compilers instead of the `devtoolset`. 
+Alternatively, if you want to build `arrow` with the newer `devtoolset` compilers, 
+set both `ARROW_USE_PKG_CONFIG` and `LIBARROW_BINARY` to `false` so that
+you build the Arrow C++ from source using those compilers. 
+Compiler mismatch between the arrow system libraries and the R
 package may cause R to segfault when `arrow` package functions are used.
 See discussions [here](https://issues.apache.org/jira/browse/ARROW-8586)
 and [here](https://issues.apache.org/jira/browse/ARROW-10780).
