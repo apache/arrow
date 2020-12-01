@@ -1022,6 +1022,18 @@ def test_parquet_fragment_statistics_nulls(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+def test_parquet_empty_row_group_statistics(tempdir):
+    df = pd.DataFrame({"a": ["a", "b", "b"], "b": [4, 5, 6]})[:0]
+    df.to_parquet(tempdir / "test.parquet", engine="pyarrow")
+
+    dataset = ds.dataset(tempdir / "test.parquet", format="parquet")
+    fragments = list(dataset.get_fragments())[0].split_by_row_group()
+    # Only row group is empty
+    assert fragments[0].row_groups[0].statistics == {}
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
 def test_fragments_parquet_row_groups_predicate(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
