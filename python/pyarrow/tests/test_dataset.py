@@ -16,7 +16,6 @@
 # under the License.
 
 import contextlib
-import os
 import pathlib
 import pickle
 import textwrap
@@ -27,7 +26,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.csv
 import pyarrow.fs as fs
-from pyarrow.tests.util import change_cwd
+from pyarrow.tests.util import change_cwd, _filesystem_uri
 
 try:
     import pandas as pd
@@ -69,15 +68,6 @@ def _table_from_pandas(df):
     ])
     table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
     return table.replace_schema_metadata()
-
-
-def _filesystem_uri(path):
-    # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
-    if os.name == 'nt':
-        uri = 'file:///{}'.format(path)
-    else:
-        uri = 'file://{}'.format(path)
-    return uri
 
 
 @pytest.fixture
