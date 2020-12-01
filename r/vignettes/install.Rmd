@@ -284,7 +284,11 @@ so that we can attempt to improve the script.
 ## Known installation issues
 
 * On CentOS, if you are using a more modern `devtoolset`, you may need to set
-the environment variables `CC=/usr/bin/gcc CXX=/usr/bin/g++`.
+the environment variables `CC` and `CXX` (e.g., in the R `Makeconf` file).
+These may be set to system defaults (e.g., `CC=/usr/bin/gcc CXX=/usr/bin/g++`)
+or they may be set to use the `gcc`/`g++` from the devtoolset. In the latter
+case, you will have to make sure that the system arrow dependencies are not
+used (i.e., make sure the system variable `ARROW_USE_PKG_CONFIG` is false).
 See discussion [here](https://issues.apache.org/jira/browse/ARROW-8586).
 
 * If you have multiple versions of `zstd` installed on your system,
