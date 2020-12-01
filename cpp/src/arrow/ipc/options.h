@@ -65,6 +65,20 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// like compression
   bool use_threads = true;
 
+  /// \brief Whether to emit dictionary deltas
+  ///
+  /// If false, a changed dictionary for a given field will emit a full
+  /// dictionary replacement.
+  /// If true, a changed dictionary will be compared against the previous
+  /// version. If possible, a dictionary delta will be omitted, otherwise
+  /// a full dictionary replacement.
+  ///
+  /// Default is false to maximize stream compatibility.
+  ///
+  /// Also, note that if a changed dictionary is a nested dictionary,
+  /// then a delta is never emitted, for compatibility with the read path.
+  bool emit_dictionary_deltas = false;
+
   /// \brief Format version to use for IPC messages and their metadata.
   ///
   /// Presently using V5 version (readable by 1.0.0 and later).

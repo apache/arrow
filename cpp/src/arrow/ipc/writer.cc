@@ -69,6 +69,18 @@ using internal::kArrowMagicBytes;
 
 namespace {
 
+bool HasNestedDict(const ArrayData& data) {
+  if (data.type->id() == Type::DICTIONARY) {
+    return true;
+  }
+  for (const auto& child : data.child_data) {
+    if (HasNestedDict(*child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 Status GetTruncatedBitmap(int64_t offset, int64_t length,
                           const std::shared_ptr<Buffer> input, MemoryPool* pool,
                           std::shared_ptr<Buffer>* buffer) {
@@ -984,7 +996,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
     IpcPayload payload;
     RETURN_NOT_OK(GetRecordBatchPayload(batch, options_, &payload));
-    return payload_writer_->WritePayload(payload);
+    RETURN_NOT_OK(WritePayload(payload));
+    ++stats_.num_record_batches;
+    return Status::OK();
   }
 
   Status Close() override {
@@ -998,8 +1012,10 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
     IpcPayload payload;
     RETURN_NOT_OK(GetSchemaPayload(schema_, options_, mapper_, &payload));
-    return payload_writer_->WritePayload(payload);
+    return WritePayload(payload);
   }
+
+  WriteStats stats() const override { return stats_; }
 
  protected:
   Status CheckStarted() {
@@ -1011,43 +1027,76 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
   Status WriteDictionaries(const RecordBatch& batch) {
     ARROW_ASSIGN_OR_RAISE(const auto dictionaries, CollectDictionaries(batch, mapper_));
+    const auto equal_options = EqualOptions().nans_equal(true);
 
     for (const auto& pair : dictionaries) {
-      IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
       // If a dictionary with this id was already emitted, check if it was the same.
       auto* last_dictionary = &last_dictionaries_[dictionary_id];
       const bool dictionary_exists = (*last_dictionary != nullptr);
+      int64_t delta_start = 0;
       if (dictionary_exists) {
         if ((*last_dictionary)->data() == dictionary->data()) {
           // Fast shortcut for a common case.
           // Same dictionary data by pointer => no need to emit it again
           continue;
         }
-        if ((*last_dictionary)->Equals(dictionary, EqualOptions().nans_equal(true))) {
+        const int64_t last_length = (*last_dictionary)->length();
+        const int64_t new_length = dictionary->length();
+        if (new_length == last_length &&
+            ((*last_dictionary)->Equals(dictionary, equal_options))) {
           // Same dictionary by value => no need to emit it again
           // (while this can have a CPU cost, this code path is required
           //  for the IPC file format)
           continue;
         }
-        // TODO check for possible delta?
+        if (is_file_format_) {
+          return Status::Invalid(
+              "Dictionary replacement detected when writing IPC file format. "
+              "Arrow IPC files only support a single dictionary for a given field "
+              "across all batches.");
+        }
+
+        // (the read path doesn't support outer dictionary deltas, don't emit them)
+        if (new_length > last_length && options_.emit_dictionary_deltas &&
+            !HasNestedDict(*dictionary->data()) &&
+            ((*last_dictionary)
+                 ->RangeEquals(dictionary, 0, last_length, 0, equal_options))) {
+          // New dictionary starts with the current dictionary
+          delta_start = last_length;
+        }
       }
 
-      if (is_file_format_ && dictionary_exists) {
-        return Status::Invalid(
-            "Dictionary replacement detected when writing IPC file format. "
-            "Arrow IPC files only support a single dictionary for a given field "
-            "across all batches.");
+      IpcPayload payload;
+      if (delta_start) {
+        RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, /*is_delta=*/true,
+                                           dictionary->Slice(delta_start), options_,
+                                           &payload));
+      } else {
+        RETURN_NOT_OK(
+            GetDictionaryPayload(dictionary_id, dictionary, options_, &payload));
       }
-
-      RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options_, &payload));
-      RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+      RETURN_NOT_OK(WritePayload(payload));
+      ++stats_.num_dictionary_batches;
+      if (dictionary_exists) {
+        if (delta_start) {
+          ++stats_.num_dictionary_deltas;
+        } else {
+          ++stats_.num_replaced_dictionaries;
+        }
+      }
 
       // Remember dictionary for next batches
       *last_dictionary = dictionary;
     }
+    return Status::OK();
+  }
+
+  Status WritePayload(const IpcPayload& payload) {
+    RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+    ++stats_.num_messages;
     return Status::OK();
   }
 
@@ -1066,6 +1115,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
   bool started_ = false;
   IpcWriteOptions options_;
+  WriteStats stats_;
 };
 
 class StreamBookKeeper {
