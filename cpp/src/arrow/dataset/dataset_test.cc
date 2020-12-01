@@ -505,7 +505,8 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // The following filter tests both predicate pushdown and post filtering
   // without partition information because `year` is a partition and `sales` is
   // not.
-  auto filter = ("year"_ == 2019 && "sales"_ > 100.0);
+  auto filter = and_(equal(field_ref("year"), literal(2019)),
+                     greater(field_ref("sales"), literal(100.0)));
   ASSERT_OK(scanner_builder->Filter(filter));
 
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());

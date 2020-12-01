@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/expression.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -808,38 +809,6 @@ std::shared_ptr<Expression> ScalarExpression::Copy() const {
   return std::make_shared<ScalarExpression>(*this);
 }
 
-std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
-                                 std::shared_ptr<Expression> rhs) {
-  return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
-}
-
-std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
-  auto acc = scalar(true);
-  for (const auto& next : subexpressions) {
-    if (next->Equals(false)) return next;
-    acc = acc->Equals(true) ? next : and_(std::move(acc), next);
-  }
-  return acc;
-}
-
-std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
-                                std::shared_ptr<Expression> rhs) {
-  return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
-}
-
-std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
-  auto acc = scalar(false);
-  for (const auto& next : subexpressions) {
-    if (next->Equals(true)) return next;
-    acc = acc->Equals(false) ? next : or_(std::move(acc), next);
-  }
-  return acc;
-}
-
-std::shared_ptr<Expression> not_(std::shared_ptr<Expression> operand) {
-  return std::make_shared<NotExpression>(std::move(operand));
-}
-
 AndExpression operator&&(const Expression& lhs, const Expression& rhs) {
   return AndExpression(lhs.Copy(), rhs.Copy());
 }
@@ -847,8 +816,6 @@ AndExpression operator&&(const Expression& lhs, const Expression& rhs) {
 OrExpression operator||(const Expression& lhs, const Expression& rhs) {
   return OrExpression(lhs.Copy(), rhs.Copy());
 }
-
-NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()); }
 
 CastExpression Expression::CastTo(std::shared_ptr<DataType> type,
                                   compute::CastOptions options) const {
@@ -890,8 +857,8 @@ Status EnsureNullOrBool(const std::string& msg_prefix,
   return Status::TypeError(msg_prefix, *type);
 }
 
-Result<std::shared_ptr<DataType>> ValidateBoolean(const ExpressionVector& operands,
-                                                  const Schema& schema) {
+Result<std::shared_ptr<DataType>> ValidateBoolean(
+    const std::vector<std::shared_ptr<Expression>>& operands, const Schema& schema) {
   for (const auto& operand : operands) {
     ARROW_ASSIGN_OR_RAISE(auto type, operand->Validate(schema));
     RETURN_NOT_OK(
@@ -1476,7 +1443,7 @@ struct DeserializeImpl {
     switch (expression_type) {
       case ExpressionType::FIELD: {
         ARROW_ASSIGN_OR_RAISE(auto name, GetView<StringType>(struct_array, 0));
-        return field_ref(std::string(name));
+        return std::make_shared<FieldExpression>(std::string(name));
       }
 
       case ExpressionType::SCALAR: {

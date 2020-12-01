@@ -37,8 +37,6 @@ namespace fs = arrow::fs;
 
 namespace ds = arrow::dataset;
 
-using ds::string_literals::operator"" _;
-
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
     arrow::Status status_ = (expr);                \
@@ -62,7 +60,8 @@ struct Configuration {
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
-  std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
+  ds::Expression2 filter =
+      ds::greater(ds::field_ref("total_amount"), ds::literal(1000.0f));
 
   ds::InspectOptions inspect_options{};
   ds::FinishOptions finish_options{};
@@ -147,7 +146,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(
 
 std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
-                                                   std::shared_ptr<ds::Expression> filter,
+                                                   ds::Expression2 filter,
                                                    bool use_threads) {
   auto scanner_builder = dataset->NewScan().ValueOrDie();
 
@@ -155,9 +154,7 @@ std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> 
     ABORT_ON_FAILURE(scanner_builder->Project(columns));
   }
 
-  if (filter != nullptr) {
-    ABORT_ON_FAILURE(scanner_builder->Filter(filter));
-  }
+  ABORT_ON_FAILURE(scanner_builder->Filter(filter));
 
   ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
 

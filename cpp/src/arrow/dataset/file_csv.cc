@@ -34,6 +34,7 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
@@ -90,13 +91,16 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   }
 
   // FIXME(bkietz) also acquire types of fields materialized but not projected.
-  for (auto&& name : FieldsInExpression(scan_options->filter)) {
-    ARROW_ASSIGN_OR_RAISE(auto match,
-                          FieldRef(name).FindOneOrNone(*scan_options->schema()));
-    if (match.indices().empty()) {
-      convert_options.include_columns.push_back(std::move(name));
+  // This requires that scan_options include the full dataset schema (not just
+  // the projected schema).
+  for (const FieldRef& ref : FieldsInExpression(scan_options->filter2)) {
+    DCHECK(ref.name());
+    ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*scan_options->schema()));
+    if (!match) {
+      convert_options.include_columns.push_back(*ref.name());
     }
   }
+
   return convert_options;
 }
 

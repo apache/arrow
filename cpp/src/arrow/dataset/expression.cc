@@ -24,9 +24,15 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/dataset/expression_internal.h"
+#include "arrow/dataset/filter.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
@@ -43,6 +49,144 @@ const Datum* Expression2::literal() const { return util::get_if<Datum>(impl_.get
 
 const FieldRef* Expression2::field_ref() const {
   return util::get_if<FieldRef>(impl_.get());
+}
+
+Expression2::operator std::shared_ptr<Expression>() const {
+  if (auto lit = literal()) {
+    DCHECK(lit->is_scalar());
+    return std::make_shared<ScalarExpression>(lit->scalar());
+  }
+
+  if (auto ref = field_ref()) {
+    DCHECK(ref->name());
+    return std::make_shared<FieldExpression>(*ref->name());
+  }
+
+  auto call = CallNotNull(*this);
+  if (call->function == "invert") {
+    return std::make_shared<NotExpression>(call->arguments[0]);
+  }
+
+  if (call->function == "cast") {
+    const auto& options = checked_cast<const compute::CastOptions&>(*call->options);
+    return std::make_shared<CastExpression>(call->arguments[0], options.to_type, options);
+  }
+
+  if (call->function == "and_kleene") {
+    return std::make_shared<AndExpression>(call->arguments[0], call->arguments[1]);
+  }
+
+  if (call->function == "or_kleene") {
+    return std::make_shared<OrExpression>(call->arguments[0], call->arguments[1]);
+  }
+
+  if (auto cmp = Comparison::Get(call->function)) {
+    compute::CompareOperator op = [&] {
+      switch (*cmp) {
+        case Comparison::EQUAL:
+          return compute::EQUAL;
+        case Comparison::LESS:
+          return compute::LESS;
+        case Comparison::GREATER:
+          return compute::GREATER;
+        case Comparison::NOT_EQUAL:
+          return compute::NOT_EQUAL;
+        case Comparison::LESS_EQUAL:
+          return compute::LESS_EQUAL;
+        case Comparison::GREATER_EQUAL:
+          return compute::GREATER_EQUAL;
+        default:
+          break;
+      }
+      return static_cast<compute::CompareOperator>(-1);
+    }();
+
+    return std::make_shared<ComparisonExpression>(op, call->arguments[0],
+                                                  call->arguments[1]);
+  }
+
+  if (call->function == "is_valid") {
+    return std::make_shared<IsValidExpression>(call->arguments[0]);
+  }
+
+  if (call->function == "is_in") {
+    auto set = checked_cast<const compute::SetLookupOptions&>(*call->options)
+                   .value_set.make_array();
+    return std::make_shared<InExpression>(call->arguments[0], std::move(set));
+  }
+
+  DCHECK(false) << "untranslatable Expression2: " << ToString();
+  return nullptr;
+}
+
+Expression2::Expression2(const Expression& expr) {
+  switch (expr.type()) {
+    case ExpressionType::FIELD:
+      *this =
+          ::arrow::dataset::field_ref(checked_cast<const FieldExpression&>(expr).name());
+      return;
+
+    case ExpressionType::SCALAR:
+      *this =
+          ::arrow::dataset::literal(checked_cast<const ScalarExpression&>(expr).value());
+      return;
+
+    case ExpressionType::NOT:
+      *this = ::arrow::dataset::call(
+          "invert", {checked_cast<const NotExpression&>(expr).operand()});
+      return;
+
+    case ExpressionType::CAST: {
+      const auto& cast_expr = checked_cast<const CastExpression&>(expr);
+      auto options = cast_expr.options();
+      options.to_type = cast_expr.to_type();
+      *this = ::arrow::dataset::call("cast", {cast_expr.operand()}, std::move(options));
+      return;
+    }
+
+    case ExpressionType::AND: {
+      const auto& and_expr = checked_cast<const AndExpression&>(expr);
+      *this = ::arrow::dataset::call("and_kleene",
+                                     {and_expr.left_operand(), and_expr.right_operand()});
+      return;
+    }
+
+    case ExpressionType::OR: {
+      const auto& or_expr = checked_cast<const OrExpression&>(expr);
+      *this = ::arrow::dataset::call("or_kleene",
+                                     {or_expr.left_operand(), or_expr.right_operand()});
+      return;
+    }
+
+    case ExpressionType::COMPARISON: {
+      const auto& cmp_expr = checked_cast<const ComparisonExpression&>(expr);
+      static std::array<std::string, 6> ops = {
+          "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
+      };
+      *this = ::arrow::dataset::call(ops[cmp_expr.op()],
+                                     {cmp_expr.left_operand(), cmp_expr.right_operand()});
+      return;
+    }
+
+    case ExpressionType::IS_VALID: {
+      const auto& is_valid_expr = checked_cast<const IsValidExpression&>(expr);
+      *this = ::arrow::dataset::call("is_valid", {is_valid_expr.operand()});
+      return;
+    }
+
+    case ExpressionType::IN: {
+      const auto& in_expr = checked_cast<const InExpression&>(expr);
+      *this = ::arrow::dataset::call(
+          "is_in", {in_expr.operand()},
+          compute::SetLookupOptions{in_expr.set(), /*skip_nulls=*/true});
+      return;
+    }
+
+    default:
+      break;
+  }
+
+  DCHECK(false) << "untranslatable Expression: " << expr.ToString();
 }
 
 std::string Expression2::ToString() const {
@@ -74,7 +218,12 @@ std::string Expression2::ToString() const {
   return out;
 }
 
-void PrintTo(const Expression2& expr, std::ostream* os) { *os << expr.ToString(); }
+void PrintTo(const Expression2& expr, std::ostream* os) {
+  *os << expr.ToString();
+  if (expr.IsBound()) {
+    *os << "[bound]";
+  }
+}
 
 bool Expression2::Equals(const Expression2& other) const {
   if (Identical(*this, other)) return true;
@@ -181,30 +330,41 @@ bool Expression2::IsNullLiteral() const {
       return true;
     }
   }
+
   return false;
 }
 
 bool Expression2::IsSatisfiable() const {
+  if (descr_.type && descr_.type->id() == Type::NA) {
+    return false;
+  }
+
   if (auto lit = literal()) {
     if (lit->null_count() == lit->length()) {
       return false;
     }
+
     if (lit->is_scalar() && lit->type()->id() == Type::BOOL) {
       return lit->scalar_as<BooleanScalar>().value;
     }
   }
+
+  if (auto ref = field_ref()) {
+    return true;
+  }
+
   return true;
 }
 
-bool KernelStateIsImmutable(const std::string& function) {
+inline bool KernelStateIsImmutable(const std::string& function) {
   // XXX maybe just add Kernel::state_is_immutable or so?
 
   // known functions with non-null but nevertheless immutable KernelState
-  static std::unordered_set<std::string> immutable_state = {
+  static std::unordered_set<std::string> names = {
       "is_in", "index_in", "cast", "struct", "strptime",
   };
 
-  return immutable_state.find(function) != immutable_state.end();
+  return names.find(function) != names.end();
 }
 
 Result<std::unique_ptr<compute::KernelState>> InitKernelState(
@@ -219,62 +379,45 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
-Result<std::shared_ptr<ExpressionState>> ExpressionState::Clone(
-    const std::shared_ptr<ExpressionState>& state, const Expression2& expr,
-    compute::ExecContext* exec_context) {
-  if (!expr.IsBound()) {
-    return Status::Invalid("Cannot clone State against an unbound expression.");
-  }
+Result<std::shared_ptr<ExpressionState>> CloneExpressionState(
+    const ExpressionState& state, compute::ExecContext* exec_context) {
+  auto clone = std::make_shared<ExpressionState>();
+  clone->kernel_states.reserve(state.kernel_states.size());
 
-  if (state == nullptr) return nullptr;
+  for (const auto& sub_state : state.kernel_states) {
+    auto call = CallNotNull(sub_state.first);
 
-  auto call = CallNotNull(expr);
-  auto call_state = checked_cast<const CallState*>(state.get());
-
-  CallState clone;
-  clone.argument_states.resize(call_state->argument_states.size());
-
-  bool recursively_share = true;
-  for (size_t i = 0; i < call->arguments.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(
-        clone.argument_states[i],
-        Clone(call_state->argument_states[i], call->arguments[i], exec_context));
-
-    if (clone.argument_states[i] != call_state->argument_states[i]) {
-      recursively_share = false;
+    if (KernelStateIsImmutable(call->function)) {
+      // The kernel's state is immutable so it's safe to just
+      // share a pointer between threads
+      clone->kernel_states.insert(sub_state);
+      continue;
     }
-  }
 
-  if (call_state->kernel_state == nullptr || KernelStateIsImmutable(call->function)) {
-    // The kernel's state is immutable so it's safe to just
-    // share a pointer between threads
-    if (recursively_share) {
-      return state;
-    }
-    clone.kernel_state = call_state->kernel_state;
-  } else {
     // The kernel's state must be re-initialized.
-    ARROW_ASSIGN_OR_RAISE(clone.kernel_state, InitKernelState(*call, exec_context));
+    ARROW_ASSIGN_OR_RAISE(auto kernel_state, InitKernelState(*call, exec_context));
+    clone->kernel_states.emplace(sub_state.first, std::move(kernel_state));
   }
 
-  return std::make_shared<CallState>(std::move(clone));
+  return clone;
 }
 
-Result<Expression2::StateAndBound> Expression2::Bind(
+Result<Expression2::BoundWithState> Expression2::Bind(
     ValueDescr in, compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Bind(std::move(in), &exec_context);
   }
 
-  if (literal()) return StateAndBound{*this, nullptr};
+  BoundWithState ret{*this, std::make_shared<ExpressionState>()};
+
+  if (literal()) return ret;
 
   if (auto ref = field_ref()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOneOrNone(*in.type));
-    auto bound = *this;
-    bound.descr_ =
+    ret.first.descr_ =
         field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
-    return StateAndBound{std::move(bound), nullptr};
+    return ret;
   }
 
   auto bound_call = *CallNotNull(*this);
@@ -291,31 +434,41 @@ Result<Expression2::StateAndBound> Expression2::Bind(
   }
   bound_call.function_kind = function->kind();
 
-  std::vector<std::shared_ptr<ExpressionState>> argument_states(
-      bound_call.arguments.size());
-  for (size_t i = 0; i < argument_states.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(std::tie(bound_call.arguments[i], argument_states[i]),
+  auto state = std::make_shared<ExpressionState>();
+  for (size_t i = 0; i < bound_call.arguments.size(); ++i) {
+    std::shared_ptr<ExpressionState> argument_state;
+    ARROW_ASSIGN_OR_RAISE(std::tie(bound_call.arguments[i], argument_state),
                           bound_call.arguments[i].Bind(in, exec_context));
+    state->MoveFrom(argument_state.get());
+  }
+
+  if (RequriesDictionaryTransparency(bound_call)) {
+    RETURN_NOT_OK(EnsureNotDictionary(&bound_call));
   }
 
   auto descrs = GetDescriptors(bound_call.arguments);
+  for (auto& descr : descrs) {
+    if (RequriesDictionaryTransparency(bound_call)) {
+      RETURN_NOT_OK(EnsureNotDictionary(&descr));
+    }
+  }
+
   ARROW_ASSIGN_OR_RAISE(bound_call.kernel, function->DispatchExact(descrs));
 
-  auto call_state = std::make_shared<CallState>();
-  ARROW_ASSIGN_OR_RAISE(call_state->kernel_state,
-                        InitKernelState(bound_call, exec_context));
-  call_state->argument_states = std::move(argument_states);
-
   compute::KernelContext kernel_context(exec_context);
-  kernel_context.SetState(call_state->kernel_state.get());
+  ARROW_ASSIGN_OR_RAISE(auto kernel_state, InitKernelState(bound_call, exec_context));
+  kernel_context.SetState(kernel_state.get());
 
-  auto bound = Expression2(std::make_shared<Expression2::Impl>(std::move(bound_call)));
-  ARROW_ASSIGN_OR_RAISE(bound.descr_, bound_call.kernel->signature->out_type().Resolve(
-                                          &kernel_context, descrs));
-  return StateAndBound{std::move(bound), std::move(call_state)};
+  ARROW_ASSIGN_OR_RAISE(auto descr, bound_call.kernel->signature->out_type().Resolve(
+                                        &kernel_context, descrs));
+
+  Expression2 bound(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
+
+  state->kernel_states.emplace(bound, std::move(kernel_state));
+  return BoundWithState{std::move(bound), std::move(state)};
 }
 
-Result<Expression2::StateAndBound> Expression2::Bind(
+Result<Expression2::BoundWithState> Expression2::Bind(
     const Schema& in_schema, compute::ExecContext* exec_context) const {
   return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
 }
@@ -354,25 +507,26 @@ Result<Datum> ExecuteScalarExpression(const Expression2& expr, ExpressionState* 
   }
 
   auto call = CallNotNull(expr);
-  auto call_state = checked_cast<CallState*>(state);
 
   std::vector<Datum> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
-    auto argument_state = call_state->argument_states[i].get();
-    ARROW_ASSIGN_OR_RAISE(
-        arguments[i],
-        ExecuteScalarExpression(call->arguments[i], argument_state, input, exec_context));
+    ARROW_ASSIGN_OR_RAISE(arguments[i], ExecuteScalarExpression(call->arguments[i], state,
+                                                                input, exec_context));
+
+    if (RequriesDictionaryTransparency(*call)) {
+      RETURN_NOT_OK(EnsureNotDictionary(&arguments[i]));
+    }
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
 
   compute::KernelContext kernel_context(exec_context);
-  kernel_context.SetState(call_state->kernel_state.get());
+  kernel_context.SetState(state->Get(expr));
 
   auto kernel = call->kernel;
-  auto inputs = GetDescriptors(call->arguments);
+  auto descrs = GetDescriptors(arguments);
   auto options = call->options.get();
-  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, inputs, options}));
+  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, descrs, options}));
 
   auto listener = std::make_shared<compute::detail::DatumAccumulator>();
   RETURN_NOT_OK(executor->Execute(arguments, listener.get()));
@@ -386,6 +540,18 @@ ArgumentsAndFlippedArguments(const Expression2::Call& call) {
                                                             call.arguments[1]},
           std::pair<const Expression2&, const Expression2&>{call.arguments[1],
                                                             call.arguments[0]}};
+}
+
+template <typename BinOp, typename It,
+          typename Out = typename std::iterator_traits<It>::value_type>
+util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
+  if (begin == end) return util::nullopt;
+
+  Out folded = std::move(*begin++);
+  while (begin != end) {
+    folded = bin_op(std::move(folded), std::move(*begin++));
+  }
+  return folded;
 }
 
 util::optional<compute::NullHandling::type> GetNullHandling(
@@ -419,8 +585,23 @@ bool DefinitelyNotNull(const Expression2& expr) {
   return false;
 }
 
+std::vector<FieldRef> FieldsInExpression(const Expression2& expr) {
+  if (auto lit = expr.literal()) return {};
+
+  if (auto ref = expr.field_ref()) {
+    return {*ref};
+  }
+
+  std::vector<FieldRef> fields;
+  for (const Expression2& arg : CallNotNull(expr)->arguments) {
+    auto argument_fields = FieldsInExpression(arg);
+    std::move(argument_fields.begin(), argument_fields.end(), std::back_inserter(fields));
+  }
+  return fields;
+}
+
 template <typename PreVisit, typename PostVisitCall>
-Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
+Result<Expression2> Modify(Expression2 expr, ExpressionState* state, const PreVisit& pre,
                            const PostVisitCall& post_call) {
   ARROW_ASSIGN_OR_RAISE(expr, Result<Expression2>(pre(std::move(expr))));
 
@@ -432,7 +613,7 @@ Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
   auto modified_argument = modified_call.arguments.begin();
 
   for (const auto& argument : call->arguments) {
-    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, pre, post_call));
+    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, state, pre, post_call));
 
     if (!Identical(*modified_argument, argument)) {
       at_least_one_modified = true;
@@ -444,44 +625,37 @@ Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
     // reconstruct the call expression with the modified arguments
     auto modified_expr = Expression2(
         std::make_shared<Expression2::Impl>(std::move(modified_call)), expr.descr());
+
+    // if expr had associated kernel state, associate it with modified_expr
+    state->Replace(expr, modified_expr);
     return post_call(std::move(modified_expr), &expr);
   }
 
   return post_call(std::move(expr), nullptr);
 }
 
-Result<Expression2> FoldConstants(Expression2 expr, ExpressionState* state) {
-  DCHECK(expr.IsBound());
+template <typename PreVisit, typename PostVisitCall>
+Result<Expression2::BoundWithState> Modify(Expression2::BoundWithState bound,
+                                           const PreVisit& pre,
+                                           const PostVisitCall& post_call) {
+  DCHECK(bound.first.IsBound());
 
-  struct StateAndIndex {
-    CallState* state;
-    int index;
-  };
-  std::vector<StateAndIndex> stack;
+  auto expr = std::move(bound.first);
+  auto state = bound.second.get();
 
-  auto root_state = checked_cast<CallState*>(state);
+  ARROW_ASSIGN_OR_RAISE(expr, Modify(std::move(expr), state, pre, post_call));
+
+  bound.first = std::move(expr);
+
+  return bound;
+}
+
+Result<Expression2::BoundWithState> FoldConstants(Expression2::BoundWithState bound) {
+  bound.second = std::make_shared<ExpressionState>(*bound.second);
+  auto state = bound.second.get();
   return Modify(
-      std::move(expr),
-      [&stack, root_state](Expression2 expr) {
-        auto call = expr.call();
-
-        if (stack.empty()) {
-          stack = {{root_state, 0}};
-          return expr;
-        }
-
-        int i = stack.back().index++;
-
-        if (!call) return expr;
-        auto next_state = stack.back().state->argument_states[i].get();
-        stack.push_back({checked_cast<CallState*>(next_state), 0});
-
-        return expr;
-      },
-      [&stack](Expression2 expr, ...) -> Result<Expression2> {
-        auto state = stack.back().state;
-        stack.pop_back();
-
+      std::move(bound), [](Expression2 expr) { return expr; },
+      [state](Expression2 expr, ...) -> Result<Expression2> {
         auto call = CallNotNull(expr);
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression2& argument) { return argument.literal(); })) {
@@ -489,16 +663,22 @@ Result<Expression2> FoldConstants(Expression2 expr, ExpressionState* state) {
           static const Datum ignored_input;
           ARROW_ASSIGN_OR_RAISE(Datum constant,
                                 ExecuteScalarExpression(expr, state, ignored_input));
+
+          state->Drop(expr);
           return literal(std::move(constant));
         }
 
-        // XXX the following should probably be in a registry of passes instead of inline
+        // XXX the following should probably be in a registry of passes instead
+        // of inline
 
         if (GetNullHandling(*call) == compute::NullHandling::INTERSECTION) {
-          // kernels which always produce intersected validity can be resolved to null
-          // *now* if any of their inputs is a null literal
+          // kernels which always produce intersected validity can be resolved
+          // to null *now* if any of their inputs is a null literal
           for (const auto& argument : call->arguments) {
-            if (argument.IsNullLiteral()) return argument;
+            if (argument.IsNullLiteral()) {
+              state->Drop(expr);
+              return argument;
+            }
           }
         }
 
@@ -526,42 +706,7 @@ Result<Expression2> FoldConstants(Expression2 expr, ExpressionState* state) {
 
         return expr;
       });
-
-  return expr;
 }
-
-struct FlattenedAssociativeChain {
-  bool was_left_folded = true;
-  std::vector<Expression2> exprs, fringe;
-
-  explicit FlattenedAssociativeChain(Expression2 expr) : exprs{std::move(expr)} {
-    auto call = CallNotNull(exprs.back());
-    fringe = call->arguments;
-
-    auto it = fringe.begin();
-
-    while (it != fringe.end()) {
-      auto sub_call = it->call();
-      if (!sub_call || sub_call->function != call->function) {
-        ++it;
-        continue;
-      }
-
-      if (it != fringe.begin()) {
-        was_left_folded = false;
-      }
-
-      exprs.push_back(std::move(*it));
-      it = fringe.erase(it);
-      it = fringe.insert(it, sub_call->arguments.begin(), sub_call->arguments.end());
-      // NB: no increment so we hit sub_call's first argument next iteration
-    }
-
-    DCHECK(std::all_of(exprs.begin(), exprs.end(), [](const Expression2& expr) {
-      return CallNotNull(expr)->options == nullptr;
-    }));
-  }
-};
 
 inline std::vector<Expression2> GuaranteeConjunctionMembers(
     const Expression2& guaranteed_true_predicate) {
@@ -577,8 +722,12 @@ inline std::vector<Expression2> GuaranteeConjunctionMembers(
 Status ExtractKnownFieldValuesImpl(
     std::vector<Expression2>* conjunction_members,
     std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
-  for (auto&& member : *conjunction_members) {
-    ARROW_ASSIGN_OR_RAISE(member, Canonicalize(std::move(member)));
+  {
+    auto empty_state = std::make_shared<ExpressionState>();
+    for (auto&& member : *conjunction_members) {
+      ARROW_ASSIGN_OR_RAISE(std::tie(member, std::ignore),
+                            Canonicalize({std::move(member), empty_state}));
+    }
   }
 
   auto unconsumed_end =
@@ -622,17 +771,21 @@ Status ExtractKnownFieldValuesImpl(
 
 Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
     const Expression2& guaranteed_true_predicate) {
+  if (!guaranteed_true_predicate.IsBound()) {
+    return Status::Invalid("guaranteed_true_predicate was not bound");
+  }
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
   return known_values;
 }
 
-Result<Expression2> ReplaceFieldsWithKnownValues(
+Result<Expression2::BoundWithState> ReplaceFieldsWithKnownValues(
     const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
-    Expression2 expr) {
+    Expression2::BoundWithState bound) {
+  bound.second = std::make_shared<ExpressionState>(*bound.second);
   return Modify(
-      std::move(expr),
+      std::move(bound),
       [&known_values](Expression2 expr) {
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
@@ -645,18 +798,6 @@ Result<Expression2> ReplaceFieldsWithKnownValues(
       [](Expression2 expr, ...) { return expr; });
 }
 
-template <typename It, typename BinOp,
-          typename Out = typename std::iterator_traits<It>::value_type>
-util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
-  if (begin == end) return util::nullopt;
-
-  Out folded = std::move(*begin++);
-  while (begin != end) {
-    folded = bin_op(std::move(folded), std::move(*begin++));
-  }
-  return folded;
-}
-
 inline bool IsBinaryAssociativeCommutative(const Expression2::Call& call) {
   static std::unordered_set<std::string> binary_associative_commutative{
       "and",      "or",  "and_kleene",       "or_kleene",  "xor",
@@ -666,97 +807,13 @@ inline bool IsBinaryAssociativeCommutative(const Expression2::Call& call) {
   return it != binary_associative_commutative.end();
 }
 
-struct Comparison {
-  enum type {
-    NA = 0,
-    EQUAL = 1,
-    LESS = 2,
-    GREATER = 4,
-    NOT_EQUAL = LESS | GREATER,
-    LESS_EQUAL = LESS | EQUAL,
-    GREATER_EQUAL = GREATER | EQUAL,
-  };
-
-  static const type* Get(const std::string& function) {
-    static std::unordered_map<std::string, type> flipped_comparisons{
-        {"equal", EQUAL},     {"not_equal", NOT_EQUAL},
-        {"less", LESS},       {"less_equal", LESS_EQUAL},
-        {"greater", GREATER}, {"greater_equal", GREATER_EQUAL},
-    };
-
-    auto it = flipped_comparisons.find(function);
-    return it != flipped_comparisons.end() ? &it->second : nullptr;
+Result<Expression2::BoundWithState> Canonicalize(Expression2::BoundWithState bound,
+                                                 compute::ExecContext* exec_context) {
+  if (exec_context == nullptr) {
+    compute::ExecContext exec_context;
+    return Canonicalize(std::move(bound), &exec_context);
   }
 
-  static const type* Get(const Expression2& expr) {
-    if (auto call = expr.call()) {
-      return Comparison::Get(call->function);
-    }
-    return nullptr;
-  }
-
-  static Result<type> Execute(Datum l, Datum r) {
-    if (!l.is_scalar() || !r.is_scalar()) {
-      return Status::Invalid("Cannot Execute Comparison on non-scalars");
-    }
-    std::vector<Datum> arguments{std::move(l), std::move(r)};
-
-    ARROW_ASSIGN_OR_RAISE(auto equal, compute::CallFunction("equal", arguments));
-
-    if (!equal.scalar()->is_valid) return NA;
-    if (equal.scalar_as<BooleanScalar>().value) return EQUAL;
-
-    ARROW_ASSIGN_OR_RAISE(auto less, compute::CallFunction("less", arguments));
-
-    if (!less.scalar()->is_valid) return NA;
-    return less.scalar_as<BooleanScalar>().value ? LESS : GREATER;
-  }
-
-  static type GetFlipped(type op) {
-    switch (op) {
-      case NA:
-        return NA;
-      case EQUAL:
-        return EQUAL;
-      case LESS:
-        return GREATER;
-      case GREATER:
-        return LESS;
-      case NOT_EQUAL:
-        return NOT_EQUAL;
-      case LESS_EQUAL:
-        return GREATER_EQUAL;
-      case GREATER_EQUAL:
-        return LESS_EQUAL;
-    };
-    DCHECK(false);
-    return NA;
-  }
-
-  static std::string GetName(type op) {
-    switch (op) {
-      case NA:
-        DCHECK(false) << "unreachable";
-        break;
-      case EQUAL:
-        return "equal";
-      case LESS:
-        return "less";
-      case GREATER:
-        return "greater";
-      case NOT_EQUAL:
-        return "not_equal";
-      case LESS_EQUAL:
-        return "less_equal";
-      case GREATER_EQUAL:
-        return "greater_equal";
-    };
-    DCHECK(false);
-    return "na";
-  }
-};
-
-Result<Expression2> Canonicalize(Expression2 expr) {
   // If potentially reconstructing more deeply than a call's immediate arguments
   // (for example, when reorganizing an associative chain), add expressions to this set to
   // avoid unnecessary work
@@ -773,8 +830,8 @@ Result<Expression2> Canonicalize(Expression2 expr) {
   } AlreadyCanonicalized;
 
   return Modify(
-      std::move(expr),
-      [&AlreadyCanonicalized](Expression2 expr) -> Result<Expression2> {
+      std::move(bound),
+      [&AlreadyCanonicalized, exec_context](Expression2 expr) -> Result<Expression2> {
         auto call = expr.call();
         if (!call) return expr;
 
@@ -822,13 +879,25 @@ Result<Expression2> Canonicalize(Expression2 expr) {
           if (call->arguments[0].literal() && !call->arguments[1].literal()) {
             // ensure that literals are on comparisons' RHS
             auto flipped_call = *call;
-            for (auto&& argument : flipped_call.arguments) {
-              ARROW_ASSIGN_OR_RAISE(argument, Canonicalize(std::move(argument)));
-            }
             flipped_call.function = Comparison::GetName(Comparison::GetFlipped(*cmp));
+            // look up the flipped kernel
+            // TODO extract a helper for use here and in Bind
+            ARROW_ASSIGN_OR_RAISE(
+                auto function,
+                exec_context->func_registry()->GetFunction(flipped_call.function));
+
+            auto descrs = GetDescriptors(flipped_call.arguments);
+            for (auto& descr : descrs) {
+              if (RequriesDictionaryTransparency(flipped_call)) {
+                RETURN_NOT_OK(EnsureNotDictionary(&descr));
+              }
+            }
+            ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
+
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
             return Expression2(
-                std::make_shared<Expression2::Impl>(std::move(flipped_call)));
+                std::make_shared<Expression2::Impl>(std::move(flipped_call)),
+                expr.descr());
           }
         }
 
@@ -837,10 +906,10 @@ Result<Expression2> Canonicalize(Expression2 expr) {
       [](Expression2 expr, ...) { return expr; });
 }
 
-Result<Expression2> DirectComparisonSimplification(Expression2 expr,
-                                                   const Expression2::Call& guarantee) {
+Result<Expression2::BoundWithState> DirectComparisonSimplification(
+    Expression2::BoundWithState bound, const Expression2::Call& guarantee) {
   return Modify(
-      std::move(expr), [](Expression2 expr) { return expr; },
+      std::move(bound), [](Expression2 expr) { return expr; },
       [&guarantee](Expression2 expr, ...) -> Result<Expression2> {
         auto call = expr.call();
         if (!call) return expr;
@@ -895,36 +964,251 @@ Result<Expression2> DirectComparisonSimplification(Expression2 expr,
       });
 }
 
-Result<Expression2> SimplifyWithGuarantee(Expression2 expr, ExpressionState* state,
-                                          const Expression2& guaranteed_true_predicate) {
+Result<Expression2::BoundWithState> SimplifyWithGuarantee(
+    Expression2::BoundWithState bound, const Expression2& guaranteed_true_predicate) {
+  if (!guaranteed_true_predicate.IsBound()) {
+    return Status::Invalid("guaranteed_true_predicate was not bound");
+  }
+
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
 
-  ARROW_ASSIGN_OR_RAISE(expr,
-                        ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
+  ARROW_ASSIGN_OR_RAISE(bound,
+                        ReplaceFieldsWithKnownValues(known_values, std::move(bound)));
 
-  auto CanonicalizeAndFoldConstants = [&expr, state] {
-    ARROW_ASSIGN_OR_RAISE(expr, Canonicalize(std::move(expr)));
-    ARROW_ASSIGN_OR_RAISE(expr, FoldConstants(std::move(expr), state));
+  auto CanonicalizeAndFoldConstants = [&bound] {
+    ARROW_ASSIGN_OR_RAISE(bound, Canonicalize(std::move(bound)));
+    ARROW_ASSIGN_OR_RAISE(bound, FoldConstants(std::move(bound)));
     return Status::OK();
   };
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   for (const auto& guarantee : conjunction_members) {
     if (Comparison::Get(guarantee) && guarantee.call()->arguments[1].literal()) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto simplified, DirectComparisonSimplification(expr, *CallNotNull(guarantee)));
+      ARROW_ASSIGN_OR_RAISE(auto simplified, DirectComparisonSimplification(
+                                                 bound, *CallNotNull(guarantee)));
 
-      if (Identical(simplified, expr)) continue;
+      if (Identical(simplified.first, bound.first)) continue;
 
-      expr = std::move(simplified);
+      bound = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }
   }
 
-  return expr;
+  return bound;
+}
+
+Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
+  struct {
+    std::shared_ptr<KeyValueMetadata> metadata_ = std::make_shared<KeyValueMetadata>();
+    ArrayVector columns_;
+
+    Result<std::string> AddScalar(const Scalar& scalar) {
+      auto ret = columns_.size();
+      ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(scalar, 1));
+      columns_.push_back(std::move(array));
+      return std::to_string(ret);
+    }
+
+    Status Visit(const Expression2& expr) {
+      if (auto lit = expr.literal()) {
+        if (!lit->is_scalar()) {
+          return Status::NotImplemented("Serialization of non-scalar literals");
+        }
+        ARROW_ASSIGN_OR_RAISE(auto value, AddScalar(*lit->scalar()));
+        metadata_->Append("literal", std::move(value));
+        return Status::OK();
+      }
+
+      if (auto ref = expr.field_ref()) {
+        if (!ref->name()) {
+          return Status::NotImplemented("Serialization of non-name field_refs");
+        }
+        metadata_->Append("field_ref", *ref->name());
+        return Status::OK();
+      }
+
+      auto call = CallNotNull(expr);
+      metadata_->Append("call", call->function);
+
+      for (const auto& argument : call->arguments) {
+        RETURN_NOT_OK(Visit(argument));
+      }
+
+      if (call->options) {
+        ARROW_ASSIGN_OR_RAISE(auto options_scalar, FunctionOptionsToStructScalar(*call));
+        ARROW_ASSIGN_OR_RAISE(auto value, AddScalar(*options_scalar));
+        metadata_->Append("options", std::move(value));
+      }
+
+      metadata_->Append("end", call->function);
+      return Status::OK();
+    }
+
+    Result<std::shared_ptr<RecordBatch>> operator()(const Expression2& expr) {
+      RETURN_NOT_OK(Visit(expr));
+      FieldVector fields(columns_.size());
+      for (size_t i = 0; i < fields.size(); ++i) {
+        fields[i] = field("", columns_[i]->type());
+      }
+      return RecordBatch::Make(schema(std::move(fields), std::move(metadata_)), 1,
+                               std::move(columns_));
+    }
+  } ToRecordBatch;
+
+  ARROW_ASSIGN_OR_RAISE(auto batch, ToRecordBatch(expr));
+  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create());
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(stream, batch->schema()));
+  RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  RETURN_NOT_OK(writer->Close());
+  return stream->Finish();
+}
+
+Result<Expression2> Deserialize(const Buffer& buffer) {
+  io::BufferReader stream(buffer);
+  ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
+  ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
+  if (batch->schema()->metadata() == nullptr) {
+    return Status::Invalid("serialized Expression2's batch repr had null metadata");
+  }
+  if (batch->num_rows() != 1) {
+    return Status::Invalid(
+        "serialized Expression2's batch repr was not a single row - had ",
+        batch->num_rows());
+  }
+
+  struct FromRecordBatch {
+    const RecordBatch& batch_;
+    int index_;
+
+    const KeyValueMetadata& metadata() { return *batch_.schema()->metadata(); }
+
+    Result<std::shared_ptr<Scalar>> GetScalar(const std::string& i) {
+      int32_t column_index;
+      if (!internal::ParseValue<Int32Type>(i.data(), i.length(), &column_index)) {
+        return Status::Invalid("Couldn't parse column_index");
+      }
+      if (column_index >= batch_.num_columns()) {
+        return Status::Invalid("column_index out of bounds");
+      }
+      return batch_.column(column_index)->GetScalar(0);
+    }
+
+    Result<Expression2> GetOne() {
+      if (index_ >= metadata().size()) {
+        return Status::Invalid("unterminated serialized Expression2");
+      }
+
+      const std::string& key = metadata().key(index_);
+      const std::string& value = metadata().value(index_);
+      ++index_;
+
+      if (key == "literal") {
+        ARROW_ASSIGN_OR_RAISE(auto scalar, GetScalar(value));
+        return literal(std::move(scalar));
+      }
+
+      if (key == "field_ref") {
+        return field_ref(value);
+      }
+
+      if (key != "call") {
+        return Status::Invalid("Unrecognized serialized Expression2 key ", key);
+      }
+
+      std::vector<Expression2> arguments;
+      while (metadata().key(index_) != "end") {
+        if (metadata().key(index_) == "options") {
+          ARROW_ASSIGN_OR_RAISE(auto options_scalar, GetScalar(metadata().value(index_)));
+          auto expr = call(value, std::move(arguments));
+          RETURN_NOT_OK(FunctionOptionsFromStructScalar(
+              checked_cast<const StructScalar*>(options_scalar.get()),
+              const_cast<Expression2::Call*>(expr.call())));
+          index_ += 2;
+          return expr;
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto argument, GetOne());
+        arguments.push_back(std::move(argument));
+      }
+
+      ++index_;
+      return call(value, std::move(arguments));
+    }
+  };
+
+  return FromRecordBatch{*batch, 0}.GetOne();
+}
+
+Expression2 project(std::vector<Expression2> values, std::vector<std::string> names) {
+  return call("struct", std::move(values), compute::StructOptions{std::move(names)});
+}
+
+Expression2 equal(Expression2 lhs, Expression2 rhs) {
+  return call("equal", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 not_equal(Expression2 lhs, Expression2 rhs) {
+  return call("not_equal", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 less(Expression2 lhs, Expression2 rhs) {
+  return call("less", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 less_equal(Expression2 lhs, Expression2 rhs) {
+  return call("less_equal", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 greater(Expression2 lhs, Expression2 rhs) {
+  return call("greater", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 greater_equal(Expression2 lhs, Expression2 rhs) {
+  return call("greater_equal", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 and_(Expression2 lhs, Expression2 rhs) {
+  return call("and_kleene", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 and_(const std::vector<Expression2>& operands) {
+  auto folded = FoldLeft<Expression2(Expression2, Expression2)>(operands.begin(),
+                                                                operands.end(), and_);
+  if (folded) {
+    return std::move(*folded);
+  }
+  return literal(true);
+}
+
+Expression2 or_(Expression2 lhs, Expression2 rhs) {
+  return call("or_kleene", {std::move(lhs), std::move(rhs)});
+}
+
+Expression2 or_(const std::vector<Expression2>& operands) {
+  auto folded = FoldLeft<Expression2(Expression2, Expression2)>(operands.begin(),
+                                                                operands.end(), or_);
+  if (folded) {
+    return std::move(*folded);
+  }
+  return literal(false);
+}
+
+Expression2 not_(Expression2 operand) { return call("invert", {std::move(operand)}); }
+
+Expression2 operator&&(Expression2 lhs, Expression2 rhs) {
+  return and_(std::move(lhs), std::move(rhs));
+}
+
+Expression2 operator||(Expression2 lhs, Expression2 rhs) {
+  return or_(std::move(lhs), std::move(rhs));
+}
+
+Result<Expression2> InsertImplicitCasts(Expression2 expr, const Schema& s) {
+  std::shared_ptr<Expression> e(expr);
+  return InsertImplicitCasts(*e, s);
 }
 
 }  // namespace dataset
