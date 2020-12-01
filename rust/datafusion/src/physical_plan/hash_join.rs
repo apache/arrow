@@ -43,6 +43,7 @@ use super::{
     group_scalar::GroupByScalar, ExecutionPlan, Partitioning, RecordBatchStream,
     SendableRecordBatchStream,
 };
+use ahash::RandomState;
 
 // An index of (batch, row) uniquely identifying a row in a part.
 type Index = (usize, usize);
@@ -53,7 +54,7 @@ type JoinIndex = Option<(usize, usize)>;
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Vec<GroupByScalar>, Vec<Index>>;
+type JoinHashMap = HashMap<Vec<GroupByScalar>, Vec<Index>, RandomState>;
 type JoinLeftData = (JoinHashMap, Vec<RecordBatch>);
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -165,7 +166,7 @@ impl ExecutionPlan for HashJoinExec {
         // This operation performs 2 steps at once:
         // 1. creates a [JoinHashMap] of all batches from the stream
         // 2. stores the batches in a vector.
-        let initial = (JoinHashMap::new(), Vec::new(), 0);
+        let initial = (JoinHashMap::default(), Vec::new(), 0);
         let left_data = stream
             .try_fold(initial, |mut acc, batch| async {
                 let hash = &mut acc.0;
@@ -325,7 +326,8 @@ fn build_batch(
     join_type: &JoinType,
     schema: &Schema,
 ) -> ArrowResult<RecordBatch> {
-    let mut right_hash = JoinHashMap::with_capacity(batch.num_rows());
+    let mut right_hash =
+        JoinHashMap::with_capacity_and_hasher(batch.num_rows(), RandomState::new());
     update_hash(on_right, batch, &mut right_hash, 0).unwrap();
 
     let indices = build_join_indexes(&left_data.0, &right_hash, join_type).unwrap();
