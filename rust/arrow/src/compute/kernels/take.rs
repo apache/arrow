@@ -205,6 +205,7 @@ fn take_primitive<T, I>(
 ) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
+    T::Native: num::Num,
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
@@ -214,19 +215,20 @@ where
 
     let null_count = array.null_count();
 
-    // This iteration is implemented with a while loop, rather than a
-    // map()/collect(), since the while loop performs better in the benchmarks.
-    let mut new_values: Vec<T::Native> = Vec::with_capacity(data_len);
+    let mut buffer = MutableBuffer::new(data_len * std::mem::size_of::<T::Native>());
+    buffer.resize(data_len * std::mem::size_of::<T::Native>());
+    let data = buffer.typed_data_mut();
+
     let nulls;
 
     if null_count == 0 {
         // Take indices without null checking
-        for i in 0..data_len {
+        for (i, elem) in data.iter_mut().enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
 
-            new_values.push(array.value(index));
+            *elem = array.value(index);
         }
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
@@ -235,7 +237,7 @@ where
 
         let null_slice = null_buf.data_mut();
 
-        for i in 0..data_len {
+        for (i, elem) in data.iter_mut().enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
@@ -244,7 +246,7 @@ where
                 bit_util::unset_bit(null_slice, i);
             }
 
-            new_values.push(array.value(index));
+            *elem = array.value(index);
         }
         nulls = match indices.data_ref().null_buffer() {
             Some(buffer) => Some(buffer_bin_and(
@@ -264,7 +266,7 @@ where
         None,
         nulls,
         0,
-        vec![Buffer::from(new_values.to_byte_slice())],
+        vec![buffer.freeze()],
         vec![],
     );
     Ok(Arc::new(PrimitiveArray::<T>::from(Arc::new(data))))
@@ -469,6 +471,7 @@ where
 fn take_dict<T, I>(values: &ArrayRef, indices: &PrimitiveArray<I>) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
+    T::Native: num::Num,
     I: ArrowNumericType,
     I::Native: ToPrimitive,
 {
