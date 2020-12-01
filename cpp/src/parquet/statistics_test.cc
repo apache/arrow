@@ -609,8 +609,7 @@ static const int NUM_VALUES = 10;
 template <typename TestType>
 class TestStatisticsSortOrder : public ::testing::Test {
  public:
-  typedef typename TestType::c_type T;
-
+  using c_type = typename TestType::c_type;
   void AddNodes(std::string name) {
     fields_.push_back(schema::PrimitiveNode::Make(
         name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));
@@ -670,7 +669,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
   }
 
  protected:
-  std::vector<T> values_;
+  std::vector<c_type> values_;
   std::vector<uint8_t> values_buf_;
   std::vector<schema::NodePtr> fields_;
   std::shared_ptr<schema::GroupNode> schema_;
@@ -700,13 +699,17 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
 
   // Write UINT32 min/max values
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(T)));
+          .set_min(
+              std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
+          .set_max(
+              std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
 
   // Write INT32 min/max values
   stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(T)));
+          .set_min(
+              std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
+          .set_max(
+              std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
 }
 
 // TYPE::INT64
@@ -728,13 +731,13 @@ void TestStatisticsSortOrder<Int64Type>::SetValues() {
 
   // Write UINT64 min/max values
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(T)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
 
   // Write INT64 min/max values
   stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(T)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
 }
 
 // TYPE::FLOAT
@@ -747,8 +750,8 @@ void TestStatisticsSortOrder<FloatType>::SetValues() {
 
   // Write Float min/max values
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(T)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
 }
 
 // TYPE::DOUBLE
@@ -761,8 +764,8 @@ void TestStatisticsSortOrder<DoubleType>::SetValues() {
 
   // Write Double min/max values
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(T)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(T)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
 }
 
 // TYPE::ByteArray
