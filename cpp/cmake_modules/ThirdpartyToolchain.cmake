@@ -1603,7 +1603,7 @@ macro(build_gtest)
   set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
+  set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
 
   if(MSVC)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)

@@ -699,17 +699,13 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
 
   // Write UINT32 min/max values
   stats_[0]
-          .set_min(
-              std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-          .set_max(
-              std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
 
   // Write INT32 min/max values
   stats_[1]
-          .set_min(
-              std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-          .set_max(
-              std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
+      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
 }
 
 // TYPE::INT64
