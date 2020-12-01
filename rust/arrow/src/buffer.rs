@@ -564,10 +564,9 @@ pub(super) fn buffer_bin_and(
     }
 }
 
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(any(feature = "simd", feature = "avx512"))
-))]
+// Note: do not target specific features like x86 without considering
+// other targets like wasm32, as those would fail to build
+#[cfg(all(not(any(feature = "simd", feature = "avx512"))))]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -674,10 +673,7 @@ pub(super) fn buffer_bin_or(
     }
 }
 
-#[cfg(all(
-    any(target_arch = "x86", target_arch = "x86_64"),
-    not(any(feature = "simd", feature = "avx512"))
-))]
+#[cfg(all(not(any(feature = "simd", feature = "avx512"))))]
 pub(super) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
