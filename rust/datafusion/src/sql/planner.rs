@@ -243,46 +243,61 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     ) -> Result<LogicalPlan> {
         let right = self.create_relation(&join.relation)?;
         match &join.join_operator {
+            JoinOperator::LeftOuter(constraint) => {
+                self.parse_join(left, &right, constraint, JoinType::Left)
+            }
+            JoinOperator::RightOuter(constraint) => {
+                self.parse_join(left, &right, constraint, JoinType::Right)
+            }
             JoinOperator::Inner(constraint) => {
-                match constraint {
-                    JoinConstraint::On(sql_expr) => {
-                        let mut keys: Vec<(String, String)> = vec![];
-                        let join_schema =
-                            create_join_schema(left.schema(), &right.schema())?;
-
-                        // parse ON expression
-                        let expr = self.sql_to_rex(sql_expr, &join_schema)?;
-
-                        // extract join keys
-                        extract_join_keys(&expr, &mut keys)?;
-                        let left_keys: Vec<&str> =
-                            keys.iter().map(|pair| pair.0.as_str()).collect();
-                        let right_keys: Vec<&str> =
-                            keys.iter().map(|pair| pair.1.as_str()).collect();
-
-                        // return the logical plan representing the join
-                        LogicalPlanBuilder::from(&left)
-                            .join(&right, JoinType::Inner, &left_keys, &right_keys)?
-                            .build()
-                    }
-                    JoinConstraint::Using(_) => {
-                        // https://issues.apache.org/jira/browse/ARROW-10728
-                        Err(DataFusionError::NotImplemented(
-                            "JOIN with USING is not supported (https://issues.apache.org/jira/browse/ARROW-10728)".to_string(),
-                        ))
-                    }
-                    JoinConstraint::Natural => {
-                        // https://issues.apache.org/jira/browse/ARROW-10727
-                        Err(DataFusionError::NotImplemented(
-                            "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
-                        ))
-                    }
-                }
+                self.parse_join(left, &right, constraint, JoinType::Inner)
             }
             other => Err(DataFusionError::NotImplemented(format!(
                 "Unsupported JOIN operator {:?}",
                 other
             ))),
+        }
+    }
+
+    fn parse_join(
+        &self,
+        left: &LogicalPlan,
+        right: &LogicalPlan,
+        constraint: &JoinConstraint,
+        join_type: JoinType,
+    ) -> Result<LogicalPlan> {
+        match constraint {
+            JoinConstraint::On(sql_expr) => {
+                let mut keys: Vec<(String, String)> = vec![];
+                let join_schema = create_join_schema(left.schema(), &right.schema())?;
+
+                // parse ON expression
+                let expr = self.sql_to_rex(sql_expr, &join_schema)?;
+
+                // extract join keys
+                extract_join_keys(&expr, &mut keys)?;
+                let left_keys: Vec<&str> =
+                    keys.iter().map(|pair| pair.0.as_str()).collect();
+                let right_keys: Vec<&str> =
+                    keys.iter().map(|pair| pair.1.as_str()).collect();
+
+                // return the logical plan representing the join
+                LogicalPlanBuilder::from(&left)
+                    .join(&right, join_type, &left_keys, &right_keys)?
+                    .build()
+            }
+            JoinConstraint::Using(_) => {
+                // https://issues.apache.org/jira/browse/ARROW-10728
+                Err(DataFusionError::NotImplemented(
+                    "JOIN with USING is not supported (https://issues.apache.org/jira/browse/ARROW-10728)".to_string(),
+                ))
+            }
+            JoinConstraint::Natural => {
+                // https://issues.apache.org/jira/browse/ARROW-10727
+                Err(DataFusionError::NotImplemented(
+                    "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
+                ))
+            }
         }
     }
 
