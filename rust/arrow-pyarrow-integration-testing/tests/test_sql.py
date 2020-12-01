@@ -40,12 +40,16 @@ class TestCase(unittest.TestCase):
         """
         Rust -> Python -> Rust
         """
+        old_allocated = pyarrow.total_allocated_bytes()
+
         def double(array):
             array = array.to_pylist()
             return pyarrow.array([x * 2 if x is not None else None for x in array])
-        
+
         is_correct = arrow_pyarrow_integration_testing.double_py(double)
         self.assertTrue(is_correct)
+        # No leak of C++ memory
+        self.assertEqual(old_allocated, pyarrow.total_allocated_bytes())
 
     def test_string_python(self):
         """
