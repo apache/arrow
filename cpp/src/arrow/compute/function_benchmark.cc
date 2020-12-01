@@ -153,7 +153,7 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
 
   auto function = *GetFunctionRegistry()->GetFunction("is_valid");
   auto kernel = *function->DispatchExact({ValueDescr::Scalar(int64())});
-  const auto& exec = checked_cast<const ScalarKernel&>(*kernel).exec;
+  const auto& exec = static_cast<const ScalarKernel&>(*kernel).exec;
 
   const auto scalars = MakeScalarsForIsValid(N);
 

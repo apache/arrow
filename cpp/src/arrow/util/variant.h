@@ -196,16 +196,19 @@ struct VariantImpl<Variant<M...>, H, T...> : VariantImpl<Variant<M...>, T...> {
 
   // Templated to avoid instantiation in case H is not copy constructible
   template <typename Void>
-  void copy_to(Void* target) const try {
-    if (static_cast<const VariantType*>(this)->index_ == kIndex) {
-      new (target) H(cast_this());
-      static_cast<VariantType*>(target)->index_ = kIndex;
-    } else {
-      Impl::copy_to(target);
+  void copy_to(Void* generic_target) const {
+    const auto target = static_cast<VariantType*>(generic_target);
+    try {
+      if (this->index_ == kIndex) {
+        new (target) H(cast_this());
+        target->index_ = kIndex;
+      } else {
+        Impl::copy_to(target);
+      }
+    } catch (...) {
+      target->construct_default();
+      throw;
     }
-  } catch (...) {
-    static_cast<VariantType*>(target)->construct_default();
-    throw;
   }
 
   void destroy() noexcept {
