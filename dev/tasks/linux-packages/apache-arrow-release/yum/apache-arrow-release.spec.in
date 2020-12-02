@@ -54,7 +54,7 @@ Apache Arrow release files.
 
 %build
 # We use distribution version explicitly because we can't use symbolic link
-# on Bintray. CentOS uses 6, 7 and 8 but RHEL uses 6Server, 7Server and 8Server
+# on Bintray. CentOS uses 7 and 8 but RHEL uses 7Server and 8Server
 # for $releasever. If we can use symbolic link on Bintray, we can use
 # $releasever directly.
 distribution_version=$(cut -d: -f5 /etc/system-release-cpe)

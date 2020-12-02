@@ -1182,28 +1182,6 @@ tasks:
       - libparquet-glib300_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet300_{no_rc_version}-1_[a-z0-9]+.deb
 
-  centos-6-amd64:
-    ci: github
-    template: linux-packages/github.linux.amd64.yml
-    params:
-      build_task: "yum:build"
-      target: "centos-6"
-      upload_extensions:
-        - .rpm
-    artifacts:
-      - apache-arrow-release-{no_rc_version}-1.el6.noarch.rpm
-      - apache-arrow-release-{no_rc_version}-1.el6.src.rpm
-      - arrow-{no_rc_version}-1.el6.src.rpm
-      - arrow-debuginfo-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-dataset-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-dataset-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-python-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - arrow-python-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - plasma-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-      - plasma-libs-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
-
   centos-7-amd64:
     ci: github
     template: linux-packages/github.linux.amd64.yml

@@ -167,8 +167,7 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "centos:6" \
-                "centos:7" \
+  for target in "centos:7" \
                 "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do

@@ -1406,7 +1406,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
-      ["centos", "6"],
       ["centos", "7"],
       ["centos", "8"],
     ]

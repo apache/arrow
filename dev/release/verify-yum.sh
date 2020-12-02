@@ -37,13 +37,8 @@ if [ "${IS_RC}" = "yes" ]; then
   bintray_base_url="${bintray_base_url}-rc"
 fi
 
-if [ -f /etc/os-release ]; then
-  distribution=$(. /etc/os-release && echo "${ID}")
-  distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
-else
-  distribution=centos
-  distribution_version=6
-fi
+distribution=$(. /etc/os-release && echo "${ID}")
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
 
 cmake_pakcage=cmake
 cmake_command=cmake
@@ -53,15 +48,6 @@ have_glib=yes
 have_parquet=yes
 install_command="dnf install -y --enablerepo=PowerTools"
 case "${distribution}-${distribution_version}" in
-  centos-6)
-    cmake_pakcage=cmake3
-    cmake_command=cmake3
-    have_flight=no
-    have_gandiva=no
-    have_glib=no
-    have_parquet=no
-    install_command="yum install -y"
-    ;;
   centos-7)
     cmake_pakcage=cmake3
     cmake_command=cmake3
