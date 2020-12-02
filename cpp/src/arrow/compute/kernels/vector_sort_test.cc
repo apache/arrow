@@ -482,10 +482,10 @@ class TestChunkedArrayRandomBase : public TestBase {
     // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
     for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        for (auto num_chunks : {1, 5, 10}) {
+        for (auto num_chunks : {1, 2, 5, 10, 40}) {
           std::vector<std::shared_ptr<Array>> arrays;
           for (int i = 0; i < num_chunks; ++i) {
-            auto array = this->GenerateArray(length, null_probability);
+            auto array = this->GenerateArray(length / num_chunks, null_probability);
             arrays.push_back(array);
           }
           ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
@@ -517,7 +517,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   Random<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
-TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(100); }
+TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(1000); }
 
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
@@ -542,7 +542,7 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
   RandomRange<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
-TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(100); }
+TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(1000); }
 
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {
