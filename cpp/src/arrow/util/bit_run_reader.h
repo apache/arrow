@@ -293,6 +293,7 @@ class BaseSetBitRunReader {
       current_word_ = LoadFullWord();
       const auto num_zeros = CountFirstZeros(current_word_);
       if (num_zeros < 64) {
+        // Run of zeros ends here
         current_word_ = ConsumeBits(current_word_, num_zeros);
         current_num_bits_ = 64 - num_zeros;
         remaining_ -= num_zeros;
@@ -302,6 +303,7 @@ class BaseSetBitRunReader {
       }
       remaining_ -= 64;
     }
+    // Run of zeros continues in last bitmap word
     if (remaining_ > 0) {
       current_word_ = LoadPartialWord(/*bit_offset=*/0, remaining_);
       current_num_bits_ = static_cast<int32_t>(remaining_);
@@ -327,7 +329,7 @@ class BaseSetBitRunReader {
       current_word_ = ConsumeBits(current_word_, num_ones);
       current_num_bits_ -= num_ones;
       if (current_num_bits_) {
-        // There are pending zeros in current_word_
+        // Run of ones ends here
         return num_ones;
       }
       len = num_ones;
@@ -344,12 +346,13 @@ class BaseSetBitRunReader {
       len += num_ones;
       remaining_ -= num_ones;
       if (num_ones < 64) {
-        // There are pending zeros in current_word_
+        // Run of ones ends here
         current_word_ = ConsumeBits(current_word_, num_ones);
         current_num_bits_ = 64 - num_ones;
         return len;
       }
     }
+    // Run of ones continues in last bitmap word
     if (remaining_ > 0) {
       current_word_ = LoadPartialWord(/*bit_offset=*/0, remaining_);
       current_num_bits_ = static_cast<int32_t>(remaining_);

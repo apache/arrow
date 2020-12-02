@@ -67,12 +67,10 @@ using internal::InvertBitmap;
 using ::testing::ElementsAreArray;
 
 namespace internal {
-void PrintTo(const BitRun& run, std::ostream* os) {
-  *os << run.ToString();  // whatever needed to print bar to os
-}
-void PrintTo(const SetBitRun& run, std::ostream* os) {
-  *os << run.ToString();  // whatever needed to print bar to os
-}
+
+void PrintTo(const BitRun& run, std::ostream* os) { *os << run.ToString(); }
+void PrintTo(const SetBitRun& run, std::ostream* os) { *os << run.ToString(); }
+
 }  // namespace internal
 
 template <class BitmapWriter>
