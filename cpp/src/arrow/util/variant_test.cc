@@ -226,13 +226,6 @@ TEST(Variant, ExceptionSafety) {
   EXPECT_EQ(v.index(), 0);
 }
 
-TEST(VariantTest, TypeDeduction) {
-  // Variant cannot guess that const char* corresponds to std::string
-  EXPECT_EQ((Variant<bool, std::string>{"foo"}), (Variant<bool, std::string>{true}));
-  // Reordering doesn't help
-  EXPECT_EQ((Variant<std::string, bool>{"foo"}), (Variant<std::string, bool>{true}));
-}
-
 template <typename V, typename T>
 struct AssertVisitOne {
   void operator()(const T& actual) { EXPECT_EQ(&actual, expected_); }

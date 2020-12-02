@@ -45,7 +45,7 @@ using NonTrivialVariant = arrow::util::Variant<int32_t, std::string>;
 
 std::vector<int32_t> MakeInts(int64_t nitems) {
   auto rng = arrow::random::RandomArrayGenerator(42);
-  auto array = checked_pointer_cast<Int32Array>(rng.Int32(nitems, 0.0, 1.0));
+  auto array = checked_pointer_cast<Int32Array>(rng.Int32(nitems, 0, 1 << 30));
   std::vector<int32_t> items(nitems);
   for (int64_t i = 0; i < nitems; ++i) {
     items[i] = array->Value(i);
