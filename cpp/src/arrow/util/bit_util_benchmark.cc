@@ -45,6 +45,8 @@
 namespace arrow {
 namespace BitUtil {
 
+constexpr int64_t kBufferSize = 1024 * 8;
+
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
 // A naive bitmap reader implementation, meant as a baseline against
@@ -318,6 +320,26 @@ static void BitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<internal::BitmapReader>(state, state.range(0));
 }
 
+static void BitmapUInt64Reader(benchmark::State& state) {
+  const int64_t nbytes = state.range(0);
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8;
+  const uint8_t* bitmap = buffer->data();
+
+  for (auto _ : state) {
+    {
+      internal::BitmapUInt64Reader reader(bitmap, 0, num_bits);
+      uint64_t total = 0;
+      for (int64_t i = 0; i < num_bits; i += 64) {
+        total += reader.NextWord();
+      }
+      benchmark::DoNotOptimize(total);
+    }
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
 static void BitRunReader(benchmark::State& state) {
   BenchmarkBitRunReader<internal::BitRunReader>(state, state.range(0));
 }
@@ -390,8 +412,6 @@ static void SetBitsTo(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
-constexpr int64_t kBufferSize = 1024 * 8;
-
 template <int64_t OffsetSrc, int64_t OffsetDest = 0>
 static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t buffer_size = state.range(0);
@@ -458,6 +478,8 @@ BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
 #endif
 
 BENCHMARK(BitmapReader)->Arg(kBufferSize);
+BENCHMARK(BitmapUInt64Reader)->Arg(kBufferSize);
+
 BENCHMARK(BitRunReader)
     ->Arg(-1)
     ->Arg(0)
@@ -476,6 +498,7 @@ BENCHMARK(BitRunReaderLinear)
     ->Arg(60)
     ->Arg(75)
     ->Arg(99);
+
 BENCHMARK(VisitBits)->Arg(kBufferSize);
 BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
 BENCHMARK(SetBitsTo)->Arg(2)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
@@ -490,6 +513,7 @@ BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
 
 BENCHMARK(BitmapWriter)->Arg(kBufferSize);
 BENCHMARK(FirstTimeBitmapWriter)->Arg(kBufferSize);
+
 BENCHMARK(GenerateBits)->Arg(kBufferSize);
 BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 

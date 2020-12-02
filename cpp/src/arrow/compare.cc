@@ -136,7 +136,7 @@ class RangeDataEqualsImpl {
           }
         }
         return true;
-      } else {
+      } else if (length <= 1024) {
         BitmapUInt64Reader left_reader(left_bits, left_start_idx_ + left_.offset + i,
                                        length);
         BitmapUInt64Reader right_reader(right_bits, right_start_idx_ + right_.offset + i,
@@ -147,6 +147,10 @@ class RangeDataEqualsImpl {
           }
         }
         DCHECK_EQ(right_reader.position(), length);
+      } else {
+        // BitmapEquals is the fastest method on large runs
+        return BitmapEquals(left_bits, left_start_idx_ + left_.offset + i, right_bits,
+                            right_start_idx_ + right_.offset + i, length);
       }
       return true;
     };
