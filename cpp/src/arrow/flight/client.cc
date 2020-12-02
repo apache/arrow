@@ -498,14 +498,21 @@ class GrpcStreamReader : public FlightStreamReader {
         app_metadata_(nullptr) {}
 
   Status EnsureDataStarted() {
+      std::cout << "Here i am in GrpcStreamReader EnsureDataStarted" << std::endl;
+
     if (!batch_reader_) {
+        std::cout << "yes batch_reader_" << std::endl;
+
       bool skipped_to_data = false;
       {
         auto guard = TakeGuard();
         skipped_to_data = peekable_reader_->SkipToData();
+        std::cout << "TakeGuard, SkipToData" << std::endl;
       }
       // peek() until we find the first data message; discard metadata
       if (!skipped_to_data) {
+          std::cout << "!skipped_to_data" << std::endl;
+
         return OverrideWithServerError(MakeFlightError(
             FlightStatusCode::Internal, "Server never sent a data message"));
       }
@@ -513,10 +520,16 @@ class GrpcStreamReader : public FlightStreamReader {
       auto message_reader =
           std::unique_ptr<ipc::MessageReader>(new GrpcIpcMessageReader<Reader>(
               rpc_, read_mutex_, stream_, peekable_reader_, &app_metadata_));
+      std::cout << "yes message_reader" << std::endl;
+
       auto result =
           ipc::RecordBatchStreamReader::Open(std::move(message_reader), options_);
+      std::cout << "yes result" << std::endl;
+
       RETURN_NOT_OK(OverrideWithServerError(std::move(result).Value(&batch_reader_)));
     }
+    std::cout << "the end" << std::endl;
+
     return Status::OK();
   }
   arrow::Result<std::shared_ptr<Schema>> GetSchema() override {
@@ -1141,6 +1154,8 @@ class FlightClient::FlightClientImpl {
     *out = std::unique_ptr<StreamReader>(
         new StreamReader(rpc, nullptr, options.read_options, finishable_stream));
     // Eagerly read the schema
+    std::cout << "Here i am in DoGet" << std::endl;
+
     return static_cast<StreamReader*>(out->get())->EnsureDataStarted();
   }
 

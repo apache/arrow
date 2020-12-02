@@ -622,6 +622,7 @@ class FlightServiceImpl : public FlightService::Service {
 
   grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                      ServerWriter<pb::FlightData>* writer) {
+    std::cout << "in base DoGet" << std::endl;
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoGet, context, flight_context));
 

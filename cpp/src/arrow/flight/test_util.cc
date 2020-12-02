@@ -460,14 +460,29 @@ Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
 NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
     : counter_(0), stream_(std::move(stream)) {}
 
-std::shared_ptr<Schema> NumberingStream::schema() { return stream_->schema(); }
+std::shared_ptr<Schema> NumberingStream::schema() {
+    std::cout << "In NumberingStream::schema" << std::endl;
+
+    return stream_->schema();
+}
 
 Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
+    std::cout << "In NumberingStream::GetSchemaPayload" << std::endl;
+
   return stream_->GetSchemaPayload(payload);
 }
 
 Status NumberingStream::Next(FlightPayload* payload) {
+    std::cout << "In NumberingStream::Next " << counter_ << std::endl;
+
   RETURN_NOT_OK(stream_->Next(payload));
+  if (payload) {
+      std::cout << "yes payload" << std::endl;
+      if (payload->ipc_message.type != ipc::MessageType::RECORD_BATCH) {
+          std::cout << "no record batch :(" << std::endl;
+
+      }
+  }
   if (payload && payload->ipc_message.type == ipc::MessageType::RECORD_BATCH) {
     payload->app_metadata = Buffer::FromString(std::to_string(counter_));
     counter_++;

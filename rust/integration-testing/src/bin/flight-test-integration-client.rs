@@ -43,6 +43,7 @@ type Client = FlightServiceClient<tonic::transport::Channel>;
 
 #[tokio::main]
 async fn main() -> Result {
+    tracing_subscriber::fmt::init();
     let matches = App::new("rust flight-test-integration-client")
         .arg(Arg::with_name("host").long("host").takes_value(true))
         .arg(Arg::with_name("port").long("port").takes_value(true))
@@ -351,8 +352,20 @@ async fn consume_flight_location(
 ) -> Result {
     let mut client = FlightServiceClient::connect(location.uri).await?;
 
-    let resp = client.do_get(ticket).await?;
-    let mut resp = resp.into_inner();
+    dbg!(&client);
+
+    let resp = client.do_get(ticket).await;
+    dbg!(&resp);
+
+    // If i turn on RUST_LOG=h2=debug and run this client against the C++ server, I see this:
+    // Dec 02 16:46:50.047 DEBUG h2::codec::framed_read: received; frame=Reset { stream_id: StreamId(1), error_code: INTERNAL_ERROR }
+    // which i think is coming straight from the server, but I don't know why :(
+
+    let mut resp = resp?.into_inner();
+    dbg!(&resp);
+
+    let schema_again = resp.next().await.unwrap();
+    dbg!(&schema_again);
 
     for (counter, expected_batch) in expected_data.iter().enumerate() {
         let actual_batch = resp.next().await.unwrap_or_else(|| {

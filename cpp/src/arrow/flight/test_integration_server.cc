@@ -111,8 +111,11 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
+    std::cout << "In Server DoGet" << std::endl;
     auto data = uploaded_chunks.find(request.ticket);
     if (data == uploaded_chunks.end()) {
+        std::cout << "Could not find flight" << std::endl;
+
       return Status::KeyError("Could not find flight.", request.ticket);
     }
     auto flight = data->second;
@@ -120,6 +123,8 @@ class FlightIntegrationTestServer : public FlightServerBase {
     *data_stream = std::unique_ptr<FlightDataStream>(
         new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
             std::shared_ptr<RecordBatchReader>(new RecordBatchListReader(flight))))));
+
+    std::cout << "Returning OK" << std::endl;
 
     return Status::OK();
   }

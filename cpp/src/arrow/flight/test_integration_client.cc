@@ -96,11 +96,15 @@ Status ConsumeFlightLocation(
   std::unique_ptr<FlightStreamReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
+  std::cout << "Here i am in ConsumeFlightLocation" << std::endl;
+
   int counter = 0;
   const int expected = static_cast<int>(retrieved_data.size());
   for (const auto& original_batch : retrieved_data) {
     FlightStreamChunk chunk;
     RETURN_NOT_OK(stream->Next(&chunk));
+    std::cout << "The counter is " << counter << std::endl;
+
     if (chunk.data == nullptr) {
       return Status::Invalid("Got fewer batches than expected, received so far: ",
                              counter, " expected ", expected);
