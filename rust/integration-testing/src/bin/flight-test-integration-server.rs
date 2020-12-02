@@ -30,6 +30,7 @@ use tonic::transport::Server;
 use tonic::{metadata::MetadataMap, Request, Response, Status, Streaming};
 
 use arrow::{datatypes::Schema, record_batch::RecordBatch};
+use arrow::ipc::{self, reader};
 use arrow_flight::{
     flight_descriptor::DescriptorType, flight_service_server::FlightService,
     flight_service_server::FlightServiceServer, utils::flight_data_to_arrow_batch,
@@ -229,7 +230,7 @@ impl FlightService for FlightServiceImpl {
                         eprintln!("send #1");
                         let stream_result = response_tx
                             .send(Ok(PutResult {
-                                app_metadata: more_flight_data.app_metadata.clone(),
+                                app_metadata: data.app_metadata.clone(),
                             }))
                             .await;
                         if let Err(e) = stream_result {
@@ -267,7 +268,16 @@ impl FlightService for FlightServiceImpl {
                         }
                     }
                     ipc::MessageHeader::DictionaryBatch => {
-                        // CAROLTODO: And fill in with a call to read_dictionary here
+                        // TODO: handle None which means parse failure
+                        if let Some(ipc_batch) = message.header_as_dictionary_batch() {
+                            reader::read_dictionary(
+                                &data.data_body, ipc_batch, schema, &self.schema, &mut self.dictionaries_by_field
+                            )?;
+                        }
+                    }
+                    t => {
+                        // TODO: send error to stream
+                        eprintln!("Reading types other than record batches not yet supported, unable to read {:?}", t);
                     }
                 }
             }
