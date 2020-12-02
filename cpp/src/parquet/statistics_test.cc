@@ -482,8 +482,8 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
   ASSERT_EQ(statistics1->max(), statistics2->max());
 }
 
-using Types = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
-                                   ByteArrayType, FLBAType, BooleanType>;
+using Types = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType, ByteArrayType,
+                               FLBAType, BooleanType>;
 
 TYPED_TEST_SUITE(TestStatistics, Types);
 
