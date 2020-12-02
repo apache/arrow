@@ -29,11 +29,11 @@ use tokio::sync::Mutex;
 use tonic::transport::Server;
 use tonic::{metadata::MetadataMap, Request, Response, Status, Streaming};
 
-use arrow::{datatypes::Schema, record_batch::RecordBatch};
 use arrow::ipc::{self, reader};
+use arrow::{datatypes::Schema, record_batch::RecordBatch};
 use arrow_flight::{
     flight_descriptor::DescriptorType, flight_service_server::FlightService,
-    flight_service_server::FlightServiceServer, utils::flight_data_to_arrow_batch,
+    flight_service_server::FlightServiceServer,
     Action, ActionType, BasicAuth, Criteria, Empty, FlightData, FlightDescriptor,
     FlightEndpoint, FlightInfo, HandshakeRequest, HandshakeResponse, Location, PutResult,
     SchemaResult, Ticket,
@@ -270,9 +270,22 @@ impl FlightService for FlightServiceImpl {
                     ipc::MessageHeader::DictionaryBatch => {
                         // TODO: handle None which means parse failure
                         if let Some(ipc_batch) = message.header_as_dictionary_batch() {
-                            reader::read_dictionary(
-                                &data.data_body, ipc_batch, schema, &self.schema, &mut self.dictionaries_by_field
-                            )?;
+                            let dictionary_batch_result = reader::read_dictionary(
+                                &data.data_body,
+                                ipc_batch,
+                                &schema_ref,
+                                &mut dictionaries_by_field,
+                            );
+                            if let Err(e) = dictionary_batch_result {
+                                eprintln!("send #4");
+                                response_tx
+                                    .send(Err(Status::invalid_argument(format!(
+                                        "Could not convert to Dictionary: {:?}",
+                                        e
+                                    ))))
+                                    .await
+                                    .expect("Error sending error")
+                            }
                         }
                     }
                     t => {
