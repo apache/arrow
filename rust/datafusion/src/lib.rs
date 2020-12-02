@@ -52,7 +52,6 @@
     clippy::useless_format,
     clippy::zero_prefixed_literal
 )]
-#![feature(box_patterns)]
 
 //! DataFusion is an extensible query execution framework that uses
 //! [Apache Arrow](https://arrow.apache.org) as its in-memory format.

@@ -638,11 +638,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            SQLExpr::UnaryOp { ref op, ref expr } => match (op, expr) {
+            SQLExpr::UnaryOp { ref op, ref expr } => match (op, &**expr) {
                 (UnaryOperator::Not, _) => {
                     Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
                 },
-                (UnaryOperator::Minus, box SQLExpr::Value(Value::Number(n))) =>
+                (UnaryOperator::Minus, SQLExpr::Value(Value::Number(n))) =>
                     // Parse negative numbers properly
                     match n.parse::<i64>() {
                         Ok(n) => Ok(lit(-n)),
