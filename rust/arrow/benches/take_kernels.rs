@@ -157,7 +157,6 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("take str null values null indices 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-
 }
 
 criterion_group!(benches, add_benchmark);
