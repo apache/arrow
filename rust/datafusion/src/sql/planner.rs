@@ -644,7 +644,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 },
                 (UnaryOperator::Minus, box SQLExpr::Value(Value::Number(n))) =>
                     // Parse negative numbers properly
-                    Ok(lit(-n.parse::<f64>().unwrap())),
+                    match n.parse::<i64>() {
+                        Ok(n) => Ok(lit(-n)),
+                        Err(_) => Ok(lit(-n.parse::<f64>().unwrap())),
+                    },
                 _ => Err(DataFusionError::Internal(format!(
                     "SQL binary operator cannot be interpreted as a unary operator"
                 ))),
