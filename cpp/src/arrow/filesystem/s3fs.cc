@@ -1194,7 +1194,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
   };
 
   void WalkChild(std::string key, int32_t nesting_depth) {
-    ListObjectsV2Handler handler{shared_from_this(), std::move(key), nesting_depth};
+    ListObjectsV2Handler handler{shared_from_this(), std::move(key), nesting_depth, {}};
     ++num_in_flight_;
     handler.Start();
   }
