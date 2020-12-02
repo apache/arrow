@@ -1648,6 +1648,15 @@ impl Schema {
         Ok(&self.fields[self.index_of(name)?])
     }
 
+    /// Returns a vector of immutable references to all `Field` instances selected by
+    /// the dictionary ID they use
+    pub fn fields_with_dict_id(&self, dict_id: i64) -> Vec<&Field> {
+        self.fields
+            .iter()
+            .filter(|f| f.dict_id() == Some(dict_id))
+            .collect()
+    }
+
     /// Find the index of the column with the given name
     pub fn index_of(&self, name: &str) -> Result<usize> {
         for i in 0..self.fields.len() {
@@ -2573,6 +2582,20 @@ mod tests {
             "last_name"
         );
         schema.field_with_name("nickname").unwrap();
+    }
+
+    #[test]
+    fn schema_field_with_dict_id() {
+        let schema = person_schema();
+
+        let fields_dict_123: Vec<_> = schema
+            .fields_with_dict_id(123)
+            .iter()
+            .map(|f| f.name())
+            .collect();
+        assert_eq!(fields_dict_123, vec!["interests"]);
+
+        assert!(schema.fields_with_dict_id(456).is_empty());
     }
 
     #[test]
