@@ -215,18 +215,18 @@ impl FlightService for FlightServiceImpl {
         tokio::spawn(async move {
             let mut chunks = vec![];
             let mut uploaded_chunks = uploaded_chunks.lock().await;
-            let mut dictionaries_by_field = vec![];
+            let mut dictionaries_by_field = vec![None; schema_ref.fields().len()];
 
             while let Some(Ok(data)) = input_stream.next().await {
                 let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
 
                 match message.header_type() {
-                    // CAROLTODO: Fix compiler errors here
                     ipc::MessageHeader::Schema => {
                         // TODO: send an error to the stream
                         eprintln!("Not expecting a schema when messages are read");
                     }
                     ipc::MessageHeader::RecordBatch => {
+                        eprintln!("RecordBatch");
                         eprintln!("send #1");
                         let stream_result = response_tx
                             .send(Ok(PutResult {
@@ -268,6 +268,7 @@ impl FlightService for FlightServiceImpl {
                         }
                     }
                     ipc::MessageHeader::DictionaryBatch => {
+                        eprintln!("DictionaryBatch");
                         // TODO: handle None which means parse failure
                         if let Some(ipc_batch) = message.header_as_dictionary_batch() {
                             let dictionary_batch_result = reader::read_dictionary(
@@ -285,6 +286,8 @@ impl FlightService for FlightServiceImpl {
                                     ))))
                                     .await
                                     .expect("Error sending error")
+                            } else {
+                                dbg!(&dictionaries_by_field);
                             }
                         }
                     }
