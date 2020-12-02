@@ -289,7 +289,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
                                                 valid_bits, valid_bits_offset);
     ASSERT_EQ(num_values_, values_decoded);
     ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
-                                                   valid_bits, valid_bits_offset));
+                                                        valid_bits, valid_bits_offset));
   }
 
  protected:
@@ -1046,7 +1046,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
       for (int i = 0; i < num_values_; i += step) {
         int num_decoded = decoder->Decode(decode_buf_, step);
         ASSERT_EQ(num_decoded, std::min(step, remaining));
-        ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, &draws_[i], num_decoded));
+        ASSERT_NO_FATAL_FAILURE(
+            VerifyResults<c_type>(decode_buf_, &draws_[i], num_decoded));
         remaining -= num_decoded;
       }
     }
@@ -1074,8 +1075,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
                        static_cast<int>(encode_buffer_->size()));
       int values_decoded = decoder->Decode(decode_buf_, num_values_);
       ASSERT_EQ(expected_size, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(
-          VerifyResults<c_type>(decode_buf_, expected_filtered_output.data(), expected_size));
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(
+          decode_buf_, expected_filtered_output.data(), expected_size));
     }
   }
 
@@ -1117,8 +1118,9 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
 template <typename c_type>
 static std::vector<c_type> ToLittleEndian(const std::vector<c_type>& input) {
   std::vector<c_type> data(input.size());
-  std::transform(input.begin(), input.end(), data.begin(),
-                 [](const c_type& value) { return ::arrow::BitUtil::ToLittleEndian(value); });
+  std::transform(input.begin(), input.end(), data.begin(), [](const c_type& value) {
+    return ::arrow::BitUtil::ToLittleEndian(value);
+  });
   return data;
 }
 

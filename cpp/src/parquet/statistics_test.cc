@@ -254,13 +254,13 @@ TEST(Comparison, UnknownSortOrder) {
 template <typename TestType>
 class TestStatistics : public PrimitiveTypedTest<TestType> {
  public:
-  using T = typename TestType::c_type;
+  using c_type = typename TestType::c_type;
 
-  std::vector<T> GetDeepCopy(
-      const std::vector<T>&);  // allocates new memory for FLBA/ByteArray
+  std::vector<c_type> GetDeepCopy(
+      const std::vector<c_type>&);  // allocates new memory for FLBA/ByteArray
 
-  T* GetValuesPointer(std::vector<T>&);
-  void DeepFree(std::vector<T>&);
+  c_type* GetValuesPointer(std::vector<c_type>&);
+  void DeepFree(std::vector<c_type>&);
 
   void TestMinMaxEncode() {
     this->GenerateData(1000);
@@ -358,8 +358,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
                                batch_num_values - batch_null_count, 1);
       auto beg = this->values_.begin() + i * num_values / 2;
       auto end = beg + batch_num_values;
-      std::vector<T> batch = GetDeepCopy(std::vector<T>(beg, end));
-      T* batch_values_ptr = GetValuesPointer(batch);
+      std::vector<c_type> batch = GetDeepCopy(std::vector<c_type>(beg, end));
+      c_type* batch_values_ptr = GetValuesPointer(batch);
       column_writer->WriteBatch(batch_num_values, definition_levels.data(), nullptr,
                                 batch_values_ptr);
       DeepFree(batch);
