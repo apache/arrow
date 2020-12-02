@@ -17,9 +17,11 @@
 
 #pragma once
 
-#include "arrow/util/align_util.h"
-#include "arrow/util/bit_block_counter.h"
-#include "arrow/util/bitmap_reader.h"
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+
+#include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
 namespace util {
@@ -37,57 +39,15 @@ template <typename T>
 inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bits,
                           int64_t valid_bits_offset, T* output) {
   int num_valid_values = 0;
-  int idx_src = 0;
 
-  const auto p =
-      arrow::internal::BitmapWordAlign<1>(valid_bits, valid_bits_offset, num_values);
-  // First handle the leading bits
-  const int leading_bits = static_cast<int>(p.leading_bits);
-  while (idx_src < leading_bits) {
-    if (BitUtil::GetBit(valid_bits, valid_bits_offset)) {
-      output[num_valid_values] = src[idx_src];
-      num_valid_values++;
+  arrow::internal::SetBitRunReader reader(valid_bits, valid_bits_offset, num_values);
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
     }
-    idx_src++;
-    valid_bits_offset++;
-  }
-
-  // The aligned parts scanned with BitBlockCounter
-  arrow::internal::BitBlockCounter data_counter(valid_bits, valid_bits_offset,
-                                                num_values - leading_bits);
-  auto current_block = data_counter.NextWord();
-  while (idx_src < num_values) {
-    if (current_block.AllSet()) {  // All true values
-      int run_length = 0;
-      // Scan forward until a block that has some false values (or the end)
-      while (current_block.length > 0 && current_block.AllSet()) {
-        run_length += current_block.length;
-        current_block = data_counter.NextWord();
-      }
-      // Fill all valid values of this scan
-      std::memcpy(&output[num_valid_values], &src[idx_src], run_length * sizeof(T));
-      num_valid_values += run_length;
-      idx_src += run_length;
-      valid_bits_offset += run_length;
-      // The current_block already computed, advance to next loop
-      continue;
-    } else if (!current_block.NoneSet()) {  // Some values are null
-      arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                      current_block.length);
-      for (int64_t i = 0; i < current_block.length; i++) {
-        if (valid_bits_reader.IsSet()) {
-          output[num_valid_values] = src[idx_src];
-          num_valid_values++;
-        }
-        idx_src++;
-        valid_bits_reader.Next();
-      }
-      valid_bits_offset += current_block.length;
-    } else {  // All null values
-      idx_src += current_block.length;
-      valid_bits_offset += current_block.length;
-    }
-    current_block = data_counter.NextWord();
+    std::memcpy(output + num_valid_values, src + run.position, run.length * sizeof(T));
+    num_valid_values += static_cast<int32_t>(run.length);
   }
 
   return num_valid_values;
@@ -105,92 +65,31 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
 template <typename T>
 inline int SpacedExpand(T* buffer, int num_values, int null_count,
                         const uint8_t* valid_bits, int64_t valid_bits_offset) {
-  constexpr int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
-  constexpr int64_t kBatchByteSize = kBatchSize / 8;
-
   // Point to end as we add the spacing from the back.
-  int idx_decode = num_values - null_count - 1;
-  int idx_buffer = num_values - 1;
-  int64_t idx_valid_bits = valid_bits_offset + idx_buffer;
+  int idx_decode = num_values - null_count;
 
   // Depending on the number of nulls, some of the value slots in buffer may
   // be uninitialized, and this will cause valgrind warnings / potentially UB
-  std::memset(static_cast<void*>(&buffer[idx_decode + 1]), 0, null_count * sizeof(T));
-  if (idx_decode < 0) {
+  std::memset(static_cast<void*>(buffer + idx_decode), 0, null_count * sizeof(T));
+  if (idx_decode == 0) {
+    // All nulls, nothing more to do
     return num_values;
   }
 
-  // Access the bitmap by aligned way
-  const auto p = arrow::internal::BitmapWordAlign<kBatchByteSize>(
-      valid_bits, valid_bits_offset, num_values);
-
-  // The trailing bits
-  auto trailing_bits = p.trailing_bits;
-  while (trailing_bits > 0) {
-    if (BitUtil::GetBit(valid_bits, idx_valid_bits)) {
-      buffer[idx_buffer] = buffer[idx_decode];
-      idx_decode--;
+  arrow::internal::ReverseSetBitRunReader reader(valid_bits, valid_bits_offset,
+                                                 num_values);
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
     }
-
-    idx_buffer--;
-    idx_valid_bits--;
-    trailing_bits--;
+    idx_decode -= static_cast<int32_t>(run.length);
+    assert(idx_decode >= 0);
+    std::memmove(buffer + run.position, buffer + idx_decode, run.length * sizeof(T));
   }
 
-  // The aligned parts scanned from the back with BitBlockCounter
-  auto aligned_words = p.aligned_words;
-  T tmp[kBatchSize];
-  std::memset(&tmp, 0, kBatchSize * sizeof(T));
-  while (aligned_words > 0 && idx_decode < idx_buffer) {
-    const uint8_t* aligned_bits = p.aligned_start + (aligned_words - 1) * kBatchByteSize;
-    arrow::internal::BitBlockCounter data_counter(aligned_bits, 0, kBatchSize);
-    const auto current_block = data_counter.NextWord();
-    if (current_block.AllSet()) {  // All true values
-      idx_buffer -= kBatchSize;
-      idx_decode -= kBatchSize;
-      if (idx_buffer >= idx_decode + static_cast<int>(kBatchSize)) {
-        std::memcpy(&buffer[idx_buffer + 1], &buffer[idx_decode + 1],
-                    kBatchSize * sizeof(T));
-      } else {
-        // Exchange the data to avoid the buffer overlap
-        std::memcpy(tmp, &buffer[idx_decode + 1], kBatchSize * sizeof(T));
-        std::memcpy(&buffer[idx_buffer + 1], tmp, kBatchSize * sizeof(T));
-      }
-    } else if (!current_block.NoneSet()) {  // Some values are null
-      arrow::internal::BitmapReader valid_bits_reader(aligned_bits, 0, kBatchSize);
-      idx_buffer -= kBatchSize;
-      idx_decode -= current_block.popcount;
-
-      // Forward scan and pack the target data to temp
-      int idx = idx_decode + 1;
-      for (uint64_t i = 0; i < kBatchSize; i++) {
-        if (valid_bits_reader.IsSet()) {
-          tmp[i] = buffer[idx];
-          idx++;
-        }
-        valid_bits_reader.Next();
-      }
-      std::memcpy(&buffer[idx_buffer + 1], tmp, kBatchSize * sizeof(T));
-    } else {  // All null values
-      idx_buffer -= kBatchSize;
-    }
-
-    idx_valid_bits -= kBatchSize;
-    aligned_words--;
-  }
-
-  // The remaining leading bits
-  auto leading_bits = p.leading_bits;
-  while (leading_bits > 0) {
-    if (BitUtil::GetBit(valid_bits, idx_valid_bits)) {
-      buffer[idx_buffer] = buffer[idx_decode];
-      idx_decode--;
-    }
-    leading_bits--;
-    idx_buffer--;
-    idx_valid_bits--;
-  }
-
+  // Otherwise caller gave an incorrect null_count
+  assert(idx_decode == 0);
   return num_values;
 }
 

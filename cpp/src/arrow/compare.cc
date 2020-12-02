@@ -38,7 +38,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
@@ -54,7 +54,6 @@ using internal::BitmapEquals;
 using internal::BitmapReader;
 using internal::BitmapUInt64Reader;
 using internal::checked_cast;
-using internal::OptionalBitBlockCounter;
 using internal::OptionalBitmapEquals;
 
 // ----------------------------------------------------------------------
@@ -412,41 +411,33 @@ class RangeDataEqualsImpl {
 
   template <typename CompareValues>
   void VisitValues(CompareValues&& compare_values) {
-    internal::VisitBitBlocksVoid(
-        left_.buffers[0], left_.offset + left_start_idx_, range_length_,
-        [&](int64_t position) { result_ &= compare_values(position); }, []() {});
+    internal::VisitSetBitRunsVoid(left_.buffers[0], left_.offset + left_start_idx_,
+                                  range_length_, [&](int64_t position, int64_t length) {
+                                    for (int64_t i = 0; i < length; ++i) {
+                                      result_ &= compare_values(position + i);
+                                    }
+                                  });
   }
 
   // Visit and compare runs of non-null values
   template <typename CompareRuns>
   void VisitValidRuns(CompareRuns&& compare_runs) {
-    int64_t i = 0;
     const uint8_t* left_null_bitmap = left_.GetValues<uint8_t>(0, 0);
-    // TODO may use BitRunReader or equivalent?
-    OptionalBitBlockCounter bit_blocks(left_null_bitmap, left_.offset + left_start_idx_,
-                                       range_length_);
-
-    while (result_ && i < range_length_) {
-      const auto block = bit_blocks.NextBlock();
-      if (block.AllSet()) {
-        if (!compare_runs(i, block.length)) {
-          result_ = false;
-          return;
-        }
-      } else if (block.NoneSet()) {
-        // Nothing to do
-      } else {
-        // Compare non-null values one at a time
-        for (int64_t j = i; j < i + block.length; ++j) {
-          if (BitUtil::GetBit(left_null_bitmap, left_.offset + left_start_idx_ + j)) {
-            if (!compare_runs(j, 1)) {
-              result_ = false;
-              return;
-            }
-          }
-        }
+    if (left_null_bitmap == nullptr) {
+      result_ = compare_runs(0, range_length_);
+      return;
+    }
+    internal::SetBitRunReader reader(left_null_bitmap, left_.offset + left_start_idx_,
+                                     range_length_);
+    while (true) {
+      const auto run = reader.NextRun();
+      if (run.length == 0) {
+        return;
       }
-      i += block.length;
+      if (!compare_runs(run.position, run.length)) {
+        result_ = false;
+        return;
+      }
     }
   }
 
