@@ -33,10 +33,9 @@ use arrow::ipc::{self, reader};
 use arrow::{datatypes::Schema, record_batch::RecordBatch};
 use arrow_flight::{
     flight_descriptor::DescriptorType, flight_service_server::FlightService,
-    flight_service_server::FlightServiceServer,
-    Action, ActionType, BasicAuth, Criteria, Empty, FlightData, FlightDescriptor,
-    FlightEndpoint, FlightInfo, HandshakeRequest, HandshakeResponse, Location, PutResult,
-    SchemaResult, Ticket,
+    flight_service_server::FlightServiceServer, Action, ActionType, BasicAuth, Criteria,
+    Empty, FlightData, FlightDescriptor, FlightEndpoint, FlightInfo, HandshakeRequest,
+    HandshakeResponse, Location, PutResult, SchemaResult, Ticket,
 };
 
 use arrow_integration_testing::{AUTH_PASSWORD, AUTH_USERNAME};
@@ -88,19 +87,23 @@ impl FlightService for FlightServiceImpl {
             Status::not_found(format!("Could not find flight. {}", key))
         })?;
 
-        let batches: Vec<Result<FlightData, Status>> = flight
-            .chunks
-            .iter()
-            .enumerate()
-            .map(|(counter, batch)| {
-                let mut flight_data = FlightData::from(batch);
-                let metadata = counter.to_string().into_bytes();
-                flight_data.app_metadata = metadata;
-                Ok(flight_data)
-            })
-            .collect();
+        let schema = std::iter::once(
+            flight_schema(&flight.schema)
+                .map(|data_header| FlightData {
+                    data_header,
+                    ..Default::default()
+                })
+                .map_err(|e| Status::internal(format!("Could not generate ipc schema: {}", e))),
+        );
 
-        let output = futures::stream::iter(batches);
+        let batches = flight.chunks.iter().enumerate().map(|(counter, batch)| {
+            let mut flight_data = FlightData::from(batch);
+            let metadata = counter.to_string().into_bytes();
+            flight_data.app_metadata = metadata;
+            Ok(flight_data)
+        });
+
+        let output = futures::stream::iter(schema.chain(batches).collect::<Vec<_>>());
 
         Ok(Response::new(Box::pin(output) as Self::DoGetStream))
     }
