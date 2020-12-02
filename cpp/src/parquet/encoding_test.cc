@@ -489,7 +489,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
       if (null_count_ > 0) {
-        GTEST_SKIP();
+        continue;
       }
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new ::arrow::BinaryBuilder);
@@ -504,7 +504,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
       if (null_count_ > 0) {
-        GTEST_SKIP();
+        continue;
       }
       auto builder = CreateDictBuilder();
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, builder.get());
