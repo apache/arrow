@@ -366,9 +366,6 @@ where
         .downcast_ref::<GenericStringArray<OffsetSize>>()
         .unwrap();
 
-    let num_bytes = bit_util::ceil(data_len, 8);
-
-    let null_count = array.null_count();
     let bytes_offset = (data_len + 1) * std::mem::size_of::<OffsetSize>();
     let mut offsets_buffer = MutableBuffer::new(bytes_offset);
     offsets_buffer.resize(bytes_offset);
@@ -379,7 +376,7 @@ where
     offsets[0] = length_so_far;
 
     let nulls;
-    if null_count == 0 && indices.null_count() == 0 {
+    if array.null_count() == 0 && indices.null_count() == 0 {
         for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
@@ -392,7 +389,29 @@ where
             *offset = length_so_far;
         }
         nulls = None
-    } else if null_count == 0 {
+    } else if indices.null_count() == 0 {
+        let num_bytes = bit_util::ceil(data_len, 8);
+
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+        let null_slice = null_buf.data_mut();
+
+        for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            if array.is_valid(index) {
+                let s = array.value(index);
+
+                length_so_far += OffsetSize::from_usize(s.len()).unwrap();
+                values.extend_from_slice(s.as_bytes());
+            } else {
+                bit_util::unset_bit(null_slice, i);
+            }
+            *offset = length_so_far;
+        }
+        nulls = Some(null_buf.freeze());
+    } else if array.null_count() == 0 {
         for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             if indices.is_valid(i) {
                 let index =
@@ -409,6 +428,8 @@ where
         }
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
+        let num_bytes = bit_util::ceil(data_len, 8);
+
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
         let null_slice = null_buf.data_mut();
 
