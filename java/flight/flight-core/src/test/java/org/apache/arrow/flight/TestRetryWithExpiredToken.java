@@ -18,12 +18,14 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import org.apache.arrow.flight.auth2.Auth2Constants;
 import org.apache.arrow.flight.auth2.AuthUtilities;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.BearerTokenAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -36,8 +38,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 
 public class TestRetryWithExpiredToken {
 
@@ -59,10 +63,42 @@ public class TestRetryWithExpiredToken {
       @Override
       public void listFlights(CallContext context, Criteria criteria,
                               StreamListener<FlightInfo> listener) {
-        if (!context.peerIdentity().equals(USERNAME_1)) {
-          listener.onError(new IllegalArgumentException("Invalid username"));
+        if (criteria.getExpression().length > 0) {
+          // Don't send anything if criteria are set
+          listener.onCompleted();
+        }
+        try {
+          listener.onNext(new FlightInfo(Flight.FlightInfo.newBuilder()
+                  .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
+                          .setType(Flight.FlightDescriptor.DescriptorType.CMD)
+                          .setCmd(ByteString.copyFrom("flight1", Charsets.UTF_8)))
+                  .build()));
+        } catch (URISyntaxException e) {
+          listener.onError(e);
           return;
         }
+        listener.onCompleted();
+      }
+
+      @Override
+      public void listActions(CallContext context,
+                              StreamListener<ActionType> listener) {
+        listener.onNext(new ActionType(Flight.ActionType.newBuilder()
+                .setDescription("action description1")
+                .setType("action type1")
+                .build()));
+        listener.onNext(new ActionType(Flight.ActionType.newBuilder()
+                .setDescription("action description2")
+                .setType("action type2")
+                .build()));
+        listener.onCompleted();
+      }
+
+      @Override
+      public void doAction(CallContext context, Action action,
+                           StreamListener<Result> listener) {
+        listener.onNext(new Result("action1".getBytes(Charsets.UTF_8)));
+        listener.onNext(new Result("action2".getBytes(Charsets.UTF_8)));
         listener.onCompleted();
       }
 
@@ -120,19 +156,39 @@ public class TestRetryWithExpiredToken {
   }
 
   @Test
-  public void validAuthWithBearerAuthServer() throws IOException {
-    testListFlightsWithRetry(client);
+  public void testListFlightsWithRetry() {
+    client.authenticateBasicToken(USERNAME_1, PASSWORD_1);
+    Iterable<FlightInfo> flights = client.listFlights(Criteria.ALL);
+    int count = 0;
+    for (FlightInfo flight : flights) {
+      count += 1;
+      Assert.assertArrayEquals(flight.getDescriptor().getCommand(), "flight1".getBytes(Charsets.UTF_8));
+    }
+    Assert.assertEquals(1, count);
   }
 
-  private void testListFlightsWithRetry(FlightClient client) {
+  @Test
+  public void testListActionsWithRetry() {
     client.authenticateBasicToken(USERNAME_1, PASSWORD_1);
-    Assert.assertTrue(ImmutableList.copyOf(client
-            .listFlights(Criteria.ALL))
+    Assert.assertFalse(ImmutableList.copyOf(client
+            .listActions())
             .isEmpty());
-    Assert.assertTrue(ImmutableList.copyOf(client
-            .listFlights(Criteria.ALL))
+    Assert.assertFalse(ImmutableList.copyOf(client
+            .listActions())
             .isEmpty());
   }
+
+  @Test
+  public void testDoActionWithRetry() {
+    client.authenticateBasicToken(USERNAME_1, PASSWORD_1);
+    Assert.assertFalse(ImmutableList.copyOf(client
+            .doAction(new Action("hello")))
+            .isEmpty());
+    Assert.assertFalse(ImmutableList.copyOf(client
+            .doAction(new Action("world")))
+            .isEmpty());
+  }
+
 
   /**
    * Generates and caches bearer tokens from user credentials.

@@ -26,10 +26,12 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import javax.net.ssl.SSLException;
 
+import org.apache.arrow.flight.ClientApiCallWrapper.ApiCallObserver;
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
@@ -59,7 +61,6 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
-import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
@@ -89,7 +90,7 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
-  private boolean retryFlightCall = false;
+  private boolean retryOnUnauthorized = false;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
@@ -121,18 +122,20 @@ public class FlightClient implements AutoCloseable {
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria, final CallOption... options) {
-    Iterator<Flight.FlightInfo> wrappedFlightIterator = new WrappedFlightIterator<>(
-        () -> CallOptions.wrapStub(blockingStub, options)
-                .listFlights(criteria.asCriteria()), retryFlightCall);
-    return () -> StatusUtils.wrapIterator(wrappedFlightIterator, t -> {
-      try {
-        return new FlightInfo(t);
-      } catch (URISyntaxException e) {
-        // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-        // itself wouldn't be able to construct an invalid Location.
-        throw new RuntimeException(e);
-      }
-    });
+    Consumer<ApiCallObserver<Flight.FlightInfo>> call =
+        observer -> CallOptions.wrapStub(asyncStub, options)
+                .listFlights(criteria.asCriteria(), observer);
+    Function<Iterator<Flight.FlightInfo>, Iterator<FlightInfo>> result =
+        (flightInfoIterator) -> StatusUtils.wrapIterator(flightInfoIterator, t -> {
+          try {
+            return new FlightInfo(t);
+          } catch (URISyntaxException e) {
+            // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+            // itself wouldn't be able to construct an invalid Location.
+            throw new RuntimeException(e);
+          }
+        });
+    return ClientApiCallWrapper.callFlightApi(call, result, retryOnUnauthorized);
   }
 
   /**
@@ -141,14 +144,12 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for the call.
    */
   public Iterable<ActionType> listActions(CallOption... options) {
-    final Iterator<Flight.ActionType> actions;
-    try {
-      actions = CallOptions.wrapStub(blockingStub, options)
-          .listActions(Empty.getDefaultInstance());
-    } catch (StatusRuntimeException sre) {
-      throw StatusUtils.fromGrpcRuntimeException(sre);
-    }
-    return () -> StatusUtils.wrapIterator(actions, ActionType::new);
+    Consumer<ApiCallObserver<Flight.ActionType>> call =
+        observer -> CallOptions.wrapStub(asyncStub, options)
+                .listActions(Empty.getDefaultInstance(), observer);
+    Function<Iterator<Flight.ActionType>, Iterator<ActionType>> result =
+        (actionTypeIterator) -> StatusUtils.wrapIterator(actionTypeIterator, ActionType::new);
+    return ClientApiCallWrapper.callFlightApi(call, result, retryOnUnauthorized);
   }
 
   /**
@@ -159,8 +160,12 @@ public class FlightClient implements AutoCloseable {
    * @return An iterator of results.
    */
   public Iterator<Result> doAction(Action action, CallOption... options) {
-    return StatusUtils
-        .wrapIterator(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
+    Consumer<ApiCallObserver<Flight.Result>> call =
+        observer -> CallOptions.wrapStub(asyncStub, options)
+                    .doAction(action.toProtocol(), observer);
+    Function<Iterator<Flight.Result>, Iterator<Result>> result =
+        (resultIterator) -> StatusUtils.wrapIterator(resultIterator, Result::new);
+    return ClientApiCallWrapper.callFlightApi(call, result, retryOnUnauthorized).iterator();
   }
 
   /**
@@ -197,7 +202,7 @@ public class FlightClient implements AutoCloseable {
                     new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
     middleware.add(clientAuthMiddleware);
     handshake();
-    retryFlightCall = true;
+    retryOnUnauthorized = true;
     // TODO: Update authenticateBasicToken to not return a bearer token to the client application.
     return Optional.ofNullable(clientAuthMiddleware.getBearerCredentialCallOption());
   }
@@ -386,57 +391,6 @@ public class FlightClient implements AutoCloseable {
       return new ExchangeReaderWriter(stream, writer);
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
-    }
-  }
-
-  /**
-   * Wrapper class to wrap the iterator and handle auth failures and retry.
-   * @param <T> The type of iterator.
-   */
-  public static class WrappedFlightIterator<T> implements Iterator<T> {
-    final Supplier<Iterator<T>> supplier;
-    final Iterator<T> itr;
-    final boolean enableRetry;
-
-    /**
-     * WrappedFlightIterator constructor.
-     * @param supplier The iterator supplier.
-     * @param enableRetry Retry if first call fails.
-     */
-    public WrappedFlightIterator(Supplier<Iterator<T>> supplier, boolean enableRetry) {
-      this.supplier = supplier;
-      this.itr = supplier.get();
-      this.enableRetry = enableRetry;
-    }
-
-    @Override
-    public boolean hasNext() {
-      try {
-        return itr.hasNext();
-      } catch (StatusRuntimeException e) {
-        if (enableRetry && e.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
-          // TODO: Retry Iterator from the last known position.
-          // TODO: Log the retry explicitly stating the token authentication failed and retrying
-          // the failed operation.
-          return supplier.get().hasNext();
-        }
-        throw e;
-      }
-    }
-
-    @Override
-    public T next() {
-      try {
-        return itr.next();
-      } catch (StatusRuntimeException e) {
-        if (enableRetry && e.getStatus().getCode() == Status.Code.UNAUTHENTICATED) {
-          // TODO: Retry Iterator from the last known position.
-          // TODO: Log the retry explicitly stating the token authentication failed and retrying
-          // the failed operation.
-          return supplier.get().next();
-        }
-        throw e;
-      }
     }
   }
 

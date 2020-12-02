@@ -28,14 +28,14 @@ import io.grpc.stub.AbstractStub;
  * Method option for supplying credentials to method calls.
  */
 public class CredentialCallOption implements CallOptions.GrpcCallOption {
-  public Consumer<CallHeaders> getCredentialWriter() {
-    return credentialWriter;
-  }
-
   final Consumer<CallHeaders> credentialWriter;
 
   public CredentialCallOption(Consumer<CallHeaders> credentialWriter) {
     this.credentialWriter = credentialWriter;
+  }
+
+  public Consumer<CallHeaders> getCredentialWriter() {
+    return credentialWriter;
   }
 
   @Override
