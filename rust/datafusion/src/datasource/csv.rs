@@ -34,6 +34,7 @@
 //! ```
 
 use arrow::datatypes::SchemaRef;
+use std::any::Any;
 use std::string::String;
 use std::sync::Arc;
 
@@ -79,6 +80,10 @@ impl CsvFile {
 }
 
 impl TableProvider for CsvFile {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
