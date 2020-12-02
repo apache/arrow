@@ -556,6 +556,28 @@ def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
     assert result.equals(table)
 
 
+@parametrize_legacy_dataset_fixed
+def test_filesystem_uri(tempdir, use_legacy_dataset):
+    table = pa.table({"a": [1, 2, 3]})
+
+    directory = tempdir / "data_dir"
+    directory.mkdir()
+    path = directory / "data.parquet"
+    pq.write_table(table, str(path))
+
+    # filesystem object
+    result = pq.read_table(
+        path, filesystem=fs.LocalFileSystem(),
+        use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+    # filesystem URI
+    result = pq.read_table(
+        "data_dir/data.parquet", filesystem=util._filesystem_uri(tempdir),
+        use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+
 @parametrize_legacy_dataset
 def test_read_non_existing_file(use_legacy_dataset):
     # ensure we have a proper error message
