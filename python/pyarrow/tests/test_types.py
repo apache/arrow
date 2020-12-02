@@ -277,7 +277,7 @@ def test_is_primitive():
     # name from the tzinfo.zone attribute
     (pytz.timezone('Etc/GMT-9'), 'Etc/GMT-9'),
     (pytz.FixedOffset(180), '+03:00'),
-    (datetime.timezone.utc, 'UTC' if sys.version_info >= (3, 6) else '+00:00'),
+    (datetime.timezone.utc, 'UTC'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
 ])
 def test_tzinfo_to_string(tz, expected):

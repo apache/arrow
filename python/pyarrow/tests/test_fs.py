@@ -1125,10 +1125,6 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     assert path == expected_path
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 6),
-    reason="python 3.5 Path.resolve() checks that the path exists"
-)
 @pytest.mark.parametrize(
     'path',
     ['', '/', 'foo/bar', '/foo/bar', __file__]

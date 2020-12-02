@@ -4220,8 +4220,7 @@ def test_metadata_compat_missing_field_name():
 
         )})
     result = table.to_pandas()
-    # on python 3.5 the column order can differ -> adding check_like=True
-    tm.assert_frame_equal(result, expected, check_like=True)
+    tm.assert_frame_equal(result, expected)
 
 
 def test_metadata_index_name_not_json_serializable():

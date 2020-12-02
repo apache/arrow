@@ -25,7 +25,7 @@
 # (https://github.com/pypa/manylinux/).
 
 PYTHON_DOWNLOAD_URL=https://www.python.org/ftp/python
-CPYTHON_VERSIONS="3.5.6 3.6.8 3.7.2"
+CPYTHON_VERSIONS="3.6.8 3.7.2"
 
 # openssl version to build, with expected sha256 hash of .tar.gz
 # archive.

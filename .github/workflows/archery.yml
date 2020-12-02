@@ -51,7 +51,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
-          python-version: '3.5'
+          python-version: '3.6'
       - name: Install Archery, Crossbow- and Test Dependencies
         working-directory: dev/archery
         run: pip install pytest responses toolz jinja2 -e .[all]
