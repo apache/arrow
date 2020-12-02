@@ -76,6 +76,7 @@ impl FlightService for FlightServiceImpl {
         &self,
         request: Request<Ticket>,
     ) -> Result<Response<Self::DoGetStream>, Status> {
+        eprintln!("Doing do_get...");
         let ticket = request.into_inner();
 
         let key = String::from_utf8(ticket.ticket.to_vec())
@@ -137,12 +138,6 @@ impl FlightService for FlightServiceImpl {
                     Status::not_found(format!("Could not find flight. {}", path[0]))
                 })?;
 
-                //                let schema_result = SchemaResult::from(&flight.schema);
-
-                use arrow::ipc::{writer::IpcWriteOptions, MetadataVersion};
-                // use arrow_flight::utils;
-                // let schema_result = utils::flight_schema_from_arrow_schema(&flight.schema, &IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap());
-
                 let endpoint = FlightEndpoint {
                     ticket: Some(Ticket {
                         ticket: path[0].as_bytes().to_vec(),
@@ -155,19 +150,11 @@ impl FlightService for FlightServiceImpl {
                 let total_records: usize =
                     flight.chunks.iter().map(|chunk| chunk.num_rows()).sum();
 
-                //let mut ss = schema_result.schema;
-                //                ss.splice(0..0, vec![u8::MAX, u8::MAX, u8::MAX, u8::MAX]);
-                //                let ss = schema_result.schema;
-
-                let mut ss = vec![];
-
-                let wo = IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap();
-                let msg = arrow::ipc::writer::Message::Schema(&flight.schema, &wo);
-                arrow::ipc::writer::write_message(&mut ss, &msg, &wo)
-                    .expect("write_message");
+                let schema = flight_schema(&flight.schema)
+                    .expect("Could not generate schema bytes");
 
                 let info = FlightInfo {
-                    schema: ss,
+                    schema,
                     flight_descriptor: Some(descriptor.clone()),
                     endpoint: vec![endpoint],
                     total_records: total_records as i64,
@@ -325,6 +312,26 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<Self::DoExchangeStream>, Status> {
         Err(Status::unimplemented("Not yet implemented"))
     }
+}
+
+fn flight_schema(arrow_schema: &Schema) -> Result<Vec<u8>> {
+    //                let schema_result = SchemaResult::from(&flight.schema);
+
+    use arrow::ipc::{writer::IpcWriteOptions, MetadataVersion};
+    // use arrow_flight::utils;
+    // let schema_result = utils::flight_schema_from_arrow_schema(&flight.schema, &IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap());
+
+    //let mut ss = schema_result.schema;
+    //                ss.splice(0..0, vec![u8::MAX, u8::MAX, u8::MAX, u8::MAX]);
+    //                let ss = schema_result.schema;
+
+    let mut ss = vec![];
+
+    let wo = IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap();
+    let msg = arrow::ipc::writer::Message::Schema(arrow_schema, &wo);
+    arrow::ipc::writer::write_message(&mut ss, &msg, &wo)?;
+
+    Ok(ss)
 }
 
 #[derive(Clone, Default)]
