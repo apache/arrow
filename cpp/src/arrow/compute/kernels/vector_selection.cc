@@ -1790,19 +1790,67 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   if (table.num_rows() != filter.length()) {
     return Status::Invalid("Filter inputs must all be the same length");
   }
-
-  // The selection vector "trick" cannot currently be easily applied on Table
-  // because either the filter or the columns may be ChunkedArray, so we use
-  // Filter recursively on the columns for now until a more efficient
-  // implementation of Take with chunked data is available.
-  auto new_columns = table.columns();
-  for (auto& column : new_columns) {
-    ARROW_ASSIGN_OR_RAISE(
-        Datum out_column,
-        Filter(column, filter, *static_cast<const FilterOptions*>(options), ctx));
-    column = out_column.chunked_array();
+  if (table.num_rows() == 0) {
+    return Table::Make(table.schema(), table.columns(), 0);
   }
-  return Table::Make(table.schema(), std::move(new_columns));
+
+  // Last input element will be the filter array
+  const int num_columns = table.num_columns();
+  std::vector<ArrayVector> inputs(num_columns + 1);
+
+  // Fetch table columns
+  for (int i = 0; i < num_columns; ++i) {
+    inputs[i] = table.column(i)->chunks();
+  }
+  // Fetch filter
+  const auto& filter_opts = *static_cast<const FilterOptions*>(options);
+  switch (filter.kind()) {
+    case Datum::ARRAY:
+      inputs.back().push_back(filter.make_array());
+      break;
+    case Datum::CHUNKED_ARRAY:
+      inputs.back() = filter.chunked_array()->chunks();
+      break;
+    default:
+      return Status::NotImplemented("Filter should be array-like");
+  }
+
+  // Rechunk inputs to allow consistent iteration over their respective chunks
+  inputs = arrow::internal::RechunkArraysConsistently(inputs);
+
+  // Instead of filtering each column with the boolean filter
+  // (which would be slow if the table has a large number of columns: ARROW-10569),
+  // convert each filter chunk to indices, and take() the column.
+  const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
+  std::vector<ArrayVector> out_columns(num_columns);
+  int64_t out_num_rows = 0;
+
+  for (int64_t i = 0; i < num_chunks; ++i) {
+    const ArrayData& filter_chunk = *inputs.back()[i]->data();
+    ARROW_ASSIGN_OR_RAISE(
+        const auto indices,
+        GetTakeIndices(filter_chunk, filter_opts.null_selection_behavior,
+                       ctx->memory_pool()));
+
+    if (indices->length > 0) {
+      // Take from all input columns
+      Datum indices_datum{std::move(indices)};
+      for (int col = 0; col < num_columns; ++col) {
+        const auto& column_chunk = inputs[col][i];
+        ARROW_ASSIGN_OR_RAISE(Datum out, Take(column_chunk, indices_datum,
+                                              TakeOptions::NoBoundsCheck(), ctx));
+        out_columns[col].push_back(std::move(out).make_array());
+      }
+      out_num_rows += indices->length;
+    }
+  }
+
+  ChunkedArrayVector out_chunks(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    out_chunks[i] = std::make_shared<ChunkedArray>(std::move(out_columns[i]),
+                                                   table.column(i)->type());
+  }
+  return Table::Make(table.schema(), std::move(out_chunks), out_num_rows);
 }
 
 static auto kDefaultFilterOptions = FilterOptions::Defaults();
