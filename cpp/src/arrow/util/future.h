@@ -187,6 +187,15 @@ class Future {
     return impl_->state();
   }
 
+  /// \brief Whether the Future is finished
+  ///
+  /// A false return value is only indicative, as the Future can complete
+  /// concurrently.  A true return value is definitive, though.
+  bool is_finished() const {
+    CheckValid();
+    return IsFutureFinished(impl_->state());
+  }
+
   /// \brief Wait for the Future to complete and return its Result
   const Result<ValueType>& result() const& {
     Wait();

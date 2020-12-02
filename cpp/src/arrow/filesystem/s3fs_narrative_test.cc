@@ -138,6 +138,7 @@ void TestBucket(int argc, char** argv) {
   select.allow_not_found = false;
   ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
+  SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir1/File2", FileType::File, 11);
   AssertFileInfo(infos[1], "Dir1/Subdir", FileType::Directory);
 
@@ -145,6 +146,7 @@ void TestBucket(int argc, char** argv) {
   select.recursive = true;
   ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
+  SortInfos(&infos);
   AssertFileInfo(infos[0], "Dir2/Subdir", FileType::Directory);
   AssertFileInfo(infos[1], "Dir2/Subdir/File3", FileType::File, 10);
 
