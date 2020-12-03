@@ -366,17 +366,18 @@ where
         .downcast_ref::<GenericStringArray<OffsetSize>>()
         .unwrap();
 
-    let num_bytes = bit_util::ceil(data_len, 8);
+    let bytes_offset = (data_len + 1) * std::mem::size_of::<OffsetSize>();
+    let mut offsets_buffer = MutableBuffer::new(bytes_offset);
+    offsets_buffer.resize(bytes_offset);
 
-    let null_count = array.null_count();
-    let mut offsets = Vec::with_capacity(data_len + 1);
-    let mut values = Vec::with_capacity(data_len);
+    let offsets = offsets_buffer.typed_data_mut();
+    let mut values = Vec::with_capacity(bytes_offset);
     let mut length_so_far = OffsetSize::zero();
-    offsets.push(length_so_far);
+    offsets[0] = length_so_far;
 
     let nulls;
-    if null_count == 0 && indices.null_count() == 0 {
-        for i in 0..data_len {
+    if array.null_count() == 0 && indices.null_count() == 0 {
+        for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
@@ -385,11 +386,33 @@ where
 
             length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             values.extend_from_slice(s.as_bytes());
-            offsets.push(length_so_far);
+            *offset = length_so_far;
         }
         nulls = None
-    } else if null_count == 0 {
-        for i in 0..data_len {
+    } else if indices.null_count() == 0 {
+        let num_bytes = bit_util::ceil(data_len, 8);
+
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+        let null_slice = null_buf.data_mut();
+
+        for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            if array.is_valid(index) {
+                let s = array.value(index);
+
+                length_so_far += OffsetSize::from_usize(s.len()).unwrap();
+                values.extend_from_slice(s.as_bytes());
+            } else {
+                bit_util::unset_bit(null_slice, i);
+            }
+            *offset = length_so_far;
+        }
+        nulls = Some(null_buf.freeze());
+    } else if array.null_count() == 0 {
+        for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             if indices.is_valid(i) {
                 let index =
                     ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
@@ -401,14 +424,16 @@ where
                 length_so_far += OffsetSize::from_usize(s.len()).unwrap();
                 values.extend_from_slice(s.as_bytes());
             }
-            offsets.push(length_so_far);
+            *offset = length_so_far;
         }
         nulls = indices.data_ref().null_buffer().cloned();
     } else {
+        let num_bytes = bit_util::ceil(data_len, 8);
+
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
         let null_slice = null_buf.data_mut();
 
-        for i in 0..data_len {
+        for (i, offset) in offsets.iter_mut().skip(1).enumerate() {
             let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
                 ArrowError::ComputeError("Cast to usize failed".to_string())
             })?;
@@ -422,7 +447,7 @@ where
                 // set null bit
                 bit_util::unset_bit(null_slice, i);
             }
-            offsets.push(length_so_far);
+            *offset = length_so_far;
         }
 
         nulls = match indices.data_ref().null_buffer() {
@@ -435,8 +460,8 @@ where
 
     let mut data = ArrayData::builder(<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE)
         .len(data_len)
-        .add_buffer(Buffer::from(offsets.to_byte_slice()))
-        .add_buffer(Buffer::from(&values[..]));
+        .add_buffer(offsets_buffer.freeze())
+        .add_buffer(Buffer::from(values));
     if let Some(null_buffer) = nulls {
         data = data.null_bit_buffer(null_buffer);
     }
