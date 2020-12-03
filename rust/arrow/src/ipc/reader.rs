@@ -562,6 +562,7 @@ impl<R: Read + Seek> FileReader<R> {
         let mut footer_data = vec![0; footer_len as usize];
         reader.seek(SeekFrom::End(-10 - footer_len as i64))?;
         reader.read_exact(&mut footer_data)?;
+        dbg!(&footer_data);
 
         let footer = ipc::root_as_footer(&footer_data[..]).map_err(|err| {
             ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
@@ -923,10 +924,12 @@ mod tests {
 
     use crate::util::integration_util::*;
     use std::fs::File;
+    use std::env;
 
     #[test]
-    fn read_generated_files() {
-        let testdata = crate::util::test_util::arrow_test_data();
+    fn read_generated_files_014() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -940,15 +943,15 @@ mod tests {
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc-stream/integration/0.14.1/{}.arrow_file",
-                testdata, path
+                "{}/arrow-ipc-stream/integration/{}/{}.arrow_file",
+                testdata, version, path
             ))
             .unwrap();
 
             let mut reader = FileReader::try_new(file).unwrap();
 
             // read expected JSON output
-            let arrow_json = read_gzip_json(path);
+            let arrow_json = read_gzip_json(version, path);
             assert!(arrow_json.equals_reader(&mut reader));
         });
     }
@@ -990,8 +993,9 @@ mod tests {
     }
 
     #[test]
-    fn read_generated_streams() {
-        let testdata = crate::util::test_util::arrow_test_data();
+    fn read_generated_streams_014() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let version = "0.14.1";
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -1005,15 +1009,77 @@ mod tests {
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
-                "{}/arrow-ipc-stream/integration/0.14.1/{}.stream",
-                testdata, path
+                "{}/arrow-ipc-stream/integration/{}/{}.stream",
+                testdata, version, path
             ))
             .unwrap();
 
             let mut reader = StreamReader::try_new(file).unwrap();
 
             // read expected JSON output
-            let arrow_json = read_gzip_json(path);
+            let arrow_json = read_gzip_json(version, path);
+            assert!(arrow_json.equals_reader(&mut reader));
+            // the next batch must be empty
+            assert!(reader.next().is_none());
+            // the stream must indicate that it's finished
+            assert!(reader.is_finished());
+        });
+    }
+
+    #[test]
+    fn read_generated_files_100() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let version = "1.0.0-littleendian";
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_dictionary",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/{}/{}.arrow_file",
+                testdata, version, path
+            ))
+            .unwrap();
+
+            let mut reader = FileReader::try_new(file).unwrap();
+
+            // read expected JSON output
+            let arrow_json = read_gzip_json(version, path);
+            assert!(arrow_json.equals_reader(&mut reader));
+        });
+    }
+
+    #[test]
+    fn read_generated_streams_100() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let version = "1.0.0-littleendian";
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_dictionary",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/{}/{}.stream",
+                testdata, version, path
+            ))
+            .unwrap();
+
+            let mut reader = StreamReader::try_new(file).unwrap();
+
+            // read expected JSON output
+            let arrow_json = read_gzip_json(version, path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
             assert!(reader.next().is_none());
@@ -1072,11 +1138,11 @@ mod tests {
     }
 
     /// Read gzipped JSON file
-    fn read_gzip_json(path: &str) -> ArrowJson {
-        let testdata = crate::util::test_util::arrow_test_data();
+    fn read_gzip_json(version: &str, path: &str) -> ArrowJson {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         let file = File::open(format!(
-            "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
-            testdata, path
+            "{}/arrow-ipc-stream/integration/{}/{}.json.gz",
+            testdata, version, path
         ))
         .unwrap();
         let mut gz = GzDecoder::new(&file);
