@@ -67,8 +67,11 @@ pub fn flight_schema_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
 ) -> SchemaResult {
+    let data_gen = writer::IpcDataGenerator::default();
+    let schema_bytes = data_gen.schema_to_bytes(schema, &options);
+
     SchemaResult {
-        schema: writer::schema_to_bytes(schema, &options).ipc_message,
+        schema: schema_bytes.ipc_message,
     }
 }
 
@@ -88,7 +91,8 @@ pub fn flight_data_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
 ) -> FlightData {
-    let schema = writer::schema_to_bytes(schema, &options);
+    let data_gen = writer::IpcDataGenerator::default();
+    let schema = data_gen.schema_to_bytes(schema, &options);
     FlightData {
         flight_descriptor: None,
         app_metadata: vec![],
