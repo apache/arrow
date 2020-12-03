@@ -1009,6 +1009,48 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Big Endian is not supported for Decimal!")]
+    fn read_decimal_file_be() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let paths = vec![
+            "generated_decimal",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/{}.arrow_file",
+                testdata, path
+            ))
+            .unwrap();
+
+            FileReader::try_new(file).unwrap();
+        });
+    }
+
+    #[test]
+    fn read_generated_files_be() {
+        // complementary to the previous test
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_dictionary",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/{}.arrow_file",
+                testdata, path
+            ))
+            .unwrap();
+
+            FileReader::try_new(file).unwrap();
+        });
+    }
+
+    #[test]
     fn read_generated_streams() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
