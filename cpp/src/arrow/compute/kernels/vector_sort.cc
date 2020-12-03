@@ -39,7 +39,7 @@ namespace internal {
 
 namespace {
 
-// The target chunk in chunked array.
+// The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {
   using ViewType = decltype(std::declval<ArrayType>().GetView(0));
@@ -54,6 +54,19 @@ struct ResolvedChunk {
   bool IsNull() const { return array->IsNull(index); }
 
   ViewType GetView() const { return array->GetView(index); }
+};
+
+// ResolvedChunk specialization for untyped arrays when all is needed is null lookup
+template <>
+struct ResolvedChunk<Array> {
+  // The target array in chunked array.
+  const Array* array;
+  // The index in the target array.
+  const int64_t index;
+
+  ResolvedChunk(const Array* array, int64_t index) : array(array), index(index) {}
+
+  bool IsNull() const { return array->IsNull(index); }
 };
 
 // An object that resolves an array chunk depending on the index.
@@ -141,13 +154,14 @@ struct StablePartitioner {
   }
 };
 
-// Move nulls to end of array. Return where null starts.
+// TODO factor out value comparison and NaN checking?
+
+// Move nulls (not null-like values) to end of array. Return where null starts.
 //
 // `offset` is used when this is called on a chunk of a chunked array
-template <typename ArrayType, typename Partitioner>
-enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
-               int64_t offset) {
+template <typename Partitioner>
+uint64_t* PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indices_end,
+                             const Array& values, int64_t offset) {
   if (values.null_count() == 0) {
     return indices_end;
   }
@@ -158,73 +172,83 @@ PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& 
 }
 
 // For chunked array.
-template <typename ArrayType, typename Partitioner>
-enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-               const std::vector<const Array*>& arrays, int64_t null_count) {
+template <typename Partitioner>
+uint64_t* PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indices_end,
+                             const std::vector<const Array*>& arrays,
+                             int64_t null_count) {
   if (null_count == 0) {
     return indices_end;
   }
   ChunkedArrayResolver resolver(arrays);
   Partitioner partitioner;
   return partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-    const auto chunk = resolver.Resolve<ArrayType>(ind);
+    const auto chunk = resolver.Resolve<Array>(ind);
     return !chunk.IsNull();
   });
 }
 
-// Move NaNs and nulls to end of array, nulls after NaN. Return where
-// NaN/null starts.
+// Move non-null null-like values to end of array. Return where null-like starts.
 //
 // `offset` is used when this is called on a chunk of a chunked array
 template <typename ArrayType, typename Partitioner>
-enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
-               int64_t offset) {
-  Partitioner partitioner;
-  if (values.null_count() == 0) {
-    return partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-      return !std::isnan(values.GetView(ind - offset));
-    });
-  }
-  uint64_t* nulls_begin =
-      partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-        return !values.IsNull(ind - offset) && !std::isnan(values.GetView(ind - offset));
-      });
-  // move nulls after NaN
-  if (values.null_count() < static_cast<int64_t>(indices_end - nulls_begin)) {
-    partitioner(nulls_begin, indices_end, [&values, &offset](uint64_t ind) {
-      return !values.IsNull(ind - offset);
-    });
-  }
-  return nulls_begin;
+enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
+PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                   const ArrayType& values, int64_t offset) {
+  return indices_end;
 }
 
 // For chunked array.
 template <typename ArrayType, typename Partitioner>
+enable_if_t<!is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
+PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                   const std::vector<const Array*>& arrays, int64_t null_count) {
+  return indices_end;
+}
+
+template <typename ArrayType, typename Partitioner>
 enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
-PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-               const std::vector<const Array*>& arrays, int64_t null_count) {
+PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                   const ArrayType& values, int64_t offset) {
+  Partitioner partitioner;
+  return partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
+    return !std::isnan(values.GetView(ind - offset));
+  });
+}
+
+template <typename ArrayType, typename Partitioner>
+enable_if_t<is_floating_type<typename ArrayType::TypeClass>::value, uint64_t*>
+PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                   const std::vector<const Array*>& arrays, int64_t null_count) {
   Partitioner partitioner;
   ChunkedArrayResolver resolver(arrays);
-  if (null_count == 0) {
-    return partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<ArrayType>(ind);
-      return !std::isnan(chunk.GetView());
-    });
-  }
-  uint64_t* nulls_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
+  return partitioner(indices_begin, indices_end, [&](uint64_t ind) {
     const auto chunk = resolver.Resolve<ArrayType>(ind);
-    return !chunk.IsNull() && !std::isnan(chunk.GetView());
+    return !std::isnan(chunk.GetView());
   });
-  // move nulls after NaN
-  if (null_count < static_cast<int64_t>(indices_end - nulls_begin)) {
-    partitioner(nulls_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<ArrayType>(ind);
-      return !chunk.IsNull();
-    });
-  }
-  return nulls_begin;
+}
+
+// Move nulls to end of array. Return where null starts.
+//
+// `offset` is used when this is called on a chunk of a chunked array
+template <typename ArrayType, typename Partitioner>
+uint64_t* PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
+                         const ArrayType& values, int64_t offset) {
+  // Partition nulls at end, and null-like values just before
+  uint64_t* nulls_begin =
+      PartitionNullsOnly<Partitioner>(indices_begin, indices_end, values, offset);
+  return PartitionNullLikes<ArrayType, Partitioner>(indices_begin, nulls_begin, values,
+                                                    offset);
+}
+
+// For chunked array.
+template <typename ArrayType, typename Partitioner>
+uint64_t* PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
+                         const std::vector<const Array*>& arrays, int64_t null_count) {
+  // Partition nulls at end, and null-like values just before
+  uint64_t* nulls_begin =
+      PartitionNullsOnly<Partitioner>(indices_begin, indices_end, arrays, null_count);
+  return PartitionNullLikes<ArrayType, Partitioner>(indices_begin, nulls_begin, arrays,
+                                                    null_count);
 }
 
 // ----------------------------------------------------------------------
@@ -569,7 +593,7 @@ class ChunkedArrayCompareSorter {
 // sorting each array.
 class ChunkedArraySorter : public TypeVisitor {
  public:
-  ChunkedArraySorter(uint64_t* indices_begin, uint64_t* indices_end,
+  ChunkedArraySorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
                      const ChunkedArray& chunked_array, const SortOrder order,
                      bool can_use_array_sorter = true)
       : TypeVisitor(),
@@ -577,7 +601,8 @@ class ChunkedArraySorter : public TypeVisitor {
         indices_end_(indices_end),
         chunked_array_(chunked_array),
         order_(order),
-        can_use_array_sorter_(can_use_array_sorter) {}
+        can_use_array_sorter_(can_use_array_sorter),
+        ctx_(ctx) {}
 
   Status Sort() { return chunked_array_.type()->Accept(this); }
 
@@ -643,6 +668,16 @@ class ChunkedArraySorter : public TypeVisitor {
       }
       DCHECK_EQ(end_offset, indices_end_ - indices_begin_);
 
+      std::unique_ptr<Buffer> temp_buffer;
+      uint64_t* temp_indices = nullptr;
+      if (sorted.size() > 1) {
+        ARROW_ASSIGN_OR_RAISE(
+            temp_buffer,
+            AllocateBuffer(sizeof(int64_t) * (indices_end_ - indices_begin_ - null_count),
+                           ctx_->memory_pool()));
+        temp_indices = reinterpret_cast<uint64_t*>(temp_buffer->mutable_data());
+      }
+
       // Then merge them by pairs, recursively
       while (sorted.size() > 1) {
         auto out_it = sorted.begin();
@@ -658,7 +693,8 @@ class ChunkedArraySorter : public TypeVisitor {
           uint64_t* nulls_begin = Merge<ArrayType>(
               indices_begin_ + left.begin_offset, indices_begin_ + left.end_offset,
               indices_begin_ + right.end_offset, indices_begin_ + left.nulls_offset,
-              indices_begin_ + right.nulls_offset, arrays, null_count, order_);
+              indices_begin_ + right.nulls_offset, arrays, null_count, order_,
+              temp_indices);
           *out_it++ = {left.begin_offset, right.end_offset, nulls_begin - indices_begin_};
         }
         if (it < sorted.end()) {
@@ -687,33 +723,52 @@ class ChunkedArraySorter : public TypeVisitor {
   uint64_t* Merge(uint64_t* indices_begin, uint64_t* indices_middle,
                   uint64_t* indices_end, uint64_t* left_nulls_begin,
                   uint64_t* right_nulls_begin, const std::vector<const Array*>& arrays,
-                  int64_t null_count, const SortOrder order) {
+                  int64_t null_count, const SortOrder order, uint64_t* temp_indices) {
+    // Input layout:
+    // [left non-nulls .... left nulls .... right non-nulls .... right nulls]
+    //  ^                   ^               ^                    ^
+    //  |                   |               |                    |
+    //  indices_begin   left_nulls_begin   indices_middle     right_nulls_begin
     auto left_num_non_nulls = left_nulls_begin - indices_begin;
     auto right_num_non_nulls = right_nulls_begin - indices_middle;
-    auto nulls_begin = PartitionNulls<ArrayType, StablePartitioner>(
-        indices_begin, indices_end, arrays, null_count);
+
+    // Mutate the input, stably, to obtain the following layout:
+    // [left non-nulls .... right non-nulls .... left nulls .... right nulls]
+    //  ^                   ^                    ^                    ^
+    //  |                   |                    |                    |
+    //  indices_begin   indices_middle        nulls_begin     right_nulls_begin
+    std::rotate(left_nulls_begin, indices_middle, right_nulls_begin);
+    auto nulls_begin = indices_begin + left_num_non_nulls + right_num_non_nulls;
+    // We still need to partition nulls, since some types have non-null null-like
+    // values (NaN).  Note this assumes that there are no distinct non-null null-like
+    // values (in other words, all NaNs are equal).
+    PartitionNullsOnly<StablePartitioner>(nulls_begin, indices_end, arrays, null_count);
+
+    // Merge the non-null values into temp area
     indices_middle = indices_begin + left_num_non_nulls;
     indices_end = indices_middle + right_num_non_nulls;
     const ChunkedArrayResolver left_resolver(arrays);
     const ChunkedArrayResolver right_resolver(arrays);
     if (order == SortOrder::Ascending) {
-      std::inplace_merge(
-          indices_begin, indices_middle, indices_end, [&](uint64_t left, uint64_t right) {
-            const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-            const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-            return chunk_left.GetView() < chunk_right.GetView();
-          });
+      std::merge(indices_begin, indices_middle, indices_middle, indices_end, temp_indices,
+                 [&](uint64_t left, uint64_t right) {
+                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
+                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
+                   return chunk_left.GetView() < chunk_right.GetView();
+                 });
     } else {
-      std::inplace_merge(
-          indices_begin, indices_middle, indices_end, [&](uint64_t left, uint64_t right) {
-            const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-            const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-            // We don't use 'left > right' here to reduce required
-            // operator. If we use 'right < left' here, '<' is only
-            // required.
-            return chunk_right.GetView() < chunk_left.GetView();
-          });
+      std::merge(indices_begin, indices_middle, indices_middle, indices_end, temp_indices,
+                 [&](uint64_t left, uint64_t right) {
+                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
+                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
+                   // We don't use 'left > right' here to reduce required
+                   // operator. If we use 'right < left' here, '<' is only
+                   // required.
+                   return chunk_right.GetView() < chunk_left.GetView();
+                 });
     }
+    // Copy back temp area into main buffer
+    std::copy(temp_indices, temp_indices + (nulls_begin - indices_begin), indices_begin);
     return nulls_begin;
   }
 
@@ -722,6 +777,7 @@ class ChunkedArraySorter : public TypeVisitor {
   const ChunkedArray& chunked_array_;
   const SortOrder order_;
   const bool can_use_array_sorter_;
+  ExecContext* ctx_;
 };
 
 // ----------------------------------------------------------------------
@@ -731,8 +787,8 @@ class ChunkedArraySorter : public TypeVisitor {
 // A distinct stable sort is called for each sort key, from the last key to the first.
 class TableRadixSorter {
  public:
-  Status Sort(uint64_t* indices_begin, uint64_t* indices_end, const Table& table,
-              const SortOptions& options) {
+  Status Sort(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+              const Table& table, const SortOptions& options) {
     for (auto i = options.sort_keys.size(); i > 0; --i) {
       const auto& sort_key = options.sort_keys[i - 1];
       const auto& chunked_array = table.GetColumnByName(sort_key.name);
@@ -743,7 +799,7 @@ class TableRadixSorter {
       // processed first because ArraySorter doesn't care about
       // existing indices.
       const auto can_use_array_sorter = (i == 0);
-      ChunkedArraySorter sorter(indices_begin, indices_end, *chunked_array.get(),
+      ChunkedArraySorter sorter(ctx, indices_begin, indices_end, *chunked_array.get(),
                                 sort_key.order, can_use_array_sorter);
       ARROW_RETURN_NOT_OK(sorter.Sort());
     }
@@ -1158,7 +1214,7 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    ChunkedArraySorter sorter(out_begin, out_end, chunked_array, order);
+    ChunkedArraySorter sorter(ctx, out_begin, out_end, chunked_array, order);
     ARROW_RETURN_NOT_OK(sorter.Sort());
     return Datum(out);
   }
@@ -1197,7 +1253,7 @@ class SortIndicesMetaFunction : public MetaFunction {
     // MultipleKeyTableSorter for now.
     //
     // TableRadixSorter sorter;
-    // ARROW_RETURN_NOT_OK(sorter.Sort(out_begin, out_end, table, options));
+    // ARROW_RETURN_NOT_OK(sorter.Sort(ctx, out_begin, out_end, table, options));
     MultipleKeyTableSorter sorter(out_begin, out_end, table, options);
     ARROW_RETURN_NOT_OK(sorter.Sort());
     return Datum(out);

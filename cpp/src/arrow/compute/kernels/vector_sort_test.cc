@@ -440,7 +440,7 @@ class TestChunkedArraySortIndices : public ::testing::Test {
   void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
                          SortOrder order, const std::shared_ptr<Array> expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*chunked_array, order));
-    AssertArraysEqual(*expected, *actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 
   void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
