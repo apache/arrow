@@ -245,6 +245,55 @@ impl IpcDataGenerator {
     }
 }
 
+/// Keeps track of dictionaries that have been written, to avoid emitting the same dictionary
+/// multiple times. Can optionally error if an update to an existing dictionary is attempted, which
+/// isn't allowed in the `FileWriter`.
+pub struct DictionaryTracker {
+    written: HashMap<i64, ArrayRef>,
+    error_on_replacement: bool,
+}
+
+impl DictionaryTracker {
+    pub fn new(error_on_replacement: bool) -> Self {
+        Self {
+            written: HashMap::new(),
+            error_on_replacement,
+        }
+    }
+
+    /// Keep track of the dictionary with the given ID and values. Behavior:
+    ///
+    /// * If this ID has been written already and has the same data, return `Ok(false)` to indicate
+    ///   that the dictionary was not actually inserted (because it's already been seen).
+    /// * If this ID has been written already but with different data, and this tracker is
+    ///   configured to return an error, return an error.
+    /// * If the tracker has not been configured to error on replacement or this dictionary
+    ///   has never been seen before, return `Ok(true)` to indicate that the dictionary was just
+    ///   inserted.
+    pub fn insert(&mut self, dict_id: i64, column: &ArrayRef) -> Result<bool> {
+        let dict_data = column.data();
+        let dict_values = &dict_data.child_data()[0];
+
+        // If a dictionary with this id was already emitted, check if it was the same.
+        if let Some(last) = self.written.get(&dict_id) {
+            if last.data().child_data()[0] == *dict_values {
+                // Same dictionary values => no need to emit it again
+                return Ok(false);
+            } else if self.error_on_replacement {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Dictionary replacement detected when writing IPC file format. \
+                     Arrow IPC files only support a single dictionary for a given field \
+                     across all batches."
+                        .to_string(),
+                ));
+            }
+        }
+
+        self.written.insert(dict_id, column.clone());
+        Ok(true)
+    }
+}
+
 pub struct FileWriter<W: Write> {
     /// The object to write to
     writer: BufWriter<W>,
@@ -261,7 +310,7 @@ pub struct FileWriter<W: Write> {
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
     /// Keeps track of dictionaries that have been written
-    last_written_dictionaries: HashMap<i64, ArrayRef>,
+    dictionary_tracker: DictionaryTracker,
 
     data_gen: IpcDataGenerator,
 }
@@ -296,7 +345,7 @@ impl<W: Write> FileWriter<W> {
             dictionary_blocks: vec![],
             record_blocks: vec![],
             finished: false,
-            last_written_dictionaries: HashMap::new(),
+            dictionary_tracker: DictionaryTracker::new(true),
             data_gen,
         })
     }
@@ -339,40 +388,29 @@ impl<W: Write> FileWriter<W> {
                 let dict_data = column.data();
                 let dict_values = &dict_data.child_data()[0];
 
-                // If a dictionary with this id was already emitted, check if it was the same.
-                if let Some(last_dictionary) =
-                    self.last_written_dictionaries.get(&dict_id)
-                {
-                    if last_dictionary.data().child_data()[0] == *dict_values {
-                        // Same dictionary values => no need to emit it again
-                        continue;
-                    } else {
-                        return Err(ArrowError::InvalidArgumentError(
-                            "Dictionary replacement detected when writing IPC file format. \
-                             Arrow IPC files only support a single dictionary for a given field \
-                             across all batches.".to_string()));
-                    }
+                let emit = self.dictionary_tracker.insert(dict_id, column)?;
+
+                if emit {
+                    let encoded_message = self.data_gen.dictionary_batch_to_bytes(
+                        dict_id,
+                        dict_values,
+                        &self.write_options,
+                    );
+
+                    let (meta, data) = write_message(
+                        &mut self.writer,
+                        encoded_message,
+                        &self.write_options,
+                    )?;
+
+                    let block = ipc::Block::new(
+                        self.block_offsets as i64,
+                        meta as i32,
+                        data as i64,
+                    );
+                    self.dictionary_blocks.push(block);
+                    self.block_offsets += meta + data;
                 }
-
-                self.last_written_dictionaries
-                    .insert(dict_id, column.clone());
-
-                let encoded_message = self.data_gen.dictionary_batch_to_bytes(
-                    dict_id,
-                    dict_values,
-                    &self.write_options,
-                );
-
-                let (meta, data) = write_message(
-                    &mut self.writer,
-                    encoded_message,
-                    &self.write_options,
-                )?;
-
-                let block =
-                    ipc::Block::new(self.block_offsets as i64, meta as i32, data as i64);
-                self.dictionary_blocks.push(block);
-                self.block_offsets += meta + data;
             }
         }
         Ok(())
@@ -428,7 +466,7 @@ pub struct StreamWriter<W: Write> {
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
     /// Keeps track of dictionaries that have been written
-    last_written_dictionaries: HashMap<i64, ArrayRef>,
+    dictionary_tracker: DictionaryTracker,
 
     data_gen: IpcDataGenerator,
 }
@@ -455,7 +493,7 @@ impl<W: Write> StreamWriter<W> {
             write_options,
             schema: schema.clone(),
             finished: false,
-            last_written_dictionaries: HashMap::new(),
+            dictionary_tracker: DictionaryTracker::new(false),
             data_gen,
         })
     }
@@ -490,26 +528,24 @@ impl<W: Write> StreamWriter<W> {
                 let dict_data = column.data();
                 let dict_values = &dict_data.child_data()[0];
 
-                // If a dictionary with this id was already emitted, check if it was the same.
-                if let Some(last_dictionary) =
-                    self.last_written_dictionaries.get(&dict_id)
-                {
-                    if last_dictionary.data().child_data()[0] == *dict_values {
-                        // Same dictionary values => no need to emit it again
-                        continue;
-                    }
+                let emit = self
+                    .dictionary_tracker
+                    .insert(dict_id, column)
+                    .expect("StreamWriter is configured to not error on replacement");
+
+                if emit {
+                    let encoded_message = self.data_gen.dictionary_batch_to_bytes(
+                        dict_id,
+                        dict_values,
+                        &self.write_options,
+                    );
+
+                    write_message(
+                        &mut self.writer,
+                        encoded_message,
+                        &self.write_options,
+                    )?;
                 }
-
-                self.last_written_dictionaries
-                    .insert(dict_id, column.clone());
-
-                let encoded_message = self.data_gen.dictionary_batch_to_bytes(
-                    dict_id,
-                    dict_values,
-                    &self.write_options,
-                );
-
-                write_message(&mut self.writer, encoded_message, &self.write_options)?;
             }
         }
         Ok(())
