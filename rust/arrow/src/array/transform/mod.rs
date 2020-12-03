@@ -274,9 +274,7 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
         DataType::FixedSizeList(_, _) => {}
         DataType::Union(_) => {}
         */
-        _ => {
-            todo!("Take and filter operations still not supported for this datatype")
-        }
+        _ => todo!("Take and filter operations still not supported for this datatype"),
     })
 }
 
