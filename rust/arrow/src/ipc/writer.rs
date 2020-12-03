@@ -542,29 +542,6 @@ pub struct EncodedData {
     pub arrow_data: Vec<u8>,
 }
 
-enum Message<'a> {
-    Schema(&'a Schema, &'a IpcWriteOptions),
-    RecordBatch(&'a RecordBatch, &'a IpcWriteOptions),
-    DictionaryBatch(i64, &'a ArrayDataRef, &'a IpcWriteOptions),
-}
-
-impl<'a> Message<'a> {
-    /// Encode message to a ipc::Message and return data as bytes
-    fn encode(&'a self, data_gen: &IpcDataGenerator) -> EncodedData {
-        match self {
-            Message::Schema(schema, options) => {
-                data_gen.schema_to_bytes(*schema, *options)
-            }
-            Message::RecordBatch(batch, options) => {
-                data_gen.record_batch_to_bytes(*batch, *options)
-            }
-            Message::DictionaryBatch(dict_id, array_data, options) => {
-                data_gen.dictionary_batch_to_bytes(*dict_id, *array_data, *options)
-            }
-        }
-    }
-}
-
 /// Write a message's IPC data and buffers, returning metadata and buffer data lengths written
 fn write_message<W: Write>(
     mut writer: &mut BufWriter<W>,
