@@ -42,7 +42,8 @@ pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
     options: &IpcWriteOptions,
 ) -> FlightData {
-    let data = writer::record_batch_to_bytes(batch, &options);
+    let data_gen = writer::IpcDataGenerator::default();
+    let data = data_gen.record_batch_to_bytes(batch, &options);
     FlightData {
         flight_descriptor: None,
         app_metadata: vec![],

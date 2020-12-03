@@ -128,6 +128,60 @@ impl IpcDataGenerator {
             arrow_data: vec![],
         }
     }
+
+    /// Write a `RecordBatch` into two sets of bytes, one for the header (ipc::Message) and the
+    /// other for the batch's data
+    pub fn record_batch_to_bytes(
+        &self,
+        batch: &RecordBatch,
+        write_options: &IpcWriteOptions,
+    ) -> EncodedData {
+        let mut fbb = FlatBufferBuilder::new();
+
+        let mut nodes: Vec<ipc::FieldNode> = vec![];
+        let mut buffers: Vec<ipc::Buffer> = vec![];
+        let mut arrow_data: Vec<u8> = vec![];
+        let mut offset = 0;
+        for array in batch.columns() {
+            let array_data = array.data();
+            offset = write_array_data(
+                &array_data,
+                &mut buffers,
+                &mut arrow_data,
+                &mut nodes,
+                offset,
+                array.len(),
+                array.null_count(),
+            );
+        }
+
+        // write data
+        let buffers = fbb.create_vector(&buffers);
+        let nodes = fbb.create_vector(&nodes);
+
+        let root = {
+            let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
+            batch_builder.add_length(batch.num_rows() as i64);
+            batch_builder.add_nodes(nodes);
+            batch_builder.add_buffers(buffers);
+            let b = batch_builder.finish();
+            b.as_union_value()
+        };
+        // create an ipc::Message
+        let mut message = ipc::MessageBuilder::new(&mut fbb);
+        message.add_version(write_options.metadata_version);
+        message.add_header_type(ipc::MessageHeader::RecordBatch);
+        message.add_bodyLength(arrow_data.len() as i64);
+        message.add_header(root);
+        let root = message.finish();
+        fbb.finish(root, None);
+        let finished_data = fbb.finished_data();
+
+        EncodedData {
+            ipc_message: finished_data.to_vec(),
+            arrow_data,
+        }
+    }
 }
 
 pub struct FileWriter<W: Write> {
@@ -447,7 +501,7 @@ impl<'a> Message<'a> {
                 data_gen.schema_to_bytes(*schema, *options)
             }
             Message::RecordBatch(batch, options) => {
-                record_batch_to_bytes(*batch, *options)
+                data_gen.record_batch_to_bytes(*batch, *options)
             }
             Message::DictionaryBatch(dict_id, array_data, options) => {
                 dictionary_batch_to_bytes(*dict_id, *array_data, *options)
@@ -518,58 +572,6 @@ fn write_body_buffers<W: Write>(writer: &mut BufWriter<W>, data: &[u8]) -> Resul
 
     writer.flush()?;
     Ok(total_len as usize)
-}
-
-/// Write a `RecordBatch` into a tuple of bytes, one for the header (ipc::Message) and the other for the batch's data
-pub fn record_batch_to_bytes(
-    batch: &RecordBatch,
-    write_options: &IpcWriteOptions,
-) -> EncodedData {
-    let mut fbb = FlatBufferBuilder::new();
-
-    let mut nodes: Vec<ipc::FieldNode> = vec![];
-    let mut buffers: Vec<ipc::Buffer> = vec![];
-    let mut arrow_data: Vec<u8> = vec![];
-    let mut offset = 0;
-    for array in batch.columns() {
-        let array_data = array.data();
-        offset = write_array_data(
-            &array_data,
-            &mut buffers,
-            &mut arrow_data,
-            &mut nodes,
-            offset,
-            array.len(),
-            array.null_count(),
-        );
-    }
-
-    // write data
-    let buffers = fbb.create_vector(&buffers);
-    let nodes = fbb.create_vector(&nodes);
-
-    let root = {
-        let mut batch_builder = ipc::RecordBatchBuilder::new(&mut fbb);
-        batch_builder.add_length(batch.num_rows() as i64);
-        batch_builder.add_nodes(nodes);
-        batch_builder.add_buffers(buffers);
-        let b = batch_builder.finish();
-        b.as_union_value()
-    };
-    // create an ipc::Message
-    let mut message = ipc::MessageBuilder::new(&mut fbb);
-    message.add_version(write_options.metadata_version);
-    message.add_header_type(ipc::MessageHeader::RecordBatch);
-    message.add_bodyLength(arrow_data.len() as i64);
-    message.add_header(root);
-    let root = message.finish();
-    fbb.finish(root, None);
-    let finished_data = fbb.finished_data();
-
-    EncodedData {
-        ipc_message: finished_data.to_vec(),
-        arrow_data,
-    }
 }
 
 /// Write dictionary values into a tuple of bytes, one for the header (ipc::Message) and the other for the data
