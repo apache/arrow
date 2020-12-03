@@ -254,7 +254,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn new(capacity: usize) -> Self {
-        let buffer = if T::DATA_TYPE == DataType::Boolean {
+        let buffer = if matches!(T::DATA_TYPE, DataType::Boolean) {
             let byte_capacity = bit_util::ceil(capacity, 8);
             let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
             let mut buffer = MutableBuffer::new(actual_capacity);
@@ -286,7 +286,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     #[inline]
     fn advance(&mut self, i: usize) -> Result<()> {
-        let new_buffer_len = if T::DATA_TYPE == DataType::Boolean {
+        let new_buffer_len = if matches!(T::DATA_TYPE, DataType::Boolean) {
             bit_util::ceil(self.len + i, 8)
         } else {
             (self.len + i) * mem::size_of::<T::Native>()
@@ -299,7 +299,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn reserve(&mut self, n: usize) {
         let new_capacity = self.len + n;
-        if T::DATA_TYPE == DataType::Boolean {
+        if matches!(T::DATA_TYPE, DataType::Boolean) {
             if new_capacity > self.capacity() {
                 let new_byte_capacity = bit_util::ceil(new_capacity, 8);
                 let existing_capacity = self.buffer.capacity();
@@ -316,7 +316,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn append(&mut self, v: T::Native) -> Result<()> {
         self.reserve(1);
-        if T::DATA_TYPE == DataType::Boolean {
+        if matches!(T::DATA_TYPE, DataType::Boolean) {
             if v != T::default_value() {
                 unsafe {
                     bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
@@ -332,7 +332,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn append_n(&mut self, n: usize, v: T::Native) -> Result<()> {
         self.reserve(n);
-        if T::DATA_TYPE == DataType::Boolean {
+        if matches!(T::DATA_TYPE, DataType::Boolean) {
             if n != 0 && v != T::default_value() {
                 let data = unsafe {
                     std::slice::from_raw_parts_mut(
@@ -356,7 +356,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         let array_slots = slice.len();
         self.reserve(array_slots);
 
-        if T::DATA_TYPE == DataType::Boolean {
+        if matches!(T::DATA_TYPE, DataType::Boolean) {
             for v in slice {
                 if *v != T::default_value() {
                     // For performance the `len` of the buffer is not
@@ -377,7 +377,7 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
 
     #[inline]
     fn finish(&mut self) -> Buffer {
-        if T::DATA_TYPE == DataType::Boolean {
+        if matches!(T::DATA_TYPE, DataType::Boolean) {
             // `append` does not update the buffer's `len` so do it before `freeze` is called.
             let new_buffer_len = bit_util::ceil(self.len, 8);
             debug_assert!(new_buffer_len >= self.buffer.len());

@@ -47,7 +47,7 @@ fn partition_nan<T: ArrowPrimitiveType>(
     v: Vec<u32>,
 ) -> (Vec<u32>, Vec<u32>) {
     // partition by nan for float types
-    if T::DATA_TYPE == DataType::Float32 {
+    if matches!(T::DATA_TYPE, DataType::Float32) {
         // T::Native has no `is_nan` and thus we need to downcast
         let array = array
             .as_any()
@@ -60,7 +60,7 @@ fn partition_nan<T: ArrowPrimitiveType>(
         } else {
             (v, vec![])
         }
-    } else if T::DATA_TYPE == DataType::Float64 {
+    } else if matches!(T::DATA_TYPE, DataType::Float64) {
         let array = array
             .as_any()
             .downcast_ref::<Float64Array>()
