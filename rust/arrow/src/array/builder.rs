@@ -254,7 +254,6 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn new(capacity: usize) -> Self {
-        
         let buffer = if matches!(T::DATA_TYPE, DataType::Boolean) {
             let byte_capacity = bit_util::ceil(capacity, 8);
             let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
