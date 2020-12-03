@@ -291,8 +291,12 @@ pub(crate) fn build_field<'a>(
     let fb_dictionary = if let Dictionary(index_type, _) = field.data_type() {
         Some(get_fb_dictionary(
             index_type,
-            field.dict_id(),
-            field.dict_is_ordered(),
+            field
+                .dict_id()
+                .expect("All Dictionary types have `dict_id`"),
+            field
+                .dict_is_ordered()
+                .expect("All Dictionary types have `dict_is_ordered`"),
             fbb,
         ))
     } else {
