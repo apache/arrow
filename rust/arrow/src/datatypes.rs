@@ -1570,7 +1570,7 @@ impl<'de> Deserialize<'de> for Field {
     where
         D: Deserializer<'de>,
     {
-        const FIELDS: &'static [&'static str] = &[
+        const FIELDS: &[&str] = &[
             "name",
             "data_type",
             "nullable",
@@ -1607,7 +1607,7 @@ impl<'de> Deserialize<'de> for Field {
                         "dict_is_ordered" => {
                             dict_is_ordered = Some(map.next_value::<bool>()?)
                         }
-                        _ => Err(serde::de::Error::unknown_field(key, FIELDS))?,
+                        _ => return Err(serde::de::Error::unknown_field(key, FIELDS)),
                     };
                 }
 
@@ -1617,8 +1617,7 @@ impl<'de> Deserialize<'de> for Field {
                 let nullable = nullable
                     .ok_or_else(|| serde::de::Error::missing_field("nullable"))?;
 
-                if dict_id.is_some() {
-                    let dict_id = dict_id.unwrap();
+                if let Some(dict_id) = dict_id {
                     let dict_is_ordered = dict_is_ordered.ok_or_else(|| {
                         serde::de::Error::missing_field("dict_is_ordered")
                     })?;
