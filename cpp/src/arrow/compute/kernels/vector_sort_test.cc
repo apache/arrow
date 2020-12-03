@@ -741,7 +741,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       {field(column_names[8], float32())}, {field(column_names[9], float64())},
       {field(column_names[10], utf8())},
   };
-  const auto length = 100;
+  const auto length = 200;
   std::vector<std::shared_ptr<Array>> columns = {
       Random<UInt8Type>(seed).Generate(length, null_probability),
       Random<UInt16Type>(seed).Generate(length, null_probability),
@@ -770,8 +770,13 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     sort_keys.emplace_back(column_name, order);
   }
   SortOptions options(sort_keys);
-  ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*table, options));
-  Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  for (const int64_t num_chunks : {1, 2, 20}) {
+    TableBatchReader reader(*table);
+    reader.set_chunksize((length + num_chunks - 1) / num_chunks);
+    ASSERT_OK_AND_ASSIGN(auto chunked_table, Table::FromRecordBatchReader(&reader));
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_table, options));
+    Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,

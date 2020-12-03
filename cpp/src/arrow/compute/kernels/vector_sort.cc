@@ -156,6 +156,16 @@ struct StablePartitioner {
 
 // TODO factor out value comparison and NaN checking?
 
+template <typename TypeClass, typename Enable = void>
+struct NullTraits {
+  static constexpr bool has_null_like_values = false;
+};
+
+template <typename TypeClass>
+struct NullTraits<TypeClass, enable_if_floating_point<TypeClass>> {
+  static constexpr bool has_null_like_values = true;
+};
+
 // Move nulls (not null-like values) to end of array. Return where null starts.
 //
 // `offset` is used when this is called on a chunk of a chunked array
@@ -739,10 +749,12 @@ class ChunkedArraySorter : public TypeVisitor {
     //  indices_begin   indices_middle        nulls_begin     right_nulls_begin
     std::rotate(left_nulls_begin, indices_middle, right_nulls_begin);
     auto nulls_begin = indices_begin + left_num_non_nulls + right_num_non_nulls;
-    // We still need to partition nulls, since some types have non-null null-like
-    // values (NaN).  Note this assumes that there are no distinct non-null null-like
-    // values (in other words, all NaNs are equal).
-    PartitionNullsOnly<StablePartitioner>(nulls_begin, indices_end, arrays, null_count);
+    // If the type has null-like values (such as NaN), ensure those plus regular
+    // nulls are partitioned in the right order.  Note this assumes that all
+    // null-like values (e.g. NaN) are ordered equally.
+    if (NullTraits<typename ArrayType::TypeClass>::has_null_like_values) {
+      PartitionNullsOnly<StablePartitioner>(nulls_begin, indices_end, arrays, null_count);
+    }
 
     // Merge the non-null values into temp area
     indices_middle = indices_begin + left_num_non_nulls;
