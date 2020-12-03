@@ -97,6 +97,12 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let len = c_fields.len();
     for i in 0..len {
         let c_field: ipc::Field = c_fields.get(i);
+        match c_field.type_type() {
+            ipc::Type::Decimal if fb.endianness() == ipc::Endianness::Big => {
+                unimplemented!("Big Endian is not supported for Decimal!")
+            }
+            _ => (),
+        };
         fields.push(c_field.into());
     }
 
@@ -753,6 +759,7 @@ mod tests {
                     123,
                     true,
                 ),
+                Field::new("decimal<usize, usize>", DataType::Decimal(10, 6), false),
             ],
             md,
         );
