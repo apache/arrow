@@ -129,6 +129,43 @@ impl IpcDataGenerator {
         }
     }
 
+    pub fn encoded_batch(
+        &self,
+        batch: &RecordBatch,
+        dictionary_tracker: &mut DictionaryTracker,
+        write_options: &IpcWriteOptions,
+    ) -> Result<(Vec<EncodedData>, EncodedData)> {
+        // TODO: handle nested dictionaries
+        let schema = batch.schema();
+        let mut encoded_dictionaries = Vec::with_capacity(schema.fields().len());
+
+        for (i, field) in schema.fields().iter().enumerate() {
+            let column = batch.column(i);
+
+            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
+                let dict_id = field
+                    .dict_id()
+                    .expect("All Dictionary types have `dict_id`");
+                let dict_data = column.data();
+                let dict_values = &dict_data.child_data()[0];
+
+                let emit = dictionary_tracker.insert(dict_id, column)?;
+
+                if emit {
+                    encoded_dictionaries.push(self.dictionary_batch_to_bytes(
+                        dict_id,
+                        dict_values,
+                        write_options,
+                    ));
+                }
+            }
+        }
+
+        let encoded_message = self.record_batch_to_bytes(batch, write_options);
+
+        Ok((encoded_dictionaries, encoded_message))
+    }
+
     /// Write a `RecordBatch` into two sets of bytes, one for the header (ipc::Message) and the
     /// other for the batch's data
     pub fn record_batch_to_bytes(
@@ -357,10 +394,23 @@ impl<W: Write> FileWriter<W> {
                 "Cannot write record batch to file writer as it is closed".to_string(),
             ));
         }
-        self.write_dictionaries(&batch)?;
-        let encoded_message = self
-            .data_gen
-            .record_batch_to_bytes(batch, &self.write_options);
+
+        let (encoded_dictionaries, encoded_message) = self.data_gen.encoded_batch(
+            batch,
+            &mut self.dictionary_tracker,
+            &self.write_options,
+        )?;
+
+        for encoded_dictionary in encoded_dictionaries {
+            let (meta, data) =
+                write_message(&mut self.writer, encoded_dictionary, &self.write_options)?;
+
+            let block =
+                ipc::Block::new(self.block_offsets as i64, meta as i32, data as i64);
+            self.dictionary_blocks.push(block);
+            self.block_offsets += meta + data;
+        }
+
         let (meta, data) =
             write_message(&mut self.writer, encoded_message, &self.write_options)?;
         // add a record block for the footer
@@ -371,48 +421,6 @@ impl<W: Write> FileWriter<W> {
         );
         self.record_blocks.push(block);
         self.block_offsets += meta + data;
-        Ok(())
-    }
-
-    fn write_dictionaries(&mut self, batch: &RecordBatch) -> Result<()> {
-        // TODO: handle nested dictionaries
-
-        let schema = batch.schema();
-        for (i, field) in schema.fields().iter().enumerate() {
-            let column = batch.column(i);
-
-            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
-                let dict_id = field
-                    .dict_id()
-                    .expect("All Dictionary types have `dict_id`");
-                let dict_data = column.data();
-                let dict_values = &dict_data.child_data()[0];
-
-                let emit = self.dictionary_tracker.insert(dict_id, column)?;
-
-                if emit {
-                    let encoded_message = self.data_gen.dictionary_batch_to_bytes(
-                        dict_id,
-                        dict_values,
-                        &self.write_options,
-                    );
-
-                    let (meta, data) = write_message(
-                        &mut self.writer,
-                        encoded_message,
-                        &self.write_options,
-                    )?;
-
-                    let block = ipc::Block::new(
-                        self.block_offsets as i64,
-                        meta as i32,
-                        data as i64,
-                    );
-                    self.dictionary_blocks.push(block);
-                    self.block_offsets += meta + data;
-                }
-            }
-        }
         Ok(())
     }
 
@@ -505,49 +513,17 @@ impl<W: Write> StreamWriter<W> {
                 "Cannot write record batch to stream writer as it is closed".to_string(),
             ));
         }
-        self.write_dictionaries(&batch)?;
 
-        let encoded_message = self
+        let (encoded_dictionaries, encoded_message) = self
             .data_gen
-            .record_batch_to_bytes(batch, &self.write_options);
-        write_message(&mut self.writer, encoded_message, &self.write_options)?;
-        Ok(())
-    }
+            .encoded_batch(batch, &mut self.dictionary_tracker, &self.write_options)
+            .expect("StreamWriter is configured to not error on dictionary replacement");
 
-    fn write_dictionaries(&mut self, batch: &RecordBatch) -> Result<()> {
-        // TODO: handle nested dictionaries
-
-        let schema = batch.schema();
-        for (i, field) in schema.fields().iter().enumerate() {
-            let column = batch.column(i);
-
-            if let DataType::Dictionary(_key_type, _value_type) = column.data_type() {
-                let dict_id = field
-                    .dict_id()
-                    .expect("All Dictionary types have `dict_id`");
-                let dict_data = column.data();
-                let dict_values = &dict_data.child_data()[0];
-
-                let emit = self
-                    .dictionary_tracker
-                    .insert(dict_id, column)
-                    .expect("StreamWriter is configured to not error on replacement");
-
-                if emit {
-                    let encoded_message = self.data_gen.dictionary_batch_to_bytes(
-                        dict_id,
-                        dict_values,
-                        &self.write_options,
-                    );
-
-                    write_message(
-                        &mut self.writer,
-                        encoded_message,
-                        &self.write_options,
-                    )?;
-                }
-            }
+        for encoded_dictionary in encoded_dictionaries {
+            write_message(&mut self.writer, encoded_dictionary, &self.write_options)?;
         }
+
+        write_message(&mut self.writer, encoded_message, &self.write_options)?;
         Ok(())
     }
 
