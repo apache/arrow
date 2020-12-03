@@ -242,8 +242,8 @@ class ConcatenateImpl {
     return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
-  Status Visit(const FixedSizeListType&) {
-    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0));
+  Status Visit(const FixedSizeListType& fixed_size_list) {
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
     return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
@@ -381,6 +381,19 @@ class ConcatenateImpl {
     for (size_t i = 0; i < in_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(child_data[i], in_[i]->child_data[index]->SliceSafe(
                                                in_[i]->offset, in_[i]->length));
+    }
+    return child_data;
+  }
+
+  // Gather the index-th child_data of each input into a vector.
+  // Elements are sliced with that input's offset and length multiplied by multiplier.
+  Result<std::vector<std::shared_ptr<const ArrayData>>> ChildData(size_t index,
+                                                                  size_t multiplier) {
+    std::vector<std::shared_ptr<const ArrayData>> child_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(
+          child_data[i], in_[i]->child_data[index]->SliceSafe(
+                             in_[i]->offset * multiplier, in_[i]->length * multiplier));
     }
     return child_data;
   }

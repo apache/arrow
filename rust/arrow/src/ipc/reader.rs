@@ -463,7 +463,6 @@ pub fn read_record_batch(
 fn read_dictionary(
     buf: &[u8],
     batch: ipc::DictionaryBatch,
-    ipc_schema: &ipc::Schema,
     schema: &Schema,
     dictionaries_by_field: &mut [Option<ArrayRef>],
 ) -> Result<()> {
@@ -474,15 +473,15 @@ fn read_dictionary(
     }
 
     let id = batch.id();
-
-    // As the dictionary batch does not contain the type of the
-    // values array, we need to retrieve this from the schema.
-    let first_field = find_dictionary_field(ipc_schema, id).ok_or_else(|| {
+    let fields_using_this_dictionary = schema.fields_with_dict_id(id);
+    let first_field = fields_using_this_dictionary.first().ok_or_else(|| {
         ArrowError::InvalidArgumentError("dictionary id not found in schema".to_string())
     })?;
 
+    // As the dictionary batch does not contain the type of the
+    // values array, we need to retrieve this from the schema.
     // Get an array representing this dictionary's values.
-    let dictionary_values: ArrayRef = match schema.field(first_field).data_type() {
+    let dictionary_values: ArrayRef = match first_field.data_type() {
         DataType::Dictionary(_, ref value_type) => {
             // Make a fake schema for the dictionary batch.
             let schema = Schema {
@@ -508,31 +507,14 @@ fn read_dictionary(
     // in the reader. Note that a dictionary batch may be shared between many fields.
     // We don't currently record the isOrdered field. This could be general
     // attributes of arrays.
-    let fields = ipc_schema.fields().unwrap();
-    for (i, field) in fields.iter().enumerate() {
-        if let Some(dictionary) = field.dictionary() {
-            if dictionary.id() == id {
-                // Add (possibly multiple) array refs to the dictionaries array.
-                dictionaries_by_field[i] = Some(dictionary_values.clone());
-            }
+    for (i, field) in schema.fields().iter().enumerate() {
+        if field.dict_id() == Some(id) {
+            // Add (possibly multiple) array refs to the dictionaries array.
+            dictionaries_by_field[i] = Some(dictionary_values.clone());
         }
     }
 
     Ok(())
-}
-
-// Linear search for the first dictionary field with a dictionary id.
-fn find_dictionary_field(ipc_schema: &ipc::Schema, id: i64) -> Option<usize> {
-    let fields = ipc_schema.fields().unwrap();
-    for i in 0..fields.len() {
-        let field: ipc::Field = fields.get(i);
-        if let Some(dictionary) = field.dictionary() {
-            if dictionary.id() == id {
-                return Some(i);
-            }
-        }
-    }
-    None
 }
 
 /// Arrow File reader
@@ -639,13 +621,7 @@ impl<R: Read + Seek> FileReader<R> {
                     ))?;
                     reader.read_exact(&mut buf)?;
 
-                    read_dictionary(
-                        &buf,
-                        batch,
-                        &ipc_schema,
-                        &schema,
-                        &mut dictionaries_by_field,
-                    )?;
+                    read_dictionary(&buf, batch, &schema, &mut dictionaries_by_field)?;
                 }
                 t => {
                     return Err(ArrowError::IoError(format!(
@@ -781,11 +757,6 @@ pub struct StreamReader<R: Read> {
     /// The schema that is read from the stream's first message
     schema: SchemaRef,
 
-    /// The bytes of the IPC schema that is read from the stream's first message
-    ///
-    /// This is kept in order to interpret dictionary data
-    ipc_schema: Vec<u8>,
-
     /// Optional dictionaries for each schema field.
     ///
     /// Dictionaries may be appended to in the streaming format.
@@ -833,7 +804,6 @@ impl<R: Read> StreamReader<R> {
         Ok(Self {
             reader,
             schema: Arc::new(schema),
-            ipc_schema: meta_buffer,
             finished: false,
             dictionaries_by_field,
         })
@@ -918,15 +888,8 @@ impl<R: Read> StreamReader<R> {
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
-                let ipc_schema = ipc::get_root_as_message(&self.ipc_schema).header_as_schema()
-                .ok_or_else(|| {
-                    ArrowError::IoError(
-                        "Unable to read schema from stored message header".to_string(),
-                    )
-                })?;
-
                 read_dictionary(
-                    &buf, batch, &ipc_schema, &self.schema, &mut self.dictionaries_by_field
+                    &buf, batch, &self.schema, &mut self.dictionaries_by_field
                 )?;
 
                 // read the next message until we encounter a RecordBatch

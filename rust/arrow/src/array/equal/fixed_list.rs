@@ -38,6 +38,8 @@ pub(super) fn fixed_list_equal(
         equal_range(
             lhs_values,
             rhs_values,
+            lhs_values.null_buffer(),
+            rhs_values.null_buffer(),
             size * lhs_start,
             size * rhs_start,
             size * len,
@@ -56,6 +58,8 @@ pub(super) fn fixed_list_equal(
                     && equal_range(
                         lhs_values,
                         rhs_values,
+                        lhs_values.null_buffer(),
+                        rhs_values.null_buffer(),
                         lhs_pos * size,
                         rhs_pos * size,
                         size, // 1 * size since we are comparing a single entry

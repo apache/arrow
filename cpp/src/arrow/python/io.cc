@@ -44,7 +44,9 @@ namespace py {
 // calling any methods
 class PythonFile {
  public:
-  explicit PythonFile(PyObject* file) : file_(file) { Py_INCREF(file); }
+  explicit PythonFile(PyObject* file) : file_(file), checked_read_buffer_(false) {
+    Py_INCREF(file);
+  }
 
   Status CheckClosed() const {
     if (!file_) {
@@ -108,6 +110,14 @@ class PythonFile {
     return Status::OK();
   }
 
+  Status ReadBuffer(int64_t nbytes, PyObject** out) {
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read_buffer", "(n)",
+                                               static_cast<Py_ssize_t>(nbytes));
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    *out = result;
+    return Status::OK();
+  }
+
   Status Write(const void* data, int64_t nbytes) {
     RETURN_NOT_OK(CheckClosed());
 
@@ -152,9 +162,19 @@ class PythonFile {
 
   std::mutex& lock() { return lock_; }
 
+  bool HasReadBuffer() {
+    if (!checked_read_buffer_) {  // we don't want to check this each time
+      has_read_buffer_ = PyObject_HasAttrString(file_.obj(), "read_buffer") == 1;
+      checked_read_buffer_ = true;
+    }
+    return has_read_buffer_;
+  }
+
  private:
   std::mutex lock_;
   OwnedRefNoGIL file_;
+  bool has_read_buffer_;
+  bool checked_read_buffer_;
 };
 
 // ----------------------------------------------------------------------
@@ -199,25 +219,33 @@ Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
     PyObject* bytes_obj = bytes.obj();
     DCHECK(bytes_obj != NULL);
 
-    if (!PyBytes_Check(bytes_obj)) {
+    Py_buffer py_buf;
+    if (!PyObject_GetBuffer(bytes_obj, &py_buf, PyBUF_ANY_CONTIGUOUS)) {
+      const uint8_t* data = reinterpret_cast<const uint8_t*>(py_buf.buf);
+      std::memcpy(out, data, py_buf.len);
+      int64_t len = py_buf.len;
+      PyBuffer_Release(&py_buf);
+      return len;
+    } else {
       return Status::TypeError(
-          "Python file read() should have returned a bytes object, got '",
+          "Python file read() should have returned a bytes object or an object "
+          "supporting the buffer protocol, got '",
           Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
     }
-
-    int64_t bytes_read = PyBytes_GET_SIZE(bytes_obj);
-    std::memcpy(out, PyBytes_AS_STRING(bytes_obj), bytes_read);
-    return bytes_read;
   });
 }
 
 Result<std::shared_ptr<Buffer>> PyReadableFile::Read(int64_t nbytes) {
   return SafeCallIntoPython([=]() -> Result<std::shared_ptr<Buffer>> {
-    OwnedRef bytes_obj;
-    RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
-    DCHECK(bytes_obj.obj() != NULL);
+    OwnedRef buffer_obj;
+    if (file_->HasReadBuffer()) {
+      RETURN_NOT_OK(file_->ReadBuffer(nbytes, buffer_obj.ref()));
+    } else {
+      RETURN_NOT_OK(file_->Read(nbytes, buffer_obj.ref()));
+    }
+    DCHECK(buffer_obj.obj() != NULL);
 
-    return PyBuffer::FromPyObject(bytes_obj.obj());
+    return PyBuffer::FromPyObject(buffer_obj.obj());
   });
 }
 

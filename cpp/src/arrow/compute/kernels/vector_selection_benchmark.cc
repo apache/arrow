@@ -142,7 +142,7 @@ struct TakeBenchmark {
                    indices_null_proportion);
 
     if (monotonic_indices) {
-      auto arg_sorter = *SortToIndices(*indices);
+      auto arg_sorter = *SortIndices(*indices);
       indices = *Take(*indices, *arg_sorter);
     }
 

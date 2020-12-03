@@ -169,66 +169,33 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                     l_linestatus",
         ),
 
-        12 => {
-            // We do not have sufficient SQL support for this query yet
-
-            // "SELECT
-            //     l_shipmode,
-            //     sum(case
-            //         when o_orderpriority = '1-URGENT'
-            //             OR o_orderpriority = '2-HIGH'
-            //             then 1
-            //         else 0
-            //     end) as high_line_count,
-            //     sum(case
-            //         when o_orderpriority <> '1-URGENT'
-            //             AND o_orderpriority <> '2-HIGH'
-            //             then 1
-            //         else 0
-            //     end) AS low_line_count
-            // FROM
-            //     orders,
-            //     lineitem
-            // WHERE
-            //     o_orderkey = l_orderkey
-            //     AND l_shipmode in ('MAIL', 'SHIP')
-            //     AND l_commitdate < l_receiptdate
-            //     AND l_shipdate < l_commitdate
-            //     AND l_receiptdate >= date '1994-01-01'
-            //     AND l_receiptdate < date '1994-01-01' + interval '1' year
-            // GROUP BY
-            //     l_shipmode
-            // ORDER BY
-            //     l_shipmode"
-
-            Ok(ctx
-                .table("lineitem")?
-                .filter(
-                    col("l_shipmode")
-                        .eq(lit("MAIL"))
-                        .or(col("l_shipmode").eq(lit("SHIP"))),
-                )?
-                .filter(col("l_commitdate").lt(col("l_receiptdate")))?
-                .filter(col("l_shipdate").lt(col("l_commitdate")))?
-                .filter(col("l_receiptdate").gt_eq(lit("1994-01-01")))?
-                // we do not support date functions yet, so faking the "+ interval '1' year" part
-                .filter(col("l_receiptdate").lt(lit("1995-01-01")))?
-                .join(
-                    ctx.table("orders")?,
-                    JoinType::Inner,
-                    &["l_orderkey"],
-                    &["o_orderkey"],
-                )?
-                .aggregate(
-                    vec![col("l_shipmode")],
-                    vec![
-                        // we do not support CASE WHEN yet, so faking this part
-                        sum(lit(1)).alias("high_line_count"),
-                        sum(lit(0)).alias("low_line_count"),
-                    ],
-                )?
-                .to_logical_plan())
-        }
+        12 => ctx.create_logical_plan(
+            "SELECT
+                l_shipmode,
+                sum(case
+                    when o_orderpriority = '1-URGENT'
+                        OR o_orderpriority = '2-HIGH'
+                        then 1
+                    else 0
+                end) as high_line_count,
+                sum(case
+                    when o_orderpriority <> '1-URGENT'
+                        AND o_orderpriority <> '2-HIGH'
+                        then 1
+                    else 0
+                end) AS low_line_count
+            FROM
+                lineitem JOIN orders ON l_orderkey = o_orderkey
+            WHERE (l_shipmode = 'MAIL' OR l_shipmode = 'SHIP')
+                AND l_commitdate < l_receiptdate
+                AND l_shipdate < l_commitdate
+                AND l_receiptdate >= '1994-01-01'
+                AND l_receiptdate < '1995-01-01'
+            GROUP BY
+                l_shipmode
+            ORDER BY
+                l_shipmode",
+        ),
 
         _ => unimplemented!("unsupported query"),
     }

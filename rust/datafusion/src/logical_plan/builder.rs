@@ -92,7 +92,7 @@ impl LogicalPlanBuilder {
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
         let p = ParquetTable::try_new(path)?;
-        let schema = p.schema().clone();
+        let schema = p.schema();
 
         let projected_schema = projection
             .clone()
@@ -203,6 +203,8 @@ impl LogicalPlanBuilder {
                 .collect::<Vec<_>>();
             let physical_join_type = match join_type {
                 JoinType::Inner => hash_utils::JoinType::Inner,
+                JoinType::Left => hash_utils::JoinType::Left,
+                JoinType::Right => hash_utils::JoinType::Right,
             };
             let physical_schema = hash_utils::build_join_schema(
                 self.plan.schema(),

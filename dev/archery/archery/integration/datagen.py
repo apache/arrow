@@ -1577,13 +1577,11 @@ def get_generated_json_files(tempdir=None):
 
         # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()
-        .skip_category('Go')
-        .skip_category('Rust'),
+        .skip_category('Go'),
 
         generate_dictionary_unsigned_case()
         .skip_category('Go')     # TODO(ARROW-9378)
-        .skip_category('Java')   # TODO(ARROW-9377)
-        .skip_category('Rust'),  # TODO(ARROW-9379)
+        .skip_category('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
         .skip_category('Go')

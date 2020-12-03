@@ -41,6 +41,14 @@ Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecConte
   return CallFunction("min_max", {value}, &options, ctx);
 }
 
+Result<Datum> Any(const Datum& value, ExecContext* ctx) {
+  return CallFunction("any", {value}, ctx);
+}
+
+Result<Datum> All(const Datum& value, ExecContext* ctx) {
+  return CallFunction("all", {value}, ctx);
+}
+
 Result<Datum> Mode(const Datum& value, const ModeOptions& options, ExecContext* ctx) {
   return CallFunction("mode", {value}, &options, ctx);
 }

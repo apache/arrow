@@ -19,6 +19,7 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then
 //! repeatedly queried without incurring additional file I/O overhead.
 
+use std::any::Any;
 use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema, SchemaRef};
@@ -85,6 +86,10 @@ impl MemTable {
 }
 
 impl TableProvider for MemTable {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -241,7 +246,7 @@ mod tests {
         ]));
 
         let batch = RecordBatch::try_new(
-            schema1.clone(),
+            schema1,
             vec![
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
                 Arc::new(Int32Array::from(vec![4, 5, 6])),

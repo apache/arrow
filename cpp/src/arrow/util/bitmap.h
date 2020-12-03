@@ -116,6 +116,11 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// returned.
   ///
   /// TODO(bkietz) allow for early termination
+  // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
+  // It also has a large prolog / epilog overhead and should be used
+  // carefully in other cases.
+  // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
+  // and BitmapUInt64Reader.
   template <size_t N, typename Visitor,
             typename Word = typename std::decay<
                 internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>

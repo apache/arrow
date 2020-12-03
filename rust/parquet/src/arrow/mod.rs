@@ -53,6 +53,7 @@ pub(in crate::arrow) mod array_reader;
 pub mod arrow_reader;
 pub mod arrow_writer;
 pub(in crate::arrow) mod converter;
+pub mod levels;
 pub(in crate::arrow) mod record_reader;
 pub mod schema;
 

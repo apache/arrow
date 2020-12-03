@@ -2177,27 +2177,50 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
 }
 
 /**
+ * garrow_array_sort_indices:
+ * @array: A #GArrowArray.
+ * @order: The order for sort.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   an array in the specified order on success, %NULL on error.
+ *
+ * Since: 3.0.0
+ */
+GArrowUInt64Array *
+garrow_array_sort_indices(GArrowArray *array,
+                          GArrowSortOrder order,
+                          GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto arrow_order = static_cast<arrow::compute::SortOrder>(order);
+  auto arrow_indices_array =
+    arrow::compute::SortIndices(*arrow_array_raw, arrow_order);
+  if (garrow::check(error, arrow_indices_array, "[array][sort-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_array_sort_to_indices:
  * @array: A #GArrowArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The indices that would sort
- *   an array on success, %NULL on error.
+ *   an array in ascending order on success, %NULL on error.
  *
  * Since: 0.15.0
+ *
+ * Deprecated: 3.0.0: Use garrow_array_sort_indices() instead.
  */
 GArrowUInt64Array *
 garrow_array_sort_to_indices(GArrowArray *array,
                              GError **error)
 {
-  auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_array_raw = arrow_array.get();
-  auto arrow_indices_array = arrow::compute::SortToIndices(*arrow_array_raw);
-  if (garrow::check(error, arrow_indices_array, "[array][sort-to-indices]")) {
-    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
-  } else {
-    return NULL;
-  }
+  return garrow_array_sort_indices(array, GARROW_SORT_ORDER_ASCENDING, error);
 }
 
 /**

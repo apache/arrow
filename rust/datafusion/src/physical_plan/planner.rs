@@ -27,7 +27,7 @@ use crate::logical_plan::{
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
-use crate::physical_plan::expressions::{Column, Literal, PhysicalSortExpr};
+use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
@@ -190,7 +190,7 @@ impl DefaultPhysicalPlanner {
             )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr = expr
                     .iter()
                     .map(|e| {
@@ -210,7 +210,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let groups = group_expr
                     .iter()
@@ -253,14 +253,14 @@ impl DefaultPhysicalPlanner {
                 input, predicate, ..
             } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let sort_expr = expr
                     .iter()
@@ -301,6 +301,8 @@ impl DefaultPhysicalPlanner {
                 let right = self.create_physical_plan(right, ctx_state)?;
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
+                    JoinType::Left => hash_utils::JoinType::Left,
+                    JoinType::Right => hash_utils::JoinType::Right,
                 };
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
@@ -443,6 +445,55 @@ impl DefaultPhysicalPlanner {
                 let lhs = self.create_physical_expr(left, input_schema, ctx_state)?;
                 let rhs = self.create_physical_expr(right, input_schema, ctx_state)?;
                 binary(lhs, op.clone(), rhs, input_schema)
+            }
+            Expr::Case {
+                expr,
+                when_then_expr,
+                else_expr,
+                ..
+            } => {
+                let expr: Option<Arc<dyn PhysicalExpr>> = if let Some(e) = expr {
+                    Some(self.create_physical_expr(
+                        e.as_ref(),
+                        input_schema,
+                        ctx_state,
+                    )?)
+                } else {
+                    None
+                };
+                let when_expr = when_then_expr
+                    .iter()
+                    .map(|(w, _)| {
+                        self.create_physical_expr(w.as_ref(), input_schema, ctx_state)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let then_expr = when_then_expr
+                    .iter()
+                    .map(|(_, t)| {
+                        self.create_physical_expr(t.as_ref(), input_schema, ctx_state)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let when_then_expr: Vec<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)> =
+                    when_expr
+                        .iter()
+                        .zip(then_expr.iter())
+                        .map(|(w, t)| (w.clone(), t.clone()))
+                        .collect();
+                let else_expr: Option<Arc<dyn PhysicalExpr>> = if let Some(e) = else_expr
+                {
+                    Some(self.create_physical_expr(
+                        e.as_ref(),
+                        input_schema,
+                        ctx_state,
+                    )?)
+                } else {
+                    None
+                };
+                Ok(Arc::new(CaseExpr::try_new(
+                    expr,
+                    &when_then_expr,
+                    else_expr,
+                )?))
             }
             Expr::Cast { expr, data_type } => expressions::cast(
                 self.create_physical_expr(expr, input_schema, ctx_state)?,

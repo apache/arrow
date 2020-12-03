@@ -47,18 +47,11 @@ jobs:
       fail-fast: false
       matrix:
         name:
-          - ubuntu-16.04-python-3
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.7-pandas-latest
           - centos-python-3.6-manylinux1
         include:
-          - name: ubuntu-16.04-python-3
-            cache: ubuntu-16.04-python-3
-            image: ubuntu-python
-            # this image always builds with python 3.5
-            title: AMD64 Ubuntu 16.04 Python 3.5
-            ubuntu: 16.04
           - name: conda-python-3.8-nopandas
             cache: conda-python-3.8
             image: conda-python

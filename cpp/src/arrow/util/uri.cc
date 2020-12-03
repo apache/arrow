@@ -55,15 +55,6 @@ bool IsDriveSpec(const util::string_view s) {
 }
 #endif
 
-std::string UriUnescape(const util::string_view s) {
-  std::string result(s);
-  if (!result.empty()) {
-    auto end = uriUnescapeInPlaceA(&result[0]);
-    result.resize(end - &result[0]);
-  }
-  return result;
-}
-
 }  // namespace
 
 std::string UriEscape(const std::string& s) {
@@ -78,6 +69,15 @@ std::string UriEscape(const std::string& s) {
                           /*spaceToPlus=*/URI_FALSE, /*normalizeBreaks=*/URI_FALSE);
   escaped.resize(end - &escaped[0]);
   return escaped;
+}
+
+std::string UriUnescape(const util::string_view s) {
+  std::string result(s);
+  if (!result.empty()) {
+    auto end = uriUnescapeInPlaceA(&result[0]);
+    result.resize(end - &result[0]);
+  }
+  return result;
 }
 
 std::string UriEncodeHost(const std::string& host) {

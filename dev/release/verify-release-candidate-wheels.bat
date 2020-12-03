@@ -49,9 +49,6 @@ call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
 
-CALL :verify_wheel 3.5 %1 %2 m
-if errorlevel 1 GOTO error
-
 CALL :verify_wheel 3.6 %1 %2 m
 if errorlevel 1 GOTO error
 
@@ -100,11 +97,6 @@ py.test %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
-
-if "%PY_VERSION%"=="3.5" GOTO done
-
-:python36_and_higher_checks
-
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
 

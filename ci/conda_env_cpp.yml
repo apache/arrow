@@ -16,7 +16,7 @@
 # under the License.
 
 aws-sdk-cpp
-benchmark=1.4.1
+benchmark=1.5.2
 boost-cpp>=1.68.0
 brotli
 bzip2
@@ -35,6 +35,7 @@ ninja
 pkg-config
 python
 rapidjson
+re2
 snappy
 thrift-cpp>=0.11.0
 zlib

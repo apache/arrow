@@ -26,6 +26,10 @@ use std::collections::HashSet;
 pub enum JoinType {
     /// Inner join
     Inner,
+    /// Left
+    Left,
+    /// Right
+    Right,
 }
 
 /// The on clause of the join, as vector of (left, right) columns.
@@ -93,7 +97,7 @@ pub fn build_join_schema(
     join_type: &JoinType,
 ) -> Schema {
     let fields: Vec<Field> = match join_type {
-        JoinType::Inner => {
+        JoinType::Inner | JoinType::Left => {
             // remove right-side join keys if they have the same names as the left-side
             let duplicate_keys = &on
                 .iter()
@@ -107,6 +111,24 @@ pub fn build_join_schema(
                 .fields()
                 .iter()
                 .filter(|f| !duplicate_keys.contains(f.name()));
+
+            // left then right
+            left_fields.chain(right_fields).cloned().collect()
+        }
+        JoinType::Right => {
+            // remove left-side join keys if they have the same names as the right-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
+
+            let left_fields = left
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()));
+
+            let right_fields = right.fields().iter();
 
             // left then right
             left_fields.chain(right_fields).cloned().collect()

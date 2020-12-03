@@ -238,6 +238,9 @@ class ARROW_EXPORT BasicDecimal256 {
   std::array<uint8_t, 32> ToBytes() const;
   void ToBytes(uint8_t* out) const;
 
+  /// \brief Scale multiplier for given scale value.
+  static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
+
   /// \brief Convert BasicDecimal128 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;

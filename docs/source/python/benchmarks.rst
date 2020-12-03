@@ -51,7 +51,6 @@ to be rebuilt for each Git revision you're running the benchmarks for.
 Compatibility
 -------------
 
-We only expect the benchmarking setup to work with Python 3.6 or later,
-on a Unix-like system with bash.
+We only expect the benchmarking setup to work on a Unix-like system with bash.
 
 .. _asv: https://asv.readthedocs.org/

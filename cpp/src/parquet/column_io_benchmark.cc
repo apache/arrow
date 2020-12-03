@@ -165,35 +165,41 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   SetBytesProcessed(state, repetition);
 }
 
-BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED)
-    ->RangePair(1024, 65536, 1, 1024);
+void ReadColumnSetArgs(::benchmark::internal::Benchmark* bench) {
+  // Small column, tiny reads
+  bench->Args({1024, 16});
+  // Small column, full read
+  bench->Args({1024, 1024});
+  // Midsize column, midsize reads
+  bench->Args({65536, 1024});
+}
 
-BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL)
-    ->RangePair(1024, 65536, 1, 1024);
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED)->Apply(ReadColumnSetArgs);
 
-BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED)
-    ->RangePair(1024, 65536, 1, 1024);
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL)->Apply(ReadColumnSetArgs);
+
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED)->Apply(ReadColumnSetArgs);
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::SNAPPY)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::SNAPPY)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::SNAPPY)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::LZ4)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::LZ4)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::LZ4)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::ZSTD)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::ZSTD)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::ZSTD)
-    ->RangePair(1024, 65536, 1, 1024);
+    ->Apply(ReadColumnSetArgs);
 
 static void BM_RleEncoding(::benchmark::State& state) {
   std::vector<int16_t> levels(state.range(0), 0);

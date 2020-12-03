@@ -17,6 +17,7 @@
 
 //! Parquet data source
 
+use std::any::Any;
 use std::string::String;
 use std::sync::Arc;
 
@@ -46,6 +47,10 @@ impl ParquetTable {
 }
 
 impl TableProvider for ParquetTable {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the schema for this parquet file.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()

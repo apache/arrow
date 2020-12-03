@@ -272,7 +272,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics2 =
         MakeStatistics<TestType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                 this->values_.size(), 0, 0, true);
+                                 this->values_.size(), 0, 0, true, true, true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -302,6 +302,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     statistics->Reset();
     ASSERT_EQ(0, statistics->null_count());
     ASSERT_EQ(0, statistics->num_values());
+    ASSERT_EQ(0, statistics->distinct_count());
     ASSERT_EQ("", statistics->EncodeMin());
     ASSERT_EQ("", statistics->EncodeMax());
   }
@@ -473,7 +474,7 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
 
   auto statistics2 =
       MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                    this->values_.size(), 0, 0, true);
+                                    this->values_.size(), 0, 0, true, true, true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
