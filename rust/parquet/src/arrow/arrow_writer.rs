@@ -387,10 +387,10 @@ mod tests {
     use std::sync::Arc;
 
     use arrow::array::*;
+    use arrow::buffer::Buffer;
     use arrow::datatypes::{DataType, Field, Schema, UInt32Type, UInt8Type};
     use arrow::datatypes::{NullableDataType, ToByteSlice};
     use arrow::record_batch::RecordBatch;
-    use arrow::{array::*, buffer::Buffer};
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
     use crate::file::{reader::SerializedFileReader, writer::InMemoryWriteableCursor};

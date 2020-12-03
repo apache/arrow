@@ -1228,7 +1228,7 @@ impl Field {
     /// Returns the dictionary ID, if this is a dictionary type
     #[inline]
     pub const fn dict_id(&self) -> Option<i64> {
-        match self.data_type {
+        match self.data_type.data_type {
             DataType::Dictionary(_, _) => Some(self.dict_id),
             _ => None,
         }
@@ -1237,7 +1237,7 @@ impl Field {
     /// Returns whether this `Field`'s dictionary is ordered, if this is a dictionary type
     #[inline]
     pub const fn dict_is_ordered(&self) -> Option<bool> {
-        match self.data_type {
+        match self.data_type.data_type {
             DataType::Dictionary(_, _) => Some(self.dict_is_ordered),
             _ => None,
         }
@@ -2669,7 +2669,7 @@ mod tests {
         last_name: Utf8, \
         address: Struct([\
         Field { name: \"street\", data_type: NullableDataType { data_type: Utf8, nullable: false }, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: NullableDataType { data_type: UInt16, nullable: false }, dict_id: 0, dict_is_ordered: false }]),\
+        Field { name: \"zip\", data_type: NullableDataType { data_type: UInt16, nullable: false }, dict_id: 0, dict_is_ordered: false }]), \
         interests: Dictionary(Int32, Utf8)")
     }
 
