@@ -21,7 +21,7 @@ on:
   push:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/docker/**'
+      - 'ci/docker/linux-apt-ruby.dockerfile'
       - 'ci/scripts/c_glib_*'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
@@ -33,7 +33,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/ruby.yml'
-      - 'ci/docker/**'
+      - 'ci/docker/linux-apt-ruby.dockerfile'
       - 'ci/scripts/c_glib_*'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'

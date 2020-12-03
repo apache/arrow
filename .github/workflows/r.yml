@@ -25,7 +25,8 @@ on:
       - 'ci/scripts/cpp_*.sh'
       - 'ci/scripts/PKGBUILD'
       - 'ci/etc/rprofile'
-      - 'ci/docker/**'
+      - 'ci/docker/linux-apt-r.dockerfile'
+      - 'ci/docker/linux-r.dockerfile'
       - 'cpp/**'
       - 'r/**'
   pull_request:
@@ -35,7 +36,8 @@ on:
       - 'ci/scripts/cpp_*.sh'
       - 'ci/scripts/PKGBUILD'
       - 'ci/etc/rprofile'
-      - 'ci/docker/**'
+      - 'ci/docker/linux-apt-r.dockerfile'
+      - 'ci/docker/linux-r.dockerfile'
       - 'cpp/**'
       - 'r/**'
 

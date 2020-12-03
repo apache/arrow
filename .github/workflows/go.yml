@@ -28,7 +28,6 @@ on:
     paths:
       - '.github/workflows/go.yml'
       - 'ci/docker/*_go.dockerfile'
-      - 'ci/docker/**'
       - 'ci/scripts/go_*'
       - 'go/**'
 
