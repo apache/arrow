@@ -1012,9 +1012,7 @@ mod tests {
     #[should_panic(expected = "Big Endian is not supported for Decimal!")]
     fn read_decimal_file_be() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
-        let paths = vec![
-            "generated_decimal",
-        ];
+        let paths = vec!["generated_decimal"];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
                 "{}/arrow-ipc-stream/integration/1.0.0-bigendian/{}.arrow_file",
