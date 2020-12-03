@@ -102,7 +102,6 @@ x-hierarchy:
   - debian-java:
     - debian-java-jni
   - debian-js
-  - debian-rust
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
@@ -902,35 +901,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
-
-  ################################ Rust #######################################
-
-  debian-rust:
-    # Usage:
-    #   docker-compose build debian-rust
-    #   docker-compose run debian-rust
-    image: ${REPO}:${ARCH}-debian-10-rust-${RUST}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-10-rust.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-10-rust-${RUST}
-      args:
-        arch: ${ARCH}
-        rust: ${RUST}
-    shm_size: *shm-size
-    environment:
-      CARGO_HOME: /rust/cargo
-      CARGO_TARGET_DIR: /build/rust
-    volumes: &rust-volumes
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-debian-${DEBIAN}-rust:/build:delegated
-    command: &rust-command >
-      /bin/bash -c "
-        echo ${RUST} > /arrow/rust/rust-toolchain &&
-        if [ ! -d "/build/rust" ]; then mv /rust/target /build/rust; fi &&
-        /arrow/ci/scripts/rust_build.sh /arrow /build &&
-        /arrow/ci/scripts/rust_test.sh /arrow /build"
 
   ################################# Go ########################################
 
