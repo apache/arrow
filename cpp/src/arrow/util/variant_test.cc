@@ -299,6 +299,32 @@ TEST(VariantTest, Visit) {
   EXPECT_EQ(v, int_or_string{"lolollolol"});
 }
 
+TEST(VariantTest, Equality) {
+  using int_or_double = Variant<int, double>;
+
+  auto eq = [](const int_or_double& a, const int_or_double& b) {
+    EXPECT_TRUE(a == b);
+    EXPECT_FALSE(a != b);
+  };
+  auto ne = [](const int_or_double& a, const int_or_double& b) {
+    EXPECT_TRUE(a != b);
+    EXPECT_FALSE(a == b);
+  };
+
+  int_or_double u, v;
+  u.emplace<int>(1);
+  v.emplace<int>(1);
+  eq(u, v);
+  v.emplace<int>(2);
+  ne(u, v);
+  v.emplace<double>(1.0);
+  ne(u, v);
+  u.emplace<double>(1.0);
+  eq(u, v);
+  u.emplace<double>(2.0);
+  ne(u, v);
+}
+
 }  // namespace
 }  // namespace util
 }  // namespace arrow

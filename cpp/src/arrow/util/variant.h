@@ -279,18 +279,29 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
     this->destroy();
   }
 
+  /// \brief Return the zero-based type index of the value held by the variant
   uint8_t index() const noexcept { return this->index_; }
 
+  /// \brief Get a const pointer to the value held by the variant
+  ///
+  /// If the type given as template argument doesn't match, a null pointer is returned.
   template <typename U, uint8_t I = index_of<U>()>
   const U* get() const noexcept {
     return index() == I ? reinterpret_cast<const U*>(this) : NULLPTR;
   }
 
+  /// \brief Get a pointer to the value held by the variant
+  ///
+  /// If the type given as template argument doesn't match, a null pointer is returned.
   template <typename U, uint8_t I = index_of<U>()>
   U* get() noexcept {
     return index() == I ? reinterpret_cast<U*>(this) : NULLPTR;
   }
 
+  /// \brief Replace the value held by the variant
+  ///
+  /// The intended type must be given as a template argument.
+  /// The value is constructed in-place using the given function arguments.
   template <typename U, typename... A, uint8_t I = index_of<U>()>
   void emplace(A&&... args) try {
     this->destroy();
@@ -311,6 +322,7 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
     throw;
   }
 
+  /// \brief Swap with another variant's contents
   void swap(Variant& other) noexcept {  // NOLINT google-runtime-references
     Variant tmp = std::move(other);
     other = std::move(*this);
@@ -333,6 +345,12 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
   friend struct detail::VariantImpl;
 };
 
+/// \brief Call polymorphic visitor on a const variant's value
+///
+/// The visitor will receive a const reference to the value held by the variant.
+/// It must define overloads for each possible variant type.
+/// The overloads should all return the same type (no attempt
+/// is made to find a generalized return type).
 template <typename Visitor, typename... T,
           typename R = decltype(std::declval<Visitor&&>()(
               std::declval<const typename Variant<T...>::default_type&>()))>
@@ -340,6 +358,12 @@ R visit(Visitor&& visitor, const util::Variant<T...>& v) {
   return v.template visit_const<R>(std::forward<Visitor>(visitor));
 }
 
+/// \brief Call polymorphic visitor on a non-const variant's value
+///
+/// The visitor will receive a pointer to the value held by the variant.
+/// It must define overloads for each possible variant type.
+/// The overloads should all return the same type (no attempt
+/// is made to find a generalized return type).
 template <typename Visitor, typename... T,
           typename R = decltype(std::declval<Visitor&&>()(
               std::declval<typename Variant<T...>::default_type*>()))>
@@ -347,11 +371,19 @@ R visit(Visitor&& visitor, util::Variant<T...>* v) {
   return v->template visit_mutable<R>(std::forward<Visitor>(visitor));
 }
 
+/// \brief Get a const reference to the value held by the variant
+///
+/// If the type given as template argument doesn't match, behavior is undefined
+/// (a null pointer will be dereferenced).
 template <typename U, typename... T>
 const U& get(const Variant<T...>& v) {
   return *v.template get<U>();
 }
 
+/// \brief Get a reference to the value held by the variant
+///
+/// If the type given as template argument doesn't match, behavior is undefined
+/// (a null pointer will be dereferenced).
 template <typename U, typename... T>
 U& get(Variant<T...>& v) {
   return *v.template get<U>();
@@ -382,6 +414,7 @@ auto operator!=(const Variant<T...>& l, const Variant<T...>& r) -> decltype(l ==
   return !(l == r);
 }
 
+/// \brief Return whether the variant holds a value of the given type
 template <typename U, typename... T>
 bool holds_alternative(const Variant<T...>& v) {
   return v.template get<U>();
