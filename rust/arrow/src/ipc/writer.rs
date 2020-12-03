@@ -286,9 +286,8 @@ impl<W: Write> FileWriter<W> {
         // create an 8-byte boundary after the header
         writer.write_all(&[0, 0])?;
         // write the schema, set the written bytes to the schema + header
-        let message = Message::Schema(schema, &write_options);
-        let (meta, data) =
-            write_message(&mut writer, &message, &write_options, &data_gen)?;
+        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
+        let (meta, data) = write_message(&mut writer, encoded_message, &write_options)?;
         Ok(Self {
             writer,
             write_options,
@@ -310,13 +309,11 @@ impl<W: Write> FileWriter<W> {
             ));
         }
         self.write_dictionaries(&batch)?;
-        let message = Message::RecordBatch(batch, &self.write_options);
-        let (meta, data) = write_message(
-            &mut self.writer,
-            &message,
-            &self.write_options,
-            &self.data_gen,
-        )?;
+        let encoded_message = self
+            .data_gen
+            .record_batch_to_bytes(batch, &self.write_options);
+        let (meta, data) =
+            write_message(&mut self.writer, encoded_message, &self.write_options)?;
         // add a record block for the footer
         let block = ipc::Block::new(
             self.block_offsets as i64,
@@ -360,14 +357,16 @@ impl<W: Write> FileWriter<W> {
                 self.last_written_dictionaries
                     .insert(dict_id, column.clone());
 
-                let message =
-                    Message::DictionaryBatch(dict_id, dict_values, &self.write_options);
+                let encoded_message = self.data_gen.dictionary_batch_to_bytes(
+                    dict_id,
+                    dict_values,
+                    &self.write_options,
+                );
 
                 let (meta, data) = write_message(
                     &mut self.writer,
-                    &message,
+                    encoded_message,
                     &self.write_options,
-                    &self.data_gen,
                 )?;
 
                 let block =
@@ -449,8 +448,8 @@ impl<W: Write> StreamWriter<W> {
         let data_gen = IpcDataGenerator::default();
         let mut writer = BufWriter::new(writer);
         // write the schema, set the written bytes to the schema
-        let message = Message::Schema(schema, &write_options);
-        write_message(&mut writer, &message, &write_options, &data_gen)?;
+        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
+        write_message(&mut writer, encoded_message, &write_options)?;
         Ok(Self {
             writer,
             write_options,
@@ -470,13 +469,10 @@ impl<W: Write> StreamWriter<W> {
         }
         self.write_dictionaries(&batch)?;
 
-        let message = Message::RecordBatch(batch, &self.write_options);
-        write_message(
-            &mut self.writer,
-            &message,
-            &self.write_options,
-            &self.data_gen,
-        )?;
+        let encoded_message = self
+            .data_gen
+            .record_batch_to_bytes(batch, &self.write_options);
+        write_message(&mut self.writer, encoded_message, &self.write_options)?;
         Ok(())
     }
 
@@ -507,15 +503,13 @@ impl<W: Write> StreamWriter<W> {
                 self.last_written_dictionaries
                     .insert(dict_id, column.clone());
 
-                let message =
-                    Message::DictionaryBatch(dict_id, dict_values, &self.write_options);
-
-                write_message(
-                    &mut self.writer,
-                    &message,
+                let encoded_message = self.data_gen.dictionary_batch_to_bytes(
+                    dict_id,
+                    dict_values,
                     &self.write_options,
-                    &self.data_gen,
-                )?;
+                );
+
+                write_message(&mut self.writer, encoded_message, &self.write_options)?;
             }
         }
         Ok(())
@@ -574,11 +568,9 @@ impl<'a> Message<'a> {
 /// Write a message's IPC data and buffers, returning metadata and buffer data lengths written
 fn write_message<W: Write>(
     mut writer: &mut BufWriter<W>,
-    message: &Message,
+    encoded: EncodedData,
     write_options: &IpcWriteOptions,
-    data_gen: &IpcDataGenerator,
 ) -> Result<(usize, usize)> {
-    let encoded = message.encode(data_gen);
     let arrow_data_len = encoded.arrow_data.len();
     if arrow_data_len % 8 != 0 {
         return Err(ArrowError::MemoryError(
