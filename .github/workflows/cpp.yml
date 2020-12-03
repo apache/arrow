@@ -21,7 +21,7 @@ on:
   push:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/docker/**'
+      - 'ci/docker/*cpp*'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
@@ -30,7 +30,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
-      - 'ci/docker/**'
+      - 'ci/docker/*cpp*'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
