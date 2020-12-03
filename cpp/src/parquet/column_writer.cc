@@ -1011,13 +1011,6 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
 
-  // TODO(ARROW-1648): Remove this special handling once we require an Arrow
-  // version that has this fixed.
-  if (dict_type.value_type()->id() == ::arrow::Type::NA) {
-    *out = std::make_shared<::arrow::NullArray>(array.length());
-    return Status::OK();
-  }
-
   ::arrow::compute::ExecContext ctx(pool);
   ARROW_ASSIGN_OR_RAISE(Datum cast_output,
                         ::arrow::compute::Cast(array.data(), dict_type.value_type(),
