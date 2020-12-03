@@ -26,30 +26,40 @@ use arrow::error::{ArrowError, Result};
 use arrow::ipc::{convert, reader, writer, writer::IpcWriteOptions};
 use arrow::record_batch::RecordBatch;
 
-/// Convert a `RecordBatch` to `FlightData` by converting the header and body to bytes
+/// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
+/// and values. This can't be a `From` implementation because neither `RecordBatch` nor `Vec` are
+/// implemented in this crate.
 ///
 /// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
 /// use `flight_data_from_arrow_batch()`
-impl From<&RecordBatch> for FlightData {
-    fn from(batch: &RecordBatch) -> Self {
-        let options = IpcWriteOptions::default();
-        flight_data_from_arrow_batch(batch, &options)
-    }
+pub fn convert_to_flight_data(batch: &RecordBatch) -> Vec<FlightData> {
+    let options = IpcWriteOptions::default();
+    flight_data_from_arrow_batch(batch, &options)
 }
 
-/// Convert a `RecordBatch` to `FlightData` by converting the header and body to bytes
+/// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
+/// and values
 pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
     options: &IpcWriteOptions,
-) -> FlightData {
+) -> Vec<FlightData> {
     let data_gen = writer::IpcDataGenerator::default();
-    let data = data_gen.record_batch_to_bytes(batch, &options);
-    FlightData {
-        flight_descriptor: None,
-        app_metadata: vec![],
-        data_header: data.ipc_message,
-        data_body: data.arrow_data,
-    }
+    let mut dictionary_tracker = writer::DictionaryTracker::new(false);
+
+    let (encoded_dictionaries, encoded_batch) = data_gen
+        .encoded_batch(batch, &mut dictionary_tracker, &options)
+        .expect("DictionaryTracker configured above to not error on replacement");
+
+    encoded_dictionaries
+        .into_iter()
+        .chain(std::iter::once(encoded_batch))
+        .map(|data| FlightData {
+            flight_descriptor: None,
+            app_metadata: vec![],
+            data_header: data.ipc_message,
+            data_body: data.arrow_data,
+        })
+        .collect()
 }
 
 /// Convert a `Schema` to `SchemaResult` by converting to an IPC message

@@ -168,7 +168,7 @@ impl IpcDataGenerator {
 
     /// Write a `RecordBatch` into two sets of bytes, one for the header (ipc::Message) and the
     /// other for the batch's data
-    pub fn record_batch_to_bytes(
+    fn record_batch_to_bytes(
         &self,
         batch: &RecordBatch,
         write_options: &IpcWriteOptions,
@@ -222,7 +222,7 @@ impl IpcDataGenerator {
 
     /// Write dictionary values into two sets of bytes, one for the header (ipc::Message) and the
     /// other for the data
-    pub fn dictionary_batch_to_bytes(
+    fn dictionary_batch_to_bytes(
         &self,
         dict_id: i64,
         array_data: &ArrayDataRef,
