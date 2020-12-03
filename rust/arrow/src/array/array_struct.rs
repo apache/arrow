@@ -69,6 +69,9 @@ impl StructArray {
     }
 
     /// Return child array whose field name equals to column_name
+    ///
+    /// Note: The Arrow specification allows for duplicate field names, and in such
+    /// case, this function will return the first column with the specified name.
     pub fn column_by_name(&self, column_name: &str) -> Option<&ArrayRef> {
         self.column_names()
             .iter()
