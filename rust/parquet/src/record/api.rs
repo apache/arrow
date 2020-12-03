@@ -238,6 +238,10 @@ impl List {
     pub fn len(&self) -> usize {
         self.elements.len()
     }
+
+    pub fn elements(&self) -> &[Field] {
+        self.elements.as_slice()
+    }
 }
 
 /// Constructs a `List` from the list of `fields` and returns it.
@@ -355,6 +359,10 @@ impl Map {
     /// Get the number of fields in this row
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    pub fn entries(&self) -> &[(Field, Field)] {
+        self.entries.as_slice()
     }
 }
 
@@ -1602,7 +1610,7 @@ mod tests {
 #[cfg(test)]
 #[allow(clippy::approx_constant, clippy::many_single_char_names)]
 mod api_tests {
-    use super::make_row;
+    use super::{make_list, make_map, make_row};
     use crate::record::Field;
 
     #[test]
@@ -1633,5 +1641,30 @@ mod api_tests {
             }
             None => panic!("Expected at least one column"),
         }
+    }
+
+    #[test]
+    fn test_list_element_access() {
+        let expected = vec![
+            Field::Int(1),
+            Field::Group(make_row(vec![
+                ("x".to_string(), Field::Null),
+                ("Y".to_string(), Field::Int(2)),
+            ])),
+        ];
+
+        let list = make_list(expected.clone());
+        assert_eq!(expected.as_slice(), list.elements());
+    }
+
+    #[test]
+    fn test_map_entry_access() {
+        let expected = vec![
+            (Field::Str("one".to_owned()), Field::Int(1)),
+            (Field::Str("two".to_owned()), Field::Int(2)),
+        ];
+
+        let map = make_map(expected.clone());
+        assert_eq!(expected.as_slice(), map.entries());
     }
 }
