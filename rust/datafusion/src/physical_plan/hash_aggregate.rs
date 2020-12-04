@@ -257,19 +257,15 @@ fn group_aggregate_batch(
         // 1.1
         create_key(&group_values, row, &mut key)
             .map_err(DataFusionError::into_arrow_external_error)?;
-
-        match accumulators.get_mut(&key) {
-            // 1.2
-            None => {
+        accumulators
+            .raw_entry_mut()
+            .from_key(&key)
+            .and_modify(|_, (_, v)| v.push(row as u32))
+            .or_insert_with(|| {
                 let accumulator_set = create_accumulators(aggr_expr)
-                    .map_err(DataFusionError::into_arrow_external_error)?;
-
-                accumulators
-                    .insert(key.clone(), (accumulator_set, Box::new(vec![row as u32])));
-            }
-            // 1.3
-            Some((_, v)) => v.push(row as u32),
-        }
+                    .expect("Couldn't generate accumulators");
+                (key.clone(), (accumulator_set, Box::new(vec![row as u32])))
+            });
     }
 
     // 2.1 for each key
