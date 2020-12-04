@@ -318,23 +318,15 @@ impl FlightService for FlightServiceImpl {
 }
 
 fn flight_schema(arrow_schema: &Schema) -> Result<Vec<u8>> {
-    //                let schema_result = SchemaResult::from(&flight.schema);
-
     use arrow::ipc::{writer::IpcWriteOptions, MetadataVersion};
-    // use arrow_flight::utils;
-    // let schema_result = utils::flight_schema_from_arrow_schema(&flight.schema, &IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap());
 
-    //let mut ss = schema_result.schema;
-    //                ss.splice(0..0, vec![u8::MAX, u8::MAX, u8::MAX, u8::MAX]);
-    //                let ss = schema_result.schema;
-
-    let mut ss = vec![];
+    let mut schema = vec![];
 
     let wo = IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap();
     let msg = arrow::ipc::writer::Message::Schema(arrow_schema, &wo);
-    arrow::ipc::writer::write_message(&mut ss, &msg, &wo)?;
+    arrow::ipc::writer::write_message(&mut schema, &msg, &wo)?;
 
-    Ok(ss)
+    Ok(schema)
 }
 
 #[derive(Clone, Default)]
