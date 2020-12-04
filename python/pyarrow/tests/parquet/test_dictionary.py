@@ -15,29 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime
-import decimal
-import io
-import json
-import os
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip, _roundtrip_table, make_sample_file,
-    parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
-    parametrize_legacy_dataset_not_supported, _simple_table_write_read)
-
+from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _write_table)
 except ImportError:
     pq = None
 
@@ -45,11 +30,6 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
-
-    from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
-                                               dataframe_with_lists)
-    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                              alltypes_sample)
 except ImportError:
     pd = tm = None
 
@@ -61,7 +41,6 @@ def _simple_table_write_read(table, use_legacy_dataset):
     return pq.read_table(
         pa.BufferReader(contents), use_legacy_dataset=use_legacy_dataset
     )
-
 
 
 @pytest.mark.pandas
@@ -123,7 +102,6 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     assert result[0].num_chunks == 1
 
 
-
 @parametrize_legacy_dataset
 def test_dictionary_array_automatically_read(use_legacy_dataset):
     # ARROW-3246
@@ -149,4 +127,3 @@ def test_dictionary_array_automatically_read(use_legacy_dataset):
 
     # The only key in the metadata was the Arrow schema key
     assert result.schema.metadata is None
-
