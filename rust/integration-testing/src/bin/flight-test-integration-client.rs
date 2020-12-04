@@ -31,7 +31,7 @@ use arrow_flight::{
 use arrow_flight::{utils::flight_data_to_arrow_batch, FlightDescriptor};
 
 use clap::{App, Arg};
-use futures::{channel::mpsc, stream, sink::SinkExt, StreamExt};
+use futures::{channel::mpsc, sink::SinkExt, stream, StreamExt};
 use prost::Message;
 use tonic::{metadata::MetadataValue, Request, Status};
 
@@ -199,10 +199,12 @@ async fn authenticate(
     let mut payload = vec![];
     auth.encode(&mut payload)?;
 
-    let req = stream::once(async { HandshakeRequest {
-        payload,
-        ..HandshakeRequest::default()
-    }});
+    let req = stream::once(async {
+        HandshakeRequest {
+            payload,
+            ..HandshakeRequest::default()
+        }
+    });
 
     let rx = client.handshake(Request::new(req)).await?;
     let mut rx = rx.into_inner();
@@ -261,20 +263,16 @@ async fn upload_data(
         let metadata = counter.to_string().into_bytes();
         eprintln!("sending batch {:?}", metadata);
 
-        let mut record_batch_flight_datas: Vec<FlightData> =
+        let (dictionary_flight_data, mut batch_flight_data) =
             arrow_flight::utils::convert_to_flight_data(first_batch);
 
-        let mut batch = record_batch_flight_datas
-            .pop()
-            .expect("At least one FlightData should be created for every RecordBatch");
-
-        for dictionary_flight_data in record_batch_flight_datas {
-            upload_tx.send(dictionary_flight_data).await?;
+        for dictionary in dictionary_flight_data {
+            upload_tx.send(dictionary).await?;
         }
 
         // Only the record batch's FlightData gets app_metadata
-        batch.app_metadata = metadata.clone();
-        upload_tx.send(batch).await?;
+        batch_flight_data.app_metadata = metadata.clone();
+        upload_tx.send(batch_flight_data).await?;
 
         let outer = client.do_put(Request::new(upload_rx)).await?;
         let mut inner = outer.into_inner();
@@ -291,20 +289,16 @@ async fn upload_data(
             let metadata = counter.to_string().into_bytes();
             eprintln!("sending batch {:?}", metadata);
 
-            let mut record_batch_flight_datas: Vec<FlightData> =
+            let (dictionary_flight_data, mut batch_flight_data) =
                 arrow_flight::utils::convert_to_flight_data(batch);
 
-            let mut batch = record_batch_flight_datas.pop().expect(
-                "At least one FlightData should be created for every RecordBatch",
-            );
-
-            for dictionary_flight_data in record_batch_flight_datas {
-                upload_tx.send(dictionary_flight_data).await?;
+            for dictionary in dictionary_flight_data {
+                upload_tx.send(dictionary).await?;
             }
 
             // Only the record batch's FlightData gets app_metadata
-            batch.app_metadata = metadata.clone();
-            upload_tx.send(batch).await?;
+            batch_flight_data.app_metadata = metadata.clone();
+            upload_tx.send(batch_flight_data).await?;
 
             let r = inner
                 .next()

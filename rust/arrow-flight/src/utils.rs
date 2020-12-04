@@ -24,7 +24,7 @@ use crate::{FlightData, SchemaResult};
 use arrow::array::ArrayRef;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result};
-use arrow::ipc::{convert, reader, writer, writer::IpcWriteOptions};
+use arrow::ipc::{convert, reader, writer, writer::EncodedData, writer::IpcWriteOptions};
 use arrow::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
@@ -33,7 +33,7 @@ use arrow::record_batch::RecordBatch;
 ///
 /// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
 /// use `flight_data_from_arrow_batch()`
-pub fn convert_to_flight_data(batch: &RecordBatch) -> Vec<FlightData> {
+pub fn convert_to_flight_data(batch: &RecordBatch) -> (Vec<FlightData>, FlightData) {
     let options = IpcWriteOptions::default();
     flight_data_from_arrow_batch(batch, &options)
 }
@@ -43,7 +43,7 @@ pub fn convert_to_flight_data(batch: &RecordBatch) -> Vec<FlightData> {
 pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
     options: &IpcWriteOptions,
-) -> Vec<FlightData> {
+) -> (Vec<FlightData>, FlightData) {
     let data_gen = writer::IpcDataGenerator::default();
     let mut dictionary_tracker = writer::DictionaryTracker::new(false);
 
@@ -51,16 +51,20 @@ pub fn flight_data_from_arrow_batch(
         .encoded_batch(batch, &mut dictionary_tracker, &options)
         .expect("DictionaryTracker configured above to not error on replacement");
 
-    encoded_dictionaries
-        .into_iter()
-        .chain(std::iter::once(encoded_batch))
-        .map(|data| FlightData {
-            flight_descriptor: None,
-            app_metadata: vec![],
+    let flight_dictionaries = encoded_dictionaries.into_iter().map(Into::into).collect();
+    let flight_batch = encoded_batch.into();
+
+    (flight_dictionaries, flight_batch)
+}
+
+impl From<EncodedData> for FlightData {
+    fn from(data: EncodedData) -> Self {
+        FlightData {
             data_header: data.ipc_message,
             data_body: data.arrow_data,
-        })
-        .collect()
+            ..Default::default()
+        }
+    }
 }
 
 /// Convert a `Schema` to `SchemaResult` by converting to an IPC message

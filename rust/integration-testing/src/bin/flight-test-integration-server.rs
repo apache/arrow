@@ -103,19 +103,16 @@ impl FlightService for FlightServiceImpl {
             .iter()
             .enumerate()
             .flat_map(|(counter, batch)| {
-                let mut record_batch_flight_datas: Vec<FlightData> =
+                let (dictionary_flight_data, mut batch_flight_data) =
                     arrow_flight::utils::convert_to_flight_data(batch);
 
-                let mut flight_data = record_batch_flight_datas.pop().expect(
-                    "At least one FlightData should be created for every RecordBatch",
-                );
-
+                // Only the record batch's FlightData gets app_metadata
                 let metadata = counter.to_string().into_bytes();
-                flight_data.app_metadata = metadata;
+                batch_flight_data.app_metadata = metadata;
 
-                record_batch_flight_datas
+                dictionary_flight_data
                     .into_iter()
-                    .chain(std::iter::once(flight_data))
+                    .chain(std::iter::once(batch_flight_data))
                     .map(Ok)
             });
 
