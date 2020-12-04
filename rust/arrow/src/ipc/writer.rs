@@ -623,9 +623,9 @@ fn write_continuation<W: Write>(
     total_len: i32,
 ) -> Result<usize> {
     let mut written = 8;
-    dbg!("write_continuation", write_options);
+
     // the version of the writer determines whether continuation markers should be added
-    match dbg!(write_options.metadata_version) {
+    match write_options.metadata_version {
         ipc::MetadataVersion::V1
         | ipc::MetadataVersion::V2
         | ipc::MetadataVersion::V3 => {
