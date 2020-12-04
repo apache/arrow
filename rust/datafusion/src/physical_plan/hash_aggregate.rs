@@ -253,6 +253,10 @@ fn group_aggregate_batch(
     // 1.1 construct the key from the group values
     // 1.2 construct the mapping key if it does not exist
     // 1.3 add the row' index to `indices`
+
+    // Make sure we can create the accumulators or otherwise return an error
+    create_accumulators(aggr_expr)?;
+
     for row in 0..batch.num_rows() {
         // 1.1
         create_key(&group_values, row, &mut key)
@@ -260,10 +264,12 @@ fn group_aggregate_batch(
         accumulators
             .raw_entry_mut()
             .from_key(&key)
+            // 1.3
             .and_modify(|_, (_, v)| v.push(row as u32))
+            // 1.2
             .or_insert_with(|| {
-                let accumulator_set = create_accumulators(aggr_expr)
-                    .expect("Couldn't generate accumulators");
+                // We can safely unwrap here as we checked we can create an accumulator before
+                let accumulator_set = create_accumulators(aggr_expr).unwrap();
                 (key.clone(), (accumulator_set, Box::new(vec![row as u32])))
             });
     }
