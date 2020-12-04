@@ -16,23 +16,16 @@
 # under the License.
 
 import datetime
-import decimal
 import io
 import json
-import os
-from collections import OrderedDict
 
 import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
-from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (
-    _check_roundtrip, _roundtrip_table, make_sample_file,
-    parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
-    parametrize_legacy_dataset_not_supported)
+    parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported
+)
 
 try:
     import pyarrow.parquet as pq
@@ -46,12 +39,11 @@ try:
     import pandas as pd
     import pandas.testing as tm
 
-    from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
-                                               dataframe_with_lists)
     from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
                                               alltypes_sample)
 except ImportError:
     pd = tm = None
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -74,6 +66,7 @@ def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -130,7 +123,6 @@ def test_pandas_parquet_custom_metadata(tempdir):
                                     'name': None,
                                     'start': 0, 'stop': 10000,
                                     'step': 1}]
-
 
 
 @pytest.mark.pandas
@@ -286,7 +278,6 @@ def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
     df_read = _read_table(
         reader, use_legacy_dataset=use_legacy_dataset).to_pandas()
     tm.assert_frame_equal(df, df_read)
-
 
 
 @pytest.mark.pandas
@@ -611,7 +602,6 @@ def test_categorical_order_survives_roundtrip(use_legacy_dataset):
     tm.assert_frame_equal(result, df)
 
 
-
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
@@ -651,4 +641,3 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
     assert result.x.dtype == 'category'
     assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
-
