@@ -93,15 +93,31 @@ impl FlightService for FlightServiceImpl {
                     data_header,
                     ..Default::default()
                 })
-                .map_err(|e| Status::internal(format!("Could not generate ipc schema: {}", e))),
+                .map_err(|e| {
+                    Status::internal(format!("Could not generate ipc schema: {}", e))
+                }),
         );
 
-        let batches = flight.chunks.iter().enumerate().map(|(counter, batch)| {
-            let mut flight_data = arrow_flight::utils::convert_to_flight_data(batch).pop().unwrap();
-            let metadata = counter.to_string().into_bytes();
-            flight_data.app_metadata = metadata;
-            Ok(flight_data)
-        });
+        let batches = flight
+            .chunks
+            .iter()
+            .enumerate()
+            .flat_map(|(counter, batch)| {
+                let mut record_batch_flight_datas: Vec<FlightData> =
+                    arrow_flight::utils::convert_to_flight_data(batch);
+
+                let mut flight_data = record_batch_flight_datas.pop().expect(
+                    "At least one FlightData should be created for every RecordBatch",
+                );
+
+                let metadata = counter.to_string().into_bytes();
+                flight_data.app_metadata = metadata;
+
+                record_batch_flight_datas
+                    .into_iter()
+                    .chain(std::iter::once(flight_data))
+                    .map(Ok)
+            });
 
         let output = futures::stream::iter(schema.chain(batches).collect::<Vec<_>>());
 
@@ -318,7 +334,10 @@ impl FlightService for FlightServiceImpl {
 }
 
 fn flight_schema(arrow_schema: &Schema) -> Result<Vec<u8>> {
-    use arrow::ipc::{writer::{IpcWriteOptions, IpcDataGenerator}, MetadataVersion};
+    use arrow::ipc::{
+        writer::{IpcDataGenerator, IpcWriteOptions},
+        MetadataVersion,
+    };
 
     let mut schema = vec![];
 

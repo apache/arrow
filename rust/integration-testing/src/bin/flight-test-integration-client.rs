@@ -20,6 +20,7 @@ use arrow_integration_testing::{
 };
 
 use arrow::datatypes::SchemaRef;
+use arrow::ipc::{self, reader};
 use arrow::record_batch::RecordBatch;
 
 use arrow_flight::flight_service_client::FlightServiceClient;
@@ -260,10 +261,21 @@ async fn upload_data(
         let metadata = counter.to_string().into_bytes();
         eprintln!("sending batch {:?}", metadata);
 
-        let mut batch = arrow_flight::utils::convert_to_flight_data(first_batch).pop().unwrap();
-        batch.app_metadata = metadata.clone();
+        let mut record_batch_flight_datas: Vec<FlightData> =
+            arrow_flight::utils::convert_to_flight_data(first_batch);
 
+        let mut batch = record_batch_flight_datas
+            .pop()
+            .expect("At least one FlightData should be created for every RecordBatch");
+
+        for dictionary_flight_data in record_batch_flight_datas {
+            upload_tx.send(dictionary_flight_data).await?;
+        }
+
+        // Only the record batch's FlightData gets app_metadata
+        batch.app_metadata = metadata.clone();
         upload_tx.send(batch).await?;
+
         let outer = client.do_put(Request::new(upload_rx)).await?;
         let mut inner = outer.into_inner();
 
@@ -279,10 +291,21 @@ async fn upload_data(
             let metadata = counter.to_string().into_bytes();
             eprintln!("sending batch {:?}", metadata);
 
-            let mut batch = arrow_flight::utils::convert_to_flight_data(batch).pop().unwrap();
-            batch.app_metadata = metadata.clone();
+            let mut record_batch_flight_datas: Vec<FlightData> =
+                arrow_flight::utils::convert_to_flight_data(batch);
 
+            let mut batch = record_batch_flight_datas.pop().expect(
+                "At least one FlightData should be created for every RecordBatch",
+            );
+
+            for dictionary_flight_data in record_batch_flight_datas {
+                upload_tx.send(dictionary_flight_data).await?;
+            }
+
+            // Only the record batch's FlightData gets app_metadata
+            batch.app_metadata = metadata.clone();
             upload_tx.send(batch).await?;
+
             let r = inner
                 .next()
                 .await
@@ -364,24 +387,55 @@ async fn consume_flight_location(
     let mut resp = resp?.into_inner();
     dbg!(&resp);
 
-    let schema_again = resp.next().await.unwrap();
-    dbg!(&schema_again);
+    let _schema_again = resp.next().await.unwrap();
+    let mut dictionaries_by_field = vec![None; schema.fields().len()];
 
     for (counter, expected_batch) in expected_data.iter().enumerate() {
-        let actual_batch = resp.next().await.unwrap_or_else(|| {
+        let mut actual_batch = resp.next().await.unwrap_or_else(|| {
             panic!(
                 "Got fewer batches than expected, received so far: {} expected: {}",
                 counter,
                 expected_data.len(),
             )
         })?;
+        let mut message = arrow::ipc::get_root_as_message(&actual_batch.data_header[..]);
+        dbg!(message.header_type());
+        while message.header_type() == ipc::MessageHeader::DictionaryBatch {
+            // TODO: handle None which means parse failure
+            if let Some(ipc_batch) = message.header_as_dictionary_batch() {
+                let dictionary_batch_result = reader::read_dictionary(
+                    &actual_batch.data_body,
+                    ipc_batch,
+                    &schema,
+                    &mut dictionaries_by_field,
+                );
+                if let Err(e) = dictionary_batch_result {
+                    panic!("Error reading dictionary: {:?}", e);
+                } else {
+                    dbg!(&dictionaries_by_field);
+                }
+            }
+
+            actual_batch = resp.next().await.unwrap_or_else(|| {
+                panic!(
+                    "Got fewer batches than expected, received so far: {} expected: {}",
+                    counter,
+                    expected_data.len(),
+                )
+            })?;
+            message = arrow::ipc::get_root_as_message(&actual_batch.data_header[..]);
+        }
 
         let metadata = counter.to_string().into_bytes();
         assert_eq!(metadata, actual_batch.app_metadata);
 
-        let actual_batch = flight_data_to_arrow_batch(&actual_batch, schema.clone())
-            .expect("Unable to convert flight data to Arrow batch")
-            .expect("Unable to convert flight data to Arrow batch");
+        let actual_batch = flight_data_to_arrow_batch(
+            &actual_batch,
+            schema.clone(),
+            &dictionaries_by_field,
+        )
+        .expect("Unable to convert flight data to Arrow batch")
+        .expect("Unable to convert flight data to Arrow batch");
 
         assert_eq!(expected_batch.schema(), actual_batch.schema());
         assert_eq!(expected_batch.num_columns(), actual_batch.num_columns());
