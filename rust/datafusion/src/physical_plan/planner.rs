@@ -424,9 +424,9 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No system variable provider found"
-                        ))),
+                        _ => Err(DataFusionError::Plan(
+                            "No system variable provider found".to_string(),
+                        )),
                     }
                 } else {
                     match ctx_state.var_provider.get(&VarType::UserDefined) {
@@ -435,9 +435,9 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No user defined variable provider found"
-                        ))),
+                        _ => Err(DataFusionError::Plan(
+                            "No user defined variable provider found".to_string(),
+                        )),
                     }
                 }
             }
