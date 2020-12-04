@@ -1084,8 +1084,7 @@ async fn right_join() -> Result<()> {
 #[tokio::test]
 async fn left_join_using() -> Result<()> {
     let mut ctx = create_join_context("id", "id")?;
-    let sql =
-        "SELECT id, t1_name, t2_name FROM t1 LEFT JOIN t2 USING (id) ORDER BY id";
+    let sql = "SELECT id, t1_name, t2_name FROM t1 LEFT JOIN t2 USING (id) ORDER BY id";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
         vec!["11", "a", "z"],
