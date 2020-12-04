@@ -255,7 +255,7 @@ fn group_aggregate_batch(
     // 1.3 add the row' index to `indices`
 
     // Make sure we can create the accumulators or otherwise return an error
-    create_accumulators(aggr_expr)?;
+    create_accumulators(aggr_expr).map_err(DataFusionError::into_arrow_external_error)?;
 
     for row in 0..batch.num_rows() {
         // 1.1
