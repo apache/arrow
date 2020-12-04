@@ -215,12 +215,10 @@ fn update_hash(
     for row in 0..batch.num_rows() {
         create_key(&keys_values, row, &mut key)?;
 
-        hash
-        .raw_entry_mut()
-        .from_key(&key)
-        .and_modify(|_, v| v.push((index, row)))
-        .or_insert_with(|| (key.clone(),  vec![(index, row)]));
-
+        hash.raw_entry_mut()
+            .from_key(&key)
+            .and_modify(|_, v| v.push((index, row)))
+            .or_insert_with(|| (key.clone(), vec![(index, row)]));
     }
     Ok(())
 }
