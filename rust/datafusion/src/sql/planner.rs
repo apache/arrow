@@ -650,9 +650,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         Err(_) => Ok(lit(-n.parse::<f64>().unwrap())),
                     }
                 }
-                _ => Err(DataFusionError::Internal(format!(
+                _ => Err(DataFusionError::Internal(
                     "SQL binary operator cannot be interpreted as a unary operator"
-                ))),
+                        .to_string(),
+                )),
             },
 
             SQLExpr::BinaryOp {

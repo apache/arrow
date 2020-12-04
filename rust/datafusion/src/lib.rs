@@ -48,8 +48,6 @@
     clippy::stable_sort_primitive,
     clippy::type_complexity,
     clippy::unit_arg,
-    clippy::unnecessary_unwrap,
-    clippy::useless_format,
     clippy::zero_prefixed_literal
 )]
 

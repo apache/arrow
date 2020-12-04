@@ -174,9 +174,9 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
-                DataFusionError::Internal(format!(
-                    "could not cast to_timestamp input to StringArray"
-                ))
+                DataFusionError::Internal(
+                    "could not cast to_timestamp input to StringArray".to_string(),
+                )
             })?;
 
     let result = (0..num_rows)

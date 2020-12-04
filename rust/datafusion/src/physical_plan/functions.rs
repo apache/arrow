@@ -401,7 +401,7 @@ mod tests {
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
 
         // value is correct
-        assert_eq!(format!("{}", result.value(0)), expected);
+        assert_eq!(result.value(0).to_string(), expected);
 
         Ok(())
     }
@@ -442,7 +442,7 @@ mod tests {
         let result = result.as_any().downcast_ref::<StringArray>().unwrap();
 
         // value is correct
-        assert_eq!(format!("{}", result.value(0)), expected);
+        assert_eq!(result.value(0).to_string(), expected);
 
         Ok(())
     }

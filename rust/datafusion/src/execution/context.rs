@@ -167,9 +167,9 @@ impl ExecutionContext {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
-            return Err(DataFusionError::NotImplemented(format!(
-                "The context currently only supports a single SQL statement",
-            )));
+            return Err(DataFusionError::NotImplemented(
+                "The context currently only supports a single SQL statement".to_string(),
+            ));
         }
 
         // create a query planner
@@ -553,26 +553,24 @@ impl FunctionRegistry for ExecutionContextState {
 
     fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(format!(
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
                 "There is no UDF named \"{}\" in the registry",
                 name
-            )))
-        } else {
-            Ok(result.unwrap())
-        }
+            ))
+        })
     }
 
     fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
         let result = self.aggregate_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(format!(
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
                 "There is no UDAF named \"{}\" in the registry",
                 name
-            )))
-        } else {
-            Ok(result.unwrap())
-        }
+            ))
+        })
     }
 }
 
