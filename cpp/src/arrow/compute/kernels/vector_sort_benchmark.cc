@@ -94,7 +94,7 @@ static void TableSortIndicesBenchmark(benchmark::State& state,
                                       const std::shared_ptr<Table>& table,
                                       const SortOptions& options) {
   for (auto _ : state) {
-    ABORT_NOT_OK(SortIndices(*table, options).status());
+    ABORT_NOT_OK(SortIndices(Datum(*table), options).status());
   }
 }
 

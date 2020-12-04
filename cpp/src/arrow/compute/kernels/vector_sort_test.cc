@@ -549,7 +549,7 @@ class TestTableSortIndices : public ::testing::Test {
  protected:
   void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
                          const std::shared_ptr<Array> expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*table, options));
+    ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*table), options));
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -774,7 +774,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     TableBatchReader reader(*table);
     reader.set_chunksize((length + num_chunks - 1) / num_chunks);
     ASSERT_OK_AND_ASSIGN(auto chunked_table, Table::FromRecordBatchReader(&reader));
-    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_table, options));
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*chunked_table), options));
     Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
   }
 }

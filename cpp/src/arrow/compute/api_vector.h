@@ -222,15 +222,16 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order = SortOrder::Ascending,
                                            ExecContext* ctx = NULLPTR);
 
-/// \brief Returns the indices that would sort a table in the
-/// specified order.
+/// \brief Returns the indices that would sort an input in the
+/// specified order. Input is one of array, chunked array record batch
+/// or table.
 ///
-/// Perform an indirect sort of table. The output array will contain
-/// indices that would sort a table, which would be the same length as
-/// input. Nulls will be stably partitioned to the end of the output
-/// regardless of order.
+/// Perform an indirect sort of input. The output array will contain
+/// indices that would sort an input, which would be the same length
+/// as input. Nulls will be stably partitioned to the end of the
+/// output regardless of order.
 ///
-/// For example given table = {
+/// For example given input (table) = {
 /// "column1": [[null,   1], [   3, null, 2, 1]],
 /// "column2": [[   5], [3,   null, null, 5, 5]],
 /// } and options = {
@@ -238,12 +239,12 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 /// {"column2", SortOrder::Descending},
 /// }, the output will be [5, 1, 4, 2, 0, 3].
 ///
-/// \param[in] table table to sort
+/// \param[in] datum array, chunked array, record batch or table to sort
 /// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return offsets indices that would sort a table
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortIndices(const Table& table, const SortOptions& options,
+Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
                                            ExecContext* ctx = NULLPTR);
 
 /// \brief Compute unique elements from an array-like object
