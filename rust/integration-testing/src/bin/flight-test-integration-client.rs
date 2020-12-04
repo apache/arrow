@@ -350,6 +350,10 @@ async fn consume_flight_location(
     expected_data: &[RecordBatch],
     schema: SchemaRef,
 ) -> Result {
+    let mut location = location;
+    location.uri = location.uri.replace("grpc+tcp://", "grpc://");
+
+    dbg!(&location.uri);
     let mut client = FlightServiceClient::connect(location.uri).await?;
 
     dbg!(&client);
