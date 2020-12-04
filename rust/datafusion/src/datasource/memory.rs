@@ -26,6 +26,7 @@ use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
+use crate::datasource::datasource::Statistics;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
@@ -131,6 +132,10 @@ impl TableProvider for MemTable {
             projected_schema,
             projection.clone(),
         )?))
+    }
+
+    fn statistics(&self) -> Option<Statistics> {
+        unimplemented!()
     }
 }
 

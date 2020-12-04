@@ -24,6 +24,20 @@ use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::physical_plan::ExecutionPlan;
 
+pub struct Statistics {
+    size_in_bytes: Option<usize>,
+    row_count: Option<usize>
+}
+
+impl Statistics {
+    pub fn new(size_in_bytes: Option<usize>, row_count: Option<usize>) -> Self {
+        Statistics {
+            size_in_bytes: size_in_bytes,
+            row_count: row_count,
+        }
+    }
+}
+
 /// Source table
 pub trait TableProvider {
     /// Returns the table provider as [`Any`](std::any::Any) so that it can be
@@ -39,4 +53,6 @@ pub trait TableProvider {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>>;
+
+    fn statistics(&self) -> Option<Statistics>;
 }

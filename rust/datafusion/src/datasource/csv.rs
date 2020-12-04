@@ -39,6 +39,7 @@ use std::string::String;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
+use crate::datasource::datasource::Statistics;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::csv::CsvExec;
 pub use crate::physical_plan::csv::CsvReadOptions;
@@ -103,5 +104,9 @@ impl TableProvider for CsvFile {
             projection.clone(),
             batch_size,
         )?))
+    }
+
+    fn statistics(&self) -> Option<Statistics> {
+        unimplemented!()
     }
 }
