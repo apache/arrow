@@ -297,7 +297,7 @@ async fn upload_data(
         }
     } else {
         eprintln!("No batches");
-
+        drop(upload_tx);
         let outer = client.do_put(Request::new(upload_rx)).await?;
         let inner = outer.into_inner();
 
