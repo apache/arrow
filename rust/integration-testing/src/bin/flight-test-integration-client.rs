@@ -266,9 +266,7 @@ async fn upload_data(
         let (dictionary_flight_data, mut batch_flight_data) =
             arrow_flight::utils::convert_to_flight_data(first_batch);
 
-        for dictionary in dictionary_flight_data {
-            upload_tx.send(dictionary).await?;
-        }
+        upload_tx.send_all(&mut stream::iter(dictionary_flight_data).map(Ok)).await?;
 
         // Only the record batch's FlightData gets app_metadata
         batch_flight_data.app_metadata = metadata.clone();
@@ -292,9 +290,7 @@ async fn upload_data(
             let (dictionary_flight_data, mut batch_flight_data) =
                 arrow_flight::utils::convert_to_flight_data(batch);
 
-            for dictionary in dictionary_flight_data {
-                upload_tx.send(dictionary).await?;
-            }
+            upload_tx.send_all(&mut stream::iter(dictionary_flight_data).map(Ok)).await?;
 
             // Only the record batch's FlightData gets app_metadata
             batch_flight_data.app_metadata = metadata.clone();
