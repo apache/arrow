@@ -30,7 +30,7 @@ use arrow_flight::{
 use arrow_flight::{utils::flight_data_to_arrow_batch, FlightDescriptor};
 
 use clap::{App, Arg};
-use futures::{channel::mpsc, sink::SinkExt, StreamExt};
+use futures::{channel::mpsc, stream, sink::SinkExt, StreamExt};
 use prost::Message;
 use tonic::{metadata::MetadataValue, Request, Status};
 
@@ -191,24 +191,20 @@ async fn authenticate(
     username: &str,
     password: &str,
 ) -> Result<String> {
-    let (mut tx, rx) = mpsc::channel(10);
-    let rx = client.handshake(Request::new(rx)).await?;
-    let mut rx = rx.into_inner();
-
     let auth = BasicAuth {
         username: username.into(),
         password: password.into(),
     };
-
     let mut payload = vec![];
     auth.encode(&mut payload)?;
 
-    tx.send(HandshakeRequest {
+    let req = stream::once(async { HandshakeRequest {
         payload,
         ..HandshakeRequest::default()
-    })
-    .await?;
-    drop(tx);
+    }});
+
+    let rx = client.handshake(Request::new(req)).await?;
+    let mut rx = rx.into_inner();
 
     let r = rx.next().await.expect("must respond from handshake")?;
     assert!(rx.next().await.is_none(), "must not respond a second time");
