@@ -19,13 +19,11 @@
 //! into a set of partitions.
 
 use std::sync::Arc;
-use std::{
-    any::Any,
-    collections::{HashMap, HashSet},
-};
+use std::{any::Any, collections::HashSet};
 
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, TryStreamExt};
+use hashbrown::HashMap;
 
 use arrow::array::{make_array, Array, MutableArrayData};
 use arrow::datatypes::{Schema, SchemaRef};

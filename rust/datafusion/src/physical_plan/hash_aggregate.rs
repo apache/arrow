@@ -47,7 +47,7 @@ use super::{
     SendableRecordBatchStream,
 };
 use ahash::RandomState;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use async_trait::async_trait;
 
