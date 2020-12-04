@@ -1753,6 +1753,12 @@ tasks:
     params:
       MATRIX: "${{ matrix.r_image }}"
 
+  test-r-versions:
+    ci: github
+    template: r/github.linux.versions.yml
+    params:
+      MATRIX: "${{ matrix.r_version }}"
+
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
     template: r/azure.linux.yml
