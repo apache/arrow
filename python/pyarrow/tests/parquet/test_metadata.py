@@ -310,6 +310,44 @@ def test_pass_separate_metadata():
     tm.assert_frame_equal(df, fileh.read().to_pandas())
 
 
+def test_field_id_metadata():
+    # ARROW-7080
+    table = pa.table([pa.array([1], type='int32'),
+                      pa.array([[]], type=pa.list_(pa.int32())),
+                      pa.array([b'boo'], type='binary')],
+                     ['f0', 'f1', 'f2'])
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+
+    pf = pq.ParquetFile(pa.BufferReader(contents))
+    schema = pf.schema_arrow
+
+    # Expected Parquet schema for reference
+    #
+    # required group field_id=0 schema {
+    #   optional int32 field_id=1 f0;
+    #   optional group field_id=2 f1 (List) {
+    #     repeated group field_id=3 list {
+    #       optional int32 field_id=4 item;
+    #     }
+    #   }
+    #   optional binary field_id=5 f2;
+    # }
+
+    field_name = b'PARQUET:field_id'
+    assert schema[0].metadata[field_name] == b'1'
+
+    list_field = schema[1]
+    assert list_field.metadata[field_name] == b'2'
+
+    list_item_field = list_field.type.value_field
+    assert list_item_field.metadata[field_name] == b'4'
+
+    assert schema[2].metadata[field_name] == b'5'
+
+
 @pytest.mark.pandas
 def test_read_metadata_files(tempdir):
     fs = LocalFileSystem._get_instance()

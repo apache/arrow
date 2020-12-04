@@ -89,6 +89,17 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     assert result.equals(expected)
 
 
+def _simple_table_write_read(table, use_legacy_dataset):
+    import pyarrow.parquet as pq
+
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+    contents = bio.getvalue()
+    return pq.read_table(
+        pa.BufferReader(contents), use_legacy_dataset=use_legacy_dataset
+    )
+
+
 def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
     table = pa.Table.from_pandas(df)
     result = _roundtrip_table(
