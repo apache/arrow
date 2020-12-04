@@ -114,7 +114,11 @@ impl FlightService for FlightServiceImpl {
 
                 let mut batches: Vec<Result<FlightData, Status>> = results
                     .iter()
-                    .map(|batch| Ok(FlightData::from(batch)))
+                    .flat_map(|batch| {
+                        let flight_data =
+                            arrow_flight::utils::convert_to_flight_data(batch);
+                        flight_data.into_iter().map(Ok)
+                    })
                     .collect();
 
                 // append batch vector to schema vector, so that the first message sent is the schema

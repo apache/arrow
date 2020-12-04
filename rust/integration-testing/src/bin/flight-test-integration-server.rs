@@ -97,7 +97,7 @@ impl FlightService for FlightServiceImpl {
         );
 
         let batches = flight.chunks.iter().enumerate().map(|(counter, batch)| {
-            let mut flight_data = FlightData::from(batch);
+            let mut flight_data = arrow_flight::utils::convert_to_flight_data(batch).pop().unwrap();
             let metadata = counter.to_string().into_bytes();
             flight_data.app_metadata = metadata;
             Ok(flight_data)
@@ -318,13 +318,15 @@ impl FlightService for FlightServiceImpl {
 }
 
 fn flight_schema(arrow_schema: &Schema) -> Result<Vec<u8>> {
-    use arrow::ipc::{writer::IpcWriteOptions, MetadataVersion};
+    use arrow::ipc::{writer::{IpcWriteOptions, IpcDataGenerator}, MetadataVersion};
 
     let mut schema = vec![];
 
     let wo = IpcWriteOptions::try_new(8, false, MetadataVersion::V5).unwrap();
-    let msg = arrow::ipc::writer::Message::Schema(arrow_schema, &wo);
-    arrow::ipc::writer::write_message(&mut schema, &msg, &wo)?;
+
+    let data_gen = IpcDataGenerator::default();
+    let encoded_message = data_gen.schema_to_bytes(arrow_schema, &wo);
+    arrow::ipc::writer::write_message(&mut schema, encoded_message, &wo)?;
 
     Ok(schema)
 }

@@ -264,7 +264,7 @@ async fn upload_data(
         let metadata = counter.to_string().into_bytes();
         eprintln!("sending batch {:?}", metadata);
 
-        let mut batch = FlightData::from(first_batch);
+        let mut batch = arrow_flight::utils::convert_to_flight_data(first_batch).pop().unwrap();
         batch.app_metadata = metadata.clone();
 
         upload_tx.send(batch).await?;
@@ -283,7 +283,7 @@ async fn upload_data(
             let metadata = counter.to_string().into_bytes();
             eprintln!("sending batch {:?}", metadata);
 
-            let mut batch = FlightData::from(batch);
+            let mut batch = arrow_flight::utils::convert_to_flight_data(batch).pop().unwrap();
             batch.app_metadata = metadata.clone();
 
             upload_tx.send(batch).await?;
