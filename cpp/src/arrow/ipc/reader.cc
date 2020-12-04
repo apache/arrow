@@ -860,8 +860,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
       }
 
       if (message->type() != MessageType::DICTIONARY_BATCH) {
-        return Status::Invalid("IPC stream did not have the expected number (", num_dicts,
-                               ") of dictionaries at the start of the stream");
+        return Status::Invalid("IPC stream had (", i, ") dictionaries at the start of the stream, but (", num_dicts, ") were expected");
       }
       RETURN_NOT_OK(ReadDictionary(*message));
     }
