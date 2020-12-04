@@ -24,9 +24,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.filesystem import LocalFileSystem
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip,
-    make_sample_file)
+from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
 
 try:
     import pyarrow.parquet as pq

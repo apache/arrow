@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime
 import decimal
 import io
-import json
 import os
 from collections import OrderedDict
 
@@ -29,10 +27,10 @@ import pyarrow as pa
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip, _roundtrip_table, make_sample_file,
-    parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
-    parametrize_legacy_dataset_not_supported, _simple_table_write_read)
+from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
+                                          make_sample_file,
+                                          parametrize_legacy_dataset,
+                                          parametrize_legacy_dataset_fixed)
 
 try:
     import pyarrow.parquet as pq
@@ -48,8 +46,7 @@ try:
 
     from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
                                                dataframe_with_lists)
-    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                              alltypes_sample)
+    from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
 
@@ -104,7 +101,6 @@ def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
         data_written = col_written.chunk(0)
         data_read = col_read.chunk(0)
         assert data_written.equals(data_read)
-
 
 
 def test_parquet_invalid_version(tempdir):
@@ -301,7 +297,6 @@ def test_read_non_existing_file(use_legacy_dataset):
     # ensure we have a proper error message
     with pytest.raises(FileNotFoundError):
         pq.read_table('i-am-not-existing.parquet')
-
 
 
 @parametrize_legacy_dataset
@@ -504,7 +499,6 @@ def test_column_of_lists(tempdir):
     tm.assert_frame_equal(df, df_read)
 
 
-
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
@@ -702,7 +696,6 @@ def test_empty_directory(tempdir, use_legacy_dataset):
     result = dataset.read()
     assert result.num_rows == 0
     assert result.num_columns == 0
-
 
 
 @pytest.mark.pandas
@@ -976,7 +969,6 @@ def test_zlib_compression_bug(use_legacy_dataset):
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
-
 def test_empty_row_groups(tempdir):
     # ARROW-3020
     table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
@@ -1053,7 +1045,6 @@ def test_read_column_invalid_index():
             f.reader.read_column(index)
 
 
-
 @parametrize_legacy_dataset
 def test_parquet_file_too_small(tempdir, use_legacy_dataset):
     path = str(tempdir / "test.parquet")
@@ -1069,8 +1060,6 @@ def test_parquet_file_too_small(tempdir, use_legacy_dataset):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
-
-
 
 
 @parametrize_legacy_dataset

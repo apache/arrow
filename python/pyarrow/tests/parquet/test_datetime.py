@@ -16,28 +16,16 @@
 # under the License.
 
 import datetime
-import decimal
-import io
-import json
-import os
-from collections import OrderedDict
 
 import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
-from pyarrow.tests import util
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip, _roundtrip_table, make_sample_file,
-    parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
-    parametrize_legacy_dataset_not_supported)
+from pyarrow.tests.parquet.common import _check_roundtrip
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _write_table)
+    from pyarrow.tests.parquet.common import _read_table, _write_table
 except ImportError:
     pq = None
 
@@ -46,10 +34,7 @@ try:
     import pandas as pd
     import pandas.testing as tm
 
-    from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
-                                               dataframe_with_lists)
-    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                              alltypes_sample)
+    from pyarrow.tests.parquet.common import _roundtrip_pandas_dataframe
 except ImportError:
     pd = tm = None
 
@@ -125,6 +110,7 @@ def test_coerce_timestamps_truncated(tempdir):
     arrays_expected = {'datetime64': [dt_ms, dt_ms]}
     df_expected = pd.DataFrame(arrays_expected)
     tm.assert_frame_equal(df_expected, df_ms)
+
 
 @pytest.mark.pandas
 def test_date_time_types(tempdir):
@@ -307,8 +293,6 @@ def test_parquet_version_timestamp_differences():
                      use_deprecated_int96_timestamps=True)
     _check_roundtrip(table, expected, version='2.0',
                      use_deprecated_int96_timestamps=True)
-
-
 
 
 @pytest.mark.pandas

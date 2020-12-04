@@ -27,8 +27,8 @@ from pyarrow import fs
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (
-    parametrize_legacy_dataset,
-    parametrize_legacy_dataset_fixed, parametrize_legacy_dataset_not_supported)
+    parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
+    parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
 
 try:
@@ -108,6 +108,7 @@ def test_partition_set_dictionary_type():
     set3 = pq.PartitionSet('key2', [datetime.datetime(2007, 1, 1)])
     with pytest.raises(TypeError):
         set3.dictionary
+
 
 @parametrize_legacy_dataset_fixed
 def test_filesystem_uri(tempdir, use_legacy_dataset):

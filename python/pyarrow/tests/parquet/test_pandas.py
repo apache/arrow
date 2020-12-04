@@ -24,8 +24,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.parquet.common import (
-    parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported
-)
+    parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 
 try:
     import pyarrow.parquet as pq
