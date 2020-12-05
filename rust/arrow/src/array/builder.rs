@@ -272,8 +272,8 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     }
 
     fn capacity(&self) -> usize {
-        let bit_capacity = self.buffer.capacity() * 8;
-        bit_capacity / T::get_bit_width()
+        let bit_capacity = self.buffer.capacity();
+        bit_capacity / T::get_byte_width()
     }
 
     #[inline]
@@ -705,7 +705,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
         self.values_builder.reserve(total_len);
         self.bitmap_builder.reserve(total_len);
 
-        let mul = T::get_bit_width() / 8;
+        let mul = T::get_byte_width();
         for array in data {
             let len = array.len();
             if len == 0 {

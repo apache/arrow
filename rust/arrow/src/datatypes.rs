@@ -219,9 +219,9 @@ pub trait ArrowPrimitiveType: 'static {
     /// the corresponding Arrow data type of this primitive type.
     const DATA_TYPE: DataType;
 
-    /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize {
-        size_of::<Self::Native>() * 8
+    /// Returns the byte width of this primitive type.
+    fn get_byte_width() -> usize {
+        size_of::<Self::Native>()
     }
 
     /// Returns a default value of this primitive type.
@@ -229,15 +229,6 @@ pub trait ArrowPrimitiveType: 'static {
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
     fn default_value() -> Self::Native {
         Default::default()
-    }
-
-    /// Returns a value offset from the given pointer by the given index. The default
-    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
-    /// # Safety
-    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
-    /// must be less than the size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        *(raw_ptr.add(i))
     }
 }
 

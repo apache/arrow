@@ -94,7 +94,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
-        unsafe { T::index(self.raw_values.get(), offset) }
+        unsafe { *self.raw_values.get().add(offset) }
     }
 }
 
