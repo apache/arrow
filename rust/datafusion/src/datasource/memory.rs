@@ -135,7 +135,7 @@ impl TableProvider for MemTable {
     }
 
     fn statistics(&self) -> Option<Statistics> {
-        unimplemented!()
+        Option::from(Statistics::new(None, None))
     }
 }
 

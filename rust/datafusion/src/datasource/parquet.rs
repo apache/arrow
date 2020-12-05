@@ -72,7 +72,7 @@ impl TableProvider for ParquetTable {
     }
 
     fn statistics(&self) -> Option<Statistics> {
-        unimplemented!()
+        Option::from(Statistics::new(None, None))
     }
 }
 

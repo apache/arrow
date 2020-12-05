@@ -24,12 +24,16 @@ use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::physical_plan::ExecutionPlan;
 
+/// The table statistics
 pub struct Statistics {
+    #[allow(dead_code)]
     size_in_bytes: Option<usize>,
+    #[allow(dead_code)]
     row_count: Option<usize>
 }
 
 impl Statistics {
+    /// Build the table statistics,
     pub fn new(size_in_bytes: Option<usize>, row_count: Option<usize>) -> Self {
         Statistics {
             size_in_bytes: size_in_bytes,
@@ -54,5 +58,7 @@ pub trait TableProvider {
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
+    /// Returns the table Statistics
+    /// Statistics should be optional because not all data sources can provide statistics.
     fn statistics(&self) -> Option<Statistics>;
 }

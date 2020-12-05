@@ -24,6 +24,7 @@ use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 
 use datafusion::execution::context::ExecutionContext;
+use datafusion::datasource::datasource::Statistics;
 use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
 use datafusion::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
@@ -144,6 +145,10 @@ impl TableProvider for CustomTableProvider {
         Ok(Arc::new(CustomExecutionPlan {
             projection: projection.clone(),
         }))
+    }
+
+    fn statistics(&self) -> Option<Statistics> {
+        Option::from(Statistics::new(None, None))
     }
 }
 
