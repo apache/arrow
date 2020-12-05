@@ -31,44 +31,7 @@ pub struct DFSchema {
 
 impl DFSchema {
     /// Create a DFSChema
-    pub fn new(fields: Vec<DFField>) -> Self {
-        // TODO assert that field names are unique (taking qualifier into account)
-        Self { fields }
-    }
-
-    /// Create a DFSChema from an Arrow schema
-    pub fn from(schema: &Schema) -> Self {
-        Self {
-            fields: schema
-                .fields()
-                .iter()
-                .map(|f| DFField {
-                    field: f.clone(),
-                    qualifier: None,
-                })
-                .collect(),
-        }
-    }
-
-    /// Create a DFSChema from an Arrow schema
-    pub fn from_qualified(qualifier: &str, schema: &Schema) -> Self {
-        Self {
-            fields: schema
-                .fields()
-                .iter()
-                .map(|f| DFField {
-                    field: f.clone(),
-                    qualifier: Some(qualifier.to_owned()),
-                })
-                .collect(),
-        }
-    }
-
-    /// Combine two schemas
-    pub fn join(&self, schema: &DFSchema) -> Result<Self> {
-        let mut fields = self.fields.clone();
-        fields.extend_from_slice(schema.fields().as_slice());
-
+    pub fn new(fields: Vec<DFField>) -> Result<Self> {
         let mut qualified_names: HashSet<(&str, &str)> = HashSet::new();
         let mut unqualified_names = HashSet::new();
         for field in &fields {
@@ -107,8 +70,42 @@ impl DFSchema {
                 )));
             }
         }
-
         Ok(Self { fields })
+    }
+
+    /// Create a DFSChema from an Arrow schema
+    pub fn from(schema: &Schema) -> Self {
+        Self {
+            fields: schema
+                .fields()
+                .iter()
+                .map(|f| DFField {
+                    field: f.clone(),
+                    qualifier: None,
+                })
+                .collect(),
+        }
+    }
+
+    /// Create a DFSChema from an Arrow schema
+    pub fn from_qualified(qualifier: &str, schema: &Schema) -> Self {
+        Self {
+            fields: schema
+                .fields()
+                .iter()
+                .map(|f| DFField {
+                    field: f.clone(),
+                    qualifier: Some(qualifier.to_owned()),
+                })
+                .collect(),
+        }
+    }
+
+    /// Combine two schemas
+    pub fn join(&self, schema: &DFSchema) -> Result<Self> {
+        let mut fields = self.fields.clone();
+        fields.extend_from_slice(schema.fields().as_slice());
+        Self::new(fields)
     }
 
     /// Get a list of fields
