@@ -44,7 +44,7 @@ use std::collections::HashSet;
 /// # use datafusion::logical_plan::Expr;
 /// # use datafusion::error::Result;
 /// # fn main() -> Result<()> {
-/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
+/// let expr = Expr::Column { qualifier: None, name: "c1".to_string() } + Expr::Column { qualifier: None, name: "c2".to_string() };
 /// println!("{:?}", expr);
 /// # Ok(())
 /// # }
@@ -54,7 +54,12 @@ pub enum Expr {
     /// An expression with a specific name.
     Alias(Box<Expr>, String),
     /// A named reference to a field in a schema.
-    Column(String),
+    Column {
+        /// Optional qualifier
+        qualifier: Option<String>,
+        /// Column name
+        name: String,
+    },
     /// A named reference to a variable in a registry.
     ScalarVariable(Vec<String>),
     /// A constant value.
@@ -160,10 +165,9 @@ impl Expr {
     pub fn get_type(&self, schema: &DFSchema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(name) => Ok(schema
-                .field_with_unqualified_name(name)?
-                .data_type()
-                .clone()),
+            Expr::Column { qualifier, name } => {
+                Ok(schema.field_with_name(qualifier, name)?.data_type().clone())
+            }
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
@@ -224,9 +228,9 @@ impl Expr {
     pub fn nullable(&self, input_schema: &DFSchema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
-            Expr::Column(name) => Ok(input_schema
-                .field_with_unqualified_name(name)?
-                .is_nullable()),
+            Expr::Column { qualifier, name } => {
+                Ok(input_schema.field_with_name(qualifier, name)?.is_nullable())
+            }
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Case {
@@ -505,7 +509,21 @@ pub fn or(left: Expr, right: Expr) -> Expr {
 
 /// Create a column expression based on a column name
 pub fn col(name: &str) -> Expr {
-    Expr::Column(name.to_owned())
+    let parts: Vec<&str> = name.split('.').collect();
+    match parts {
+        parts if parts.len() == 1 => Expr::Column {
+            qualifier: None,
+            name: parts[0].to_owned(),
+        },
+        parts if parts.len() == 2 => Expr::Column {
+            qualifier: Some(parts[0].to_owned()),
+            name: parts[1].to_owned(),
+        },
+        _ => Expr::Column {
+            qualifier: None,
+            name: name.to_owned(),
+        },
+    }
 }
 
 /// Create an expression to represent the min() aggregate function
@@ -708,7 +726,7 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Alias(expr, alias) => write!(f, "{:?} AS {}", expr, alias),
-            Expr::Column(name) => write!(f, "#{}", name),
+            Expr::Column { qualifier, name } => write!(f, "#{}", name),
             Expr::ScalarVariable(var_names) => write!(f, "{}", var_names.join(".")),
             Expr::Literal(v) => write!(f, "{:?}", v),
             Expr::Case {
@@ -796,7 +814,7 @@ fn create_function_name(
 fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
     match e {
         Expr::Alias(_, name) => Ok(name.clone()),
-        Expr::Column(name) => Ok(name.clone()),
+        Expr::Column { qualifier, name } => Ok(name.clone()),
         Expr::ScalarVariable(variable_names) => Ok(variable_names.join(".")),
         Expr::Literal(value) => Ok(format!("{:?}", value)),
         Expr::BinaryExpr { left, op, right } => {

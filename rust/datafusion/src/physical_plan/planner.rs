@@ -413,7 +413,7 @@ impl DefaultPhysicalPlanner {
             Expr::Alias(expr, ..) => {
                 Ok(self.create_physical_expr(expr, input_schema, ctx_state)?)
             }
-            Expr::Column(name) => {
+            Expr::Column { qualifier, name } => {
                 // check that name exists
                 input_schema.field_with_unqualified_name(&name)?;
                 Ok(Arc::new(Column::new(name)))

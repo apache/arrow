@@ -474,7 +474,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 &plan,
                 expected_columns
                     .iter()
-                    .map(|c| Expr::Column(c.clone()))
+                    .map(|c| Expr::Column {
+                        qualifier: None,
+                        name: c.clone(),
+                    })
                     .collect(),
             )
         } else {
@@ -556,7 +559,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     Ok(Expr::ScalarVariable(var_names))
                 } else {
                     match schema.field_with_unqualified_name(&id.value) {
-                        Ok(field) => Ok(Expr::Column(field.name().clone())),
+                        Ok(field) => Ok(Expr::Column {
+                            qualifier: None,
+                            name: field.name().clone(),
+                        }),
                         Err(_) => Err(DataFusionError::Plan(format!(
                             "Invalid identifier '{}' for schema {}",
                             id,
@@ -574,6 +580,21 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
                 if &var_names[0][0..1] == "@" {
                     Ok(Expr::ScalarVariable(var_names))
+                } else if ids.len() == 2 {
+                    let qualifier = &ids[0].value;
+                    let name = &ids[1].value;
+                    match schema.field_with_qualified_name(qualifier, name) {
+                        Ok(_) => Ok(Expr::Column {
+                            qualifier: Some(qualifier.to_owned()),
+                            name: name.to_owned(),
+                        }),
+                        Err(_) => Err(DataFusionError::Plan(format!(
+                            "Invalid identifier '{}.{}' for schema {}",
+                            qualifier,
+                            name,
+                            schema.to_string()
+                        ))),
+                    }
                 } else {
                     Err(DataFusionError::Plan(format!(
                         "Invalid compound identifier '{:?}' for schema {}",
@@ -777,7 +798,16 @@ fn remove_join_expressions(
     match expr {
         Expr::BinaryExpr { left, op, right } => match op {
             Operator::Eq => match (left.as_ref(), right.as_ref()) {
-                (Expr::Column(l), Expr::Column(r)) => {
+                (
+                    Expr::Column {
+                        qualifier: lq,
+                        name: l,
+                    },
+                    Expr::Column {
+                        qualifier: rq,
+                        name: r,
+                    },
+                ) => {
                     if join_columns.contains(&(l, r)) || join_columns.contains(&(r, l)) {
                         Ok(None)
                     } else {
@@ -813,7 +843,16 @@ fn extract_join_keys(expr: &Expr, accum: &mut Vec<(String, String)>) -> Result<(
     match expr {
         Expr::BinaryExpr { left, op, right } => match op {
             Operator::Eq => match (left.as_ref(), right.as_ref()) {
-                (Expr::Column(l), Expr::Column(r)) => {
+                (
+                    Expr::Column {
+                        qualifier: lq,
+                        name: l,
+                    },
+                    Expr::Column {
+                        qualifier: rq,
+                        name: r,
+                    },
+                ) => {
                     accum.push((l.to_owned(), r.to_owned()));
                     Ok(())
                 }
@@ -846,7 +885,16 @@ fn extract_possible_join_keys(
     match expr {
         Expr::BinaryExpr { left, op, right } => match op {
             Operator::Eq => match (left.as_ref(), right.as_ref()) {
-                (Expr::Column(l), Expr::Column(r)) => {
+                (
+                    Expr::Column {
+                        qualifier: lq,
+                        name: l,
+                    },
+                    Expr::Column {
+                        qualifier: rq,
+                        name: r,
+                    },
+                ) => {
                     accum.push((l.to_owned(), r.to_owned()));
                     Ok(())
                 }

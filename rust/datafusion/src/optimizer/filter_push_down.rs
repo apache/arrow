@@ -355,7 +355,7 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
         .collect::<Result<Vec<_>>>()?;
 
     match expr {
-        Expr::Column(name) => {
+        Expr::Column { qualifier, name } => {
             if let Some(expr) = projection.get(name) {
                 return Ok(expr.clone());
             }

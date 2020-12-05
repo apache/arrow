@@ -144,7 +144,7 @@ impl DFSchema {
     /// Find the field with the given name
     pub fn field_with_name(
         &self,
-        relation_name: Option<&str>,
+        relation_name: &Option<String>,
         name: &str,
     ) -> Result<DFField> {
         if let Some(relation_name) = relation_name {
@@ -377,7 +377,7 @@ mod tests {
         assert!(join.field_with_qualified_name("t1", "c0").is_ok());
         assert!(join.field_with_unqualified_name("c0").is_ok());
         assert!(join.field_with_unqualified_name("c100").is_ok());
-        assert!(join.field_with_name(None, "c100").is_ok());
+        assert!(join.field_with_name(&None, "c100").is_ok());
         // test invalid access
         assert!(join.field_with_unqualified_name("t1.c0").is_err());
         assert!(join.field_with_unqualified_name("t1.c100").is_err());
