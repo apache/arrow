@@ -383,6 +383,9 @@ mod tests {
             };
             benchmark(opt).await?
         }
+        } else {
+            println!("TPCH_DATA environment variable not set, skipping test")
+        }
         Ok(())
     }
 }
