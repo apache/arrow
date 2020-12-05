@@ -68,9 +68,14 @@ macro_rules! compare_op {
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
-        let mut result = BooleanBufferBuilder::new($left.len());
+        let mut result = MutableBuffer::new($left.len());
+        let data = result.raw_data_mut();
         for i in 0..$left.len() {
-            result.append($op($left.value(i), $right))?;
+            if $op($left.value(i), $right) {
+                unsafe {
+                    bit_util::set_bit_raw(data, i);
+                }
+            }
         }
 
         let data = ArrayData::new(
@@ -79,7 +84,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![result.finish()],
+            vec![result.freeze()],
             vec![],
         );
         Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
