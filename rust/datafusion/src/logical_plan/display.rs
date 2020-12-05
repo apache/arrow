@@ -85,6 +85,7 @@ impl<'a, 'b> PlanVisitor for IndentVisitor<'a, 'b> {
 ///
 /// ```
 /// use arrow::datatypes::{Field, Schema, DataType};
+/// use datafusion::logical_plan::DFSchema;
 /// # use datafusion::logical_plan::display_schema;
 /// let schema = DFSchema::from(&Schema::new(vec![
 ///     Field::new("id", DataType::Int32, false),
@@ -110,7 +111,7 @@ pub fn display_schema<'a>(schema: &'a DFSchema) -> impl fmt::Display + 'a {
                 write!(
                     f,
                     "{}:{:?}{}",
-                    field.name(),
+                    field.qualified_name(),
                     field.data_type(),
                     nullable_str
                 )?;
