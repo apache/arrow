@@ -21,12 +21,16 @@
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
+use crate::{
+    bytes::{Bytes, Deallocation},
+    ffi,
+};
+
 use std::cmp;
 use std::convert::AsRef;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
-use std::ptr::NonNull;
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
@@ -46,86 +50,11 @@ use std::borrow::BorrowMut;
 #[derive(Clone, PartialEq, Debug)]
 pub struct Buffer {
     /// Reference-counted pointer to the internal byte buffer.
-    data: Arc<BufferData>,
+    data: Arc<Bytes>,
 
     /// The offset into the buffer.
     offset: usize,
 }
-
-struct BufferData {
-    /// The raw pointer into the buffer bytes
-    ptr: *const u8,
-
-    /// The length (num of bytes) of the buffer. The region `[0, len)` of the buffer
-    /// is occupied with meaningful data, while the rest `[len, capacity)` is the
-    /// unoccupied region.
-    len: usize,
-
-    /// Whether this piece of memory is owned by this object
-    owned: bool,
-
-    /// The capacity (num of bytes) of the buffer
-    /// Invariant: len <= capacity
-    capacity: usize,
-}
-
-impl PartialEq for BufferData {
-    fn eq(&self, other: &BufferData) -> bool {
-        if self.len != other.len {
-            return false;
-        }
-
-        self.data() == other.data()
-    }
-}
-
-/// Release the underlying memory when the current buffer goes out of scope
-impl Drop for BufferData {
-    fn drop(&mut self) {
-        if self.is_allocated() && self.owned {
-            unsafe { memory::free_aligned(self.ptr as *mut u8, self.capacity) };
-        }
-    }
-}
-
-impl Debug for BufferData {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "BufferData {{ ptr: {:?}, len: {}, capacity: {}, data: ",
-            self.ptr, self.len, self.capacity
-        )?;
-
-        f.debug_list().entries(self.data().iter()).finish()?;
-
-        write!(f, " }}")
-    }
-}
-
-impl BufferData {
-    fn data(&self) -> &[u8] {
-        if !self.is_allocated() {
-            &[]
-        } else {
-            unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
-        }
-    }
-
-    fn is_zst(&self) -> bool {
-        self.ptr == BUFFER_INIT.as_ptr() as _
-    }
-
-    fn is_allocated(&self) -> bool {
-        !(self.is_zst() || self.ptr.is_null())
-    }
-}
-
-///
-/// SAFETY: (vcq):
-/// As you can see this is global and lives as long as the program lives.
-/// This is used for lazy allocation in the further steps of buffer allocations.
-/// Pointer below is well-aligned, only used for ZSTs and discarded afterwards.
-const BUFFER_INIT: NonNull<u8> = NonNull::dangling();
 
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
@@ -142,7 +71,7 @@ impl Buffer {
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     pub unsafe fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
-        Buffer::build_with_arguments(ptr, len, capacity, true)
+        Buffer::build_with_arguments(ptr, len, Deallocation::Native(capacity))
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned), this
@@ -152,70 +81,52 @@ impl Buffer {
     ///
     /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in **bytes**
-    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
+    /// * `data` - An [ffi::FFI_ArrowArray] with the data
     ///
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
-    pub unsafe fn from_unowned(ptr: *const u8, len: usize, capacity: usize) -> Self {
-        Buffer::build_with_arguments(ptr, len, capacity, false)
+    /// bytes and that the foreign deallocator frees the region.
+    pub unsafe fn from_unowned(
+        ptr: *const u8,
+        len: usize,
+        data: Arc<ffi::FFI_ArrowArray>,
+    ) -> Self {
+        Buffer::build_with_arguments(ptr, len, Deallocation::Foreign(data))
     }
 
-    /// Creates a buffer from an existing memory region (must already be byte-aligned).
-    ///
-    /// # Arguments
-    ///
-    /// * `ptr` - Pointer to raw parts
-    /// * `len` - Length of raw parts in bytes
-    /// * `capacity` - Total allocated memory for the pointer `ptr`, in **bytes**
-    /// * `owned` - Whether the raw parts is owned by this `Buffer`. If true, this `Buffer` will
-    /// free this memory when dropped, otherwise it will skip freeing the raw parts.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
-    /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
+    /// Auxiliary method to create a new Buffer
     unsafe fn build_with_arguments(
         ptr: *const u8,
         len: usize,
-        capacity: usize,
-        owned: bool,
+        deallocation: Deallocation,
     ) -> Self {
-        assert!(
-            memory::is_aligned(ptr, memory::ALIGNMENT),
-            "memory not aligned"
-        );
-        let buf_data = BufferData {
-            ptr,
-            len,
-            capacity,
-            owned,
-        };
+        let bytes = Bytes::new(ptr, len, deallocation);
         Buffer {
-            data: Arc::new(buf_data),
+            data: Arc::new(bytes),
             offset: 0,
         }
     }
 
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
-        self.data.len - self.offset
+        self.data.len() - self.offset
     }
 
-    /// Returns the capacity of this buffer
+    /// Returns the capacity of this buffer.
+    /// For exernally owned buffers, this returns zero
     pub fn capacity(&self) -> usize {
-        self.data.capacity
+        self.data.capacity()
     }
 
     /// Returns whether the buffer is empty.
     pub fn is_empty(&self) -> bool {
-        self.data.len - self.offset == 0
+        self.data.len() - self.offset == 0
     }
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        &self.data.data()[self.offset..]
+        &self.data.as_slice()[self.offset..]
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
@@ -235,7 +146,7 @@ impl Buffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     pub fn raw_data(&self) -> *const u8 {
-        unsafe { self.data.ptr.add(self.offset) }
+        unsafe { self.data.raw_data().add(self.offset) }
     }
 
     /// View buffer as typed slice.
@@ -291,11 +202,6 @@ impl Buffer {
 
         count
     }
-
-    /// Returns an empty buffer.
-    pub fn empty() -> Self {
-        unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
-    }
 }
 
 /// Creating a `Buffer` instance by copying the memory from a `AsRef<[u8]>` into a newly
@@ -309,7 +215,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
-            Buffer::build_with_arguments(buffer, len, capacity, true)
+            Buffer::build_with_arguments(buffer, len, Deallocation::Native(capacity))
         }
     }
 }
@@ -907,11 +813,8 @@ impl MutableBuffer {
 
     /// Freezes this buffer and return an immutable version of it.
     pub fn freeze(self) -> Buffer {
-        let buffer_data = BufferData {
-            ptr: self.data,
-            len: self.len,
-            capacity: self.capacity,
-            owned: true,
+        let buffer_data = unsafe {
+            Bytes::new(self.data, self.len, Deallocation::Native(self.capacity))
         };
         std::mem::forget(self);
         Buffer {

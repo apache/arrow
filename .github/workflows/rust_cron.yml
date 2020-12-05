@@ -54,3 +54,26 @@ jobs:
         continue-on-error: true
         shell: bash
         run: bash <(curl -s https://codecov.io/bash)
+
+  pyarrow-integration:
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} Pyarrow integration
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [nightly-2020-11-19]
+    env:
+      RUST: ${{ matrix.rust }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Run test
+        shell: bash
+        run: |
+          echo ${RUST} > rust/rust-toolchain &&
+          ci/scripts/rust_pyarrow_integration.sh `pwd` `pwd`/build $RUST

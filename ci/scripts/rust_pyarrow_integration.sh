@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,19 +17,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+set -ex
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing"]
+arrow_dir=${1}
+source_dir=${1}/rust
+build_dir=${2}/rust
+rust=${3}
+
+export ARROW_TEST_DATA=${arrow_dir}/testing/data
+export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
+export CARGO_TARGET_DIR=${build_dir}
+
+pushd ${source_dir}/arrow-pyarrow-integration-testing
+
+#rustup default ${rust}
+#rustup component add rustfmt --toolchain ${rust}-x86_64-unknown-linux-gnu
+python3 -m venv venv
+venv/bin/pip install maturin==0.8.2 toml==0.10.1 pyarrow==1.0.0
+
+source venv/bin/activate
+maturin develop
+python -m unittest discover tests
+
+popd

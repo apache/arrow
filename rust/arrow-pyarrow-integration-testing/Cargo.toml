@@ -15,19 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+[package]
+name = "arrow-pyarrow-integration-testing"
+description = ""
+version = "3.0.0-SNAPSHOT"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+license = "Apache-2.0"
+keywords = [ "arrow" ]
+edition = "2018"
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing"]
+[lib]
+name = "arrow_pyarrow_integration_testing"
+crate-type = ["cdylib"]
+
+[dependencies]
+arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
+pyo3 = { version = "0.12.1", features = ["extension-module"] }
+
+[package.metadata.maturin]
+requires-dist = ["pyarrow>=1"]

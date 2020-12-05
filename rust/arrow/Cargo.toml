@@ -57,6 +57,10 @@ default = []
 avx512 = []
 simd = ["packed_simd"]
 prettyprint = ["prettytable-rs"]
+# this is only intended to be used in single-threaded programs: it verifies that
+# all allocated memory is being released (no memory leaks).
+# See README for details
+memory-check = []
 
 [dev-dependencies]
 criterion = "0.3"

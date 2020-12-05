@@ -35,6 +35,8 @@ pub enum ArrowError {
     IoError(String),
     InvalidArgumentError(String),
     ParquetError(String),
+    /// Error during import or export to/from the C Data Interface
+    CDataInterface(String),
     DictionaryKeyOverflowError,
 }
 
@@ -102,6 +104,9 @@ impl Display for ArrowError {
             }
             ArrowError::ParquetError(desc) => {
                 write!(f, "Parquet argument error: {}", desc)
+            }
+            ArrowError::CDataInterface(desc) => {
+                write!(f, "C Data interface error: {}", desc)
             }
             ArrowError::DictionaryKeyOverflowError => {
                 write!(f, "Dictionary key bigger than the key type")

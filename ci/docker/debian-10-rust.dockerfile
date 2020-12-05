@@ -53,7 +53,8 @@ ENV CARGO_HOME="/rust/cargo" \
 # compiled dependencies. Create the directories and place an empty lib.rs
 # files.
 COPY rust /arrow/rust
-RUN mkdir \
+RUN mkdir -p \
+        /arrow/rust/arrow-pyarrow-integration-testing/src \
         /arrow/rust/arrow-flight/src \
         /arrow/rust/arrow/src \
         /arrow/rust/benchmarks/src \
@@ -63,6 +64,7 @@ RUN mkdir \
         /arrow/rust/parquet_derive/src \
         /arrow/rust/parquet_derive_test/src && \
     touch \
+        /arrow/rust/arrow-pyarrow-integration-testing/src/lib.rs  \
         /arrow/rust/arrow-flight/src/lib.rs \
         /arrow/rust/arrow/src/lib.rs \
         /arrow/rust/benchmarks/src/lib.rs \
