@@ -22,6 +22,7 @@
 //! physical query plans and executed.
 
 mod builder;
+mod dfschema;
 mod display;
 mod expr;
 mod extension;
