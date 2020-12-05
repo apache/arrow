@@ -47,9 +47,19 @@ macro_rules! compare_op {
         let null_bit_buffer =
             combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
-        let mut result = BooleanBufferBuilder::new($left.len());
+        let byte_capacity = bit_util::ceil($left.len(), 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.resize(byte_capacity);
+        buffer.set_null_bits(0, actual_capacity);
+
+        let data = buffer.raw_data_mut();
         for i in 0..$left.len() {
-            result.append($op($left.value(i), $right.value(i)))?;
+            if $op($left.value(i), $right.value(i)) {
+                unsafe {
+                    bit_util::set_bit_raw(data, i);
+                }
+            }
         }
 
         let data = ArrayData::new(
@@ -58,7 +68,7 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![result.finish()],
+            vec![buffer.freeze()],
             vec![],
         );
         Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
@@ -68,8 +78,13 @@ macro_rules! compare_op {
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
-        let mut result = MutableBuffer::new($left.len());
-        let data = result.raw_data_mut();
+        let byte_capacity = bit_util::ceil($left.len(), 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.resize(byte_capacity);
+
+        buffer.set_null_bits(0, actual_capacity);
+        let data = buffer.raw_data_mut();
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
                 unsafe {
@@ -84,7 +99,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![result.freeze()],
+            vec![buffer.freeze()],
             vec![],
         );
         Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
