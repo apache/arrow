@@ -24,6 +24,7 @@ use std::sync::Arc;
 use crate::error::{DataFusionError, Result};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use std::fmt::{Display, Formatter};
 
 /// A reference-counted reference to a `DFSchema`.
 pub type DFSchemaRef = Arc<DFSchema>;
@@ -202,21 +203,28 @@ impl DFSchema {
             self.fields.iter().map(|f| f.field.clone()).collect(),
         ))
     }
+}
 
-    /// Return a string containing a comma-separated list of fields in the schema
-    pub fn to_string(&self) -> String {
-        self.fields
-            .iter()
-            .map(|field| field.qualified_name())
-            .collect::<Vec<String>>()
-            .join(", ")
+impl Display for DFSchema {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.fields
+                .iter()
+                .map(|field| field.qualified_name())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 
 /// DFField wraps an Arrow field and adds an optional qualifier
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DFField {
+    /// Optional qualifier (usually a table or relation name)
     qualifier: Option<String>,
+    /// Arrow field definition
     field: Field,
 }
 
