@@ -311,39 +311,42 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64]
         rust: [nightly-2020-11-24]
-    container:
-      image: ${{ matrix.arch }}/rust
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Cache Cargo
-        uses: actions/cache@v2
-        with:
-          path: /github/home/.cargo
-          # this key equals the ones on `linux-build-lib` for re-use
-          key: cargo-cache-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v2
-        with:
-          path: /github/home/target
-          # this key is not equal because maturin uses different compilation flags.
-          key: ${{ runner.os }}-${{ matrix.arch }}-target-maturin-cache-${{ matrix.rust }}-
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           default: true
           components: rustfmt
+      - name: Cache Cargo
+        uses: actions/cache@v2
+        with:
+          path: /home/runner/.cargo
+          key: cargo-maturin-cache-
+      - name: Cache Rust dependencies
+        uses: actions/cache@v2
+        with:
+          path: /home/runner/target
+          # this key is not equal because maturin uses different compilation flags.
+          key: ${{ runner.os }}-${{ matrix.arch }}-target-maturin-cache-${{ matrix.rust }}-
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip setuptools wheel
       - name: Run tests
         run: |
-          export CARGO_HOME="/github/home/.cargo"
-          export CARGO_TARGET_DIR="/github/home/target"
-          cd rust/arrow
-          
-          python3 -m venv venv
+          export CARGO_HOME="/home/runner/.cargo"
+          export CARGO_TARGET_DIR="/home/runner/target"
+
+          cd rust/arrow-pyarrow-integration-testing
+
+          python -m venv venv
           source venv/bin/activate
+
           pip install maturin==0.8.2 toml==0.10.1 pyarrow==1.0.0
           maturin develop
           python -m unittest discover tests
