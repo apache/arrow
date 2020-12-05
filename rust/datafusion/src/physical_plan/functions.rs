@@ -34,6 +34,7 @@ use super::{
     ColumnarValue, PhysicalExpr,
 };
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::DFSchema;
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
@@ -48,7 +49,6 @@ use arrow::{
 };
 use fmt::{Debug, Formatter};
 use std::{fmt, str::FromStr, sync::Arc};
-use crate::logical_plan::DFSchema;
 
 /// A function's signature, which defines the function's supported argument types.
 #[derive(Debug, Clone)]
@@ -357,12 +357,19 @@ impl PhysicalExpr for ScalarFunctionExpr {
         Ok(true)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         // evaluate the arguments
         let inputs = self
             .args
             .iter()
-            .map(|e| e.evaluate(batch, input_schema).map(|v| v.into_array(batch.num_rows())))
+            .map(|e| {
+                e.evaluate(batch, input_schema)
+                    .map(|v| v.into_array(batch.num_rows()))
+            })
             .collect::<Result<Vec<_>>>()?;
 
         // evaluate the function
@@ -383,7 +390,8 @@ mod tests {
 
     fn generic_test_math(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
-        let schema = DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+        let schema =
+            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Int32, false)]));
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         let arg = lit(value);

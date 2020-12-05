@@ -30,8 +30,8 @@ use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
     TableSource,
 };
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use crate::physical_plan::hash_utils;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -70,14 +70,11 @@ impl LogicalPlanBuilder {
                 .to_owned(),
         };
 
-        let projected_schema =
-            projection
-                .clone()
-                .map(|p| {
-                    Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
-                })
-                .or(Some(schema.clone()))
-                .unwrap();
+        let projected_schema = projection
+            .clone()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
+            .or(Some(schema.clone()))
+            .unwrap();
 
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
@@ -233,7 +230,8 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
-        let aggr_schema = DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
+        let aggr_schema =
+            DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
@@ -256,7 +254,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema))
+            schema: DFSchemaRef::new(DFSchema::from(&schema)),
         }))
     }
 

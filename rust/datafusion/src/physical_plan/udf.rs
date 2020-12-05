@@ -29,8 +29,8 @@ use super::{
     },
     type_coercion::coerce,
 };
-use std::sync::Arc;
 use crate::logical_plan::DFSchema;
+use std::sync::Arc;
 
 /// Logical representation of a UDF.
 #[derive(Clone)]

@@ -28,10 +28,8 @@ use futures::Stream;
 
 use async_trait::async_trait;
 
+use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
-use arrow::{
-    error::{ArrowError, Result as ArrowResult},
-};
 
 use super::RecordBatchStream;
 use crate::error::{DataFusionError, Result};
@@ -39,8 +37,8 @@ use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
 use super::SendableRecordBatchStream;
-use pin_project_lite::pin_project;
 use crate::logical_plan::DFSchemaRef;
+use pin_project_lite::pin_project;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -190,8 +188,12 @@ mod tests {
         let path =
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
 
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);

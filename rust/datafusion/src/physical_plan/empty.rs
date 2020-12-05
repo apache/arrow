@@ -29,8 +29,8 @@ use arrow::record_batch::RecordBatch;
 
 use super::SendableRecordBatchStream;
 
-use async_trait::async_trait;
 use crate::logical_plan::DFSchemaRef;
+use async_trait::async_trait;
 
 /// Execution plan for empty relation (produces no rows)
 #[derive(Debug)]

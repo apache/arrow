@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use super::ColumnarValue;
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{Operator, DFSchema};
+use crate::logical_plan::{DFSchema, Operator};
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
 use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
@@ -93,11 +93,17 @@ impl PhysicalExpr for Column {
 
     /// Decide whehter this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &DFSchema) -> Result<bool> {
-        Ok(input_schema.field_with_unqualified_name(&self.name)?.is_nullable())
+        Ok(input_schema
+            .field_with_unqualified_name(&self.name)?
+            .is_nullable())
     }
 
     /// Evaluate the expression
-    fn evaluate(&self, batch: &RecordBatch, _input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        _input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         Ok(ColumnarValue::Array(
             batch.column(batch.schema().index_of(&self.name)?).clone(),
         ))
@@ -1407,7 +1413,11 @@ impl PhysicalExpr for BinaryExpr {
         Ok(self.left.nullable(input_schema)? || self.right.nullable(input_schema)?)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let left_value = self.left.evaluate(batch, input_schema)?;
         let right_value = self.right.evaluate(batch, input_schema)?;
         let left_data_type = left_value.data_type();
@@ -1636,7 +1646,11 @@ impl PhysicalExpr for NotExpr {
         self.arg.nullable(input_schema)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch, input_schema)?;
         match arg {
             ColumnarValue::Array(array) => {
@@ -1709,7 +1723,11 @@ impl PhysicalExpr for IsNullExpr {
         Ok(false)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch, input_schema)?;
         match arg {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
@@ -1754,7 +1772,11 @@ impl PhysicalExpr for IsNotNullExpr {
         Ok(false)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let arg = self.arg.evaluate(batch, input_schema)?;
         match arg {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(Arc::new(
@@ -2064,7 +2086,11 @@ impl CaseExpr {
     ///     [WHEN ...]
     ///     [ELSE result]
     /// END
-    fn case_when_with_expr(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn case_when_with_expr(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let return_type = self.when_then_expr[0].1.data_type(input_schema)?;
         let expr = self.expr.as_ref().unwrap();
         let base_value = expr.evaluate(batch, input_schema)?;
@@ -2073,7 +2099,10 @@ impl CaseExpr {
 
         // start with the else condition, or nulls
         let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
-            Some(e.evaluate(batch, input_schema)?.into_array(batch.num_rows()))
+            Some(
+                e.evaluate(batch, input_schema)?
+                    .into_array(batch.num_rows()),
+            )
         } else {
             Some(build_null_array(&return_type, batch.num_rows())?)
         };
@@ -2109,12 +2138,19 @@ impl CaseExpr {
     ///      [WHEN ...]
     ///      [ELSE result]
     /// END
-    fn case_when_no_expr(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn case_when_no_expr(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let return_type = self.when_then_expr[0].1.data_type(input_schema)?;
 
         // start with the else condition, or nulls
         let mut current_value: Option<ArrayRef> = if let Some(e) = &self.else_expr {
-            Some(e.evaluate(batch, input_schema)?.into_array(batch.num_rows()))
+            Some(
+                e.evaluate(batch, input_schema)?
+                    .into_array(batch.num_rows()),
+            )
         } else {
             Some(build_null_array(&return_type, batch.num_rows())?)
         };
@@ -2167,7 +2203,11 @@ impl PhysicalExpr for CaseExpr {
         }
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         if self.expr.is_some() {
             // this use case evaluates "expr" and then compares the values with the "when"
             // values
@@ -2214,7 +2254,11 @@ impl PhysicalExpr for CastExpr {
         self.expr.nullable(input_schema)
     }
 
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         let value = self.expr.evaluate(batch, input_schema)?;
         match value {
             ColumnarValue::Array(array) => Ok(ColumnarValue::Array(kernels::cast::cast(
@@ -2281,7 +2325,11 @@ impl PhysicalExpr for Literal {
         Ok(self.value.is_null())
     }
 
-    fn evaluate(&self, _batch: &RecordBatch, _input_schema: &DFSchema) -> Result<ColumnarValue> {
+    fn evaluate(
+        &self,
+        _batch: &RecordBatch,
+        _input_schema: &DFSchema,
+    ) -> Result<ColumnarValue> {
         Ok(ColumnarValue::Scalar(self.value.clone()))
     }
 }
@@ -2302,7 +2350,11 @@ pub struct PhysicalSortExpr {
 
 impl PhysicalSortExpr {
     /// evaluate the sort expression into SortColumn that can be passed into arrow sort kernel
-    pub fn evaluate_to_sort_column(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<SortColumn> {
+    pub fn evaluate_to_sort_column(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<SortColumn> {
         let value_to_sort = self.expr.evaluate(batch, input_schema)?;
         let array_to_sort = match value_to_sort {
             ColumnarValue::Array(array) => array,
@@ -2351,8 +2403,10 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
-        let batch =
-            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(a), Arc::new(b)],
+        )?;
         let schema = DFSchema::from(&schema);
 
         // expression: "a < b"
@@ -2380,8 +2434,10 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![2, 4, 6, 8, 10]);
         let b = Int32Array::from(vec![2, 5, 4, 8, 8]);
-        let batch =
-            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a), Arc::new(b)])?;
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(a), Arc::new(b)],
+        )?;
 
         // expression: "a < b OR a == b"
         let expr = binary_simple(
@@ -2418,7 +2474,9 @@ mod tests {
         assert_eq!("42", format!("{}", literal_expr));
 
         let schema = DFSchema::from(&schema);
-        let literal_array = literal_expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+        let literal_array = literal_expr
+            .evaluate(&batch, &schema)?
+            .into_array(batch.num_rows());
         let literal_array = literal_array.as_any().downcast_ref::<Int32Array>().unwrap();
 
         // note that the contents of the literal array are unrelated to the batch contents except for the length of the array
@@ -2458,7 +2516,9 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $C_TYPE);
 
             // compute
-            let result = expression.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+            let result = expression
+                .evaluate(&batch, &schema)?
+                .into_array(batch.num_rows());
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $C_TYPE);
@@ -2610,7 +2670,9 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+        let result = expression
+            .evaluate(&batch, &schema)?
+            .into_array(batch.num_rows());
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2624,7 +2686,9 @@ mod tests {
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
         // evaluate and verify the result type matched
-        let result = expression.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+        let result = expression
+            .evaluate(&batch, &schema)?
+            .into_array(batch.num_rows());
         assert_eq!(result.data_type(), &DataType::Boolean);
 
         // verify that the result itself is correct
@@ -2681,7 +2745,9 @@ mod tests {
             assert_eq!(expression.data_type(&schema)?, $TYPE);
 
             // compute
-            let result = expression.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+            let result = expression
+                .evaluate(&batch, &schema)?
+                .into_array(batch.num_rows());
 
             // verify that the array's data_type is correct
             assert_eq!(*result.data_type(), $TYPE);
@@ -3404,7 +3470,9 @@ mod tests {
         let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema.clone(), data)?;
         let schema = DFSchema::from(&schema);
-        let result = arithmetic_op.evaluate(&batch, &schema)?.into_array(batch.num_rows());
+        let result = arithmetic_op
+            .evaluate(&batch, &schema)?
+            .into_array(batch.num_rows());
 
         assert_array_eq::<T>(expected, result);
 

@@ -35,8 +35,8 @@ use arrow::datatypes::DataType;
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{DataFusionError, Result};
-use crate::physical_plan::expressions::cast;
 use crate::logical_plan::DFSchema;
+use crate::physical_plan::expressions::cast;
 
 /// Returns `expressions` coerced to types compatible with
 /// `signature`, if possible.
@@ -202,9 +202,9 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logical_plan::DFField;
     use crate::physical_plan::expressions::col;
     use arrow::datatypes::DataType;
-    use crate::logical_plan::DFField;
 
     #[test]
     fn test_maybe_data_types() -> Result<()> {
@@ -251,9 +251,12 @@ mod tests {
             DFSchema::new(
                 t.iter()
                     .enumerate()
-                    .map(|(i, t)| DFField::new(None, &*format!("c{}", i), t.clone(), true))
+                    .map(|(i, t)| {
+                        DFField::new(None, &*format!("c{}", i), t.clone(), true)
+                    })
                     .collect(),
-            ).unwrap()
+            )
+            .unwrap()
         };
 
         // create a vector of expressions

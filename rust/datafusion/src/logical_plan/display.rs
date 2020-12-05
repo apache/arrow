@@ -17,8 +17,8 @@
 //! This module provides logic for displaying LogicalPlans in various styles
 
 use super::{LogicalPlan, PlanVisitor};
-use std::fmt;
 use crate::logical_plan::DFSchema;
+use std::fmt;
 
 /// Formats plans with a single line per node. For example:
 ///
@@ -241,10 +241,10 @@ impl<'a, 'b> PlanVisitor for GraphvizVisitor<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
-    use arrow::datatypes::DataType;
     use super::*;
     use crate::error::Result;
     use crate::logical_plan::DFField;
+    use arrow::datatypes::DataType;
 
     #[test]
     fn test_display_empty_schema() -> Result<()> {

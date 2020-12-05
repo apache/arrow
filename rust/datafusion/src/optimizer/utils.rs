@@ -23,7 +23,9 @@ use arrow::datatypes::Schema;
 
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan, DFSchemaRef, DFSchema};
+use crate::logical_plan::{
+    DFSchema, DFSchemaRef, Expr, LogicalPlan, PlanType, StringifiedPlan,
+};
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
 

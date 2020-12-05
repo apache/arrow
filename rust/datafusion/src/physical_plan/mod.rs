@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::{any::Any, pin::Pin};
 
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::{LogicalPlan, DFSchemaRef, DFSchema};
+use crate::logical_plan::{DFSchema, DFSchemaRef, LogicalPlan};
 use crate::{error::Result, scalar::ScalarValue};
 use arrow::datatypes::DataType;
 use arrow::error::Result as ArrowResult;
@@ -142,7 +142,11 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
     /// Determine whether this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &DFSchema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
-    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue>;
+    fn evaluate(
+        &self,
+        batch: &RecordBatch,
+        input_schema: &DFSchema,
+    ) -> Result<ColumnarValue>;
 }
 
 /// An aggregate expression that:

@@ -19,7 +19,7 @@
 //! loaded into memory
 
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{LogicalPlan, DFSchemaRef, DFSchema, DFField};
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::Schema;
@@ -103,7 +103,10 @@ fn get_projected_schema(
         projected_fields.push(DFField::from(schema.fields()[*i].clone()));
     }
 
-    Ok((projection, DFSchemaRef::new(DFSchema::new(projected_fields)?)))
+    Ok((
+        projection,
+        DFSchemaRef::new(DFSchema::new(projected_fields)?),
+    ))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -337,7 +340,7 @@ fn optimize_plan(
         } => {
             let schema = schema.to_arrow_schema();
             optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &schema)
-        },
+        }
         // all other nodes: Add any additional columns used by
         // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }

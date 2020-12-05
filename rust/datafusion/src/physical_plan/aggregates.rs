@@ -32,12 +32,12 @@ use super::{
     Accumulator, AggregateExpr, PhysicalExpr,
 };
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::DFSchema;
 use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
 use arrow::datatypes::DataType;
 use expressions::{avg_return_type, sum_return_type};
 use std::{fmt, str::FromStr, sync::Arc};
-use crate::logical_plan::DFSchema;
 
 /// the implementation of an aggregate function
 pub type AccumulatorFunctionImplementation =

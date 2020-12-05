@@ -34,7 +34,9 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{DFSchema, FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource, DFSchemaRef};
+use crate::logical_plan::{
+    DFSchema, DFSchemaRef, FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
+};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -405,8 +407,11 @@ impl ExecutionContext {
             let filename = format!("part-{}.parquet", i);
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
-            let mut writer =
-                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema().to_arrow_schema(), None)?;
+            let mut writer = ArrowWriter::try_new(
+                file.try_clone().unwrap(),
+                plan.schema().to_arrow_schema(),
+                None,
+            )?;
             let stream = plan.execute(i).await?;
 
             stream
@@ -731,7 +736,10 @@ mod tests {
         let plan = ctx.optimize(&plan)?;
         let physical_plan = ctx.create_physical_plan(&Arc::new(plan))?;
         assert_eq!(
-            physical_plan.schema().field_with_unqualified_name("c1")?.is_nullable(),
+            physical_plan
+                .schema()
+                .field_with_unqualified_name("c1")?
+                .is_nullable(),
             false
         );
         Ok(())

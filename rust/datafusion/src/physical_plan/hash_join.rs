@@ -42,8 +42,8 @@ use super::{
     group_scalar::GroupByScalar, ExecutionPlan, Partitioning, RecordBatchStream,
     SendableRecordBatchStream,
 };
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use ahash::RandomState;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 // An index of (batch, row) uniquely identifying a row in a part.
 type Index = (usize, usize);
@@ -87,12 +87,7 @@ impl HashJoinExec {
         let right_schema = right.schema();
         check_join_is_valid(&left_schema, &right_schema, &on)?;
 
-        let schema = build_join_schema(
-            &left_schema,
-            &right_schema,
-            on,
-            &join_type,
-        )?;
+        let schema = build_join_schema(&left_schema, &right_schema, on, &join_type)?;
 
         let on = on
             .iter()
@@ -205,8 +200,11 @@ fn update_hash(
     // evaluate the keys
     let keys_values = on
         .iter()
-        .map(|name| Ok(col(name).evaluate(batch, input_schema
-        )?.into_array(batch.num_rows())))
+        .map(|name| {
+            Ok(col(name)
+                .evaluate(batch, input_schema)?
+                .into_array(batch.num_rows()))
+        })
         .collect::<Result<Vec<_>>>()?;
 
     let mut key = Vec::with_capacity(keys_values.len());

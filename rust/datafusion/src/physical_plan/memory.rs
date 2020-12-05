@@ -27,9 +27,9 @@ use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use async_trait::async_trait;
 use futures::Stream;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for reading in-memory batches of data
 #[derive(Debug)]

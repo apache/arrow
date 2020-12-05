@@ -18,8 +18,8 @@
 //! Functionality used both on logical and physical plans
 
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::{DFField, DFSchema};
 use std::collections::HashSet;
-use crate::logical_plan::{DFSchema, DFField};
 
 /// All valid types of joins.
 #[derive(Clone, Debug)]

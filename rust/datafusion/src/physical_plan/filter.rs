@@ -34,8 +34,8 @@ use arrow::record_batch::RecordBatch;
 
 use async_trait::async_trait;
 
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use futures::stream::{Stream, StreamExt};
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// FilterExec evaluates a boolean predicate against all input batches to determine which rows to
 /// include in its output batches.
@@ -191,8 +191,12 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
 
         let predicate: Arc<dyn PhysicalExpr> = binary(
             binary(

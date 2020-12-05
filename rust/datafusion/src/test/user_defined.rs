@@ -23,7 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode, DFSchemaRef};
+use crate::logical_plan::{DFSchemaRef, Expr, LogicalPlan, UserDefinedLogicalNode};
 
 /// Create a new user defined plan node, for testing
 pub fn new(input: LogicalPlan) -> LogicalPlan {

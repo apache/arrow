@@ -20,7 +20,7 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
-use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder, DFSchemaRef, DFSchema};
+use crate::logical_plan::{DFSchema, DFSchemaRef, LogicalPlan, LogicalPlanBuilder};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array::{self, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema};

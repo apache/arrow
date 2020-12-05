@@ -20,10 +20,7 @@
 use fmt::{Debug, Formatter};
 use std::fmt;
 
-use arrow::{
-    datatypes::Field,
-    datatypes::DataType,
-};
+use arrow::{datatypes::DataType, datatypes::Field};
 
 use crate::physical_plan::PhysicalExpr;
 use crate::{error::Result, logical_plan::Expr};
@@ -36,8 +33,8 @@ use super::{
     type_coercion::coerce,
     Accumulator, AggregateExpr,
 };
-use std::sync::Arc;
 use crate::logical_plan::DFSchema;
+use std::sync::Arc;
 
 /// Logical representation of a user-defined aggregate function (UDAF)
 /// A UDAF is different from a UDF in that it is stateful across batches.

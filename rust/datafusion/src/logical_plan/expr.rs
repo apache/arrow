@@ -23,19 +23,16 @@ use std::fmt;
 use std::sync::Arc;
 
 use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
-use arrow::{
-    compute::can_cast_types,
-    datatypes::DataType,
-};
+use arrow::{compute::can_cast_types, datatypes::DataType};
 
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::{DFField, DFSchema};
 use crate::physical_plan::{
     aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
 };
 use crate::{physical_plan::udaf::AggregateUDF, scalar::ScalarValue};
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 use std::collections::HashSet;
-use crate::logical_plan::{DFSchema, DFField};
 
 /// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
 /// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
@@ -163,7 +160,10 @@ impl Expr {
     pub fn get_type(&self, schema: &DFSchema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(name) => Ok(schema.field_with_unqualified_name(name)?.data_type().clone()),
+            Expr::Column(name) => Ok(schema
+                .field_with_unqualified_name(name)?
+                .data_type()
+                .clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
@@ -224,7 +224,9 @@ impl Expr {
     pub fn nullable(&self, input_schema: &DFSchema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
-            Expr::Column(name) => Ok(input_schema.field_with_unqualified_name(name)?.is_nullable()),
+            Expr::Column(name) => Ok(input_schema
+                .field_with_unqualified_name(name)?
+                .is_nullable()),
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Case {
@@ -863,7 +865,10 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &DFSchema) -> Result<Vec<DFField>> {
+pub fn exprlist_to_fields(
+    expr: &[Expr],
+    input_schema: &DFSchema,
+) -> Result<Vec<DFField>> {
     expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 

@@ -15,8 +15,8 @@
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
 use crate::error::Result;
-use crate::logical_plan::{Expr, DFSchema};
 use crate::logical_plan::{and, LogicalPlan};
+use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use std::{

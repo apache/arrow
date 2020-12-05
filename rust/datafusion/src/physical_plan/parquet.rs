@@ -36,9 +36,9 @@ use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use async_trait::async_trait;
 use futures::stream::Stream;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]

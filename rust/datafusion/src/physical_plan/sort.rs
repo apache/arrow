@@ -38,8 +38,8 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
-use async_trait::async_trait;
 use crate::logical_plan::DFSchemaRef;
+use async_trait::async_trait;
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -262,8 +262,12 @@ mod tests {
         let schema = test::aggr_test_schema();
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
 
         let sort_exec = Arc::new(SortExec::try_new(
             vec![

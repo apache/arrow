@@ -25,6 +25,7 @@ use std::task::{Context, Poll};
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
 
+use crate::logical_plan::DFSchemaRef;
 use array::{
     BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
     Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
@@ -38,7 +39,6 @@ use arrow::{
     datatypes::Schema,
 };
 use futures::{Stream, TryStreamExt};
-use crate::logical_plan::DFSchemaRef;
 
 /// Stream of record batches
 pub struct SizedRecordBatchStream {

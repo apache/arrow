@@ -22,7 +22,10 @@ use std::sync::Arc;
 use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode, DFSchema};
+use crate::logical_plan::{
+    DFSchema, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    UserDefinedLogicalNode,
+};
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
@@ -192,7 +195,11 @@ impl DefaultPhysicalPlanner {
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_physical_expr(e, input_schema.as_ref(), &ctx_state),
+                            self.create_physical_expr(
+                                e,
+                                input_schema.as_ref(),
+                                &ctx_state,
+                            ),
                             e.name(&input_schema),
                         ))
                     })
@@ -311,10 +318,7 @@ impl DefaultPhysicalPlanner {
             LogicalPlan::EmptyRelation {
                 produce_one_row,
                 schema,
-            } => Ok(Arc::new(EmptyExec::new(
-                *produce_one_row,
-                schema.clone(),
-            ))),
+            } => Ok(Arc::new(EmptyExec::new(*produce_one_row, schema.clone()))),
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
                 let input = self.create_physical_plan(input, ctx_state)?;
@@ -364,7 +368,10 @@ impl DefaultPhysicalPlanner {
                         format!("{:#?}", input),
                     ));
                 }
-                Ok(Arc::new(ExplainExec::new(schema.to_arrow_schema(), stringified_plans)))
+                Ok(Arc::new(ExplainExec::new(
+                    schema.to_arrow_schema(),
+                    stringified_plans,
+                )))
             }
             LogicalPlan::Extension { node } => {
                 let inputs = node
@@ -629,6 +636,7 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logical_plan::{DFField, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
@@ -639,7 +647,6 @@ mod tests {
     use async_trait::async_trait;
     use fmt::Debug;
     use std::{any::Any, collections::HashMap, fmt};
-    use crate::logical_plan::{DFSchemaRef, DFField};
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
@@ -683,7 +690,8 @@ mod tests {
 
     #[test]
     fn test_create_not() -> Result<()> {
-        let schema = DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Boolean, true)]));
+        let schema =
+            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Boolean, true)]));
 
         let planner = DefaultPhysicalPlanner::default();
 
@@ -807,12 +815,10 @@ mod tests {
     impl Default for NoOpExtensionNode {
         fn default() -> Self {
             Self {
-                schema: DFSchemaRef::new(DFSchema::new(vec![DFField::new(
-                    None,
-                    "a",
-                    DataType::Int32,
-                    false,
-                )]).unwrap()),
+                schema: DFSchemaRef::new(
+                    DFSchema::new(vec![DFField::new(None, "a", DataType::Int32, false)])
+                        .unwrap(),
+                ),
             }
         }
     }
@@ -902,12 +908,10 @@ mod tests {
             _ctx_state: &ExecutionContextState,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             Ok(Arc::new(NoOpExecutionPlan {
-                schema: DFSchemaRef::new(DFSchema::new(vec![DFField::new(
-                    None,
-                    "b",
-                    DataType::Int32,
-                    false,
-                )]).unwrap()),
+                schema: DFSchemaRef::new(
+                    DFSchema::new(vec![DFField::new(None, "b", DataType::Int32, false)])
+                        .unwrap(),
+                ),
             }))
         }
     }

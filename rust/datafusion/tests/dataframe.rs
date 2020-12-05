@@ -24,7 +24,9 @@ use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder, DFSchemaRef, DFSchema};
+use datafusion::logical_plan::{
+    col, DFSchema, DFSchemaRef, LogicalPlan, LogicalPlanBuilder,
+};
 use datafusion::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
 };
@@ -101,9 +103,10 @@ impl ExecutionPlan for CustomExecutionPlan {
         let schema = DFSchemaRef::new(DFSchema::from(schema.as_ref()));
         match &self.projection {
             None => schema,
-            Some(p) => DFSchemaRef::new(DFSchema::new(
-                p.iter().map(|i| schema.field(*i).clone()).collect(),
-            ).unwrap()),
+            Some(p) => DFSchemaRef::new(
+                DFSchema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
+                    .unwrap(),
+            ),
         }
     }
     fn output_partitioning(&self) -> Partitioning {

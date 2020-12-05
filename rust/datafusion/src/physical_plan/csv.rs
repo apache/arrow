@@ -33,8 +33,8 @@ use arrow::record_batch::RecordBatch;
 use futures::Stream;
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use async_trait::async_trait;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -321,8 +321,12 @@ mod tests {
         let testdata = arrow_testdata_path();
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());

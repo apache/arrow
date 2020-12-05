@@ -34,8 +34,8 @@ use arrow::record_batch::RecordBatch;
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 
-use async_trait::async_trait;
 use crate::logical_plan::DFSchemaRef;
+use async_trait::async_trait;
 
 /// Limit execution plan
 #[derive(Debug)]
@@ -252,8 +252,12 @@ mod tests {
         let path =
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
 
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);

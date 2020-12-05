@@ -49,8 +49,8 @@ use super::{
 use ahash::RandomState;
 use std::collections::HashMap;
 
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use async_trait::async_trait;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Hash aggregate modes
 #[derive(Debug, Copy, Clone)]
@@ -513,8 +513,9 @@ async fn compute_hash_aggregate(
     // future is ready when all batches are computed
     while let Some(batch) = input.next().await {
         let batch = batch?;
-        accumulators = aggregate_batch(&mode, &batch, &input.schema(), accumulators, &expressions)
-            .map_err(DataFusionError::into_arrow_external_error)?;
+        accumulators =
+            aggregate_batch(&mode, &batch, &input.schema(), accumulators, &expressions)
+                .map_err(DataFusionError::into_arrow_external_error)?;
     }
 
     // 2. convert values to a record batch
@@ -792,16 +793,19 @@ mod tests {
     use crate::physical_plan::common;
     use crate::physical_plan::expressions::{col, Avg};
 
-    use crate::physical_plan::merge::MergeExec;
     use crate::logical_plan::{DFField, DFSchema};
+    use crate::physical_plan::merge::MergeExec;
 
     /// some mock data to aggregates
     fn some_data() -> (DFSchemaRef, Vec<RecordBatch>) {
         // define a schema.
-        let schema = DFSchemaRef::new(DFSchema::new(vec![
-            DFField::new(None, "a", DataType::UInt32, false),
-            DFField::new(None, "b", DataType::Float64, false),
-        ]).unwrap());
+        let schema = DFSchemaRef::new(
+            DFSchema::new(vec![
+                DFField::new(None, "a", DataType::UInt32, false),
+                DFField::new(None, "b", DataType::Float64, false),
+            ])
+            .unwrap(),
+        );
 
         // define data.
         (

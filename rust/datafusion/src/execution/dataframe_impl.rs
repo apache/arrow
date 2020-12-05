@@ -23,7 +23,9 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
-use crate::logical_plan::{col, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder, DFSchema};
+use crate::logical_plan::{
+    col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
+};
 
 use async_trait::async_trait;
 
@@ -49,11 +51,7 @@ impl DataFrame for DataFrameImpl {
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>> {
         let fields = columns
             .iter()
-            .map(|name| {
-                self.plan
-                    .schema()
-                    .field_with_unqualified_name(name)
-            })
+            .map(|name| self.plan.schema().field_with_unqualified_name(name))
             .collect::<Result<Vec<_>>>()?;
         let expr = fields.iter().map(|f| col(f.name())).collect();
         self.select(expr)

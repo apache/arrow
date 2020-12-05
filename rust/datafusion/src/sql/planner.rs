@@ -21,7 +21,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
-use crate::logical_plan::{and, lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan, DFSchemaRef, DFSchema};
+use crate::logical_plan::{
+    and, lit, DFSchema, DFSchemaRef, Expr, LogicalPlan, LogicalPlanBuilder, Operator,
+    PlanType, StringifiedPlan,
+};
 use crate::scalar::ScalarValue;
 use crate::{
     error::{DataFusionError, Result},

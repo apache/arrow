@@ -34,9 +34,9 @@ use arrow::record_batch::RecordBatch;
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for a projection
 #[derive(Debug)]
@@ -155,7 +155,12 @@ impl Stream for ProjectionStream {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => Some(batch_project(&batch, &self.input.schema(), &self.expr, &self.schema)),
+            Some(Ok(batch)) => Some(batch_project(
+                &batch,
+                &self.input.schema(),
+                &self.expr,
+                &self.schema,
+            )),
             other => other,
         })
     }
@@ -189,8 +194,12 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
+            None,
+            1024,
+        )?;
 
         // pick column c1 and name it column c1 in the output schema
         let projection =

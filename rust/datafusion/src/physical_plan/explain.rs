@@ -30,8 +30,8 @@ use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatc
 use crate::physical_plan::Partitioning;
 
 use super::SendableRecordBatchStream;
+use crate::logical_plan::{DFSchema, DFSchemaRef};
 use async_trait::async_trait;
-use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes

@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
 
-use arrow::datatypes::{Field, Schema, DataType, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 /// A reference-counted reference to a `DFSchema`.
 pub type DFSchemaRef = Arc<DFSchema>;
@@ -38,9 +38,7 @@ pub struct DFSchema {
 impl DFSchema {
     /// Creates an empty `DFSchema`
     pub fn empty() -> Self {
-        Self {
-            fields: vec![],
-        }
+        Self { fields: vec![] }
     }
 
     /// Create a new `DFSchema`
@@ -136,7 +134,7 @@ impl DFSchema {
     pub fn index_of(&self, name: &str) -> Result<usize> {
         for i in 0..self.fields.len() {
             if self.fields[i].name() == name {
-                return Ok(i)
+                return Ok(i);
             }
         }
         Err(DataFusionError::Plan(format!("No field named '{}'", name)))
@@ -200,7 +198,9 @@ impl DFSchema {
 
     /// Convert to an Arrow schema
     pub fn to_arrow_schema(&self) -> SchemaRef {
-        SchemaRef::new(Schema::new(self.fields.iter().map(|f| f.field.clone()).collect()))
+        SchemaRef::new(Schema::new(
+            self.fields.iter().map(|f| f.field.clone()).collect(),
+        ))
     }
 
     /// Return a string containing a comma-separated list of fields in the schema
@@ -222,10 +222,15 @@ pub struct DFField {
 
 impl DFField {
     /// Creates a new `DFField`
-    pub fn new(qualifier: Option<&str>, name: &str, data_type: DataType, nullable: bool) -> Self {
+    pub fn new(
+        qualifier: Option<&str>,
+        name: &str,
+        data_type: DataType,
+        nullable: bool,
+    ) -> Self {
         DFField {
             qualifier: qualifier.map(|s| s.to_owned()),
-            field: Field::new(name, data_type, nullable)
+            field: Field::new(name, data_type, nullable),
         }
     }
 

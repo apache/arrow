@@ -17,8 +17,8 @@
 
 //! This module defines the interface for logical nodes
 use super::{Expr, LogicalPlan};
-use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 use crate::logical_plan::DFSchemaRef;
+use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
 /// This defines the interface for `LogicalPlan` nodes that can be
 /// used to extend DataFusion with custom relational operators.
