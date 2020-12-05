@@ -52,9 +52,32 @@ You can find more details about each crate on their respective READMEs.
 
 ## Developer's guide to Arrow Rust
 
-Before running tests and examples, it is necessary to set up the local development environment.
+### How to compile
+
+This is a standard cargo project with workspaces. To build it, you need to have `rust` and `cargo`:
+
+```bash
+cd /rust && cargo build
+```
+
+You can also use rust's official docker image:
+
+```bash
+docker run --rm -v $(pwd)/rust:/rust -it rust /bin/bash -c "cd /rust && cargo build"
+```
+
+The command above assumes that are in the root directory of the project, not in the same
+directory as this README.md.
+
+You can also compile specific workspaces,
+
+```bash
+cd /rust/arrow && cargo build
+```
 
 ### Git Submodules
+
+Before running tests and examples, it is necessary to set up the local development environment.
 
 The tests rely on test data that is contained in git submodules.
 

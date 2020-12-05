@@ -33,7 +33,7 @@ jobs:
 
   # build the library, a compilation step used by multiple steps below
   linux-build-lib:
-    name: Linux ${{ matrix.arch }} Rust ${{ matrix.rust }} build libraries
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} build libraries
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -71,7 +71,7 @@ jobs:
 
   # test the crate
   linux-test:
-    name: Linux ${{ matrix.arch }} Rust ${{ matrix.rust }} test workspace
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test workspace
     needs: [linux-build-lib]
     runs-on: ubuntu-latest
     strategy:
@@ -117,7 +117,7 @@ jobs:
 
   # test the --features "simd" of the arrow crate
   linux-test-simd:
-    name: Linux ${{ matrix.arch }} Rust ${{ matrix.rust }} test arrow simd
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow simd
     needs: [linux-build-lib]
     runs-on: ubuntu-latest
     strategy:
@@ -158,7 +158,7 @@ jobs:
 
   # test the arrow crate with stable rust
   linux-test-stable:
-    name: Linux ${{ matrix.arch }} Rust ${{ matrix.rust }} test arrow
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -201,7 +201,7 @@ jobs:
           cargo run --example read_csv_infer_schema
 
   windows-and-macos:
-    name: ${{ matrix.os }} ${{ matrix.rust }} Rust ${{ matrix.rust }}
+    name: ${{ matrix.os }} Rust ${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
