@@ -82,7 +82,7 @@ impl LogicalPlanBuilder {
             has_header,
             delimiter: Some(delimiter),
             projection,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
         }))
     }
 
@@ -101,7 +101,7 @@ impl LogicalPlanBuilder {
             path: path.to_owned(),
             schema,
             projection,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
         }))
     }
 
@@ -123,7 +123,7 @@ impl LogicalPlanBuilder {
             schema_name: schema_name.to_owned(),
             source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
             projection,
         }))
     }
@@ -254,7 +254,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)),
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
         }))
     }
 

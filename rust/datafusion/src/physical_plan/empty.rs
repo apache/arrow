@@ -110,7 +110,7 @@ impl ExecutionPlan for EmptyExec {
 
         Ok(Box::pin(MemoryStream::try_new(
             data,
-            self.schema.to_arrow_schema(),
+            self.schema.clone(),
             None,
         )?))
     }

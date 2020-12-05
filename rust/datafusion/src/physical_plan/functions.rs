@@ -391,7 +391,7 @@ mod tests {
     fn generic_test_math(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema =
-            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Int32, false)]));
+            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Int32, false)]))?;
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         let arg = lit(value);
@@ -431,7 +431,7 @@ mod tests {
     fn test_concat(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         // concat(value, value)
@@ -482,7 +482,7 @@ mod tests {
     ) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         let expr = create_physical_expr(

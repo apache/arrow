@@ -128,7 +128,7 @@ pub struct CsvExec {
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Schema after the projection has been applied
-    projected_schema: SchemaRef,
+    projected_schema: DFSchemaRef,
     /// Batch size
     batch_size: usize,
 }
@@ -167,7 +167,7 @@ impl CsvExec {
             delimiter: Some(options.delimiter),
             file_extension,
             projection,
-            projected_schema: Arc::new(projected_schema),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
             batch_size,
         })
     }
@@ -195,7 +195,7 @@ impl ExecutionPlan for CsvExec {
 
     /// Get the schema for this execution plan
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.projected_schema))
+        self.projected_schema.clone()
     }
 
     /// Get the output partitioning of this plan
@@ -238,6 +238,8 @@ impl ExecutionPlan for CsvExec {
 struct CsvStream {
     /// Arrow CSV reader
     reader: csv::Reader<File>,
+    /// DataFusion schema
+    schema: DFSchemaRef,
 }
 
 impl CsvStream {
@@ -253,7 +255,7 @@ impl CsvStream {
         let file = File::open(filename)?;
         let reader = csv::Reader::new(
             file,
-            schema,
+            schema.clone(),
             has_header,
             delimiter,
             batch_size,
@@ -261,7 +263,10 @@ impl CsvStream {
             projection.clone(),
         );
 
-        Ok(Self { reader })
+        Ok(Self {
+            reader,
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+        })
     }
 }
 
@@ -279,7 +284,7 @@ impl Stream for CsvStream {
 impl RecordBatchStream for CsvStream {
     /// Get the schema
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.reader.schema()))
+        self.schema.clone()
     }
 }
 

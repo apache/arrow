@@ -101,7 +101,7 @@ fn create_schema(
         }
     }
 
-    Ok(DFSchema::from(&Schema::new(fields)))
+    DFSchema::from(&Schema::new(fields))
 }
 
 impl HashAggregateExec {

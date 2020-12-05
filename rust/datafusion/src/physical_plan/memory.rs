@@ -37,7 +37,7 @@ pub struct MemoryExec {
     /// The partitions to query
     partitions: Vec<Vec<RecordBatch>>,
     /// Schema representing the data after the optional projection is applied
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     /// Optional projection
     projection: Option<Vec<usize>>,
 }
@@ -51,7 +51,7 @@ impl ExecutionPlan for MemoryExec {
 
     /// Get the schema for this execution plan
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.schema))
+        self.schema.clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -92,7 +92,7 @@ impl MemoryExec {
     ) -> Result<Self> {
         Ok(Self {
             partitions: partitions.clone(),
-            schema,
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
             projection,
         })
     }
@@ -103,7 +103,7 @@ pub(crate) struct MemoryStream {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Index into the data
@@ -114,7 +114,7 @@ impl MemoryStream {
     /// Create an iterator for a vector of record batches
     pub fn try_new(
         data: Vec<RecordBatch>,
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         Ok(Self {
@@ -139,7 +139,7 @@ impl Stream for MemoryStream {
             // apply projection
             match &self.projection {
                 Some(columns) => Some(RecordBatch::try_new(
-                    self.schema.clone(),
+                    self.schema.to_arrow_schema(),
                     columns.iter().map(|i| batch.column(*i).clone()).collect(),
                 )),
                 None => Some(Ok(batch.clone())),
@@ -157,6 +157,6 @@ impl Stream for MemoryStream {
 impl RecordBatchStream for MemoryStream {
     /// Get the schema
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.schema))
+        self.schema.clone()
     }
 }

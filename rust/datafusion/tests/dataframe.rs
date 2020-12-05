@@ -73,7 +73,7 @@ macro_rules! TEST_CUSTOM_RECORD_BATCH {
 impl RecordBatchStream for TestCustomRecordBatchStream {
     fn schema(&self) -> DFSchemaRef {
         let schema = TEST_CUSTOM_SCHEMA_REF!();
-        DFSchemaRef::new(DFSchema::from(schema.as_ref()))
+        DFSchemaRef::new(DFSchema::from(schema.as_ref()).unwrap())
     }
 }
 
@@ -100,7 +100,7 @@ impl ExecutionPlan for CustomExecutionPlan {
     }
     fn schema(&self) -> DFSchemaRef {
         let schema = TEST_CUSTOM_SCHEMA_REF!();
-        let schema = DFSchemaRef::new(DFSchema::from(schema.as_ref()));
+        let schema = DFSchemaRef::new(DFSchema::from(schema.as_ref()).unwrap());
         match &self.projection {
             None => schema,
             Some(p) => DFSchemaRef::new(

@@ -39,7 +39,7 @@ use async_trait::async_trait;
 #[derive(Debug, Clone)]
 pub struct ExplainExec {
     /// The schema that this exec plan node outputs
-    schema: SchemaRef,
+    schema: DFSchemaRef,
 
     /// The strings to be printed
     stringified_plans: Vec<StringifiedPlan>,
@@ -47,11 +47,14 @@ pub struct ExplainExec {
 
 impl ExplainExec {
     /// Create a new ExplainExec
-    pub fn new(schema: SchemaRef, stringified_plans: Vec<StringifiedPlan>) -> Self {
-        ExplainExec {
-            schema,
+    pub fn new(
+        schema: SchemaRef,
+        stringified_plans: Vec<StringifiedPlan>,
+    ) -> Result<Self> {
+        Ok(ExplainExec {
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
             stringified_plans,
-        }
+        })
     }
 }
 
@@ -63,7 +66,7 @@ impl ExecutionPlan for ExplainExec {
     }
 
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.schema))
+        self.schema.clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -107,7 +110,7 @@ impl ExecutionPlan for ExplainExec {
         }
 
         let record_batch = RecordBatch::try_new(
-            self.schema.clone(),
+            self.schema.to_arrow_schema(),
             vec![
                 Arc::new(type_builder.finish()),
                 Arc::new(plan_builder.finish()),
@@ -115,7 +118,7 @@ impl ExecutionPlan for ExplainExec {
         )?;
 
         Ok(Box::pin(SizedRecordBatchStream::new(
-            DFSchemaRef::new(DFSchema::from(&self.schema.clone())),
+            self.schema.clone(),
             vec![Arc::new(record_batch)],
         )))
     }

@@ -72,7 +72,7 @@ impl ProjectionExec {
 
         Ok(Self {
             expr,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)),
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
             input: input.clone(),
         })
     }

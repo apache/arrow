@@ -2407,7 +2407,7 @@ mod tests {
             Arc::new(schema.clone()),
             vec![Arc::new(a), Arc::new(b)],
         )?;
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
@@ -2446,7 +2446,7 @@ mod tests {
             binary_simple(col("a"), Operator::Eq, col("b")),
         );
         assert_eq!("a < b OR a = b", format!("{}", expr));
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
         assert_eq!(result.len(), 5);
 
@@ -2473,7 +2473,7 @@ mod tests {
         let literal_expr = lit(ScalarValue::from(42i32));
         assert_eq!("42", format!("{}", literal_expr));
 
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let literal_array = literal_expr
             .evaluate(&batch, &schema)?
             .into_array(batch.num_rows());
@@ -2509,7 +2509,7 @@ mod tests {
             )?;
 
             // verify that we can construct the expression
-            let schema = DFSchema::from(&schema);
+            let schema = DFSchema::from(&schema)?;
             let expression = binary(col("a"), $OP, col("b"), &schema)?;
 
             // verify that the expression's type is correct
@@ -2665,7 +2665,7 @@ mod tests {
         // Test 1: dict = str
 
         // verify that we can construct the expression
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let expression = binary(col("dict"), Operator::Eq, col("str"), &schema)?;
         assert_eq!(expression.data_type(&schema)?, DataType::Boolean);
 
@@ -2735,7 +2735,7 @@ mod tests {
                 RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
             // verify that we can construct the expression
-            let schema = DFSchema::from(&schema);
+            let schema = DFSchema::from(&schema)?;
             let expression = cast(col("a"), &schema, $TYPE)?;
 
             // verify that its display is correct
@@ -2816,7 +2816,7 @@ mod tests {
     fn invalid_cast() -> Result<()> {
         // Ensure a useful error happens at plan time if invalid casts are used
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let result = cast(col("a"), &schema, DataType::LargeBinary);
         result.expect_err("expected Invalid CAST");
         Ok(())
@@ -2828,7 +2828,7 @@ mod tests {
             let schema = Schema::new(vec![Field::new("a", $DATATYPE, false)]);
 
             let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![$ARRAY])?;
-            let schema = DFSchema::from(&schema);
+            let schema = DFSchema::from(&schema)?;
 
             let agg =
                 Arc::new(<$OP>::new(col("a"), "bla".to_string(), $EXPECTED_DATATYPE));
@@ -3469,7 +3469,7 @@ mod tests {
     ) -> Result<()> {
         let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema.clone(), data)?;
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let result = arithmetic_op
             .evaluate(&batch, &schema)?
             .into_array(batch.num_rows());
@@ -3507,7 +3507,7 @@ mod tests {
         let batch =
             RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
 
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let expr = not(col("a"), &schema)?;
         assert_eq!(expr.data_type(&schema)?, DataType::Boolean);
         assert_eq!(expr.nullable(&schema)?, true);
@@ -3526,7 +3526,7 @@ mod tests {
     #[test]
     fn neg_op_not_null() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let expr = not(col("a"), &schema);
         assert!(expr.is_err());
 
@@ -3541,7 +3541,7 @@ mod tests {
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
         let result = result
             .as_any()
@@ -3563,7 +3563,7 @@ mod tests {
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
-        let schema = DFSchema::from(&schema);
+        let schema = DFSchema::from(&schema)?;
         let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
         let result = result
             .as_any()
@@ -3588,7 +3588,7 @@ mod tests {
         let then2 = lit(ScalarValue::Int32(Some(456)));
 
         let expr = case(Some(col("a")), &[(when1, then1), (when2, then2)], None)?;
-        let schema = DFSchema::from(&batch.schema());
+        let schema = DFSchema::from(&batch.schema())?;
         let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
         let result = result
             .as_any()
@@ -3618,7 +3618,7 @@ mod tests {
             &[(when1, then1), (when2, then2)],
             Some(else_value),
         )?;
-        let schema = DFSchema::from(&batch.schema());
+        let schema = DFSchema::from(&batch.schema())?;
         let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
         let result = result
             .as_any()
@@ -3636,7 +3636,7 @@ mod tests {
     #[test]
     fn case_without_expr() -> Result<()> {
         let batch = case_test_batch()?;
-        let schema = DFSchema::from(&batch.schema());
+        let schema = DFSchema::from(&batch.schema())?;
 
         // CASE WHEN a = 'foo' THEN 123 WHEN a = 'bar' THEN 456 END
         let when1 = binary(
@@ -3671,7 +3671,7 @@ mod tests {
     #[test]
     fn case_without_expr_else() -> Result<()> {
         let batch = case_test_batch()?;
-        let schema = DFSchema::from(&batch.schema());
+        let schema = DFSchema::from(&batch.schema())?;
 
         // CASE WHEN a = 'foo' THEN 123 WHEN a = 'bar' THEN 456 ELSE 999 END
         let when1 = binary(

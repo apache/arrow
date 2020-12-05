@@ -85,9 +85,9 @@ impl DFSchema {
     }
 
     /// Create a `DFSchema` from an Arrow schema
-    pub fn from(schema: &Schema) -> Self {
-        Self {
-            fields: schema
+    pub fn from(schema: &Schema) -> Result<Self> {
+        Self::new(
+            schema
                 .fields()
                 .iter()
                 .map(|f| DFField {
@@ -95,13 +95,13 @@ impl DFSchema {
                     qualifier: None,
                 })
                 .collect(),
-        }
+        )
     }
 
     /// Create a `DFSchema` from an Arrow schema
-    pub fn from_qualified(qualifier: &str, schema: &Schema) -> Self {
-        Self {
-            fields: schema
+    pub fn from_qualified(qualifier: &str, schema: &Schema) -> Result<Self> {
+        Self::new(
+            schema
                 .fields()
                 .iter()
                 .map(|f| DFField {
@@ -109,7 +109,7 @@ impl DFSchema {
                     qualifier: Some(qualifier.to_owned()),
                 })
                 .collect(),
-        }
+        )
     }
 
     /// Combine two schemas
@@ -302,21 +302,23 @@ mod tests {
     }
 
     #[test]
-    fn from_unqualified_schema() {
-        let schema = DFSchema::from(&test_schema_1());
+    fn from_unqualified_schema() -> Result<()> {
+        let schema = DFSchema::from(&test_schema_1())?;
         assert_eq!("c0, c1", schema.to_string());
+        Ok(())
     }
 
     #[test]
-    fn from_qualified_schema() {
-        let schema = DFSchema::from_qualified("t1", &test_schema_1());
+    fn from_qualified_schema() -> Result<()> {
+        let schema = DFSchema::from_qualified("t1", &test_schema_1())?;
         assert_eq!("t1.c0, t1.c1", schema.to_string());
+        Ok(())
     }
 
     #[test]
     fn join_qualified() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1());
-        let right = DFSchema::from_qualified("t2", &test_schema_1());
+        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::from_qualified("t2", &test_schema_1())?;
         let join = left.join(&right)?;
         assert_eq!("t1.c0, t1.c1, t2.c0, t2.c1", join.to_string());
         // test valid access
@@ -331,8 +333,8 @@ mod tests {
 
     #[test]
     fn join_qualified_duplicate() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1());
-        let right = DFSchema::from_qualified("t1", &test_schema_1());
+        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::from_qualified("t1", &test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
@@ -345,8 +347,8 @@ mod tests {
 
     #[test]
     fn join_unqualified_duplicate() -> Result<()> {
-        let left = DFSchema::from(&test_schema_1());
-        let right = DFSchema::from(&test_schema_1());
+        let left = DFSchema::from(&test_schema_1())?;
+        let right = DFSchema::from(&test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
@@ -359,8 +361,8 @@ mod tests {
 
     #[test]
     fn join_mixed() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1());
-        let right = DFSchema::from(&test_schema_2());
+        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::from(&test_schema_2())?;
         let join = left.join(&right)?;
         assert_eq!("t1.c0, t1.c1, c100, c101", join.to_string());
         // test valid access
@@ -377,8 +379,8 @@ mod tests {
 
     #[test]
     fn join_mixed_duplicate() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1());
-        let right = DFSchema::from(&test_schema_1());
+        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::from(&test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(

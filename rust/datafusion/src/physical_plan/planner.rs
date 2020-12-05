@@ -371,7 +371,7 @@ impl DefaultPhysicalPlanner {
                 Ok(Arc::new(ExplainExec::new(
                     schema.to_arrow_schema(),
                     stringified_plans,
-                )))
+                )?))
             }
             LogicalPlan::Extension { node } => {
                 let inputs = node
@@ -691,7 +691,7 @@ mod tests {
     #[test]
     fn test_create_not() -> Result<()> {
         let schema =
-            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Boolean, true)]));
+            DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Boolean, true)]))?;
 
         let planner = DefaultPhysicalPlanner::default();
 

@@ -27,7 +27,7 @@ use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::datatypes::Schema;
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use parquet::file::reader::SerializedFileReader;
@@ -46,7 +46,7 @@ pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
     /// Schema after projection is applied
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
@@ -70,7 +70,7 @@ impl ParquetExec {
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
             let schema = arrow_reader.get_schema()?;
 
-            Ok(Self::new(filenames, schema, projection, batch_size))
+            Self::new(filenames, schema, projection, batch_size)
         }
     }
 
@@ -80,7 +80,7 @@ impl ParquetExec {
         schema: Schema,
         projection: Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Self {
+    ) -> Result<Self> {
         let projection = match projection {
             Some(p) => p,
             None => (0..schema.fields().len()).collect(),
@@ -93,12 +93,12 @@ impl ParquetExec {
                 .collect(),
         );
 
-        Self {
+        Ok(Self {
             filenames,
-            schema: Arc::new(projected_schema),
+            schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
             projection,
             batch_size,
-        }
+        })
     }
 }
 
@@ -110,7 +110,7 @@ impl ExecutionPlan for ParquetExec {
     }
 
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.schema))
+        self.schema.clone()
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -208,7 +208,7 @@ fn read_file(
 }
 
 struct ParquetStream {
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
 }
 
@@ -229,7 +229,7 @@ impl Stream for ParquetStream {
 
 impl RecordBatchStream for ParquetStream {
     fn schema(&self) -> DFSchemaRef {
-        DFSchemaRef::new(DFSchema::from(&self.schema))
+        self.schema.clone()
     }
 }
 

@@ -121,7 +121,7 @@ pub fn aggr_test_schema() -> DFSchemaRef {
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
     ]);
-    DFSchemaRef::new(DFSchema::from(&schema))
+    DFSchemaRef::new(DFSchema::from(&schema).unwrap())
 }
 
 /// Format a batch as csv

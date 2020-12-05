@@ -138,7 +138,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             FileType::NdJson => {}
         };
 
-        let schema = DFSchemaRef::new(DFSchema::from(&self.build_schema(&columns)?));
+        let schema = DFSchemaRef::new(DFSchema::from(&self.build_schema(&columns)?)?);
 
         Ok(LogicalPlan::CreateExternalTable {
             schema,
@@ -170,7 +170,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             verbose,
             plan,
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)),
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
         })
     }
 

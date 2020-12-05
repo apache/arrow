@@ -86,16 +86,20 @@ impl<'a, 'b> PlanVisitor for IndentVisitor<'a, 'b> {
 /// ```
 /// use arrow::datatypes::{Field, Schema, DataType};
 /// use datafusion::logical_plan::DFSchema;
+/// # use datafusion::error::Result;
 /// # use datafusion::logical_plan::display_schema;
+/// # fn main() -> Result<()> {
 /// let schema = DFSchema::from(&Schema::new(vec![
 ///     Field::new("id", DataType::Int32, false),
 ///     Field::new("first_name", DataType::Utf8, true),
-///  ]));
+///  ]))?;
 ///
 ///  assert_eq!(
 ///      "[id:Int32, first_name:Utf8;N]",
 ///      format!("{}", display_schema(&schema))
 ///  );
+/// # Ok(())
+/// # }
 /// ```
 pub fn display_schema<'a>(schema: &'a DFSchema) -> impl fmt::Display + 'a {
     struct Wrapper<'a>(&'a DFSchema);

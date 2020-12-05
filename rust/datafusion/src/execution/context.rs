@@ -214,7 +214,7 @@ impl ExecutionContext {
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: Arc::new(DFSchema::from(&csv.schema())),
+            projected_schema: Arc::new(DFSchema::from(&csv.schema())?),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -231,7 +231,7 @@ impl ExecutionContext {
             path: filename.to_string(),
             schema: parquet.schema(),
             projection: None,
-            projected_schema: Arc::new(DFSchema::from(&parquet.schema())),
+            projected_schema: Arc::new(DFSchema::from(&parquet.schema())?),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -250,7 +250,7 @@ impl ExecutionContext {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
             table_schema: schema.clone(),
-            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
             projection: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
@@ -302,7 +302,7 @@ impl ExecutionContext {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
-                    projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
+                    projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
@@ -764,7 +764,7 @@ mod tests {
             )?]],
             schema: schema.clone(),
             projection: None,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
         })
         .project(vec![col("b")])?
         .build()?;

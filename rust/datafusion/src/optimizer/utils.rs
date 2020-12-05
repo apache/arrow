@@ -118,7 +118,7 @@ pub fn optimize_explain(
         PlanType::OptimizedLogicalPlan { optimizer_name },
         format!("{:#?}", plan),
     ));
-    let schema = DFSchemaRef::new(DFSchema::from(schema));
+    let schema = DFSchemaRef::new(DFSchema::from(schema)?);
 
     Ok(LogicalPlan::Explain {
         verbose,
