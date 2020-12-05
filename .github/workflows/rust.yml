@@ -305,7 +305,7 @@ jobs:
         continue-on-error: true
         run: bash <(curl -s https://codecov.io/bash)
 
-  # test the arrow crate with stable rust
+  # test FFI against the C-Data interface exposed by pyarrow
   pyarrow-integration-test:
     name: Pyarrow C data interface integration test
     runs-on: ubuntu-latest
