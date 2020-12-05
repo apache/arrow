@@ -51,7 +51,6 @@ macro_rules! compare_op {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        buffer.set_null_bits(0, actual_capacity);
 
         let data = buffer.raw_data_mut();
         for i in 0..$left.len() {
@@ -83,7 +82,6 @@ macro_rules! compare_op_scalar {
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
 
-        buffer.set_null_bits(0, actual_capacity);
         let data = buffer.raw_data_mut();
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
