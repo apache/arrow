@@ -20,10 +20,10 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
-use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder, DFSchemaRef, DFSchema};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array::{self, Int32Array};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::env;
 use std::fs::File;
@@ -105,8 +105,8 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 }
 
 /// Get the schema for the aggregate_test_* csv files
-pub fn aggr_test_schema() -> SchemaRef {
-    Arc::new(Schema::new(vec![
+pub fn aggr_test_schema() -> DFSchemaRef {
+    let schema = Schema::new(vec![
         Field::new("c1", DataType::Utf8, false),
         Field::new("c2", DataType::UInt32, false),
         Field::new("c3", DataType::Int8, false),
@@ -120,7 +120,8 @@ pub fn aggr_test_schema() -> SchemaRef {
         Field::new("c11", DataType::Float32, false),
         Field::new("c12", DataType::Float64, false),
         Field::new("c13", DataType::Utf8, false),
-    ]))
+    ]);
+    DFSchemaRef::new(DFSchema::from(&schema))
 }
 
 /// Format a batch as csv
@@ -279,7 +280,7 @@ pub fn build_table_i32(
 }
 
 /// Returns the column names on the schema
-pub fn columns(schema: &Schema) -> Vec<String> {
+pub fn columns(schema: &DFSchema) -> Vec<String> {
     schema.fields().iter().map(|f| f.name().clone()).collect()
 }
 

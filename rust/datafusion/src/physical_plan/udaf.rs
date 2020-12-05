@@ -22,7 +22,7 @@ use std::fmt;
 
 use arrow::{
     datatypes::Field,
-    datatypes::{DataType, Schema},
+    datatypes::DataType,
 };
 
 use crate::physical_plan::PhysicalExpr;
@@ -37,6 +37,7 @@ use super::{
     Accumulator, AggregateExpr,
 };
 use std::sync::Arc;
+use crate::logical_plan::DFSchema;
 
 /// Logical representation of a user-defined aggregate function (UDAF)
 /// A UDAF is different from a UDF in that it is stateful across batches.
@@ -97,7 +98,7 @@ impl AggregateUDF {
 pub fn create_aggregate_expr(
     fun: &AggregateUDF,
     args: &Vec<Arc<dyn PhysicalExpr>>,
-    input_schema: &Schema,
+    input_schema: &DFSchema,
     name: String,
 ) -> Result<Arc<dyn AggregateExpr>> {
     // coerce

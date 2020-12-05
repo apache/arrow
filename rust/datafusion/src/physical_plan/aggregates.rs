@@ -34,9 +34,10 @@ use super::{
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::DataType;
 use expressions::{avg_return_type, sum_return_type};
 use std::{fmt, str::FromStr, sync::Arc};
+use crate::logical_plan::DFSchema;
 
 /// the implementation of an aggregate function
 pub type AccumulatorFunctionImplementation =
@@ -113,7 +114,7 @@ pub fn create_aggregate_expr(
     fun: &AggregateFunction,
     distinct: bool,
     args: &Vec<Arc<dyn PhysicalExpr>>,
-    input_schema: &Schema,
+    input_schema: &DFSchema,
     name: String,
 ) -> Result<Arc<dyn AggregateExpr>> {
     // coerce

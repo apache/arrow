@@ -29,6 +29,7 @@ use arrow::record_batch::RecordBatch;
 
 use async_trait::async_trait;
 use futures::Stream;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for reading in-memory batches of data
 #[derive(Debug)]
@@ -49,8 +50,8 @@ impl ExecutionPlan for MemoryExec {
     }
 
     /// Get the schema for this execution plan
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.schema))
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -155,7 +156,7 @@ impl Stream for MemoryStream {
 
 impl RecordBatchStream for MemoryStream {
     /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.schema))
     }
 }

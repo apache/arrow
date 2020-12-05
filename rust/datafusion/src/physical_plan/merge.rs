@@ -30,7 +30,6 @@ use async_trait::async_trait;
 
 use arrow::record_batch::RecordBatch;
 use arrow::{
-    datatypes::SchemaRef,
     error::{ArrowError, Result as ArrowResult},
 };
 
@@ -41,6 +40,7 @@ use crate::physical_plan::Partitioning;
 
 use super::SendableRecordBatchStream;
 use pin_project_lite::pin_project;
+use crate::logical_plan::DFSchemaRef;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -64,7 +64,7 @@ impl ExecutionPlan for MergeExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 
@@ -150,7 +150,7 @@ impl ExecutionPlan for MergeExec {
 
 pin_project! {
     struct MergeStream {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         #[pin]
         input: mpsc::Receiver<ArrowResult<RecordBatch>>,
     }
@@ -169,7 +169,7 @@ impl Stream for MergeStream {
 }
 
 impl RecordBatchStream for MergeStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -191,7 +191,7 @@ mod tests {
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
 
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);

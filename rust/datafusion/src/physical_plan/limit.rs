@@ -29,13 +29,13 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
-use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 
 use async_trait::async_trait;
+use crate::logical_plan::DFSchemaRef;
 
 /// Limit execution plan
 #[derive(Debug)]
@@ -66,7 +66,7 @@ impl ExecutionPlan for GlobalLimitExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 
@@ -141,7 +141,7 @@ impl ExecutionPlan for LocalLimitExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 
@@ -230,7 +230,7 @@ impl Stream for LimitStream {
 
 impl RecordBatchStream for LimitStream {
     /// Get the schema
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 }
@@ -253,7 +253,7 @@ mod tests {
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
 
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);

@@ -24,7 +24,7 @@ use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
+use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder, DFSchemaRef, DFSchema};
 use datafusion::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
 };
@@ -69,8 +69,9 @@ macro_rules! TEST_CUSTOM_RECORD_BATCH {
 }
 
 impl RecordBatchStream for TestCustomRecordBatchStream {
-    fn schema(&self) -> SchemaRef {
-        TEST_CUSTOM_SCHEMA_REF!()
+    fn schema(&self) -> DFSchemaRef {
+        let schema = TEST_CUSTOM_SCHEMA_REF!();
+        DFSchemaRef::new(DFSchema::from(schema.as_ref()))
     }
 }
 
@@ -95,13 +96,14 @@ impl ExecutionPlan for CustomExecutionPlan {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         let schema = TEST_CUSTOM_SCHEMA_REF!();
+        let schema = DFSchemaRef::new(DFSchema::from(schema.as_ref()));
         match &self.projection {
             None => schema,
-            Some(p) => Arc::new(Schema::new(
+            Some(p) => DFSchemaRef::new(DFSchema::new(
                 p.iter().map(|i| schema.field(*i).clone()).collect(),
-            )),
+            ).unwrap()),
         }
     }
     fn output_partitioning(&self) -> Partitioning {

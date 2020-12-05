@@ -28,7 +28,6 @@ use async_trait::async_trait;
 use futures::{Stream, StreamExt, TryStreamExt};
 
 use arrow::array::{make_array, Array, MutableArrayData};
-use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
@@ -44,6 +43,7 @@ use super::{
     SendableRecordBatchStream,
 };
 use ahash::RandomState;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 // An index of (batch, row) uniquely identifying a row in a part.
 type Index = (usize, usize);
@@ -70,7 +70,7 @@ pub struct HashJoinExec {
     /// How the join is performed
     join_type: JoinType,
     /// The schema once the join is applied
-    schema: SchemaRef,
+    schema: DFSchemaRef,
 }
 
 impl HashJoinExec {
@@ -87,12 +87,12 @@ impl HashJoinExec {
         let right_schema = right.schema();
         check_join_is_valid(&left_schema, &right_schema, &on)?;
 
-        let schema = Arc::new(build_join_schema(
+        let schema = build_join_schema(
             &left_schema,
             &right_schema,
             on,
             &join_type,
-        ));
+        )?;
 
         let on = on
             .iter()
@@ -104,7 +104,7 @@ impl HashJoinExec {
             right,
             on,
             join_type: join_type.clone(),
-            schema,
+            schema: DFSchemaRef::new(schema),
         })
     }
 }
@@ -115,7 +115,7 @@ impl ExecutionPlan for HashJoinExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 
@@ -162,6 +162,7 @@ impl ExecutionPlan for HashJoinExec {
             .iter()
             .map(|on| on.1.clone())
             .collect::<HashSet<_>>();
+        let schema = stream.schema().clone();
 
         // This operation performs 2 steps at once:
         // 1. creates a [JoinHashMap] of all batches from the stream
@@ -172,7 +173,7 @@ impl ExecutionPlan for HashJoinExec {
                 let hash = &mut acc.0;
                 let values = &mut acc.1;
                 let index = acc.2;
-                update_hash(&on_left, &batch, hash, index).unwrap();
+                update_hash(&on_left, &batch, &schema, hash, index).unwrap();
                 values.push(batch);
                 acc.2 += 1;
                 Ok(acc)
@@ -197,13 +198,15 @@ impl ExecutionPlan for HashJoinExec {
 fn update_hash(
     on: &HashSet<String>,
     batch: &RecordBatch,
+    input_schema: &DFSchema,
     hash: &mut JoinHashMap,
     index: usize,
 ) -> Result<()> {
     // evaluate the keys
     let keys_values = on
         .iter()
-        .map(|name| Ok(col(name).evaluate(batch)?.into_array(batch.num_rows())))
+        .map(|name| Ok(col(name).evaluate(batch, input_schema
+        )?.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()?;
 
     let mut key = Vec::with_capacity(keys_values.len());
@@ -227,7 +230,7 @@ fn update_hash(
 /// A stream that issues [RecordBatch]es as they arrive from the right  of the join.
 struct HashJoinStream {
     /// Input schema
-    schema: Arc<Schema>,
+    schema: DFSchemaRef,
     /// columns from the right used to compute the hash
     on_right: HashSet<String>,
     /// type of the join
@@ -239,7 +242,7 @@ struct HashJoinStream {
 }
 
 impl RecordBatchStream for HashJoinStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -250,7 +253,7 @@ impl RecordBatchStream for HashJoinStream {
 /// This function errors when:
 /// *
 fn build_batch_from_indices(
-    schema: &Schema,
+    schema: &DFSchema,
     left: &Vec<RecordBatch>,
     right: &RecordBatch,
     join_type: &JoinType,
@@ -316,7 +319,7 @@ fn build_batch_from_indices(
         let array = make_array(Arc::new(mutable.freeze()));
         columns.push(array);
     }
-    Ok(RecordBatch::try_new(Arc::new(schema.clone()), columns)?)
+    Ok(RecordBatch::try_new(schema.to_arrow_schema(), columns)?)
 }
 
 fn build_batch(
@@ -324,11 +327,11 @@ fn build_batch(
     left_data: &JoinLeftData,
     on_right: &HashSet<String>,
     join_type: &JoinType,
-    schema: &Schema,
+    schema: &DFSchema,
 ) -> ArrowResult<RecordBatch> {
     let mut right_hash =
         JoinHashMap::with_capacity_and_hasher(batch.num_rows(), RandomState::new());
-    update_hash(on_right, batch, &mut right_hash, 0).unwrap();
+    update_hash(on_right, batch, schema, &mut right_hash, 0).unwrap();
 
     let indices = build_join_indexes(&left_data.0, &right_hash, join_type).unwrap();
 

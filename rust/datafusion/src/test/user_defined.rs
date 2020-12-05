@@ -23,9 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use arrow::datatypes::SchemaRef;
-
-use crate::logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode};
+use crate::logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode, DFSchemaRef};
 
 /// Create a new user defined plan node, for testing
 pub fn new(input: LogicalPlan) -> LogicalPlan {
@@ -52,7 +50,7 @@ impl UserDefinedLogicalNode for TestUserDefinedPlanNode {
         vec![&self.input]
     }
 
-    fn schema(&self) -> &SchemaRef {
+    fn schema(&self) -> &DFSchemaRef {
         self.input.schema()
     }
 

@@ -31,11 +31,12 @@
 
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::DataType;
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::expressions::cast;
+use crate::logical_plan::DFSchema;
 
 /// Returns `expressions` coerced to types compatible with
 /// `signature`, if possible.
@@ -43,7 +44,7 @@ use crate::physical_plan::expressions::cast;
 /// See the module level documentation for more detail on coercion.
 pub fn coerce(
     expressions: &Vec<Arc<dyn PhysicalExpr>>,
-    schema: &Schema,
+    schema: &DFSchema,
     signature: &Signature,
 ) -> Result<Vec<Arc<dyn PhysicalExpr>>> {
     let current_types = expressions
@@ -202,7 +203,8 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
 mod tests {
     use super::*;
     use crate::physical_plan::expressions::col;
-    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::datatypes::DataType;
+    use crate::logical_plan::DFField;
 
     #[test]
     fn test_maybe_data_types() -> Result<()> {
@@ -246,12 +248,12 @@ mod tests {
     fn test_coerce() -> Result<()> {
         // create a schema
         let schema = |t: Vec<DataType>| {
-            Schema::new(
+            DFSchema::new(
                 t.iter()
                     .enumerate()
-                    .map(|(i, t)| Field::new(&*format!("c{}", i), t.clone(), true))
+                    .map(|(i, t)| DFField::new(None, &*format!("c{}", i), t.clone(), true))
                     .collect(),
-            )
+            ).unwrap()
         };
 
         // create a vector of expressions

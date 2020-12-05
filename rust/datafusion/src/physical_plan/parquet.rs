@@ -38,6 +38,7 @@ use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 use async_trait::async_trait;
 use futures::stream::Stream;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
@@ -108,8 +109,8 @@ impl ExecutionPlan for ParquetExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.schema))
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -227,8 +228,8 @@ impl Stream for ParquetStream {
 }
 
 impl RecordBatchStream for ParquetStream {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.schema))
     }
 }
 

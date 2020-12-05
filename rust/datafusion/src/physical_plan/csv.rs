@@ -34,6 +34,7 @@ use futures::Stream;
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -193,8 +194,8 @@ impl ExecutionPlan for CsvExec {
     }
 
     /// Get the schema for this execution plan
-    fn schema(&self) -> SchemaRef {
-        self.projected_schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.projected_schema))
     }
 
     /// Get the output partitioning of this plan
@@ -277,8 +278,8 @@ impl Stream for CsvStream {
 
 impl RecordBatchStream for CsvStream {
     /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.reader.schema()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.reader.schema()))
     }
 }
 
@@ -296,7 +297,7 @@ mod tests {
         let path = format!("{}/csv/{}", testdata, filename);
         let csv = CsvExec::try_new(
             &path,
-            CsvReadOptions::new().schema(&schema),
+            CsvReadOptions::new().schema(&schema.to_arrow_schema()),
             Some(vec![0, 2, 4]),
             1024,
         )?;
@@ -321,7 +322,7 @@ mod tests {
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());

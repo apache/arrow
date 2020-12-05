@@ -31,6 +31,7 @@ use crate::physical_plan::Partitioning;
 
 use super::SendableRecordBatchStream;
 use async_trait::async_trait;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
@@ -61,8 +62,8 @@ impl ExecutionPlan for ExplainExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+    fn schema(&self) -> DFSchemaRef {
+        DFSchemaRef::new(DFSchema::from(&self.schema))
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -114,7 +115,7 @@ impl ExecutionPlan for ExplainExec {
         )?;
 
         Ok(Box::pin(SizedRecordBatchStream::new(
-            self.schema.clone(),
+            DFSchemaRef::new(DFSchema::from(&self.schema.clone())),
             vec![Arc::new(record_batch)],
         )))
     }

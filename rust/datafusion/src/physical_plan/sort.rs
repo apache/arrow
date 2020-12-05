@@ -29,7 +29,6 @@ use pin_project_lite::pin_project;
 
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
-use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow::{array::ArrayRef, error::ArrowError};
@@ -40,6 +39,7 @@ use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
 use async_trait::async_trait;
+use crate::logical_plan::DFSchemaRef;
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -74,7 +74,7 @@ impl ExecutionPlan for SortExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 
@@ -129,12 +129,12 @@ impl ExecutionPlan for SortExec {
 
 fn sort_batches(
     batches: &Vec<RecordBatch>,
-    schema: &SchemaRef,
+    schema: &DFSchemaRef,
     expr: &[PhysicalSortExpr],
 ) -> ArrowResult<RecordBatch> {
     // combine all record batches into one for each column
     let combined_batch = RecordBatch::try_new(
-        schema.clone(),
+        schema.to_arrow_schema(),
         schema
             .fields()
             .iter()
@@ -154,14 +154,14 @@ fn sort_batches(
     let indices = lexsort_to_indices(
         &expr
             .iter()
-            .map(|e| e.evaluate_to_sort_column(&combined_batch))
+            .map(|e| e.evaluate_to_sort_column(&combined_batch, schema))
             .collect::<Result<Vec<SortColumn>>>()
             .map_err(DataFusionError::into_arrow_external_error)?,
     )?;
 
     // reorder all rows based on sorted indices
     RecordBatch::try_new(
-        schema.clone(),
+        schema.to_arrow_schema(),
         combined_batch
             .columns()
             .iter()
@@ -185,7 +185,7 @@ pin_project! {
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     }
 }
 
@@ -241,7 +241,7 @@ impl Stream for SortStream {
 }
 
 impl RecordBatchStream for SortStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -263,7 +263,7 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
 
         let sort_exec = Arc::new(SortExec::try_new(
             vec![

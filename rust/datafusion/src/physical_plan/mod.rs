@@ -22,9 +22,9 @@ use std::sync::Arc;
 use std::{any::Any, pin::Pin};
 
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::LogicalPlan;
+use crate::logical_plan::{LogicalPlan, DFSchemaRef, DFSchema};
 use crate::{error::Result, scalar::ScalarValue};
-use arrow::datatypes::{DataType, Schema, SchemaRef};
+use arrow::datatypes::DataType;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow::{array::ArrayRef, datatypes::Field};
@@ -38,7 +38,7 @@ pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
     ///
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
     /// stream should have the same schema as returned from this method.
-    fn schema(&self) -> SchemaRef;
+    fn schema(&self) -> DFSchemaRef;
 }
 
 /// Trait for a stream of record batches.
@@ -62,7 +62,7 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     /// downcast to a specific implementation.
     fn as_any(&self) -> &dyn Any;
     /// Get the schema for this execution plan
-    fn schema(&self) -> SchemaRef;
+    fn schema(&self) -> DFSchemaRef;
     /// Specifies the output partitioning scheme of this plan
     fn output_partitioning(&self) -> Partitioning;
     /// Specifies the data distribution requirements of all the children for this operator
@@ -138,11 +138,11 @@ impl ColumnarValue {
 /// A Physical expression knows its type, nullability and how to evaluate itself.
 pub trait PhysicalExpr: Send + Sync + Display + Debug {
     /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    fn data_type(&self, input_schema: &DFSchema) -> Result<DataType>;
     /// Determine whether this expression is nullable, given the schema of the input
-    fn nullable(&self, input_schema: &Schema) -> Result<bool>;
+    fn nullable(&self, input_schema: &DFSchema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue>;
+    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue>;
 }
 
 /// An aggregate expression that:

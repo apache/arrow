@@ -27,7 +27,7 @@ use std::task::{Context, Poll};
 
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
-use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::datatypes::{Field, Schema};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
@@ -36,6 +36,7 @@ use async_trait::async_trait;
 
 use futures::stream::Stream;
 use futures::stream::StreamExt;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Execution plan for a projection
 #[derive(Debug)]
@@ -43,7 +44,7 @@ pub struct ProjectionExec {
     /// The projection expressions stored as tuples of (expression, output column name)
     expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
     /// The schema once the projection has been applied to the input
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
 }
@@ -67,11 +68,11 @@ impl ProjectionExec {
             })
             .collect();
 
-        let schema = Arc::new(Schema::new(fields?));
+        let schema = Schema::new(fields?);
 
         Ok(Self {
             expr,
-            schema,
+            schema: DFSchemaRef::new(DFSchema::from(&schema)),
             input: input.clone(),
         })
     }
@@ -85,7 +86,7 @@ impl ExecutionPlan for ProjectionExec {
     }
 
     /// Get the schema for this execution plan
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 
@@ -124,23 +125,24 @@ impl ExecutionPlan for ProjectionExec {
 
 fn batch_project(
     batch: &RecordBatch,
+    input_schema: &DFSchema,
     expressions: &Vec<Arc<dyn PhysicalExpr>>,
-    schema: &SchemaRef,
+    schema: &DFSchemaRef,
 ) -> ArrowResult<RecordBatch> {
     expressions
         .iter()
-        .map(|expr| expr.evaluate(&batch))
+        .map(|expr| expr.evaluate(&batch, input_schema))
         .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
         .map_or_else(
             |e| Err(DataFusionError::into_arrow_external_error(e)),
-            |arrays| RecordBatch::try_new(schema.clone(), arrays),
+            |arrays| RecordBatch::try_new(schema.to_arrow_schema(), arrays),
         )
 }
 
 /// Projection iterator
 struct ProjectionStream {
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
     input: SendableRecordBatchStream,
 }
@@ -153,7 +155,7 @@ impl Stream for ProjectionStream {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => Some(batch_project(&batch, &self.expr, &self.schema)),
+            Some(Ok(batch)) => Some(batch_project(&batch, &self.input.schema(), &self.expr, &self.schema)),
             other => other,
         })
     }
@@ -166,7 +168,7 @@ impl Stream for ProjectionStream {
 
 impl RecordBatchStream for ProjectionStream {
     /// Get the schema
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -188,7 +190,7 @@ mod tests {
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
 
         // pick column c1 and name it column c1 in the output schema
         let projection =

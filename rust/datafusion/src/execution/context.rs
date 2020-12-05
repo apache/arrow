@@ -34,9 +34,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{
-    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
-};
+use crate::logical_plan::{DFSchema, FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource, DFSchemaRef};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -140,7 +138,7 @@ impl ExecutionContext {
                         name,
                         location,
                         CsvReadOptions::new()
-                            .schema(&schema)
+                            .schema(&schema.to_arrow_schema())
                             .has_header(*has_header),
                     )?;
                     let plan = LogicalPlanBuilder::empty(false).build()?;
@@ -214,7 +212,7 @@ impl ExecutionContext {
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: csv.schema(),
+            projected_schema: Arc::new(DFSchema::from(&csv.schema())),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -231,7 +229,7 @@ impl ExecutionContext {
             path: filename.to_string(),
             schema: parquet.schema(),
             projection: None,
-            projected_schema: parquet.schema(),
+            projected_schema: Arc::new(DFSchema::from(&parquet.schema())),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -250,7 +248,7 @@ impl ExecutionContext {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
             table_schema: schema.clone(),
-            projected_schema: schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
             projection: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
@@ -302,7 +300,7 @@ impl ExecutionContext {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
-                    projected_schema: schema,
+                    projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
@@ -408,7 +406,7 @@ impl ExecutionContext {
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
             let mut writer =
-                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
+                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema().to_arrow_schema(), None)?;
             let stream = plan.execute(i).await?;
 
             stream
@@ -733,7 +731,7 @@ mod tests {
         let plan = ctx.optimize(&plan)?;
         let physical_plan = ctx.create_physical_plan(&Arc::new(plan))?;
         assert_eq!(
-            physical_plan.schema().field_with_name("c1")?.is_nullable(),
+            physical_plan.schema().field_with_unqualified_name("c1")?.is_nullable(),
             false
         );
         Ok(())
@@ -758,7 +756,7 @@ mod tests {
             )?]],
             schema: schema.clone(),
             projection: None,
-            projected_schema: schema.clone(),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)),
         })
         .project(vec![col("b")])?
         .build()?;

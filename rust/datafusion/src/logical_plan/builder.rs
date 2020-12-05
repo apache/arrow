@@ -31,6 +31,7 @@ use super::{
     TableSource,
 };
 use crate::physical_plan::hash_utils;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -49,7 +50,7 @@ impl LogicalPlanBuilder {
     pub fn empty(produce_one_row: bool) -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
             produce_one_row,
-            schema: SchemaRef::new(Schema::empty()),
+            schema: DFSchemaRef::new(DFSchema::empty()),
         })
     }
 
@@ -69,15 +70,14 @@ impl LogicalPlanBuilder {
                 .to_owned(),
         };
 
-        let projected_schema = SchemaRef::new(
+        let projected_schema =
             projection
                 .clone()
                 .map(|p| {
                     Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
                 })
                 .or(Some(schema.clone()))
-                .unwrap(),
-        );
+                .unwrap();
 
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
@@ -85,7 +85,7 @@ impl LogicalPlanBuilder {
             has_header,
             delimiter: Some(delimiter),
             projection,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
         }))
     }
 
@@ -104,7 +104,7 @@ impl LogicalPlanBuilder {
             path: path.to_owned(),
             schema,
             projection,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
         }))
     }
 
@@ -126,7 +126,7 @@ impl LogicalPlanBuilder {
             schema_name: schema_name.to_owned(),
             source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)),
             projection,
         }))
     }
@@ -150,12 +150,12 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Projections", &projected_expr, input_schema)?;
 
-        let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
+        let schema = DFSchema::new(exprlist_to_fields(&projected_expr, input_schema)?)?;
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
             input: Arc::new(self.plan.clone()),
-            schema: SchemaRef::new(schema),
+            schema: DFSchemaRef::new(schema),
         }))
     }
 
@@ -211,7 +211,7 @@ impl LogicalPlanBuilder {
                 right.schema(),
                 &on,
                 &physical_join_type,
-            );
+            )?;
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right: Arc::new(right.clone()),
@@ -221,7 +221,7 @@ impl LogicalPlanBuilder {
                     .map(|(l, r)| (l.to_string(), r.to_string()))
                     .collect(),
                 join_type,
-                schema: Arc::new(physical_schema),
+                schema: DFSchemaRef::new(physical_schema),
             }))
         }
     }
@@ -233,13 +233,13 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
-        let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
+        let aggr_schema = DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: SchemaRef::new(aggr_schema),
+            schema: DFSchemaRef::new(aggr_schema),
         }))
     }
 
@@ -256,7 +256,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema,
+            schema: DFSchemaRef::new(DFSchema::from(&schema))
         }))
     }
 
@@ -270,7 +270,7 @@ impl LogicalPlanBuilder {
 fn validate_unique_names(
     node_name: &str,
     expressions: &[Expr],
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<()> {
     let mut unique_names = HashMap::new();
     expressions.iter().enumerate().map(|(position, expr)| {

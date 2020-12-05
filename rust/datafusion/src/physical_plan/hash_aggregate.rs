@@ -30,7 +30,7 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
 use arrow::{
@@ -50,6 +50,7 @@ use ahash::RandomState;
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// Hash aggregate modes
 #[derive(Debug, Copy, Clone)]
@@ -67,15 +68,15 @@ pub struct HashAggregateExec {
     group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     input: Arc<dyn ExecutionPlan>,
-    schema: SchemaRef,
+    schema: DFSchemaRef,
 }
 
 fn create_schema(
-    input_schema: &Schema,
+    input_schema: &DFSchema,
     group_expr: &Vec<(Arc<dyn PhysicalExpr>, String)>,
     aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
     mode: AggregateMode,
-) -> Result<Schema> {
+) -> Result<DFSchema> {
     let mut fields = Vec::with_capacity(group_expr.len() + aggr_expr.len());
     for (expr, name) in group_expr {
         fields.push(Field::new(
@@ -100,7 +101,7 @@ fn create_schema(
         }
     }
 
-    Ok(Schema::new(fields))
+    Ok(DFSchema::from(&Schema::new(fields)))
 }
 
 impl HashAggregateExec {
@@ -132,7 +133,7 @@ impl ExecutionPlan for HashAggregateExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 
@@ -219,7 +220,7 @@ Example: average
 */
 pin_project! {
     struct GroupedHashAggregateStream {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
@@ -231,16 +232,17 @@ fn group_aggregate_batch(
     group_expr: &Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: &Vec<Arc<dyn AggregateExpr>>,
     batch: RecordBatch,
+    input_schema: &DFSchema,
     mut accumulators: Accumulators,
     aggregate_expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
 ) -> Result<Accumulators> {
     // evaluate the grouping expressions
-    let group_values = evaluate(group_expr, &batch)?;
+    let group_values = evaluate(group_expr, &batch, input_schema)?;
 
     // evaluate the aggregation expressions.
     // We could evaluate them after the `take`, but since we need to evaluate all
     // of them anyways, it is more performant to do it while they are together.
-    let aggr_input_values = evaluate_many(aggregate_expressions, &batch)?;
+    let aggr_input_values = evaluate_many(aggregate_expressions, &batch, input_schema)?;
 
     // create vector large enough to hold the grouping key
     // this is an optimization to avoid allocating `key` on every row.
@@ -320,7 +322,7 @@ fn group_aggregate_batch(
 
 async fn compute_grouped_hash_aggregate(
     mode: AggregateMode,
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     mut input: SendableRecordBatchStream,
@@ -344,6 +346,7 @@ async fn compute_grouped_hash_aggregate(
             &group_expr,
             &aggr_expr,
             batch,
+            &input.schema(),
             accumulators,
             &aggregate_expressions,
         )
@@ -357,7 +360,7 @@ impl GroupedHashAggregateStream {
     /// Create a new HashAggregateStream
     pub fn new(
         mode: AggregateMode,
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
@@ -421,7 +424,7 @@ impl Stream for GroupedHashAggregateStream {
 }
 
 impl RecordBatchStream for GroupedHashAggregateStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -430,9 +433,10 @@ impl RecordBatchStream for GroupedHashAggregateStream {
 fn evaluate(
     expr: &Vec<Arc<dyn PhysicalExpr>>,
     batch: &RecordBatch,
+    input_schema: &DFSchema,
 ) -> Result<Vec<ArrayRef>> {
     expr.iter()
-        .map(|expr| expr.evaluate(&batch))
+        .map(|expr| expr.evaluate(&batch, input_schema))
         .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
 }
@@ -441,9 +445,10 @@ fn evaluate(
 fn evaluate_many(
     expr: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
     batch: &RecordBatch,
+    input_schema: &DFSchema,
 ) -> Result<Vec<Vec<ArrayRef>>> {
     expr.iter()
-        .map(|expr| evaluate(expr, batch))
+        .map(|expr| evaluate(expr, batch, input_schema))
         .collect::<Result<Vec<_>>>()
 }
 
@@ -483,7 +488,7 @@ fn aggregate_expressions(
 
 pin_project! {
     struct HashAggregateStream {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
@@ -492,7 +497,7 @@ pin_project! {
 
 async fn compute_hash_aggregate(
     mode: AggregateMode,
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
     mut input: SendableRecordBatchStream,
 ) -> ArrowResult<RecordBatch> {
@@ -508,13 +513,13 @@ async fn compute_hash_aggregate(
     // future is ready when all batches are computed
     while let Some(batch) = input.next().await {
         let batch = batch?;
-        accumulators = aggregate_batch(&mode, &batch, accumulators, &expressions)
+        accumulators = aggregate_batch(&mode, &batch, &input.schema(), accumulators, &expressions)
             .map_err(DataFusionError::into_arrow_external_error)?;
     }
 
     // 2. convert values to a record batch
     finalize_aggregation(&accumulators, &mode)
-        .map(|columns| RecordBatch::try_new(schema.clone(), columns))
+        .map(|columns| RecordBatch::try_new(schema.to_arrow_schema(), columns))
         .map_err(DataFusionError::into_arrow_external_error)?
 }
 
@@ -522,7 +527,7 @@ impl HashAggregateStream {
     /// Create a new HashAggregateStream
     pub fn new(
         mode: AggregateMode,
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
     ) -> Self {
@@ -546,6 +551,7 @@ impl HashAggregateStream {
 fn aggregate_batch(
     mode: &AggregateMode,
     batch: &RecordBatch,
+    input_schema: &DFSchema,
     accumulators: AccumulatorSet,
     expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
 ) -> Result<AccumulatorSet> {
@@ -561,7 +567,7 @@ fn aggregate_batch(
             // 1.2
             let values = &expr
                 .iter()
-                .map(|e| e.evaluate(batch))
+                .map(|e| e.evaluate(batch, input_schema))
                 .map(|r| r.map(|v| v.into_array(batch.num_rows())))
                 .collect::<Result<Vec<_>>>()?;
 
@@ -612,7 +618,7 @@ impl Stream for HashAggregateStream {
 }
 
 impl RecordBatchStream for HashAggregateStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -633,7 +639,7 @@ fn create_batch_from_map(
     mode: &AggregateMode,
     accumulators: &Accumulators,
     num_group_expr: usize,
-    output_schema: &Schema,
+    output_schema: &DFSchema,
 ) -> ArrowResult<RecordBatch> {
     // 1. for each key
     // 2. create single-row ArrayRef with all group expressions
@@ -671,12 +677,13 @@ fn create_batch_from_map(
         // 4.
         .collect::<ArrowResult<Vec<Vec<ArrayRef>>>>()?;
 
+    let schema = output_schema.to_arrow_schema();
     let batch = if arrays.len() != 0 {
         // 5.
         let columns = concatenate(arrays)?;
-        RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
+        RecordBatch::try_new(schema, columns)?
     } else {
-        common::create_batch_empty(output_schema)?
+        common::create_batch_empty(&schema)?
     };
     Ok(batch)
 }
@@ -786,21 +793,22 @@ mod tests {
     use crate::physical_plan::expressions::{col, Avg};
 
     use crate::physical_plan::merge::MergeExec;
+    use crate::logical_plan::{DFField, DFSchema};
 
     /// some mock data to aggregates
-    fn some_data() -> (Arc<Schema>, Vec<RecordBatch>) {
+    fn some_data() -> (DFSchemaRef, Vec<RecordBatch>) {
         // define a schema.
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::UInt32, false),
-            Field::new("b", DataType::Float64, false),
-        ]));
+        let schema = DFSchemaRef::new(DFSchema::new(vec![
+            DFField::new(None, "a", DataType::UInt32, false),
+            DFField::new(None, "b", DataType::Float64, false),
+        ]).unwrap());
 
         // define data.
         (
             schema.clone(),
             vec![
                 RecordBatch::try_new(
-                    schema.clone(),
+                    schema.to_arrow_schema(),
                     vec![
                         Arc::new(UInt32Array::from(vec![2, 3, 4, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),
@@ -808,7 +816,7 @@ mod tests {
                 )
                 .unwrap(),
                 RecordBatch::try_new(
-                    schema,
+                    schema.to_arrow_schema(),
                     vec![
                         Arc::new(UInt32Array::from(vec![2, 3, 3, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),
@@ -893,7 +901,7 @@ mod tests {
         fn as_any(&self) -> &dyn Any {
             self
         }
-        fn schema(&self) -> SchemaRef {
+        fn schema(&self) -> DFSchemaRef {
             some_data().0
         }
 
@@ -961,7 +969,7 @@ mod tests {
     }
 
     impl RecordBatchStream for TestYieldingStream {
-        fn schema(&self) -> SchemaRef {
+        fn schema(&self) -> DFSchemaRef {
             some_data().0
         }
     }

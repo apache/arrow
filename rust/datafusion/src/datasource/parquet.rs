@@ -41,7 +41,7 @@ impl ParquetTable {
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
-            schema,
+            schema: schema.to_arrow_schema(),
         })
     }
 }

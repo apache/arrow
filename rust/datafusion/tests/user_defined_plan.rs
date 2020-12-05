@@ -62,7 +62,6 @@ use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
 
 use arrow::{
     array::{Int64Array, StringArray},
-    datatypes::SchemaRef,
     error::ArrowError,
     record_batch::RecordBatch,
     util::pretty::pretty_format_batches,
@@ -85,6 +84,7 @@ use std::task::{Context, Poll};
 use std::{any::Any, collections::BTreeMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
+use datafusion::logical_plan::DFSchemaRef;
 
 /// Execute the specified sql and return the resulting record batches
 /// pretty printed as a String.
@@ -246,7 +246,7 @@ impl OptimizerRule for TopKOptimizerRule {
                     *verbose,
                     &*plan,
                     stringified_plans,
-                    &*schema,
+                    &schema.to_arrow_schema(),
                 )
             }
             _ => {}
@@ -288,7 +288,7 @@ impl UserDefinedLogicalNode for TopKPlanNode {
     }
 
     /// Schema for TopK is the same as the input
-    fn schema(&self) -> &SchemaRef {
+    fn schema(&self) -> &DFSchemaRef {
         self.input.schema()
     }
 
@@ -364,7 +364,7 @@ impl ExecutionPlan for TopKExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 
@@ -516,7 +516,7 @@ impl Stream for TopKReader {
 
                 let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
                 Ok(RecordBatch::try_new(
-                    schema,
+                    schema.to_arrow_schema(),
                     vec![
                         Arc::new(StringArray::from(customer)),
                         Arc::new(Int64Array::from(revenue)),
@@ -532,7 +532,7 @@ impl Stream for TopKReader {
 }
 
 impl RecordBatchStream for TopKReader {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.input.schema()
     }
 }

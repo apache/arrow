@@ -18,22 +18,35 @@
 //! DFSchema is an extended schema struct that DataFusion uses to provide support for
 //! fields with optional relation names.
 
-use crate::error::{DataFusionError, Result};
-use arrow::datatypes::{Field, Schema};
 use std::collections::HashSet;
+use std::sync::Arc;
+
+use crate::error::{DataFusionError, Result};
+
+use arrow::datatypes::{Field, Schema, DataType, SchemaRef};
+
+/// A reference-counted reference to a `DFSchema`.
+pub type DFSchemaRef = Arc<DFSchema>;
 
 /// DFSchema wraps an Arrow schema and adds relation names
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DFSchema {
     /// Fields
     fields: Vec<DFField>,
 }
 
 impl DFSchema {
-    /// Create a DFSChema
+    /// Creates an empty `DFSchema`
+    pub fn empty() -> Self {
+        Self {
+            fields: vec![],
+        }
+    }
+
+    /// Create a new `DFSchema`
     pub fn new(fields: Vec<DFField>) -> Result<Self> {
         let mut qualified_names: HashSet<(&str, &str)> = HashSet::new();
-        let mut unqualified_names = HashSet::new();
+        let mut unqualified_names: HashSet<&str> = HashSet::new();
         for field in &fields {
             if let Some(qualifier) = field.qualifier() {
                 if !qualified_names.insert((qualifier, field.name())) {
@@ -73,7 +86,7 @@ impl DFSchema {
         Ok(Self { fields })
     }
 
-    /// Create a DFSChema from an Arrow schema
+    /// Create a `DFSchema` from an Arrow schema
     pub fn from(schema: &Schema) -> Self {
         Self {
             fields: schema
@@ -87,7 +100,7 @@ impl DFSchema {
         }
     }
 
-    /// Create a DFSChema from an Arrow schema
+    /// Create a `DFSchema` from an Arrow schema
     pub fn from_qualified(qualifier: &str, schema: &Schema) -> Self {
         Self {
             fields: schema
@@ -111,6 +124,22 @@ impl DFSchema {
     /// Get a list of fields
     pub fn fields(&self) -> &Vec<DFField> {
         &self.fields
+    }
+
+    /// Returns an immutable reference of a specific `Field` instance selected using an
+    /// offset within the internal `fields` vector
+    pub fn field(&self, i: usize) -> &DFField {
+        &self.fields[i]
+    }
+
+    /// Find the index of the column with the given name
+    pub fn index_of(&self, name: &str) -> Result<usize> {
+        for i in 0..self.fields.len() {
+            if self.fields[i].name() == name {
+                return Ok(i)
+            }
+        }
+        Err(DataFusionError::Plan(format!("No field named '{}'", name)))
     }
 
     /// Find the field with the given name
@@ -169,6 +198,11 @@ impl DFSchema {
         }
     }
 
+    /// Convert to an Arrow schema
+    pub fn to_arrow_schema(&self) -> SchemaRef {
+        SchemaRef::new(Schema::new(self.fields.iter().map(|f| f.field.clone()).collect()))
+    }
+
     /// Return a string containing a comma-separated list of fields in the schema
     pub fn to_string(&self) -> String {
         self.fields
@@ -180,15 +214,23 @@ impl DFSchema {
 }
 
 /// DFField wraps an Arrow field and adds an optional qualifier
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DFField {
     qualifier: Option<String>,
     field: Field,
 }
 
 impl DFField {
+    /// Creates a new `DFField`
+    pub fn new(qualifier: Option<&str>, name: &str, data_type: DataType, nullable: bool) -> Self {
+        DFField {
+            qualifier: qualifier.map(|s| s.to_owned()),
+            field: Field::new(name, data_type, nullable)
+        }
+    }
+
     /// Create an unqualified field from an existing Arrow field
-    fn from(field: Field) -> Self {
+    pub fn from(field: Field) -> Self {
         Self {
             qualifier: None,
             field,
@@ -196,20 +238,30 @@ impl DFField {
     }
 
     /// Create a qualified field from an existing Arrow field
-    fn from_qualified(qualifier: &str, field: Field) -> Self {
+    pub fn from_qualified(qualifier: &str, field: Field) -> Self {
         Self {
             qualifier: Some(qualifier.to_owned()),
             field,
         }
     }
 
-    /// Get the unqualified field name
-    fn name(&self) -> &str {
-        self.field.name()
+    /// Returns an immutable reference to the `DFField`'s unqualified name
+    pub fn name(&self) -> &String {
+        &self.field.name()
     }
 
-    /// Get the qualified field name
-    fn qualified_name(&self) -> String {
+    /// Returns an immutable reference to the `DFField`'s data-type
+    pub fn data_type(&self) -> &DataType {
+        &self.field.data_type()
+    }
+
+    /// Indicates whether this `DFField` supports null values
+    pub fn is_nullable(&self) -> bool {
+        self.field.is_nullable()
+    }
+
+    /// Returns an immutable reference to the `DFField`'s qualified name
+    pub fn qualified_name(&self) -> String {
         if let Some(relation_name) = &self.qualifier {
             format!("{}.{}", relation_name, self.field.name())
         } else {
@@ -218,7 +270,7 @@ impl DFField {
     }
 
     /// Get the optional qualifier
-    fn qualifier(&self) -> &Option<String> {
+    pub fn qualifier(&self) -> &Option<String> {
         &self.qualifier
     }
 }

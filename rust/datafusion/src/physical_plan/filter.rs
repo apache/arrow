@@ -28,13 +28,14 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter_record_batch;
-use arrow::datatypes::{DataType, SchemaRef};
+use arrow::datatypes::DataType;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use async_trait::async_trait;
 
 use futures::stream::{Stream, StreamExt};
+use crate::logical_plan::{DFSchemaRef, DFSchema};
 
 /// FilterExec evaluates a boolean predicate against all input batches to determine which rows to
 /// include in its output batches.
@@ -73,7 +74,7 @@ impl ExecutionPlan for FilterExec {
     }
 
     /// Get the schema for this execution plan
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         // The filter operator does not make any changes to the schema of its input
         self.input.schema()
     }
@@ -115,7 +116,7 @@ impl ExecutionPlan for FilterExec {
 /// determine which rows to include in its output batches
 struct FilterExecStream {
     /// Output schema, which is the same as the input schema for this operator
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     /// The expression to filter on. This expression must evaluate to a boolean value.
     predicate: Arc<dyn PhysicalExpr>,
     /// The input partition to filter.
@@ -125,9 +126,10 @@ struct FilterExecStream {
 fn batch_filter(
     batch: &RecordBatch,
     predicate: &Arc<dyn PhysicalExpr>,
+    input_schema: &DFSchema,
 ) -> ArrowResult<RecordBatch> {
     predicate
-        .evaluate(&batch)
+        .evaluate(&batch, input_schema)
         .map(|v| v.into_array(batch.num_rows()))
         .map_err(DataFusionError::into_arrow_external_error)
         .and_then(|array| {
@@ -153,7 +155,7 @@ impl Stream for FilterExecStream {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => Some(batch_filter(&batch, &self.predicate)),
+            Some(Ok(batch)) => Some(batch_filter(&batch, &self.predicate, &self.schema)),
             other => other,
         })
     }
@@ -165,7 +167,7 @@ impl Stream for FilterExecStream {
 }
 
 impl RecordBatchStream for FilterExecStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
@@ -190,7 +192,7 @@ mod tests {
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema.to_arrow_schema()), None, 1024)?;
 
         let predicate: Arc<dyn PhysicalExpr> = binary(
             binary(

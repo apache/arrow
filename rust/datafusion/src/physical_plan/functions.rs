@@ -43,11 +43,12 @@ use arrow::{
     array::ArrayRef,
     compute::kernels::length::length,
     datatypes::TimeUnit,
-    datatypes::{DataType, Field, Schema},
+    datatypes::{DataType, Field},
     record_batch::RecordBatch,
 };
 use fmt::{Debug, Formatter};
 use std::{fmt, str::FromStr, sync::Arc};
+use crate::logical_plan::DFSchema;
 
 /// A function's signature, which defines the function's supported argument types.
 #[derive(Debug, Clone)]
@@ -224,7 +225,7 @@ pub fn return_type(
 pub fn create_physical_expr(
     fun: &BuiltinScalarFunction,
     args: &Vec<Arc<dyn PhysicalExpr>>,
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let fun_expr: ScalarFunctionImplementation = Arc::new(match fun {
         BuiltinScalarFunction::Sqrt => math_expressions::sqrt,
@@ -348,20 +349,20 @@ impl fmt::Display for ScalarFunctionExpr {
 }
 
 impl PhysicalExpr for ScalarFunctionExpr {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+    fn data_type(&self, _input_schema: &DFSchema) -> Result<DataType> {
         Ok(self.return_type.clone())
     }
 
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+    fn nullable(&self, _input_schema: &DFSchema) -> Result<bool> {
         Ok(true)
     }
 
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+    fn evaluate(&self, batch: &RecordBatch, input_schema: &DFSchema) -> Result<ColumnarValue> {
         // evaluate the arguments
         let inputs = self
             .args
             .iter()
-            .map(|e| e.evaluate(batch).map(|v| v.into_array(batch.num_rows())))
+            .map(|e| e.evaluate(batch, input_schema).map(|v| v.into_array(batch.num_rows())))
             .collect::<Result<Vec<_>>>()?;
 
         // evaluate the function
@@ -376,13 +377,13 @@ mod tests {
     use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
     use arrow::{
         array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray},
-        datatypes::Field,
+        datatypes::{Field, Schema},
         record_batch::RecordBatch,
     };
 
     fn generic_test_math(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let schema = DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Int32, false)]));
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         let arg = lit(value);
@@ -394,8 +395,8 @@ mod tests {
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);
 
         // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let batch = RecordBatch::try_new(schema.to_arrow_schema(), columns)?;
+        let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -422,6 +423,7 @@ mod tests {
     fn test_concat(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let schema = DFSchema::from(&schema);
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         // concat(value, value)
@@ -435,8 +437,8 @@ mod tests {
         assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
 
         // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let batch = RecordBatch::try_new(schema.to_arrow_schema(), columns)?;
+        let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result.as_any().downcast_ref::<StringArray>().unwrap();
@@ -472,6 +474,7 @@ mod tests {
     ) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let schema = DFSchema::from(&schema);
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
 
         let expr = create_physical_expr(
@@ -488,8 +491,8 @@ mod tests {
         );
 
         // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+        let batch = RecordBatch::try_new(schema.to_arrow_schema(), columns)?;
+        let result = expr.evaluate(&batch, &schema)?.into_array(batch.num_rows());
 
         // downcast works
         let result = result

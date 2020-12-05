@@ -22,9 +22,7 @@ use std::sync::Arc;
 use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::{
-    Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode,
-};
+use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode, DFSchema};
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
@@ -44,7 +42,6 @@ use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalP
 use crate::prelude::JoinType;
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
-use arrow::datatypes::Schema;
 use expressions::col;
 
 /// This trait permits the `DefaultPhysicalPlanner` to create plans for
@@ -162,7 +159,7 @@ impl DefaultPhysicalPlanner {
                 ..
             } => Ok(Arc::new(MemoryExec::try_new(
                 data,
-                Arc::new(projected_schema.as_ref().to_owned()),
+                projected_schema.to_arrow_schema(),
                 projection.to_owned(),
             )?)),
             LogicalPlan::CsvScan {
@@ -195,7 +192,7 @@ impl DefaultPhysicalPlanner {
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_physical_expr(e, &input_schema, &ctx_state),
+                            self.create_physical_expr(e, input_schema.as_ref(), &ctx_state),
                             e.name(&input_schema),
                         ))
                     })
@@ -316,7 +313,7 @@ impl DefaultPhysicalPlanner {
                 schema,
             } => Ok(Arc::new(EmptyExec::new(
                 *produce_one_row,
-                Arc::new(schema.as_ref().clone()),
+                schema.clone(),
             ))),
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
@@ -367,8 +364,7 @@ impl DefaultPhysicalPlanner {
                         format!("{:#?}", input),
                     ));
                 }
-                let schema_ref = Arc::new(schema.as_ref().clone());
-                Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
+                Ok(Arc::new(ExplainExec::new(schema.to_arrow_schema(), stringified_plans)))
             }
             LogicalPlan::Extension { node } => {
                 let inputs = node
@@ -403,7 +399,7 @@ impl DefaultPhysicalPlanner {
     pub fn create_physical_expr(
         &self,
         e: &Expr,
-        input_schema: &Schema,
+        input_schema: &DFSchema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
@@ -412,7 +408,7 @@ impl DefaultPhysicalPlanner {
             }
             Expr::Column(name) => {
                 // check that name exists
-                input_schema.field_with_name(&name)?;
+                input_schema.field_with_unqualified_name(&name)?;
                 Ok(Arc::new(Column::new(name)))
             }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
@@ -546,7 +542,7 @@ impl DefaultPhysicalPlanner {
     pub fn create_aggregate_expr(
         &self,
         e: &Expr,
-        input_schema: &Schema,
+        input_schema: &DFSchema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
         // unpack aliased logical expressions, e.g. "sum(col) as total"
@@ -593,7 +589,7 @@ impl DefaultPhysicalPlanner {
     pub fn create_physical_sort_expr(
         &self,
         e: &Expr,
-        input_schema: &Schema,
+        input_schema: &DFSchema,
         options: SortOptions,
         ctx_state: &ExecutionContextState,
     ) -> Result<PhysicalSortExpr> {
@@ -639,10 +635,11 @@ mod tests {
         physical_plan::SendableRecordBatchStream,
     };
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
-    use arrow::datatypes::{DataType, Field, SchemaRef};
+    use arrow::datatypes::{DataType, Field, Schema};
     use async_trait::async_trait;
     use fmt::Debug;
     use std::{any::Any, collections::HashMap, fmt};
+    use crate::logical_plan::{DFSchemaRef, DFField};
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
@@ -686,7 +683,7 @@ mod tests {
 
     #[test]
     fn test_create_not() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, true)]);
+        let schema = DFSchema::from(&Schema::new(vec![Field::new("a", DataType::Boolean, true)]));
 
         let planner = DefaultPhysicalPlanner::default();
 
@@ -804,17 +801,18 @@ mod tests {
 
     /// An example extension node that doesn't do anything
     struct NoOpExtensionNode {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     }
 
     impl Default for NoOpExtensionNode {
         fn default() -> Self {
             Self {
-                schema: SchemaRef::new(Schema::new(vec![Field::new(
+                schema: DFSchemaRef::new(DFSchema::new(vec![DFField::new(
+                    None,
                     "a",
                     DataType::Int32,
                     false,
-                )])),
+                )]).unwrap()),
             }
         }
     }
@@ -834,7 +832,7 @@ mod tests {
             vec![]
         }
 
-        fn schema(&self) -> &SchemaRef {
+        fn schema(&self) -> &DFSchemaRef {
             &self.schema
         }
 
@@ -857,7 +855,7 @@ mod tests {
 
     #[derive(Debug)]
     struct NoOpExecutionPlan {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     }
 
     #[async_trait]
@@ -867,7 +865,7 @@ mod tests {
             self
         }
 
-        fn schema(&self) -> SchemaRef {
+        fn schema(&self) -> DFSchemaRef {
             self.schema.clone()
         }
 
@@ -904,11 +902,12 @@ mod tests {
             _ctx_state: &ExecutionContextState,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             Ok(Arc::new(NoOpExecutionPlan {
-                schema: SchemaRef::new(Schema::new(vec![Field::new(
+                schema: DFSchemaRef::new(DFSchema::new(vec![DFField::new(
+                    None,
                     "b",
                     DataType::Int32,
                     false,
-                )])),
+                )]).unwrap()),
             }))
         }
     }

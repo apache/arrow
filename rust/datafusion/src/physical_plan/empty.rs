@@ -24,23 +24,24 @@ use crate::error::{DataFusionError, Result};
 use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::NullArray;
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use super::SendableRecordBatchStream;
 
 use async_trait::async_trait;
+use crate::logical_plan::DFSchemaRef;
 
 /// Execution plan for empty relation (produces no rows)
 #[derive(Debug)]
 pub struct EmptyExec {
     produce_one_row: bool,
-    schema: SchemaRef,
+    schema: DFSchemaRef,
 }
 
 impl EmptyExec {
     /// Create a new EmptyExec
-    pub fn new(produce_one_row: bool, schema: SchemaRef) -> Self {
+    pub fn new(produce_one_row: bool, schema: DFSchemaRef) -> Self {
         EmptyExec {
             produce_one_row,
             schema,
@@ -55,7 +56,7 @@ impl ExecutionPlan for EmptyExec {
         self
     }
 
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 
@@ -109,7 +110,7 @@ impl ExecutionPlan for EmptyExec {
 
         Ok(Box::pin(MemoryStream::try_new(
             data,
-            self.schema.clone(),
+            self.schema.to_arrow_schema(),
             None,
         )?))
     }

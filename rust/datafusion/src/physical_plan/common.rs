@@ -30,7 +30,7 @@ use array::{
     Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
     UInt8Array,
 };
-use arrow::datatypes::{DataType, SchemaRef};
+use arrow::datatypes::DataType;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use arrow::{
@@ -38,17 +38,18 @@ use arrow::{
     datatypes::Schema,
 };
 use futures::{Stream, TryStreamExt};
+use crate::logical_plan::DFSchemaRef;
 
 /// Stream of record batches
 pub struct SizedRecordBatchStream {
-    schema: SchemaRef,
+    schema: DFSchemaRef,
     batches: Vec<Arc<RecordBatch>>,
     index: usize,
 }
 
 impl SizedRecordBatchStream {
     /// Create a new RecordBatchIterator
-    pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
+    pub fn new(schema: DFSchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
         SizedRecordBatchStream {
             schema,
             index: 0,
@@ -74,7 +75,7 @@ impl Stream for SizedRecordBatchStream {
 }
 
 impl RecordBatchStream for SizedRecordBatchStream {
-    fn schema(&self) -> SchemaRef {
+    fn schema(&self) -> DFSchemaRef {
         self.schema.clone()
     }
 }
