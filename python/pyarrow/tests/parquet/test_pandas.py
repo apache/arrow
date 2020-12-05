@@ -18,13 +18,14 @@
 import datetime
 import io
 import json
+from distutils.version import LooseVersion
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
+from pyarrow.util import guid
 
 try:
     import pyarrow.parquet as pq
@@ -37,7 +38,6 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
-
     from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
                                               alltypes_sample)
 except ImportError:
@@ -640,3 +640,120 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
     assert result.x.dtype == 'category'
     assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_extensiondtypes(
+    tempdir, use_legacy_dataset
+):
+    # ARROW-8251 - preserve pandas extension dtypes in roundtrip
+    if LooseVersion(pd.__version__) < "1.0.0":
+        pytest.skip("__arrow_array__ added to pandas in 1.0.0")
+
+    df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
+    df['col'] = df['col'].astype("Int64")
+    table = pa.table(df)
+
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result[["col"]], df[["col"]])
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
+    # ARROW-8251 - preserve pandas index in roundtrip
+
+    df = pd.DataFrame({'part': ['a', 'a', 'b'], "col": [1, 2, 3]})
+    df.index = pd.Index(['a', 'b', 'c'], name="idx")
+    table = pa.table(df)
+    df_cat = df[["col", "part"]].copy()
+    df_cat["part"] = df_cat["part"].astype("category")
+
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    result = pq.read_table(
+        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df_cat)
+
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
+    result = pq.read_table(
+        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    result = pq.read_table(
+        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
+    ).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize('preserve_index', [True, False, None])
+def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
+    # ARROW-1103
+    nfiles = 5
+    size = 5
+
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    test_data = []
+    frames = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(size, seed=i)
+        df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
+
+        path = dirpath / '{}.parquet'.format(i)
+
+        table = pa.Table.from_pandas(df, preserve_index=preserve_index)
+
+        # Obliterate metadata
+        table = table.replace_schema_metadata(None)
+        assert table.schema.metadata is None
+
+        _write_table(table, path)
+        test_data.append(table)
+        frames.append(df)
+        paths.append(path)
+
+    # Write _metadata common file
+    table_for_metadata = pa.Table.from_pandas(
+        df, preserve_index=preserve_index
+    )
+    pq.write_metadata(table_for_metadata.schema, dirpath / '_metadata')
+
+    dataset = pq.ParquetDataset(dirpath)
+    columns = ['uint8', 'strings']
+    result = dataset.read_pandas(columns=columns).to_pandas()
+    expected = pd.concat([x[columns] for x in frames])
+    expected.index.name = (
+        df.index.name if preserve_index is not False else None)
+    tm.assert_frame_equal(result, expected)

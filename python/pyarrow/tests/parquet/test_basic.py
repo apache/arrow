@@ -18,19 +18,16 @@
 import decimal
 import io
 import os
-from collections import OrderedDict
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
                                           make_sample_file,
-                                          parametrize_legacy_dataset,
-                                          parametrize_legacy_dataset_fixed)
+                                          parametrize_legacy_dataset)
 
 try:
     import pyarrow.parquet as pq
@@ -43,7 +40,6 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
-
     from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
                                                dataframe_with_lists)
     from pyarrow.tests.parquet.common import alltypes_sample
@@ -201,39 +197,6 @@ def test_file_with_over_int16_max_row_groups():
     # this test checks that it works (even if it isn't a good idea)
     t = pa.table([list(range(40000))], names=['f0'])
     _check_roundtrip(t, row_group_size=1)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_empty_table_roundtrip(use_legacy_dataset):
-    df = alltypes_sample(size=10)
-
-    # Create a non-empty table to infer the types correctly, then slice to 0
-    table = pa.Table.from_pandas(df)
-    table = pa.Table.from_arrays(
-        [col.chunk(0)[:0] for col in table.itercolumns()],
-        names=table.schema.names)
-
-    assert table.schema.field('null').type == pa.null()
-    assert table.schema.field('null_list').type == pa.list_(pa.null())
-    _check_roundtrip(
-        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_empty_table_no_columns(use_legacy_dataset):
-    df = pd.DataFrame()
-    empty = pa.Table.from_pandas(df, preserve_index=False)
-    _check_roundtrip(empty, use_legacy_dataset=use_legacy_dataset)
-
-
-@parametrize_legacy_dataset
-def test_empty_lists_table_roundtrip(use_legacy_dataset):
-    # ARROW-2744: Shouldn't crash when writing an array of empty lists
-    arr = pa.array([[], []], type=pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr], ["A"])
-    _check_roundtrip(table, use_legacy_dataset=use_legacy_dataset)
 
 
 @parametrize_legacy_dataset
@@ -684,20 +647,6 @@ def test_scan_contents():
     assert pf.scan_contents(df.columns[:4]) == 10000
 
 
-@parametrize_legacy_dataset_fixed
-def test_empty_directory(tempdir, use_legacy_dataset):
-    # ARROW-5310 - reading empty directory
-    # fails with legacy implementation
-    empty_dir = tempdir / 'dataset'
-    empty_dir.mkdir()
-
-    dataset = pq.ParquetDataset(
-        empty_dir, use_legacy_dataset=use_legacy_dataset)
-    result = dataset.read()
-    assert result.num_rows == 0
-    assert result.num_columns == 0
-
-
 @pytest.mark.pandas
 def test_write_error_deletes_incomplete_file(tempdir):
     # ARROW-1285
@@ -969,24 +918,6 @@ def test_zlib_compression_bug(use_legacy_dataset):
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
-def test_empty_row_groups(tempdir):
-    # ARROW-3020
-    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
-
-    path = tempdir / 'empty_row_groups.parquet'
-
-    num_groups = 3
-    with pq.ParquetWriter(path, table.schema) as writer:
-        for i in range(num_groups):
-            writer.write_table(table)
-
-    reader = pq.ParquetFile(path)
-    assert reader.metadata.num_row_groups == num_groups
-
-    for i in range(num_groups):
-        assert reader.read_row_group(i).equals(table)
-
-
 def test_parquet_file_pass_directory_instead_of_file(tempdir):
     # ARROW-7208
     path = tempdir / 'directory'
@@ -994,42 +925,6 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
 
     with pytest.raises(IOError, match="Expected file path"):
         pq.ParquetFile(path)
-
-
-def test_writing_empty_lists():
-    # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
-    arr1 = pa.array([[], []], pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr1], ['list(int32)'])
-    _check_roundtrip(table)
-
-
-@parametrize_legacy_dataset
-def test_write_nested_zero_length_array_chunk_failure(use_legacy_dataset):
-    # Bug report in ARROW-3792
-    cols = OrderedDict(
-        int32=pa.int32(),
-        list_string=pa.list_(pa.string())
-    )
-    data = [[], [OrderedDict(int32=1, list_string=('G',)), ]]
-
-    # This produces a table with a column like
-    # <Column name='list_string' type=ListType(list<item: string>)>
-    # [
-    #   [],
-    #   [
-    #     [
-    #       "G"
-    #     ]
-    #   ]
-    # ]
-    #
-    # Each column is a ChunkedArray with 2 elements
-    my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
-                 for batch in data]
-    my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
-                  for batch in my_arrays]
-    tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
-    _check_roundtrip(tbl, use_legacy_dataset=use_legacy_dataset)
 
 
 def test_read_column_invalid_index():

@@ -16,9 +16,8 @@
 # under the License.
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 

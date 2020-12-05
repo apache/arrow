@@ -20,11 +20,10 @@ import os
 from distutils.version import LooseVersion
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow import fs
-from pyarrow.filesystem import FileSystem, LocalFileSystem
+from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
@@ -561,52 +560,6 @@ def test_partition_keys_with_underscores(tempdir, use_legacy_dataset):
     assert result.column("year_week").to_pylist() == string_keys
 
 
-@pytest.fixture
-def s3_bucket(request, s3_connection, s3_server):
-    boto3 = pytest.importorskip('boto3')
-    botocore = pytest.importorskip('botocore')
-
-    host, port, access_key, secret_key = s3_connection
-    s3 = boto3.resource(
-        's3',
-        endpoint_url='http://{}:{}'.format(host, port),
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        config=botocore.client.Config(signature_version='s3v4'),
-        region_name='us-east-1'
-    )
-    bucket = s3.Bucket('test-s3fs')
-    try:
-        bucket.create()
-    except Exception:
-        # we get BucketAlreadyOwnedByYou error with fsspec handler
-        pass
-    return 'test-s3fs'
-
-
-@pytest.fixture
-def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
-    s3fs = pytest.importorskip('s3fs')
-
-    host, port, access_key, secret_key = s3_connection
-    fs = s3fs.S3FileSystem(
-        key=access_key,
-        secret=secret_key,
-        client_kwargs={
-            'endpoint_url': 'http://{}:{}'.format(host, port)
-        }
-    )
-
-    test_path = '{}/{}'.format(s3_bucket, guid())
-
-    fs.mkdir(test_path)
-    yield fs, test_path
-    try:
-        fs.rm(test_path, recursive=True)
-    except FileNotFoundError:
-        pass
-
-
 @parametrize_legacy_dataset
 def test_read_s3fs(s3_example_s3fs, use_legacy_dataset):
     fs, path = s3_example_s3fs
@@ -640,7 +593,6 @@ def test_read_partitioned_directory_s3fs_wrapper(
     s3_example_s3fs, use_legacy_dataset
 ):
     import s3fs
-
     from pyarrow.filesystem import S3FSWrapper
 
     if s3fs.__version__ >= LooseVersion("0.5"):
@@ -987,51 +939,6 @@ def test_dataset_enable_buffered_stream(tempdir, use_legacy_dataset):
         assert dataset.read().equals(table)
 
 
-@pytest.mark.pandas
-@pytest.mark.parametrize('preserve_index', [True, False, None])
-def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
-    # ARROW-1103
-    nfiles = 5
-    size = 5
-
-    dirpath = tempdir / guid()
-    dirpath.mkdir()
-
-    test_data = []
-    frames = []
-    paths = []
-    for i in range(nfiles):
-        df = _test_dataframe(size, seed=i)
-        df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
-
-        path = dirpath / '{}.parquet'.format(i)
-
-        table = pa.Table.from_pandas(df, preserve_index=preserve_index)
-
-        # Obliterate metadata
-        table = table.replace_schema_metadata(None)
-        assert table.schema.metadata is None
-
-        _write_table(table, path)
-        test_data.append(table)
-        frames.append(df)
-        paths.append(path)
-
-    # Write _metadata common file
-    table_for_metadata = pa.Table.from_pandas(
-        df, preserve_index=preserve_index
-    )
-    pq.write_metadata(table_for_metadata.schema, dirpath / '_metadata')
-
-    dataset = pq.ParquetDataset(dirpath)
-    columns = ['uint8', 'strings']
-    result = dataset.read_pandas(columns=columns).to_pandas()
-    expected = pd.concat([x[columns] for x in frames])
-    expected.index.name = (
-        df.index.name if preserve_index is not False else None)
-    tm.assert_frame_equal(result, expected)
-
-
 def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
     test_data = []
     paths = []
@@ -1278,78 +1185,6 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     assert sorted(expected_basenames) == sorted(output_basenames)
 
 
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_write_to_dataset_pandas_preserve_extensiondtypes(
-    tempdir, use_legacy_dataset
-):
-    # ARROW-8251 - preserve pandas extension dtypes in roundtrip
-    if LooseVersion(pd.__version__) < "1.0.0":
-        pytest.skip("__arrow_array__ added to pandas in 1.0.0")
-
-    df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
-    df['col'] = df['col'].astype("Int64")
-    table = pa.table(df)
-
-    pq.write_to_dataset(
-        table, str(tempdir / "case1"), partition_cols=['part'],
-        use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
-
-    pq.write_to_dataset(
-        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
-
-    pq.write_table(table, str(tempdir / "data.parquet"))
-    result = pq.read_table(
-        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
-    # ARROW-8251 - preserve pandas index in roundtrip
-
-    df = pd.DataFrame({'part': ['a', 'a', 'b'], "col": [1, 2, 3]})
-    df.index = pd.Index(['a', 'b', 'c'], name="idx")
-    table = pa.table(df)
-    df_cat = df[["col", "part"]].copy()
-    df_cat["part"] = df_cat["part"].astype("category")
-
-    pq.write_to_dataset(
-        table, str(tempdir / "case1"), partition_cols=['part'],
-        use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result, df_cat)
-
-    pq.write_to_dataset(
-        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-    pq.write_table(table, str(tempdir / "data.parquet"))
-    result = pq.read_table(
-        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
 # TODO(dataset) support pickling
 def _make_dataset_for_pickling(tempdir, N=100):
     path = tempdir / 'data.parquet'
@@ -1410,146 +1245,6 @@ def test_cloudpickle_dataset(tempdir, datadir):
     cp = pytest.importorskip('cloudpickle')
     dataset = _make_dataset_for_pickling(tempdir)
     _assert_dataset_is_picklable(dataset, pickler=cp)
-
-
-@pytest.mark.pandas
-@pytest.mark.parametrize("filesystem", [
-    None,
-    LocalFileSystem._get_instance(),
-    fs.LocalFileSystem(),
-])
-def test_parquet_writer_filesystem_local(tempdir, filesystem):
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-    path = str(tempdir / 'data.parquet')
-
-    with pq.ParquetWriter(
-        path, table.schema, filesystem=filesystem, version='2.0'
-    ) as writer:
-        writer.write_table(table)
-
-    result = _read_table(path).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
-@pytest.fixture
-def s3_example_fs(s3_connection, s3_server):
-    from pyarrow.fs import FileSystem
-
-    host, port, access_key, secret_key = s3_connection
-    uri = (
-        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
-        .format(access_key, secret_key, host, port)
-    )
-    fs, path = FileSystem.from_uri(uri)
-
-    fs.create_dir("mybucket")
-
-    yield fs, uri, path
-
-
-@pytest.mark.pandas
-@pytest.mark.s3
-def test_parquet_writer_filesystem_s3(s3_example_fs):
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    fs, uri, path = s3_example_fs
-
-    with pq.ParquetWriter(
-        path, table.schema, filesystem=fs, version='2.0'
-    ) as writer:
-        writer.write_table(table)
-
-    result = _read_table(uri).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
-@pytest.mark.pandas
-@pytest.mark.s3
-def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    fs, uri, path = s3_example_fs
-
-    with pq.ParquetWriter(uri, table.schema, version='2.0') as writer:
-        writer.write_table(table)
-
-    result = _read_table(path, filesystem=fs).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
-@pytest.mark.pandas
-def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    fs, directory = s3_example_s3fs
-    path = directory + "/test.parquet"
-
-    with pq.ParquetWriter(
-        path, table.schema, filesystem=fs, version='2.0'
-    ) as writer:
-        writer.write_table(table)
-
-    result = _read_table(path, filesystem=fs).to_pandas()
-    tm.assert_frame_equal(result, df)
-
-
-@pytest.mark.pandas
-def test_parquet_writer_filesystem_buffer_raises():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-    filesystem = fs.LocalFileSystem()
-
-    # Should raise ValueError when filesystem is passed with file-like object
-    with pytest.raises(ValueError, match="specified path is file-like"):
-        pq.ParquetWriter(
-            pa.BufferOutputStream(), table.schema, filesystem=filesystem
-        )
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
-    out = pa.BufferOutputStream()
-
-    class CustomFS(FileSystem):
-        def __init__(self):
-            self.path = None
-            self.mode = None
-
-        def open(self, path, mode='rb'):
-            self.path = path
-            self.mode = mode
-            return out
-
-    fs = CustomFS()
-    fname = 'expected_fname.parquet'
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    with pq.ParquetWriter(fname, table.schema, filesystem=fs, version='2.0') \
-            as writer:
-        writer.write_table(table)
-
-    assert fs.path == fname
-    assert fs.mode == 'wb'
-    assert out.closed
-
-    buf = out.getvalue()
-    table_read = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df_read, df)
-
-    # Should raise ValueError when filesystem is passed with file-like object
-    with pytest.raises(ValueError) as err_info:
-        pq.ParquetWriter(pa.BufferOutputStream(), table.schema, filesystem=fs)
-        expected_msg = ("filesystem passed but where is file-like, so"
-                        " there is nothing to open with filesystem.")
-        assert str(err_info) == expected_msg
 
 
 @pytest.mark.pandas

@@ -16,8 +16,55 @@
 # under the License.
 
 import pytest
+from pyarrow.util import guid
 
 
 @pytest.fixture(scope='module')
 def datadir(datadir):
     return datadir / 'parquet'
+
+
+@pytest.fixture
+def s3_bucket(request, s3_connection, s3_server):
+    boto3 = pytest.importorskip('boto3')
+    botocore = pytest.importorskip('botocore')
+
+    host, port, access_key, secret_key = s3_connection
+    s3 = boto3.resource(
+        's3',
+        endpoint_url='http://{}:{}'.format(host, port),
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=botocore.client.Config(signature_version='s3v4'),
+        region_name='us-east-1'
+    )
+    bucket = s3.Bucket('test-s3fs')
+    try:
+        bucket.create()
+    except Exception:
+        # we get BucketAlreadyOwnedByYou error with fsspec handler
+        pass
+    return 'test-s3fs'
+
+
+@pytest.fixture
+def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
+    s3fs = pytest.importorskip('s3fs')
+
+    host, port, access_key, secret_key = s3_connection
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={
+            'endpoint_url': 'http://{}:{}'.format(host, port)
+        }
+    )
+
+    test_path = '{}/{}'.format(s3_bucket, guid())
+
+    fs.mkdir(test_path)
+    yield fs, test_path
+    try:
+        fs.rm(test_path, recursive=True)
+    except FileNotFoundError:
+        pass

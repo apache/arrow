@@ -20,9 +20,8 @@ import io
 from collections import OrderedDict
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
 
@@ -36,7 +35,6 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
-
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None

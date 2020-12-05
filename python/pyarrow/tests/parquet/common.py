@@ -19,9 +19,8 @@ import io
 import os
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
+import pytest
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 
@@ -89,17 +88,6 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     assert result.equals(expected)
 
 
-def _simple_table_write_read(table, use_legacy_dataset):
-    import pyarrow.parquet as pq
-
-    bio = pa.BufferOutputStream()
-    pq.write_table(table, bio)
-    contents = bio.getvalue()
-    return pq.read_table(
-        pa.BufferReader(contents), use_legacy_dataset=use_legacy_dataset
-    )
-
-
 def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
     table = pa.Table.from_pandas(df)
     result = _roundtrip_table(
@@ -110,7 +98,6 @@ def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
 
 def _test_read_common_metadata_files(fs, base_path):
     import pandas as pd
-
     import pyarrow.parquet as pq
 
     N = 100
@@ -185,7 +172,6 @@ def _test_write_to_dataset_with_partitions(base_path,
                                            index_name=None):
     import pandas as pd
     import pandas.testing as tm
-
     import pyarrow.parquet as pq
 
     # ARROW-1400
@@ -245,7 +231,6 @@ def _test_write_to_dataset_no_partitions(base_path,
                                          use_legacy_dataset=True,
                                          filesystem=None):
     import pandas as pd
-
     import pyarrow.parquet as pq
 
     # ARROW-1400
