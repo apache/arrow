@@ -126,3 +126,7 @@ harness = false
 [[bench]]
 name = "array_slice"
 harness = false
+
+[[bench]]
+name = "concatenate_kernel"
+harness = false
