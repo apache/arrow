@@ -199,12 +199,17 @@ impl DFSchema {
             ))),
         }
     }
+}
 
-    /// Convert to an Arrow schema
-    pub fn to_arrow_schema(&self) -> SchemaRef {
-        SchemaRef::new(Schema::new(
-            self.fields.iter().map(|f| f.field.clone()).collect(),
-        ))
+impl Into<Schema> for DFSchema {
+    fn into(self) -> Schema {
+        Schema::new(self.fields.iter().map(|f| f.field.clone()).collect())
+    }
+}
+
+impl Into<SchemaRef> for DFSchema {
+    fn into(self) -> SchemaRef {
+        SchemaRef::new(self.into())
     }
 }
 
