@@ -1654,21 +1654,34 @@ macro(build_gtest)
     # the same directory as our test programs or add
     # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
     # choose the former because the latter may be forgotten.
+    set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
+    set(_GTEST_RUNTIME_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(
+      _GTEST_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}")
+    set(
+      _GMOCK_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_RUNTIME_SUFFIX}")
+    set(
+      _GTEST_MAIN_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
+      )
     externalproject_add_step(googletest_ep copy
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
-                                     ${GTEST_SHARED_LIB}
+                                     ${_GTEST_RUNTIME_LIB}
                                      ${BUILD_OUTPUT_ROOT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
-                                     ${GMOCK_SHARED_LIB}
+                                     ${_GMOCK_RUNTIME_LIB}
                                      ${BUILD_OUTPUT_ROOT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
-                                     ${GTEST_MAIN_SHARED_LIB}
+                                     ${_GTEST_MAIN_RUNTIME_LIB}
                                      ${BUILD_OUTPUT_ROOT_DIRECTORY}
                              DEPENDEES install)
   endif()
