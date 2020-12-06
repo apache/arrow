@@ -21,7 +21,7 @@
 
 use super::{
     Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
-    GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
+    GenericBinaryArray, GenericListArray, GenericStringArray, NullArray, OffsetSizeTrait,
     PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
@@ -64,6 +64,12 @@ impl PartialEq for dyn Array {
 
 impl<T: Array> PartialEq<T> for dyn Array {
     fn eq(&self, other: &T) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for NullArray {
+    fn eq(&self, other: &NullArray) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
 }
