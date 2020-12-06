@@ -65,6 +65,7 @@ fn min_max_string<T: StringOffsetSizeTrait, F: Fn(&str, &str) -> bool>(
 }
 
 /// Returns the minimum value in the array, according to the natural order.
+/// For floating point arrays any NaN values are considered to be greater than any other non-null value
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")))]
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
@@ -75,6 +76,7 @@ where
 }
 
 /// Returns the maximum value in the array, according to the natural order.
+/// For floating point arrays any NaN values are considered to be greater than any other non-null value
 #[cfg(not(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd")))]
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
@@ -202,10 +204,10 @@ mod simd {
         type ScalarAccumulator;
         type SimdAccumulator;
 
-        /// Returns the identity value for this aggregation function
+        /// Returns the accumulator for aggregating scalar values
         fn init_accumulator_scalar() -> Self::ScalarAccumulator;
 
-        /// Returns a vector filled with the identity value for this aggregation function
+        /// Returns the accumulator for aggregating simd chunks of values
         fn init_accumulator_chunk() -> Self::SimdAccumulator;
 
         /// Updates the accumulator with the values of one chunk
@@ -224,7 +226,7 @@ mod simd {
         /// Updates the accumulator with one value
         fn accumulate_scalar(accumulator: &mut Self::ScalarAccumulator, value: T::Native);
 
-        /// Reduces the vector lanes of the accumulator to a single value
+        /// Reduces the vector lanes of the simd accumulator and the scalar accumulator to a single value
         fn reduce(
             simd_accumulator: Self::SimdAccumulator,
             scalar_accumulator: Self::ScalarAccumulator,
@@ -315,9 +317,10 @@ mod simd {
             chunk: T::Simd,
         ) {
             let acc_is_nan = !T::eq(accumulator.0, accumulator.0);
-            let cmp_mask = !accumulator.1 | (acc_is_nan | T::lt(chunk, accumulator.0));
+            let is_lt = acc_is_nan | T::lt(chunk, accumulator.0);
+            let first_or_lt = !accumulator.1 | is_lt;
 
-            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.0 = T::mask_select(first_or_lt, chunk, accumulator.0);
             accumulator.1 = T::mask_init(true);
         }
 
@@ -327,10 +330,10 @@ mod simd {
             vecmask: T::SimdMask,
         ) {
             let acc_is_nan = !T::eq(accumulator.0, accumulator.0);
-            let cmp_mask =
-                !accumulator.1 | (vecmask & (acc_is_nan | T::lt(chunk, accumulator.0)));
+            let is_lt = vecmask & (acc_is_nan | T::lt(chunk, accumulator.0));
+            let first_or_lt = !accumulator.1 | is_lt;
 
-            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.0 = T::mask_select(first_or_lt, chunk, accumulator.0);
             accumulator.1 |= vecmask;
         }
 
@@ -402,9 +405,10 @@ mod simd {
             chunk: T::Simd,
         ) {
             let chunk_is_nan = !T::eq(chunk, chunk);
-            let cmp_mask = chunk_is_nan | T::gt(chunk, accumulator.0);
+            let is_gt = chunk_is_nan | T::gt(chunk, accumulator.0);
+            let first_or_gt = !accumulator.1 | is_gt;
 
-            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.0 = T::mask_select(first_or_gt, chunk, accumulator.0);
             accumulator.1 = T::mask_init(true);
         }
 
@@ -414,10 +418,10 @@ mod simd {
             vecmask: T::SimdMask,
         ) {
             let chunk_is_nan = !T::eq(chunk, chunk);
-            let cmp_mask =
-                !accumulator.1 | (vecmask & (chunk_is_nan | T::gt(chunk, accumulator.0)));
+            let is_gt = vecmask & (chunk_is_nan | T::gt(chunk, accumulator.0));
+            let first_or_gt = !accumulator.1 | is_gt;
 
-            accumulator.0 = T::mask_select(cmp_mask, chunk, accumulator.0);
+            accumulator.0 = T::mask_select(first_or_gt, chunk, accumulator.0);
             accumulator.1 |= vecmask;
         }
 
@@ -545,6 +549,7 @@ where
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 /// Returns the minimum value in the array, according to the natural order.
+/// For floating point arrays any NaN values are considered to be greater than any other non-null value
 pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
@@ -556,6 +561,7 @@ where
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 /// Returns the maximum value in the array, according to the natural order.
+/// For floating point arrays any NaN values are considered to be greater than any other non-null value
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
