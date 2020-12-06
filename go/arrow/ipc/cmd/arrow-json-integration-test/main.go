@@ -23,8 +23,8 @@ import (
 
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/arrio"
-	"github.com/apache/arrow/go/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/json"
 	"golang.org/x/xerrors"
 )
 
@@ -93,7 +93,7 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 		log.Printf("found schema:\n%v\n", rr.Schema())
 	}
 
-	ww, err := arrjson.NewWriter(w, rr.Schema())
+	ww, err := json.NewWriter(w, rr.Schema())
 	if err != nil {
 		return xerrors.Errorf("could not create JSON encoder: %w", err)
 	}
@@ -134,7 +134,7 @@ func cnvToARROW(arrowName, jsonName string, verbose bool) error {
 	}
 	defer w.Close()
 
-	rr, err := arrjson.NewReader(r)
+	rr, err := json.NewReader(r)
 	if err != nil {
 		return xerrors.Errorf("could not open JSON file reader from file %q: %w", jsonName, err)
 	}
@@ -178,7 +178,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 	}
 	defer jr.Close()
 
-	jrr, err := arrjson.NewReader(jr)
+	jrr, err := json.NewReader(jr)
 	if err != nil {
 		return xerrors.Errorf("could not open JSON file reader from file %q: %w", jsonName, err)
 	}

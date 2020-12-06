@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package arrjson provides types and functions to encode and decode ARROW types and data
+// Package json provides types and functions to encode and decode ARROW types and data
 // to and from JSON files.
-package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
+package json
 
 import (
 	"encoding/hex"
@@ -541,7 +541,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		data := make([][]byte, len(strdata))
 		for i, v := range strdata {
 			if len(v) != 2*dt.ByteWidth {
-				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(xerrors.Errorf("json: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			vv, err := hex.DecodeString(v)
 			if err != nil {
@@ -791,7 +791,7 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 		for i := range o.Data {
 			v := []byte(strings.ToUpper(hex.EncodeToString(arr.Value(i))))
 			if len(v) != 2*dt.ByteWidth {
-				panic(xerrors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+				panic(xerrors.Errorf("json: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
 			}
 			o.Data[i] = string(v) // re-convert as string to prevent json.Marshal from base64-encoding it.
 		}
