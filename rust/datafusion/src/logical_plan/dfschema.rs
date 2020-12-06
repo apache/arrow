@@ -44,22 +44,22 @@ impl DFSchema {
 
     /// Create a new `DFSchema`
     pub fn new(fields: Vec<DFField>) -> Result<Self> {
-        let mut qualified_names: HashSet<(&str, &str)> = HashSet::new();
-        let mut unqualified_names: HashSet<&str> = HashSet::new();
+        let mut qualified_names = HashSet::new();
+        let mut unqualified_names = HashSet::new();
         for field in &fields {
             if let Some(qualifier) = field.qualifier() {
                 if !qualified_names.insert((qualifier, field.name())) {
                     return Err(DataFusionError::Plan(format!(
-                        "Joined schema would contain duplicate qualified field name '{}'",
+                        "Schema contains duplicate qualified field name '{}'",
                         field.qualified_name()
                     )));
                 }
             } else {
                 if !unqualified_names.insert(field.name()) {
-                    return Err(DataFusionError::Plan(
-                        format!("Joined schema would contain duplicate unqualified field name '{}'",
-                                field.name())
-                    ));
+                    return Err(DataFusionError::Plan(format!(
+                        "Schema contains duplicate unqualified field name '{}'",
+                        field.name()
+                    )));
                 }
             }
         }
@@ -67,7 +67,10 @@ impl DFSchema {
         // check for mix of qualified and unqualified field with same unqualified name
         // note that we need to sort the contents of the HashSet first so that errors are
         // deterministic
-        let mut qualified_names: Vec<&(&str, &str)> = qualified_names.iter().collect();
+        let mut qualified_names = qualified_names
+            .iter()
+            .map(|(l, r)| (l.to_owned(), r.to_owned()))
+            .collect::<Vec<(&String, &String)>>();
         qualified_names.sort_by(|a, b| {
             let a = format!("{}.{}", a.0, a.1);
             let b = format!("{}.{}", b.0, b.1);
@@ -76,7 +79,7 @@ impl DFSchema {
         for (qualifier, name) in &qualified_names {
             if unqualified_names.contains(name) {
                 return Err(DataFusionError::Plan(format!(
-                    "Joined schema would contain qualified field name '{}.{}' \
+                    "Schema contains qualified field name '{}.{}' \
                     and unqualified field name '{}' which would be ambiguous",
                     qualifier, name, name
                 )));
@@ -190,7 +193,7 @@ impl DFSchema {
                 relation_name, name
             ))),
             1 => Ok(matches[0].to_owned()),
-            _ => Err(DataFusionError::Plan(format!(
+            _ => Err(DataFusionError::Internal(format!(
                 "Ambiguous reference to qualified field named '{}.{}'",
                 relation_name, name
             ))),
@@ -273,7 +276,7 @@ impl DFField {
         self.field.is_nullable()
     }
 
-    /// Returns an immutable reference to the `DFField`'s qualified name
+    /// Returns a reference to the `DFField`'s qualified name
     pub fn qualified_name(&self) -> String {
         if let Some(relation_name) = &self.qualifier {
             format!("{}.{}", relation_name, self.field.name())
@@ -283,8 +286,8 @@ impl DFField {
     }
 
     /// Get the optional qualifier
-    pub fn qualifier(&self) -> &Option<String> {
-        &self.qualifier
+    pub fn qualifier(&self) -> Option<&String> {
+        self.qualifier.as_ref()
     }
 }
 
@@ -346,7 +349,7 @@ mod tests {
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
-            "Error during planning: Joined schema would contain duplicate \
+            "Error during planning: Schema contains duplicate \
         qualified field name \'t1.c0\'",
             &format!("{}", join.err().unwrap())
         );
@@ -360,7 +363,7 @@ mod tests {
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
-            "Error during planning: Joined schema would contain duplicate \
+            "Error during planning: Schema contains duplicate \
         unqualified field name \'c0\'",
             &format!("{}", join.err().unwrap())
         );
@@ -392,7 +395,7 @@ mod tests {
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
-            "Error during planning: Joined schema would contain qualified \
+            "Error during planning: Schema contains qualified \
         field name \'t1.c0\' and unqualified field name \'c0\' which would be ambiguous",
             &format!("{}", join.err().unwrap())
         );
