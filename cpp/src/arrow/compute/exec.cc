@@ -46,6 +46,7 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -213,20 +214,33 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
 
 namespace {
 
-bool ArrayHasNulls(const ArrayData& data) {
-  // As discovered in ARROW-8863 (and not only for that reason)
-  // ArrayData::null_count can -1 even when buffers[0] is nullptr. So we check
-  // for both cases (nullptr means no nulls, or null_count already computed)
-  if (data.type->id() == Type::NA) {
-    return true;
-  } else if (data.buffers[0] == nullptr) {
-    return false;
-  } else {
+struct NullGeneralization {
+  enum type { PERHAPS_NULL, ALL_VALID, ALL_NULL };
+
+  static type Get(const Datum& datum) {
+    if (datum.type()->id() == Type::NA) {
+      return ALL_NULL;
+    }
+
+    if (datum.is_scalar()) {
+      return datum.scalar()->is_valid ? ALL_VALID : ALL_NULL;
+    }
+
+    const auto& arr = *datum.array();
+
     // Do not count the bits if they haven't been counted already
-    const int64_t known_null_count = data.null_count.load();
-    return known_null_count == kUnknownNullCount || known_null_count > 0;
+    const int64_t known_null_count = arr.null_count.load();
+    if (known_null_count == 0) {
+      return ALL_VALID;
+    }
+
+    if (known_null_count == arr.length) {
+      return ALL_NULL;
+    }
+
+    return PERHAPS_NULL;
   }
-}
+};
 
 // Null propagation implementation that deals both with preallocated bitmaps
 // and maybe-to-be allocated bitmaps
@@ -243,15 +257,16 @@ class NullPropagator {
  public:
   NullPropagator(KernelContext* ctx, const ExecBatch& batch, ArrayData* output)
       : ctx_(ctx), batch_(batch), output_(output) {
-    // At this point, the values in batch_.values must have been validated to
-    // all be value-like
-    for (const Datum& val : batch_.values) {
-      if (val.kind() == Datum::ARRAY) {
-        if (ArrayHasNulls(*val.array())) {
-          values_with_nulls_.push_back(&val);
-        }
-      } else if (!val.scalar()->is_valid) {
-        values_with_nulls_.push_back(&val);
+    for (const Datum& datum : batch_.values) {
+      auto null_generalization = NullGeneralization::Get(datum);
+
+      if (null_generalization == NullGeneralization::ALL_NULL) {
+        is_all_null_ = true;
+      }
+
+      if (null_generalization != NullGeneralization::ALL_VALID &&
+          datum.kind() == Datum::ARRAY) {
+        arrays_with_nulls_.push_back(datum.array().get());
       }
     }
 
@@ -272,52 +287,33 @@ class NullPropagator {
     return Status::OK();
   }
 
-  Result<bool> ShortCircuitIfAllNull() {
-    // An all-null value (scalar null or all-null array) gives us a short
-    // circuit opportunity
-    bool is_all_null = false;
-    std::shared_ptr<Buffer> all_null_bitmap;
-
-    // Walk all the values with nulls instead of breaking on the first in case
-    // we find a bitmap that can be reused in the non-preallocated case
-    for (const Datum* value : values_with_nulls_) {
-      if (value->type()->id() == Type::NA) {
-        // No bitmap
-        is_all_null = true;
-      } else if (value->kind() == Datum::ARRAY) {
-        const ArrayData& arr = *value->array();
-        if (arr.null_count.load() == arr.length) {
-          // Pluck the all null bitmap so we can set it in the output if it was
-          // not pre-allocated
-          all_null_bitmap = arr.buffers[0];
-          is_all_null = true;
-        }
-      } else {
-        // Scalar
-        is_all_null = !value->scalar()->is_valid;
-      }
-    }
-    if (!is_all_null) {
-      return false;
-    }
-
+  Status AllNullShortCircuit() {
     // OK, the output should be all null
     output_->null_count = output_->length;
 
-    if (!bitmap_preallocated_ && all_null_bitmap) {
-      // If we did not pre-allocate memory, and we observed an all-null bitmap,
-      // then we can zero-copy it into the output
-      output_->buffers[0] = std::move(all_null_bitmap);
-    } else {
-      RETURN_NOT_OK(EnsureAllocated());
+    if (bitmap_preallocated_) {
       BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+      return Status::OK();
     }
-    return true;
+
+    // Walk all the values with nulls instead of breaking on the first in case
+    // we find a bitmap that can be reused in the non-preallocated case
+    for (const ArrayData* arr : arrays_with_nulls_) {
+      if (arr->null_count.load() == arr->length && arr->buffers[0] != nullptr) {
+        // Reuse this all null bitmap
+        output_->buffers[0] = arr->buffers[0];
+        return Status::OK();
+      }
+    }
+
+    RETURN_NOT_OK(EnsureAllocated());
+    BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+    return Status::OK();
   }
 
   Status PropagateSingle() {
     // One array
-    const ArrayData& arr = *values_with_nulls_[0]->array();
+    const ArrayData& arr = *arrays_with_nulls_[0];
     const std::shared_ptr<Buffer>& arr_bitmap = arr.buffers[0];
 
     // Reuse the null count if it's known
@@ -325,26 +321,27 @@ class NullPropagator {
 
     if (bitmap_preallocated_) {
       CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_, output_->offset);
+      return Status::OK();
+    }
+
+    // Two cases when memory was not pre-allocated:
+    //
+    // * Offset is zero: we reuse the bitmap as is
+    // * Offset is nonzero but a multiple of 8: we can slice the bitmap
+    // * Offset is not a multiple of 8: we must allocate and use CopyBitmap
+    //
+    // Keep in mind that output_->offset is not permitted to be nonzero when
+    // the bitmap is not preallocated, and that precondition is asserted
+    // higher in the call stack.
+    if (arr.offset == 0) {
+      output_->buffers[0] = arr_bitmap;
+    } else if (arr.offset % 8 == 0) {
+      output_->buffers[0] =
+          SliceBuffer(arr_bitmap, arr.offset / 8, BitUtil::BytesForBits(arr.length));
     } else {
-      // Two cases when memory was not pre-allocated:
-      //
-      // * Offset is zero: we reuse the bitmap as is
-      // * Offset is nonzero but a multiple of 8: we can slice the bitmap
-      // * Offset is not a multiple of 8: we must allocate and use CopyBitmap
-      //
-      // Keep in mind that output_->offset is not permitted to be nonzero when
-      // the bitmap is not preallocated, and that precondition is asserted
-      // higher in the call stack.
-      if (arr.offset == 0) {
-        output_->buffers[0] = arr_bitmap;
-      } else if (arr.offset % 8 == 0) {
-        output_->buffers[0] =
-            SliceBuffer(arr_bitmap, arr.offset / 8, BitUtil::BytesForBits(arr.length));
-      } else {
-        RETURN_NOT_OK(EnsureAllocated());
-        CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
-                   /*dst_offset=*/0);
-      }
+      RETURN_NOT_OK(EnsureAllocated());
+      CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
+                 /*dst_offset=*/0);
     }
     return Status::OK();
   }
@@ -356,7 +353,6 @@ class NullPropagator {
     RETURN_NOT_OK(EnsureAllocated());
 
     auto Accumulate = [&](const ArrayData& left, const ArrayData& right) {
-      // This is a precondition of reaching this code path
       DCHECK(left.buffers[0]);
       DCHECK(right.buffers[0]);
       BitmapAnd(left.buffers[0]->data(), left.offset, right.buffers[0]->data(),
@@ -364,27 +360,27 @@ class NullPropagator {
                 output_->buffers[0]->mutable_data());
     };
 
-    DCHECK_GT(values_with_nulls_.size(), 1);
+    DCHECK_GT(arrays_with_nulls_.size(), 1);
 
     // Seed the output bitmap with the & of the first two bitmaps
-    Accumulate(*values_with_nulls_[0]->array(), *values_with_nulls_[1]->array());
+    Accumulate(*arrays_with_nulls_[0], *arrays_with_nulls_[1]);
 
     // Accumulate the rest
-    for (size_t i = 2; i < values_with_nulls_.size(); ++i) {
-      Accumulate(*output_, *values_with_nulls_[i]->array());
+    for (size_t i = 2; i < arrays_with_nulls_.size(); ++i) {
+      Accumulate(*output_, *arrays_with_nulls_[i]);
     }
     return Status::OK();
   }
 
   Status Execute() {
-    bool finished = false;
-    ARROW_ASSIGN_OR_RAISE(finished, ShortCircuitIfAllNull());
-    if (finished) {
-      return Status::OK();
+    if (is_all_null_) {
+      // An all-null value (scalar null or all-null array) gives us a short
+      // circuit opportunity
+      return AllNullShortCircuit();
     }
 
     // At this point, by construction we know that all of the values in
-    // values_with_nulls_ are arrays that are not all null. So there are a
+    // arrays_with_nulls_ are arrays that are not all null. So there are a
     // few cases:
     //
     // * No arrays. This is a no-op w/o preallocation but when the bitmap is
@@ -399,24 +395,27 @@ class NullPropagator {
 
     output_->null_count = kUnknownNullCount;
 
-    if (values_with_nulls_.size() == 0) {
+    if (arrays_with_nulls_.empty()) {
       // No arrays with nulls case
       output_->null_count = 0;
       if (bitmap_preallocated_) {
         BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, true);
       }
       return Status::OK();
-    } else if (values_with_nulls_.size() == 1) {
-      return PropagateSingle();
-    } else {
-      return PropagateMultiple();
     }
+
+    if (arrays_with_nulls_.size() == 1) {
+      return PropagateSingle();
+    }
+
+    return PropagateMultiple();
   }
 
  private:
   KernelContext* ctx_;
   const ExecBatch& batch_;
-  std::vector<const Datum*> values_with_nulls_;
+  std::vector<const ArrayData*> arrays_with_nulls_;
+  bool is_all_null_ = false;
   ArrayData* output_;
   uint8_t* bitmap_;
   bool bitmap_preallocated_ = false;

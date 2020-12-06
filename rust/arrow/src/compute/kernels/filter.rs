@@ -324,10 +324,12 @@ impl FilterContext {
 
         let filter_bytes = filter_buffer.data();
 
-        // transmute filter_bytes to &[u64]
-        let mut u64_buffer = MutableBuffer::new(filter_bytes.len());
         // add to the resulting len so is is a multiple of the size of u64
-        let pad_addional_len = (8 - filter_bytes.len() % 8) % 8;
+        let pad_addional_len = 8 - filter_bytes.len() % 8;
+
+        // transmute filter_bytes to &[u64]
+        let mut u64_buffer = MutableBuffer::new(filter_bytes.len() + pad_addional_len);
+
         u64_buffer.extend_from_slice(filter_bytes);
         u64_buffer.extend_from_slice(&vec![0; pad_addional_len]);
         let mut filter_u64 = u64_buffer.typed_data_mut::<u64>().to_owned();
@@ -927,12 +929,8 @@ mod tests {
     fn test_filter_array_low_density() {
         // this test exercises the all 0's branch of the filter algorithm
         let mut data_values = (1..=65).collect::<Vec<i32>>();
-        let mut filter_values = (1..=65)
-            .map(|i| match i % 65 {
-                0 => true,
-                _ => false,
-            })
-            .collect::<Vec<bool>>();
+        let mut filter_values =
+            (1..=65).map(|i| matches!(i % 65, 0)).collect::<Vec<bool>>();
         // set up two more values after the batch
         data_values.extend_from_slice(&[66, 67]);
         filter_values.extend_from_slice(&[false, true]);
@@ -950,10 +948,7 @@ mod tests {
         // this test exercises the all 1's branch of the filter algorithm
         let mut data_values = (1..=65).map(Some).collect::<Vec<_>>();
         let mut filter_values = (1..=65)
-            .map(|i| match i % 65 {
-                0 => false,
-                _ => true,
-            })
+            .map(|i| !matches!(i % 65, 0))
             .collect::<Vec<bool>>();
         // set second data value to null
         data_values[1] = None;

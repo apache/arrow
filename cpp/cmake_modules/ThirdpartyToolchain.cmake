@@ -184,9 +184,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
 
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     if(ARG_REQUIRED_VERSION)
-      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION} MODULE)
+      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION})
     else()
-      find_package(${DEPENDENCY_NAME} MODULE)
+      find_package(${DEPENDENCY_NAME})
     endif()
     if(${${DEPENDENCY_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
@@ -256,6 +256,9 @@ endif()
 if(NOT ARROW_COMPUTE)
   # utf8proc is only potentially used in kernels for now
   set(ARROW_WITH_UTF8PROC OFF)
+endif()
+if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA))
+  set(ARROW_WITH_RE2 OFF)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1797,7 +1800,21 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  resolve_dependency(benchmark)
+  # ArgsProduct() is available since 1.5.2
+  set(BENCHMARK_REQUIRED_VERSION 1.5.2)
+  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA"
+     AND "${benchmark_SOURCE}" STREQUAL "SYSTEM")
+    # TODO: Remove this workaround once
+    # https://github.com/google/benchmark/issues/1046 is resolved.
+    #
+    # benchmark doesn't set suitable version when we use released
+    # archive. So the benchmark package on conda-forge isn't report
+    # the real version. We accept all the benchmark package with
+    # conda. Conda users should install benchmark 1.5.2 or later by
+    # ci/conda_env_cpp.yml.
+    set(BENCHMARK_REQUIRED_VERSION 0.0.0)
+  endif()
+  resolve_dependency(benchmark REQUIRED_VERSION ${BENCHMARK_REQUIRED_VERSION})
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(BENCHMARK_INCLUDE_DIR benchmark::benchmark
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -2090,8 +2107,9 @@ macro(build_re2)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS RE2::re2)
 endmacro()
 
-if(ARROW_GANDIVA)
+if(ARROW_WITH_RE2)
   resolve_dependency(RE2)
+  add_definitions(-DARROW_WITH_RE2)
 
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(RE2_INCLUDE_DIR RE2::re2 INTERFACE_INCLUDE_DIRECTORIES)

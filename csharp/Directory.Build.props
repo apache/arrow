@@ -33,7 +33,8 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <LangVersion>7.2</LangVersion>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <LangVersion>8.0</LangVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(CSharpDir)ApacheArrow.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>

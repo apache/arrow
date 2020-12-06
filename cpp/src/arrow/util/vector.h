@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -26,7 +27,7 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
-inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
+std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
   DCHECK(!values.empty());
   DCHECK_LT(index, values.size());
   std::vector<T> out;
@@ -41,8 +42,8 @@ inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t i
 }
 
 template <typename T>
-inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
-                                       T new_element) {
+std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
+                                T new_element) {
   DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() + 1);
@@ -57,8 +58,8 @@ inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t inde
 }
 
 template <typename T>
-inline std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
-                                           T new_element) {
+std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
+                                    T new_element) {
   DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size());
@@ -70,6 +71,14 @@ inline std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t 
     out.push_back(values[i]);
   }
   return out;
+}
+
+template <typename T, typename Predicate>
+std::vector<T> FilterVector(std::vector<T> values, Predicate&& predicate) {
+  auto new_end =
+      std::remove_if(values.begin(), values.end(), std::forward<Predicate>(predicate));
+  values.erase(new_end, values.end());
+  return values;
 }
 
 }  // namespace internal

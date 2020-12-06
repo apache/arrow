@@ -226,7 +226,7 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
       // *elem = dividend / 1e9;
       // remainder = dividend % 1e9.
       uint32_t hi = static_cast<uint32_t>(*elem >> 32);
-      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignficantBitMask(32));
+      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignificantBitMask(32));
       uint64_t dividend_hi = (static_cast<uint64_t>(remainder) << 32) | hi;
       uint64_t quotient_hi = dividend_hi / k1e9;
       remainder = static_cast<uint32_t>(dividend_hi % k1e9);

@@ -52,7 +52,7 @@ mod tests {
         },
         schema::parser::parse_message_type,
     };
-    use std::{env, fs, io::Write, rc::Rc};
+    use std::{env, fs, io::Write, sync::Arc};
 
     #[test]
     fn test_parquet_derive_hello() {
@@ -73,9 +73,9 @@ mod tests {
             OPTIONAL BINARY          borrowed_maybe_a_str (UTF8);
         }";
 
-        let schema = Rc::new(parse_message_type(schema_str).unwrap());
+        let schema = Arc::new(parse_message_type(schema_str).unwrap());
 
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = Arc::new(WriterProperties::builder().build());
         let mut writer = SerializedFileWriter::new(file, schema, props).unwrap();
 
         let a_str = "hello mother".to_owned();

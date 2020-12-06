@@ -804,6 +804,9 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
+    if (lastSet >= index) {
+      lastSet = index - 1;
+    }
     for (int i = lastSet + 1; i <= index; i++) {
       final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);

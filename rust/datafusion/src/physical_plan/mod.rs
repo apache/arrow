@@ -126,10 +126,10 @@ impl ColumnarValue {
         }
     }
 
-    fn into_array(self, batch: &RecordBatch) -> ArrayRef {
+    fn into_array(self, num_rows: usize) -> ArrayRef {
         match self {
             ColumnarValue::Array(array) => array,
-            ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(batch.num_rows()),
+            ColumnarValue::Scalar(scalar) => scalar.to_array_of_size(num_rows),
         }
     }
 }
@@ -235,6 +235,8 @@ pub mod filter;
 pub mod functions;
 pub mod group_scalar;
 pub mod hash_aggregate;
+pub mod hash_join;
+pub mod hash_utils;
 pub mod limit;
 pub mod math_expressions;
 pub mod memory;

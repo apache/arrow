@@ -20,14 +20,18 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, FixedSizeBinaryArray, GenericBinaryArray,
-    GenericListArray, GenericStringArray, OffsetSizeTrait, PrimitiveArray,
-    StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
+    GenericBinaryArray, GenericListArray, GenericStringArray, NullArray, OffsetSizeTrait,
+    PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
-use crate::datatypes::{ArrowPrimitiveType, DataType, IntervalUnit};
+use crate::{
+    buffer::Buffer,
+    datatypes::{ArrowPrimitiveType, DataType, IntervalUnit},
+};
 
 mod boolean;
+mod decimal;
 mod dictionary;
 mod fixed_binary;
 mod fixed_list;
@@ -42,6 +46,7 @@ mod variable_size;
 // For this reason, they are not exposed and are instead used
 // to build the generic functions below (`equal_range` and `equal`).
 use boolean::boolean_equal;
+use decimal::decimal_equal;
 use dictionary::dictionary_equal;
 use fixed_binary::fixed_binary_equal;
 use fixed_list::fixed_list_equal;
@@ -59,6 +64,12 @@ impl PartialEq for dyn Array {
 
 impl<T: Array> PartialEq<T> for dyn Array {
     fn eq(&self, other: &T) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for NullArray {
+    fn eq(&self, other: &NullArray) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
 }
@@ -87,6 +98,12 @@ impl PartialEq for FixedSizeBinaryArray {
     }
 }
 
+impl PartialEq for DecimalArray {
+    fn eq(&self, other: &Self) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
 impl<OffsetSize: OffsetSizeTrait> PartialEq for GenericListArray<OffsetSize> {
     fn eq(&self, other: &Self) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
@@ -100,15 +117,49 @@ impl PartialEq for StructArray {
 }
 
 /// Compares the values of two [ArrayData] starting at `lhs_start` and `rhs_start` respectively
-/// for `len` slots.
+/// for `len` slots. The null buffers `lhs_nulls` and `rhs_nulls` inherit parent nullability.
+///
+/// If an array is a child of a struct or list, the array's nulls have to be merged with the parent.
+/// This then affects the null count of the array, thus the merged nulls are passed separately
+/// as `lhs_nulls` and `rhs_nulls` variables to functions.
+/// The nulls are merged with a bitwise AND, and null counts are recomputed wheer necessary.
 #[inline]
 fn equal_values(
     lhs: &ArrayData,
     rhs: &ArrayData,
+    lhs_nulls: Option<&Buffer>,
+    rhs_nulls: Option<&Buffer>,
     lhs_start: usize,
     rhs_start: usize,
     len: usize,
 ) -> bool {
+    // compute the nested buffer of the parent and child
+    // if the array has no parent, the child is computed with itself
+    #[allow(unused_assignments)]
+    let mut temp_lhs: Option<Buffer> = None;
+    #[allow(unused_assignments)]
+    let mut temp_rhs: Option<Buffer> = None;
+    let lhs_merged_nulls = match (lhs_nulls, lhs.null_buffer()) {
+        (None, None) => None,
+        (None, Some(c)) => Some(c),
+        (Some(p), None) => Some(p),
+        (Some(p), Some(c)) => {
+            let merged = (p & c).unwrap();
+            temp_lhs = Some(merged);
+            temp_lhs.as_ref()
+        }
+    };
+    let rhs_merged_nulls = match (rhs_nulls, rhs.null_buffer()) {
+        (None, None) => None,
+        (None, Some(c)) => Some(c),
+        (Some(p), None) => Some(p),
+        (Some(p), Some(c)) => {
+            let merged = (p & c).unwrap();
+            temp_rhs = Some(merged);
+            temp_rhs.as_ref()
+        }
+    };
+
     match lhs.data_type() {
         DataType::Null => null_equal(lhs, rhs, lhs_start, rhs_start, len),
         DataType::Boolean => boolean_equal(lhs, rhs, lhs_start, rhs_start, len),
@@ -134,21 +185,42 @@ fn equal_values(
         | DataType::Duration(_) => {
             primitive_equal::<i64>(lhs, rhs, lhs_start, rhs_start, len)
         }
-        DataType::Utf8 | DataType::Binary => {
-            variable_sized_equal::<i32>(lhs, rhs, lhs_start, rhs_start, len)
-        }
-        DataType::LargeUtf8 | DataType::LargeBinary => {
-            variable_sized_equal::<i64>(lhs, rhs, lhs_start, rhs_start, len)
-        }
+        DataType::Utf8 | DataType::Binary => variable_sized_equal::<i32>(
+            lhs,
+            rhs,
+            lhs_merged_nulls,
+            rhs_merged_nulls,
+            lhs_start,
+            rhs_start,
+            len,
+        ),
+        DataType::LargeUtf8 | DataType::LargeBinary => variable_sized_equal::<i64>(
+            lhs,
+            rhs,
+            lhs_merged_nulls,
+            rhs_merged_nulls,
+            lhs_start,
+            rhs_start,
+            len,
+        ),
         DataType::FixedSizeBinary(_) => {
             fixed_binary_equal(lhs, rhs, lhs_start, rhs_start, len)
         }
+        DataType::Decimal(_, _) => decimal_equal(lhs, rhs, lhs_start, rhs_start, len),
         DataType::List(_) => list_equal::<i32>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::LargeList(_) => list_equal::<i64>(lhs, rhs, lhs_start, rhs_start, len),
         DataType::FixedSizeList(_, _) => {
             fixed_list_equal(lhs, rhs, lhs_start, rhs_start, len)
         }
-        DataType::Struct(_) => struct_equal(lhs, rhs, lhs_start, rhs_start, len),
+        DataType::Struct(_) => struct_equal(
+            lhs,
+            rhs,
+            lhs_merged_nulls,
+            rhs_merged_nulls,
+            lhs_start,
+            rhs_start,
+            len,
+        ),
         DataType::Union(_) => unimplemented!("See ARROW-8576"),
         DataType::Dictionary(data_type, _) => match data_type.as_ref() {
             DataType::Int8 => dictionary_equal::<i8>(lhs, rhs, lhs_start, rhs_start, len),
@@ -182,13 +254,15 @@ fn equal_values(
 fn equal_range(
     lhs: &ArrayData,
     rhs: &ArrayData,
+    lhs_nulls: Option<&Buffer>,
+    rhs_nulls: Option<&Buffer>,
     lhs_start: usize,
     rhs_start: usize,
     len: usize,
 ) -> bool {
     utils::base_equal(lhs, rhs)
-        && utils::equal_nulls(lhs, rhs, lhs_start, rhs_start, len)
-        && equal_values(lhs, rhs, lhs_start, rhs_start, len)
+        && utils::equal_nulls(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
+        && equal_values(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
 }
 
 /// Logically compares two [ArrayData].
@@ -204,10 +278,12 @@ fn equal_range(
 /// This function may panic whenever any of the [ArrayData] does not follow the Arrow specification.
 /// (e.g. wrong number of buffers, buffer `len` does not correspond to the declared `len`)
 pub fn equal(lhs: &ArrayData, rhs: &ArrayData) -> bool {
+    let lhs_nulls = lhs.null_buffer();
+    let rhs_nulls = rhs.null_buffer();
     utils::base_equal(lhs, rhs)
         && lhs.null_count() == rhs.null_count()
-        && utils::equal_nulls(lhs, rhs, 0, 0, lhs.len())
-        && equal_values(lhs, rhs, 0, 0, lhs.len())
+        && utils::equal_nulls(lhs, rhs, lhs_nulls, rhs_nulls, 0, 0, lhs.len())
+        && equal_values(lhs, rhs, lhs_nulls, rhs_nulls, 0, 0, lhs.len())
 }
 
 #[cfg(test)]
@@ -217,12 +293,13 @@ mod tests {
 
     use crate::array::{
         array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
-        FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray, Int32Builder,
-        ListBuilder, NullArray, PrimitiveBuilder, StringArray, StringDictionaryBuilder,
-        StringOffsetSizeTrait, StructArray,
+        DecimalBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray,
+        Int32Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+        StringDictionaryBuilder, StringOffsetSizeTrait, StructArray,
     };
     use crate::array::{GenericStringArray, Int32Array};
-    use crate::datatypes::Int16Type;
+    use crate::buffer::Buffer;
+    use crate::datatypes::{Field, Int16Type};
 
     use super::*;
 
@@ -608,6 +685,96 @@ mod tests {
         test_equal(&a_slice, &b_slice, false);
     }
 
+    fn create_decimal_array(data: &[Option<i128>]) -> ArrayDataRef {
+        let mut builder = DecimalBuilder::new(20, 23, 6);
+
+        for d in data {
+            if let Some(v) = d {
+                builder.append_value(*v).unwrap();
+            } else {
+                builder.append_null().unwrap();
+            }
+        }
+        builder.finish().data()
+    }
+
+    #[test]
+    fn test_decimal_equal() {
+        let a = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000)]);
+        let b = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some(15_887_000_000), Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    // Test the case where null_count > 0
+    #[test]
+    fn test_decimal_null() {
+        let a = create_decimal_array(&[Some(8_887_000_000), None, Some(-8_887_000_000)]);
+        let b = create_decimal_array(&[Some(8_887_000_000), None, Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), true);
+
+        let b = create_decimal_array(&[Some(8_887_000_000), Some(-8_887_000_000), None]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+
+        let b = create_decimal_array(&[Some(15_887_000_000), None, Some(-8_887_000_000)]);
+        test_equal(a.as_ref(), b.as_ref(), false);
+    }
+
+    #[test]
+    fn test_decimal_offsets() {
+        // Test the case where offset != 0
+        let a = create_decimal_array(&[
+            Some(8_887_000_000),
+            None,
+            None,
+            Some(-8_887_000_000),
+            None,
+            None,
+        ]);
+        let b = create_decimal_array(&[
+            Some(8_887_000_000),
+            None,
+            None,
+            Some(15_887_000_000),
+            None,
+            None,
+        ]);
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(0, 5);
+        let b_slice = b.slice(0, 5);
+        test_equal(&a_slice, &b_slice, false);
+
+        let a_slice = a.slice(4, 1);
+        let b_slice = b.slice(4, 1);
+        test_equal(&a_slice, &b_slice, true);
+
+        let a_slice = a.slice(3, 3);
+        let b_slice = b.slice(3, 3);
+        test_equal(&a_slice, &b_slice, false);
+
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, false);
+
+        let b = create_decimal_array(&[
+            None,
+            None,
+            None,
+            Some(-8_887_000_000),
+            Some(-3_000),
+            None,
+        ]);
+        let a_slice = a.slice(1, 3);
+        let b_slice = b.slice(1, 3);
+        test_equal(&a_slice, &b_slice, true);
+    }
+
     /// Create a fixed size list of 2 value lengths
     fn create_fixed_size_list_array<U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
         data: T,
@@ -740,6 +907,180 @@ mod tests {
             .data();
 
         test_equal(a.as_ref(), b.as_ref(), true);
+    }
+
+    #[test]
+    fn test_struct_equal_null() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
+        let ints_non_null: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 0]));
+
+        let a = ArrayData::builder(DataType::Struct(vec![
+            Field::new("f1", DataType::Utf8, true),
+            Field::new("f2", DataType::Int32, true),
+        ]))
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .len(5)
+        .null_count(2)
+        .add_child_data(strings.data_ref().clone())
+        .add_child_data(ints.data_ref().clone())
+        .build();
+        let a = crate::array::make_array(a);
+
+        let b = ArrayData::builder(DataType::Struct(vec![
+            Field::new("f1", DataType::Utf8, true),
+            Field::new("f2", DataType::Int32, true),
+        ]))
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .len(5)
+        .null_count(2)
+        .add_child_data(strings.data_ref().clone())
+        .add_child_data(ints_non_null.data_ref().clone())
+        .build();
+        let b = crate::array::make_array(b);
+
+        test_equal(a.data_ref(), b.data_ref(), true);
+
+        // test with arrays that are not equal
+        let c_ints_non_null: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 0, 4]));
+        let c = ArrayData::builder(DataType::Struct(vec![
+            Field::new("f1", DataType::Utf8, true),
+            Field::new("f2", DataType::Int32, true),
+        ]))
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .len(5)
+        .null_count(2)
+        .add_child_data(strings.data_ref().clone())
+        .add_child_data(c_ints_non_null.data_ref().clone())
+        .build();
+        let c = crate::array::make_array(c);
+
+        test_equal(a.data_ref(), c.data_ref(), false);
+
+        // test a nested struct
+        let a = ArrayData::builder(DataType::Struct(vec![Field::new(
+            "f3",
+            a.data_type().clone(),
+            true,
+        )]))
+        .null_bit_buffer(Buffer::from(vec![0b00011110]))
+        .len(5)
+        .null_count(1)
+        .add_child_data(a.data_ref().clone())
+        .build();
+        let a = crate::array::make_array(a);
+
+        // reconstruct b, but with different data where the first struct is null
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joanne"), // difference
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let b = ArrayData::builder(DataType::Struct(vec![
+            Field::new("f1", DataType::Utf8, true),
+            Field::new("f2", DataType::Int32, true),
+        ]))
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .len(5)
+        .null_count(2)
+        .add_child_data(strings.data_ref().clone())
+        .add_child_data(ints_non_null.data_ref().clone())
+        .build();
+
+        let b = ArrayData::builder(DataType::Struct(vec![Field::new(
+            "f3",
+            b.data_type().clone(),
+            true,
+        )]))
+        .null_bit_buffer(Buffer::from(vec![0b00011110]))
+        .len(5)
+        .null_count(1)
+        .add_child_data(b)
+        .build();
+        let b = crate::array::make_array(b);
+
+        test_equal(a.data_ref(), b.data_ref(), true);
+    }
+
+    #[test]
+    fn test_struct_equal_null_variable_size() {
+        // the string arrays differ, but where the struct array is null
+        let strings1: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doel"),
+        ]));
+        let strings2: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joel"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+
+        let a = ArrayData::builder(DataType::Struct(vec![Field::new(
+            "f1",
+            DataType::Utf8,
+            true,
+        )]))
+        .null_bit_buffer(Buffer::from(vec![0b00001010]))
+        .len(5)
+        .null_count(3)
+        .add_child_data(strings1.data_ref().clone())
+        .build();
+        let a = crate::array::make_array(a);
+
+        let b = ArrayData::builder(DataType::Struct(vec![Field::new(
+            "f1",
+            DataType::Utf8,
+            true,
+        )]))
+        .null_bit_buffer(Buffer::from(vec![0b00001010]))
+        .len(5)
+        .null_count(3)
+        .add_child_data(strings2.data_ref().clone())
+        .build();
+        let b = crate::array::make_array(b);
+
+        test_equal(a.data_ref(), b.data_ref(), true);
+
+        // test with arrays that are not equal
+        let strings3: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("mark"),
+            None,
+            None,
+            Some("doe"),
+            Some("joe"),
+        ]));
+        let c = ArrayData::builder(DataType::Struct(vec![Field::new(
+            "f1",
+            DataType::Utf8,
+            true,
+        )]))
+        .null_bit_buffer(Buffer::from(vec![0b00001011]))
+        .len(5)
+        .null_count(2)
+        .add_child_data(strings3.data_ref().clone())
+        .build();
+        let c = crate::array::make_array(c);
+
+        test_equal(a.data_ref(), c.data_ref(), false);
     }
 
     fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {

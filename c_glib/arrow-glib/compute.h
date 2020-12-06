@@ -88,7 +88,7 @@ GArrowCastOptions *garrow_cast_options_new(void);
  * @GARROW_COUNT_ALL: Count all non-null values.
  * @GARROW_COUNT_NULL: Count all null values.
  *
- * They are corresponding to `arrow::compute::CountOptions::mode` values.
+ * They are corresponding to `arrow::compute::CountOptions::Mode` values.
  */
 typedef enum {
   GARROW_COUNT_ALL,
@@ -377,10 +377,32 @@ GArrowBooleanArray *
 garrow_array_is_in_chunked_array(GArrowArray *left,
                                  GArrowChunkedArray *right,
                                  GError **error);
+
+/**
+ * GArrowSortOrder:
+ * @GARROW_SORT_ORDER_ASCENDING: Sort in ascending order.
+ * @GARROW_SORT_ORDER_DESCENDING: Sort in descending order.
+ *
+ * They are corresponding to `arrow::compute::SortOrder` values.
+ *
+ * Since: 3.0.0
+ */
+typedef enum {
+  GARROW_SORT_ORDER_ASCENDING,
+  GARROW_SORT_ORDER_DESCENDING,
+} GArrowSortOrder;
+
+GARROW_AVAILABLE_IN_3_0
+GArrowUInt64Array *
+garrow_array_sort_indices(GArrowArray *array,
+                          GArrowSortOrder order,
+                          GError **error);
+GARROW_DEPRECATED_IN_3_0_FOR(garrow_array_sort_indices)
 GARROW_AVAILABLE_IN_0_15
 GArrowUInt64Array *
 garrow_array_sort_to_indices(GArrowArray *array,
                              GError **error);
+
 GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_filter(GArrowTable *table,

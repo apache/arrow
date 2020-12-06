@@ -388,7 +388,7 @@ impl<T: DataType> DictEncoder<T> {
 
         self.hash_table_size = new_size;
         self.mod_bitmask = (new_size - 1) as u32;
-        let _ = mem::replace(&mut self.hash_slots, new_hash_slots);
+        self.hash_slots = new_hash_slots;
     }
 }
 
@@ -1010,7 +1010,7 @@ impl Encoder<FixedLenByteArrayType> for DeltaByteArrayEncoder<FixedLenByteArrayT
 mod tests {
     use super::*;
 
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::decoding::{get_decoder, Decoder, DictDecoder, PlainDecoder};
     use crate::schema::types::{
@@ -1367,7 +1367,7 @@ mod tests {
         err: Option<ParquetError>,
     ) {
         let descr = create_test_col_desc_ptr(-1, T::get_physical_type());
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
         let encoder = get_encoder::<T>(descr, encoding, mem_tracker);
         match err {
             Some(parquet_error) => {
@@ -1387,8 +1387,8 @@ mod tests {
             .with_length(type_len)
             .build()
             .unwrap();
-        Rc::new(ColumnDescriptor::new(
-            Rc::new(ty),
+        Arc::new(ColumnDescriptor::new(
+            Arc::new(ty),
             0,
             0,
             ColumnPath::new(vec![]),
@@ -1397,7 +1397,7 @@ mod tests {
 
     fn create_test_encoder<T: DataType>(type_len: i32, enc: Encoding) -> Box<Encoder<T>> {
         let desc = create_test_col_desc_ptr(type_len, T::get_physical_type());
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
         get_encoder(desc, enc, mem_tracker).unwrap()
     }
 
@@ -1408,7 +1408,7 @@ mod tests {
 
     fn create_test_dict_encoder<T: DataType>(type_len: i32) -> DictEncoder<T> {
         let desc = create_test_col_desc_ptr(type_len, T::get_physical_type());
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
         DictEncoder::<T>::new(desc, mem_tracker)
     }
 

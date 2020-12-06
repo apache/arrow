@@ -146,8 +146,8 @@ do an out of source build by generating Ninja files:
          -DGTest_SOURCE=BUNDLED ..
    cmake --build . --config Release
 
-Setting ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` in the command line 
-of ``cmake`` is the preferred method of using ``clcache``. Alternatively, you 
+Setting ``CMAKE_C_COMPILER`` and ``CMAKE_CXX_COMPILER`` in the command line
+of ``cmake`` is the preferred method of using ``clcache``. Alternatively, you
 can set ``CC`` and ``CXX`` environment variables before calling ``cmake``:
 
 .. code-block:: shell
@@ -273,19 +273,28 @@ tests can be made with there individual make targets).
 1. Microsoft offers trial VMs for `Windows with Microsoft Visual Studio
    <https://developer.microsoft.com/en-us/windows/downloads/virtual-machines>`_.
    Download and install a version.
-2. Run the VM and install CMake and Miniconda or Anaconda (these instructions
-   assume Anaconda).
+2. Run the VM and install `Git <https://git-scm.com/>`_, `CMake
+   <https://cmake.org/>`_, and Miniconda or Anaconda (these instructions assume
+   Anaconda). Also install the `"Build Tools for Visual Studio"
+   <https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019>`_.
+   Make sure to select the C++ toolchain in the installer wizard, and reboot
+   after installation.
 3. Download `pre-built Boost debug binaries
    <https://sourceforge.net/projects/boost/files/boost-binaries/>`_ and install
-   it (run from command prompt opened by "Developer Command Prompt for MSVC
-   2017"):
+   it.
+
+   Run this from an Anaconda/Miniconda command prompt (*not* PowerShell prompt),
+   and make sure to run "vcvarsall.bat x64" first. The location of vcvarsall.bat
+   will depend, it may be under a different path than commonly indicated,
+   e.g. "``C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat``"
+   with the 2019 build tools.
 
 .. code-block:: shell
 
    cd $EXTRACT_BOOST_DIRECTORY
    .\bootstrap.bat
    @rem This is for static libraries needed for static_crt_build in appveyor
-   .\b2 link=static -with-filesystem -with-regex -with-system install
+   .\b2 link=static --with-filesystem --with-regex --with-system install
    @rem this should put libraries and headers in c:\Boost
 
 4. Activate anaconda/miniconda:
@@ -318,8 +327,10 @@ tests can be made with there individual make targets).
 
 .. code-block:: shell
 
-   .\ci\appveyor-install.bat
+   conda install -c conda-forge --file .\ci\conda_env_cpp.yml
+   .\ci\appveyor-cpp-setup.bat
    @rem this might fail but at this point most unit tests should be buildable by there individual targets
    @rem see next line for example.
-   .\ci\appveyor-build.bat
+   .\ci\appveyor-cpp-build.bat
+   @rem you can also just invoke cmake directly with the desired options
    cmake --build . --config Release --target arrow-compute-hash-test

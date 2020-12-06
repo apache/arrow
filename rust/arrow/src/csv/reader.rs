@@ -40,25 +40,23 @@
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
+use core::cmp::min;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use std::collections::HashSet;
+use std::fmt;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
-use std::{collections::HashSet, iter::Skip};
-use std::{fmt, iter::Take};
 
 use csv as csv_crate;
 
+use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-use crate::{
-    array::{ArrayRef, PrimitiveArray, StringBuilder},
-    util::buffered_iterator::Buffered,
-};
 
-use self::csv_crate::{Error, StringRecord, StringRecordsIntoIter};
+use self::csv_crate::{ByteRecord, StringRecord};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -95,7 +93,7 @@ fn infer_field_schema(string: &str) -> DataType {
 ///
 /// Return infered schema and number of records used for inference.
 fn infer_file_schema<R: Read + Seek>(
-    reader: &mut BufReader<R>,
+    reader: &mut R,
     delimiter: u8,
     max_read_records: Option<usize>,
     has_header: bool,
@@ -131,11 +129,12 @@ fn infer_file_schema<R: Read + Seek>(
     let mut records_count = 0;
     let mut fields = vec![];
 
-    for result in csv_reader
-        .records()
-        .take(max_read_records.unwrap_or(std::usize::MAX))
-    {
-        let record = result?;
+    let mut record = StringRecord::new();
+    let max_records = max_read_records.unwrap_or(usize::MAX);
+    while records_count < max_records {
+        if !csv_reader.read_record(&mut record)? {
+            break;
+        }
         records_count += 1;
 
         for i in 0..header_length {
@@ -201,7 +200,7 @@ pub fn infer_schema_from_files(
 
     for fname in files.iter() {
         let (schema, records_read) = infer_file_schema(
-            &mut BufReader::new(File::open(fname)?),
+            &mut File::open(fname)?,
             delimiter,
             Some(records_to_read),
             has_header,
@@ -229,10 +228,15 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter:
-        Buffered<Skip<Take<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
+    reader: csv_crate::Reader<R>,
     /// Current line number
     line_number: usize,
+    /// Maximum number of rows to read
+    end: usize,
+    /// Number of records per batch
+    batch_size: usize,
+    /// Vector that can hold the `StringRecord`s of the batches
+    batch_records: Vec<StringRecord>,
 }
 
 impl<R> fmt::Debug for Reader<R>
@@ -263,14 +267,8 @@ impl<R: Read> Reader<R> {
         bounds: Bounds,
         projection: Option<Vec<usize>>,
     ) -> Self {
-        Self::from_buf_reader(
-            BufReader::new(reader),
-            schema,
-            has_header,
-            delimiter,
-            batch_size,
-            bounds,
-            projection,
+        Self::from_reader(
+            reader, schema, has_header, delimiter, batch_size, bounds, projection,
         )
     }
 
@@ -289,12 +287,12 @@ impl<R: Read> Reader<R> {
         }
     }
 
-    /// Create a new CsvReader from a `BufReader<R: Read>
+    /// Create a new CsvReader from a Reader
     ///
     /// This constructor allows you more flexibility in what records are processed by the
     /// csv reader.
-    pub fn from_buf_reader(
-        buf_reader: BufReader<R>,
+    pub fn from_reader(
+        reader: R,
         schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
@@ -309,27 +307,40 @@ impl<R: Read> Reader<R> {
             reader_builder.delimiter(c);
         }
 
-        let csv_reader = reader_builder.from_reader(buf_reader);
-        let record_iter = csv_reader.into_records();
+        let mut csv_reader = reader_builder.from_reader(reader);
 
         let (start, end) = match bounds {
             None => (0, usize::MAX),
             Some((start, end)) => (start, end),
         };
-        // Create an iterator that:
-        // * skips the first `start` items
-        // * runs up to `end` items
-        // * buffers `batch_size` items
+
+        // First we will skip `start` rows
         // note that this skips by iteration. This is because in general it is not possible
         // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
         // which is a slow operation that scales with the number of columns
-        let record_iter = Buffered::new(record_iter.take(end).skip(start), batch_size);
+
+        let mut record = ByteRecord::new();
+        // Skip first start items
+        for _ in 0..start {
+            let res = csv_reader.read_byte_record(&mut record);
+            if !res.unwrap_or(false) {
+                break;
+            }
+        }
+
+        // Initialize batch_records with StringRecords so they
+        // can be reused accross batches
+        let mut batch_records = Vec::with_capacity(batch_size);
+        batch_records.resize_with(batch_size, Default::default);
 
         Self {
             schema,
             projection,
-            record_iter,
+            reader: csv_reader,
             line_number: if has_header { start + 1 } else { start },
+            batch_size,
+            end,
+            batch_records,
         }
     }
 }
@@ -338,32 +349,39 @@ impl<R: Read> Iterator for Reader<R> {
     type Item = Result<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let rows = match self.record_iter.next() {
-            Some(Ok(r)) => r,
-            Some(Err(e)) => {
-                return Some(Err(ArrowError::ParseError(format!(
-                    "Error parsing line {}: {:?}",
-                    self.line_number + self.record_iter.n(),
-                    e
-                ))));
+        let remaining = self.end - self.line_number;
+
+        let mut read_records = 0;
+        for i in 0..min(self.batch_size, remaining) {
+            match self.reader.read_record(&mut self.batch_records[i]) {
+                Ok(true) => {
+                    read_records += 1;
+                }
+                Ok(false) => break,
+                Err(e) => {
+                    return Some(Err(ArrowError::ParseError(format!(
+                        "Error parsing line {}: {:?}",
+                        self.line_number + i,
+                        e
+                    ))))
+                }
             }
-            None => return None,
-        };
+        }
 
         // return early if no data was loaded
-        if rows.is_empty() {
+        if read_records == 0 {
             return None;
         }
 
         // parse the batches into a RecordBatch
         let result = parse(
-            &rows,
+            &self.batch_records[..read_records],
             &self.schema.fields(),
             &self.projection,
             self.line_number,
         );
 
-        self.line_number += rows.len();
+        self.line_number += read_records;
 
         Some(result)
     }
@@ -446,8 +464,58 @@ fn parse(
     arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
 }
 
+/// Specialized parsing implementations
+trait Parser: ArrowPrimitiveType {
+    fn parse(string: &str) -> Option<Self::Native> {
+        string.parse::<Self::Native>().ok()
+    }
+}
+
+impl Parser for BooleanType {
+    fn parse(string: &str) -> Option<bool> {
+        if string.eq_ignore_ascii_case("false") {
+            Some(false)
+        } else if string.eq_ignore_ascii_case("true") {
+            Some(true)
+        } else {
+            None
+        }
+    }
+}
+
+impl Parser for Float32Type {
+    fn parse(string: &str) -> Option<f32> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+impl Parser for Float64Type {
+    fn parse(string: &str) -> Option<f64> {
+        lexical_core::parse(string.as_bytes()).ok()
+    }
+}
+
+impl Parser for UInt64Type {}
+
+impl Parser for UInt32Type {}
+
+impl Parser for UInt16Type {}
+
+impl Parser for UInt8Type {}
+
+impl Parser for Int64Type {}
+
+impl Parser for Int32Type {}
+
+impl Parser for Int16Type {}
+
+impl Parser for Int8Type {}
+
+fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
+    T::parse(string)
+}
+
 // parses a specific column (col_idx) into an Arrow Array.
-fn build_primitive_array<T: ArrowPrimitiveType>(
+fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
     line_number: usize,
     rows: &[StringRecord],
     col_idx: usize,
@@ -460,14 +528,11 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if T::DATA_TYPE == DataType::Boolean {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
+
+                    let parsed = parse_item::<T>(s);
                     match parsed {
-                        Ok(e) => Ok(Some(e)),
-                        Err(_) => Err(ArrowError::ParseError(format!(
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
                             // TODO: we should surface the underlying error here.
                             "Error while parsing value {} for column {} at line {}",
                             s,
@@ -593,15 +658,14 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build<R: Read + Seek>(self, reader: R) -> Result<Reader<R>> {
+    pub fn build<R: Read + Seek>(self, mut reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
-        let mut buf_reader = BufReader::new(reader);
         let delimiter = self.delimiter.unwrap_or(b',');
         let schema = match self.schema {
             Some(schema) => schema,
             None => {
                 let (inferred_schema, _) = infer_file_schema(
-                    &mut buf_reader,
+                    &mut reader,
                     delimiter,
                     self.max_records,
                     self.has_header,
@@ -610,8 +674,8 @@ impl ReaderBuilder {
                 Arc::new(inferred_schema)
             }
         };
-        Ok(Reader::from_buf_reader(
-            buf_reader,
+        Ok(Reader::from_reader(
+            reader,
             schema,
             self.has_header,
             self.delimiter,
@@ -689,8 +753,8 @@ mod tests {
         let both_files = file_with_headers
             .chain(Cursor::new("\n".to_string()))
             .chain(file_without_headers);
-        let mut csv = Reader::from_buf_reader(
-            BufReader::new(both_files),
+        let mut csv = Reader::from_reader(
+            both_files,
             Arc::new(schema),
             true,
             None,
@@ -888,7 +952,7 @@ mod tests {
                     format!("{:?}", e)
                 ),
                 Ok(_) => panic!("should have failed"),
-            }
+            },
             None => panic!("should have failed"),
         }
     }
@@ -990,5 +1054,44 @@ mod tests {
 
         assert!(csv.next().is_none());
         Ok(())
+    }
+
+    #[test]
+    fn test_parsing_bool() {
+        // Encode the expected behavior of boolean parsing
+        assert_eq!(Some(true), parse_item::<BooleanType>("true"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("tRUe"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("True"));
+        assert_eq!(Some(true), parse_item::<BooleanType>("TRUE"));
+        assert_eq!(None, parse_item::<BooleanType>("t"));
+        assert_eq!(None, parse_item::<BooleanType>("T"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+
+        assert_eq!(Some(false), parse_item::<BooleanType>("false"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("fALse"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("False"));
+        assert_eq!(Some(false), parse_item::<BooleanType>("FALSE"));
+        assert_eq!(None, parse_item::<BooleanType>("f"));
+        assert_eq!(None, parse_item::<BooleanType>("F"));
+        assert_eq!(None, parse_item::<BooleanType>(""));
+    }
+
+    #[test]
+    fn test_parsing_float() {
+        assert_eq!(Some(12.34), parse_item::<Float64Type>("12.34"));
+        assert_eq!(Some(-12.34), parse_item::<Float64Type>("-12.34"));
+        assert_eq!(Some(12.0), parse_item::<Float64Type>("12"));
+        assert_eq!(Some(0.0), parse_item::<Float64Type>("0"));
+        assert!(parse_item::<Float64Type>("nan").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("NaN").unwrap().is_nan());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("inf").unwrap().is_sign_positive());
+        assert!(parse_item::<Float64Type>("-inf").unwrap().is_infinite());
+        assert!(parse_item::<Float64Type>("-inf")
+            .unwrap()
+            .is_sign_negative());
+        assert_eq!(None, parse_item::<Float64Type>(""));
+        assert_eq!(None, parse_item::<Float64Type>("dd"));
+        assert_eq!(None, parse_item::<Float64Type>("12.34.56"));
     }
 }

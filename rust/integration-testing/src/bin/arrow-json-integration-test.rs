@@ -16,7 +16,6 @@
 // under the License.
 
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
@@ -39,9 +38,6 @@ use arrow::{
 };
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    eprintln!("{:?}", args);
-
     let matches = App::new("rust arrow-json-integration-test")
         .arg(Arg::with_name("integration")
             .long("integration"))
@@ -89,12 +85,6 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
 
     let arrow_file = File::create(arrow_name)?;
     let mut writer = FileWriter::try_new(arrow_file, &json_file.schema)?;
-
-    if !json_file.dictionaries.is_empty() {
-        return Err(ArrowError::JsonError(
-            "Writing dictionaries not yet supported".to_string(),
-        ));
-    }
 
     for b in json_file.batches {
         writer.write(&b)?;
@@ -499,7 +489,12 @@ fn array_from_json(
             Ok(Arc::new(array))
         }
         DataType::Dictionary(key_type, value_type) => {
-            let dict_id = field.dict_id();
+            let dict_id = field.dict_id().ok_or_else(|| {
+                ArrowError::JsonError(format!(
+                    "Unable to find dict_id for field {:?}",
+                    field
+                ))
+            })?;
             // find dictionary
             let dictionary = dictionaries
                 .ok_or_else(|| {
@@ -542,13 +537,19 @@ fn dictionary_array_from_json(
         | DataType::UInt16
         | DataType::UInt32
         | DataType::UInt64 => {
+            let null_buf = create_null_buf(&json_col);
+
             // build the key data into a buffer, then construct values separately
             let key_field = Field::new_dict(
                 "key",
                 dict_key.clone(),
                 field.is_nullable(),
-                field.dict_id(),
-                field.dict_is_ordered(),
+                field
+                    .dict_id()
+                    .expect("Dictionary fields must have a dict_id value"),
+                field
+                    .dict_is_ordered()
+                    .expect("Dictionary fields must have a dict_is_ordered value"),
             );
             let keys = array_from_json(&key_field, json_col, None)?;
             // note: not enough info on nullability of dictionary
@@ -561,6 +562,7 @@ fn dictionary_array_from_json(
             let dict_data = ArrayData::builder(field.data_type().clone())
                 .len(keys.len())
                 .add_buffer(keys.data().buffers()[0].clone())
+                .null_bit_buffer(null_buf)
                 .add_child_data(values.data())
                 .build();
 
@@ -704,7 +706,8 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
 struct ArrowFile {
     schema: Schema,
     // we can evolve this into a concrete Arrow type
-    dictionaries: HashMap<i64, ArrowJsonDictionaryBatch>,
+    // this is temporarily not being read from
+    _dictionaries: HashMap<i64, ArrowJsonDictionaryBatch>,
     batches: Vec<RecordBatch>,
 }
 
@@ -735,7 +738,7 @@ fn read_json_file(json_name: &str) -> Result<ArrowFile> {
     }
     Ok(ArrowFile {
         schema,
-        dictionaries,
+        _dictionaries: dictionaries,
         batches,
     })
 }

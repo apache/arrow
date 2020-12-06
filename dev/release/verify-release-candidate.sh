@@ -135,9 +135,7 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:stretch" \
-                "arm64v8/debian:stretch" \
-                "debian:buster" \
+  for target in "debian:buster" \
                 "arm64v8/debian:buster" \
                 "ubuntu:xenial" \
                 "arm64v8/ubuntu:xenial" \
@@ -154,7 +152,7 @@ test_apt() {
         fi
         ;;
     esac
-    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -167,8 +165,7 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "centos:6" \
-                "centos:7" \
+  for target in "centos:7" \
                 "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
@@ -181,7 +178,7 @@ test_yum() {
         fi
         ;;
     esac
-    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \

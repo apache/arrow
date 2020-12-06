@@ -53,6 +53,7 @@ use crate::sql::{
 };
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
+use parquet::arrow::ArrowWriter;
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -166,9 +167,9 @@ impl ExecutionContext {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
-            return Err(DataFusionError::NotImplemented(format!(
-                "The context currently only supports a single SQL statement",
-            )));
+            return Err(DataFusionError::NotImplemented(
+                "The context currently only supports a single SQL statement".to_string(),
+            ));
         }
 
         // create a query planner
@@ -209,11 +210,11 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::CsvScan {
             path: filename.to_string(),
-            schema: csv.schema().clone(),
+            schema: csv.schema(),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: csv.schema().clone(),
+            projected_schema: csv.schema(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -228,9 +229,9 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::ParquetScan {
             path: filename.to_string(),
-            schema: parquet.schema().clone(),
+            schema: parquet.schema(),
             projection: None,
-            projected_schema: parquet.schema().clone(),
+            projected_schema: parquet.schema(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -244,7 +245,7 @@ impl ExecutionContext {
         &mut self,
         provider: Arc<dyn TableProvider + Send + Sync>,
     ) -> Result<Arc<dyn DataFrame>> {
-        let schema = provider.schema().clone();
+        let schema = provider.schema();
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
@@ -296,7 +297,7 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.datasources.get(table_name) {
             Some(provider) => {
-                let schema = provider.schema().clone();
+                let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
@@ -386,6 +387,37 @@ impl ExecutionContext {
                 .try_collect()
                 .await
                 .map_err(|e| DataFusionError::from(e))?;
+        }
+        Ok(())
+    }
+
+    /// Execute a query and write the results to a partitioned Parquet file
+    pub async fn write_parquet(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        path: String,
+    ) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_owned();
+        fs::create_dir(&path)?;
+
+        for i in 0..plan.output_partitioning().partition_count() {
+            let path = path.clone();
+            let plan = plan.clone();
+            let filename = format!("part-{}.parquet", i);
+            let path = Path::new(&path).join(&filename);
+            let file = fs::File::create(path)?;
+            let mut writer =
+                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
+            let stream = plan.execute(i).await?;
+
+            stream
+                .map(|batch| writer.write(&batch?))
+                .try_collect()
+                .await
+                .map_err(|e| DataFusionError::from(e))?;
+
+            writer.close()?;
         }
         Ok(())
     }
@@ -498,7 +530,7 @@ pub struct ExecutionContextState {
 
 impl SchemaProvider for ExecutionContextState {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources.get(name).map(|ds| ds.schema().clone())
+        self.datasources.get(name).map(|ds| ds.schema())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -521,25 +553,24 @@ impl FunctionRegistry for ExecutionContextState {
 
     fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(
-                format!("There is no UDF named \"{}\" in the registry", name).to_string(),
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
+                "There is no UDF named \"{}\" in the registry",
+                name
             ))
-        } else {
-            Ok(result.unwrap())
-        }
+        })
     }
 
     fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
         let result = self.aggregate_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(
-                format!("There is no UDAF named \"{}\" in the registry", name)
-                    .to_string(),
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
+                "There is no UDAF named \"{}\" in the registry",
+                name
             ))
-        } else {
-            Ok(result.unwrap())
-        }
+        })
     }
 }
 
@@ -1193,6 +1224,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn write_parquet_results() -> Result<()> {
+        // create partitioned input file and context
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 4)?;
+
+        // execute a simple query and write the results to CSV
+        let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
+        write_parquet(&mut ctx, "SELECT c1, c2 FROM test", &out_dir).await?;
+
+        // create a new context and verify that the results were saved to a partitioned csv file
+        let mut ctx = ExecutionContext::new();
+
+        // register each partition as well as the top level dir
+        ctx.register_parquet("part0", &format!("{}/part-0.parquet", out_dir))?;
+        ctx.register_parquet("part1", &format!("{}/part-1.parquet", out_dir))?;
+        ctx.register_parquet("part2", &format!("{}/part-2.parquet", out_dir))?;
+        ctx.register_parquet("part3", &format!("{}/part-3.parquet", out_dir))?;
+        ctx.register_parquet("allparts", &out_dir)?;
+
+        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
+        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
+        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
+        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
+        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
+
+        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
+        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
+        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
+        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
+        let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0_count, 10);
+        assert_eq!(part1_count, 10);
+        assert_eq!(part2_count, 10);
+        assert_eq!(part3_count, 10);
+        assert_eq!(allparts_count, 40);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn query_csv_with_custom_partition_extension() -> Result<()> {
         let tmp_dir = TempDir::new()?;
 
@@ -1491,6 +1563,18 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
         ctx.write_csv(physical_plan, out_dir.to_string()).await
+    }
+
+    /// Execute SQL and write results to partitioned parquet files
+    async fn write_parquet(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+        out_dir: &str,
+    ) -> Result<()> {
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        ctx.write_parquet(physical_plan, out_dir.to_string()).await
     }
 
     /// Generate CSV partitions within the supplied directory

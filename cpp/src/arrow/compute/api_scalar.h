@@ -192,8 +192,8 @@ Result<Datum> Invert(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \brief Element-wise AND of two boolean datums which always propagates nulls
 /// (null and false is null).
 ///
-/// \param[in] left left operand (array)
-/// \param[in] right right operand (array)
+/// \param[in] left left operand
+/// \param[in] right right operand
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -205,8 +205,8 @@ Result<Datum> And(const Datum& left, const Datum& right, ExecContext* ctx = NULL
 /// \brief Element-wise AND of two boolean datums with a Kleene truth table
 /// (null and false is false).
 ///
-/// \param[in] left left operand (array)
-/// \param[in] right right operand (array)
+/// \param[in] left left operand
+/// \param[in] right right operand
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -219,8 +219,8 @@ Result<Datum> KleeneAnd(const Datum& left, const Datum& right,
 /// \brief Element-wise OR of two boolean datums which always propagates nulls
 /// (null and true is null).
 ///
-/// \param[in] left left operand (array)
-/// \param[in] right right operand (array)
+/// \param[in] left left operand
+/// \param[in] right right operand
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -232,8 +232,8 @@ Result<Datum> Or(const Datum& left, const Datum& right, ExecContext* ctx = NULLP
 /// \brief Element-wise OR of two boolean datums with a Kleene truth table
 /// (null or true is true).
 ///
-/// \param[in] left left operand (array)
-/// \param[in] right right operand (array)
+/// \param[in] left left operand
+/// \param[in] right right operand
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -243,8 +243,8 @@ ARROW_EXPORT
 Result<Datum> KleeneOr(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
 
 /// \brief Element-wise XOR of two boolean datums
-/// \param[in] left left operand (array)
-/// \param[in] right right operand (array)
+/// \param[in] left left operand
+/// \param[in] right right operand
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -252,6 +252,33 @@ Result<Datum> KleeneOr(const Datum& left, const Datum& right, ExecContext* ctx =
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Xor(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+/// \brief Element-wise AND NOT of two boolean datums which always propagates nulls
+/// (null and not true is null).
+///
+/// \param[in] left left operand
+/// \param[in] right right operand
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 3.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> AndNot(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
+/// \brief Element-wise AND NOT of two boolean datums with a Kleene truth table
+/// (false and not null is false, null and not true is false).
+///
+/// \param[in] left left operand
+/// \param[in] right right operand
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 3.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
+                           ExecContext* ctx = NULLPTR);
 
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`

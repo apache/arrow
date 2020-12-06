@@ -27,6 +27,8 @@ license = "Apache-2.0"
 
 [dependencies]
 arrow = { path = "../arrow" }
+parquet = { path = "../parquet" }
 datafusion = { path = "../datafusion" }
 structopt = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+futures = "0.3"

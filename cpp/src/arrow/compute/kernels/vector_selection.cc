@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
@@ -46,7 +47,6 @@ namespace arrow {
 using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
-using internal::BitmapReader;
 using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
@@ -589,37 +589,9 @@ class PrimitiveFilterImpl {
 
   void ExecNonNull() {
     // Fast filter when values and filter are not null
-    // Bit counters used for both null_selection behaviors
-    BitBlockCounter filter_counter(filter_data_, filter_offset_, values_length_);
-
-    int64_t in_position = 0;
-    BitBlockCount current_block = filter_counter.NextWord();
-    while (in_position < values_length_) {
-      if (current_block.AllSet()) {
-        int64_t run_length = 0;
-        // If we've found a all-true block, then we scan forward until we find
-        // a block that has some false values (or we reach the end
-        while (current_block.length > 0 && current_block.AllSet()) {
-          run_length += current_block.length;
-          current_block = filter_counter.NextWord();
-        }
-        WriteValueSegment(in_position, run_length);
-        in_position += run_length;
-      } else if (current_block.NoneSet()) {
-        // Nothing selected
-        in_position += current_block.length;
-        current_block = filter_counter.NextWord();
-      } else {
-        // Some values selected
-        for (int64_t i = 0; i < current_block.length; ++i) {
-          if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-            WriteValue(in_position);
-          }
-          ++in_position;
-        }
-        current_block = filter_counter.NextWord();
-      }
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(
+        filter_data_, filter_offset_, values_length_,
+        [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
   }
 
   void Exec() {
@@ -873,8 +845,6 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         data_builder.Reserve(static_cast<int64_t>(mean_value_length * output_length))); \
   }                                                                                     \
   int64_t space_available = data_builder.capacity();                                    \
-  int64_t in_position = 0;                                                              \
-  int64_t out_position = 0;                                                             \
   offset_type offset = 0;
 
 #define APPEND_RAW_DATA(DATA, NBYTES)                                  \
@@ -901,45 +871,25 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArrayData& values,
                                ArrayData* out) {
   using offset_type = typename Type::offset_type;
   const auto filter_data = filter.buffers[1]->data();
-  const int64_t filter_offset = filter.offset;
-  BitBlockCounter filter_counter(filter_data, filter.offset, filter.length);
+
   BINARY_FILTER_SETUP_COMMON();
 
-  while (in_position < filter.length) {
-    BitBlockCount filter_block = filter_counter.NextWord();
-    if (filter_block.NoneSet()) {
-      // For this exceedingly common case in low-selectivity filters we can
-      // skip further analysis of the data and move on to the next block.
-      in_position += filter_block.length;
-    } else {
-      // Simpler path: no filter values are null
-      if (filter_block.AllSet()) {
-        // Fastest path: filter values are all true and not null
+  RETURN_NOT_OK(arrow::internal::VisitSetBitRuns(
+      filter_data, filter.offset, filter.length, [&](int64_t position, int64_t length) {
         // Bulk-append raw data
-        offset_type block_data_bytes =
-            (raw_offsets[in_position + filter_block.length] - raw_offsets[in_position]);
-        APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
+        const offset_type run_data_bytes =
+            (raw_offsets[position + length] - raw_offsets[position]);
+        APPEND_RAW_DATA(raw_data + raw_offsets[position], run_data_bytes);
         // Append offsets
-        offset_type cur_offset = raw_offsets[in_position];
-        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+        offset_type cur_offset = raw_offsets[position];
+        for (int64_t i = 0; i < length; ++i) {
           offset_builder.UnsafeAppend(offset);
-          offset += raw_offsets[in_position + 1] - cur_offset;
-          cur_offset = raw_offsets[in_position + 1];
+          offset += raw_offsets[i + position + 1] - cur_offset;
+          cur_offset = raw_offsets[i + position + 1];
         }
-        out_position += filter_block.length;
-      } else {  // !filter_block.AllSet()
-        // Some of the filter values are false, but all not null
-        // All the values are not-null, so we can skip null checking for
-        // them
-        for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-          if (BitUtil::GetBit(filter_data, filter_offset + in_position)) {
-            offset_builder.UnsafeAppend(offset);
-            APPEND_SINGLE_VALUE();
-          }
-        }
-      }
-    }
-  }
+        return Status::OK();
+      }));
+
   offset_builder.UnsafeAppend(offset);
   out->length = output_length;
   RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
@@ -977,6 +927,8 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
 
   BINARY_FILTER_SETUP_COMMON();
 
+  int64_t in_position = 0;
+  int64_t out_position = 0;
   while (in_position < filter.length) {
     BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
     BitBlockCount values_valid_block = values_valid_counter.NextWord();
@@ -1838,19 +1790,67 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   if (table.num_rows() != filter.length()) {
     return Status::Invalid("Filter inputs must all be the same length");
   }
-
-  // The selection vector "trick" cannot currently be easily applied on Table
-  // because either the filter or the columns may be ChunkedArray, so we use
-  // Filter recursively on the columns for now until a more efficient
-  // implementation of Take with chunked data is available.
-  auto new_columns = table.columns();
-  for (auto& column : new_columns) {
-    ARROW_ASSIGN_OR_RAISE(
-        Datum out_column,
-        Filter(column, filter, *static_cast<const FilterOptions*>(options), ctx));
-    column = out_column.chunked_array();
+  if (table.num_rows() == 0) {
+    return Table::Make(table.schema(), table.columns(), 0);
   }
-  return Table::Make(table.schema(), std::move(new_columns));
+
+  // Last input element will be the filter array
+  const int num_columns = table.num_columns();
+  std::vector<ArrayVector> inputs(num_columns + 1);
+
+  // Fetch table columns
+  for (int i = 0; i < num_columns; ++i) {
+    inputs[i] = table.column(i)->chunks();
+  }
+  // Fetch filter
+  const auto& filter_opts = *static_cast<const FilterOptions*>(options);
+  switch (filter.kind()) {
+    case Datum::ARRAY:
+      inputs.back().push_back(filter.make_array());
+      break;
+    case Datum::CHUNKED_ARRAY:
+      inputs.back() = filter.chunked_array()->chunks();
+      break;
+    default:
+      return Status::NotImplemented("Filter should be array-like");
+  }
+
+  // Rechunk inputs to allow consistent iteration over their respective chunks
+  inputs = arrow::internal::RechunkArraysConsistently(inputs);
+
+  // Instead of filtering each column with the boolean filter
+  // (which would be slow if the table has a large number of columns: ARROW-10569),
+  // convert each filter chunk to indices, and take() the column.
+  const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
+  std::vector<ArrayVector> out_columns(num_columns);
+  int64_t out_num_rows = 0;
+
+  for (int64_t i = 0; i < num_chunks; ++i) {
+    const ArrayData& filter_chunk = *inputs.back()[i]->data();
+    ARROW_ASSIGN_OR_RAISE(
+        const auto indices,
+        GetTakeIndices(filter_chunk, filter_opts.null_selection_behavior,
+                       ctx->memory_pool()));
+
+    if (indices->length > 0) {
+      // Take from all input columns
+      Datum indices_datum{std::move(indices)};
+      for (int col = 0; col < num_columns; ++col) {
+        const auto& column_chunk = inputs[col][i];
+        ARROW_ASSIGN_OR_RAISE(Datum out, Take(column_chunk, indices_datum,
+                                              TakeOptions::NoBoundsCheck(), ctx));
+        out_columns[col].push_back(std::move(out).make_array());
+      }
+      out_num_rows += indices->length;
+    }
+  }
+
+  ChunkedArrayVector out_chunks(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    out_chunks[i] = std::make_shared<ChunkedArray>(std::move(out_columns[i]),
+                                                   table.column(i)->type());
+  }
+  return Table::Make(table.schema(), std::move(out_chunks), out_num_rows);
 }
 
 static auto kDefaultFilterOptions = FilterOptions::Defaults();

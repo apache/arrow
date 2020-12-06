@@ -141,7 +141,7 @@ constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns a mask for the bit_index lower order bits.
 // Only valid for bit_index in the range [0, 64).
-constexpr uint64_t LeastSignficantBitMask(int64_t bit_index) {
+constexpr uint64_t LeastSignificantBitMask(int64_t bit_index) {
   return (static_cast<uint64_t>(1) << bit_index) - 1;
 }
 

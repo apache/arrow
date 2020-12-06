@@ -50,6 +50,7 @@
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
@@ -103,6 +104,9 @@ struct ClientRpc {
           std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
               std::chrono::system_clock::now() + options.timeout);
       context.set_deadline(deadline);
+    }
+    for (auto header : options.headers) {
+      context.AddMetadata(header.first, header.second);
     }
   }
 
@@ -994,6 +998,30 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
+  arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
+      const FlightCallOptions& options, const std::string& username,
+      const std::string& password) {
+    // Add basic auth headers to outgoing headers.
+    ClientRpc rpc(options);
+    internal::AddBasicAuthHeaders(&rpc.context, username, password);
+
+    std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+        stream = stub_->Handshake(&rpc.context);
+    GrpcClientAuthSender outgoing{stream};
+    GrpcClientAuthReader incoming{stream};
+
+    // Explicitly close our side of the connection.
+    bool finished_writes = stream->WritesDone();
+    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
+    if (!finished_writes) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not finish writing before closing");
+    }
+
+    // Grab bearer token from incoming headers.
+    return internal::GetBearerTokenHeader(rpc.context);
+  }
+
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                      std::unique_ptr<FlightListing>* listing) {
     pb::Criteria pb_criteria;
@@ -1196,6 +1224,12 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
 Status FlightClient::Authenticate(const FlightCallOptions& options,
                                   std::unique_ptr<ClientAuthHandler> auth_handler) {
   return impl_->Authenticate(options, std::move(auth_handler));
+}
+
+arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
+    const FlightCallOptions& options, const std::string& username,
+    const std::string& password) {
+  return impl_->AuthenticateBasicToken(options, username, password);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,

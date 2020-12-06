@@ -17,9 +17,9 @@
 
 from collections import UserList
 import io
+import pathlib
 import pytest
 import socket
-import sys
 import threading
 import weakref
 
@@ -198,11 +198,7 @@ def test_file_read_pandas(file_fixture):
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6),
-                    reason="need Python 3.6")
 def test_file_pathlib(file_fixture, tmpdir):
-    import pathlib
-
     _, batches = file_fixture.write_batches()
     source = file_fixture.get_source()
 

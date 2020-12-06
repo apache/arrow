@@ -220,3 +220,12 @@ def change_cwd(path):
         yield
     finally:
         os.chdir(curdir)
+
+
+def _filesystem_uri(path):
+    # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
+    if os.name == 'nt':
+        uri = 'file:///{}'.format(path)
+    else:
+        uri = 'file://{}'.format(path)
+    return uri

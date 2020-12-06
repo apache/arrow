@@ -519,6 +519,20 @@ class TestConvertMetadata:
             result = table_subset2.to_pandas()
             tm.assert_frame_equal(result, df[['a']].reset_index(drop=True))
 
+    def test_to_pandas_column_subset_multiindex(self):
+        # ARROW-10122
+        df = pd.DataFrame(
+            {"first": list(range(5)),
+             "second": list(range(5)),
+             "value": np.arange(5)}
+        )
+        table = pa.Table.from_pandas(df.set_index(["first", "second"]))
+
+        subset = table.select(["first", "value"])
+        result = subset.to_pandas()
+        expected = df[["first", "value"]].set_index("first")
+        tm.assert_frame_equal(result, expected)
+
     def test_empty_list_metadata(self):
         # Create table with array of empty lists, forced to have type
         # list(string) in pyarrow
@@ -4206,8 +4220,7 @@ def test_metadata_compat_missing_field_name():
 
         )})
     result = table.to_pandas()
-    # on python 3.5 the column order can differ -> adding check_like=True
-    tm.assert_frame_equal(result, expected, check_like=True)
+    tm.assert_frame_equal(result, expected)
 
 
 def test_metadata_index_name_not_json_serializable():

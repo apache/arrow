@@ -24,7 +24,7 @@
 //!     basic::{LogicalType, Repetition, Type as PhysicalType},
 //!     schema::{parser, printer, types::Type},
 //! };
-//! use std::rc::Rc;
+//! use std::sync::Arc;
 //!
 //! // Create the following schema:
 //! //
@@ -45,7 +45,7 @@
 //!     .unwrap();
 //!
 //! let schema = Type::group_type_builder("schema")
-//!     .with_fields(&mut vec![Rc::new(field_a), Rc::new(field_b)])
+//!     .with_fields(&mut vec![Arc::new(field_a), Arc::new(field_b)])
 //!     .build()
 //!     .unwrap();
 //!

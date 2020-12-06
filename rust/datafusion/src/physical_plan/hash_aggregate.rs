@@ -433,7 +433,7 @@ fn evaluate(
 ) -> Result<Vec<ArrayRef>> {
     expr.iter()
         .map(|expr| expr.evaluate(&batch))
-        .map(|r| r.map(|v| v.into_array(batch)))
+        .map(|r| r.map(|v| v.into_array(batch.num_rows())))
         .collect::<Result<Vec<_>>>()
 }
 
@@ -562,7 +562,7 @@ fn aggregate_batch(
             let values = &expr
                 .iter()
                 .map(|e| e.evaluate(batch))
-                .map(|r| r.map(|v| v.into_array(batch)))
+                .map(|r| r.map(|v| v.into_array(batch.num_rows())))
                 .collect::<Result<Vec<_>>>()?;
 
             // 1.3
@@ -721,7 +721,7 @@ fn finalize_aggregation(
 }
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
-fn create_key(
+pub(crate) fn create_key(
     group_by_keys: &[ArrayRef],
     row: usize,
     vec: &mut Vec<GroupByScalar>,
@@ -808,7 +808,7 @@ mod tests {
                 )
                 .unwrap(),
                 RecordBatch::try_new(
-                    schema.clone(),
+                    schema,
                     vec![
                         Arc::new(UInt32Array::from(vec![2, 3, 3, 4])),
                         Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0])),

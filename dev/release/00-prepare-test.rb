@@ -272,6 +272,15 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-pyarrow-integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
+                     ],
+                   },
+                   {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
@@ -510,6 +519,15 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "rust/arrow-pyarrow-integration-testing/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"],
+                     ],
+                   },
+                   {
                      path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
@@ -635,7 +653,7 @@ class PrepareTest < Test::Unit::TestCase
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
-        path: "dev/tasks/linux-packages/apache-arrow/debian/control"
+        path: "dev/tasks/linux-packages/apache-arrow/debian/control.in"
       },
       {
         sampled_diff: [

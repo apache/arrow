@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bitmap_ops.h"
 
 #include "parquet/column_reader.h"
@@ -271,7 +272,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics2 =
         MakeStatistics<TestType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                 this->values_.size(), 0, 0, true);
+                                 this->values_.size(), 0, 0, true, true, true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -301,6 +302,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     statistics->Reset();
     ASSERT_EQ(0, statistics->null_count());
     ASSERT_EQ(0, statistics->num_values());
+    ASSERT_EQ(0, statistics->distinct_count());
     ASSERT_EQ("", statistics->EncodeMin());
     ASSERT_EQ("", statistics->EncodeMax());
   }
@@ -472,7 +474,7 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
 
   auto statistics2 =
       MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,
-                                    this->values_.size(), 0, 0, true);
+                                    this->values_.size(), 0, 0, true, true, true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
@@ -833,14 +835,16 @@ TYPED_TEST(TestStatisticsSortOrder, MinMax) {
   ASSERT_NO_FATAL_FAILURE(this->VerifyParquetStats());
 }
 
-TEST(TestByteArrayStatisticsFromArrow, Basics) {
-  // Part of ARROW-3246. Replicating TestStatisticsSortOrder test but via Arrow
+template <typename ArrowType>
+void TestByteArrayStatisticsFromArrow() {
+  using TypeTraits = ::arrow::TypeTraits<ArrowType>;
+  using ArrayType = typename TypeTraits::ArrayType;
 
-  auto values = ArrayFromJSON(::arrow::utf8(),
+  auto values = ArrayFromJSON(TypeTraits::type_singleton(),
                               u8"[\"c123\", \"b123\", \"a123\", null, "
                               "null, \"f123\", \"g123\", \"h123\", \"i123\", \"ü123\"]");
 
-  const auto& typed_values = static_cast<const ::arrow::BinaryArray&>(*values);
+  const auto& typed_values = static_cast<const ArrayType&>(*values);
 
   NodePtr node = PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
                                      ConvertedType::UTF8);
@@ -850,6 +854,15 @@ TEST(TestByteArrayStatisticsFromArrow, Basics) {
 
   ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
   ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
+}
+
+TEST(TestByteArrayStatisticsFromArrow, StringType) {
+  // Part of ARROW-3246. Replicating TestStatisticsSortOrder test but via Arrow
+  TestByteArrayStatisticsFromArrow<::arrow::StringType>();
+}
+
+TEST(TestByteArrayStatisticsFromArrow, LargeStringType) {
+  TestByteArrayStatisticsFromArrow<::arrow::LargeStringType>();
 }
 
 // Ensure UNKNOWN sort order is handled properly

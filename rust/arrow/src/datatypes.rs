@@ -145,6 +145,8 @@ pub enum DataType {
     /// This type mostly used to represent low cardinality string
     /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
+    /// Decimal value with precision and scale
+    Decimal(usize, usize),
 }
 
 /// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
@@ -1128,6 +1130,9 @@ impl DataType {
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
+            DataType::Decimal(precision, scale) => {
+                json!({"name": "decimal", "precision": precision, "scale": scale})
+            }
         }
     }
 
@@ -1197,16 +1202,22 @@ impl Field {
         self.nullable
     }
 
-    /// Returns the dictionary ID
+    /// Returns the dictionary ID, if this is a dictionary type
     #[inline]
-    pub const fn dict_id(&self) -> i64 {
-        self.dict_id
+    pub const fn dict_id(&self) -> Option<i64> {
+        match self.data_type {
+            DataType::Dictionary(_, _) => Some(self.dict_id),
+            _ => None,
+        }
     }
 
-    /// Indicates whether this `Field`'s dictionary is ordered
+    /// Returns whether this `Field`'s dictionary is ordered, if this is a dictionary type
     #[inline]
-    pub const fn dict_is_ordered(&self) -> bool {
-        self.dict_is_ordered
+    pub const fn dict_is_ordered(&self) -> Option<bool> {
+        match self.data_type {
+            DataType::Dictionary(_, _) => Some(self.dict_is_ordered),
+            _ => None,
+        }
     }
 
     /// Parse a `Field` definition from a JSON representation
@@ -1472,7 +1483,8 @@ impl Field {
             | DataType::FixedSizeList(_, _)
             | DataType::FixedSizeBinary(_)
             | DataType::Utf8
-            | DataType::LargeUtf8 => {
+            | DataType::LargeUtf8
+            | DataType::Decimal(_, _) => {
                 if self.data_type != from.data_type {
                     return Err(ArrowError::SchemaError(
                         "Fail to merge schema Field due to conflicting datatype"
@@ -1640,6 +1652,15 @@ impl Schema {
     /// Returns an immutable reference of a specific `Field` instance selected by name
     pub fn field_with_name(&self, name: &str) -> Result<&Field> {
         Ok(&self.fields[self.index_of(name)?])
+    }
+
+    /// Returns a vector of immutable references to all `Field` instances selected by
+    /// the dictionary ID they use
+    pub fn fields_with_dict_id(&self, dict_id: i64) -> Vec<&Field> {
+        self.fields
+            .iter()
+            .filter(|f| f.dict_id() == Some(dict_id))
+            .collect()
     }
 
     /// Find the index of the column with the given name
@@ -2512,7 +2533,8 @@ mod tests {
         last_name: Utf8, \
         address: Struct([\
         Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }])")
+        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }]), \
+        interests: Dictionary(Int32, Utf8)")
     }
 
     #[test]
@@ -2520,18 +2542,29 @@ mod tests {
         let schema = person_schema();
 
         // test schema accessors
-        assert_eq!(schema.fields().len(), 3);
+        assert_eq!(schema.fields().len(), 4);
 
         // test field accessors
         let first_name = &schema.fields()[0];
         assert_eq!(first_name.name(), "first_name");
         assert_eq!(first_name.data_type(), &DataType::Utf8);
         assert_eq!(first_name.is_nullable(), false);
+        assert_eq!(first_name.dict_id(), None);
+        assert_eq!(first_name.dict_is_ordered(), None);
+
+        let interests = &schema.fields()[3];
+        assert_eq!(interests.name(), "interests");
+        assert_eq!(
+            interests.data_type(),
+            &DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+        );
+        assert_eq!(interests.dict_id(), Some(123));
+        assert_eq!(interests.dict_is_ordered(), Some(true));
     }
 
     #[test]
     #[should_panic(
-        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\"]"
+        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\", \\\"interests\\\"]"
     )]
     fn schema_index_of() {
         let schema = person_schema();
@@ -2542,7 +2575,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\"]"
+        expected = "Unable to get field named \\\"nickname\\\". Valid fields: [\\\"first_name\\\", \\\"last_name\\\", \\\"address\\\", \\\"interests\\\"]"
     )]
     fn schema_field_with_name() {
         let schema = person_schema();
@@ -2555,6 +2588,20 @@ mod tests {
             "last_name"
         );
         schema.field_with_name("nickname").unwrap();
+    }
+
+    #[test]
+    fn schema_field_with_dict_id() {
+        let schema = person_schema();
+
+        let fields_dict_123: Vec<_> = schema
+            .fields_with_dict_id(123)
+            .iter()
+            .map(|f| f.name())
+            .collect();
+        assert_eq!(fields_dict_123, vec!["interests"]);
+
+        assert!(schema.fields_with_dict_id(456).is_empty());
     }
 
     #[test]
@@ -2621,6 +2668,13 @@ mod tests {
                     Field::new("zip", DataType::UInt16, false),
                 ]),
                 false,
+            ),
+            Field::new_dict(
+                "interests",
+                DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+                true,
+                123,
+                true,
             ),
         ])
     }

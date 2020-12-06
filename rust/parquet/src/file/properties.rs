@@ -48,7 +48,7 @@
 //! );
 //! ```
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::basic::{Compression, Encoding};
 use crate::file::metadata::KeyValue;
@@ -85,7 +85,7 @@ impl WriterVersion {
 }
 
 /// Reference counted writer properties.
-pub type WriterPropertiesPtr = Rc<WriterProperties>;
+pub type WriterPropertiesPtr = Arc<WriterProperties>;
 
 /// Writer properties.
 ///

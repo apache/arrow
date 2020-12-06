@@ -128,11 +128,14 @@ impl ExecutionPlan for CustomExecutionPlan {
 }
 
 impl TableProvider for CustomTableProvider {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         TEST_CUSTOM_SCHEMA_REF!()
     }
 
-    /// Create an ExecutionPlan that will scan the table.
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,

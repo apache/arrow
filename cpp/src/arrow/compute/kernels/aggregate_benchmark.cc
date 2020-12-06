@@ -20,11 +20,11 @@
 #include <vector>
 
 #include "arrow/compute/api.h"
-#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_reader.h"
 
 namespace arrow {
 namespace compute {
