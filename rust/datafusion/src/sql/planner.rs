@@ -286,11 +286,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     .join(&right, join_type, &left_keys, &right_keys)?
                     .build()
             }
-            JoinConstraint::Using(_) => {
-                // https://issues.apache.org/jira/browse/ARROW-10728
-                Err(DataFusionError::NotImplemented(
-                    "JOIN with USING is not supported (https://issues.apache.org/jira/browse/ARROW-10728)".to_string(),
-                ))
+            JoinConstraint::Using(idents) => {
+                let keys: Vec<&str> = idents.iter().map(|x| x.value.as_str()).collect();
+                LogicalPlanBuilder::from(&left)
+                    .join(&right, join_type, &keys, &keys)?
+                    .build()
             }
             JoinConstraint::Natural => {
                 // https://issues.apache.org/jira/browse/ARROW-10727

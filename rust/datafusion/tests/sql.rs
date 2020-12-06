@@ -1036,7 +1036,7 @@ fn create_case_context() -> Result<ExecutionContext> {
 
 #[tokio::test]
 async fn equijoin() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql =
         "SELECT t1_id, t1_name, t2_name FROM t1 JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
@@ -1051,7 +1051,7 @@ async fn equijoin() -> Result<()> {
 
 #[tokio::test]
 async fn left_join() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql =
         "SELECT t1_id, t1_name, t2_name FROM t1 LEFT JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
@@ -1067,7 +1067,7 @@ async fn left_join() -> Result<()> {
 
 #[tokio::test]
 async fn right_join() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql =
         "SELECT t1_id, t1_name, t2_name FROM t1 RIGHT JOIN t2 ON t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
@@ -1082,8 +1082,23 @@ async fn right_join() -> Result<()> {
 }
 
 #[tokio::test]
+async fn left_join_using() -> Result<()> {
+    let mut ctx = create_join_context("id", "id")?;
+    let sql = "SELECT id, t1_name, t2_name FROM t1 LEFT JOIN t2 USING (id) ORDER BY id";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["11", "a", "z"],
+        vec!["22", "b", "y"],
+        vec!["33", "c", "NULL"],
+        vec!["44", "d", "x"],
+    ];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn equijoin_implicit_syntax() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql =
         "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t1_id = t2_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
@@ -1098,7 +1113,7 @@ async fn equijoin_implicit_syntax() -> Result<()> {
 
 #[tokio::test]
 async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql = "SELECT t1_id, t1_name, t2_name \
         FROM t1, t2 \
         WHERE t1_id > 0 \
@@ -1117,7 +1132,7 @@ async fn equijoin_implicit_syntax_with_filter() -> Result<()> {
 
 #[tokio::test]
 async fn equijoin_implicit_syntax_reversed() -> Result<()> {
-    let mut ctx = create_join_context()?;
+    let mut ctx = create_join_context("t1_id", "t2_id")?;
     let sql =
         "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE t2_id = t1_id ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
@@ -1132,7 +1147,7 @@ async fn equijoin_implicit_syntax_reversed() -> Result<()> {
 
 #[tokio::test]
 async fn cartesian_join() -> Result<()> {
-    let ctx = create_join_context()?;
+    let ctx = create_join_context("t1_id", "t2_id")?;
     let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 ORDER BY t1_id";
     let maybe_plan = ctx.create_logical_plan(&sql);
     assert_eq!(
@@ -1142,11 +1157,14 @@ async fn cartesian_join() -> Result<()> {
     Ok(())
 }
 
-fn create_join_context() -> Result<ExecutionContext> {
+fn create_join_context(
+    column_left: &str,
+    column_right: &str,
+) -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
     let t1_schema = Arc::new(Schema::new(vec![
-        Field::new("t1_id", DataType::UInt32, true),
+        Field::new(column_left, DataType::UInt32, true),
         Field::new("t1_name", DataType::Utf8, true),
     ]));
     let t1_data = RecordBatch::try_new(
@@ -1165,7 +1183,7 @@ fn create_join_context() -> Result<ExecutionContext> {
     ctx.register_table("t1", Box::new(t1_table));
 
     let t2_schema = Arc::new(Schema::new(vec![
-        Field::new("t2_id", DataType::UInt32, true),
+        Field::new(column_right, DataType::UInt32, true),
         Field::new("t2_name", DataType::Utf8, true),
     ]));
     let t2_data = RecordBatch::try_new(
