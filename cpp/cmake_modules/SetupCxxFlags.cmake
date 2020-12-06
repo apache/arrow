@@ -159,6 +159,23 @@ if(WIN32)
       set(CXX_COMMON_FLAGS "/W3 /EHsc")
     endif()
 
+    # Disable C5105 (macro expansion producing 'defined' has undefined
+    # behavior) warning because there are codes that produce this
+    # warning in Windows Kits. e.g.:
+    #
+    #   #define _CRT_INTERNAL_NONSTDC_NAMES                                            \
+    #        (                                                                          \
+    #            ( defined _CRT_DECLARE_NONSTDC_NAMES && _CRT_DECLARE_NONSTDC_NAMES) || \
+    #            (!defined _CRT_DECLARE_NONSTDC_NAMES && !__STDC__                 )    \
+    #        )
+    #
+    # See also:
+    # * C5105: https://docs.microsoft.com/en-US/cpp/error-messages/compiler-warnings/c5105
+    # * Related reports:
+    #   * https://developercommunity.visualstudio.com/content/problem/387684/c5105-with-stdioh-and-experimentalpreprocessor.html
+    #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
+
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
               CMAKE_CXX_FLAGS
