@@ -504,6 +504,10 @@ impl DefaultPhysicalPlanner {
                 self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
             ),
+            Expr::Negative(expr) => expressions::negative(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+                input_schema,
+            ),
             Expr::IsNull(expr) => expressions::is_null(self.create_physical_expr(
                 expr,
                 input_schema,

@@ -142,6 +142,25 @@ impl ScalarValue {
         }
     }
 
+    /// Calculate arithmetic negation for a scalar value
+    pub fn arithmetic_negate(&self) -> Self {
+        match self {
+            ScalarValue::Boolean(None)
+            | ScalarValue::Int8(None)
+            | ScalarValue::Int16(None)
+            | ScalarValue::Int32(None)
+            | ScalarValue::Int64(None)
+            | ScalarValue::Float32(None) => self.clone(),
+            ScalarValue::Float64(Some(v)) => ScalarValue::Float64(Some(-v)),
+            ScalarValue::Float32(Some(v)) => ScalarValue::Float32(Some(-v)),
+            ScalarValue::Int8(Some(v)) => ScalarValue::Int8(Some(-v)),
+            ScalarValue::Int16(Some(v)) => ScalarValue::Int16(Some(-v)),
+            ScalarValue::Int32(Some(v)) => ScalarValue::Int32(Some(-v)),
+            ScalarValue::Int64(Some(v)) => ScalarValue::Int64(Some(-v)),
+            _ => panic!("Cannot run arithmetic negate on scala value: {:?}", self),
+        }
+    }
+
     /// whether this value is null or not.
     pub fn is_null(&self) -> bool {
         match *self {
