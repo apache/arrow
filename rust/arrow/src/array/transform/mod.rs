@@ -285,9 +285,15 @@ impl<'a> MutableArrayData<'a> {
     /// `use_nulls` is a flag used to optimize insertions. It should be `false` if the only source of nulls
     /// are the arrays themselves and `true` if the user plans to call [MutableArrayData::extend_nulls].
     /// In other words, if `use_nulls` is `false`, calling [MutableArrayData::extend_nulls] should not be used.
-    pub fn new(arrays: Vec<&'a ArrayData>, use_nulls: bool, capacity: usize) -> Self {
+    pub fn new(arrays: Vec<&'a ArrayData>, mut use_nulls: bool, capacity: usize) -> Self {
         let data_type = arrays[0].data_type();
         use crate::datatypes::*;
+
+        // if any of the arrays has nulls, insertions from any array requires setting bits
+        // as there is at least one array with nulls.
+        if arrays.iter().any(|array| array.null_count() > 0) {
+            use_nulls = true;
+        };
 
         let buffers = match &data_type {
             DataType::Boolean => {
@@ -611,6 +617,26 @@ mod tests {
         let result = StringArray::from(Arc::new(result));
 
         let expected = StringArray::from(vec![Some("bc"), None, Some("defh")]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_multiple_with_nulls() {
+        let array1 = StringArray::from(vec!["hello", "world"]).data();
+        let array2 = StringArray::from(vec![Some("1"), None]).data();
+
+        let arrays = vec![array1.as_ref(), array2.as_ref()];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 5);
+
+        mutable.extend(0, 0, 2);
+        mutable.extend(1, 0, 2);
+
+        let result = mutable.freeze();
+        let result = StringArray::from(Arc::new(result));
+
+        let expected =
+            StringArray::from(vec![Some("hello"), Some("world"), Some("1"), None]);
         assert_eq!(result, expected);
     }
 
