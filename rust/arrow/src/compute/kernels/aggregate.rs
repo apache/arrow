@@ -537,10 +537,6 @@ mod simd {
 pub fn sum<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: Add<Output = T::Native>,
-    T::SimdMask: std::ops::Not<Output = T::SimdMask>
-        + std::ops::BitAnd<Output = T::SimdMask>
-        + std::ops::BitOr<Output = T::SimdMask>
-        + std::ops::BitOrAssign,
 {
     use simd::*;
 
@@ -552,10 +548,6 @@ where
 pub fn min<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
-    T::SimdMask: std::ops::Not<Output = T::SimdMask>
-        + std::ops::BitAnd<Output = T::SimdMask>
-        + std::ops::BitOr<Output = T::SimdMask>
-        + std::ops::BitOrAssign,
 {
     use simd::*;
 
@@ -567,10 +559,6 @@ where
 pub fn max<T: ArrowNumericType>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T::Native: PartialOrd,
-    T::SimdMask: std::ops::Not<Output = T::SimdMask>
-        + std::ops::BitAnd<Output = T::SimdMask>
-        + std::ops::BitOr<Output = T::SimdMask>
-        + std::ops::BitOrAssign,
 {
     use simd::*;
 
