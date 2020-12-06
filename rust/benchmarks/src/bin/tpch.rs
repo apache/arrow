@@ -150,7 +150,6 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
 
         // original
         // 1 => ctx.create_logical_plan(
-        //     format!(
         //     "select
         //         l_returnflag,
         //         l_linestatus,
@@ -165,14 +164,13 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //     from
         //         lineitem
         //     where
-        //         l_shipdate <= date '1998-12-01' - interval '{DELTA}' day (3)
+        //         l_shipdate <= date '1998-12-01' - interval '90' day (3)
         //     group by
         //         l_returnflag,
         //         l_linestatus
         //     order by
         //         l_returnflag,
-        //         l_linestatus;",
-        //     DELTA="90").as_ref()
+        //         l_linestatus;"
         // ),
         1 => ctx.create_logical_plan(
             "select
