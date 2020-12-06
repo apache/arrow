@@ -40,9 +40,9 @@ where
         .expect("Unable to downcast to dictionary array")
 }
 
-pub fn as_list_array(arr: &ArrayRef) -> &ListArray {
+pub fn as_list_array<S: OffsetSizeTrait>(arr: &ArrayRef) -> &GenericListArray<S> {
     arr.as_any()
-        .downcast_ref::<ListArray>()
+        .downcast_ref::<GenericListArray<S>>()
         .expect("Unable to downcast to list array")
 }
 

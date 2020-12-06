@@ -161,14 +161,28 @@ pub fn sort_to_indices(
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
         DataType::List(field) => match field.data_type() {
-            DataType::Int8 => sort_list::<Int8Type>(values, v, n, &options),
-            DataType::Int16 => sort_list::<Int16Type>(values, v, n, &options),
-            DataType::Int32 => sort_list::<Int32Type>(values, v, n, &options),
-            DataType::Int64 => sort_list::<Int64Type>(values, v, n, &options),
-            DataType::UInt8 => sort_list::<UInt8Type>(values, v, n, &options),
-            DataType::UInt16 => sort_list::<UInt16Type>(values, v, n, &options),
-            DataType::UInt32 => sort_list::<UInt32Type>(values, v, n, &options),
-            DataType::UInt64 => sort_list::<UInt64Type>(values, v, n, &options),
+            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
+        DataType::LargeList(field) => match field.data_type() {
+            DataType::Int8 => sort_list::<i64, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i64, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i64, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i64, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i64, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i64, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i64, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i64, UInt64Type>(values, v, n, &options),
             t => Err(ArrowError::ComputeError(format!(
                 "Sort not supported for list type {:?}",
                 t
@@ -479,26 +493,21 @@ where
     Ok(UInt32Array::from(valid_indices))
 }
 
-fn sort_list<T>(
+fn sort_list<S, T>(
     values: &ArrayRef,
     value_indices: Vec<u32>,
     mut null_indices: Vec<u32>,
     options: &SortOptions,
 ) -> Result<UInt32Array>
 where
+    S: OffsetSizeTrait,
     T: ArrowPrimitiveType,
     T::Native: std::cmp::PartialOrd,
 {
-    let values = as_list_array(values);
+    let values = as_list_array::<S>(values);
     let mut valids: Vec<(u32, ArrayRef)> = value_indices
         .into_iter()
-        .map(|index| {
-            (
-                index,
-                // *as_primitive_array::<T>(&values.value(index as usize)),
-                values.value(index as usize),
-            )
-        })
+        .map(|index| (index, values.value(index as usize)))
         .collect();
 
     if !options.descending {
@@ -792,37 +801,54 @@ mod tests {
         assert_eq!(sorted_strings, expected)
     }
 
-    fn make_list_array<T>(data: Vec<Option<Vec<T::Native>>>) -> Arc<GenericListArray<i32>>
+    fn make_var_sized_list_array<S, T>(
+        data: Vec<Option<Vec<T::Native>>>,
+        list_data_type: &DataType,
+    ) -> Arc<GenericListArray<S>>
     where
+        S: OffsetSizeTrait + 'static,
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
-        let mut offset = vec![0i32];
-        let mut values: Vec<T::Native> = vec![];
+        use std::any::TypeId;
+
+        let mut offset = vec![0];
+        let mut values = vec![];
 
         for array in data {
             array.and_then(|mut array| {
                 values.append(&mut array);
-
                 Some(())
             });
-            offset.push(values.len().to_i32().unwrap());
+            offset.push(values.len() as i64);
         }
+        let num_item = offset.len() - 1;
 
         let value_data = ArrayData::builder(T::DATA_TYPE)
             .len(values.len())
             .add_buffer(Buffer::from(values.as_slice().to_byte_slice()))
             .build();
-        let value_offsets = Buffer::from(offset.as_slice().to_byte_slice());
-        let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let value_offsets = if TypeId::of::<S>() == TypeId::of::<i32>() {
+            Buffer::from(
+                offset
+                    .into_iter()
+                    .map(|x| x as i32)
+                    .collect::<Vec<i32>>()
+                    .as_slice()
+                    .to_byte_slice(),
+            )
+        } else if TypeId::of::<S>() == TypeId::of::<i64>() {
+            Buffer::from(offset.as_slice().to_byte_slice())
+        } else {
+            unreachable!()
+        };
 
         let list_data = ArrayData::builder(list_data_type.clone())
-            .len(offset.len() - 1)
+            .len(num_item)
             .add_buffer(value_offsets.clone())
             .add_child_data(value_data.clone())
             .build();
-        Arc::new(ListArray::from(list_data))
+        Arc::new(GenericListArray::<S>::from(list_data))
     }
 
     fn test_sort_list_arrays<T>(
@@ -833,9 +859,25 @@ mod tests {
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
-        let input = make_list_array(data);
+        // for List
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+        let input = make_var_sized_list_array::<i32, T>(data.clone(), &list_data_type);
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected = make_list_array(expected_data) as ArrayRef;
+        let expected =
+            make_var_sized_list_array::<i32, T>(expected_data.clone(), &list_data_type)
+                as ArrayRef;
+
+        assert_eq!(&sorted, &expected);
+
+        // for LargeList
+        let list_data_type =
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int64, false)));
+        let input = make_var_sized_list_array::<i64, T>(data.clone(), &list_data_type);
+        let sorted = sort(&(input as ArrayRef), options).unwrap();
+        let expected =
+            make_var_sized_list_array::<i64, T>(expected_data.clone(), &list_data_type)
+                as ArrayRef;
 
         assert_eq!(&sorted, &expected);
     }
