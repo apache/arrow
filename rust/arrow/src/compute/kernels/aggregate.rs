@@ -22,8 +22,10 @@ use std::ops::Add;
 use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 use crate::datatypes::{ArrowNativeType, ArrowNumericType};
 
+/// Generic test for NaN, the optimizer should be able to remove this for integer types.
 #[inline]
-fn is_nan<T: ArrowNativeType + PartialOrd>(a: T) -> bool {
+fn is_nan<T: ArrowNativeType + PartialOrd + Copy>(a: T) -> bool {
+    #[allow(clippy::eq_op)]
     !(a == a)
 }
 
@@ -69,7 +71,7 @@ where
     T: ArrowNumericType,
     T::Native: ArrowNativeType,
 {
-    min_max_helper(array, |a, b| is_nan(*a) > is_nan(*b) || a > b)
+    min_max_helper(array, |a, b| (is_nan(*a) & !is_nan(*b)) || a > b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -79,7 +81,7 @@ where
     T: ArrowNumericType,
     T::Native: ArrowNativeType,
 {
-    min_max_helper(array, |a, b| is_nan(*a) < is_nan(*b) || a < b)
+    min_max_helper(array, |a, b| (!is_nan(*a) & is_nan(*b)) || a < b)
 }
 
 /// Returns the maximum value in the string array, according to the natural order.
@@ -187,6 +189,7 @@ where
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 mod simd {
+    use super::is_nan;
     use crate::array::{Array, PrimitiveArray};
     use crate::datatypes::ArrowNumericType;
     use std::marker::PhantomData;
@@ -275,7 +278,7 @@ mod simd {
 
             let mut reduced = Self::init_accumulator_scalar();
             slice
-                .into_iter()
+                .iter()
                 .for_each(|value| Self::accumulate_scalar(&mut reduced, *value));
 
             Self::accumulate_scalar(&mut reduced, scalar_accumulator);
@@ -335,7 +338,7 @@ mod simd {
             if !accumulator.1 {
                 accumulator.0 = value;
             } else {
-                let acc_is_nan = accumulator.0 != accumulator.0;
+                let acc_is_nan = is_nan(accumulator.0);
                 if acc_is_nan || value < accumulator.0 {
                     accumulator.0 = value
                 }
@@ -355,7 +358,7 @@ mod simd {
 
             let mut reduced = Self::init_accumulator_scalar();
             slice
-                .into_iter()
+                .iter()
                 .enumerate()
                 .filter(|(i, _value)| T::mask_get(&simd_accumulator.1, *i))
                 .for_each(|(_i, value)| Self::accumulate_scalar(&mut reduced, *value));
@@ -422,7 +425,7 @@ mod simd {
             if !accumulator.1 {
                 accumulator.0 = value;
             } else {
-                let value_is_nan = value != value;
+                let value_is_nan = is_nan(value);
                 if value_is_nan || value > accumulator.0 {
                     accumulator.0 = value
                 }
@@ -442,7 +445,7 @@ mod simd {
 
             let mut reduced = Self::init_accumulator_scalar();
             slice
-                .into_iter()
+                .iter()
                 .enumerate()
                 .filter(|(i, _value)| T::mask_get(&simd_accumulator.1, *i))
                 .for_each(|(_i, value)| Self::accumulate_scalar(&mut reduced, *value));
@@ -508,7 +511,7 @@ mod simd {
                         A::accumulate_chunk_nullable(&mut chunk_acc, chunk, vecmask);
 
                         // skip the shift and avoid overflow for u8 type, which uses 64 lanes.
-                        mask = mask >> (T::lanes() % 64);
+                        mask >>= T::lanes() % 64;
                     });
                 });
 
