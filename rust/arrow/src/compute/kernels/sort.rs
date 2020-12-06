@@ -160,6 +160,20 @@ pub fn sort_to_indices(
             sort_primitive::<DurationNanosecondType>(values, v, n, vec![], &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
+        DataType::List(field) => match field.data_type() {
+            DataType::Int8 => sort_list::<Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
         DataType::Dictionary(key_type, value_type)
             if *value_type.as_ref() == DataType::Utf8 =>
         {
@@ -465,6 +479,58 @@ where
     Ok(UInt32Array::from(valid_indices))
 }
 
+fn sort_list<T>(
+    values: &ArrayRef,
+    value_indices: Vec<u32>,
+    mut null_indices: Vec<u32>,
+    options: &SortOptions,
+) -> Result<UInt32Array>
+where
+    T: ArrowPrimitiveType,
+    T::Native: std::cmp::PartialOrd,
+{
+    let values = as_list_array(values);
+    let mut valids: Vec<(u32, ArrayRef)> = value_indices
+        .into_iter()
+        .map(|index| {
+            (
+                index,
+                // *as_primitive_array::<T>(&values.value(index as usize)),
+                values.value(index as usize),
+            )
+        })
+        .collect();
+
+    if !options.descending {
+        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()))
+    } else {
+        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()).reverse())
+    }
+
+    let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
+
+    if options.nulls_first {
+        null_indices.append(&mut valid_indices);
+        return Ok(UInt32Array::from(null_indices));
+    }
+
+    valid_indices.append(&mut null_indices);
+    Ok(UInt32Array::from(valid_indices))
+}
+
+fn cmp_array(a: &Array, b: &Array) -> Ordering {
+    let cmp_op = build_compare(a, b).unwrap();
+    let length = a.len().max(b.len());
+
+    for i in 0..length {
+        let result = cmp_op(i, i);
+        if result != Ordering::Equal {
+            return result;
+        }
+    }
+    Ordering::Equal
+}
+
 /// One column to be used in lexicographical sort
 #[derive(Clone, Debug)]
 pub struct SortColumn {
@@ -616,6 +682,7 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::buffer::Buffer;
     use std::convert::TryFrom;
     use std::iter::FromIterator;
     use std::sync::Arc;
@@ -723,6 +790,54 @@ mod tests {
             StringArray::try_from(expected_data).expect("Unable to create string array");
 
         assert_eq!(sorted_strings, expected)
+    }
+
+    fn make_list_array<T>(data: Vec<Option<Vec<T::Native>>>) -> Arc<GenericListArray<i32>>
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let mut offset = vec![0i32];
+        let mut values: Vec<T::Native> = vec![];
+
+        for array in data {
+            array.and_then(|mut array| {
+                values.append(&mut array);
+
+                Some(())
+            });
+            offset.push(values.len().to_i32().unwrap());
+        }
+
+        let value_data = ArrayData::builder(T::DATA_TYPE)
+            .len(values.len())
+            .add_buffer(Buffer::from(values.as_slice().to_byte_slice()))
+            .build();
+        let value_offsets = Buffer::from(offset.as_slice().to_byte_slice());
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
+
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(offset.len() - 1)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        Arc::new(ListArray::from(list_data))
+    }
+
+    fn test_sort_list_arrays<T>(
+        data: Vec<Option<Vec<T::Native>>>,
+        options: Option<SortOptions>,
+        expected_data: Vec<Option<Vec<T::Native>>>,
+    ) where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let input = make_list_array(data);
+        let sorted = sort(&(input as ArrayRef), options).unwrap();
+        let expected = make_list_array(expected_data) as ArrayRef;
+
+        assert_eq!(&sorted, &expected);
     }
 
     fn test_lex_sort_arrays(input: Vec<SortColumn>, expected_output: Vec<ArrayRef>) {
@@ -1347,6 +1462,39 @@ mod tests {
                 Some("glad"),
                 Some("bad"),
                 Some("-ad"),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_sort_list() {
+        test_sort_list_arrays::<Int8Type>(
+            vec![Some(vec![1]), Some(vec![4]), Some(vec![2]), Some(vec![3])],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![Some(vec![1]), Some(vec![2]), Some(vec![3]), Some(vec![4])],
+        );
+
+        test_sort_list_arrays::<Int32Type>(
+            vec![
+                Some(vec![1, 0]),
+                Some(vec![4, 3, 2, 1]),
+                Some(vec![2, 3, 4]),
+                Some(vec![3, 3, 3, 3]),
+                Some(vec![1, 1]),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![
+                Some(vec![1, 0]),
+                Some(vec![1, 1]),
+                Some(vec![2, 3, 4]),
+                Some(vec![3, 3, 3, 3]),
+                Some(vec![4, 3, 2, 1]),
             ],
         );
     }
