@@ -386,7 +386,7 @@ impl ExecutionContext {
                 .map(|batch| writer.write(&batch?))
                 .try_collect()
                 .await
-                .map_err(|e| DataFusionError::from(e))?;
+                .map_err(DataFusionError::from)?;
         }
         Ok(())
     }
@@ -415,7 +415,7 @@ impl ExecutionContext {
                 .map(|batch| writer.write(&batch?))
                 .try_collect()
                 .await
-                .map_err(|e| DataFusionError::from(e))?;
+                .map_err(DataFusionError::from)?;
 
             writer.close()?;
         }

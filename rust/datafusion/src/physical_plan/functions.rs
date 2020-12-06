@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_concat_error() -> Result<()> {
         let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
-        if let Ok(_) = result {
+        if result.is_ok() {
             Err(DataFusionError::Plan(
                 "Function 'concat' cannot accept zero arguments".to_string(),
             ))
