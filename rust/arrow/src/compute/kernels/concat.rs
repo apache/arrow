@@ -20,13 +20,12 @@
 //! Example:
 //!
 //! ```
-//! use std::sync::Arc;
 //! use arrow::array::{ArrayRef, StringArray};
 //! use arrow::compute::concat;
 //!
-//! let arr = concat(&vec![
-//!     Arc::new(StringArray::from(vec!["hello", "world"])) as ArrayRef,
-//!     Arc::new(StringArray::from(vec!["!"])) as ArrayRef,
+//! let arr = concat(&[
+//!     &StringArray::from(vec!["hello", "world"]),
+//!     &StringArray::from(vec!["!"]),
 //! ]).unwrap();
 //! assert_eq!(arr.len(), 3);
 //! ```
