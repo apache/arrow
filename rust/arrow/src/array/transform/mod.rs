@@ -24,6 +24,7 @@ use super::{ArrayData, ArrayDataRef};
 mod boolean;
 mod fixed_binary;
 mod list;
+mod null;
 mod primitive;
 mod structure;
 mod utils;
@@ -56,7 +57,7 @@ struct _MutableArrayData<'a> {
 impl<'a> _MutableArrayData<'a> {
     fn freeze(self, dictionary: Option<ArrayDataRef>) -> ArrayData {
         let buffers = match self.data_type {
-            DataType::Struct(_) => vec![],
+            DataType::Null | DataType::Struct(_) => vec![],
             DataType::Utf8
             | DataType::Binary
             | DataType::LargeUtf8
@@ -174,6 +175,7 @@ impl<'a> std::fmt::Debug for MutableArrayData<'a> {
 fn build_extend(array: &ArrayData) -> Extend {
     use crate::datatypes::*;
     match array.data_type() {
+        DataType::Null => null::build_extend(array),
         DataType::Boolean => boolean::build_extend(array),
         DataType::UInt8 => primitive::build_extend::<u8>(array),
         DataType::UInt16 => primitive::build_extend::<u16>(array),
@@ -218,7 +220,6 @@ fn build_extend(array: &ArrayData) -> Extend {
         DataType::FixedSizeBinary(_) => fixed_binary::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
-        DataType::Null => {}
         DataType::FixedSizeList(_, _) => {}
         DataType::Union(_) => {}
         */
@@ -229,6 +230,7 @@ fn build_extend(array: &ArrayData) -> Extend {
 fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
     use crate::datatypes::*;
     Box::new(match data_type {
+        DataType::Null => null::extend_nulls,
         DataType::Boolean => boolean::extend_nulls,
         DataType::UInt8 => primitive::extend_nulls::<u8>,
         DataType::UInt16 => primitive::extend_nulls::<u16>,
@@ -267,7 +269,6 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
         DataType::FixedSizeBinary(_) => fixed_binary::extend_nulls,
         DataType::Float16 => unreachable!(),
         /*
-        DataType::Null => {}
         DataType::FixedSizeList(_, _) => {}
         DataType::Union(_) => {}
         */
@@ -294,6 +295,7 @@ impl<'a> MutableArrayData<'a> {
 
         let empty_buffer = MutableBuffer::new(0);
         let [buffer1, buffer2] = match &data_type {
+            DataType::Null => [empty_buffer, MutableBuffer::new(0)],
             DataType::Boolean => {
                 let bytes = bit_util::ceil(capacity, 8);
                 let buffer = MutableBuffer::new(bytes).with_bitset(bytes, false);
@@ -542,7 +544,7 @@ mod tests {
         array::{
             Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
             FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Array,
-            Int64Builder, ListBuilder, PrimitiveBuilder, StringArray,
+            Int64Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
             StringDictionaryBuilder, StructArray, UInt8Array,
         },
         buffer::Buffer,
@@ -753,6 +755,24 @@ mod tests {
         let result = BooleanArray::from(Arc::new(result));
 
         let expected = BooleanArray::from(vec![Some(true), None]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_null() {
+        let array1 = NullArray::new(10).data();
+        let array2 = NullArray::new(5).data();
+        let arrays = vec![array1.as_ref(), array2.as_ref()];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        mutable.extend(1, 0, 1);
+
+        let result = mutable.freeze();
+        let result = NullArray::from(Arc::new(result));
+
+        let expected = NullArray::new(3);
         assert_eq!(result, expected);
     }
 
