@@ -42,6 +42,7 @@ path = "src/bin/main.rs"
 [features]
 default = ["cli"]
 cli = ["rustyline"]
+simd = ["arrow/simd"]
 
 [dependencies]
 ahash = "0.6"
