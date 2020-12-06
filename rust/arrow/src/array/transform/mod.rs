@@ -22,6 +22,7 @@ use crate::{buffer::MutableBuffer, datatypes::DataType, util::bit_util};
 use super::{ArrayData, ArrayDataRef};
 
 mod boolean;
+mod fixed_binary;
 mod list;
 mod primitive;
 mod structure;
@@ -219,10 +220,10 @@ fn build_extend(array: &ArrayData) -> Extend {
             _ => unreachable!(),
         },
         DataType::Struct(_) => structure::build_extend(array),
+        DataType::FixedSizeBinary(_) => fixed_binary::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
         DataType::Null => {}
-        DataType::FixedSizeBinary(_) => {}
         DataType::FixedSizeList(_, _) => {}
         DataType::Struct(_) => {}
         DataType::Union(_) => {}
@@ -269,11 +270,10 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
             _ => unreachable!(),
         },
         DataType::Struct(_) => structure::extend_nulls,
-        //DataType::Struct(_) => structure::build_extend(array),
+        DataType::FixedSizeBinary(_) => fixed_binary::extend_nulls,
         DataType::Float16 => unreachable!(),
         /*
         DataType::Null => {}
-        DataType::FixedSizeBinary(_) => {}
         DataType::FixedSizeList(_, _) => {}
         DataType::Union(_) => {}
         */
@@ -350,6 +350,9 @@ impl<'a> MutableArrayData<'a> {
                 let mut buffer = MutableBuffer::new((1 + capacity) * size_of::<i64>());
                 buffer.extend_from_slice(&[0i64].to_byte_slice());
                 vec![buffer]
+            }
+            DataType::FixedSizeBinary(size) => {
+                vec![MutableBuffer::new(capacity * *size as usize)]
             }
             DataType::Dictionary(child_data_type, _) => match child_data_type.as_ref() {
                 DataType::UInt8 => vec![MutableBuffer::new(capacity * size_of::<u8>())],
@@ -484,9 +487,10 @@ mod tests {
     use super::*;
 
     use crate::array::{
-        Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray, Int16Array,
-        Int16Type, Int32Array, Int64Builder, ListBuilder, PrimitiveBuilder, StringArray,
-        StringDictionaryBuilder, StructArray, UInt8Array,
+        Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
+        FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Builder,
+        ListBuilder, PrimitiveBuilder, StringArray, StringDictionaryBuilder, StructArray,
+        UInt8Array,
     };
     use crate::{array::ListArray, error::Result};
 
@@ -841,5 +845,26 @@ mod tests {
             StructArray::try_from(vec![("f1", expected_string), ("f2", expected_int)])
                 .unwrap();
         assert_eq!(array, expected)
+    }
+
+    #[test]
+    fn test_binary_fixed_sized_offsets() {
+        let array =
+            FixedSizeBinaryArray::from(vec![vec![0, 0], vec![0, 1], vec![0, 2]]).data();
+        let array = array.slice(1, 2);
+        // = [[0, 1], [0, 2]] due to the offset = 1
+
+        let arrays = vec![&array];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 2);
+        mutable.extend(0, 0, 1);
+
+        let result = mutable.freeze();
+        let result = FixedSizeBinaryArray::from(Arc::new(result));
+
+        let expected = FixedSizeBinaryArray::from(vec![vec![0, 2], vec![0, 1]]);
+        assert_eq!(result, expected);
     }
 }
