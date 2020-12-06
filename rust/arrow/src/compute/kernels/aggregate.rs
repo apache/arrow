@@ -758,7 +758,6 @@ mod tests {
     }
 
     #[test]
-    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
     fn test_primitive_min_max_float_all_nans_non_null() {
         let a: Float64Array = (0..100).map(|_| Some(f64::NAN)).collect();
         assert!(max(&a).unwrap().is_nan());
@@ -767,7 +766,6 @@ mod tests {
     }
 
     #[test]
-    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
     fn test_primitive_min_max_float_first_nan_nonnull() {
         let a: Float64Array = (0..100)
             .map(|i| {
@@ -783,7 +781,6 @@ mod tests {
     }
 
     #[test]
-    //#[ignore = "simd implementation returns the identity values of +Inf/-Inf"]
     fn test_primitive_min_max_float_last_nan_nonnull() {
         let a: Float64Array = (0..100)
             .map(|i| {
@@ -794,13 +791,11 @@ mod tests {
                 }
             })
             .collect();
-        // scalar implementation folds with the first value and returns NaN
         assert_eq!(Some(1.0), min(&a));
         assert!(max(&a).unwrap().is_nan());
     }
 
     #[test]
-    //#[ignore = "scalar implementation folds with the first value and returns NaN"]
     fn test_primitive_min_max_float_first_nan_nullable() {
         let a: Float64Array = (0..100)
             .map(|i| {
@@ -813,13 +808,11 @@ mod tests {
                 }
             })
             .collect();
-        // scalar implementation folds with the first value and returns NaN
         assert_eq!(Some(1.0), min(&a));
         assert!(max(&a).unwrap().is_nan());
     }
 
     #[test]
-    //#[ignore = "scalar implementation folds with the first value and returns NaN"]
     fn test_primitive_min_max_float_last_nan_nullable() {
         let a: Float64Array = (0..100)
             .map(|i| {
@@ -832,7 +825,6 @@ mod tests {
                 }
             })
             .collect();
-        // scalar implementation folds with the first value and returns NaN
         assert_eq!(Some(1.0), min(&a));
         assert!(max(&a).unwrap().is_nan());
     }
