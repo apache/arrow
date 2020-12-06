@@ -816,10 +816,9 @@ mod tests {
         let mut values = vec![];
 
         for array in data {
-            array.and_then(|mut array| {
+            if let Some(mut array) = array {
                 values.append(&mut array);
-                Some(())
-            });
+            }
             offset.push(values.len() as i64);
         }
         let num_item = offset.len() - 1;
@@ -845,8 +844,8 @@ mod tests {
 
         let list_data = ArrayData::builder(list_data_type.clone())
             .len(num_item)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         Arc::new(GenericListArray::<S>::from(list_data))
     }
@@ -873,11 +872,10 @@ mod tests {
         // for LargeList
         let list_data_type =
             DataType::LargeList(Box::new(Field::new("item", DataType::Int64, false)));
-        let input = make_var_sized_list_array::<i64, T>(data.clone(), &list_data_type);
+        let input = make_var_sized_list_array::<i64, T>(data, &list_data_type);
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected =
-            make_var_sized_list_array::<i64, T>(expected_data.clone(), &list_data_type)
-                as ArrayRef;
+        let expected = make_var_sized_list_array::<i64, T>(expected_data, &list_data_type)
+            as ArrayRef;
 
         assert_eq!(&sorted, &expected);
     }
