@@ -73,7 +73,7 @@ fn create_strings(size: usize, null_density: f32) -> ArrayRef {
 }
 
 fn bench_concat(v1: &ArrayRef, v2: &ArrayRef) {
-    criterion::black_box(concat(&[v1.clone(), v2.clone()]).unwrap());
+    criterion::black_box(concat(&[v1.as_ref(), v2.as_ref()]).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
