@@ -89,7 +89,9 @@ enum TpchOpt {
     Convert(ConvertOpt),
 }
 
-const TABLES: &[&str] = &["part", "supplier", "partsupp", "customer", "orders", "lineitem", "nation", "region"];
+const TABLES: &[&str] = &[
+    "part", "supplier", "partsupp", "customer", "orders", "lineitem", "nation", "region",
+];
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -1137,7 +1139,7 @@ fn get_schema(table: &str) -> Schema {
             Field::new("l_quantity", DataType::Float64, false), // decimal
             Field::new("l_extendedprice", DataType::Float64, false), // decimal
             Field::new("l_discount", DataType::Float64, false), // decimal
-            Field::new("l_tax", DataType::Float64, false), // decimal
+            Field::new("l_tax", DataType::Float64, false),      // decimal
             Field::new("l_returnflag", DataType::Utf8, false),
             Field::new("l_linestatus", DataType::Utf8, false),
             Field::new("l_shipdate", DataType::Utf8, false),
