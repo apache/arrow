@@ -1730,11 +1730,11 @@ impl PhysicalExpr for NegativeExpr {
                     DataType::Int64 => compute_op!(array, negate, Int64Array),
                     DataType::Float32 => compute_op!(array, negate, Float32Array),
                     DataType::Float64 => compute_op!(array, negate, Float64Array),
-                    _ => panic!(
+                    _ => Err(DataFusionError::Internal(format!(
                         "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
                         self,
                         array.data_type(),
-                    ),
+                    ))),
                 };
                 result.map(|a| ColumnarValue::Array(a))
             }

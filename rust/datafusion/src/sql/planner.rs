@@ -649,7 +649,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         // here directly to calculate the new literal.
                         SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
                             Ok(n) => Ok(lit(-n)),
-                            Err(_) => Ok(lit(-n.parse::<f64>().unwrap())),
+                            Err(_) => Ok(lit(-n
+                                .parse::<f64>()
+                                .map_err(|_e| {
+                                    DataFusionError::Internal(format!(
+                                        "negative operator can be only applied to integer and float operands, got: {}",
+                                    n))
+                                })?)),
                         },
                         // not a literal, apply negative operator on expression
                         _ => Ok(Expr::Negative(Box::new(self.sql_to_rex(expr, schema)?))),
