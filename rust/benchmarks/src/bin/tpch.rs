@@ -175,7 +175,6 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //     DELTA="90").as_ref()
         // ),
         1 => ctx.create_logical_plan(
-            format!(
             "select
                 l_returnflag,
                 l_linestatus,
@@ -197,11 +196,9 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 l_returnflag,
                 l_linestatus;",
-            ).as_ref()
         ),
 
         2 => ctx.create_logical_plan(
-            format!(
             "select
                 s_acctbal,
                 s_name,
@@ -220,11 +217,11 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 p_partkey = ps_partkey
                 and s_suppkey = ps_suppkey
-                and p_size = {SIZE}
-                and p_type like '%{TYPE}'
+                and p_size = 15
+                and p_type like '%BRASS'
                 and s_nationkey = n_nationkey
                 and n_regionkey = r_regionkey
-                and r_name = '{REGION}'
+                and r_name = 'EUROPE'
                 and ps_supplycost = (
                     select
                         min(ps_supplycost)
@@ -238,18 +235,16 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and s_suppkey = ps_suppkey
                         and s_nationkey = n_nationkey
                         and n_regionkey = r_regionkey
-                        and r_name = '{REGION}'
+                        and r_name = 'EUROPE'
                 )
             order by
                 s_acctbal desc,
                 n_name,
                 s_name,
-                p_partkey;",
-            SIZE="15", TYPE="BRASS", REGION="EUROPE").as_ref()
+                p_partkey;"
         ),
 
         3 => ctx.create_logical_plan(
-            format!(
             "select
                 l_orderkey,
                 sum(l_extendedprice * (1 - l_discount)) as revenue,
@@ -260,31 +255,29 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 orders,
                 lineitem
             where
-                c_mktsegment = '{SEGMENT}'
+                c_mktsegment = 'BUILDING'
                 and c_custkey = o_custkey
                 and l_orderkey = o_orderkey
-                and o_orderdate < '{DATE}'
-                and l_shipdate > '{DATE}'
+                and o_orderdate < '1995-03-15'
+                and l_shipdate > '1995-03-15'
             group by
                 l_orderkey,
                 o_orderdate,
                 o_shippriority
             order by
                 revenue desc,
-                o_orderdate;",
-            SEGMENT="BUILDING", DATE="1995-03-15").as_ref()
+                o_orderdate;"
         ),
 
         4 => ctx.create_logical_plan(
-            format!(
             "select
                 o_orderpriority,
                 count(*) as order_count
             from
                 orders
             where
-                o_orderdate >= '{DATE}'
-                and o_orderdate < date '{DATE}' + interval '3' month
+                o_orderdate >= '1993-07-01'
+                and o_orderdate < date '1993-07-01' + interval '3' month
                 and exists (
                     select
                         *
@@ -297,13 +290,11 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 o_orderpriority
             order by
-                o_orderpriority;",
-            DATE="1993-07-01").as_ref()
+                o_orderpriority;"
         ),
 
         // original
         // 5 => ctx.create_logical_plan(
-        //     format!(
         //     "select
         //         n_name,
         //         sum(l_extendedprice * (1 - l_discount)) as revenue
@@ -321,17 +312,15 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //         and c_nationkey = s_nationkey
         //         and s_nationkey = n_nationkey
         //         and n_regionkey = r_regionkey
-        //         and r_name = '{REGION}'
-        //         and o_orderdate >= date '{DATE}'
-        //         and o_orderdate < date '{DATE}' + interval '1' year
+        //         and r_name = 'ASIA'
+        //         and o_orderdate >= date '1994-01-01'
+        //         and o_orderdate < date '1994-01-01' + interval '1' year
         //     group by
         //         n_name
         //     order by
-        //         revenue desc;",
-        //     REGION="ASIA", DATE="1994-01-01").as_ref()
+        //         revenue desc;"
         // ),
         5 => ctx.create_logical_plan(
-            format!(
             "select
                 n_name,
                 sum(l_extendedprice * (1 - l_discount)) as revenue
@@ -349,46 +338,40 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 and c_nationkey = s_nationkey
                 and s_nationkey = n_nationkey
                 and n_regionkey = r_regionkey
-                and r_name = '{REGION}'
-                and o_orderdate >= '{DATE0}'
-                and o_orderdate < '{DATE1}'
+                and r_name = 'ASIA'
+                and o_orderdate >= '1994-01-01'
+                and o_orderdate < '1995-01-01'
             group by
                 n_name
             order by
-                revenue desc;",
-            REGION="ASIA", DATE0="1994-01-01", DATE1="1995-01-01").as_ref()
+                revenue desc;"
         ),
 
         // original
         // 6 => ctx.create_logical_plan(
-        //     format!(
         //     "select
         //         sum(l_extendedprice * l_discount) as revenue
         //     from
         //         lineitem
         //     where
-        //         l_shipdate >= date '{DATE}'
-        //         and l_shipdate < date 'DATE0' + interval '1' year
-        //         and l_discount between ${DISCOUNT} - 0.01 and ${DISCOUNT} + 0.01
-        //         and l_quantity < {QUANTITY};",
-        //     DATE="1994-01-01", DISCOUNT="0.06", QUANTITY="24").as_ref()
+        //         l_shipdate >= date '1994-01-01'
+        //         and l_shipdate < date '1994-01-01' + interval '1' year
+        //         and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+        //         and l_quantity < 24;"
         // ),
         6 => ctx.create_logical_plan(
-            format!(
             "select
                 sum(l_extendedprice * l_discount) as revenue
             from
                 lineitem
             where
-                l_shipdate >= '{DATE0}'
-                and l_shipdate < '{DATE1}'
-                and l_discount > {DISCOUNT} - 0.01 and l_discount < {DISCOUNT} + 0.01
-                and l_quantity < {QUANTITY};",
-            DATE0="1994-01-01", DATE1="1995-01-01", DISCOUNT="0.06", QUANTITY="24").as_ref()
+                l_shipdate >= '1994-01-01'
+                and l_shipdate < '1995-01-01'
+                and l_discount > 0.06 - 0.01 and l_discount < 0.06 + 0.01
+                and l_quantity < 24;"
         ),
 
         7 => ctx.create_logical_plan(
-            format!(
             "select
                 supp_nation,
                 cust_nation,
@@ -415,8 +398,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and s_nationkey = n1.n_nationkey
                         and c_nationkey = n2.n_nationkey
                         and (
-                            (n1.n_name = '{NATION1}' and n2.n_name = '{NATION2}')
-                            or (n1.n_name = '{NATION2}' and n2.n_name = '{NATION1}')
+                            (n1.n_name = 'FRANCE' and n2.n_name = 'GERMANY')
+                            or (n1.n_name = 'GERMANY' and n2.n_name = 'FRANCE')
                         )
                         and l_shipdate > '1995-01-01' and l_shipdate < '1996-12-31'
                 ) as shipping
@@ -427,16 +410,14 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             order by
                 supp_nation,
                 cust_nation,
-                l_year;",
-            NATION1="FRANCE", NATION2="GERMANY").as_ref()
+                l_year;"
         ),
 
         8 => ctx.create_logical_plan(
-            format!(
             "select
                 o_year,
                 sum(case
-                    when nation = '{NATION}' then volume
+                    when nation = 'BRAZIL' then volume
                     else 0
                 end) / sum(volume) as mkt_share
             from
@@ -461,20 +442,18 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and o_custkey = c_custkey
                         and c_nationkey = n1.n_nationkey
                         and n1.n_regionkey = r_regionkey
-                        and r_name = '{REGION}'
+                        and r_name = 'AMERICA'
                         and s_nationkey = n2.n_nationkey
                         and o_orderdate between '1995-01-01' and '1996-12-31'
-                        and p_type = '{TYPE}'
+                        and p_type = 'ECONOMY ANODIZED STEEL'
                 ) as all_nations
             group by
                 o_year
             order by
-                o_year;",
-            NATION="BRAZIL", REGION="AMERICA", TYPE="ECONOMY ANODIZED STEEL").as_ref()
+                o_year;"
         ),
 
         9 => ctx.create_logical_plan(
-            format!(
             "select
                 nation,
                 o_year,
@@ -499,19 +478,17 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and p_partkey = l_partkey
                         and o_orderkey = l_orderkey
                         and s_nationkey = n_nationkey
-                        and p_name like '%{COLOR}%'
+                        and p_name like '%green%'
                 ) as profit
             group by
                 nation,
                 o_year
             order by
                 nation,
-                o_year desc;",
-            COLOR="green").as_ref()
+                o_year desc;"
         ),
 
         10 => ctx.create_logical_plan(
-            format!(
             "select
                 c_custkey,
                 c_name,
@@ -529,8 +506,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 c_custkey = o_custkey
                 and l_orderkey = o_orderkey
-                and o_orderdate >= '{DATE0}'
-                and o_orderdate < '{DATE1}'
+                and o_orderdate >= '1993-10-01'
+                and o_orderdate < '1994-01-01'
                 and l_returnflag = 'R'
                 and c_nationkey = n_nationkey
             group by
@@ -542,12 +519,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_address,
                 c_comment
             order by
-                revenue desc;",
-            DATE0="1993-10-01", DATE1="1994-01-01").as_ref()
+                revenue desc;"
         ),
 
         11 => ctx.create_logical_plan(
-            format!(
             "select
                 ps_partkey,
                 sum(ps_supplycost * ps_availqty) as value
@@ -558,12 +533,12 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 ps_suppkey = s_suppkey
                 and s_nationkey = n_nationkey
-                and n_name = '{NATION}'
+                and n_name = 'GERMANY'
             group by
                 ps_partkey having
                     sum(ps_supplycost * ps_availqty) > (
                         select
-                            sum(ps_supplycost * ps_availqty) * {FRACTION}
+                            sum(ps_supplycost * ps_availqty) * 0.0001
                         from
                             partsupp,
                             supplier,
@@ -571,16 +546,14 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         where
                             ps_suppkey = s_suppkey
                             and s_nationkey = n_nationkey
-                            and n_name = '{NATION}'
+                            and n_name = 'GERMANY'
                     )
             order by
-                value desc;",
-            NATION="GERMANY", FRACTION="0.0001").as_ref()
+                value desc;"
         ),
 
         // original
         // 12 => ctx.create_logical_plan(
-        //     format!(
         //     "select
         //         l_shipmode,
         //         sum(case
@@ -600,19 +573,17 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
         //         lineitem
         //     where
         //         o_orderkey = l_orderkey
-        //         and l_shipmode in ('{SHIPMODE1}', '{SHIPMODE2}')
+        //         and l_shipmode in ('MAIL', 'SHIP')
         //         and l_commitdate < l_receiptdate
         //         and l_shipdate < l_commitdate
-        //         and l_receiptdate >= date '{DATE}'
-        //         and l_receiptdate < date '{DATE}' + interval '1' year
+        //         and l_receiptdate >= date '1994-01-01'
+        //         and l_receiptdate < date '1994-01-01' + interval '1' year
         //     group by
         //         l_shipmode
         //     order by
-        //         l_shipmode;",
-        //     SHIPMODE1="MAIL", SHIPMODE2="SHIP", DATE="1994-01-01").as_ref()
+        //         l_shipmode;"
         // ),
         12 => ctx.create_logical_plan(
-            format!(
             "select
                 l_shipmode,
                 sum(case
@@ -634,20 +605,18 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             on
                 l_orderkey = o_orderkey
             where
-                (l_shipmode = '{SHIPMODE1}' or l_shipmode = '{SHIPMODE2}')
+                (l_shipmode = 'MAIL' or l_shipmode = 'SHIP')
                 and l_commitdate < l_receiptdate
                 and l_shipdate < l_commitdate
-                and l_receiptdate >= '{DATE0}'
-                and l_receiptdate < '{DATE1}'
+                and l_receiptdate >= '1994-01-01'
+                and l_receiptdate < '1995-01-01'
             group by
                 l_shipmode
             order by
-                l_shipmode;",
-            SHIPMODE1="MAIL", SHIPMODE2="SHIP", DATE0="1994-01-01", DATE1="1995-01-01").as_ref()
+                l_shipmode;"
         ),
 
         13 => ctx.create_logical_plan(
-            format!(
             "select
                 c_count,
                 count(*) as custdist
@@ -659,7 +628,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                     from
                         customer left outer join orders on
                             c_custkey = o_custkey
-                            and o_comment not like '%{WORD1}%{WORD2}%'
+                            and o_comment not like '%special%requests%'
                     group by
                         c_custkey
                 ) as c_orders (c_custkey, c_count)
@@ -667,12 +636,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_count
             order by
                 custdist desc,
-                c_count desc;",
-            WORD1="special", WORD2="requests").as_ref()
+                c_count desc;"
         ),
 
         14 => ctx.create_logical_plan(
-            format!(
             "select
                 100.00 * sum(case
                     when p_type like 'PROMO%'
@@ -684,22 +651,20 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 part
             where
                 l_partkey = p_partkey
-                and l_shipdate >= '{DATE0}'
-                and l_shipdate < '{DATE1}';",
-            DATE0="1995-09-01", DATE1="1995-10-01").as_ref()
+                and l_shipdate >= '1995-09-01'
+                and l_shipdate < '1995-10-01';"
         ),
 
         15 => ctx.create_logical_plan(
-            format!(
-            "create view revenue{STREAM_ID} (supplier_no, total_revenue) as
+            "create view revenue0 (supplier_no, total_revenue) as
                 select
                     l_suppkey,
                     sum(l_extendedprice * (1 - l_discount))
                 from
                     lineitem
                 where
-                    l_shipdate >= date '{DATE}'
-                    and l_shipdate < date '{DATE}' + interval '3' month
+                    l_shipdate >= date '1996-01-01'
+                    and l_shipdate < date '1996-01-01' + interval '3' month
                 group by
                     l_suppkey;
 
@@ -711,24 +676,22 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 total_revenue
             from
                 supplier,
-                revenue{STREAM_ID}
+                revenue0
             where
                 s_suppkey = supplier_no
                 and total_revenue = (
                     select
                         max(total_revenue)
                     from
-                        revenue{STREAM_ID}
+                        revenue0
                 )
             order by
                 s_suppkey;
 
-            drop view revenue{STREAM_ID};",
-            STREAM_ID="0", DATE="1996-01-01").as_ref()
+            drop view revenue0;"
         ),
 
         16 => ctx.create_logical_plan(
-            format!(
             "select
                 p_brand,
                 p_type,
@@ -739,9 +702,9 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 part
             where
                 p_partkey = ps_partkey
-                and p_brand <> '{BRAND}'
-                and p_type not like '{TYPE}%'
-                and p_size in ({SIZE1}, {SIZE2}, {SIZE3}, {SIZE4}, {SIZE5}, {SIZE6}, {SIZE7}, {SIZE8})
+                and p_brand <> 'Brand#45'
+                and p_type not like 'MEDIUM POLISHED%'
+                and p_size in (49, 14, 23, 45, 19, 3, 36, 9)
                 and ps_suppkey not in (
                     select
                         s_suppkey
@@ -758,12 +721,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 supplier_cnt desc,
                 p_brand,
                 p_type,
-                p_size;",
-            BRAND="Brand#45", TYPE="MEDIUM POLISHED", SIZE1="49", SIZE2="14", SIZE3="23", SIZE4="45", SIZE5="19", SIZE6="3", SIZE7="36", SIZE8="9").as_ref()
+                p_size;"
         ),
 
         17 => ctx.create_logical_plan(
-            format!(
             "select
                 sum(l_extendedprice) / 7.0 as avg_yearly
             from
@@ -771,8 +732,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 part
             where
                 p_partkey = l_partkey
-                and p_brand = '{BRAND}'
-                and p_container = '{CONTAINER}'
+                and p_brand = 'Brand#23'
+                and p_container = 'MED BOX'
                 and l_quantity < (
                     select
                         0.2 * avg(l_quantity)
@@ -780,12 +741,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         lineitem
                     where
                         l_partkey = p_partkey
-                );",
-            BRAND="Brand#23", CONTAINER="MED BOX").as_ref()
+                );"
         ),
 
         18 => ctx.create_logical_plan(
-            format!(
             "select
                 c_name,
                 c_custkey,
@@ -805,7 +764,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         lineitem
                     group by
                         l_orderkey having
-                            sum(l_quantity) > {QUANTITY}
+                            sum(l_quantity) > 300
                 )
                 and c_custkey = o_custkey
                 and o_orderkey = l_orderkey
@@ -817,12 +776,10 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_totalprice
             order by
                 o_totalprice desc,
-                o_orderdate;",
-            QUANTITY="300").as_ref()
+                o_orderdate;"
         ),
 
         19 => ctx.create_logical_plan(
-            format!(
             "select
                 sum(l_extendedprice* (1 - l_discount)) as revenue
             from
@@ -831,9 +788,9 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 (
                     p_partkey = l_partkey
-                    and p_brand = '{BRAND1}'
+                    and p_brand = 'Brand#12'
                     and p_container in ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
-                    and l_quantity >= {QUANTITY1} and l_quantity <= {QUANTITY1} + 10
+                    and l_quantity >= 1 and l_quantity <= 1 + 10
                     and p_size between 1 and 5
                     and l_shipmode in ('AIR', 'AIR REG')
                     and l_shipinstruct = 'DELIVER IN PERSON'
@@ -841,9 +798,9 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 or
                 (
                     p_partkey = l_partkey
-                    and p_brand = '{BRAND2}'
+                    and p_brand = 'Brand#23'
                     and p_container in ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')
-                    and l_quantity >= {QUANTITY2} and l_quantity <= {QUANTITY2} + 10
+                    and l_quantity >= 10 and l_quantity <= 10 + 10
                     and p_size between 1 and 10
                     and l_shipmode in ('AIR', 'AIR REG')
                     and l_shipinstruct = 'DELIVER IN PERSON'
@@ -851,18 +808,16 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 or
                 (
                     p_partkey = l_partkey
-                    and p_brand = '{BRAND3}'
+                    and p_brand = 'Brand#34'
                     and p_container in ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')
-                    and l_quantity >= {QUANTITY3} and l_quantity <= {QUANTITY3} + 10
+                    and l_quantity >= 20 and l_quantity <= 20 + 10
                     and p_size between 1 and 15
                     and l_shipmode in ('AIR', 'AIR REG')
                     and l_shipinstruct = 'DELIVER IN PERSON'
-                );",
-            QUANTITY1="1", QUANTITY2="10", QUANTITY3="20", BRAND1="Brand#12", BRAND2="Brand#23", BRAND3="Brand#34").as_ref()
+                );"
         ),
 
         20 => ctx.create_logical_plan(
-            format!(
             "select
                 s_name,
                 s_address
@@ -882,7 +837,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             from
                                 part
                             where
-                                p_name like '{COLOR}%'
+                                p_name like 'forest%'
                         )
                         and ps_availqty > (
                             select
@@ -892,19 +847,17 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             where
                                 l_partkey = ps_partkey
                                 and l_suppkey = ps_suppkey
-                                and l_shipdate >= '{DATE0}'
-                                and l_shipdate < '{DATE1}'
+                                and l_shipdate >= date '1994-01-01'
+                                and l_shipdate < 'date 1994-01-01' + interval '1' year
                         )
                 )
                 and s_nationkey = n_nationkey
-                and n_name = '{NATION}'
+                and n_name = 'CANADA'
             order by
-                s_name;",
-            COLOR="forest", DATE0="1994-01-01", DATE1="1995-01-01", NATION="CANADA").as_ref()
+                s_name;"
         ),
 
         21 => ctx.create_logical_plan(
-            format!(
             "select
                 s_name,
                 count(*) as numwait
@@ -938,17 +891,15 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and l3.l_receiptdate > l3.l_commitdate
                 )
                 and s_nationkey = n_nationkey
-                and n_name = '{NATION}'
+                and n_name = 'SAUDI ARABIA'
             group by
                 s_name
             order by
                 numwait desc,
-                s_name;",
-            NATION="SAUDI ARABIA").as_ref()
+                s_name;"
         ),
 
         22 => ctx.create_logical_plan(
-            format!(
             "select
                 cntrycode,
                 count(*) as numcust,
@@ -962,7 +913,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         customer
                     where
                         substring(c_phone from 1 for 2) in
-                            ('{I1}', '{I2}', '{I3}', '{I4}', '{I5}', '{I6}', '{I7}')
+                            ('13', '31', '23', '29', '30', '18', '17')
                         and c_acctbal > (
                             select
                                 avg(c_acctbal)
@@ -971,7 +922,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             where
                                 c_acctbal > 0.00
                                 and substring(c_phone from 1 for 2) in
-                                    ('{I1}', '{I2}', '{I3}', '{I4}', '{I5}', '{I6}', '{I7}')
+                                    ('13', '31', '23', '29', '30', '18', '17')
                         )
                         and not exists (
                             select
@@ -985,8 +936,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             group by
                 cntrycode
             order by
-                cntrycode;",
-            I1="13", I2="31", I3="23", I4="29", I5="30", I6="18", I7="17").as_ref()
+                cntrycode;"
         ),
 
         _ => unimplemented!("invalid query. Expected value between 1 and 22"),
