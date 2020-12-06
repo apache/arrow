@@ -1625,7 +1625,6 @@ macro(build_gtest)
     "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
     )
   set(GTEST_CMAKE_ARGS
-      "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
       ${EP_COMMON_TOOLCHAIN}
       -DBUILD_SHARED_LIBS=ON
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -1633,6 +1632,7 @@ macro(build_gtest)
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DCMAKE_INSTALL_NAME_DIR=$<INSTALL_PREFIX$<ANGLE-R>/lib
+      -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
@@ -1647,6 +1647,31 @@ macro(build_gtest)
                       BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
                                        ${GMOCK_SHARED_LIB}
                       CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  if(WIN32)
+    # Copy the built shared libraries to the same directory as our
+    # test programs because Windows doesn't provided rpath (run-time
+    # search path) feature. We need to put these shared libraries to
+    # the same directory as our test programs or add
+    # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
+    # choose the former because the latter may be forgotten.
+    externalproject_add_step(googletest_ep copy
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${GTEST_SHARED_LIB}
+                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${GMOCK_SHARED_LIB}
+                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${GTEST_MAIN_SHARED_LIB}
+                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                             DEPENDEES install)
+  endif()
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
