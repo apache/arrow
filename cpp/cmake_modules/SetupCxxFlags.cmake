@@ -177,6 +177,10 @@ if(WIN32)
 
     # Support large object code
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+
+    # We may use UTF-8 in source code such as
+    # cpp/src/arrow/compute/kernels/scalar_string_test.cc
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /utf-8")
   else()
     # MinGW
     check_cxx_compiler_flag(-Wa,-mbig-obj CXX_SUPPORTS_BIG_OBJ)
