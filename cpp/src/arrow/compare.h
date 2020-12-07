@@ -122,4 +122,12 @@ bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
 bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right,
                                const EqualOptions& options = EqualOptions::Defaults());
 
+/// Returns true if scalars are approximately equal
+/// \param[in] left a Scalar
+/// \param[in] right a Scalar
+/// \param[in] options comparison options
+bool ARROW_EXPORT
+ScalarApproxEquals(const Scalar& left, const Scalar& right,
+                   const EqualOptions& options = EqualOptions::Defaults());
+
 }  // namespace arrow
