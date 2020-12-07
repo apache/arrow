@@ -44,6 +44,13 @@ cdef extern from "arrow/dataset/dataset_rados.h" \
             CRadosDatasetFactoryOptions factory_option
         )
 
+        @staticmethod
+        CStatus Write "Write"(
+            vector[shared_ptr[CRecordBatch]] batches,
+            CRadosDatasetFactoryOptions factory_option,
+            c_string object_id
+        )
+
 cdef class RadosDatasetFactoryOptions(_Weakrefable):
     cdef:
         CRadosDatasetFactoryOptions rados_factory_options

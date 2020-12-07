@@ -62,7 +62,7 @@ RUN \
     libsnappy-dev \
     libradospp-dev \
     rados-objclass-dev \
-    python3-dev \
+    python3-rados \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \

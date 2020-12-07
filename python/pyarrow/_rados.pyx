@@ -89,3 +89,26 @@ cdef class RadosDataset(Dataset):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.rados_dataset = <CRadosDataset*> sp.get()
+
+
+def _write_to_dataset(batches, object_id,
+                      RadosDatasetFactoryOptions rados_factory_options=None):
+    cdef:
+        vector[shared_ptr[CRecordBatch]] cbatches
+        CRadosDatasetFactoryOptions c_rados_factory_options
+        c_string id
+
+    if rados_factory_options is None:
+        rados_factory_options = RadosDatasetFactoryOptions()
+    c_rados_factory_options = rados_factory_options.unwrap()
+
+    nbatches = len(batches)
+    cbatches.resize(nbatches)
+    for i in range(nbatches):
+        cbatches[i] = pyarrow_unwrap_batch(batches[i])
+
+    id = tobytes(object_id)
+
+    with nogil:
+        check_status(CRadosDataset.Write(
+            cbatches, c_rados_factory_options, id))

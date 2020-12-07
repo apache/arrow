@@ -53,7 +53,7 @@ RUN apt-get update -y -q && \
         libsnappy-dev \
         libradospp-dev \
         rados-objclass-dev \
-        python3-dev \
+        python3-rados \
         libssl-dev \
         libutf8proc-dev \
         libzstd1-dev \
