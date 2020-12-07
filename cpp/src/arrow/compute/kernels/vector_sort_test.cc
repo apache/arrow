@@ -440,7 +440,7 @@ class TestChunkedArraySortIndices : public ::testing::Test {
   void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
                          SortOrder order, const std::shared_ptr<Array> expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*chunked_array, order));
-    AssertArraysEqual(*expected, *actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 
   void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
@@ -482,10 +482,10 @@ class TestChunkedArrayRandomBase : public TestBase {
     // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
     for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
       for (auto order : {SortOrder::Ascending, SortOrder::Descending}) {
-        for (auto num_chunks : {1, 5, 10}) {
+        for (auto num_chunks : {1, 2, 5, 10, 40}) {
           std::vector<std::shared_ptr<Array>> arrays;
           for (int i = 0; i < num_chunks; ++i) {
-            auto array = this->GenerateArray(length, null_probability);
+            auto array = this->GenerateArray(length / num_chunks, null_probability);
             arrays.push_back(array);
           }
           ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
@@ -517,7 +517,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   Random<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
-TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(100); }
+TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(1000); }
 
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
@@ -542,7 +542,7 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
   RandomRange<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
-TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(100); }
+TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(1000); }
 
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {
@@ -741,7 +741,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       {field(column_names[8], float32())}, {field(column_names[9], float64())},
       {field(column_names[10], utf8())},
   };
-  const auto length = 100;
+  const auto length = 200;
   std::vector<std::shared_ptr<Array>> columns = {
       Random<UInt8Type>(seed).Generate(length, null_probability),
       Random<UInt16Type>(seed).Generate(length, null_probability),
@@ -770,8 +770,13 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     sort_keys.emplace_back(column_name, order);
   }
   SortOptions options(sort_keys);
-  ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*table, options));
-  Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  for (const int64_t num_chunks : {1, 2, 20}) {
+    TableBatchReader reader(*table);
+    reader.set_chunksize((length + num_chunks - 1) / num_chunks);
+    ASSERT_OK_AND_ASSIGN(auto chunked_table, Table::FromRecordBatchReader(&reader));
+    ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(*chunked_table, options));
+    Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
