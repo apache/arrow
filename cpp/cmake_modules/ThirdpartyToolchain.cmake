@@ -1667,24 +1667,31 @@ macro(build_gtest)
       _GTEST_MAIN_RUNTIME_LIB
       "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
       )
+    # Want to use GENERATOR_IS_MULTI_CONFIG here but it requires CMake
+    # 3.9 or later.
+    if(MSVC)
+      set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
+    else()
+      set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
     externalproject_add_step(googletest_ep copy
                              COMMAND ${CMAKE_COMMAND} -E make_directory
-                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GTEST_RUNTIME_LIB}
-                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GMOCK_RUNTIME_LIB}
-                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GTEST_MAIN_RUNTIME_LIB}
-                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
                              DEPENDEES install)
   endif()
 
