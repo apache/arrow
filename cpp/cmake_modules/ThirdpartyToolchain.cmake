@@ -1603,21 +1603,17 @@ macro(build_gtest)
   set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  set(_GTEST_RUNTIME_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
 
   if(MSVC)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-    # Use the import libraries from the EP
-    set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
   else()
     set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
-    # Library and runtime same on non-Windows
-    set(_GTEST_LIBRARY_DIR "${_GTEST_RUNTIME_DIR}")
   endif()
 
   set(GTEST_SHARED_LIB
@@ -1630,37 +1626,15 @@ macro(build_gtest)
     )
   set(GTEST_CMAKE_ARGS
       ${EP_COMMON_TOOLCHAIN}
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-      "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
       -DBUILD_SHARED_LIBS=ON
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
-      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS})
+      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_INSTALL_NAME_DIR=$<INSTALL_PREFIX$<ANGLE-R>/lib
+      -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
+      -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  if(APPLE)
-    set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} "-DCMAKE_MACOSX_RPATH:BOOL=ON")
-  endif()
-
-  if(CMAKE_GENERATOR STREQUAL "Xcode")
-    # Xcode projects support multi-configuration builds.  This forces the gtest build
-    # to use the same output directory as a single-configuration Makefile driven build.
-    list(
-      APPEND GTEST_CMAKE_ARGS "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_LIBRARY_DIR}"
-             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
-  endif()
-
-  if(MSVC)
-    if(NOT ("${CMAKE_GENERATOR}" STREQUAL "Ninja"))
-      set(_GTEST_RUNTIME_DIR ${_GTEST_RUNTIME_DIR}/${CMAKE_BUILD_TYPE})
-    endif()
-    set(GTEST_CMAKE_ARGS
-        ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
-  else()
-    list(
-      APPEND GTEST_CMAKE_ARGS "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
-             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
-  endif()
 
   add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
 
@@ -1673,6 +1647,57 @@ macro(build_gtest)
                       BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
                                        ${GMOCK_SHARED_LIB}
                       CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  if(WIN32)
+    # Copy the built shared libraries to the same directory as our
+    # test programs because Windows doesn't provided rpath (run-time
+    # search path) feature. We need to put these shared libraries to
+    # the same directory as our test programs or add
+    # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
+    # choose the former because the latter may be forgotten.
+    set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
+    set(_GTEST_RUNTIME_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(
+      _GTEST_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}")
+    set(
+      _GMOCK_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_RUNTIME_SUFFIX}")
+    set(
+      _GTEST_MAIN_RUNTIME_LIB
+      "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
+      )
+    if(CMAKE_VERSION VERSION_LESS 3.9)
+      message(
+        FATAL_ERROR
+          "Building GoogleTest from source on Windows requires at least CMake 3.9")
+    endif()
+    get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+    if(_GENERATOR_IS_MULTI_CONFIG)
+      set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
+    else()
+      set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    endif()
+    externalproject_add_step(googletest_ep copy
+                             COMMAND ${CMAKE_COMMAND} -E make_directory
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${_GTEST_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${_GMOCK_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy
+                                     ${_GTEST_MAIN_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             DEPENDEES install)
+  endif()
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
@@ -1698,7 +1723,7 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(GTest)
+  resolve_dependency(GTest REQUIRED_VERSION 1.10.0)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries

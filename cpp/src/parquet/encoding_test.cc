@@ -43,13 +43,6 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 
-// TODO(hatemhelal): investigate whether this can be replaced with GTEST_SKIP in a future
-// gtest release that contains https://github.com/google/googletest/pull/1544
-#define SKIP_TEST_IF(condition) \
-  if (condition) {              \
-    return;                     \
-  }
-
 namespace parquet {
 
 namespace test {
@@ -182,7 +175,7 @@ std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
 template <typename Type>
 class TestEncodingBase : public ::testing::Test {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
   void SetUp() {
@@ -195,11 +188,11 @@ class TestEncodingBase : public ::testing::Test {
 
   void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
-    input_bytes_.resize(num_values_ * sizeof(T));
-    output_bytes_.resize(num_values_ * sizeof(T));
-    draws_ = reinterpret_cast<T*>(input_bytes_.data());
-    decode_buf_ = reinterpret_cast<T*>(output_bytes_.data());
-    GenerateData<T>(nvalues, draws_, &data_buffer_);
+    input_bytes_.resize(num_values_ * sizeof(c_type));
+    output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
+    GenerateData<c_type>(nvalues, draws_, &data_buffer_);
 
     // add some repeated values
     for (int j = 1; j < repeats; ++j) {
@@ -237,8 +230,8 @@ class TestEncodingBase : public ::testing::Test {
 
   int num_values_;
   int type_length_;
-  T* draws_;
-  T* decode_buf_;
+  c_type* draws_;
+  c_type* decode_buf_;
   std::vector<uint8_t> input_bytes_;
   std::vector<uint8_t> output_bytes_;
   std::vector<uint8_t> data_buffer_;
@@ -262,7 +255,7 @@ class TestEncodingBase : public ::testing::Test {
 template <typename Type>
 class TestPlainEncoding : public TestEncodingBase<Type> {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
@@ -275,7 +268,7 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
                      static_cast<int>(encode_buffer_->size()));
     int values_decoded = decoder->Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
@@ -295,8 +288,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
     ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<T>(decode_buf_, draws_, num_values_,
-                                                   valid_bits, valid_bits_offset));
+    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
+                                                        valid_bits, valid_bits_offset));
   }
 
  protected:
@@ -337,7 +330,7 @@ typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
 template <typename Type>
 class TestDictionaryEncoding : public TestEncodingBase<Type> {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
@@ -378,14 +371,14 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     // TODO(wesm): The DictionaryDecoder must stay alive because the decoded
     // values' data is owned by a buffer inside the DictionaryEncoder. We
     // should revisit when data lifetime is reviewed more generally.
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
 
     // Also test spaced decoding
     decoder->SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     values_decoded =
         decoder->DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
     ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
   }
 
  protected:
@@ -495,7 +488,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   void CheckDecodeArrowNonNullUsingDenseBuilder() {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
-      SKIP_TEST_IF(null_count_ > 0)
+      if (null_count_ > 0) {
+        continue;
+      }
       typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new ::arrow::BinaryBuilder);
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, &acc);
@@ -508,7 +503,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   void CheckDecodeArrowNonNullUsingDictBuilder() {
     for (auto np : null_probabilities_) {
       InitTestCase(np);
-      SKIP_TEST_IF(null_count_ > 0)
+      if (null_count_ > 0) {
+        continue;
+      }
       auto builder = CreateDictBuilder();
       auto actual_num_values = decoder_->DecodeArrowNonNull(num_values_, builder.get());
       CheckDict(actual_num_values, *builder);
@@ -1022,7 +1019,7 @@ TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
 template <typename Type>
 class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() override {
@@ -1037,7 +1034,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
                        static_cast<int>(encode_buffer_->size()));
       int values_decoded = decoder->Decode(decode_buf_, num_values_);
       ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, draws_, num_values_));
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
     }
 
     {
@@ -1049,14 +1046,15 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
       for (int i = 0; i < num_values_; i += step) {
         int num_decoded = decoder->Decode(decode_buf_, step);
         ASSERT_EQ(num_decoded, std::min(step, remaining));
-        ASSERT_NO_FATAL_FAILURE(VerifyResults<T>(decode_buf_, &draws_[i], num_decoded));
+        ASSERT_NO_FATAL_FAILURE(
+            VerifyResults<c_type>(decode_buf_, &draws_[i], num_decoded));
         remaining -= num_decoded;
       }
     }
 
     {
       std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(num_values_), 0);
-      std::vector<T> expected_filtered_output;
+      std::vector<c_type> expected_filtered_output;
       const int every_nth = 5;
       expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);
       ::arrow::internal::BitmapWriter writer{valid_bits.data(), 0, num_values_};
@@ -1077,8 +1075,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
                        static_cast<int>(encode_buffer_->size()));
       int values_decoded = decoder->Decode(decode_buf_, num_values_);
       ASSERT_EQ(expected_size, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(
-          VerifyResults<T>(decode_buf_, expected_filtered_output.data(), expected_size));
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(
+          decode_buf_, expected_filtered_output.data(), expected_size));
     }
   }
 
@@ -1089,11 +1087,11 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 
   void CheckDecode(const uint8_t* encoded_data, const int64_t encoded_data_size,
-                   const T* expected_decoded_data, const int num_elements) {
+                   const c_type* expected_decoded_data, const int num_elements) {
     std::unique_ptr<TypedDecoder<Type>> decoder =
         MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT);
     decoder->SetData(num_elements, encoded_data, static_cast<int>(encoded_data_size));
-    std::vector<T> decoded_data(num_elements);
+    std::vector<c_type> decoded_data(num_elements);
     int num_decoded_elements = decoder->Decode(decoded_data.data(), num_elements);
     ASSERT_EQ(num_elements, num_decoded_elements);
     for (size_t i = 0U; i < decoded_data.size(); ++i) {
@@ -1102,7 +1100,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     ASSERT_EQ(0, decoder->values_left());
   }
 
-  void CheckEncode(const T* data, const int num_elements,
+  void CheckEncode(const c_type* data, const int num_elements,
                    const uint8_t* expected_encoded_data,
                    const int64_t encoded_data_size) {
     std::unique_ptr<TypedEncoder<Type>> encoder =
@@ -1117,11 +1115,12 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   }
 };
 
-template <typename T>
-static std::vector<T> ToLittleEndian(const std::vector<T>& input) {
-  std::vector<T> data(input.size());
-  std::transform(input.begin(), input.end(), data.begin(),
-                 [](const T& value) { return ::arrow::BitUtil::ToLittleEndian(value); });
+template <typename c_type>
+static std::vector<c_type> ToLittleEndian(const std::vector<c_type>& input) {
+  std::vector<c_type> data(input.size());
+  std::transform(input.begin(), input.end(), data.begin(), [](const c_type& value) {
+    return ::arrow::BitUtil::ToLittleEndian(value);
+  });
   return data;
 }
 

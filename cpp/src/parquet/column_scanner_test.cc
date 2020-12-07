@@ -48,7 +48,7 @@ void InitDictValues<bool>(int num_values, int dict_per_page, std::vector<bool>& 
 template <typename Type>
 class TestFlatScanner : public ::testing::Test {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
 
   void InitScanner(const ColumnDescriptor* d) {
     std::unique_ptr<PageReader> pager(new test::MockPageReader(pages_));
@@ -57,7 +57,7 @@ class TestFlatScanner : public ::testing::Test {
 
   void CheckResults(int batch_size, const ColumnDescriptor* d) {
     TypedScanner<Type>* scanner = reinterpret_cast<TypedScanner<Type>*>(scanner_.get());
-    T val;
+    c_type val;
     bool is_null = false;
     int16_t def_level;
     int16_t rep_level;
@@ -131,7 +131,7 @@ class TestFlatScanner : public ::testing::Test {
   int num_values_;
   std::vector<std::shared_ptr<Page>> pages_;
   std::shared_ptr<Scanner> scanner_;
-  std::vector<T> values_;
+  std::vector<c_type> values_;
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
   std::vector<uint8_t> data_buffer_;  // For BA and FLBA
