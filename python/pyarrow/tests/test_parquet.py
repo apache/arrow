@@ -1136,6 +1136,18 @@ def test_statistics_convert_logical_types(tempdir):
         assert stats.max == max_val
 
 
+def test_parquet_metadata_empty_to_dict(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-10146
+    table = pa.table({"a": pa.array([], type="int64")})
+    pq.write_table(table, tempdir / "data.parquet")
+    metadata = pq.read_metadata(tempdir / "data.parquet")
+    # ensure this doesn't error / statistics set to None
+    metadata_dict = metadata.to_dict()
+    assert len(metadata_dict["row_groups"]) == 1
+    assert len(metadata_dict["row_groups"][0]["columns"]) == 1
+    assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
+
+
 def test_parquet_write_disable_statistics(tempdir):
     table = pa.Table.from_pydict(
         OrderedDict([

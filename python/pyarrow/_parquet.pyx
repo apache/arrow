@@ -318,6 +318,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.total_uncompressed_size)
 
     def to_dict(self):
+        statistics = self.statistics.to_dict() if self.is_stats_set else None
         d = dict(
             file_offset=self.file_offset,
             file_path=self.file_path,
@@ -325,7 +326,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             num_values=self.num_values,
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
-            statistics=self.statistics.to_dict(),
+            statistics=statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,

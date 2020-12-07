@@ -346,7 +346,7 @@ mod tests {
         ];
 
         for case in cases {
-            if let Ok(_) = coerce(&case.0, &case.1, &case.2) {
+            if coerce(&case.0, &case.1, &case.2).is_ok() {
                 return Err(DataFusionError::Plan(format!(
                     "Error was expected in {:?}",
                     case

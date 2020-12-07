@@ -603,7 +603,7 @@ impl DefaultPhysicalPlanner {
     ) -> Result<PhysicalSortExpr> {
         Ok(PhysicalSortExpr {
             expr: self.create_physical_expr(e, input_schema, ctx_state)?,
-            options: options,
+            options,
         })
     }
 }

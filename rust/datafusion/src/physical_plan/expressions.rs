@@ -1603,7 +1603,7 @@ pub fn nullif_func(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Currently supported types by the nullif function.
 /// The order of these types correspond to the order on which coercion applies
 /// This should thus be from least informative to most informative
-pub static SUPPORTED_NULLIF_TYPES: &'static [DataType] = &[
+pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
     DataType::Boolean,
     DataType::UInt8,
     DataType::UInt16,

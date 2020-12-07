@@ -15,45 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <cstdlib>
-#include <mutex>
-
-#include "gandiva/lru_cache.h"
-#include "gandiva/visibility.h"
+#include "gandiva/cache.h"
+#include "arrow/util/logging.h"
 
 namespace gandiva {
 
-GANDIVA_EXPORT
-int GetCapacity();
+static const int DEFAULT_CACHE_SIZE = 500;
 
-GANDIVA_EXPORT
-void LogCacheSize(size_t capacity);
-
-template <class KeyType, typename ValueType>
-class Cache {
- public:
-  explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
-
-  Cache() : Cache(GetCapacity()) {}
-
-  ValueType GetModule(KeyType cache_key) {
-    arrow::util::optional<ValueType> result;
-    mtx_.lock();
-    result = cache_.get(cache_key);
-    mtx_.unlock();
-    return result != arrow::util::nullopt ? *result : nullptr;
+int GetCapacity() {
+  int capacity;
+  const char* env_cache_size = std::getenv("GANDIVA_CACHE_SIZE");
+  if (env_cache_size != nullptr) {
+    capacity = std::atoi(env_cache_size);
+    if (capacity <= 0) {
+      ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: "
+                         << DEFAULT_CACHE_SIZE;
+      capacity = DEFAULT_CACHE_SIZE;
+    }
+  } else {
+    capacity = DEFAULT_CACHE_SIZE;
   }
+  return capacity;
+}
 
-  void PutModule(KeyType cache_key, ValueType module) {
-    mtx_.lock();
-    cache_.insert(cache_key, module);
-    mtx_.unlock();
-  }
+void LogCacheSize(size_t capacity) {
+  ARROW_LOG(INFO) << "Creating gandiva cache with capacity: " << capacity;
+}
 
- private:
-  LruCache<KeyType, ValueType> cache_;
-  std::mutex mtx_;
-};
 }  // namespace gandiva

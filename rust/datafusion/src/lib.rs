@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #![warn(missing_docs)]
 // Clippy lints, some should be disabled incrementally
 #![allow(
@@ -40,10 +39,6 @@
     clippy::new_without_default,
     clippy::or_fun_call,
     clippy::ptr_arg,
-    clippy::redundant_field_names,
-    clippy::redundant_static_lifetimes,
-    clippy::redundant_pattern_matching,
-    clippy::redundant_closure,
     clippy::single_match,
     clippy::stable_sort_primitive,
     clippy::type_complexity,

@@ -84,7 +84,7 @@ pub async fn collect(stream: SendableRecordBatchStream) -> Result<Vec<RecordBatc
     stream
         .try_collect::<Vec<_>>()
         .await
-        .map_err(|e| DataFusionError::from(e))
+        .map_err(DataFusionError::from)
 }
 
 /// Recursively build a list of files in a directory with a given extension
