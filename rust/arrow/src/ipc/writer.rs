@@ -84,6 +84,7 @@ impl IpcWriteOptions {
                     })
                 }
             }
+            z => panic!("Unsupported ipc::MetadataVersion {:?}", z),
         }
     }
 }
@@ -621,6 +622,7 @@ fn write_continuation<W: Write>(
             writer.write_all(&CONTINUATION_MARKER)?;
             writer.write_all(&total_len.to_le_bytes()[..])?;
         }
+        z => panic!("Unsupported ipc::MetadataVersion {:?}", z),
     };
 
     writer.flush()?;

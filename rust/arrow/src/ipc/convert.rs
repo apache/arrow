@@ -160,7 +160,9 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 (32, false) => DataType::UInt32,
                 (64, true) => DataType::Int64,
                 (64, false) => DataType::UInt64,
-                _ => panic!("Unexpected bitwidth and signed"),
+                z => panic!(
+                    "Int type with bit width of {} and is_signed of {} not supported",
+                    z.0, z.1),
             }
         }
         ipc::Type::Binary => DataType::Binary,
@@ -177,6 +179,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::Precision::HALF => DataType::Float16,
                 ipc::Precision::SINGLE => DataType::Float32,
                 ipc::Precision::DOUBLE => DataType::Float64,
+                z => panic!("FloatingPoint type with precision of {:?} not supported", z),
             }
         }
         ipc::Type::Date => {
@@ -184,6 +187,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             match date.unit() {
                 ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
                 ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
+                z => panic!("Date type with unit of {:?} not supported", z),
             }
         }
         ipc::Type::Time => {
@@ -218,6 +222,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::TimeUnit::NANOSECOND => {
                     DataType::Timestamp(TimeUnit::Nanosecond, timezone)
                 }
+                z => panic!("Timestamp type with unit of {:?} not supported", z),
             }
         }
         ipc::Type::Interval => {
@@ -227,6 +232,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                     DataType::Interval(IntervalUnit::YearMonth)
                 }
                 ipc::IntervalUnit::DAY_TIME => DataType::Interval(IntervalUnit::DayTime),
+                z => panic!("Interval type with unit of {:?} unsupported", z),
             }
         }
         ipc::Type::Duration => {
@@ -236,6 +242,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::TimeUnit::MILLISECOND => DataType::Duration(TimeUnit::Millisecond),
                 ipc::TimeUnit::MICROSECOND => DataType::Duration(TimeUnit::Microsecond),
                 ipc::TimeUnit::NANOSECOND => DataType::Duration(TimeUnit::Nanosecond),
+                z => panic!("Duration type with unit of {:?} unsupported", z),
             }
         }
         ipc::Type::List => {
