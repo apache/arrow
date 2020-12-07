@@ -161,7 +161,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 (64, true) => DataType::Int64,
                 (64, false) => DataType::UInt64,
                 z => panic!(
-                    "Int type with bit width of {} and is_signed of {} not supported",
+                    "Int type with bit width of {} and signed of {} not supported",
                     z.0, z.1),
             }
         }
@@ -203,8 +203,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 (64, ipc::TimeUnit::NANOSECOND) => DataType::Time64(TimeUnit::Nanosecond),
                 z => panic!(
                     "Time type with bit width of {} and unit of {:?} not supported",
-                    z.0, z.1
-                ),
+                    z.0, z.1),
             }
         }
         ipc::Type::Timestamp => {
