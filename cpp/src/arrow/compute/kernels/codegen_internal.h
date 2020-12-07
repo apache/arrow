@@ -512,28 +512,30 @@ struct ScalarUnary {
   using OutValue = typename GetOutputType<OutType>::T;
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
-  static void Array(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+  static void ExecArray(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
       return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it());
     });
   }
 
-  static void Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
+  static void ExecScalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
+    Scalar* out_scalar = out->scalar().get();
     if (arg0.is_valid) {
       Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      out_scalar->is_valid = true;
       BoxScalar<OutType>::Box(Op::template Call<OutValue, Arg0Value>(ctx, arg0_val),
-                              out->scalar().get());
+                              out_scalar);
     } else {
-      out->value = MakeNullScalar(arg0.type);
+      out_scalar->is_valid = false;
     }
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      return Array(ctx, *batch[0].array(), out);
+      return ExecArray(ctx, *batch[0].array(), out);
     } else {
-      return Scalar(ctx, *batch[0].scalar(), out);
+      return ExecScalar(ctx, *batch[0].scalar(), out);
     }
   }
 };

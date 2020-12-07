@@ -433,7 +433,10 @@ cdef class RecordBatchReader(_Weakrefable):
 
     def __iter__(self):
         while True:
-            yield self.read_next_batch()
+            try:
+                yield self.read_next_batch()
+            except StopIteration:
+                return
 
     @property
     def schema(self):

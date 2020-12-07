@@ -46,6 +46,7 @@ simd = ["arrow/simd"]
 
 [dependencies]
 ahash = "0.6"
+hashbrown = "0.9"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"] }
 sqlparser = "0.6.1"

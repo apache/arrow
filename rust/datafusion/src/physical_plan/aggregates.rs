@@ -163,7 +163,7 @@ pub fn create_aggregate_expr(
     })
 }
 
-static NUMERICS: &'static [DataType] = &[
+static NUMERICS: &[DataType] = &[
     DataType::Int8,
     DataType::Int16,
     DataType::Int32,

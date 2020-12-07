@@ -97,8 +97,7 @@ impl LogicalPlanBuilder {
         let projected_schema = projection
             .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
-        let projected_schema =
-            projected_schema.map_or(schema.clone(), |s| SchemaRef::new(s));
+        let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
 
         Ok(Self::from(&LogicalPlan::ParquetScan {
             path: path.to_owned(),
@@ -120,7 +119,7 @@ impl LogicalPlanBuilder {
             Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
         });
         let projected_schema =
-            projected_schema.map_or(table_schema.clone(), |s| SchemaRef::new(s));
+            projected_schema.map_or(table_schema.clone(), SchemaRef::new);
 
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),

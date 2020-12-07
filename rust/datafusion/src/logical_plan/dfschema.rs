@@ -199,12 +199,32 @@ impl DFSchema {
             ))),
         }
     }
+}
 
-    /// Convert to an Arrow schema
-    pub fn to_arrow_schema(&self) -> SchemaRef {
-        SchemaRef::new(Schema::new(
-            self.fields.iter().map(|f| f.field.clone()).collect(),
-        ))
+impl Into<Schema> for DFSchema {
+    fn into(self) -> Schema {
+        Schema::new(
+            self.fields
+                .iter()
+                .map(|f| {
+                    if f.qualifier().is_some() {
+                        Field::new(
+                            f.qualified_name().as_str(),
+                            f.data_type().to_owned(),
+                            f.is_nullable(),
+                        )
+                    } else {
+                        f.field.clone()
+                    }
+                })
+                .collect(),
+        )
+    }
+}
+
+impl Into<SchemaRef> for DFSchema {
+    fn into(self) -> SchemaRef {
+        SchemaRef::new(self.into())
     }
 }
 
@@ -323,6 +343,14 @@ mod tests {
     fn from_qualified_schema() -> Result<()> {
         let schema = DFSchema::from_qualified("t1", &test_schema_1())?;
         assert_eq!("t1.c0, t1.c1", schema.to_string());
+        Ok(())
+    }
+
+    #[test]
+    fn from_qualified_schema_into_arrow_schema() -> Result<()> {
+        let schema = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let arrow_schema: Schema = schema.into();
+        assert_eq!("t1.c0: Boolean, t1.c1: Boolean", arrow_schema.to_string());
         Ok(())
     }
 

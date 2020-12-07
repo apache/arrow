@@ -148,13 +148,20 @@ void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool ve
 
 void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose,
                         const EqualOptions& options) {
-  std::stringstream diff;
-  // ARROW-8956, ScalarEquals returns false when both are null
-  if (!expected.is_valid && !actual.is_valid) {
-    // We consider both being null to be equal in this function
-    return;
-  }
   if (!expected.Equals(actual, options)) {
+    std::stringstream diff;
+    if (verbose) {
+      diff << "Expected:\n" << expected.ToString();
+      diff << "\nActual:\n" << actual.ToString();
+    }
+    FAIL() << diff.str();
+  }
+}
+
+void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool verbose,
+                              const EqualOptions& options) {
+  if (!expected.ApproxEquals(actual, options)) {
+    std::stringstream diff;
     if (verbose) {
       diff << "Expected:\n" << expected.ToString();
       diff << "\nActual:\n" << actual.ToString();
