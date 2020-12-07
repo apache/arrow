@@ -534,10 +534,14 @@ where
 }
 
 /// `take` implementation for `FixedSizeListArray`
+///
+/// Calculates the index and indexed offset for the inner array,
+/// applying `take` on the inner array, then reconstructing a list array
+/// with the indexed offsets
 fn take_fixed_size_list<IndexType>(
     values: &ArrayRef,
     indices: &PrimitiveArray<IndexType>,
-    length: i32,
+    length: <Int32Type as ArrowPrimitiveType>::Native,
 ) -> Result<ArrayRef>
 where
     IndexType: ArrowNumericType,
@@ -552,41 +556,19 @@ where
         .downcast_ref::<FixedSizeListArray>()
         .unwrap();
 
-    let (list_indices, offsets) =
-        take_value_indices_from_fixed_size_list(list, indices, length);
-
-    println!("list_indices: {:?}, offsets: {:?}", list_indices, offsets);
+    let list_indices = take_value_indices_from_fixed_size_list(list, indices, length);
     let taken = take_impl::<Int32Type>(&list.values(), &list_indices, None)?;
-    println!("taken: {:?}", taken);
 
     // determine null count and null buffer, which are a function of `values` and `indices`
     let mut null_count = 0;
     let num_bytes = bit_util::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
-    {
-        let null_slice = null_buf.data_mut();
-        // offsets[..].windows(2).enumerate().for_each(
-        //     |(i, window): (usize, &[<Int32Type as ArrowPrimitiveType>::Native])| {
-        //         if window[0] == window[1] {
-        //             // if list.is_null(i) {
-        //             // offsets are equal, slot is null
-        //             bit_util::unset_bit(null_slice, i);
-        //             null_count += 1;
-        //         }
-        //     },
-        // );
+    let null_slice = null_buf.data_mut();
 
-        for i in 0..indices.len() {
-            if indices.is_valid(i) {
-                let index = indices.value(i) as usize;
-                if list.is_null(index) {
-                    bit_util::unset_bit(null_slice, i);
-                    null_count += 1;
-                }
-            } else {
-                bit_util::unset_bit(null_slice, i);
-                null_count += 1;
-            }
+    for i in 0..indices.len() {
+        if !indices.is_valid(i) || list.is_null(indices.value(i) as usize) {
+            bit_util::unset_bit(null_slice, i);
+            null_count += 1;
         }
     }
 
@@ -598,8 +580,7 @@ where
         .add_child_data(taken.data())
         .build();
 
-    let list_array = Arc::new(FixedSizeListArray::from(list_data)) as ArrayRef;
-    Ok(list_array)
+    Ok(Arc::new(FixedSizeListArray::from(list_data)))
 }
 
 /// `take` implementation for dictionary arrays
@@ -1208,7 +1189,6 @@ mod tests {
 
     #[test]
     fn test_take_fixed_size_list() {
-        // todo: make a "from_notnull" to simplify test data construction
         do_take_fixed_size_list_test::<Int32Type>(
             3,
             vec![

@@ -147,40 +147,23 @@ where
 }
 
 /// Takes/filters a fixed size list array's inner data using the offsets of the list array.
-///
-/// Where a fixed size list array with length = 3 has indices `[0, 3, 6, 9]`, taking indices
-/// of `[2, 0]` returns an array of the indices `[6..9, 0..3]` and offsets `[0, 3, 6]`
 pub(super) fn take_value_indices_from_fixed_size_list(
     list: &FixedSizeListArray,
     indices: &PrimitiveArray<Int32Type>,
-    length: i32,
-) -> (PrimitiveArray<Int32Type>, Vec<i32>) {
-    let offsets: Vec<i32> = (0..=list.len()).map(|i| list.value_offset(i)).collect();
+    length: <Int32Type as ArrowPrimitiveType>::Native,
+) -> PrimitiveArray<Int32Type> {
     let mut values = vec![];
-    let mut new_offsets = vec![0];
 
-    let mut current_offset = 0;
     for i in 0..indices.len() {
         if indices.is_valid(i) {
             let index = indices.value(i) as usize;
-            let start = offsets[index];
-            let end = offsets[index + 1];
-            // if start == end {
-            //     new_offsets.push(current_offset);
-            //     continue;
-            // }
-
-            debug_assert_eq!(end - start, length);
-            current_offset += length;
-            new_offsets.push(current_offset);
+            let start = list.value_offset(index);
 
             values.extend(start..start + length);
-        } else {
-            new_offsets.push(*new_offsets.last().unwrap());
         }
     }
 
-    (PrimitiveArray::<Int32Type>::from(values), new_offsets)
+    PrimitiveArray::<Int32Type>::from(values)
 }
 
 /// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
@@ -443,21 +426,17 @@ pub(super) mod tests {
         );
 
         let indices = Int32Array::from(vec![2, 1, 0]);
-        let (indexed, offsets) =
-            take_value_indices_from_fixed_size_list(&list, &indices, 3);
+        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
 
         assert_eq!(indexed, Int32Array::from(vec![6, 7, 8, 3, 4, 5, 0, 1, 2]));
-        assert_eq!(offsets, vec![0, 3, 6, 9]);
 
         let indices = Int32Array::from(vec![3, 2, 1, 2, 0]);
-        let (indexed, offsets) =
-            take_value_indices_from_fixed_size_list(&list, &indices, 3);
+        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
 
         assert_eq!(
             indexed,
             Int32Array::from(vec![9, 10, 11, 6, 7, 8, 3, 4, 5, 6, 7, 8, 0, 1, 2])
         );
-        assert_eq!(offsets, vec![0, 3, 6, 9, 12, 15]);
     }
 
     #[test]
