@@ -20,9 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray, FixedSizeBinaryArray,
-    GenericBinaryArray, GenericListArray, GenericStringArray, NullArray, OffsetSizeTrait,
-    PrimitiveArray, StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray,
+    FixedSizeBinaryArray, GenericBinaryArray, GenericListArray, GenericStringArray,
+    NullArray, OffsetSizeTrait, PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::{

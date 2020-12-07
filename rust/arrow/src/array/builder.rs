@@ -272,8 +272,8 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     }
 
     fn capacity(&self) -> usize {
-        let bit_capacity = self.buffer.capacity();
-        bit_capacity / T::get_byte_width()
+        let byte_capacity = self.buffer.capacity();
+        byte_capacity / T::get_byte_width()
     }
 
     #[inline]
