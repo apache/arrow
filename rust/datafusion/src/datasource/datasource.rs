@@ -25,21 +25,10 @@ use crate::error::Result;
 use crate::physical_plan::ExecutionPlan;
 
 /// The table statistics
+#[derive(Clone)]
 pub struct Statistics {
-    #[allow(dead_code)]
-    size_in_bytes: Option<usize>,
-    #[allow(dead_code)]
-    row_count: Option<usize>
-}
-
-impl Statistics {
-    /// Build the table statistics,
-    pub fn new(size_in_bytes: Option<usize>, row_count: Option<usize>) -> Self {
-        Statistics {
-            size_in_bytes: size_in_bytes,
-            row_count: row_count,
-        }
-    }
+    num_rows: usize,
+    total_byte_size: usize,
 }
 
 /// Source table

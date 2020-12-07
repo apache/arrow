@@ -36,6 +36,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct MemTable {
     schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
+    statistics: Option<Statistics>,
 }
 
 impl MemTable {
@@ -49,6 +50,7 @@ impl MemTable {
             Ok(Self {
                 schema,
                 batches: partitions,
+                statistics: None,
             })
         } else {
             Err(DataFusionError::Plan(
@@ -135,7 +137,7 @@ impl TableProvider for MemTable {
     }
 
     fn statistics(&self) -> Option<Statistics> {
-        Option::from(Statistics::new(None, None))
+        self.statistics.clone()
     }
 }
 
