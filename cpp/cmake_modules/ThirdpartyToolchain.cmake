@@ -1668,6 +1668,8 @@ macro(build_gtest)
       "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
       )
     externalproject_add_step(googletest_ep copy
+                             COMMAND ${CMAKE_COMMAND} -E make_directory
+                                     ${BUILD_OUTPUT_ROOT_DIRECTORY}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
