@@ -156,6 +156,22 @@ Result<std::shared_ptr<Dataset>> RadosDataset::Make(
   return dataset;
 }
 
+Status RadosDataset::Write(RecordBatchVector& batches,
+                           RadosDatasetFactoryOptions factory_option,
+                           std::string object_id) {
+  auto cluster = std::make_shared<RadosCluster>(factory_option.pool_name_,
+                                                factory_option.ceph_config_path_);
+  cluster->flags_ = factory_option.flags_;
+  cluster->cls_name_ = factory_option.cls_name_;
+  cluster->user_name_ = factory_option.user_name_;
+  cluster->cluster_name_ = factory_option.cluster_name_;
+  cluster->rados_interface_ = new RadosWrapper();
+  cluster->io_ctx_interface_ = new IoCtxWrapper();
+  cluster->Connect();
+  auto rados_object = std::make_shared<RadosObject>(object_id);
+  return RadosFragment::WriteFragment(batches, cluster, rados_object);
+}
+
 FragmentIterator RadosDataset::GetFragmentsImpl(std::shared_ptr<Expression>) {
   auto schema = this->schema();
   auto cluster = this->cluster();

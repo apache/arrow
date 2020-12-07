@@ -16,11 +16,12 @@
 # under the License.
 
 
+import pyarrow as pa
 import urllib
 import ast
 import rados
 try:
-    from pyarrow._rados import RadosDatasetFactoryOptions
+    from pyarrow._rados import RadosDatasetFactoryOptions, _write_to_dataset
 except ImportError:
     raise ImportError(
         "The pyarrow installation is not built with support for rados."
@@ -28,6 +29,24 @@ except ImportError:
 
 
 _RADOS_URI_SCHEME = 'rados'
+
+
+def write_to_dataset(source, data, object_id):
+    if isinstance(source, (list, tuple)):
+        source = source[0]
+    if not is_valid_rados_uri(source):
+        raise ValueError(
+            "Invalid uri for rados."
+        )
+    rados_factory_options = parse_uri(source)
+
+    batches = []
+    if isinstance(data, pa.Table):
+        batches = data.to_batches()
+    if isinstance(data, list) and len(data) > 0:
+        if isinstance(data[0], pa.RecordBatch):
+            batches = data
+    _write_to_dataset(batches, object_id, rados_factory_options)
 
 
 def generate_uri(

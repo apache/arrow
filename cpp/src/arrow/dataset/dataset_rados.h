@@ -195,6 +195,11 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
   ///
   static Result<std::shared_ptr<Dataset>> Make(RadosDatasetFactoryOptions factory_option);
 
+  /// \brief Write to a RadosDataset
+  ///
+  static Status Write(RecordBatchVector& batches,
+                      RadosDatasetFactoryOptions factory_option, std::string object_id);
+
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Returns the cluster handle for this Dataset.

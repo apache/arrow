@@ -48,6 +48,16 @@ def write_test_object():
         os.system('rados -p test-pool put myobj.{} v0.7.1.arrow'.format(i))
 
 
+def write_test_object_rados(source='', ids=[]):
+    data = [
+        pa.array(range(5), type='int64'),
+        pa.array([-10, -5, 0, 5, 10], type='int64')
+    ]
+    table = pa.table(data, names=('a', 'b'))
+    for id in ids:
+        rados.write_to_dataset(source, table, id)
+
+
 @pytest.mark.rados
 def test_rados_dataset():
     if skip:
@@ -56,7 +66,11 @@ def test_rados_dataset():
     cluster.connect()
     cluster.create_pool('test-pool')
 
-    write_test_object()
+    # write_test_object()
+    write_test_object_rados(
+        source="rados:///etc/ceph/ceph.conf?cluster=cep&pool=test-pool",
+        ids=['myobj.0', 'myobj.1', 'myobj.2', 'myobj.3']
+    )
 
     dataset = ds.dataset(
         source="rados:///etc/ceph/ceph.conf?cluster=ceph \
