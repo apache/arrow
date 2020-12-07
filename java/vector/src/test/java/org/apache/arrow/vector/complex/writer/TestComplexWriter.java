@@ -1092,4 +1092,167 @@ public class TestComplexWriter {
 
 
   }
+
+  @Test
+  public void testListWriterWithNulls() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.setInitialCapacity(COUNT);
+      listVector.allocateNew();
+      listVector.getValidityBuffer().setOne(0, (int) listVector.getValidityBuffer().capacity());
+
+      UnionListWriter listWriter = listVector.getWriter();
+
+      // expected listVector :  [[null], null, [2, 4], null, [null], null, [6, 12], ...]
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.startList();
+          if (i % 4 == 0) {
+            listWriter.integer().writeNull();
+          } else {
+            listWriter.integer().writeInt(i);
+            listWriter.integer().writeInt(i * 2);
+          }
+          listWriter.endList();
+        } else {
+          listWriter.writeNull();
+        }
+      }
+      listVector.setValueCount(COUNT);
+
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        if (i % 2 == 0) {
+          Assert.assertTrue(listReader.isSet());
+          listReader.next();
+          if (i % 4 == 0) {
+            Assert.assertNull(listReader.reader().readInteger());
+          } else {
+            Assert.assertEquals(i, listReader.reader().readInteger().intValue());
+            listReader.next();
+            Assert.assertEquals(i * 2, listReader.reader().readInteger().intValue());
+          }
+        } else {
+          Assert.assertFalse(listReader.isSet());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testListOfListWriterWithNulls() {
+    try (ListVector listVector = ListVector.empty("listoflist", allocator)) {
+      listVector.setInitialCapacity(COUNT);
+      listVector.allocateNew();
+      listVector.getValidityBuffer().setOne(0, (int) listVector.getValidityBuffer().capacity());
+
+      UnionListWriter listWriter = listVector.getWriter();
+
+      // create list : [ [null], null, [[null, 2, 4]], null, [null], null, [[null, 6, 12]], ... ]
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.startList();
+          if (i % 4 == 0) {
+            listWriter.list().writeNull();
+          } else {
+            listWriter.list().startList();
+            listWriter.list().integer().writeNull();
+            listWriter.list().integer().writeInt(i);
+            listWriter.list().integer().writeInt(i * 2);
+            listWriter.list().endList();
+          }
+          listWriter.endList();
+        } else {
+          listWriter.writeNull();
+        }
+      }
+      listVector.setValueCount(COUNT);
+
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        if (i % 2 == 0) {
+          Assert.assertTrue(listReader.isSet());
+          listReader.next();
+          if (i % 4 == 0) {
+            Assert.assertFalse(listReader.reader().isSet());
+          } else {
+            listReader.reader().next();
+            Assert.assertFalse(listReader.reader().reader().isSet());
+            listReader.reader().next();
+            Assert.assertEquals(i, listReader.reader().reader().readInteger().intValue());
+            listReader.reader().next();
+            Assert.assertEquals(i * 2, listReader.reader().reader().readInteger().intValue());
+          }
+        } else {
+          Assert.assertFalse(listReader.isSet());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testListOfListOfListWriterWithNulls() {
+    try (ListVector listVector = ListVector.empty("listoflistoflist", allocator)) {
+      listVector.setInitialCapacity(COUNT);
+      listVector.allocateNew();
+      listVector.getValidityBuffer().setOne(0, (int) listVector.getValidityBuffer().capacity());
+
+      UnionListWriter listWriter = listVector.getWriter();
+
+      // create list : [ null, [null], [[null]], [[[null, 1, 2]]], null, [null], ...
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.setPosition(i);
+        if (i % 4 == 0) {
+          listWriter.writeNull();
+        } else {
+          listWriter.startList();
+          if (i % 4 == 1) {
+            listWriter.list().writeNull();
+          } else if (i % 4 == 2) {
+            listWriter.list().startList();
+            listWriter.list().list().writeNull();
+            listWriter.list().endList();
+          } else {
+            listWriter.list().startList();
+            listWriter.list().list().startList();
+            listWriter.list().list().integer().writeNull();
+            listWriter.list().list().integer().writeInt(i);
+            listWriter.list().list().integer().writeInt(i * 2);
+            listWriter.list().list().endList();
+            listWriter.list().endList();
+          }
+          listWriter.endList();
+        }
+      }
+      listVector.setValueCount(COUNT);
+
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        if (i % 4 == 0) {
+          Assert.assertFalse(listReader.isSet());
+        } else {
+          Assert.assertTrue(listReader.isSet());
+          listReader.next();
+          if (i % 4 == 1) {
+            Assert.assertFalse(listReader.reader().isSet());
+          } else if (i % 4 == 2) {
+            listReader.reader().next();
+            Assert.assertFalse(listReader.reader().reader().isSet());
+          } else {
+            listReader.reader().next();
+            listReader.reader().reader().next();
+            Assert.assertFalse(listReader.reader().reader().reader().isSet());
+            listReader.reader().reader().next();
+            Assert.assertEquals(i, listReader.reader().reader().reader().readInteger().intValue());
+            listReader.reader().reader().next();
+            Assert.assertEquals(i * 2, listReader.reader().reader().reader().readInteger().intValue());
+          }
+        }
+      }
+    }
+  }
 }

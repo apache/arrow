@@ -921,6 +921,24 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
+   * Sets list at index to be null.
+   * @param index position in vector
+   */
+  public void setNull(int index) {
+    while (index >= getValidityAndOffsetValueCapacity()) {
+      reallocValidityAndOffsetBuffers();
+    }
+    if (lastSet >= index) {
+      lastSet = index - 1;
+    }
+    for (int i = lastSet + 1; i <= index; i++) {
+      final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
+      offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
+    }
+    BitVectorHelper.unsetBit(validityBuffer, index);
+  }
+
+  /**
    * Start a new value in the list vector.
    *
    * @param index index of the value to start
