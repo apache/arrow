@@ -52,6 +52,7 @@ set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED 
 set(SRC_FILES
     annotator.cc
     bitmap_accumulator.cc
+    cache.cc
     cast_time.cc
     configuration.cc
     context_helper.cc
