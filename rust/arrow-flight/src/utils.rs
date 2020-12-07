@@ -27,17 +27,6 @@ use arrow::ipc::{convert, reader, writer, writer::IpcWriteOptions};
 use arrow::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
-/// and values. This can't be a `From` implementation because neither `RecordBatch` nor `Vec` are
-/// implemented in this crate.
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_data_from_arrow_batch()`
-pub fn convert_to_flight_data(batch: &RecordBatch) -> Vec<FlightData> {
-    let options = IpcWriteOptions::default();
-    flight_data_from_arrow_batch(batch, &options)
-}
-
-/// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
 /// and values
 pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
@@ -63,17 +52,6 @@ pub fn flight_data_from_arrow_batch(
 }
 
 /// Convert a `Schema` to `SchemaResult` by converting to an IPC message
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_schema_from_arrow_schema()`
-impl From<&Schema> for SchemaResult {
-    fn from(schema: &Schema) -> Self {
-        let options = IpcWriteOptions::default();
-        flight_schema_from_arrow_schema(schema, &options)
-    }
-}
-
-/// Convert a `Schema` to `SchemaResult` by converting to an IPC message
 pub fn flight_schema_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
@@ -83,17 +61,6 @@ pub fn flight_schema_from_arrow_schema(
 
     SchemaResult {
         schema: schema_bytes.ipc_message,
-    }
-}
-
-/// Convert a `Schema` to `FlightData` by converting to an IPC message
-///
-/// Note: This implicitly uses the default `IpcWriteOptions`. To configure options,
-/// use `flight_data_from_arrow_schema()`
-impl From<&Schema> for FlightData {
-    fn from(schema: &Schema) -> Self {
-        let options = writer::IpcWriteOptions::default();
-        flight_data_from_arrow_schema(schema, &options)
     }
 }
 
