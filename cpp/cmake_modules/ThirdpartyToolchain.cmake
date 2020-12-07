@@ -1676,22 +1676,22 @@ macro(build_gtest)
     endif()
     externalproject_add_step(googletest_ep copy
                              COMMAND ${CMAKE_COMMAND} -E make_directory
-                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GTEST_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GMOCK_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
                              COMMAND ${CMAKE_COMMAND}
                                      -E
                                      copy
                                      ${_GTEST_MAIN_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIRECTORY}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
                              DEPENDEES install)
   endif()
 
