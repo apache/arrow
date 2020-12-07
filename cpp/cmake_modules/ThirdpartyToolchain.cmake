@@ -1667,9 +1667,12 @@ macro(build_gtest)
       _GTEST_MAIN_RUNTIME_LIB
       "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
       )
-    # Want to use GENERATOR_IS_MULTI_CONFIG here but it requires CMake
-    # 3.9 or later.
-    if(MSVC)
+    if(CMAKE_VERSION VERSION_LESS 3.9)
+      message(
+        FATAL_ERROR
+          "Building GoogleTest from source on Windows requires at least CMake 3.9")
+    endif()
+    if(GENERATOR_IS_MULTI_CONFIG)
       set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
     else()
       set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
