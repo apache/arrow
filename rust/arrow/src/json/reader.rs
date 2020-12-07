@@ -472,7 +472,9 @@ impl<R: Read> Reader<R> {
         for _ in 0..self.batch_size {
             let bytes_read = self.reader.read_line(&mut line)?;
             if bytes_read > 0 {
-                rows.push(serde_json::from_str(&line).expect("Not valid JSON"));
+                rows.push(serde_json::from_str(&line).map_err(|e| {
+                    ArrowError::JsonError(format!("Not valid JSON: {}", e))
+                })?);
                 line = String::new();
             } else {
                 break;
