@@ -148,7 +148,7 @@ impl TableProvider for CustomTableProvider {
     }
 
     fn statistics(&self) -> Option<Statistics> {
-        Option::from(Statistics::new(None, None))
+         None
     }
 }
 

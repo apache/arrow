@@ -33,6 +33,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct ParquetTable {
     path: String,
     schema: SchemaRef,
+    statistics: Option<Statistics>,
 }
 
 impl ParquetTable {
@@ -43,6 +44,7 @@ impl ParquetTable {
         Ok(Self {
             path: path.to_string(),
             schema,
+            statistics: None,
         })
     }
 }
@@ -72,7 +74,7 @@ impl TableProvider for ParquetTable {
     }
 
     fn statistics(&self) -> Option<Statistics> {
-        Option::from(Statistics::new(None, None))
+        self.statistics.clone()
     }
 }
 
