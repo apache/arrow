@@ -65,6 +65,9 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   bool Equals(const Scalar& other,
               const EqualOptions& options = EqualOptions::Defaults()) const;
 
+  bool ApproxEquals(const Scalar& other,
+                    const EqualOptions& options = EqualOptions::Defaults()) const;
+
   struct ARROW_EXPORT Hash {
     size_t operator()(const Scalar& scalar) const { return hash(scalar); }
 

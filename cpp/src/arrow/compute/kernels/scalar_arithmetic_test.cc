@@ -84,7 +84,7 @@ class TestBinaryArithmetic : public TestBase {
     auto exp = MakeScalar(expected);
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
-    AssertScalarsEqual(*exp, *actual.scalar(), /*verbose=*/true);
+    AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
   // (Scalar, Array)
@@ -144,8 +144,8 @@ class TestBinaryArithmetic : public TestBase {
       const auto expected_scalar = *expected->GetScalar(i);
       ASSERT_OK_AND_ASSIGN(
           actual, func(*left->GetScalar(i), *right->GetScalar(i), options_, nullptr));
-      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
-                         equal_options_);
+      AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
+                               equal_options_);
     }
   }
 
