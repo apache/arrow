@@ -263,7 +263,7 @@ fn optimize_plan(
                 source: source.clone(),
                 table_schema: table_schema.clone(),
                 projection: Some(projection),
-                projected_schema: projected_schema,
+                projected_schema,
             })
         }
         LogicalPlan::InMemoryScan {
@@ -282,7 +282,7 @@ fn optimize_plan(
                 data: data.clone(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: projected_schema,
+                projected_schema,
             })
         }
         LogicalPlan::CsvScan {
@@ -306,7 +306,7 @@ fn optimize_plan(
                 schema: schema.clone(),
                 delimiter: *delimiter,
                 projection: Some(projection),
-                projected_schema: projected_schema,
+                projected_schema,
             })
         }
         LogicalPlan::ParquetScan {
@@ -326,7 +326,7 @@ fn optimize_plan(
                 path: path.to_owned(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: projected_schema,
+                projected_schema,
             })
         }
         LogicalPlan::Explain {
