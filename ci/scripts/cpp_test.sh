@@ -71,8 +71,6 @@ esac
 
 pushd ${build_dir}
 
-ls -R
-
 if ! which python > /dev/null 2>&1; then
   export PYTHON=python3
 fi
