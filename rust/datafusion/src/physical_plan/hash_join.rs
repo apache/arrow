@@ -52,7 +52,7 @@ type JoinIndex = Option<(usize, usize)>;
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Vec<GroupByScalar>, Vec<Index>, RandomState>;
+type JoinHashMap = HashMap<Box<[GroupByScalar]>, Vec<Index>, RandomState>;
 type JoinLeftData = (JoinHashMap, Vec<RecordBatch>);
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -208,6 +208,8 @@ fn update_hash(
     for _ in 0..keys_values.len() {
         key.push(GroupByScalar::UInt32(0));
     }
+
+    let mut key = key.into_boxed_slice();
 
     // update the hash map
     for row in 0..batch.num_rows() {
@@ -368,8 +370,9 @@ fn build_join_indexes(
         JoinType::Inner => {
             // inner => key intersection
             // unfortunately rust does not support intersection of map keys :(
-            let left_set: HashSet<Vec<GroupByScalar>> = left.keys().cloned().collect();
-            let left_right: HashSet<Vec<GroupByScalar>> = right.keys().cloned().collect();
+            let left_set: HashSet<Box<[GroupByScalar]>> = left.keys().cloned().collect();
+            let left_right: HashSet<Box<[GroupByScalar]>> =
+                right.keys().cloned().collect();
             let inner = left_set.intersection(&left_right);
 
             let mut indexes = Vec::new(); // unknown a prior size

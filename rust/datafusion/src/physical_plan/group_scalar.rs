@@ -34,7 +34,7 @@ pub(crate) enum GroupByScalar {
     Int16(i16),
     Int32(i32),
     Int64(i64),
-    Utf8(String),
+    Utf8(Box<String>),
 }
 
 impl TryFrom<&ScalarValue> for GroupByScalar {
@@ -50,7 +50,7 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::UInt16(Some(v)) => GroupByScalar::UInt16(*v),
             ScalarValue::UInt32(Some(v)) => GroupByScalar::UInt32(*v),
             ScalarValue::UInt64(Some(v)) => GroupByScalar::UInt64(*v),
-            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(v.clone()),
+            ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
             ScalarValue::Int8(None)
             | ScalarValue::Int16(None)
             | ScalarValue::Int32(None)
@@ -86,7 +86,7 @@ impl From<&GroupByScalar> for ScalarValue {
             GroupByScalar::UInt16(v) => ScalarValue::UInt16(Some(*v)),
             GroupByScalar::UInt32(v) => ScalarValue::UInt32(Some(*v)),
             GroupByScalar::UInt64(v) => ScalarValue::UInt64(Some(*v)),
-            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.clone())),
+            GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.to_string())),
         }
     }
 }
@@ -130,5 +130,10 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn size_of_group_by_scalar() {
+        assert_eq!(std::mem::size_of::<GroupByScalar>(), 16);
     }
 }
