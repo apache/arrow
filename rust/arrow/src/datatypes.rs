@@ -539,7 +539,8 @@ where
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
 
-    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`
+    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`.
+    /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
     /// Gets the value of a single lane in a SIMD mask
@@ -624,16 +625,25 @@ macro_rules! make_numeric_type {
 
             #[inline]
             fn mask_from_u64(mask: u64) -> Self::SimdMask {
+                // this match will get removed by the compiler since the number of lanes is known at
+                // compile-time for each concrete numeric type
                 match Self::lanes() {
                     8 => {
+                        // the bit position in each lane indicates the index of that lane
                         let vecidx = i64x8::new(1, 2, 4, 8, 16, 32, 64, 128);
 
+                        // broadcast the lowermost 8 bits of mask to each lane
                         let vecmask = i64x8::splat((mask & 0xFF) as i64);
+                        // compute whether the bit corresponding to each lanes index is set
                         let vecmask = (vecidx & vecmask).eq(vecidx);
 
+                        // transmute is necessary because the different match arms return different
+                        // mask types, at runtime only one of those expressions will exist per type,
+                        // with the type being equal to `SimdMask`.
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     16 => {
+                        // same general logic as for 8 lanes, extended to 16 bits
                         let vecidx = i32x16::new(
                             1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
                             8192, 16384, 32768,
@@ -645,6 +655,8 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     32 => {
+                        // compute two separate m32x16 vector masks from  from the lower-most 32 bits of `mask`
+                        // and then combine them into one m16x32 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i16; 32];
 
                         let vecidx = i32x16::new(
@@ -667,6 +679,8 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(i16x32::from_slice_unaligned(tmp)) }
                     }
                     64 => {
+                        // compute four m32x16 vector masks from  from all 64 bits of `mask`
+                        // and convert them into one m8x64 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i8; 64];
 
                         let vecidx = i32x16::new(
