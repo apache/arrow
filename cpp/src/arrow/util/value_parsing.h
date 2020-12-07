@@ -486,26 +486,36 @@ static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
 
 static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type unit,
                                    uint32_t* out) {
-
   // The decimal point has been peeled off at this point
 
   // Fail if number of decimal places provided exceeds what the unit can hold.
   // Calculate how many trailing decimal places are omitted for the unit
   // e.g. if 4 decimal places are provided and unit is MICRO, 2 are missing
-  uint8_t omitted = 0;
-  switch (unit)
-  {
+  size_t omitted = 0;
+  switch (unit) {
     case TimeUnit::MILLI:
-      if (ARROW_PREDICT_FALSE(length > 3)) return false;
-      if (ARROW_PREDICT_FALSE(length < 3)) omitted = 3 - length;
+      if (ARROW_PREDICT_FALSE(length > 3)) {
+        return false;
+      }
+      if (length < 3) {
+        omitted = 3 - length;
+      }
       break;
     case TimeUnit::MICRO:
-      if (ARROW_PREDICT_FALSE(length > 6)) return false;
-      if (ARROW_PREDICT_FALSE(length < 6)) omitted = 6 - length;
+      if (ARROW_PREDICT_FALSE(length > 6)) {
+        return false;
+      }
+      if (length < 6) {
+        omitted = 6 - length;
+      }
       break;
     case TimeUnit::NANO:
-      if (ARROW_PREDICT_FALSE(length > 9)) return false;
-      if (ARROW_PREDICT_FALSE(length < 9)) omitted = 9 - length;
+      if (ARROW_PREDICT_FALSE(length > 9)) {
+        return false;
+      }
+      if (length < 9) {
+        omitted = 9 - length;
+      }
       break;
     default:
       return false;
@@ -517,24 +527,40 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
     uint32_t subseconds;
     bool success = ParseUnsigned(s, length, &subseconds);
     if (ARROW_PREDICT_TRUE(success)) {
-      switch (omitted)
-      {
-        case 1: *out = subseconds * 10; break;
-        case 2: *out = subseconds * 100; break;
-        case 3: *out = subseconds * 1000; break;
-        case 4: *out = subseconds * 10000; break;
-        case 5: *out = subseconds * 100000; break;
-        case 6: *out = subseconds * 1000000; break;
-        case 7: *out = subseconds * 10000000; break;
-        case 8: *out = subseconds * 100000000; break;
-        default: return false;
+      switch (omitted) {
+        case 1:
+          *out = subseconds * 10;
+          break;
+        case 2:
+          *out = subseconds * 100;
+          break;
+        case 3:
+          *out = subseconds * 1000;
+          break;
+        case 4:
+          *out = subseconds * 10000;
+          break;
+        case 5:
+          *out = subseconds * 100000;
+          break;
+        case 6:
+          *out = subseconds * 1000000;
+          break;
+        case 7:
+          *out = subseconds * 10000000;
+          break;
+        case 8:
+          *out = subseconds * 100000000;
+          break;
+        default:
+          // Impossible case
+          break;
       }
       return true;
     } else {
       return false;
     }
   }
-
 }
 
 }  // namespace detail
