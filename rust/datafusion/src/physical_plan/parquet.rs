@@ -30,7 +30,7 @@ use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
-use parquet::file::reader::SerializedFileReader;
+use parquet::file::reader::{SerializedFileReader, FileReader};
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
@@ -38,6 +38,7 @@ use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 use async_trait::async_trait;
 use futures::stream::Stream;
+use crate::datasource::datasource::Statistics;
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
@@ -98,6 +99,38 @@ impl ParquetExec {
             projection,
             batch_size,
         }
+    }
+
+    /// Get the statistics from parquet file format
+    pub fn statistics(&self) -> Option<Statistics> {
+        let mut num_rows = 0;
+        let mut total_byte_size = 0;
+        for i in 0..self.filenames.len() {
+            let file = File::open(&self.filenames[i]).ok()?;
+            let file_reader = Arc::new(SerializedFileReader::new(file).ok()?);
+            num_rows += file_reader.metadata().file_metadata().num_rows() as i64;
+            for g in file_reader.metadata().row_groups().iter() {
+                total_byte_size += g.total_byte_size() as i64;
+            }
+        }
+
+        if num_rows >= i64::MAX {
+            num_rows = i64::MAX;
+        }
+        if total_byte_size >= i64::MAX {
+            total_byte_size = i64::MAX;
+        }
+        if num_rows <= 0 {
+            num_rows = 0;
+        }
+        if total_byte_size <= 0 {
+            total_byte_size = 0;
+        }
+
+        Option::from(Statistics{
+            num_rows,
+            total_byte_size,
+        })
     }
 }
 

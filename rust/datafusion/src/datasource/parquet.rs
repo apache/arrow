@@ -41,10 +41,11 @@ impl ParquetTable {
     pub fn try_new(path: &str) -> Result<Self> {
         let parquet_exec = ParquetExec::try_new(path, None, 0)?;
         let schema = parquet_exec.schema();
+        let statistics = parquet_exec.statistics();
         Ok(Self {
             path: path.to_string(),
             schema,
-            statistics: None,
+            statistics,
         })
     }
 }
@@ -142,6 +143,16 @@ mod tests {
 
         assert_eq!(11, batch.num_columns());
         assert_eq!(8, batch.num_rows());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_statistics() -> Result<()> {
+        let table = load_table("alltypes_plain.parquet")?;
+        let statistics = table.statistics().unwrap();
+        assert_eq!(8, statistics.num_rows);
+        assert_eq!(671, statistics.total_byte_size);
 
         Ok(())
     }
