@@ -31,7 +31,6 @@ use arrow::datatypes::DataType;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
-use futures::{Stream, StreamExt, TryStreamExt};
 
 use arrow::array::{
     Int16Array, Int32Array, Int64Array, Int8Array, StringArray, UInt16Array, UInt32Array,
