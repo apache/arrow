@@ -24,6 +24,7 @@ use super::{ArrayData, ArrayDataRef};
 mod boolean;
 mod list;
 mod primitive;
+mod structure;
 mod utils;
 mod variable_size;
 
@@ -217,6 +218,7 @@ fn build_extend(array: &ArrayData) -> Extend {
             DataType::Int64 => primitive::build_extend::<i64>(array),
             _ => unreachable!(),
         },
+        DataType::Struct(_) => structure::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
         DataType::Null => {}
@@ -266,6 +268,7 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
             DataType::Int64 => primitive::extend_nulls::<i64>,
             _ => unreachable!(),
         },
+        DataType::Struct(_) => structure::extend_nulls,
         //DataType::Struct(_) => structure::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
@@ -360,6 +363,7 @@ impl<'a> MutableArrayData<'a> {
                 _ => unreachable!(),
             },
             DataType::Float16 => unreachable!(),
+            DataType::Struct(_) => vec![],
             _ => {
                 todo!("Take and filter operations still not supported for this datatype")
             }
@@ -400,6 +404,15 @@ impl<'a> MutableArrayData<'a> {
             // the dictionary type just appends keys and clones the values.
             DataType::Dictionary(_, _) => vec![],
             DataType::Float16 => unreachable!(),
+            DataType::Struct(fields) => (0..fields.len())
+                .map(|i| {
+                    let child_arrays = arrays
+                        .iter()
+                        .map(|array| array.child_data()[i].as_ref())
+                        .collect::<Vec<_>>();
+                    MutableArrayData::new(child_arrays, use_nulls, capacity)
+                })
+                .collect::<Vec<_>>(),
             _ => {
                 todo!("Take and filter operations still not supported for this datatype")
             }
@@ -466,12 +479,14 @@ impl<'a> MutableArrayData<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
+
     use super::*;
 
     use crate::array::{
-        Array, ArrayDataRef, BooleanArray, DictionaryArray, Int16Array, Int16Type,
-        Int64Builder, ListBuilder, PrimitiveBuilder, StringArray,
-        StringDictionaryBuilder, UInt8Array,
+        Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray, Int16Array,
+        Int16Type, Int32Array, Int64Builder, ListBuilder, PrimitiveBuilder, StringArray,
+        StringDictionaryBuilder, StructArray, UInt8Array,
     };
     use crate::{array::ListArray, error::Result};
 
@@ -712,5 +727,119 @@ mod tests {
 
         let expected = Int16Array::from(vec![Some(1), None]);
         assert_eq!(result.keys(), &expected);
+    }
+
+    #[test]
+    fn test_struct() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+        ]));
+
+        let array =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap()
+                .data();
+        let arrays = vec![array.as_ref()];
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected = StructArray::try_from(vec![
+            ("f1", strings.slice(1, 2)),
+            ("f2", ints.slice(1, 2)),
+        ])
+        .unwrap();
+        assert_eq!(array, expected)
+    }
+
+    #[test]
+    fn test_struct_nulls() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
+
+        let array =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap()
+                .data();
+        let arrays = vec![array.as_ref()];
+
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected_string = Arc::new(StringArray::from(vec![None, None])) as ArrayRef;
+        let expected_int = Arc::new(Int32Array::from(vec![Some(2), None])) as ArrayRef;
+
+        let expected =
+            StructArray::try_from(vec![("f1", expected_string), ("f2", expected_int)])
+                .unwrap();
+        assert_eq!(array, expected)
+    }
+
+    #[test]
+    fn test_struct_many() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
+
+        let array =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap()
+                .data();
+        let arrays = vec![array.as_ref(), array.as_ref()];
+        let mut mutable = MutableArrayData::new(arrays, false, 0);
+
+        mutable.extend(0, 1, 3);
+        mutable.extend(1, 0, 2);
+        let data = mutable.freeze();
+        let array = StructArray::from(Arc::new(data));
+
+        let expected_string =
+            Arc::new(StringArray::from(vec![None, None, Some("joe"), None])) as ArrayRef;
+        let expected_int =
+            Arc::new(Int32Array::from(vec![Some(2), None, Some(1), Some(2)])) as ArrayRef;
+
+        let expected =
+            StructArray::try_from(vec![("f1", expected_string), ("f2", expected_int)])
+                .unwrap();
+        assert_eq!(array, expected)
     }
 }
