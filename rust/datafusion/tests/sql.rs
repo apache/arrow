@@ -281,6 +281,17 @@ async fn csv_query_with_predicate() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_with_negative_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c1, c4 FROM aggregate_test_100 WHERE c3 < -55 AND -c4 > 30000";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["e", "-31500"], vec!["c", "-30187"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_with_negated_predicate() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;

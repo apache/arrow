@@ -29,7 +29,7 @@ use crate::scalar::ScalarValue;
 use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
-use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
+use arrow::compute::kernels::arithmetic::{add, divide, multiply, negate, subtract};
 use arrow::compute::kernels::boolean::{and, nullif, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
@@ -1009,8 +1009,9 @@ macro_rules! compute_op_scalar {
     }};
 }
 
-/// Invoke a compute kernel on a pair of arrays
+/// Invoke a compute kernel on array(s)
 macro_rules! compute_op {
+    // invoke binary operator
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
         let ll = $LEFT
             .as_any()
@@ -1021,6 +1022,14 @@ macro_rules! compute_op {
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
+    }};
+    // invoke unary operator
+    ($OPERAND:expr, $OP:ident, $DT:ident) => {{
+        let operand = $OPERAND
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        Ok(Arc::new($OP(&operand)?))
     }};
 }
 
@@ -1682,6 +1691,82 @@ pub fn not(
     }
 }
 
+/// Negative expression
+#[derive(Debug)]
+pub struct NegativeExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl NegativeExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for NegativeExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(- {})", self.arg)
+    }
+}
+
+impl PhysicalExpr for NegativeExpr {
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.arg.data_type(input_schema)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.arg.nullable(input_schema)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        let arg = self.arg.evaluate(batch)?;
+        match arg {
+            ColumnarValue::Array(array) => {
+                let result: Result<ArrayRef> = match array.data_type() {
+                    DataType::Int8 => compute_op!(array, negate, Int8Array),
+                    DataType::Int16 => compute_op!(array, negate, Int16Array),
+                    DataType::Int32 => compute_op!(array, negate, Int32Array),
+                    DataType::Int64 => compute_op!(array, negate, Int64Array),
+                    DataType::Float32 => compute_op!(array, negate, Float32Array),
+                    DataType::Float64 => compute_op!(array, negate, Float64Array),
+                    _ => Err(DataFusionError::Internal(format!(
+                        "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                        self,
+                        array.data_type(),
+                    ))),
+                };
+                result.map(|a| ColumnarValue::Array(a))
+            }
+            ColumnarValue::Scalar(scalar) => {
+                Ok(ColumnarValue::Scalar(scalar.arithmetic_negate()))
+            }
+        }
+    }
+}
+
+/// Creates a unary expression NEGATIVE
+///
+/// # Errors
+///
+/// This function errors when the argument's type is not signed numeric
+pub fn negative(
+    arg: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let data_type = arg.data_type(input_schema)?;
+    if !is_signed_numeric(&data_type) {
+        Err(DataFusionError::Internal(
+            format!(
+                "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                arg, data_type,
+            ),
+        ))
+    } else {
+        Ok(Arc::new(NegativeExpr::new(arg)))
+    }
+}
+
 /// IS NULL expression
 #[derive(Debug)]
 pub struct IsNullExpr {
@@ -2189,14 +2274,24 @@ pub struct CastExpr {
     cast_type: DataType,
 }
 
-/// Determine if a DataType is numeric or not
-pub fn is_numeric(dt: &DataType) -> bool {
+/// Determine if a DataType is signed numeric or not
+pub fn is_signed_numeric(dt: &DataType) -> bool {
     match dt {
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
-        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => true,
         DataType::Float16 | DataType::Float32 | DataType::Float64 => true,
         _ => false,
     }
+}
+
+/// Determine if a DataType is numeric or not
+pub fn is_numeric(dt: &DataType) -> bool {
+    is_signed_numeric(dt)
+        || match dt {
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                true
+            }
+            _ => false,
+        }
 }
 
 impl fmt::Display for CastExpr {

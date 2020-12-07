@@ -26,6 +26,7 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::mem::size_of;
+use std::ops::Neg;
 #[cfg(feature = "simd")]
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
@@ -809,6 +810,80 @@ make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
+
+/// A subtype of primitive type that represents signed numeric values.
+///
+/// SIMD operations are defined in this trait if available on the target system.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+pub trait ArrowSignedNumericType: ArrowNumericType
+where
+    Self::SignedSimd: Neg<Output = Self::SignedSimd>,
+{
+    /// Defines the SIMD type that should be used for this numeric type
+    type SignedSimd;
+
+    /// Loads a slice of signed numeric type into a SIMD register
+    fn load_signed(slice: &[Self::Native]) -> Self::SignedSimd;
+
+    /// Performs a SIMD unary operation on signed numeric type
+    fn signed_unary_op<F: Fn(Self::SignedSimd) -> Self::SignedSimd>(
+        a: Self::SignedSimd,
+        op: F,
+    ) -> Self::SignedSimd;
+
+    /// Writes a signed SIMD result back to a slice
+    fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]);
+}
+
+#[cfg(any(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(feature = "simd")
+))]
+pub trait ArrowSignedNumericType: ArrowNumericType
+where
+    Self::Native: Neg<Output = Self::Native>,
+{
+}
+
+macro_rules! make_signed_numeric_type {
+    ($impl_ty:ty, $simd_ty:ident) => {
+        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        impl ArrowSignedNumericType for $impl_ty {
+            type SignedSimd = $simd_ty;
+
+            #[inline]
+            fn load_signed(slice: &[Self::Native]) -> Self::SignedSimd {
+                unsafe { Self::SignedSimd::from_slice_unaligned_unchecked(slice) }
+            }
+
+            #[inline]
+            fn signed_unary_op<F: Fn(Self::SignedSimd) -> Self::SignedSimd>(
+                a: Self::SignedSimd,
+                op: F,
+            ) -> Self::SignedSimd {
+                op(a)
+            }
+
+            #[inline]
+            fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]) {
+                unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
+            }
+        }
+
+        #[cfg(any(
+            not(any(target_arch = "x86", target_arch = "x86_64")),
+            not(feature = "simd")
+        ))]
+        impl ArrowSignedNumericType for $impl_ty {}
+    };
+}
+
+make_signed_numeric_type!(Int8Type, i8x64);
+make_signed_numeric_type!(Int16Type, i16x32);
+make_signed_numeric_type!(Int32Type, i32x16);
+make_signed_numeric_type!(Int64Type, i64x8);
+make_signed_numeric_type!(Float32Type, f32x16);
+make_signed_numeric_type!(Float64Type, f64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}

@@ -76,6 +76,8 @@ pub enum Expr {
     IsNotNull(Box<Expr>),
     /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
+    /// arithmetic negation of an expression, the operand must be of a signed numeric data type
+    Negative(Box<Expr>),
     /// The CASE expression is similar to a series of nested if/else and there are two forms that
     /// can be used. The first form consists of a series of boolean "when" expressions with
     /// corresponding "then" expressions, and an optional "else" expression.
@@ -196,6 +198,7 @@ impl Expr {
                 Ok((fun.return_type)(&data_types)?.as_ref().clone())
             }
             Expr::Not(_) => Ok(DataType::Boolean),
+            Expr::Negative(expr) => expr.get_type(schema),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
             Expr::BinaryExpr {
@@ -250,6 +253,7 @@ impl Expr {
             Expr::AggregateFunction { .. } => Ok(true),
             Expr::AggregateUDF { .. } => Ok(true),
             Expr::Not(expr) => expr.nullable(input_schema),
+            Expr::Negative(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
             Expr::IsNotNull(_) => Ok(false),
             Expr::BinaryExpr {
@@ -729,6 +733,7 @@ impl fmt::Debug for Expr {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }
             Expr::Not(expr) => write!(f, "NOT {:?}", expr),
+            Expr::Negative(expr) => write!(f, "(- {:?})", expr),
             Expr::IsNull(expr) => write!(f, "{:?} IS NULL", expr),
             Expr::IsNotNull(expr) => write!(f, "{:?} IS NOT NULL", expr),
             Expr::BinaryExpr { left, op, right } => {
@@ -825,6 +830,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         Expr::Not(expr) => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("NOT {}", expr))
+        }
+        Expr::Negative(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("(- {})", expr))
         }
         Expr::IsNull(expr) => {
             let expr = create_name(expr, input_schema)?;

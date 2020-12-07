@@ -59,5 +59,6 @@ macro_rules! array_downcast_fn {
 }
 
 array_downcast_fn!(as_string_array, StringArray);
+array_downcast_fn!(as_largestring_array, LargeStringArray);
 array_downcast_fn!(as_boolean_array, BooleanArray);
 array_downcast_fn!(as_null_array, NullArray);

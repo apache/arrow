@@ -638,22 +638,29 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            SQLExpr::UnaryOp { ref op, ref expr } => match (op, expr.as_ref()) {
-                (UnaryOperator::Not, _) => {
+            SQLExpr::UnaryOp { ref op, ref expr } => match op {
+                UnaryOperator::Not => {
                     Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
                 }
-                (UnaryOperator::Minus, SQLExpr::Value(Value::Number(n))) =>
-                // Parse negative numbers properly
-                {
-                    match n.parse::<i64>() {
-                        Ok(n) => Ok(lit(-n)),
-                        Err(_) => Ok(lit(-n.parse::<f64>().unwrap())),
+                UnaryOperator::Plus => Ok(self.sql_to_rex(expr, schema)?),
+                UnaryOperator::Minus => {
+                    match expr.as_ref() {
+                        // optimization: if it's a number literal, we applly the negative operator
+                        // here directly to calculate the new literal.
+                        SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+                            Ok(n) => Ok(lit(-n)),
+                            Err(_) => Ok(lit(-n
+                                .parse::<f64>()
+                                .map_err(|_e| {
+                                    DataFusionError::Internal(format!(
+                                        "negative operator can be only applied to integer and float operands, got: {}",
+                                    n))
+                                })?)),
+                        },
+                        // not a literal, apply negative operator on expression
+                        _ => Ok(Expr::Negative(Box::new(self.sql_to_rex(expr, schema)?))),
                     }
                 }
-                _ => Err(DataFusionError::Internal(
-                    "SQL binary operator cannot be interpreted as a unary operator"
-                        .to_string(),
-                )),
             },
 
             SQLExpr::BinaryOp {
@@ -1134,6 +1141,24 @@ mod tests {
                    FROM aggregate_test_100 WHERE c3/nullif(c4+c5, 0) > 0.1";
         let expected = "Projection: #c3 Divide #c4 Plus #c5\
             \n  Filter: #c3 Divide nullif(#c4 Plus #c5, Int64(0)) Gt Float64(0.1)\
+            \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_where_with_negative_operator() {
+        let sql = "SELECT c3 FROM aggregate_test_100 WHERE c3 > -0.1 AND -c4 > 0";
+        let expected = "Projection: #c3\
+            \n  Filter: #c3 Gt Float64(-0.1) And (- #c4) Gt Int64(0)\
+            \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_where_with_positive_operator() {
+        let sql = "SELECT c3 FROM aggregate_test_100 WHERE c3 > +0.1 AND +c4 > 0";
+        let expected = "Projection: #c3\
+            \n  Filter: #c3 Gt Float64(0.1) And #c4 Gt Int64(0)\
             \n    TableScan: aggregate_test_100 projection=None";
         quick_test(sql, expected);
     }
