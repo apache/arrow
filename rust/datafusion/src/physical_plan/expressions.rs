@@ -29,8 +29,8 @@ use crate::scalar::ScalarValue;
 use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
-use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
-use arrow::compute::kernels::boolean::{and, or};
+use arrow::compute::kernels::arithmetic::{add, divide, multiply, negate, subtract};
+use arrow::compute::kernels::boolean::{and, nullif, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
@@ -1009,8 +1009,9 @@ macro_rules! compute_op_scalar {
     }};
 }
 
-/// Invoke a compute kernel on a pair of arrays
+/// Invoke a compute kernel on array(s)
 macro_rules! compute_op {
+    // invoke binary operator
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
         let ll = $LEFT
             .as_any()
@@ -1021,6 +1022,14 @@ macro_rules! compute_op {
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
+    }};
+    // invoke unary operator
+    ($OPERAND:expr, $OP:ident, $DT:ident) => {{
+        let operand = $OPERAND
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        Ok(Arc::new($OP(&operand)?))
     }};
 }
 
@@ -1334,8 +1343,7 @@ fn common_binary_type(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
-            )
-            .to_string(),
+            ),
         )),
         Some(t) => Ok(t)
     }
@@ -1535,6 +1543,80 @@ pub fn binary(
     Ok(Arc::new(BinaryExpr::new(l, op, r)))
 }
 
+/// Invoke a compute kernel on a primitive array and a Boolean Array
+macro_rules! compute_bool_array_op {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
+        let ll = $LEFT
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        let rr = $RIGHT
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("compute_op failed to downcast array");
+        Ok(Arc::new($OP(&ll, &rr)?))
+    }};
+}
+
+/// Binary op between primitive and boolean arrays
+macro_rules! primitive_bool_array_op {
+    ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
+        match $LEFT.data_type() {
+            DataType::Int8 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Int8Array),
+            DataType::Int16 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Int16Array),
+            DataType::Int32 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Int32Array),
+            DataType::Int64 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Int64Array),
+            DataType::UInt8 => compute_bool_array_op!($LEFT, $RIGHT, $OP, UInt8Array),
+            DataType::UInt16 => compute_bool_array_op!($LEFT, $RIGHT, $OP, UInt16Array),
+            DataType::UInt32 => compute_bool_array_op!($LEFT, $RIGHT, $OP, UInt32Array),
+            DataType::UInt64 => compute_bool_array_op!($LEFT, $RIGHT, $OP, UInt64Array),
+            DataType::Float32 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Float32Array),
+            DataType::Float64 => compute_bool_array_op!($LEFT, $RIGHT, $OP, Float64Array),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for NULLIF/primitive/boolean operator",
+                other
+            ))),
+        }
+    }};
+}
+
+///
+/// Implements NULLIF(expr1, expr2)
+/// Args: 0 - left expr is any array
+///       1 - if the left is equal to this expr2, then the result is NULL, otherwise left value is passed.
+///
+pub fn nullif_func(args: &[ArrayRef]) -> Result<ArrayRef> {
+    if args.len() != 2 {
+        return Err(DataFusionError::Internal(format!(
+            "{:?} args were supplied but NULLIF takes exactly two args",
+            args.len(),
+        )));
+    }
+
+    // Get args0 == args1 evaluated and produce a boolean array
+    let cond_array = binary_array_op!(args[0], args[1], eq)?;
+
+    // Now, invoke nullif on the result
+    primitive_bool_array_op!(args[0], *cond_array, nullif)
+}
+
+/// Currently supported types by the nullif function.
+/// The order of these types correspond to the order on which coercion applies
+/// This should thus be from least informative to most informative
+pub static SUPPORTED_NULLIF_TYPES: &'static [DataType] = &[
+    DataType::Boolean,
+    DataType::UInt8,
+    DataType::UInt16,
+    DataType::UInt32,
+    DataType::UInt64,
+    DataType::Int8,
+    DataType::Int16,
+    DataType::Int32,
+    DataType::Int64,
+    DataType::Float32,
+    DataType::Float64,
+];
+
 /// Not expression
 #[derive(Debug)]
 pub struct NotExpr {
@@ -1602,11 +1684,86 @@ pub fn not(
             format!(
                 "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
                 arg, data_type,
-            )
-            .to_string(),
+            ),
         ))
     } else {
         Ok(Arc::new(NotExpr::new(arg)))
+    }
+}
+
+/// Negative expression
+#[derive(Debug)]
+pub struct NegativeExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl NegativeExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for NegativeExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(- {})", self.arg)
+    }
+}
+
+impl PhysicalExpr for NegativeExpr {
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.arg.data_type(input_schema)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.arg.nullable(input_schema)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        let arg = self.arg.evaluate(batch)?;
+        match arg {
+            ColumnarValue::Array(array) => {
+                let result: Result<ArrayRef> = match array.data_type() {
+                    DataType::Int8 => compute_op!(array, negate, Int8Array),
+                    DataType::Int16 => compute_op!(array, negate, Int16Array),
+                    DataType::Int32 => compute_op!(array, negate, Int32Array),
+                    DataType::Int64 => compute_op!(array, negate, Int64Array),
+                    DataType::Float32 => compute_op!(array, negate, Float32Array),
+                    DataType::Float64 => compute_op!(array, negate, Float64Array),
+                    _ => Err(DataFusionError::Internal(format!(
+                        "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                        self,
+                        array.data_type(),
+                    ))),
+                };
+                result.map(|a| ColumnarValue::Array(a))
+            }
+            ColumnarValue::Scalar(scalar) => {
+                Ok(ColumnarValue::Scalar(scalar.arithmetic_negate()))
+            }
+        }
+    }
+}
+
+/// Creates a unary expression NEGATIVE
+///
+/// # Errors
+///
+/// This function errors when the argument's type is not signed numeric
+pub fn negative(
+    arg: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let data_type = arg.data_type(input_schema)?;
+    if !is_signed_numeric(&data_type) {
+        Err(DataFusionError::Internal(
+            format!(
+                "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                arg, data_type,
+            ),
+        ))
+    } else {
+        Ok(Arc::new(NegativeExpr::new(arg)))
     }
 }
 
@@ -1790,7 +1947,11 @@ macro_rules! if_then_else {
         let mut builder = <$BUILDER_TYPE>::new($BOOLS.len());
         for i in 0..$BOOLS.len() {
             if $BOOLS.is_null(i) {
-                builder.append_null()?;
+                if false_values.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(false_values.value(i))?;
+                }
             } else if $BOOLS.value(i) {
                 if true_values.is_null(i) {
                     builder.append_null()?;
@@ -2113,14 +2274,24 @@ pub struct CastExpr {
     cast_type: DataType,
 }
 
-/// Determine if a DataType is numeric or not
-pub fn is_numeric(dt: &DataType) -> bool {
+/// Determine if a DataType is signed numeric or not
+pub fn is_signed_numeric(dt: &DataType) -> bool {
     match dt {
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
-        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => true,
         DataType::Float16 | DataType::Float32 | DataType::Float64 => true,
         _ => false,
     }
+}
+
+/// Determine if a DataType is numeric or not
+pub fn is_numeric(dt: &DataType) -> bool {
+    is_signed_numeric(dt)
+        || match dt {
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                true
+            }
+            _ => false,
+        }
 }
 
 impl fmt::Display for CastExpr {
@@ -2275,10 +2446,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![Arc::new(a), Arc::new(b)],
-        )?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b"
         let lt = binary_simple(col("a"), Operator::Lt, col("b"));
@@ -2305,10 +2474,8 @@ mod tests {
         ]);
         let a = Int32Array::from(vec![2, 4, 6, 8, 10]);
         let b = Int32Array::from(vec![2, 5, 4, 8, 8]);
-        let batch = RecordBatch::try_new(
-            Arc::new(schema.clone()),
-            vec![Arc::new(a), Arc::new(b)],
-        )?;
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])?;
 
         // expression: "a < b OR a == b"
         let expr = binary_simple(
@@ -2338,7 +2505,7 @@ mod tests {
         // create an arbitrary record bacth
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // create and evaluate a literal expression
         let literal_expr = lit(ScalarValue::from(42i32));
@@ -2516,8 +2683,8 @@ mod tests {
             StringArray::from(vec![Some("not one"), Some("two"), None, Some("four")]);
 
         let schema = Arc::new(Schema::new(vec![
-            Field::new("dict", dict_type.clone(), true),
-            Field::new("str", string_type.clone(), true),
+            Field::new("dict", dict_type, true),
+            Field::new("str", string_type, true),
         ]));
 
         let batch = RecordBatch::try_new(
@@ -2650,7 +2817,7 @@ mod tests {
         );
         Ok(())
     }
-
+    #[allow(clippy::redundant_clone)]
     #[test]
     fn test_cast_i64_t64() -> Result<()> {
         let original = vec![1, 2, 3, 4, 5];
@@ -3152,6 +3319,70 @@ mod tests {
         )
     }
 
+    #[test]
+    fn nullif_int32() -> Result<()> {
+        let a = Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(4),
+            Some(5),
+        ]);
+        let a = Arc::new(a);
+        let a_len = a.len();
+
+        let lit_array = Arc::new(Int32Array::from(vec![2; a.len()]));
+
+        let result = nullif_func(&[a, lit_array])?;
+
+        assert_eq!(result.len(), a_len);
+
+        let expected = Int32Array::from(vec![
+            Some(1),
+            None,
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(4),
+            Some(5),
+        ]);
+        assert_array_eq::<Int32Type>(expected, result);
+        Ok(())
+    }
+
+    #[test]
+    // Ensure that arrays with no nulls can also invoke NULLIF() correctly
+    fn nullif_int32_nonulls() -> Result<()> {
+        let a = Int32Array::from(vec![1, 3, 10, 7, 8, 1, 2, 4, 5]);
+        let a = Arc::new(a);
+        let a_len = a.len();
+
+        let lit_array = Arc::new(Int32Array::from(vec![1; a.len()]));
+
+        let result = nullif_func(&[a, lit_array])?;
+        assert_eq!(result.len(), a_len);
+
+        let expected = Int32Array::from(vec![
+            None,
+            Some(3),
+            Some(10),
+            Some(7),
+            Some(8),
+            None,
+            Some(2),
+            Some(4),
+            Some(5),
+        ]);
+        assert_array_eq::<Int32Type>(expected, result);
+        Ok(())
+    }
+
     fn aggregate(
         batch: &RecordBatch,
         agg: Arc<dyn AggregateExpr>,
@@ -3204,8 +3435,8 @@ mod tests {
 
         // should handle have negative values in result (for signed)
         apply_arithmetic::<Int32Type>(
-            schema.clone(),
-            vec![b.clone(), a.clone()],
+            schema,
+            vec![b, a],
             Operator::Minus,
             Int32Array::from(vec![0, 0, -1, -4, -11]),
         )?;
@@ -3276,7 +3507,11 @@ mod tests {
             .expect("Actual array should unwrap to type of expected array");
 
         for i in 0..expected.len() {
-            assert_eq!(expected.value(i), actual.value(i));
+            if expected.is_null(i) {
+                assert!(actual.is_null(i));
+            } else {
+                assert_eq!(expected.value(i), actual.value(i));
+            }
         }
     }
 
@@ -3319,7 +3554,7 @@ mod tests {
     fn is_null_op() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
@@ -3340,7 +3575,7 @@ mod tests {
     fn is_not_null_op() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), None]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
 
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
@@ -3403,7 +3638,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3472,7 +3708,8 @@ mod tests {
             .downcast_ref::<Int32Array>()
             .expect("failed to downcast to Int32Array");
 
-        let expected = &Int32Array::from(vec![Some(123), Some(999), None, Some(456)]);
+        let expected =
+            &Int32Array::from(vec![Some(123), Some(999), Some(999), Some(456)]);
 
         assert_eq!(expected, result);
 
@@ -3482,7 +3719,7 @@ mod tests {
     fn case_test_batch() -> Result<RecordBatch> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
         let a = StringArray::from(vec![Some("foo"), Some("baz"), None, Some("bar")]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)])?;
         Ok(batch)
     }
 }

@@ -349,8 +349,7 @@ TEST(TestCodecMisc, GetCompressionType) {
 TEST_P(CodecTest, CodecRoundtrip) {
   const auto compression = GetCompression();
   if (compression == Compression::BZ2) {
-    // SKIP: BZ2 doesn't support one-shot compression
-    return;
+    GTEST_SKIP() << "BZ2 does not support one-shot compression";
   }
 
   int sizes[] = {0, 10000, 100000};
@@ -429,17 +428,14 @@ TEST_P(CodecTest, OutputBufferIsSmall) {
 
 TEST_P(CodecTest, StreamingCompressor) {
   if (GetCompression() == Compression::SNAPPY) {
-    // SKIP: snappy doesn't support streaming compression
-    return;
+    GTEST_SKIP() << "snappy doesn't support streaming compression";
   }
   if (GetCompression() == Compression::BZ2) {
-    // SKIP: BZ2 doesn't support one-shot decompression
-    return;
+    GTEST_SKIP() << "Z2 doesn't support one-shot decompression";
   }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
-    // SKIP: LZ4 raw format doesn't support streaming compression.
-    return;
+    GTEST_SKIP() << "LZ4 raw format doesn't support streaming compression.";
   }
 
   int sizes[] = {0, 10, 100000};
@@ -456,17 +452,14 @@ TEST_P(CodecTest, StreamingCompressor) {
 
 TEST_P(CodecTest, StreamingDecompressor) {
   if (GetCompression() == Compression::SNAPPY) {
-    // SKIP: snappy doesn't support streaming decompression
-    return;
+    GTEST_SKIP() << "snappy doesn't support streaming decompression.";
   }
   if (GetCompression() == Compression::BZ2) {
-    // SKIP: BZ2 doesn't support one-shot compression
-    return;
+    GTEST_SKIP() << "Z2 doesn't support one-shot compression";
   }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
-    // SKIP: LZ4 raw format doesn't support streaming decompression.
-    return;
+    GTEST_SKIP() << "LZ4 raw format doesn't support streaming decompression.";
   }
 
   int sizes[] = {0, 10, 100000};
@@ -483,13 +476,11 @@ TEST_P(CodecTest, StreamingDecompressor) {
 
 TEST_P(CodecTest, StreamingRoundtrip) {
   if (GetCompression() == Compression::SNAPPY) {
-    // SKIP: snappy doesn't support streaming decompression
-    return;
+    GTEST_SKIP() << "snappy doesn't support streaming decompression";
   }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
-    // SKIP: LZ4 raw format doesn't support streaming compression.
-    return;
+    GTEST_SKIP() << "LZ4 raw format doesn't support streaming compression.";
   }
 
   int sizes[] = {0, 10, 100000};
@@ -506,13 +497,11 @@ TEST_P(CodecTest, StreamingRoundtrip) {
 
 TEST_P(CodecTest, StreamingDecompressorReuse) {
   if (GetCompression() == Compression::SNAPPY) {
-    // SKIP: snappy doesn't support streaming decompression
-    return;
+    GTEST_SKIP() << "snappy doesn't support streaming decompression";
   }
   if (GetCompression() == Compression::LZ4 ||
       GetCompression() == Compression::LZ4_HADOOP) {
-    // SKIP: LZ4 raw format doesn't support streaming decompression.
-    return;
+    GTEST_SKIP() << "LZ4 raw format doesn't support streaming decompression.";
   }
 
   auto codec = MakeCodec();

@@ -206,9 +206,8 @@ def test_decimal256():
     v = decimal.Decimal("1.1234")
     with pytest.raises(pa.ArrowInvalid):
         pa.scalar(v, type=pa.decimal256(4, scale=3))
-    # TODO: Add the following after implementing Decimal256 scaling.
-    # with pytest.raises(pa.ArrowInvalid):
-    #     pa.scalar(v, type=pa.decimal256(5, scale=3))
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(v, type=pa.decimal256(5, scale=3))
 
     s = pa.scalar(v, type=pa.decimal256(5, scale=4))
     assert isinstance(s, pa.Decimal256Scalar)

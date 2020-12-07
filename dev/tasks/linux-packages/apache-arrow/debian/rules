@@ -21,11 +21,6 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if dpkg -l | grep -q clang-; then			\
-	  ARROW_GANDIVA=ON;					\
-	else							\
-	  ARROW_GANDIVA=OFF;					\
-	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
 	  --builddirectory=cpp_build				\
@@ -33,7 +28,7 @@ override_dh_auto_configure:
 	  --							\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_FLIGHT=ON					\
-	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
+	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PARQUET=ON					\
@@ -48,6 +43,7 @@ override_dh_auto_configure:
 	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCMAKE_UNITY_BUILD=ON				\
+	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
 

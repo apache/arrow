@@ -95,6 +95,7 @@ mod cast;
 mod data;
 mod equal;
 mod equal_json;
+mod ffi;
 mod iterator;
 mod null;
 mod ord;
@@ -269,6 +270,10 @@ pub use self::ord::{build_compare, DynComparator};
 // --------------------- Array downcast helper functions ---------------------
 
 pub use self::cast::{
-    as_boolean_array, as_dictionary_array, as_null_array, as_primitive_array,
-    as_string_array,
+    as_boolean_array, as_dictionary_array, as_largestring_array, as_null_array,
+    as_primitive_array, as_string_array,
 };
+
+// ------------------------------ C Data Interface ---------------------------
+
+pub use self::array::make_array_from_raw;

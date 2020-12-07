@@ -360,7 +360,8 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
   // lower scale
   DecimalTestFromPythonDecimalRescale<Decimal128>(::arrow::decimal128(10, 2),
                                                   this->CreatePythonDecimal("1.001"), {});
-  // TODO: Test Decimal256 after implementing scaling.
+  DecimalTestFromPythonDecimalRescale<Decimal256>(::arrow::decimal256(10, 2),
+                                                  this->CreatePythonDecimal("1.001"), {});
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
@@ -368,13 +369,15 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
   // difference between the scales, e.g., 1.000 -> 1.00
   DecimalTestFromPythonDecimalRescale<Decimal128>(
       ::arrow::decimal128(10, 2), this->CreatePythonDecimal("1.000"), 100);
-  // TODO: Test Decimal256 after implementing scaling.
+  DecimalTestFromPythonDecimalRescale<Decimal256>(
+      ::arrow::decimal256(10, 2), this->CreatePythonDecimal("1.000"), 100);
 }
 
 TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
   DecimalTestFromPythonDecimalRescale<Decimal128>(
       ::arrow::decimal128(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
-  // TODO: Test Decimal256 after implementing scaling.
+  DecimalTestFromPythonDecimalRescale<Decimal256>(
+      ::arrow::decimal256(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
 }
 
 TEST_F(DecimalTest, Decimal128FromPythonInteger) {
@@ -386,7 +389,14 @@ TEST_F(DecimalTest, Decimal128FromPythonInteger) {
   ASSERT_EQ(4200, value);
 }
 
-// TODO: Test Decimal256 from python after implementing scaling.
+TEST_F(DecimalTest, Decimal256FromPythonInteger) {
+  Decimal256 value;
+  OwnedRef python_long(PyLong_FromLong(42));
+  auto type = ::arrow::decimal256(10, 2);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
+  ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
+  ASSERT_EQ(4200, value);
+}
 
 TEST_F(DecimalTest, TestDecimal128OverflowFails) {
   Decimal128 value;
@@ -403,7 +413,20 @@ TEST_F(DecimalTest, TestDecimal128OverflowFails) {
                                                             decimal_type, &value));
 }
 
-// TODO: Test Decimal256 overflow after implementing scaling.
+TEST_F(DecimalTest, TestDecimal256OverflowFails) {
+  Decimal256 value;
+  OwnedRef python_decimal(this->CreatePythonDecimal(
+      "999999999999999999999999999999999999999999999999999999999999999999999999999.9"));
+  internal::DecimalMetadata metadata;
+  ASSERT_OK(metadata.Update(python_decimal.obj()));
+  ASSERT_EQ(76, metadata.precision());
+  ASSERT_EQ(1, metadata.scale());
+
+  auto type = ::arrow::decimal(76, 76);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
+  ASSERT_RAISES(Invalid, internal::DecimalFromPythonDecimal(python_decimal.obj(),
+                                                            decimal_type, &value));
+}
 
 TEST_F(DecimalTest, TestNoneAndNaN) {
   OwnedRef list_ref(PyList_New(4));

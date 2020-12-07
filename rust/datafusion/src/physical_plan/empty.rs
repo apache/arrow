@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn with_new_children() -> Result<()> {
         let schema = test::aggr_test_schema();
-        let empty = EmptyExec::new(false, schema.clone());
+        let empty = EmptyExec::new(false, schema);
 
         let empty2 = empty.with_new_children(vec![])?;
         assert_eq!(empty.schema(), empty2.schema());
@@ -155,7 +155,7 @@ mod tests {
     #[tokio::test]
     async fn invalid_execute() -> Result<()> {
         let schema = test::aggr_test_schema();
-        let empty = EmptyExec::new(false, schema.clone());
+        let empty = EmptyExec::new(false, schema);
 
         // ask for the wrong partition
         assert!(empty.execute(1).await.is_err());

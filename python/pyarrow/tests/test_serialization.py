@@ -21,6 +21,7 @@ import pytest
 import collections
 import datetime
 import os
+import pathlib
 import pickle
 import subprocess
 import string
@@ -1142,10 +1143,8 @@ def test_set_pickle():
     assert deserialized == b'custom serialization 2'
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="need Python 3.6")
 def test_path_objects(tmpdir):
     # Test compatibility with PEP 519 path-like objects
-    import pathlib
     p = pathlib.Path(tmpdir) / 'zzz.bin'
     obj = 1234
     pa.serialize_to(obj, p)

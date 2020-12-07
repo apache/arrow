@@ -60,6 +60,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
             Ok(())
         }
         Expr::Not(e) => expr_to_column_names(e, accum),
+        Expr::Negative(e) => expr_to_column_names(e, accum),
         Expr::IsNull(e) => expr_to_column_names(e, accum),
         Expr::IsNotNull(e) => expr_to_column_names(e, accum),
         Expr::BinaryExpr { left, right, .. } => {
@@ -94,7 +95,6 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Wildcard => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(e) => expr_to_column_names(e, accum),
     }
 }
 
@@ -278,15 +278,16 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         Expr::Literal(_) => Ok(vec![]),
         Expr::ScalarVariable(_) => Ok(vec![]),
         Expr::Not(expr) => Ok(vec![expr.as_ref().to_owned()]),
+        Expr::Negative(expr) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Sort { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(expr) => Ok(vec![expr.as_ref().to_owned()]),
     }
 }
 
-/// returns a new expression where the expressions in expr are replaced by the ones in `expr`.
+/// returns a new expression where the expressions in `expr` are replaced by the ones in
+/// `expressions`.
 /// This is used in conjunction with ``expr_expressions`` to re-write expressions.
 pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> {
     match expr {
@@ -358,6 +359,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             Ok(Expr::Alias(Box::new(expressions[0].clone()), alias.clone()))
         }
         Expr::Not(_) => Ok(Expr::Not(Box::new(expressions[0].clone()))),
+        Expr::Negative(_) => Ok(Expr::Negative(Box::new(expressions[0].clone()))),
         Expr::Column(_) => Ok(expr.clone()),
         Expr::Literal(_) => Ok(expr.clone()),
         Expr::ScalarVariable(_) => Ok(expr.clone()),
@@ -371,7 +373,6 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
-        Expr::Nested(_) => Ok(Expr::Nested(Box::new(expressions[0].clone()))),
     }
 }
 

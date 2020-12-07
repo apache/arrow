@@ -589,12 +589,12 @@ mod tests {
         assert_eq!(0, arr.offset());
         assert_eq!(0, arr.null_count());
         let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
-        for i in 0..3 {
+        for (i, formatted) in formatted.iter().enumerate().take(3) {
             // check that we can't create dates or datetimes from time instances
             assert_eq!(None, arr.value_as_datetime(i));
             assert_eq!(None, arr.value_as_date(i));
             let time = arr.value_as_time(i).unwrap();
-            assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
+            assert_eq!(*formatted, time.format("%H:%M:%S%.3f").to_string());
         }
     }
 
@@ -613,12 +613,12 @@ mod tests {
         assert_eq!(0, arr.offset());
         assert_eq!(0, arr.null_count());
         let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
-        for i in 0..3 {
+        for (i, item) in formatted.iter().enumerate().take(3) {
             // check that we can't create dates or datetimes from time instances
             assert_eq!(None, arr.value_as_datetime(i));
             assert_eq!(None, arr.value_as_date(i));
             let time = arr.value_as_time(i).unwrap();
-            assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
+            assert_eq!(*item, time.format("%H:%M:%S%.3f").to_string());
         }
     }
 

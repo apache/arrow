@@ -167,9 +167,9 @@ impl ExecutionContext {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
-            return Err(DataFusionError::NotImplemented(format!(
-                "The context currently only supports a single SQL statement",
-            )));
+            return Err(DataFusionError::NotImplemented(
+                "The context currently only supports a single SQL statement".to_string(),
+            ));
         }
 
         // create a query planner
@@ -210,11 +210,11 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::CsvScan {
             path: filename.to_string(),
-            schema: csv.schema().clone(),
+            schema: csv.schema(),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: csv.schema().clone(),
+            projected_schema: csv.schema(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -229,9 +229,9 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::ParquetScan {
             path: filename.to_string(),
-            schema: parquet.schema().clone(),
+            schema: parquet.schema(),
             projection: None,
-            projected_schema: parquet.schema().clone(),
+            projected_schema: parquet.schema(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -245,7 +245,7 @@ impl ExecutionContext {
         &mut self,
         provider: Arc<dyn TableProvider + Send + Sync>,
     ) -> Result<Arc<dyn DataFrame>> {
-        let schema = provider.schema().clone();
+        let schema = provider.schema();
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
@@ -297,7 +297,7 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.datasources.get(table_name) {
             Some(provider) => {
-                let schema = provider.schema().clone();
+                let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
@@ -530,7 +530,7 @@ pub struct ExecutionContextState {
 
 impl SchemaProvider for ExecutionContextState {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources.get(name).map(|ds| ds.schema().clone())
+        self.datasources.get(name).map(|ds| ds.schema())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -553,25 +553,24 @@ impl FunctionRegistry for ExecutionContextState {
 
     fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(
-                format!("There is no UDF named \"{}\" in the registry", name).to_string(),
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
+                "There is no UDF named \"{}\" in the registry",
+                name
             ))
-        } else {
-            Ok(result.unwrap())
-        }
+        })
     }
 
     fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
         let result = self.aggregate_functions.get(name);
-        if result.is_none() {
-            Err(DataFusionError::Plan(
-                format!("There is no UDAF named \"{}\" in the registry", name)
-                    .to_string(),
+
+        result.map(|x| x.as_ref()).ok_or_else(|| {
+            DataFusionError::Plan(format!(
+                "There is no UDAF named \"{}\" in the registry",
+                name
             ))
-        } else {
-            Ok(result.unwrap())
-        }
+        })
     }
 }
 

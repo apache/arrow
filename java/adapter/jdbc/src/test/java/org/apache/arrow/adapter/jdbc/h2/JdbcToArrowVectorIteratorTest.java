@@ -17,10 +17,19 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
-import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getBinaryValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getBooleanValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArray;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDecimalValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDoubleValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -45,6 +54,8 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
@@ -90,6 +101,39 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
         JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     validate(iterator);
+  }
+
+  @Test
+  public void testTimeStampConsumer() throws SQLException, IOException {
+    final String sql = "select timestamp_field11 from table1";
+
+    // first experiment, with calendar and time zone.
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(3).build();
+    assertNotNull(config.getCalendar());
+
+    try (ArrowVectorIterator iterator =
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(sql), config)) {
+      VectorSchemaRoot root = iterator.next();
+      assertEquals(1, root.getFieldVectors().size());
+
+      // vector with time zone info.
+      assertTrue(root.getVector(0) instanceof TimeStampMilliTZVector);
+    }
+
+    // second experiment, without calendar and time zone.
+    config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        null).setTargetBatchSize(3).build();
+    assertNull(config.getCalendar());
+
+    try (ArrowVectorIterator iterator =
+             JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(sql), config)) {
+      VectorSchemaRoot root = iterator.next();
+      assertEquals(1, root.getFieldVectors().size());
+
+      // vector without time zone info.
+      assertTrue(root.getVector(0) instanceof TimeStampMilliVector);
+    }
   }
 
   private void validate(ArrowVectorIterator iterator) throws SQLException, IOException {

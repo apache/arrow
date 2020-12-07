@@ -64,11 +64,38 @@ def __getattr__(name):
     )
 
 
+def _filesystem_from_str(uri):
+    # instantiate the file system from an uri, if the uri has a path
+    # component then it will be treated as a path prefix
+    filesystem, prefix = FileSystem.from_uri(uri)
+    prefix = filesystem.normalize_path(prefix)
+    if prefix:
+        # validate that the prefix is pointing to a directory
+        prefix_info = filesystem.get_file_info([prefix])[0]
+        if prefix_info.type != FileType.Directory:
+            raise ValueError(
+                "The path component of the filesystem URI must point to a "
+                "directory but it has a type: `{}`. The path component "
+                "is `{}` and the given filesystem URI is `{}`".format(
+                    prefix_info.type.name, prefix_info.path, uri
+                )
+            )
+        filesystem = SubTreeFileSystem(prefix, filesystem)
+    return filesystem
+
+
 def _ensure_filesystem(
     filesystem, use_mmap=False, allow_legacy_filesystem=False
 ):
     if isinstance(filesystem, FileSystem):
         return filesystem
+    elif isinstance(filesystem, str):
+        if use_mmap:
+            raise ValueError(
+                "Specifying to use memory mapping not supported for "
+                "filesytem specified as an URI string"
+            )
+        return _filesystem_from_str(filesystem)
 
     # handle fsspec-compatible filesystems
     try:
@@ -91,7 +118,11 @@ def _ensure_filesystem(
     if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
         return filesystem
 
-    raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
+    raise TypeError(
+        "Unrecognized filesystem: {}. `filesystem` argument must be a "
+        "FileSystem instance or a valid file system URI'".format(
+            type(filesystem))
+    )
 
 
 def _resolve_filesystem_and_path(

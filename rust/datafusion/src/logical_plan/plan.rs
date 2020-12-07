@@ -46,6 +46,10 @@ pub enum TableSource {
 pub enum JoinType {
     /// Inner join
     Inner,
+    /// Left join
+    Left,
+    /// Right join
+    Right,
 }
 
 /// A LogicalPlan represents the different types of relational

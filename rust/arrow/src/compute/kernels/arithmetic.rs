@@ -24,7 +24,7 @@
 
 #[cfg(feature = "simd")]
 use std::mem;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 #[cfg(feature = "simd")]
 use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
@@ -43,6 +43,72 @@ use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, util::bit_util};
+
+/// Helper function to perform math lambda function on values from single array of signed numeric
+/// type. If value is null then the output value is also null, so `-null` is `null`.
+pub fn signed_unary_math_op<T, F>(
+    array: &PrimitiveArray<T>,
+    op: F,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowSignedNumericType,
+    T::Native: Neg<Output = T::Native>,
+    F: Fn(T::Native) -> T::Native,
+{
+    let values = (0..array.len())
+        .map(|i| op(array.value(i)))
+        .collect::<Vec<T::Native>>();
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![Buffer::from(values.to_byte_slice())],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
+/// SIMD vectorized version of `signed_unary_math_op` above.
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+fn simd_signed_unary_math_op<T, F>(
+    array: &PrimitiveArray<T>,
+    op: F,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowSignedNumericType,
+    F: Fn(T::SignedSimd) -> T::SignedSimd,
+{
+    let lanes = T::lanes();
+    let buffer_size = array.len() * mem::size_of::<T::Native>();
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    for i in (0..array.len()).step_by(lanes) {
+        let simd_result =
+            T::signed_unary_op(T::load_signed(array.value_slice(i, lanes)), &op);
+
+        let result_slice: &mut [T::Native] = unsafe {
+            from_raw_parts_mut(
+                (result.data_mut().as_mut_ptr() as *mut T::Native).add(i),
+                lanes,
+            )
+        };
+        T::write_signed(simd_result, result_slice);
+    }
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![result.freeze()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
@@ -159,10 +225,6 @@ fn simd_math_op<T, F>(
 ) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
-    T::Simd: Add<Output = T::Simd>
-        + Sub<Output = T::Simd>
-        + Mul<Output = T::Simd>
-        + Div<Output = T::Simd>,
     F: Fn(T::Simd, T::Simd) -> T::Simd,
 {
     if left.len() != right.len() {
@@ -302,6 +364,22 @@ where
 
     #[allow(unreachable_code)]
     math_op(left, right, |a, b| a - b)
+}
+
+/// Perform `-` operation on an array. If value is null then the result is also null.
+pub fn negate<T>(array: &PrimitiveArray<T>) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowSignedNumericType,
+    T::Native: Neg<Output = T::Native>,
+{
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_signed_unary_math_op(array, |x| -x);
+
+    #[cfg(any(
+        not(any(target_arch = "x86", target_arch = "x86_64")),
+        not(feature = "simd")
+    ))]
+    return signed_unary_math_op(array, |x| -x);
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null

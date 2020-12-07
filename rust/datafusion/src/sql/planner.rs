@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
+    and, lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
 };
 use crate::scalar::ScalarValue;
 use crate::{
@@ -38,12 +38,16 @@ use crate::{
 use arrow::datatypes::*;
 
 use super::parser::ExplainPlan;
+use crate::prelude::JoinType;
 use sqlparser::ast::{
-    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Query, Select, SelectItem,
-    SetExpr, TableFactor, TableWithJoins, UnaryOperator, Value,
+    BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Join, JoinConstraint,
+    JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins,
+    UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
+use sqlparser::parser::ParserError::ParserError;
+use std::collections::HashSet;
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
@@ -90,9 +94,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     pub fn query_to_plan(&self, query: &Query) -> Result<LogicalPlan> {
         let plan = match &query.body {
             SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
-            _ => Err(DataFusionError::NotImplemented(
-                format!("Query {} not implemented yet", query.body).to_owned(),
-            )),
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "Query {} not implemented yet",
+                query.body
+            ))),
         }?;
 
         let plan = self.order_by(&plan, &query.order_by)?;
@@ -140,7 +145,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             name: name.clone(),
             location: location.clone(),
             file_type: file_type.clone(),
-            has_header: has_header.clone(),
+            has_header: *has_header,
         })
     }
 
@@ -197,7 +202,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             SQLDataType::Float(_) => Ok(DataType::Float32),
             SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
             SQLDataType::Boolean => Ok(DataType::Boolean),
-            SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
             SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
             SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
             _ => Err(DataFusionError::NotImplemented(format!(
@@ -207,36 +212,117 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn from_join_to_plan(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
-        if from.len() == 0 {
-            return Ok(LogicalPlanBuilder::empty(true).build()?);
+    fn plan_from_tables(&self, from: &Vec<TableWithJoins>) -> Result<Vec<LogicalPlan>> {
+        match from.len() {
+            0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
+            _ => from
+                .iter()
+                .map(|t| self.plan_table_with_joins(t))
+                .collect::<Result<Vec<_>>>(),
         }
-        if from.len() != 1 {
-            return Err(DataFusionError::NotImplemented(
-                "FROM with multiple tables is still not implemented".to_string(),
-            ));
-        };
-        let relation = &from[0].relation;
+    }
+
+    fn plan_table_with_joins(&self, t: &TableWithJoins) -> Result<LogicalPlan> {
+        let left = self.create_relation(&t.relation)?;
+        match t.joins.len() {
+            0 => Ok(left),
+            n => {
+                let mut left = self.parse_relation_join(&left, &t.joins[0])?;
+                for i in 1..n {
+                    left = self.parse_relation_join(&left, &t.joins[i])?;
+                }
+                Ok(left)
+            }
+        }
+    }
+
+    fn parse_relation_join(
+        &self,
+        left: &LogicalPlan,
+        join: &Join,
+    ) -> Result<LogicalPlan> {
+        let right = self.create_relation(&join.relation)?;
+        match &join.join_operator {
+            JoinOperator::LeftOuter(constraint) => {
+                self.parse_join(left, &right, constraint, JoinType::Left)
+            }
+            JoinOperator::RightOuter(constraint) => {
+                self.parse_join(left, &right, constraint, JoinType::Right)
+            }
+            JoinOperator::Inner(constraint) => {
+                self.parse_join(left, &right, constraint, JoinType::Inner)
+            }
+            other => Err(DataFusionError::NotImplemented(format!(
+                "Unsupported JOIN operator {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn parse_join(
+        &self,
+        left: &LogicalPlan,
+        right: &LogicalPlan,
+        constraint: &JoinConstraint,
+        join_type: JoinType,
+    ) -> Result<LogicalPlan> {
+        match constraint {
+            JoinConstraint::On(sql_expr) => {
+                let mut keys: Vec<(String, String)> = vec![];
+                let join_schema = create_join_schema(left.schema(), &right.schema())?;
+
+                // parse ON expression
+                let expr = self.sql_to_rex(sql_expr, &join_schema)?;
+
+                // extract join keys
+                extract_join_keys(&expr, &mut keys)?;
+                let left_keys: Vec<&str> =
+                    keys.iter().map(|pair| pair.0.as_str()).collect();
+                let right_keys: Vec<&str> =
+                    keys.iter().map(|pair| pair.1.as_str()).collect();
+
+                // return the logical plan representing the join
+                LogicalPlanBuilder::from(&left)
+                    .join(&right, join_type, &left_keys, &right_keys)?
+                    .build()
+            }
+            JoinConstraint::Using(idents) => {
+                let keys: Vec<&str> = idents.iter().map(|x| x.value.as_str()).collect();
+                LogicalPlanBuilder::from(&left)
+                    .join(&right, join_type, &keys, &keys)?
+                    .build()
+            }
+            JoinConstraint::Natural => {
+                // https://issues.apache.org/jira/browse/ARROW-10727
+                Err(DataFusionError::NotImplemented(
+                    "NATURAL JOIN is not supported (https://issues.apache.org/jira/browse/ARROW-10727)".to_string(),
+                ))
+            }
+        }
+    }
+
+    fn create_relation(&self, relation: &TableFactor) -> Result<LogicalPlan> {
         match relation {
             TableFactor::Table { name, .. } => {
-                let name = name.to_string();
-                match self.schema_provider.get_table_meta(&name) {
-                    Some(schema) => Ok(LogicalPlanBuilder::scan(
+                let table_name = name.to_string();
+                match self.schema_provider.get_table_meta(&table_name) {
+                    Some(schema) => LogicalPlanBuilder::scan(
                         "default",
-                        &name,
+                        &table_name,
                         schema.as_ref(),
                         None,
                     )?
-                    .build()?),
+                    .build(),
                     None => Err(DataFusionError::Plan(format!(
                         "no schema found for table {}",
                         name
                     ))),
                 }
             }
-            _ => Err(DataFusionError::NotImplemented(
-                "Subqueries are still not supported".to_string(),
-            )),
+            TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
+            TableFactor::NestedJoin(table_with_joins) => {
+                self.plan_table_with_joins(table_with_joins)
+            }
         }
     }
 
@@ -248,10 +334,78 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             ));
         }
 
-        let plan = self.from_join_to_plan(&select.from)?;
+        let plans = self.plan_from_tables(&select.from)?;
 
-        // filter (also known as selection) first
-        let plan = self.filter(&plan, &select.selection)?;
+        let plan = match &select.selection {
+            Some(predicate_expr) => {
+                // build join schema
+                let mut fields = vec![];
+                for plan in &plans {
+                    fields.extend_from_slice(&plan.schema().fields());
+                }
+                check_unique_columns(&fields)?;
+                let join_schema = Schema::new(fields);
+
+                let filter_expr = self.sql_to_rex(predicate_expr, &join_schema)?;
+
+                // look for expressions of the form `<column> = <column>`
+                let mut possible_join_keys = vec![];
+                extract_possible_join_keys(&filter_expr, &mut possible_join_keys)?;
+
+                let mut all_join_keys = vec![];
+                let mut left = plans[0].clone();
+                for i in 1..plans.len() {
+                    let right = &plans[i];
+                    let left_schema = left.schema();
+                    let right_schema = right.schema();
+                    let mut join_keys = vec![];
+                    for (l, r) in &possible_join_keys {
+                        if left_schema.field_with_name(l).is_ok()
+                            && right_schema.field_with_name(r).is_ok()
+                        {
+                            join_keys.push((l.as_str(), r.as_str()));
+                        } else if left_schema.field_with_name(r).is_ok()
+                            && right_schema.field_with_name(l).is_ok()
+                        {
+                            join_keys.push((r.as_str(), l.as_str()));
+                        }
+                    }
+                    if join_keys.len() == 0 {
+                        return Err(DataFusionError::NotImplemented(
+                            "Cartesian joins are not supported".to_string(),
+                        ));
+                    } else {
+                        let left_keys: Vec<_> =
+                            join_keys.iter().map(|(l, _)| *l).collect();
+                        let right_keys: Vec<_> =
+                            join_keys.iter().map(|(_, r)| *r).collect();
+                        let builder = LogicalPlanBuilder::from(&left);
+                        left = builder
+                            .join(right, JoinType::Inner, &left_keys, &right_keys)?
+                            .build()?;
+                    }
+                    all_join_keys.extend_from_slice(&join_keys);
+                }
+
+                // remove join expressions from filter
+                match remove_join_expressions(&filter_expr, &all_join_keys)? {
+                    Some(filter_expr) => {
+                        LogicalPlanBuilder::from(&left).filter(filter_expr)?.build()
+                    }
+                    _ => Ok(left),
+                }
+            }
+            None => {
+                if plans.len() == 1 {
+                    Ok(plans[0].clone())
+                } else {
+                    Err(DataFusionError::NotImplemented(
+                        "Cartesian joins are not supported".to_string(),
+                    ))
+                }
+            }
+        };
+        let plan = plan?;
 
         let projection_expr: Vec<Expr> = select
             .projection
@@ -272,20 +426,6 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             self.project(&plan, projection_expr)?
         };
         Ok(plan)
-    }
-
-    /// Apply a filter to the plan
-    fn filter(
-        &self,
-        plan: &LogicalPlan,
-        predicate: &Option<SQLExpr>,
-    ) -> Result<LogicalPlan> {
-        match *predicate {
-            Some(ref predicate_expr) => LogicalPlanBuilder::from(&plan)
-                .filter(self.sql_to_rex(predicate_expr, &plan.schema())?)?
-                .build(),
-            _ => Ok(plan.clone()),
-        }
     }
 
     /// Wrap a plan in a projection
@@ -446,6 +586,42 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
             SQLExpr::Wildcard => Ok(Expr::Wildcard),
 
+            SQLExpr::Case {
+                operand,
+                conditions,
+                results,
+                else_result,
+            } => {
+                let expr = if let Some(e) = operand {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+                let when_expr = conditions
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let then_expr = results
+                    .iter()
+                    .map(|e| self.sql_to_rex(e, schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let else_expr = if let Some(e) = else_result {
+                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                } else {
+                    None
+                };
+
+                Ok(Expr::Case {
+                    expr,
+                    when_then_expr: when_expr
+                        .iter()
+                        .zip(then_expr.iter())
+                        .map(|(w, t)| (Box::new(w.to_owned()), Box::new(t.to_owned())))
+                        .collect(),
+                    else_expr,
+                })
+            }
+
             SQLExpr::Cast {
                 ref expr,
                 ref data_type,
@@ -462,13 +638,29 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
 
-            SQLExpr::UnaryOp { ref op, ref expr } => match *op {
+            SQLExpr::UnaryOp { ref op, ref expr } => match op {
                 UnaryOperator::Not => {
                     Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
                 }
-                _ => Err(DataFusionError::Internal(format!(
-                    "SQL binary operator cannot be interpreted as a unary operator"
-                ))),
+                UnaryOperator::Plus => Ok(self.sql_to_rex(expr, schema)?),
+                UnaryOperator::Minus => {
+                    match expr.as_ref() {
+                        // optimization: if it's a number literal, we applly the negative operator
+                        // here directly to calculate the new literal.
+                        SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
+                            Ok(n) => Ok(lit(-n)),
+                            Err(_) => Ok(lit(-n
+                                .parse::<f64>()
+                                .map_err(|_e| {
+                                    DataFusionError::Internal(format!(
+                                        "negative operator can be only applied to integer and float operands, got: {}",
+                                    n))
+                                })?)),
+                        },
+                        // not a literal, apply negative operator on expression
+                        _ => Ok(Expr::Negative(Box::new(self.sql_to_rex(expr, schema)?))),
+                    }
+                }
             },
 
             SQLExpr::BinaryOp {
@@ -555,10 +747,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::ScalarUDF {
-                            fun: fm.clone(),
-                            args,
-                        })
+                        Ok(Expr::ScalarUDF { fun: fm, args })
                     }
                     None => match self.schema_provider.get_aggregate_meta(&name) {
                         Some(fm) => {
@@ -568,10 +757,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                                 .map(|a| self.sql_to_rex(a, schema))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            Ok(Expr::AggregateUDF {
-                                fun: fm.clone(),
-                                args,
-                            })
+                            Ok(Expr::AggregateUDF { fun: fm, args })
                         }
                         _ => Err(DataFusionError::Plan(format!(
                             "Invalid function '{}'",
@@ -588,6 +774,120 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 sql
             ))),
         }
+    }
+}
+
+fn create_join_schema(left: &SchemaRef, right: &SchemaRef) -> Result<Schema> {
+    let mut fields = vec![];
+    fields.extend_from_slice(&left.fields());
+    fields.extend_from_slice(&right.fields());
+    check_unique_columns(&fields)?;
+    Ok(Schema::new(fields))
+}
+
+fn check_unique_columns(fields: &[Field]) -> Result<()> {
+    // Until https://issues.apache.org/jira/browse/ARROW-10732 is implemented, we need
+    // to ensure that schemas have unique field names
+    let unique_field_names = fields.iter().map(|f| f.name()).collect::<HashSet<_>>();
+    if unique_field_names.len() == fields.len() {
+        Ok(())
+    } else {
+        Err(DataFusionError::Plan(
+            "JOIN would result in schema with duplicate column names".to_string(),
+        ))
+    }
+}
+
+/// Remove join expressions from a filter expression
+fn remove_join_expressions(
+    expr: &Expr,
+    join_columns: &[(&str, &str)],
+) -> Result<Option<Expr>> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    if join_columns.contains(&(l, r)) || join_columns.contains(&(r, l)) {
+                        Ok(None)
+                    } else {
+                        Ok(Some(expr.clone()))
+                    }
+                }
+                _ => Ok(Some(expr.clone())),
+            },
+            Operator::And => {
+                let l = remove_join_expressions(left, join_columns)?;
+                let r = remove_join_expressions(right, join_columns)?;
+                match (l, r) {
+                    (Some(ll), Some(rr)) => Ok(Some(and(ll, rr))),
+                    (Some(ll), _) => Ok(Some(ll)),
+                    (_, Some(rr)) => Ok(Some(rr)),
+                    _ => Ok(None),
+                }
+            }
+            _ => Ok(Some(expr.clone())),
+        },
+        _ => Ok(Some(expr.clone())),
+    }
+}
+
+/// Parse equijoin ON condition which could be a single Eq or multiple conjunctive Eqs
+///
+/// Examples
+///
+/// foo = bar
+/// foo = bar AND bar = baz AND ...
+///
+fn extract_join_keys(expr: &Expr, accum: &mut Vec<(String, String)>) -> Result<()> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    accum.push((l.to_owned(), r.to_owned()));
+                    Ok(())
+                }
+                other => Err(DataFusionError::SQL(ParserError(format!(
+                    "Unsupported expression '{:?}' in JOIN condition",
+                    other
+                )))),
+            },
+            Operator::And => {
+                extract_join_keys(left, accum)?;
+                extract_join_keys(right, accum)
+            }
+            other => Err(DataFusionError::SQL(ParserError(format!(
+                "Unsupported expression '{:?}' in JOIN condition",
+                other
+            )))),
+        },
+        other => Err(DataFusionError::SQL(ParserError(format!(
+            "Unsupported expression '{:?}' in JOIN condition",
+            other
+        )))),
+    }
+}
+
+/// Extract join keys from a WHERE clause
+fn extract_possible_join_keys(
+    expr: &Expr,
+    accum: &mut Vec<(String, String)>,
+) -> Result<()> {
+    match expr {
+        Expr::BinaryExpr { left, op, right } => match op {
+            Operator::Eq => match (left.as_ref(), right.as_ref()) {
+                (Expr::Column(l), Expr::Column(r)) => {
+                    accum.push((l.to_owned(), r.to_owned()));
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+            Operator::And => {
+                extract_possible_join_keys(left, accum)?;
+                extract_possible_join_keys(right, accum)
+            }
+            _ => Ok(()),
+        },
+        _ => Ok(()),
     }
 }
 
@@ -611,6 +911,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
         SQLDataType::Double => Ok(DataType::Float64),
         SQLDataType::Char(_) | SQLDataType::Varchar(_) => Ok(DataType::Utf8),
         SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+        SQLDataType::Date => Ok(DataType::Date32(DateUnit::Day)),
         other => Err(DataFusionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",
             other
@@ -684,6 +985,18 @@ mod tests {
     }
 
     #[test]
+    fn test_date_filter() {
+        let sql =
+            "SELECT state FROM person WHERE birth_date < CAST ('2020-01-01' as date)";
+
+        let expected = "Projection: #state\
+            \n  Filter: #birth_date Lt CAST(Utf8(\"2020-01-01\") AS Date32(Day))\
+            \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_all_boolean_operators() {
         let sql = "SELECT age, first_name, last_name \
                    FROM person \
@@ -701,6 +1014,40 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested() {
+        let sql = "SELECT fn2, last_name
+                   FROM (
+                     SELECT fn1 as fn2, last_name, birth_date
+                     FROM (
+                       SELECT first_name AS fn1, last_name, birth_date, age
+                       FROM person
+                     )
+                   )";
+        let expected = "Projection: #fn2, #last_name\
+                        \n  Projection: #fn1 AS fn2, #last_name, #birth_date\
+                        \n    Projection: #first_name AS fn1, #last_name, #birth_date, #age\
+                        \n      TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_nested_with_filters() {
+        let sql = "SELECT fn1, age
+                   FROM (
+                     SELECT first_name AS fn1, age
+                     FROM person
+                     WHERE age > 20
+                   )
+                   WHERE fn1 = 'X' AND age < 30";
+        let expected = "Projection: #fn1, #age\
+                        \n  Filter: #fn1 Eq Utf8(\"X\") And #age Lt Int64(30)\
+                        \n    Projection: #first_name AS fn1, #age\
+                        \n      Filter: #age Gt Int64(20)\
+                        \n        TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
@@ -785,6 +1132,34 @@ mod tests {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
         let expected = "Projection: sqrt(#age) AS square_people\
                         \n  TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_where_nullif_division() {
+        let sql = "SELECT c3/(c4+c5) \
+                   FROM aggregate_test_100 WHERE c3/nullif(c4+c5, 0) > 0.1";
+        let expected = "Projection: #c3 Divide #c4 Plus #c5\
+            \n  Filter: #c3 Divide nullif(#c4 Plus #c5, Int64(0)) Gt Float64(0.1)\
+            \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_where_with_negative_operator() {
+        let sql = "SELECT c3 FROM aggregate_test_100 WHERE c3 > -0.1 AND -c4 > 0";
+        let expected = "Projection: #c3\
+            \n  Filter: #c3 Gt Float64(-0.1) And (- #c4) Gt Int64(0)\
+            \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_where_with_positive_operator() {
+        let sql = "SELECT c3 FROM aggregate_test_100 WHERE c3 > +0.1 AND +c4 > 0";
+        let expected = "Projection: #c3\
+            \n  Filter: #c3 Gt Float64(0.1) And #c4 Gt Int64(0)\
+            \n    TableScan: aggregate_test_100 projection=None";
         quick_test(sql, expected);
     }
 
@@ -898,9 +1273,38 @@ mod tests {
         quick_test(sql, expected);
     }
 
+    #[test]
+    fn equijoin_explicit_syntax() {
+        let sql = "SELECT id, order_id \
+            FROM person \
+            JOIN orders \
+            ON id = customer_id";
+        let expected = "Projection: #id, #order_id\
+        \n  Join: id = customer_id\
+        \n    TableScan: person projection=None\
+        \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn equijoin_explicit_syntax_3_tables() {
+        let sql = "SELECT id, order_id, l_description \
+            FROM person \
+            JOIN orders ON id = customer_id \
+            JOIN lineitem ON o_item_id = l_item_id";
+        let expected = "Projection: #id, #order_id, #l_description\
+            \n  Join: o_item_id = l_item_id\
+            \n    Join: id = customer_id\
+            \n      TableScan: person projection=None\
+            \n      TableScan: orders projection=None\
+            \n    TableScan: lineitem projection=None";
+        quick_test(sql, expected);
+    }
+
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         let planner = SqlToRel::new(&MockSchemaProvider {});
-        let ast = DFParser::parse_sql(&sql).unwrap();
+        let result = DFParser::parse_sql(&sql);
+        let ast = result.unwrap();
         planner.statement_to_plan(&ast[0])
     }
 
@@ -927,6 +1331,17 @@ mod tests {
                         DataType::Timestamp(TimeUnit::Nanosecond, None),
                         false,
                     ),
+                ]))),
+                "orders" => Some(Arc::new(Schema::new(vec![
+                    Field::new("order_id", DataType::UInt32, false),
+                    Field::new("customer_id", DataType::UInt32, false),
+                    Field::new("o_item_id", DataType::Utf8, false),
+                    Field::new("qty", DataType::Int32, false),
+                    Field::new("price", DataType::Float64, false),
+                ]))),
+                "lineitem" => Some(Arc::new(Schema::new(vec![
+                    Field::new("l_item_id", DataType::UInt32, false),
+                    Field::new("l_description", DataType::Utf8, false),
                 ]))),
                 "aggregate_test_100" => Some(Arc::new(Schema::new(vec![
                     Field::new("c1", DataType::Utf8, false),

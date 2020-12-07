@@ -40,7 +40,6 @@
     clippy::new_without_default,
     clippy::or_fun_call,
     clippy::ptr_arg,
-    clippy::redundant_clone,
     clippy::redundant_field_names,
     clippy::redundant_static_lifetimes,
     clippy::redundant_pattern_matching,
@@ -49,8 +48,6 @@
     clippy::stable_sort_primitive,
     clippy::type_complexity,
     clippy::unit_arg,
-    clippy::unnecessary_unwrap,
-    clippy::useless_format,
     clippy::zero_prefixed_literal
 )]
 

@@ -30,6 +30,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split.h"
@@ -525,14 +526,12 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
-                                                      num_values);
-    for (int32_t i = 0; i < num_values; i++) {
-      if (valid_bits_reader.IsSet()) {
-        Put(src[i]);
-      }
-      valid_bits_reader.Next();
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(valid_bits, valid_bits_offset, num_values,
+                                           [&](int64_t position, int64_t length) {
+                                             for (int64_t i = 0; i < length; i++) {
+                                               Put(src[i + position]);
+                                             }
+                                           });
   }
 
   using TypedEncoder<DType>::Put;
@@ -546,20 +545,14 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     size_t buffer_position = buffered_indices_.size();
     buffered_indices_.resize(buffer_position +
                              static_cast<size_t>(data.length() - data.null_count()));
-    if (data.null_count() > 0) {
-      ::arrow::internal::BitmapReader valid_bits_reader(data.null_bitmap_data(),
-                                                        data.offset(), data.length());
-      for (int64_t i = 0; i < data.length(); ++i) {
-        if (valid_bits_reader.IsSet()) {
-          buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
-        }
-        valid_bits_reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < data.length(); ++i) {
-        buffered_indices_[buffer_position++] = static_cast<int32_t>(values[i]);
-      }
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(
+        data.null_bitmap_data(), data.offset(), data.length(),
+        [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; ++i) {
+            buffered_indices_[buffer_position++] =
+                static_cast<int32_t>(values[i + position]);
+          }
+        });
   }
 
   void PutIndices(const ::arrow::Array& data) override {

@@ -42,9 +42,10 @@ path = "src/bin/main.rs"
 [features]
 default = ["cli"]
 cli = ["rustyline"]
+simd = ["arrow/simd"]
 
 [dependencies]
-ahash = "0.5"
+ahash = "0.6"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"] }
 sqlparser = "0.6.1"
@@ -57,7 +58,7 @@ chrono = "0.4"
 async-trait = "0.1.41"
 futures = "0.3"
 pin-project-lite= "^0.2.0"
-tokio = { version = "0.3", features = ["macros", "rt", "rt-multi-thread"] }
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 
 [dev-dependencies]
 rand = "0.7"

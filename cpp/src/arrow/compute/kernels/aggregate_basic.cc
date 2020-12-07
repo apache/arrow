@@ -190,6 +190,45 @@ std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args)
   return ::arrow::internal::make_unique<BooleanAnyImpl>();
 }
 
+// ----------------------------------------------------------------------
+// All implementation
+
+struct BooleanAllImpl : public ScalarAggregator {
+  void Consume(KernelContext*, const ExecBatch& batch) override {
+    // short-circuit if seen a false already
+    if (this->all == false) {
+      return;
+    }
+
+    const auto& data = *batch[0].array();
+    arrow::internal::OptionalBinaryBitBlockCounter counter(
+        data.buffers[1], data.offset, data.buffers[0], data.offset, data.length);
+    int64_t position = 0;
+    while (position < data.length) {
+      const auto block = counter.NextOrNotBlock();
+      if (!block.AllSet()) {
+        this->all = false;
+        break;
+      }
+      position += block.length;
+    }
+  }
+
+  void MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const BooleanAllImpl&>(src);
+    this->all &= other.all;
+  }
+
+  void Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<BooleanScalar>(this->all);
+  }
+  bool all = true;
+};
+
+std::unique_ptr<KernelState> AllInit(KernelContext*, const KernelInitArgs& args) {
+  return ::arrow::internal::make_unique<BooleanAllImpl>();
+}
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -239,6 +278,11 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
 
 const FunctionDoc any_doc{
     "Test whether any element in a boolean array evaluates to true.",
+    ("Null values are ignored."),
+    {"array"}};
+
+const FunctionDoc all_doc{
+    "Test whether all elements in a boolean array evaluate to true.",
     ("Null values are ignored."),
     {"array"}};
 
@@ -316,6 +360,11 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // any
   func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), &any_doc);
   aggregate::AddBasicAggKernels(aggregate::AnyInit, {boolean()}, boolean(), func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // all
+  func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
+  aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

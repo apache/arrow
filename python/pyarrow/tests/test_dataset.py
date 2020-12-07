@@ -16,7 +16,6 @@
 # under the License.
 
 import contextlib
-import os
 import pathlib
 import pickle
 import textwrap
@@ -27,7 +26,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.csv
 import pyarrow.fs as fs
-from pyarrow.tests.util import change_cwd
+from pyarrow.tests.util import change_cwd, _filesystem_uri
 
 try:
     import pandas as pd
@@ -69,15 +68,6 @@ def _table_from_pandas(df):
     ])
     table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
     return table.replace_schema_metadata()
-
-
-def _filesystem_uri(path):
-    # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
-    if os.name == 'nt':
-        uri = 'file:///{}'.format(path)
-    else:
-        uri = 'file://{}'.format(path)
-    return uri
 
 
 @pytest.fixture
@@ -1018,6 +1008,18 @@ def test_parquet_fragment_statistics_nulls(tempdir):
     fragments = list(dataset.get_fragments())[0].split_by_row_group()
     # second row group has all nulls -> no statistics
     assert fragments[1].row_groups[0].statistics == {}
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_parquet_empty_row_group_statistics(tempdir):
+    df = pd.DataFrame({"a": ["a", "b", "b"], "b": [4, 5, 6]})[:0]
+    df.to_parquet(tempdir / "test.parquet", engine="pyarrow")
+
+    dataset = ds.dataset(tempdir / "test.parquet", format="parquet")
+    fragments = list(dataset.get_fragments())[0].split_by_row_group()
+    # Only row group is empty
+    assert fragments[0].row_groups[0].statistics == {}
 
 
 @pytest.mark.pandas

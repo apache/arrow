@@ -17,6 +17,7 @@
 
 //! Data source traits
 
+use std::any::Any;
 use std::sync::Arc;
 
 use crate::arrow::datatypes::SchemaRef;
@@ -25,6 +26,10 @@ use crate::physical_plan::ExecutionPlan;
 
 /// Source table
 pub trait TableProvider {
+    /// Returns the table provider as [`Any`](std::any::Any) so that it can be
+    /// downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
+
     /// Get a reference to the schema for this table
     fn schema(&self) -> SchemaRef;
 

@@ -27,7 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -297,14 +297,16 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     T min = Helper::DefaultMin();
     T max = Helper::DefaultMax();
 
-    ::arrow::internal::BitmapReader reader(valid_bits, valid_bits_offset, length);
-    for (int64_t i = 0; i < length; i++, reader.Next()) {
-      if (reader.IsSet()) {
-        auto val = values[i];
-        min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
-        max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
-      }
-    }
+    ::arrow::internal::VisitSetBitRunsVoid(
+        valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; i++) {
+            const auto val = values[i + position];
+            min = Helper::Min(type_length_, min,
+                              Helper::Coalesce(val, Helper::DefaultMin()));
+            max = Helper::Max(type_length_, max,
+                              Helper::Coalesce(val, Helper::DefaultMax()));
+          }
+        });
 
     return {min, max};
   }
@@ -374,6 +376,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     Reset();
+    has_null_count_ = true;
+    has_distinct_count_ = true;
   }
 
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
@@ -393,11 +397,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
-                      MemoryPool* pool)
+                      bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     IncrementNumValues(num_values);
-    IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    if (has_null_count_) {
+      IncrementNullCount(null_count);
+    }
+    if (has_distinct_count) {
+      IncrementDistinctCount(distinct_count);
+    }
 
     if (!encoded_min.empty()) {
       PlainDecode(encoded_min, &min_);
@@ -408,7 +416,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = has_min_max;
   }
 
+  bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
+  bool HasNullCount() const override { return has_null_count_; };
 
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
@@ -427,6 +437,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Reset() override {
     ResetCounts();
     has_min_max_ = false;
+    has_distinct_count_ = false;
+    has_null_count_ = false;
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -434,9 +446,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void Merge(const TypedStatistics<DType>& other) override {
-    this->MergeCounts(other);
-    if (!other.HasMinMax()) return;
-    SetMinMax(other.min(), other.max());
+    this->num_values_ += other.num_values();
+    if (other.HasNullCount()) {
+      this->statistics_.null_count += other.null_count();
+    }
+    if (other.HasDistinctCount()) {
+      this->statistics_.distinct_count += other.distinct_count();
+    }
+    if (other.HasMinMax()) {
+      SetMinMax(other.min(), other.max());
+    }
   }
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
@@ -480,7 +499,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       s.set_min(this->EncodeMin());
       s.set_max(this->EncodeMax());
     }
-    s.set_null_count(this->null_count());
+    if (HasNullCount()) {
+      s.set_null_count(this->null_count());
+    }
     return s;
   }
 
@@ -491,6 +512,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  private:
   const ColumnDescriptor* descr_;
   bool has_min_max_ = false;
+  bool has_null_count_ = false;
+  bool has_distinct_count_ = false;
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
@@ -504,16 +527,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementNullCount(int64_t n) { statistics_.null_count += n; }
+  void IncrementNullCount(int64_t n) {
+    statistics_.null_count += n;
+    has_null_count_ = true;
+  }
 
   void IncrementNumValues(int64_t n) { num_values_ += n; }
 
-  void IncrementDistinctCount(int64_t n) { statistics_.distinct_count += n; }
-
-  void MergeCounts(const Statistics& other) {
-    this->statistics_.null_count += other.null_count();
-    this->statistics_.distinct_count += other.distinct_count();
-    this->num_values_ += other.num_values();
+  void IncrementDistinctCount(int64_t n) {
+    statistics_.distinct_count += n;
+    has_distinct_count_ = true;
   }
 
   void ResetCounts() {
@@ -741,12 +764,13 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              const std::string& encoded_max,
                                              int64_t num_values, int64_t null_count,
                                              int64_t distinct_count, bool has_min_max,
+                                             bool has_null_count, bool has_distinct_count,
                                              ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
         descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, pool)
+        has_min_max, has_null_count, has_distinct_count, pool)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);

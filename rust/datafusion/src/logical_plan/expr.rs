@@ -70,14 +70,14 @@ pub enum Expr {
         /// Right-hand side of the expression
         right: Box<Expr>,
     },
-    /// Parenthesized expression. E.g. `(foo > bar)` or `(1)`
-    Nested(Box<Expr>),
     /// Negation of an expression. The expression's type must be a boolean to make sense.
     Not(Box<Expr>),
     /// Whether an expression is not Null. This expression is never null.
     IsNotNull(Box<Expr>),
     /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
+    /// arithmetic negation of an expression, the operand must be of a signed numeric data type
+    Negative(Box<Expr>),
     /// The CASE expression is similar to a series of nested if/else and there are two forms that
     /// can be used. The first form consists of a series of boolean "when" expressions with
     /// corresponding "then" expressions, and an optional "else" expression.
@@ -198,6 +198,7 @@ impl Expr {
                 Ok((fun.return_type)(&data_types)?.as_ref().clone())
             }
             Expr::Not(_) => Ok(DataType::Boolean),
+            Expr::Negative(expr) => expr.get_type(schema),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
             Expr::BinaryExpr {
@@ -213,7 +214,6 @@ impl Expr {
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
-            Expr::Nested(e) => e.get_type(schema),
         }
     }
 
@@ -253,6 +253,7 @@ impl Expr {
             Expr::AggregateFunction { .. } => Ok(true),
             Expr::AggregateUDF { .. } => Ok(true),
             Expr::Not(expr) => expr.nullable(input_schema),
+            Expr::Negative(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
             Expr::IsNotNull(_) => Ok(false),
             Expr::BinaryExpr {
@@ -261,7 +262,6 @@ impl Expr {
                 ..
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
-            Expr::Nested(e) => e.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -309,32 +309,32 @@ impl Expr {
 
     /// Equal
     pub fn eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Eq, other.clone())
+        binary_expr(self.clone(), Operator::Eq, other)
     }
 
     /// Not equal
     pub fn not_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotEq, other.clone())
+        binary_expr(self.clone(), Operator::NotEq, other)
     }
 
     /// Greater than
     pub fn gt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Gt, other.clone())
+        binary_expr(self.clone(), Operator::Gt, other)
     }
 
     /// Greater than or equal to
     pub fn gt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::GtEq, other.clone())
+        binary_expr(self.clone(), Operator::GtEq, other)
     }
 
     /// Less than
     pub fn lt(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Lt, other.clone())
+        binary_expr(self.clone(), Operator::Lt, other)
     }
 
     /// Less than or equal to
     pub fn lt_eq(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::LtEq, other.clone())
+        binary_expr(self.clone(), Operator::LtEq, other)
     }
 
     /// And
@@ -354,17 +354,17 @@ impl Expr {
 
     /// Calculate the modulus of two expressions
     pub fn modulus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Modulus, other.clone())
+        binary_expr(self.clone(), Operator::Modulus, other)
     }
 
     /// like (string) another expression
     pub fn like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Like, other.clone())
+        binary_expr(self.clone(), Operator::Like, other)
     }
 
     /// not like another expression
     pub fn not_like(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::NotLike, other.clone())
+        binary_expr(self.clone(), Operator::NotLike, other)
     }
 
     /// Alias
@@ -733,6 +733,7 @@ impl fmt::Debug for Expr {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }
             Expr::Not(expr) => write!(f, "NOT {:?}", expr),
+            Expr::Negative(expr) => write!(f, "(- {:?})", expr),
             Expr::IsNull(expr) => write!(f, "{:?} IS NULL", expr),
             Expr::IsNotNull(expr) => write!(f, "{:?} IS NOT NULL", expr),
             Expr::BinaryExpr { left, op, right } => {
@@ -770,7 +771,6 @@ impl fmt::Debug for Expr {
                 fmt_function(f, &fun.name, false, args)
             }
             Expr::Wildcard => write!(f, "*"),
-            Expr::Nested(expr) => write!(f, "({:?})", expr),
         }
     }
 }
@@ -805,6 +805,24 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let right = create_name(right, input_schema)?;
             Ok(format!("{} {:?} {}", left, op, right))
         }
+        Expr::Case {
+            expr,
+            when_then_expr,
+            else_expr,
+        } => {
+            let mut name = "CASE ".to_string();
+            if let Some(e) = expr {
+                name += &format!("{:?} ", e);
+            }
+            for (w, t) in when_then_expr {
+                name += &format!("WHEN {:?} THEN {:?} ", w, t);
+            }
+            if let Some(e) = else_expr {
+                name += &format!("ELSE {:?} ", e);
+            }
+            name += "END";
+            Ok(name)
+        }
         Expr::Cast { expr, data_type } => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("CAST({} AS {:?})", expr, data_type))
@@ -812,6 +830,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         Expr::Not(expr) => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("NOT {}", expr))
+        }
+        Expr::Negative(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("(- {})", expr))
         }
         Expr::IsNull(expr) => {
             let expr = create_name(expr, input_schema)?;

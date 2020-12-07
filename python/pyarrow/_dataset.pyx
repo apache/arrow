@@ -929,7 +929,8 @@ class RowGroupInfo:
         def name_stats(i):
             col = self.metadata.column(i)
 
-            if not col.statistics.has_min_max:
+            stats = col.statistics
+            if stats is None or not stats.has_min_max:
                 return None, None
 
             name = col.path_in_schema
@@ -939,8 +940,8 @@ class RowGroupInfo:
 
             typ = self.schema.field(field_index).type
             return col.path_in_schema, {
-                'min': pa.scalar(col.statistics.min, type=typ).as_py(),
-                'max': pa.scalar(col.statistics.max, type=typ).as_py()
+                'min': pa.scalar(stats.min, type=typ).as_py(),
+                'max': pa.scalar(stats.max, type=typ).as_py()
             }
 
         return {

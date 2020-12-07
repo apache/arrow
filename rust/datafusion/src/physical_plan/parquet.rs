@@ -181,7 +181,7 @@ fn read_file(
     let file_reader = Arc::new(SerializedFileReader::new(file)?);
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
     let mut batch_reader =
-        arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+        arrow_reader.get_record_reader_by_columns(projection, batch_size)?;
     loop {
         match batch_reader.next() {
             Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,

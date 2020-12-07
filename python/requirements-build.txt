@@ -1,5 +1,4 @@
 cython>=0.29
-numpy>=1.14,<1.19; python_version < "3.6"
 numpy>=1.14; python_version >= "3.6"
 setuptools; python_version >= "3.6"
 setuptools_scm

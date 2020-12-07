@@ -64,8 +64,6 @@ const int64_t DICTIONARY_PAGE_SIZE = 1024 * 1024;
 template <typename TestType>
 class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
  public:
-  typedef typename TestType::c_type T;
-
   void SetUp() {
     this->SetupValuesOut(SMALL_SIZE);
     writer_properties_ = default_writer_properties();

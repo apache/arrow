@@ -165,6 +165,16 @@ TEST_F(ConcatenateTest, LargeStringType) {
   });
 }
 
+TEST_F(ConcatenateTest, FixedSizeListType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto list_size = 3;
+    auto values_size = size * list_size;
+    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    ASSERT_OK_AND_ASSIGN(*out, FixedSizeListArray::FromArrays(values, list_size));
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
 TEST_F(ConcatenateTest, ListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     auto values_size = size * 4;

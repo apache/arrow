@@ -190,7 +190,7 @@ impl DefaultPhysicalPlanner {
             )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr = expr
                     .iter()
                     .map(|e| {
@@ -210,7 +210,7 @@ impl DefaultPhysicalPlanner {
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let groups = group_expr
                     .iter()
@@ -253,14 +253,14 @@ impl DefaultPhysicalPlanner {
                 input, predicate, ..
             } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+                let input_schema = input.as_ref().schema();
 
                 let sort_expr = expr
                     .iter()
@@ -301,6 +301,8 @@ impl DefaultPhysicalPlanner {
                 let right = self.create_physical_plan(right, ctx_state)?;
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
+                    JoinType::Left => hash_utils::JoinType::Left,
+                    JoinType::Right => hash_utils::JoinType::Right,
                 };
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
@@ -422,9 +424,9 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No system variable provider found"
-                        ))),
+                        _ => Err(DataFusionError::Plan(
+                            "No system variable provider found".to_string(),
+                        )),
                     }
                 } else {
                     match ctx_state.var_provider.get(&VarType::UserDefined) {
@@ -433,9 +435,9 @@ impl DefaultPhysicalPlanner {
                                 provider.get_value(variable_names.clone())?;
                             Ok(Arc::new(Literal::new(scalar_value)))
                         }
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No user defined variable provider found"
-                        ))),
+                        _ => Err(DataFusionError::Plan(
+                            "No user defined variable provider found".to_string(),
+                        )),
                     }
                 }
             }
@@ -499,6 +501,10 @@ impl DefaultPhysicalPlanner {
                 data_type.clone(),
             ),
             Expr::Not(expr) => expressions::not(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+                input_schema,
+            ),
+            Expr::Negative(expr) => expressions::negative(
                 self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
             ),

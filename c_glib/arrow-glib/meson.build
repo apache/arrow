@@ -184,6 +184,7 @@ if have_arrow_orc
 endif
 
 cpp_internal_headers = files(
+  'internal-hash-table.hpp',
   'internal-index.hpp',
 )
 

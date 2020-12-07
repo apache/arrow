@@ -28,7 +28,11 @@ use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 use super::equal::equal;
 
 #[inline]
-fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
+pub(crate) fn count_nulls(
+    null_bit_buffer: Option<&Buffer>,
+    offset: usize,
+    len: usize,
+) -> usize {
     if let Some(ref buf) = null_bit_buffer {
         len.checked_sub(buf.count_set_bits_offset(offset, len))
             .unwrap()

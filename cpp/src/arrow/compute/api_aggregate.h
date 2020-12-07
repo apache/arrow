@@ -162,11 +162,25 @@ Result<Datum> MinMax(const Datum& value,
 /// \param[in] value input datum, expecting a boolean array
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
-
+///
 /// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Any(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Test whether all elements in a boolean array evaluate to true.
+///
+/// This function returns true if all of the elements in the array evaluate
+/// to true and false otherwise. Null values are skipped.
+///
+/// \param[in] value input datum, expecting a boolean array
+/// \param[in] ctx the function execution context, optional
+/// \return resulting datum as a BooleanScalar
+
+/// \since 3.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> All(const Datum& value, ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the modal (most common) value of a numeric array
 ///
