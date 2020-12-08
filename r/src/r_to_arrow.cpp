@@ -748,7 +748,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       return Status::Invalid("Can only convert data frames to Struct type");
     }
 
-    auto struct_builder = checked_cast<StructBuilder*>(this->builder().get());
+    auto struct_builder = this->struct_builder_;
     for (R_xlen_t i = 0; i < size; i++) {
       RETURN_NOT_OK(struct_builder->Append());
     }
