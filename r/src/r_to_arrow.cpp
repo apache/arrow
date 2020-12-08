@@ -220,6 +220,11 @@ Result<T> CIntFromRScalar(RScalar* obj) {
   return Status::Invalid("Cannot convert to Int");
 }
 
+struct DiffTimeData {
+  double data;
+  int multiplier;
+};
+
 Status RScalar_to_days(RScalar* value, int32_t* days) {
   constexpr int64_t kSecondsPerDay = 86400;
 
@@ -324,15 +329,42 @@ class RValue {
     return static_cast<int64_t>(days) * kMillisecondsPerDay;
   }
 
-  static Result<int32_t> Convert(const Time32Type*, const RConversionOptions&,
+  static Result<int32_t> Convert(const Time32Type* type, const RConversionOptions&,
                                  RScalar* value) {
-    // TODO: improve error
+    if (value->rtype == TIME) {
+      DiffTimeData* data = reinterpret_cast<DiffTimeData*>(value->data);
+      auto seconds = data->data * data->multiplier;
+      switch (type->unit()) {
+        case TimeUnit::SECOND:
+          return seconds;
+        case TimeUnit::MILLI:
+          return seconds * 1000;
+        default:
+          return Status::Invalid("invalid time unit");
+      }
+    }
+
     return Status::Invalid("invalid conversion to time32");
   }
 
-  static Result<int64_t> Convert(const Time64Type*, const RConversionOptions&,
+  static Result<int64_t> Convert(const Time64Type* type, const RConversionOptions&,
                                  RScalar* value) {
-    // TODO: improve error
+    constexpr int64_t kMicroSeconds = 1000000;
+    constexpr int64_t kNanoSeconds = 1000000000;
+
+    if (value->rtype == TIME) {
+      DiffTimeData* data = reinterpret_cast<DiffTimeData*>(value->data);
+      auto seconds = data->data * data->multiplier;
+      switch (type->unit()) {
+        case TimeUnit::MICRO:
+          return seconds * kMicroSeconds;
+        case TimeUnit::NANO:
+          return seconds * kNanoSeconds;
+        default:
+          return Status::Invalid("invalid time unit");
+      }
+    }
+
     return Status::Invalid("invalid conversion to time64");
   }
 
@@ -473,6 +505,40 @@ inline Status VisitFactor(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   return Status::OK();
 }
 
+Status GetDifftimeMultiplier(SEXP obj, int* res) {
+  std::string unit(CHAR(STRING_ELT(Rf_getAttrib(obj, symbols::units), 0)));
+  if (unit == "secs") {
+    *res = 1;
+  } else if (unit == "mins") {
+    *res = 60;
+  } else if (unit == "hours") {
+    *res = 3600;
+  } else if (unit == "days") {
+    *res = 86400;
+  } else if (unit == "weeks") {
+    *res = 604800;
+  } else {
+    return Status::Invalid("unknown difftime unit");
+  }
+  return Status::OK();
+}
+
+template <class VisitorFunc>
+inline Status VisitDifftime(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+  DiffTimeData scalar;
+  RETURN_NOT_OK(GetDifftimeMultiplier(x, &scalar.multiplier));
+
+  RScalar obj{TIME, reinterpret_cast<void*>(&scalar), false};
+  cpp11::doubles values(x);
+
+  for (double value : values) {
+    scalar.data = value;
+    obj.null = is_NA<double>(value);
+    RETURN_NOT_OK(func(&obj));
+  }
+  return Status::OK();
+}
+
 template <typename T>
 inline Status VisitDataFrame(SEXP x, R_xlen_t size, T* converter);
 
@@ -523,6 +589,9 @@ inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
 
     case FACTOR:
       return VisitFactor<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
+
+    case TIME:
+      return VisitDifftime<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
 
     default:
       break;
