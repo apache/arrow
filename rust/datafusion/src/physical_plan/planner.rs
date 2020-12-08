@@ -23,7 +23,7 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    DFSchema, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, TableSource,
     UserDefinedLogicalNode,
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
@@ -557,6 +557,32 @@ impl DefaultPhysicalPlanner {
                     &physical_args,
                     input_schema,
                 )
+            }
+            Expr::Between {
+                expr,
+                negated,
+                low,
+                high,
+            } => {
+                let value_expr =
+                    self.create_physical_expr(expr, input_schema, ctx_state)?;
+                let low_expr = self.create_physical_expr(low, input_schema, ctx_state)?;
+                let high_expr =
+                    self.create_physical_expr(high, input_schema, ctx_state)?;
+
+                // rewrite the between into the two binary operators
+                let binary_expr = binary(
+                    binary(value_expr.clone(), Operator::GtEq, low_expr, input_schema)?,
+                    Operator::And,
+                    binary(value_expr.clone(), Operator::LtEq, high_expr, input_schema)?,
+                    input_schema,
+                );
+
+                if *negated {
+                    expressions::not(binary_expr?, input_schema)
+                } else {
+                    binary_expr
+                }
             }
             other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
