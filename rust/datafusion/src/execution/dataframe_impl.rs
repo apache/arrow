@@ -325,7 +325,7 @@ mod tests {
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
-            CsvReadOptions::new().schema(&schema.as_ref().to_owned().into()),
+            CsvReadOptions::new().schema(&schema.as_ref()),
         )?;
         Ok(())
     }

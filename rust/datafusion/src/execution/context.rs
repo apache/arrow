@@ -407,11 +407,8 @@ impl ExecutionContext {
             let filename = format!("part-{}.parquet", i);
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
-            let mut writer = ArrowWriter::try_new(
-                file.try_clone().unwrap(),
-                plan.schema().as_ref().to_owned().into(),
-                None,
-            )?;
+            let mut writer =
+                ArrowWriter::try_new(file.try_clone().unwrap(), plan.schema(), None)?;
             let stream = plan.execute(i).await?;
 
             stream
