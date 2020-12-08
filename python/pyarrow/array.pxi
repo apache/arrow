@@ -238,6 +238,15 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 mask = None if values.mask is np.ma.nomask else values.mask
                 values = values.data
 
+        if mask is not None:
+            if mask.dtype != np.bool_:
+                raise TypeError("Mask must be boolean dtype")
+            if mask.ndim != 1:
+                raise ValueError("Mask must be 1D array")
+            if len(values) != len(mask):
+                raise ValueError(
+                    "Mask is a different length from sequence being converted")
+
         if hasattr(values, '__arrow_array__'):
             return _handle_arrow_array_protocol(values, type, mask, size)
         elif pandas_api.is_categorical(values):
