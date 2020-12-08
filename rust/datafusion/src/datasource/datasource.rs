@@ -27,8 +27,10 @@ use crate::physical_plan::ExecutionPlan;
 /// The table statistics
 #[derive(Clone)]
 pub struct Statistics {
-    num_rows: usize,
-    total_byte_size: usize,
+    /// The number of table rows
+    pub num_rows: i64,
+    /// total byte of the table rows
+    pub total_byte_size: i64,
 }
 
 /// Source table
