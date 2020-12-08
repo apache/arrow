@@ -208,7 +208,7 @@ def test_from_numpy_dtype():
 
     # Things convertible to numpy dtypes work
     assert pa.from_numpy_dtype('U') == pa.string()
-    assert pa.from_numpy_dtype(np.unicode) == pa.string()
+    assert pa.from_numpy_dtype(np.str_) == pa.string()
     assert pa.from_numpy_dtype('int32') == pa.int32()
     assert pa.from_numpy_dtype(bool) == pa.bool_()
 
