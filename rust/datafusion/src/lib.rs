@@ -28,7 +28,6 @@
     clippy::into_iter_on_ref,
     clippy::len_zero,
     clippy::let_and_return,
-    clippy::map_clone,
     clippy::map_collect_result_unit,
     clippy::match_like_matches_macro,
     clippy::match_ref_pats,

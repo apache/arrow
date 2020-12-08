@@ -245,12 +245,12 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         }
         Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
         Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarFunction { args, .. } => Ok(args.iter().cloned().collect()),
+        Expr::ScalarUDF { args, .. } => Ok(args.iter().cloned().collect()),
         Expr::AggregateFunction { args, .. } => {
             Ok(args.iter().map(|e| e.clone()).collect())
         }
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::AggregateUDF { args, .. } => Ok(args.iter().cloned().collect()),
         Expr::Case {
             expr,
             when_then_expr,
