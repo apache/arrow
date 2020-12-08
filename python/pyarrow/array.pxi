@@ -240,7 +240,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
         if mask is not None:
             if mask.dtype != np.bool_:
-                raise ValueError("Mask must be boolean dtype")
+                raise TypeError("Mask must be boolean dtype")
             if mask.ndim != 1:
                 raise ValueError("Mask must be 1D array")
             if len(values) != len(mask):

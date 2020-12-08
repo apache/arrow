@@ -2565,16 +2565,26 @@ def test_array_masked():
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
-        ([1, 2], np.array([False, False], dtype="O"), "must be boolean dtype"),
-        ([1, 2], np.array([[False], [False]]), "must be 1D array"),
-        ([1, 2, 3], np.array([False, False]), "different length"),
-        (np.array([1, 2]), np.array([False, False],
-                                    dtype="O"), "must be boolean dtype"),
-        (np.array([1, 2]), np.array([[False], [False]]), "must be 1D array"),
-        (np.array([1, 2, 3]), np.array([False, False]), "different length"),
+        ([1, 2], np.array([False, False], dtype="O"),
+         pa.ArrowInvalid, "must be boolean dtype"),
+
+        ([1, 2], np.array([[False], [False]]),
+         pa.ArrowInvalid, "must be 1D array"),
+
+        ([1, 2, 3], np.array([False, False]),
+         pa.ArrowInvalid, "different length"),
+
+        (np.array([1, 2]), np.array([False, False], dtype="O"),
+         TypeError, "must be boolean dtype"),
+
+        (np.array([1, 2]), np.array([[False], [False]]),
+         ValueError, "must be 1D array"),
+
+        (np.array([1, 2, 3]), np.array([False, False]),
+         ValueError, "different length"),
     ]
-    for obj, mask, msg in cases:
-        with pytest.raises(ValueError, match=msg):
+    for obj, mask, ex, msg in cases:
+        with pytest.raises(ex, match=msg):
             pa.array(obj, mask=mask)
 
 
