@@ -36,6 +36,33 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+// Convert arrow::Type to arrow::DataType. If arrow::Type isn't
+// parameter free, this returns an arrow::DataType with the default
+// parameter.
+template <typename ArrowType>
+enable_if_t<TypeTraits<ArrowType>::is_parameter_free, std::shared_ptr<DataType>>
+TypeToDataType() {
+  return TypeTraits<ArrowType>::type_singleton();
+}
+
+template <typename ArrowType>
+enable_if_t<std::is_same<ArrowType, TimestampType>::value, std::shared_ptr<DataType>>
+TypeToDataType() {
+  return timestamp(TimeUnit::MILLI);
+}
+
+template <typename ArrowType>
+enable_if_t<std::is_same<ArrowType, Time32Type>::value, std::shared_ptr<DataType>>
+TypeToDataType() {
+  return time32(TimeUnit::MILLI);
+}
+
+template <typename ArrowType>
+enable_if_t<std::is_same<ArrowType, Time64Type>::value, std::shared_ptr<DataType>>
+TypeToDataType() {
+  return time64(TimeUnit::NANO);
+}
+
 template <typename ArrayType>
 class NthComparator {
  public:
@@ -108,12 +135,10 @@ class TestNthToIndices : public TestBase {
   }
 
   void AssertNthToIndicesJson(const std::string& values, int n) {
-    AssertNthToIndicesArray(ArrayFromJSON(type_singleton(), values), n);
+    AssertNthToIndicesArray(ArrayFromJSON(GetType(), values), n);
   }
 
-  std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
+  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
 };
 
 template <typename ArrowType>
@@ -125,11 +150,15 @@ class TestNthToIndicesForIntegral : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
+class TestNthToIndicesForTemporal : public TestNthToIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestNthToIndicesForTemporal, TemporalArrowTypes);
+
+template <typename ArrowType>
 class TestNthToIndicesForStrings : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestNthToIndicesForReal, NthToIndicesDoesNotProvideDefaultOptions) {
-  auto input = ArrayFromJSON(this->type_singleton(), "[null, 1, 3.3, null, 2, 5.3]");
+  auto input = ArrayFromJSON(this->GetType(), "[null, 1, 3.3, null, 2, 5.3]");
   ASSERT_RAISES(Invalid, CallFunction("partition_nth_indices", {input}));
 }
 
@@ -149,6 +178,13 @@ TYPED_TEST(TestNthToIndicesForReal, Real) {
 }
 
 TYPED_TEST(TestNthToIndicesForIntegral, Integral) {
+  this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 0);
+  this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 2);
+  this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 5);
+  this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 6);
+}
+
+TYPED_TEST(TestNthToIndicesForTemporal, Temporal) {
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 0);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 2);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 5);
@@ -246,7 +282,7 @@ class TestArraySortIndicesKernel : public TestBase {
  protected:
   virtual void AssertSortIndices(const std::string& values, SortOrder order,
                                  const std::string& expected) {
-    auto type = TypeTraits<ArrowType>::type_singleton();
+    auto type = TypeToDataType<ArrowType>();
     AssertArraysSortIndices(ArrayFromJSON(type, values), order,
                             ArrayFromJSON(uint64(), expected));
   }
@@ -264,6 +300,11 @@ template <typename ArrowType>
 class TestArraySortIndicesKernelForIntegral
     : public TestArraySortIndicesKernel<ArrowType> {};
 TYPED_TEST_SUITE(TestArraySortIndicesKernelForIntegral, IntegralArrowTypes);
+
+template <typename ArrowType>
+class TestArraySortIndicesKernelForTemporal
+    : public TestArraySortIndicesKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesKernelForTemporal, TemporalArrowTypes);
 
 template <typename ArrowType>
 class TestArraySortIndicesKernelForStrings
@@ -296,6 +337,24 @@ TYPED_TEST(TestArraySortIndicesKernelForReal, SortReal) {
 }
 
 TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
+  this->AssertSortIndices("[]", "[]");
+
+  this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
+  this->AssertSortIndices("[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]");
+  this->AssertSortIndices("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]");
+
+  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Ascending,
+                          "[2, 0, 6, 1, 5, 3, 4]");
+  this->AssertSortIndices("[10, 12, 4, 50, 50, 32, 11]", SortOrder::Descending,
+                          "[3, 4, 5, 1, 6, 0, 2]");
+
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Ascending,
+                          "[1, 4, 2, 5, 0, 3]");
+  this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
+                          "[5, 2, 4, 1, 0, 3]");
+}
+
+TYPED_TEST(TestArraySortIndicesKernelForTemporal, SortTemporal) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
@@ -449,7 +508,7 @@ class TestChunkedArraySortIndices : public ::testing::Test {
   }
 };
 
-TEST_F(TestChunkedArraySortIndices, SortNull) {
+TEST_F(TestChunkedArraySortIndices, Null) {
   auto chunked_array = ChunkedArrayFromJSON(uint8(), {
                                                          "[null, 1]",
                                                          "[3, null, 2]",
@@ -459,7 +518,7 @@ TEST_F(TestChunkedArraySortIndices, SortNull) {
   this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 4, 1, 5, 0, 3]");
 }
 
-TEST_F(TestChunkedArraySortIndices, SortNaN) {
+TEST_F(TestChunkedArraySortIndices, NaN) {
   auto chunked_array = ChunkedArrayFromJSON(float32(), {
                                                            "[null, 1]",
                                                            "[3, null, NaN]",
@@ -467,6 +526,25 @@ TEST_F(TestChunkedArraySortIndices, SortNaN) {
                                                        });
   this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
   this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 1, 6, 4, 5, 0, 3]");
+}
+
+// Tests for temporal types
+template <typename ArrowType>
+class TestChunkedArraySortIndicesForTemporal : public TestChunkedArraySortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+};
+TYPED_TEST_SUITE(TestChunkedArraySortIndicesForTemporal, TemporalArrowTypes);
+
+TYPED_TEST(TestChunkedArraySortIndicesForTemporal, NoNull) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      "[0, 1]",
+                                                      "[3, 2, 1]",
+                                                      "[5, 0]",
+                                                  });
+  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[0, 6, 1, 4, 3, 2, 5]");
+  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[5, 2, 3, 1, 4, 0, 6]");
 }
 
 // Base class for testing against random chunked array.
@@ -559,7 +637,7 @@ class TestTableSortIndices : public ::testing::Test {
   }
 };
 
-TEST_F(TestTableSortIndices, SortNull) {
+TEST_F(TestTableSortIndices, Null) {
   auto table = TableFromJSON(schema({
                                  {field("a", uint8())},
                                  {field("b", uint8())},
@@ -577,7 +655,7 @@ TEST_F(TestTableSortIndices, SortNull) {
   this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
 }
 
-TEST_F(TestTableSortIndices, SortNaN) {
+TEST_F(TestTableSortIndices, NaN) {
   auto table = TableFromJSON(schema({
                                  {field("a", float32())},
                                  {field("b", float32())},
@@ -595,6 +673,35 @@ TEST_F(TestTableSortIndices, SortNaN) {
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
   this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+}
+
+// Tests for temporal types
+template <typename ArrowType>
+class TestTableSortIndicesForTemporal : public TestTableSortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+};
+TYPED_TEST_SUITE(TestTableSortIndicesForTemporal, TemporalArrowTypes);
+
+TYPED_TEST(TestTableSortIndicesForTemporal, NoNull) {
+  auto type = this->GetType();
+  auto table = TableFromJSON(schema({
+                                 {field("a", type)},
+                                 {field("b", type)},
+                             }),
+                             {"["
+                              "{\"a\": 0, \"b\": 5},"
+                              "{\"a\": 1, \"b\": 3},"
+                              "{\"a\": 3, \"b\": 0},"
+                              "{\"a\": 2, \"b\": 1},"
+                              "{\"a\": 1, \"b\": 3},"
+                              "{\"a\": 5, \"b\": 0},"
+                              "{\"a\": 0, \"b\": 4},"
+                              "{\"a\": 1, \"b\": 2}"
+                              "]"});
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  this->AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
 }
 
 // For random table tests.

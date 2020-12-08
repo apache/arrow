@@ -487,7 +487,7 @@ ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
-/// built in time clases).
+/// built in time classes).
 std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
 
 /// \brief Return a DayTimeIntervalType instance

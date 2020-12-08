@@ -137,15 +137,16 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
-    NumericArrowTypes;
+using NumericArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType>;
 
-typedef ::testing::Types<FloatType, DoubleType> RealArrowTypes;
+using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type>
-    IntegralArrowTypes;
+using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                            Int8Type, Int16Type, Int32Type, Int64Type>;
+using TemporalArrowTypes =
+    ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 class Array;
 class ChunkedArray;
