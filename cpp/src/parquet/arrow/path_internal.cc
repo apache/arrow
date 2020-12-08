@@ -116,7 +116,6 @@ namespace {
 using ::arrow::Array;
 using ::arrow::Status;
 using ::arrow::TypedBufferBuilder;
-using ::arrow::util::holds_alternative;
 
 constexpr static int16_t kLevelNotSet = -1;
 
@@ -274,7 +273,8 @@ struct AllPresentTerminalNode {
 /// Node for handling the case when the leaf-array is nullable
 /// and contains null elements.
 struct NullableTerminalNode {
-  NullableTerminalNode();
+  NullableTerminalNode() = default;
+
   NullableTerminalNode(const uint8_t* bitmap, int64_t element_offset,
                        int16_t def_level_if_present)
       : bitmap_(bitmap),
@@ -517,9 +517,10 @@ struct PathInfo {
   // The vectors are expected to the same length info.
 
   // Note index order matters here.
-  using Node = ::arrow::util::variant<NullableTerminalNode, ListNode, LargeListNode,
+  using Node = ::arrow::util::Variant<NullableTerminalNode, ListNode, LargeListNode,
                                       FixedSizeListNode, NullableNode,
                                       AllPresentTerminalNode, AllNullsTerminalNode>;
+
   std::vector<Node> path;
   std::shared_ptr<Array> primitive_array;
   int16_t max_def_level = 0;
@@ -575,38 +576,32 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
     struct {
-      IterationResult operator()(
-          NullableNode& node) {  // NOLINT google-runtime-references
-        return node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(NullableNode* node) {
+        return node->Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(ListNode& node) {  // NOLINT google-runtime-references
-        return node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(ListNode* node) {
+        return node->Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(
-          NullableTerminalNode& node) {  // NOLINT google-runtime-references
-        return node.Run(*stack_position, context);
+      IterationResult operator()(NullableTerminalNode* node) {
+        return node->Run(*stack_position, context);
       }
-      IterationResult operator()(
-          FixedSizeListNode& node) {  // NOLINT google-runtime-references
-        return node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(FixedSizeListNode* node) {
+        return node->Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(
-          AllPresentTerminalNode& node) {  // NOLINT google-runtime-references
-        return node.Run(*stack_position, context);
+      IterationResult operator()(AllPresentTerminalNode* node) {
+        return node->Run(*stack_position, context);
       }
-      IterationResult operator()(
-          AllNullsTerminalNode& node) {  // NOLINT google-runtime-references
-        return node.Run(*stack_position, context);
+      IterationResult operator()(AllNullsTerminalNode* node) {
+        return node->Run(*stack_position, context);
       }
-      IterationResult operator()(
-          LargeListNode& node) {  // NOLINT google-runtime-references
-        return node.Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(LargeListNode* node) {
+        return node->Run(stack_position, stack_position + 1, context);
       }
       ElementRange* stack_position;
       PathWriteContext* context;
     } visitor = {stack_position, &context};
 
-    IterationResult result = ::arrow::util::visit(visitor, node);
+    IterationResult result = ::arrow::util::visit(visitor, &node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
@@ -653,15 +648,9 @@ struct FixupVisitor {
       rep_level_if_null = arg->rep_level();
     }
   }
-  void operator()(ListNode& node) {  // NOLINT google-runtime-references
-    HandleListNode(&node);
-  }
-  void operator()(LargeListNode& node) {  // NOLINT google-runtime-references
-    HandleListNode(&node);
-  }
-  void operator()(FixedSizeListNode& node) {  // NOLINT google-runtime-references
-    HandleListNode(&node);
-  }
+  void operator()(ListNode* node) { HandleListNode(node); }
+  void operator()(LargeListNode* node) { HandleListNode(node); }
+  void operator()(FixedSizeListNode* node) { HandleListNode(node); }
 
   // For non-list intermediate nodes.
   template <typename T>
@@ -671,19 +660,17 @@ struct FixupVisitor {
     }
   }
 
-  void operator()(NullableNode& arg) {  // NOLINT google-runtime-references
-    HandleIntermediateNode(&arg);
-  }
+  void operator()(NullableNode* arg) { HandleIntermediateNode(arg); }
 
-  void operator()(AllNullsTerminalNode& arg) {  // NOLINT google-runtime-references
+  void operator()(AllNullsTerminalNode* arg) {
     // Even though no processing happens past this point we
     // still need to adjust it if a list occurred after an
     // all null array.
-    HandleIntermediateNode(&arg);
+    HandleIntermediateNode(arg);
   }
 
-  void operator()(NullableTerminalNode& arg) {}    // NOLINT google-runtime-references
-  void operator()(AllPresentTerminalNode& arg) {}  // NOLINT google-runtime-references
+  void operator()(NullableTerminalNode*) {}
+  void operator()(AllPresentTerminalNode*) {}
 };
 
 PathInfo Fixup(PathInfo info) {
@@ -698,7 +685,7 @@ PathInfo Fixup(PathInfo info) {
     visitor.rep_level_if_null = 0;
   }
   for (size_t x = 0; x < info.path.size(); x++) {
-    ::arrow::util::visit(visitor, info.path[x]);
+    ::arrow::util::visit(visitor, &info.path[x]);
   }
   return info;
 }
@@ -717,12 +704,12 @@ class PathBuilder {
     // traversing the null bitmap twice (once here and once when calculating
     // rep/def levels).
     if (LazyNoNulls(array)) {
-      info_.path.push_back(AllPresentTerminalNode{info_.max_def_level});
+      info_.path.emplace_back(AllPresentTerminalNode{info_.max_def_level});
     } else if (LazyNullCount(array) == array.length()) {
-      info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
+      info_.path.emplace_back(AllNullsTerminalNode(info_.max_def_level - 1));
     } else {
-      info_.path.push_back(NullableTerminalNode(array.null_bitmap_data(), array.offset(),
-                                                info_.max_def_level));
+      info_.path.emplace_back(NullableTerminalNode(array.null_bitmap_data(),
+                                                   array.offset(), info_.max_def_level));
     }
     info_.primitive_array = std::make_shared<T>(array.data());
     paths_.push_back(Fixup(info_));
@@ -748,7 +735,7 @@ class PathBuilder {
     ListPathNode<VarRangeSelector<typename T::offset_type>> node(
         VarRangeSelector<typename T::offset_type>{array.raw_value_offsets()},
         info_.max_rep_level, info_.max_def_level - 1);
-    info_.path.push_back(node);
+    info_.path.emplace_back(std::move(node));
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
     return VisitInline(*array.values());
   }
@@ -788,11 +775,12 @@ class PathBuilder {
       return;
     }
     if (LazyNullCount(array) == array.length()) {
-      info_.path.push_back(AllNullsTerminalNode(info_.max_def_level - 1));
+      info_.path.emplace_back(AllNullsTerminalNode(info_.max_def_level - 1));
       return;
     }
-    info_.path.push_back(NullableNode(array.null_bitmap_data(), array.offset(),
-                                      /* def_level_if_null = */ info_.max_def_level - 1));
+    info_.path.emplace_back(
+        NullableNode(array.null_bitmap_data(), array.offset(),
+                     /* def_level_if_null = */ info_.max_def_level - 1));
   }
 
   Status VisitInline(const Array& array);
@@ -820,8 +808,8 @@ class PathBuilder {
     // well.
     info_.max_def_level++;
     info_.max_rep_level++;
-    info_.path.push_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
-                                           info_.max_rep_level, info_.max_def_level));
+    info_.path.emplace_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
+                                              info_.max_rep_level, info_.max_def_level));
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
     if (array.offset() > 0) {
       return VisitInline(*array.values()->Slice(array.value_offset(0)));

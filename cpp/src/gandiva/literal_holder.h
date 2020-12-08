@@ -28,7 +28,7 @@
 namespace gandiva {
 
 using LiteralHolder =
-    arrow::util::variant<bool, float, double, int8_t, int16_t, int32_t, int64_t, uint8_t,
+    arrow::util::Variant<bool, float, double, int8_t, int16_t, int32_t, int64_t, uint8_t,
                          uint16_t, uint32_t, uint64_t, std::string, DecimalScalar128>;
 
 GANDIVA_EXPORT std::string ToString(const LiteralHolder& holder);

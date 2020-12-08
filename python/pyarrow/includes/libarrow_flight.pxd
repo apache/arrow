@@ -538,7 +538,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
 
 
 cdef extern from "arrow/util/variant.h" namespace "arrow" nogil:
-    cdef cppclass CIntStringVariant" arrow::util::variant<int, std::string>":
+    cdef cppclass CIntStringVariant" arrow::util::Variant<int, std::string>":
         CIntStringVariant()
         CIntStringVariant(int)
         CIntStringVariant(c_string)
