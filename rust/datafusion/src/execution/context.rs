@@ -206,20 +206,9 @@ impl ExecutionContext {
         filename: &str,
         options: CsvReadOptions,
     ) -> Result<Arc<dyn DataFrame>> {
-        let csv = CsvFile::try_new(filename, options)?;
-
-        let table_scan = LogicalPlan::CsvScan {
-            path: filename.to_string(),
-            schema: csv.schema(),
-            has_header: options.has_header,
-            delimiter: Some(options.delimiter),
-            projection: None,
-            projected_schema: Arc::new(DFSchema::from(&csv.schema())?),
-        };
-
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
-            &LogicalPlanBuilder::from(&table_scan).build()?,
+            &LogicalPlanBuilder::scan_csv(&filename, options, None)?.build()?,
         )))
     }
 

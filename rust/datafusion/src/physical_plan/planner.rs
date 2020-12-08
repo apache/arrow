@@ -26,7 +26,6 @@ use crate::logical_plan::{
     DFSchema, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
     UserDefinedLogicalNode,
 };
-use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
@@ -165,22 +164,6 @@ impl DefaultPhysicalPlanner {
                 data,
                 projected_schema.as_ref().to_owned().into(),
                 projection.to_owned(),
-            )?)),
-            LogicalPlan::CsvScan {
-                path,
-                schema,
-                has_header,
-                delimiter,
-                projection,
-                ..
-            } => Ok(Arc::new(CsvExec::try_new(
-                path,
-                CsvReadOptions::new()
-                    .schema(schema.as_ref())
-                    .delimiter_option(*delimiter)
-                    .has_header(*has_header),
-                projection.to_owned(),
-                batch_size,
             )?)),
             LogicalPlan::Aggregate {
                 input,

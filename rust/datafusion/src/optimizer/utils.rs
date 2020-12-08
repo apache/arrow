@@ -150,7 +150,6 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Limit { .. }
         | LogicalPlan::CreateExternalTable { .. }
@@ -172,7 +171,6 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
@@ -230,7 +228,6 @@ pub fn from_plan(
         | LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => Ok(plan.clone()),
     }

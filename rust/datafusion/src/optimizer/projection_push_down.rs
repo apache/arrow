@@ -288,30 +288,6 @@ fn optimize_plan(
                 projected_schema,
             })
         }
-        LogicalPlan::CsvScan {
-            path,
-            has_header,
-            delimiter,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-
-            Ok(LogicalPlan::CsvScan {
-                path: path.to_owned(),
-                has_header: *has_header,
-                schema: schema.clone(),
-                delimiter: *delimiter,
-                projection: Some(projection),
-                projected_schema,
-            })
-        }
         LogicalPlan::ParquetScan {
             path,
             schema,

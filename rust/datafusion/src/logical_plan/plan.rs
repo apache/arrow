@@ -154,21 +154,6 @@ pub enum LogicalPlan {
         /// The schema description of the output
         projected_schema: DFSchemaRef,
     },
-    /// Produces rows by scanning a CSV file(s)
-    CsvScan {
-        /// The path to the files
-        path: String,
-        /// The underlying table schema
-        schema: SchemaRef,
-        /// Whether the CSV file(s) have a header containing column names
-        has_header: bool,
-        /// An optional column delimiter. Defaults to `b','`
-        delimiter: Option<u8>,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: DFSchemaRef,
-    },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
         /// Whether to produce a placeholder row
@@ -221,9 +206,6 @@ impl LogicalPlan {
         match self {
             LogicalPlan::EmptyRelation { schema, .. } => &schema,
             LogicalPlan::InMemoryScan {
-                projected_schema, ..
-            } => &projected_schema,
-            LogicalPlan::CsvScan {
                 projected_schema, ..
             } => &projected_schema,
             LogicalPlan::ParquetScan {
@@ -334,7 +316,6 @@ impl LogicalPlan {
             LogicalPlan::TableScan { .. }
             | LogicalPlan::InMemoryScan { .. }
             | LogicalPlan::ParquetScan { .. }
-            | LogicalPlan::CsvScan { .. }
             | LogicalPlan::EmptyRelation { .. }
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. } => true,
@@ -541,11 +522,6 @@ impl LogicalPlan {
                     LogicalPlan::InMemoryScan { ref projection, .. } => {
                         write!(f, "InMemoryScan: projection={:?}", projection)
                     }
-                    LogicalPlan::CsvScan {
-                        ref path,
-                        ref projection,
-                        ..
-                    } => write!(f, "CsvScan: {} projection={:?}", path, projection),
                     LogicalPlan::ParquetScan {
                         ref path,
                         ref projection,
