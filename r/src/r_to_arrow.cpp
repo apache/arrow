@@ -183,6 +183,40 @@ Result<double> IntegerScalarToDoubleSafe(int64_t value) {
   return static_cast<double>(value);
 }
 
+template <typename T>
+Result<T> CIntFromRScalarImpl(int64_t value) {
+  if (value < std::numeric_limits<T>::min() || value > std::numeric_limits<T>::max()) {
+    return Status::Invalid("value outside of range");
+  }
+  return static_cast<T>(value);
+}
+
+template <>
+Result<uint64_t> CIntFromRScalarImpl<uint64_t>(int64_t value) {
+  if (value < 0) {
+    return Status::Invalid("value outside of range");
+  }
+  return static_cast<uint64_t>(value);
+}
+
+template <typename T>
+Result<T> CIntFromRScalar(RScalar* obj) {
+  switch (obj->rtype) {
+    case FLOAT64:
+      return CIntFromRScalarImpl<T>(*reinterpret_cast<double*>(obj->data));
+    case INT32:
+      return CIntFromRScalarImpl<T>(*reinterpret_cast<int*>(obj->data));
+    case UINT8:
+      return CIntFromRScalarImpl<T>(*reinterpret_cast<unsigned char*>(obj->data));
+    case INT64:
+      return CIntFromRScalarImpl<T>(*reinterpret_cast<int64_t*>(obj->data));
+    default:
+      break;
+  }
+
+  return Status::Invalid("Cannot convert to Int");
+}
+
 class RValue {
  public:
   static bool IsNull(RScalar* obj) { return obj->null; }
@@ -240,67 +274,10 @@ class RValue {
     return Status::Invalid("invalid conversion to double");
   }
 
-  static Result<uint8_t> Convert(const UInt8Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    // TODO: handle conversion from other types
-    if (value->rtype == UINT8) {
-      return *reinterpret_cast<uint8_t*>(value->data);
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to uint8");
-  }
-
-  static Result<int8_t> Convert(const Int8Type*, const RConversionOptions&,
-                                RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to int8");
-  }
-
-  static Result<int16_t> Convert(const Int16Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to int16");
-  }
-
-  static Result<uint16_t> Convert(const UInt16Type*, const RConversionOptions&,
-                                  RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to uint16");
-  }
-
-  static Result<int32_t> Convert(const Int32Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    // TODO: handle conversion from other types
-    if (value->rtype == INT32) {
-      return *reinterpret_cast<int32_t*>(value->data);
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to int32");
-  }
-
-  static Result<uint32_t> Convert(const UInt32Type*, const RConversionOptions&,
-                                  RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to uint32");
-  }
-
-  static Result<int64_t> Convert(const Int64Type*, const RConversionOptions&,
-                                 RScalar* value) {
-    // TODO: handle conversion from other types
-    if (value->rtype == INT64) {
-      return *reinterpret_cast<int64_t*>(value->data);
-    }
-
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to int64");
-  }
-
-  static Result<uint64_t> Convert(const UInt64Type*, const RConversionOptions&,
-                                  RScalar* value) {
-    // TODO: improve error
-    return Status::Invalid("invalid conversion to uint64");
+  template <typename T>
+  static enable_if_integer<T, Result<typename T::c_type>> Convert(
+      const T*, const RConversionOptions&, RScalar* value) {
+    return CIntFromRScalar<typename T::c_type>(value);
   }
 
   static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
