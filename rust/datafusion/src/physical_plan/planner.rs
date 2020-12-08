@@ -33,7 +33,6 @@ use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
 use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
@@ -154,16 +153,6 @@ impl DefaultPhysicalPlanner {
                     provider.scan(projection, batch_size)
                 }
             },
-            LogicalPlan::InMemoryScan {
-                data,
-                projection,
-                projected_schema,
-                ..
-            } => Ok(Arc::new(MemoryExec::try_new(
-                data,
-                projected_schema.as_ref().to_owned().into(),
-                projection.to_owned(),
-            )?)),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,

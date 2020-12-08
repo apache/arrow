@@ -39,7 +39,7 @@ pub struct MemTable {
 
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
-    pub fn new(schema: SchemaRef, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
+    pub fn try_new(schema: SchemaRef, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
         if partitions.iter().all(|partition| {
             partition
                 .iter()
@@ -81,7 +81,7 @@ impl MemTable {
             data.push(result);
         }
 
-        MemTable::new(schema.clone(), data)
+        MemTable::try_new(schema.clone(), data)
     }
 }
 
@@ -158,7 +158,7 @@ mod tests {
             ],
         )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]])?;
+        let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
@@ -189,7 +189,7 @@ mod tests {
             ],
         )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]])?;
+        let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         let exec = provider.scan(&None, 1024)?;
         let mut it = exec.execute(0).await?;
@@ -217,7 +217,7 @@ mod tests {
             ],
         )?;
 
-        let provider = MemTable::new(schema, vec![vec![batch]])?;
+        let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         let projection: Vec<usize> = vec![0, 4];
 
@@ -254,7 +254,7 @@ mod tests {
             ],
         )?;
 
-        match MemTable::new(schema2, vec![vec![batch]]) {
+        match MemTable::try_new(schema2, vec![vec![batch]]) {
             Err(DataFusionError::Plan(e)) => assert_eq!(
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)

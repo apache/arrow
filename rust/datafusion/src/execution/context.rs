@@ -727,33 +727,31 @@ mod tests {
             Field::new("c", DataType::Int32, false),
         ]);
         let schema = SchemaRef::new(schema);
-        let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
-            data: vec![vec![RecordBatch::try_new(
-                schema.clone(),
-                vec![
-                    Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
-                    Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
-                    Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
-                ],
-            )?]],
-            schema: schema.clone(),
-            projection: None,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
-        })
-        .project(vec![col("b")])?
-        .build()?;
+
+        let partitions = vec![vec![RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
+                Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
+                Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
+            ],
+        )?]];
+
+        let plan = LogicalPlanBuilder::scan_memory(partitions, schema, None)?
+            .project(vec![col("b")])?
+            .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
         let ctx = ExecutionContext::new();
         let optimized_plan = ctx.optimize(&plan)?;
         match &optimized_plan {
             LogicalPlan::Projection { input, .. } => match &**input {
-                LogicalPlan::InMemoryScan {
-                    schema,
+                LogicalPlan::TableScan {
+                    table_schema,
                     projected_schema,
                     ..
                 } => {
-                    assert_eq!(schema.fields().len(), 3);
+                    assert_eq!(table_schema.fields().len(), 3);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
                 _ => assert!(false, "input to projection should be InMemoryScan"),
@@ -762,7 +760,7 @@ mod tests {
         }
 
         let expected = "Projection: #b\
-        \n  InMemoryScan: projection=Some([1])";
+        \n  TableScan: projection=Some([1])";
         assert_eq!(format!("{:?}", optimized_plan), expected);
 
         let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
@@ -1314,7 +1312,7 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(Arc::new(schema), vec![vec![batch]])?;
+        let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
         let myfunc: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
@@ -1404,7 +1402,8 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        let provider =
+            MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Box::new(provider));
 
         let result = collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
@@ -1440,7 +1439,8 @@ mod tests {
 
         let mut ctx = ExecutionContext::new();
 
-        let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        let provider =
+            MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Box::new(provider));
 
         // define a udaf, using a DataFusion's accumulator

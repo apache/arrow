@@ -148,7 +148,6 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
         LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Limit { .. }
         | LogicalPlan::CreateExternalTable { .. }
@@ -168,7 +167,6 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Extension { node } => node.inputs(),
         // plans without inputs
         LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
@@ -224,7 +222,6 @@ pub fn from_plan(
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => Ok(plan.clone()),
     }

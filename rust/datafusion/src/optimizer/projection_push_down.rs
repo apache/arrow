@@ -269,25 +269,6 @@ fn optimize_plan(
                 projected_schema,
             })
         }
-        LogicalPlan::InMemoryScan {
-            data,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-            Ok(LogicalPlan::InMemoryScan {
-                data: data.clone(),
-                schema: schema.clone(),
-                projection: Some(projection),
-                projected_schema,
-            })
-        }
         LogicalPlan::Explain {
             verbose,
             plan,

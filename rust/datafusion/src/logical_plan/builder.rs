@@ -19,11 +19,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::{
+    datatypes::{Schema, SchemaRef},
+    record_batch::RecordBatch,
+};
 
-use crate::{datasource::{CsvFile, parquet::ParquetTable}, prelude::CsvReadOptions};
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::{
+    datasource::{parquet::ParquetTable, CsvFile, MemTable},
+    prelude::CsvReadOptions,
+};
 
 use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
@@ -51,6 +57,31 @@ impl LogicalPlanBuilder {
             produce_one_row,
             schema: DFSchemaRef::new(DFSchema::empty()),
         })
+    }
+
+    /// Scan a memory data source
+    pub fn scan_memory(
+        partitions: Vec<Vec<RecordBatch>>,
+        schema: SchemaRef,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        let provider = Arc::new(MemTable::try_new(schema.clone(), partitions)?);
+
+        let projected_schema = projection
+            .clone()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
+        let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
+        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
+
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema.clone(),
+            projected_schema,
+            projection: None,
+        };
+
+        Ok(Self::from(&table_scan))
     }
 
     /// Scan a CSV data source
@@ -91,9 +122,7 @@ impl LogicalPlanBuilder {
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
         let provider = Arc::new(ParquetTable::try_new(path)?);
-
-        let p = ParquetTable::try_new(path)?;
-        let schema = p.schema();
+        let schema = provider.schema();
 
         let projected_schema = projection
             .clone()
