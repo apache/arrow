@@ -1155,7 +1155,10 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
         walker->ListObjectsFinished(std::move(st));
         return;
       }
-      const auto& result = outcome.GetResult();
+      HandleResult(outcome.GetResult());
+    }
+
+    void HandleResult(const S3Model::ListObjectsV2Result& result) {
       bool recurse = result.GetCommonPrefixes().size() > 0;
       if (recurse) {
         auto maybe_recurse = walker->recursion_handler_(nesting_depth + 1);
@@ -1173,6 +1176,8 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
       if (recurse) {
         walker->WalkChildren(result, nesting_depth + 1);
       }
+      // If the result was truncated, issue a continuation request to get
+      // further directory entries.
       if (result.GetIsTruncated()) {
         DCHECK(!result.GetNextContinuationToken().empty());
         req.SetContinuationToken(result.GetNextContinuationToken());
@@ -1339,37 +1344,15 @@ class S3FileSystem::Impl {
         outcome.GetError());
   }
 
-  // List objects under a given prefix, issuing continuation requests if necessary
-  template <typename ResultCallable, typename ErrorCallable>
-  Status ListObjectsV2(const std::string& bucket, const std::string& prefix,
-                       ResultCallable&& result_callable, ErrorCallable&& error_callable) {
-    S3Model::ListObjectsV2Request req;
-    req.SetBucket(ToAwsString(bucket));
-    if (!prefix.empty()) {
-      req.SetPrefix(ToAwsString(prefix) + kSep);
-    }
-    req.SetDelimiter(Aws::String() + kSep);
-    req.SetMaxKeys(kListObjectsMaxKeys);
-
-    while (true) {
-      auto outcome = client_->ListObjectsV2(req);
-      if (!outcome.IsSuccess()) {
-        return error_callable(outcome.GetError());
-      }
-      const auto& result = outcome.GetResult();
-      RETURN_NOT_OK(result_callable(result));
-      // Was the result limited by max-keys? If so, use the continuation token
-      // to fetch further results.
-      if (!result.GetIsTruncated()) {
-        break;
-      }
-      DCHECK(!result.GetNextContinuationToken().empty());
-      req.SetContinuationToken(result.GetNextContinuationToken());
+  Status CheckNestingDepth(int32_t nesting_depth) {
+    if (nesting_depth >= kMaxNestingDepth) {
+      return Status::IOError("S3 filesystem tree exceeds maximum nesting depth (",
+                             kMaxNestingDepth, ")");
     }
     return Status::OK();
   }
 
-  // Recursive workhorse for GetTargetStats(FileSelector...)
+  // Workhorse for GetTargetStats(FileSelector...)
   Status Walk(const FileSelector& select, const std::string& bucket,
               const std::string& key, std::vector<FileInfo>* out) {
     bool is_empty = true;
@@ -1384,10 +1367,7 @@ class S3FileSystem::Impl {
     };
 
     auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
-      if (nesting_depth >= kMaxNestingDepth) {
-        return Status::IOError("S3 filesystem tree exceeds maximum nesting depth (",
-                               kMaxNestingDepth, ")");
-      }
+      RETURN_NOT_OK(CheckNestingDepth(nesting_depth));
       return select.recursive && nesting_depth <= select.max_recursion;
     };
 
@@ -1434,7 +1414,8 @@ class S3FileSystem::Impl {
         return PathNotFound(bucket, key);
       }
     }
-    // TODO sort results for convenience?
+    // Sort results for convenience, since they can come massively out of order
+    std::sort(out->begin(), out->end(), FileInfo::ByPath{});
     return Status::OK();
   }
 
@@ -1463,10 +1444,7 @@ class S3FileSystem::Impl {
     };
 
     auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
-      if (nesting_depth >= kMaxNestingDepth) {
-        return Status::IOError("S3 filesystem tree exceeds maximum nesting depth (",
-                               kMaxNestingDepth, ")");
-      }
+      RETURN_NOT_OK(CheckNestingDepth(nesting_depth));
       return true;  // Recurse
     };
 
@@ -1476,10 +1454,8 @@ class S3FileSystem::Impl {
 
   // Delete multiple objects at once
   Status DeleteObjects(const std::string& bucket, const std::vector<std::string>& keys) {
-    struct Deleter {
-      Future<> future;
-
-      Deleter() : future(Future<>::Make()) {}
+    struct DeleteHandler {
+      Future<> future = Future<>::Make();
 
       // Callback for DeleteObjectsAsync
       void operator()(const Aws::S3::S3Client*, const S3Model::DeleteObjectsRequest& req,
@@ -1509,8 +1485,10 @@ class S3FileSystem::Impl {
     };
 
     const auto chunk_size = static_cast<size_t>(kMultipleDeleteMaxKeys);
-    std::vector<Deleter> deleters;
-    deleters.reserve(keys.size() / chunk_size + 1);
+    std::vector<DeleteHandler> delete_handlers;
+    std::vector<Future<>*> futures;
+    delete_handlers.reserve(keys.size() / chunk_size + 1);
+    futures.reserve(delete_handlers.capacity());
 
     for (size_t start = 0; start < keys.size(); start += chunk_size) {
       S3Model::DeleteObjectsRequest req;
@@ -1520,13 +1498,11 @@ class S3FileSystem::Impl {
       }
       req.SetBucket(ToAwsString(bucket));
       req.SetDelete(std::move(del));
-      deleters.emplace_back();
-      client_->DeleteObjectsAsync(req, deleters.back());
+      delete_handlers.emplace_back();
+      futures.push_back(&delete_handlers.back().future);
+      client_->DeleteObjectsAsync(req, delete_handlers.back());
     }
 
-    std::vector<Future<>*> futures(deleters.size());
-    std::transform(deleters.begin(), deleters.end(), futures.begin(),
-                   [](Deleter& del) { return &del.future; });
     WaitForAll(futures);
     for (const auto* fut : futures) {
       RETURN_NOT_OK(fut->status());
