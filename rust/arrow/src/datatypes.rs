@@ -28,7 +28,7 @@ use std::fmt;
 use std::mem::size_of;
 use std::ops::Neg;
 #[cfg(feature = "simd")]
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Not, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -515,6 +515,12 @@ where
         + Mul<Output = Self::Simd>
         + Div<Output = Self::Simd>
         + Copy,
+    Self::SimdMask: BitAnd<Output = Self::SimdMask>
+        + BitOr<Output = Self::SimdMask>
+        + BitAndAssign
+        + BitOrAssign
+        + Not<Output = Self::SimdMask>
+        + Copy,
 {
     /// Defines the SIMD type that should be used for this numeric type
     type Simd;
@@ -534,7 +540,8 @@ where
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
 
-    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`
+    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`.
+    /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
     /// Gets the value of a single lane in a SIMD mask
@@ -619,19 +626,28 @@ macro_rules! make_numeric_type {
 
             #[inline]
             fn mask_from_u64(mask: u64) -> Self::SimdMask {
+                // this match will get removed by the compiler since the number of lanes is known at
+                // compile-time for each concrete numeric type
                 match Self::lanes() {
                     8 => {
-                        let vecidx = i64x8::new(128, 64, 32, 16, 8, 4, 2, 1);
+                        // the bit position in each lane indicates the index of that lane
+                        let vecidx = i64x8::new(1, 2, 4, 8, 16, 32, 64, 128);
 
+                        // broadcast the lowermost 8 bits of mask to each lane
                         let vecmask = i64x8::splat((mask & 0xFF) as i64);
+                        // compute whether the bit corresponding to each lanes index is set
                         let vecmask = (vecidx & vecmask).eq(vecidx);
 
+                        // transmute is necessary because the different match arms return different
+                        // mask types, at runtime only one of those expressions will exist per type,
+                        // with the type being equal to `SimdMask`.
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     16 => {
+                        // same general logic as for 8 lanes, extended to 16 bits
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -640,11 +656,13 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     32 => {
+                        // compute two separate m32x16 vector masks from  from the lower-most 32 bits of `mask`
+                        // and then combine them into one m16x32 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i16; 32];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -662,11 +680,13 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(i16x32::from_slice_unaligned(tmp)) }
                     }
                     64 => {
+                        // compute four m32x16 vector masks from  from all 64 bits of `mask`
+                        // and convert them into one m8x64 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i8; 64];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -2884,72 +2904,81 @@ mod arrow_numeric_type_tests {
     use packed_simd::*;
     use FromCast;
 
+    /// calculate the expected mask by iterating over all bits
+    macro_rules! expected_mask {
+        ($T:ty, $MASK:expr) => {{
+            let mask = $MASK;
+            // simd width of all types is currently 64 bytes -> 512 bits
+            let lanes = 64 / std::mem::size_of::<$T>();
+            // translate each set bit into a value of all ones (-1) of the correct type
+            (0..lanes)
+                .map(|i| (if (mask & (1 << i)) != 0 { -1 } else { 0 }))
+                .collect::<Vec<$T>>()
+        }};
+    }
+
     #[test]
     fn test_mask_f64() {
-        let mask = Float64Type::mask_from_u64(0b10101010);
+        let mask = 0b10101010;
+        let actual = Float64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[-1, 0, -1, 0, -1, 0, -1, 0]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u64() {
-        let mask = Int64Type::mask_from_u64(0b01010101);
+        let mask = 0b01010101;
+        let actual = Int64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[0, -1, 0, -1, 0, -1, 0, -1]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_f32() {
-        let mask = Float32Type::mask_from_u64(0b10101010_10101010);
+        let mask = 0b10101010_10101010;
+        let actual = Float32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i32() {
-        let mask = Int32Type::mask_from_u64(0b01010101_01010101);
+        let mask = 0b01010101_01010101;
+        let actual = Int32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u16() {
-        let mask = UInt16Type::mask_from_u64(0b01010101_01010101_10101010_10101010);
+        let mask = 0b01010101_01010101_10101010_10101010;
+        let actual = UInt16Type::mask_from_u64(mask);
+        let expected = expected_mask!(i16, mask);
+        dbg!(&expected);
+        let expected =
+            m16x32::from_cast(i16x32::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m16x32::from_cast(i16x32::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i8() {
-        let mask = Int8Type::mask_from_u64(
-            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010,
-        );
+        let mask =
+            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010;
+        let actual = Int8Type::mask_from_u64(mask);
+        let expected = expected_mask!(i8, mask);
+        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-            -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 }

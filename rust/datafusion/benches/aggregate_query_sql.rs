@@ -171,33 +171,37 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function(
-        "aggregate_query_no_group_by_count_distinct_wide 15 12",
-        |b| {
-            b.iter(|| {
-                query(
-                    ctx.clone(),
-                    "SELECT COUNT(DISTINCT u64_wide) \
+    c.bench_function("aggregate_query_no_group_by_min_max_f64", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT MIN(f64), MAX(f64) \
                  FROM t",
-                )
-            })
-        },
-    );
+            )
+        })
+    });
 
-    c.bench_function(
-        "aggregate_query_no_group_by_count_distinct_narrow 15 12",
-        |b| {
-            b.iter(|| {
-                query(
-                    ctx.clone(),
-                    "SELECT COUNT(DISTINCT u64_narrow) \
+    c.bench_function("aggregate_query_no_group_by_count_distinct_wide", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT COUNT(DISTINCT u64_wide) \
                  FROM t",
-                )
-            })
-        },
-    );
+            )
+        })
+    });
 
-    c.bench_function("aggregate_query_group_by 15 12", |b| {
+    c.bench_function("aggregate_query_no_group_by_count_distinct_narrow", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT COUNT(DISTINCT u64_narrow) \
+                 FROM t",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by", |b| {
         b.iter(|| {
             query(
                 ctx.clone(),
@@ -207,7 +211,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("aggregate_query_group_by_with_filter 15 12", |b| {
+    c.bench_function("aggregate_query_group_by_with_filter", |b| {
         b.iter(|| {
             query(
                 ctx.clone(),

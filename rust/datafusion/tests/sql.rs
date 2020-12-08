@@ -388,7 +388,7 @@ async fn csv_query_avg_sqrt() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["0.6706002946036462"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -402,7 +402,7 @@ async fn csv_query_custom_udf_with_cast() -> Result<()> {
     let sql = "SELECT avg(custom_sqrt(c11)) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["0.6584408483418833"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -420,7 +420,7 @@ async fn sqrt_f32_vs_f64() -> Result<()> {
     let sql = "SELECT avg(sqrt(CAST(c11 AS double))) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["0.6584408483418833"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -444,7 +444,7 @@ async fn csv_query_sqrt_sqrt() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
     // sqrt(sqrt(c12=0.9294097332465232)) = 0.9818650561397431
     let expected = vec![vec!["0.9818650561397431"]];
-    assert_eq!(actual, expected);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -487,7 +487,7 @@ async fn csv_query_avg() -> Result<()> {
     let mut actual = execute(&mut ctx, sql).await;
     actual.sort();
     let expected = vec![vec!["0.5089725099127211"]];
-    assert_eq!(expected, actual);
+    assert_float_eq(&expected, &actual);
     Ok(())
 }
 
@@ -1778,4 +1778,21 @@ async fn query_scalar_minus_array() -> Result<()> {
     let expected = vec![vec!["4"], vec!["3"], vec!["NULL"], vec!["1"]];
     assert_eq!(expected, actual);
     Ok(())
+}
+
+fn assert_float_eq<T>(expected: &[Vec<T>], received: &[Vec<String>])
+where
+    T: AsRef<str>,
+{
+    expected
+        .iter()
+        .flatten()
+        .zip(received.iter().flatten())
+        .for_each(|(l, r)| {
+            let (l, r) = (
+                l.as_ref().parse::<f64>().unwrap(),
+                r.as_str().parse::<f64>().unwrap(),
+            );
+            assert!((l - r).abs() <= 2.0 * f64::EPSILON);
+        });
 }
