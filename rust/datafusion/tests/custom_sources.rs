@@ -20,8 +20,11 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
+use datafusion::{
+    datasource::{datasource::Statistics, TableProvider},
+    physical_plan::collect,
+};
 
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
@@ -145,6 +148,10 @@ impl TableProvider for CustomTableProvider {
             projection: projection.clone(),
         }))
     }
+
+    fn statistics(&self) -> Statistics {
+        Statistics::default()
+    }
 }
 
 #[tokio::test]
@@ -160,11 +167,11 @@ async fn custom_source_dataframe() -> Result<()> {
     match &optimized_plan {
         LogicalPlan::Projection { input, .. } => match &**input {
             LogicalPlan::TableScan {
-                table_schema,
+                source,
                 projected_schema,
                 ..
             } => {
-                assert_eq!(table_schema.fields().len(), 2);
+                assert_eq!(source.schema().fields().len(), 2);
                 assert_eq!(projected_schema.fields().len(), 1);
             }
             _ => panic!("input to projection should be TableScan"),
@@ -181,7 +188,7 @@ async fn custom_source_dataframe() -> Result<()> {
     assert_eq!(1, physical_plan.schema().fields().len());
     assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-    let batches = ctx.collect(physical_plan).await?;
+    let batches = collect(physical_plan).await?;
     let origin_rec_batch = TEST_CUSTOM_RECORD_BATCH!()?;
     assert_eq!(1, batches.len());
     assert_eq!(1, batches[0].num_columns());
