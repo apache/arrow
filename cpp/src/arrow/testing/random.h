@@ -165,10 +165,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a row being null
+  /// \param[in] nan_probability the probability of a row being NaN
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float32(int64_t size, float min, float max,
-                                 double null_probability = 0);
+                                 double null_probability = 0, double nan_probability = 0);
 
   /// \brief Generate a random DoubleArray
   ///
@@ -176,10 +177,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a row being null
+  /// \param[in] nan_probability the probability of a row being NaN
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float64(int64_t size, double min, double max,
-                                 double null_probability = 0);
+                                 double null_probability = 0, double nan_probability = 0);
 
   template <typename ArrowType, typename CType = typename ArrowType::c_type>
   std::shared_ptr<Array> Numeric(int64_t size, CType min, CType max,
