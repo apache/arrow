@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::datasource::TableProvider;
 use crate::datasource::datasource::Statistics;
+use crate::datasource::TableProvider;
 use crate::error::Result;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::ExecutionPlan;
