@@ -68,7 +68,6 @@ impl LogicalPlanBuilder {
         let provider = Arc::new(MemTable::try_new(schema.clone(), partitions)?);
 
         let projected_schema = projection
-            .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
         let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
@@ -76,7 +75,7 @@ impl LogicalPlanBuilder {
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
-            table_schema: schema.clone(),
+            table_schema: schema,
             projected_schema,
             projection: None,
         };
@@ -99,9 +98,8 @@ impl LogicalPlanBuilder {
         };
 
         let projected_schema = projection
-            .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
-            .or(Some(schema.clone()))
+            .or(Some(schema))
             .unwrap();
         let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
 
@@ -111,7 +109,7 @@ impl LogicalPlanBuilder {
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
-            table_schema: schema.clone(),
+            table_schema: schema,
             projected_schema,
             projection: None,
         };
@@ -125,7 +123,6 @@ impl LogicalPlanBuilder {
         let schema = provider.schema();
 
         let projected_schema = projection
-            .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
         let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
@@ -133,7 +130,7 @@ impl LogicalPlanBuilder {
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
-            table_schema: schema.clone(),
+            table_schema: schema,
             projected_schema,
             projection: None,
         };
