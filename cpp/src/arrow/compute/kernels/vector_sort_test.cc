@@ -63,6 +63,9 @@ TypeToDataType() {
   return time64(TimeUnit::NANO);
 }
 
+// ----------------------------------------------------------------------
+// Tests for NthToIndices
+
 template <typename ArrayType>
 class NthComparator {
  public:
@@ -267,24 +270,41 @@ TYPED_TEST(TestNthToIndicesRandom, RandomValues) {
   }
 }
 
-using arrow::internal::checked_pointer_cast;
+// ----------------------------------------------------------------------
+// Tests for SortToIndices
+
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, order));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+// `Options` may be both SortOptions or SortOrder
+template <typename T, typename Options>
+void AssertSortIndices(const std::shared_ptr<T>& input, Options&& options,
+                       const std::string& expected) {
+  AssertSortIndices(input, std::forward<Options>(options),
+                    ArrayFromJSON(uint64(), expected));
+}
 
 template <typename ArrowType>
 class TestArraySortIndicesKernel : public TestBase {
- private:
-  void AssertArraysSortIndices(const std::shared_ptr<Array> values, SortOrder order,
-                               const std::shared_ptr<Array> expected) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, SortIndices(*values, order));
-    ASSERT_OK(actual->ValidateFull());
-    AssertArraysEqual(*expected, *actual);
-  }
-
- protected:
+ public:
   virtual void AssertSortIndices(const std::string& values, SortOrder order,
                                  const std::string& expected) {
     auto type = TypeToDataType<ArrowType>();
-    AssertArraysSortIndices(ArrayFromJSON(type, values), order,
-                            ArrayFromJSON(uint64(), expected));
+    arrow::compute::AssertSortIndices(ArrayFromJSON(type, values), order,
+                                      ArrayFromJSON(uint64(), expected));
   }
 
   virtual void AssertSortIndices(const std::string& values, const std::string& expected) {
@@ -622,56 +642,184 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
 TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(1000); }
 
+// Test basic cases for record batch.
+class TestRecordBatchSortIndices : public ::testing::Test {};
+
+TEST_F(TestRecordBatchSortIndices, NoNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": 4},
+                                       {"a": 0,    "b": 6},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5},
+                                       {"a": 1,    "b": 3}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+}
+
+TEST_F(TestRecordBatchSortIndices, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5}
+                                       ])");
+  AssertSortIndices(batch, options, "[5, 1, 4, 2, 0, 3]");
+}
+
+TEST_F(TestRecordBatchSortIndices, NaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": 5},
+                                       {"a": 1,    "b": NaN},
+                                       {"a": 3,    "b": 4},
+                                       {"a": 0,    "b": 6},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  AssertSortIndices(batch, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+}
+
+TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": NaN,  "b": null},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+}
+
+TEST_F(TestRecordBatchSortIndices, MoreTypes) {
+  auto schema = ::arrow::schema({
+      {field("a", timestamp(TimeUnit::MICRO))},
+      {field("b", large_utf8())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": "05"},
+                                       {"a": 1,    "b": "03"},
+                                       {"a": 3,    "b": "04"},
+                                       {"a": 0,    "b": "06"},
+                                       {"a": 2,    "b": "05"},
+                                       {"a": 1,    "b": "05"}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+}
+
 // Test basic cases for table.
 class TestTableSortIndices : public ::testing::Test {
  protected:
-  void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
-                         const std::shared_ptr<Array> expected) {
+  void AssertSortIndices(const std::shared_ptr<Table>& table, const SortOptions& options,
+                         const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*table), options));
     AssertArraysEqual(*expected, *actual);
   }
 
-  void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
-                         const std::string expected) {
+  void AssertSortIndices(const std::shared_ptr<Table>& table, const SortOptions& options,
+                         const std::string& expected) {
     AssertSortIndices(table, options, ArrayFromJSON(uint64(), expected));
   }
 };
 
 TEST_F(TestTableSortIndices, Null) {
-  auto table = TableFromJSON(schema({
-                                 {field("a", uint8())},
-                                 {field("b", uint8())},
-                             }),
-                             {"["
-                              "{\"a\": null, \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 3},"
-                              "{\"a\": 3,    \"b\": null},"
-                              "{\"a\": null, \"b\": null},"
-                              "{\"a\": 2,    \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 5}"
-                              "]"});
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null}
+                                    ])",
+                                 R"([{"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
   this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
 }
 
 TEST_F(TestTableSortIndices, NaN) {
-  auto table = TableFromJSON(schema({
-                                 {field("a", float32())},
-                                 {field("b", float32())},
-                             }),
-                             {"["
-                              "{\"a\": null, \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 3},"
-                              "{\"a\": 3,    \"b\": null},"
-                              "{\"a\": null, \"b\": null},"
-                              "{\"a\": NaN,  \"b\": null},"
-                              "{\"a\": NaN,  \"b\": NaN},"
-                              "{\"a\": NaN,  \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 5}"
-                              "]"});
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  std::shared_ptr<Table> table;
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null}
+                                    ])",
+                                 R"([{"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
   this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
