@@ -633,6 +633,7 @@ services:
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
+        numpy: ${NUMPY}
         pandas: ${PANDAS}
     shm_size: *shm-size
     environment:
