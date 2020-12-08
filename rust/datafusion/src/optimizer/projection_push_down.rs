@@ -19,10 +19,10 @@
 //! loaded into memory
 
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::LogicalPlan;
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
 use std::{collections::HashSet, sync::Arc};
 use utils::optimize_explain;
@@ -60,7 +60,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
-) -> Result<(Vec<usize>, SchemaRef)> {
+) -> Result<(Vec<usize>, DFSchemaRef)> {
     if projection.is_some() {
         return Err(DataFusionError::Internal(
             "Cannot run projection push-down rule more than once".to_string(),
@@ -98,12 +98,15 @@ fn get_projected_schema(
     projection.sort();
 
     // create the projected schema
-    let mut projected_fields: Vec<Field> = Vec::with_capacity(projection.len());
+    let mut projected_fields: Vec<DFField> = Vec::with_capacity(projection.len());
     for i in &projection {
-        projected_fields.push(schema.fields()[*i].clone());
+        projected_fields.push(DFField::from(schema.fields()[*i].clone()));
     }
 
-    Ok((projection, SchemaRef::new(Schema::new(projected_fields))))
+    Ok((
+        projection,
+        DFSchemaRef::new(DFSchema::new(projected_fields)?),
+    ))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -154,7 +157,7 @@ fn optimize_plan(
                 Ok(LogicalPlan::Projection {
                     expr: new_expr,
                     input: Arc::new(new_input),
-                    schema: SchemaRef::new(Schema::new(new_fields)),
+                    schema: DFSchemaRef::new(DFSchema::new(new_fields)?),
                 })
             }
         }
@@ -220,14 +223,14 @@ fn optimize_plan(
                 })
                 .collect::<Result<()>>()?;
 
-            let new_schema = Schema::new(
+            let new_schema = DFSchema::new(
                 schema
                     .fields()
                     .iter()
                     .filter(|x| new_required_columns.contains(x.name()))
                     .cloned()
                     .collect(),
-            );
+            )?;
 
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
@@ -238,7 +241,7 @@ fn optimize_plan(
                     &new_required_columns,
                     true,
                 )?),
-                schema: SchemaRef::new(new_schema),
+                schema: DFSchemaRef::new(new_schema),
             })
         }
         // scans:
@@ -334,7 +337,10 @@ fn optimize_plan(
             plan,
             stringified_plans,
             schema,
-        } => optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &*schema),
+        } => {
+            let schema = schema.as_ref().to_owned().into();
+            optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &schema)
+        }
         // all other nodes: Add any additional columns used by
         // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }

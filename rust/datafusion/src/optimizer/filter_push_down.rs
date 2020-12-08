@@ -14,11 +14,9 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
-use arrow::datatypes::Schema;
-
 use crate::error::Result;
-use crate::logical_plan::Expr;
 use crate::logical_plan::{and, LogicalPlan};
+use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use std::{
@@ -87,8 +85,8 @@ fn get_predicates<'a>(
 // Note that a predicate can be both pushed to the left and to the right.
 fn get_join_predicates<'a>(
     state: &'a State,
-    left: &Schema,
-    right: &Schema,
+    left: &DFSchema,
+    right: &DFSchema,
 ) -> (
     Vec<&'a HashSet<String>>,
     Vec<&'a HashSet<String>>,

@@ -19,8 +19,7 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logical_plan::{Expr, FunctionRegistry, JoinType, LogicalPlan};
-use arrow::datatypes::Schema;
+use crate::logical_plan::{DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -201,7 +200,7 @@ pub trait DataFrame {
     /// # Ok(())
     /// # }
     /// ```
-    fn schema(&self) -> &Schema;
+    fn schema(&self) -> &DFSchema;
 
     /// Return the logical plan represented by this DataFrame.
     fn to_logical_plan(&self) -> LogicalPlan;

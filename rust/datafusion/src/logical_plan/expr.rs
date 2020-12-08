@@ -23,12 +23,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
-use arrow::{
-    compute::can_cast_types,
-    datatypes::{DataType, Field, Schema},
-};
+use arrow::{compute::can_cast_types, datatypes::DataType};
 
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::{DFField, DFSchema};
 use crate::physical_plan::{
     aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
 };
@@ -161,10 +159,13 @@ impl Expr {
     /// This function errors when it is not possible to compute its [arrow::datatypes::DataType].
     /// This happens when e.g. the expression refers to a column that does not exist in the schema, or when
     /// the expression is incorrectly typed (e.g. `[utf8] + [bool]`).
-    pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
+    pub fn get_type(&self, schema: &DFSchema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
+            Expr::Column(name) => Ok(schema
+                .field_with_unqualified_name(name)?
+                .data_type()
+                .clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
@@ -223,10 +224,12 @@ impl Expr {
     ///
     /// This function errors when it is not possible to compute its nullability.
     /// This happens when the expression refers to a column that does not exist in the schema.
-    pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+    pub fn nullable(&self, input_schema: &DFSchema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
-            Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
+            Expr::Column(name) => Ok(input_schema
+                .field_with_unqualified_name(name)?
+                .is_nullable()),
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Case {
@@ -271,13 +274,14 @@ impl Expr {
     /// Returns the name of this expression based on [arrow::datatypes::Schema].
     ///
     /// This represents how a column with this expression is named when no alias is chosen
-    pub fn name(&self, input_schema: &Schema) -> Result<String> {
+    pub fn name(&self, input_schema: &DFSchema) -> Result<String> {
         create_name(self, input_schema)
     }
 
     /// Returns a [arrow::datatypes::Field] compatible with this expression.
-    pub fn to_field(&self, input_schema: &Schema) -> Result<Field> {
-        Ok(Field::new(
+    pub fn to_field(&self, input_schema: &DFSchema) -> Result<DFField> {
+        Ok(DFField::new(
+            None, //TODO  qualifier
             &self.name(input_schema)?,
             self.get_type(input_schema)?,
             self.nullable(input_schema)?,
@@ -290,7 +294,7 @@ impl Expr {
     ///
     /// This function errors when it is impossible to cast the
     /// expression to the target [arrow::datatypes::DataType].
-    pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
+    pub fn cast_to(&self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
@@ -426,7 +430,7 @@ impl CaseBuilder {
         let then_types: Vec<DataType> = then_expr
             .iter()
             .map(|e| match e {
-                Expr::Literal(_) => e.get_type(&Schema::empty()),
+                Expr::Literal(_) => e.get_type(&DFSchema::empty()),
                 _ => Ok(DataType::Null),
             })
             .collect::<Result<Vec<_>>>()?;
@@ -779,7 +783,7 @@ fn create_function_name(
     fun: &String,
     distinct: bool,
     args: &[Expr],
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<String> {
     let names: Vec<String> = args
         .iter()
@@ -794,7 +798,7 @@ fn create_function_name(
 
 /// Returns a readable name of an expression based on the input schema.
 /// This function recursively transverses the expression for names such as "CAST(a > 2)".
-fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
+fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
     match e {
         Expr::Alias(_, name) => Ok(name.clone()),
         Expr::Column(name) => Ok(name.clone()),
@@ -870,7 +874,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+pub fn exprlist_to_fields(
+    expr: &[Expr],
+    input_schema: &DFSchema,
+) -> Result<Vec<DFField>> {
     expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 
