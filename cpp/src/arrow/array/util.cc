@@ -89,14 +89,28 @@ class ArrayDataEndianSwapper {
   Status SwapChildren(std::vector<std::shared_ptr<Field>> child_fields) {
     int i = 0;
     for (const auto& child_field : child_fields) {
-      ArrayDataEndianSwapper swapper_child_visitor(data_->child_data[i],
-                                                   data_->child_data[i]->length);
-      RETURN_NOT_OK(VisitTypeInline(*child_field.get()->type(), &swapper_child_visitor));
-      RETURN_NOT_OK(
-          swapper_child_visitor.SwapChildren((*child_field.get()->type()).fields()));
+      ARROW_ASSIGN_OR_RAISE(
+          data_->child_data[i],
+          SwapEndianArrayData(data_->child_data[i], child_field.get()->type()));
       i++;
     }
     return Status::OK();
+  }
+
+  template <typename T>
+  Result<std::shared_ptr<Buffer>> ByteSwapBuffer(std::shared_ptr<Buffer>& in_buffer,
+                                                 int64_t length) {
+    auto in_data = reinterpret_cast<const T*>(in_buffer->data());
+    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
+    auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
+    for (int64_t i = 0; i < length; i++) {
+#if ARROW_LITTLE_ENDIAN
+      out_data[i] = BitUtil::FromBigEndian(in_data[i]);
+#else
+      out_data[i] = BitUtil::FromLittleEndian(in_data[i]);
+#endif
+    }
+    return std::move(out_buffer);
   }
 
   template <typename VALUE_TYPE>
@@ -104,20 +118,9 @@ class ArrayDataEndianSwapper {
     if (data_->buffers[index] == nullptr) {
       return Status::OK();
     }
-    auto data = reinterpret_cast<const VALUE_TYPE*>(data_->buffers[index]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
-                          AllocateBuffer(data_->buffers[index]->size() + 1));
-    auto new_data = reinterpret_cast<VALUE_TYPE*>(new_buffer->mutable_data());
     // offset has one more element rather than data->length
-    int64_t length = length_ + 1;
-    for (int64_t i = 0; i < length; i++) {
-#if ARROW_LITTLE_ENDIAN
-      new_data[i] = BitUtil::FromBigEndian(data[i]);
-#else
-      new_data[i] = BitUtil::FromLittleEndian(data[i]);
-#endif
-    }
-    data_->buffers[index] = std::move(new_buffer);
+    ARROW_ASSIGN_OR_RAISE(data_->buffers[index],
+                          ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index], length_ + 1));
     return Status::OK();
   }
 
@@ -126,20 +129,14 @@ class ArrayDataEndianSwapper {
   Status SwapLargeOffset() { return SwapOffset<int64_t>(1); }
 
   template <typename T>
-  Status Visit(const T&) {
+  enable_if_t<std::is_base_of<FixedWidthType, T>::value &&
+                  !std::is_base_of<FixedSizeBinaryType, T>::value &&
+                  !std::is_base_of<DictionaryType, T>::value,
+              Status>
+  Visit(const T& type) {
     using value_type = typename T::c_type;
-    auto data = reinterpret_cast<const value_type*>(data_->buffers[1]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
-    auto new_data = reinterpret_cast<value_type*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    for (int64_t i = 0; i < length; i++) {
-#if ARROW_LITTLE_ENDIAN
-      new_data[i] = BitUtil::FromBigEndian(data[i]);
-#else
-      new_data[i] = BitUtil::FromLittleEndian(data[i]);
-#endif
-    }
-    data_->buffers[1] = std::move(new_buffer);
+    ARROW_ASSIGN_OR_RAISE(data_->buffers[1],
+                          ByteSwapBuffer<value_type>(data_->buffers[1], length_));
     return Status::OK();
   }
 
@@ -196,21 +193,8 @@ class ArrayDataEndianSwapper {
   }
 
   Status Visit(const DayTimeIntervalType& type) {
-    auto data = reinterpret_cast<const uint32_t*>(data_->buffers[1]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
-    auto new_data = reinterpret_cast<uint32_t*>(new_buffer->mutable_data());
-    int64_t length = length_;
-    for (int64_t i = 0; i < length; i++) {
-      auto idx = i * 2;
-#if ARROW_LITTLE_ENDIAN
-      new_data[idx] = BitUtil::FromBigEndian(data[idx]);
-      new_data[idx + 1] = BitUtil::FromBigEndian(data[idx + 1]);
-#else
-      new_data[idx] = BitUtil::FromLittleEndian(data[idx]);
-      new_data[idx + 1] = BitUtil::FromLittleEndian(data[idx + 1]);
-#endif
-    }
-    data_->buffers[1] = std::move(new_buffer);
+    ARROW_ASSIGN_OR_RAISE(data_->buffers[1],
+                          ByteSwapBuffer<uint32_t>(data_->buffers[1], length_ * 2));
     return Status::OK();
   }
 
@@ -223,31 +207,23 @@ class ArrayDataEndianSwapper {
   Status Visit(const StructType& type) { return Status::OK(); }
   Status Visit(const SparseUnionType& type) { return Status::OK(); }
 
-#if 0
   template <typename T>
-  enable_if_binary_like<T, Status> Visit(const T& type) {
+  enable_if_t<std::is_same<BinaryType, T>::value || std::is_same<StringType, T>::value,
+              Status>
+  Visit(const T& type) {
     RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
   }
-#else
-  Status Visit(const StringType& type) {
-    RETURN_NOT_OK(SwapSmallOffset());
-    return Status::OK();
-  }
-  Status Visit(const LargeStringType& type) {
+
+  template <typename T>
+  enable_if_t<std::is_same<LargeBinaryType, T>::value ||
+                  std::is_same<LargeStringType, T>::value,
+              Status>
+  Visit(const T& type) {
     RETURN_NOT_OK(SwapLargeOffset());
     return Status::OK();
   }
-  Status Visit(const BinaryType& type) {
-    RETURN_NOT_OK(SwapSmallOffset());
-    return Status::OK();
-  }
-  Status Visit(const LargeBinaryType& type) {
-    RETURN_NOT_OK(SwapLargeOffset());
-    return Status::OK();
-  }
-#endif
-  
+
   Status Visit(const ListType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
     return Status::OK();
@@ -281,6 +257,17 @@ class ArrayDataEndianSwapper {
   int64_t length_;
 };
 
+Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
+    std::shared_ptr<ArrayData>& data, const std::shared_ptr<DataType>& type) {
+  std::shared_ptr<ArrayData> out;
+  internal::ArrayDataEndianSwapper swapper_visitor(data, data->length);
+  DCHECK_OK(VisitTypeInline(*type, &swapper_visitor));
+  DCHECK_OK(swapper_visitor.SwapChildren((*type).fields()));
+  // TODO(kiszk): Change this soon since tentatively return swapped input ArrayData
+  DCHECK(data);
+  return data;
+}
+
 }  // namespace internal
 
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
@@ -289,12 +276,6 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
-}
-
-void SwapEndianArrayData(std::shared_ptr<ArrayData>& data) {
-  internal::ArrayDataEndianSwapper swapper_visitor(data, data->length);
-  DCHECK_OK(VisitTypeInline(*data->type, &swapper_visitor));
-  DCHECK_OK(swapper_visitor.SwapChildren((*data->type).fields()));
 }
 
 // ----------------------------------------------------------------------

@@ -37,11 +37,6 @@ namespace arrow {
 ARROW_EXPORT
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 
-/// \brief Swap endian of each element in a generic ArrayData
-/// \param[in] data the array contents to be swapped
-ARROW_EXPORT
-void SwapEndianArrayData(std::shared_ptr<ArrayData>& data);
-
 /// \brief Create a strongly-typed Array instance with all elements null
 /// \param[in] type the array type
 /// \param[in] length the array length
@@ -60,6 +55,14 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(
     const Scalar& scalar, int64_t length, MemoryPool* pool = default_memory_pool());
 
 namespace internal {
+
+/// \brief Swap endian of each element in a generic ArrayData
+/// \param[in] data the array contents
+/// \param[in] type the array type
+/// \return the resulting Array instance whose elements were swapped
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
+    std::shared_ptr<ArrayData>& data, const std::shared_ptr<DataType>& type);
 
 /// Given a number of ArrayVectors, treat each ArrayVector as the
 /// chunks of a chunked array.  Then rechunk each ArrayVector such that
