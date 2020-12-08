@@ -65,7 +65,7 @@ enum RVectorType {
   DATE_INT,
   DATE_DBL,
   TIME,
-  TIMESTAMP,
+  POSIXCT,
   BINARY,
   LIST,
   FACTOR,
@@ -96,7 +96,7 @@ RVectorType GetVectorType(SEXP x) {
       } else if (Rf_inherits(x, "integer64")) {
         return INT64;
       } else if (Rf_inherits(x, "POSIXct")) {
-        return TIMESTAMP;
+        return POSIXCT;
       } else if (Rf_inherits(x, "difftime")) {
         return TIME;
       } else {
@@ -221,6 +221,8 @@ Result<T> CIntFromRScalar(RScalar* obj) {
 }
 
 Status RScalar_to_days(RScalar* value, int32_t* days) {
+  constexpr int64_t kSecondsPerDay = 86400;
+
   switch (value->rtype) {
     case DATE_DBL: {
       *days = static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
@@ -230,6 +232,11 @@ Status RScalar_to_days(RScalar* value, int32_t* days) {
       *days = *reinterpret_cast<int32_t*>(value->data);
       return Status::OK();
     }
+    case POSIXCT: {
+      *days = *reinterpret_cast<double*>(value->data) / kSecondsPerDay;
+      return Status::OK();
+    }
+
     default:
       break;
   }
