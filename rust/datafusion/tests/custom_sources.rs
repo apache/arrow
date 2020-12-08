@@ -20,7 +20,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use datafusion::datasource::TableProvider;
+use datafusion::{datasource::{TableProvider, datasource::Statistics}, physical_plan::collect};
 use datafusion::error::{DataFusionError, Result};
 
 use datafusion::execution::context::ExecutionContext;
@@ -145,6 +145,10 @@ impl TableProvider for CustomTableProvider {
             projection: projection.clone(),
         }))
     }
+
+    fn statistics(&self) -> Option<Statistics> {
+        None
+    }
 }
 
 #[tokio::test]
@@ -181,7 +185,7 @@ async fn custom_source_dataframe() -> Result<()> {
     assert_eq!(1, physical_plan.schema().fields().len());
     assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-    let batches = ctx.collect(physical_plan).await?;
+    let batches = collect(physical_plan).await?;
     let origin_rec_batch = TEST_CUSTOM_RECORD_BATCH!()?;
     assert_eq!(1, batches.len());
     assert_eq!(1, batches[0].num_columns());
