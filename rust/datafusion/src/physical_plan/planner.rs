@@ -23,7 +23,8 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode,
+    DFSchema, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    UserDefinedLogicalNode,
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
@@ -44,7 +45,7 @@ use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalP
 use crate::prelude::JoinType;
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Schema, SchemaRef};
 use expressions::col;
 
 /// This trait permits the `DefaultPhysicalPlanner` to create plans for
@@ -162,7 +163,7 @@ impl DefaultPhysicalPlanner {
                 ..
             } => Ok(Arc::new(MemoryExec::try_new(
                 data,
-                Arc::new(projected_schema.as_ref().to_owned()),
+                projected_schema.as_ref().to_owned().into(),
                 projection.to_owned(),
             )?)),
             LogicalPlan::CsvScan {
@@ -181,27 +182,6 @@ impl DefaultPhysicalPlanner {
                 projection.to_owned(),
                 batch_size,
             )?)),
-            LogicalPlan::ParquetScan {
-                path, projection, ..
-            } => Ok(Arc::new(ParquetExec::try_new(
-                path,
-                projection.to_owned(),
-                batch_size,
-            )?)),
-            LogicalPlan::Projection { input, expr, .. } => {
-                let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema();
-                let runtime_expr = expr
-                    .iter()
-                    .map(|e| {
-                        tuple_err((
-                            self.create_physical_expr(e, &input_schema, &ctx_state),
-                            e.name(&input_schema),
-                        ))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
-            }
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
@@ -209,28 +189,40 @@ impl DefaultPhysicalPlanner {
                 ..
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
-                let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema();
+                let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let physical_input_schema = input_exec.as_ref().schema();
+                let logical_input_schema = input.as_ref().schema();
 
                 let groups = group_expr
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_physical_expr(e, &input_schema, ctx_state),
-                            e.name(&input_schema),
+                            self.create_physical_expr(
+                                e,
+                                &physical_input_schema,
+                                ctx_state,
+                            ),
+                            e.name(&logical_input_schema),
                         ))
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let aggregates = aggr_expr
                     .iter()
-                    .map(|e| self.create_aggregate_expr(e, &input_schema, ctx_state))
+                    .map(|e| {
+                        self.create_aggregate_expr(
+                            e,
+                            &logical_input_schema,
+                            &physical_input_schema,
+                            ctx_state,
+                        )
+                    })
                     .collect::<Result<Vec<_>>>()?;
 
                 let initial_aggr = Arc::new(HashAggregateExec::try_new(
                     AggregateMode::Partial,
                     groups.clone(),
                     aggregates.clone(),
-                    input,
+                    input_exec,
                 )?);
 
                 let final_group: Vec<Arc<dyn PhysicalExpr>> =
@@ -248,6 +240,31 @@ impl DefaultPhysicalPlanner {
                     aggregates,
                     initial_aggr,
                 )?))
+            }
+            LogicalPlan::ParquetScan {
+                path, projection, ..
+            } => Ok(Arc::new(ParquetExec::try_new(
+                path,
+                projection.to_owned(),
+                batch_size,
+            )?)),
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_schema = input.as_ref().schema();
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| {
+                        tuple_err((
+                            self.create_physical_expr(
+                                e,
+                                &input_exec.schema(),
+                                &ctx_state,
+                            ),
+                            e.name(&input_schema),
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input_exec)?))
             }
             LogicalPlan::Filter {
                 input, predicate, ..
@@ -316,7 +333,7 @@ impl DefaultPhysicalPlanner {
                 schema,
             } => Ok(Arc::new(EmptyExec::new(
                 *produce_one_row,
-                Arc::new(schema.as_ref().clone()),
+                SchemaRef::new(schema.as_ref().to_owned().into()),
             ))),
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
@@ -367,8 +384,10 @@ impl DefaultPhysicalPlanner {
                         format!("{:#?}", input),
                     ));
                 }
-                let schema_ref = Arc::new(schema.as_ref().clone());
-                Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
+                Ok(Arc::new(ExplainExec::new(
+                    SchemaRef::new(schema.as_ref().to_owned().into()),
+                    stringified_plans,
+                )))
             }
             LogicalPlan::Extension { node } => {
                 let inputs = node
@@ -386,7 +405,7 @@ impl DefaultPhysicalPlanner {
                 // Ensure the ExecutionPlan's  schema matches the
                 // declared logical schema to catch and warn about
                 // logic errors when creating user defined plans.
-                if plan.schema() != *node.schema() {
+                if plan.schema() != node.schema().as_ref().to_owned().into() {
                     Err(DataFusionError::Plan(format!(
                         "Extension planner for {:?} created an ExecutionPlan with mismatched schema. \
                          LogicalPlan schema: {:?}, ExecutionPlan schema: {:?}",
@@ -550,13 +569,14 @@ impl DefaultPhysicalPlanner {
     pub fn create_aggregate_expr(
         &self,
         e: &Expr,
-        input_schema: &Schema,
+        logical_input_schema: &DFSchema,
+        physical_input_schema: &Schema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
         // unpack aliased logical expressions, e.g. "sum(col) as total"
         let (name, e) = match e {
             Expr::Alias(sub_expr, alias) => (alias.clone(), sub_expr.as_ref()),
-            _ => (e.name(input_schema)?, e),
+            _ => (e.name(logical_input_schema)?, e),
         };
 
         match e {
@@ -568,23 +588,27 @@ impl DefaultPhysicalPlanner {
             } => {
                 let args = args
                     .iter()
-                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .map(|e| {
+                        self.create_physical_expr(e, physical_input_schema, ctx_state)
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 aggregates::create_aggregate_expr(
                     fun,
                     *distinct,
                     &args,
-                    input_schema,
+                    physical_input_schema,
                     name,
                 )
             }
             Expr::AggregateUDF { fun, args, .. } => {
                 let args = args
                     .iter()
-                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .map(|e| {
+                        self.create_physical_expr(e, physical_input_schema, ctx_state)
+                    })
                     .collect::<Result<Vec<_>>>()?;
 
-                udaf::create_aggregate_expr(fun, &args, input_schema, name)
+                udaf::create_aggregate_expr(fun, &args, physical_input_schema, name)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Invalid aggregate expression '{:?}'",
@@ -637,6 +661,7 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
@@ -792,8 +817,24 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "Extension planner for NoOp created an ExecutionPlan with mismatched schema. LogicalPlan schema: Schema { fields: [Field { name: \"a\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }, ExecutionPlan schema: Schema { fields: [Field { name: \"b\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }";
-
+        let expected_error: &str = "Error during planning: \
+        Extension planner for NoOp created an ExecutionPlan with mismatched schema. \
+        LogicalPlan schema: DFSchema { fields: [\
+            DFField { qualifier: None, field: Field { \
+                name: \"a\", \
+                data_type: Int32, \
+                nullable: false, \
+                dict_id: 0, \
+                dict_is_ordered: false } }\
+        ] }, \
+        ExecutionPlan schema: Schema { fields: [\
+            Field { \
+                name: \"b\", \
+                data_type: Int32, \
+                nullable: false, \
+                dict_id: 0, \
+                dict_is_ordered: false }\
+        ], metadata: {} }";
         match plan {
             Ok(_) => assert!(false, "Expected planning failure"),
             Err(e) => assert!(
@@ -808,17 +849,16 @@ mod tests {
 
     /// An example extension node that doesn't do anything
     struct NoOpExtensionNode {
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     }
 
     impl Default for NoOpExtensionNode {
         fn default() -> Self {
             Self {
-                schema: SchemaRef::new(Schema::new(vec![Field::new(
-                    "a",
-                    DataType::Int32,
-                    false,
-                )])),
+                schema: DFSchemaRef::new(
+                    DFSchema::new(vec![DFField::new(None, "a", DataType::Int32, false)])
+                        .unwrap(),
+                ),
             }
         }
     }
@@ -838,7 +878,7 @@ mod tests {
             vec![]
         }
 
-        fn schema(&self) -> &SchemaRef {
+        fn schema(&self) -> &DFSchemaRef {
             &self.schema
         }
 

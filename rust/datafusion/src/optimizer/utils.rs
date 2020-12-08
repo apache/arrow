@@ -19,11 +19,13 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::datatypes::Schema;
 
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::logical_plan::{
+    DFSchema, DFSchemaRef, Expr, LogicalPlan, PlanType, StringifiedPlan,
+};
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
 
@@ -117,13 +119,11 @@ pub fn optimize_explain(
         PlanType::OptimizedLogicalPlan { optimizer_name },
         format!("{:#?}", plan),
     ));
-    let schema = SchemaRef::new(schema.clone());
-
     Ok(LogicalPlan::Explain {
         verbose,
         plan,
         stringified_plans,
-        schema,
+        schema: DFSchemaRef::new(DFSchema::from(schema)?),
     })
 }
 
@@ -429,7 +429,7 @@ mod tests {
             true,
             &empty_plan,
             &vec![StringifiedPlan::new(PlanType::LogicalPlan, "...")],
-            &*schema,
+            schema.as_ref(),
         )?;
 
         match &optimized_explain {
