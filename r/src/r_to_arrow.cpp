@@ -347,6 +347,27 @@ class RValue {
     return Status::Invalid("invalid conversion to time32");
   }
 
+  static Result<int64_t> Convert(const TimestampType* type, const RConversionOptions&,
+                                 RScalar* value) {
+    if (value->rtype == POSIXCT) {
+      auto seconds = *reinterpret_cast<double*>(value->data);
+      switch (type->unit()) {
+        case TimeUnit::SECOND:
+          return seconds;
+        case TimeUnit::MILLI:
+          return seconds * 1000;
+        case TimeUnit::MICRO:
+          return seconds * 1000000;
+        case TimeUnit::NANO:
+          return seconds * 1000000000;
+        default:
+          return Status::Invalid("invalid time unit");
+      }
+    }
+
+    return Status::Invalid("invalid conversion to timestamp");
+  }
+
   static Result<int64_t> Convert(const Time64Type* type, const RConversionOptions&,
                                  RScalar* value) {
     constexpr int64_t kMicroSeconds = 1000000;
@@ -593,6 +614,10 @@ inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
     case TIME:
       return VisitDifftime<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
 
+    case POSIXCT:
+      return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
+          x, size, std::forward<VisitorFunc>(func));
+
     default:
       break;
   }
@@ -634,6 +659,22 @@ class RPrimitiveConverter<
       ARROW_ASSIGN_OR_RAISE(
           auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
       return this->primitive_builder_->Append(converted);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename T>
+class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status Append(RScalar* value) {
+    if (RValue::IsNull(value)) {
+      return this->primitive_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto converted, RValue::Convert(this->primitive_type_, this->options_, value));
+      this->primitive_builder_->UnsafeAppend(converted);
     }
     return Status::OK();
   }
@@ -720,13 +761,12 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
 };
 
 template <typename T>
-class RPrimitiveConverter<
-    T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
+class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Append(RScalar* value) {
-    return Status::NotImplemented(
-        "conversion to timestamp or duration not yet implemented");
+    // TODO: look in lubridate
+    return Status::NotImplemented("conversion to duration not yet implemented");
   }
 };
 
