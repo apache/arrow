@@ -28,6 +28,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace compute {
 
@@ -43,7 +44,7 @@ inline ScalarVector ToScalars(std::shared_ptr<Array> arr) {
   return scalars;
 }
 
-void BM_CastDispatch(benchmark::State& state) {  // NOLINT non-const reference
+void BM_CastDispatch(benchmark::State& state) {
   // Repeatedly invoke a trivial Cast: the main cost should be dispatch
   random::RandomArrayGenerator rag(kSeed);
 
@@ -61,7 +62,7 @@ void BM_CastDispatch(benchmark::State& state) {  // NOLINT non-const reference
   state.SetItemsProcessed(state.iterations() * kScalarCount);
 }
 
-void BM_CastDispatchBaseline(benchmark::State& state) {  // NOLINT non-const reference
+void BM_CastDispatchBaseline(benchmark::State& state) {
   // Repeatedly invoke a trivial Cast with all dispatch outside the hot loop
   random::RandomArrayGenerator rag(kSeed);
 
@@ -94,7 +95,7 @@ void BM_CastDispatchBaseline(benchmark::State& state) {  // NOLINT non-const ref
   state.SetItemsProcessed(state.iterations() * kScalarCount);
 }
 
-void BM_AddDispatch(benchmark::State& state) {  // NOLINT non-const reference
+void BM_AddDispatch(benchmark::State& state) {
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
 
@@ -109,9 +110,75 @@ void BM_AddDispatch(benchmark::State& state) {  // NOLINT non-const reference
   state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_CastDispatch)->MinTime(1.0);
-BENCHMARK(BM_CastDispatchBaseline)->MinTime(1.0);
-BENCHMARK(BM_AddDispatch)->MinTime(1.0);
+static ScalarVector MakeScalarsForIsValid(int64_t nitems) {
+  std::vector<std::shared_ptr<Scalar>> scalars;
+  scalars.reserve(nitems);
+  for (int64_t i = 0; i < nitems; ++i) {
+    if (i & 0x10) {
+      scalars.emplace_back(MakeNullScalar(int64()));
+    } else {
+      scalars.emplace_back(*MakeScalar(int64(), i));
+    }
+  }
+  return scalars;
+}
+
+void BM_ExecuteScalarFunctionOnScalar(benchmark::State& state) {
+  // Execute a trivial function, with argument dispatch in the hot path
+  const int64_t N = 10000;
+
+  auto function = checked_pointer_cast<ScalarFunction>(
+      *GetFunctionRegistry()->GetFunction("is_valid"));
+  const auto scalars = MakeScalarsForIsValid(N);
+
+  ExecContext exec_context;
+  KernelContext kernel_context(&exec_context);
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto& scalar : scalars) {
+      const Datum result =
+          *function->Execute({Datum(scalar)}, function->default_options(), &exec_context);
+      total += result.scalar()->is_valid;
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * N);
+}
+
+void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
+  // Execute a trivial function, with argument dispatch outside the hot path
+  const int64_t N = 10000;
+
+  auto function = *GetFunctionRegistry()->GetFunction("is_valid");
+  auto kernel = *function->DispatchExact({ValueDescr::Scalar(int64())});
+  const auto& exec = static_cast<const ScalarKernel&>(*kernel).exec;
+
+  const auto scalars = MakeScalarsForIsValid(N);
+
+  ExecContext exec_context;
+  KernelContext kernel_context(&exec_context);
+
+  for (auto _ : state) {
+    int64_t total = 0;
+    for (const auto& scalar : scalars) {
+      Datum result{MakeNullScalar(int64())};
+      exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result);
+      ABORT_NOT_OK(kernel_context.status());
+      total += result.scalar()->is_valid;
+    }
+    benchmark::DoNotOptimize(total);
+  }
+
+  state.SetItemsProcessed(state.iterations() * N);
+}
+
+BENCHMARK(BM_CastDispatch);
+BENCHMARK(BM_CastDispatchBaseline);
+BENCHMARK(BM_AddDispatch);
+BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
+BENCHMARK(BM_ExecuteScalarKernelOnScalar);
 
 }  // namespace compute
 }  // namespace arrow

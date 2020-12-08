@@ -35,7 +35,7 @@ use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
-    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
+    DFSchema, DFSchemaRef, FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
 };
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -140,7 +140,7 @@ impl ExecutionContext {
                         name,
                         location,
                         CsvReadOptions::new()
-                            .schema(&schema)
+                            .schema(&schema.as_ref().to_owned().into())
                             .has_header(*has_header),
                     )?;
                     let plan = LogicalPlanBuilder::empty(false).build()?;
@@ -214,7 +214,7 @@ impl ExecutionContext {
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: csv.schema(),
+            projected_schema: Arc::new(DFSchema::from(&csv.schema())?),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -231,7 +231,7 @@ impl ExecutionContext {
             path: filename.to_string(),
             schema: parquet.schema(),
             projection: None,
-            projected_schema: parquet.schema(),
+            projected_schema: Arc::new(DFSchema::from(&parquet.schema())?),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -250,7 +250,7 @@ impl ExecutionContext {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
             table_schema: schema.clone(),
-            projected_schema: schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
             projection: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
@@ -302,7 +302,7 @@ impl ExecutionContext {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
-                    projected_schema: schema,
+                    projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
@@ -758,7 +758,7 @@ mod tests {
             )?]],
             schema: schema.clone(),
             projection: None,
-            projected_schema: schema.clone(),
+            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
         })
         .project(vec![col("b")])?
         .build()?;

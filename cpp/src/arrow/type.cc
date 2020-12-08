@@ -1005,13 +1005,13 @@ FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
 void FieldRef::Flatten(std::vector<FieldRef> children) {
   // flatten children
   struct Visitor {
-    void operator()(std::string&& name) { *out++ = FieldRef(std::move(name)); }
+    void operator()(std::string* name) { *out++ = FieldRef(std::move(*name)); }
 
-    void operator()(FieldPath&& indices) { *out++ = FieldRef(std::move(indices)); }
+    void operator()(FieldPath* indices) { *out++ = FieldRef(std::move(*indices)); }
 
-    void operator()(std::vector<FieldRef>&& children) {
-      for (auto& child : children) {
-        util::visit(*this, std::move(child.impl_));
+    void operator()(std::vector<FieldRef>* children) {
+      for (auto& child : *children) {
+        util::visit(*this, &child.impl_);
       }
     }
 
@@ -1020,7 +1020,7 @@ void FieldRef::Flatten(std::vector<FieldRef> children) {
 
   std::vector<FieldRef> out;
   Visitor visitor{std::back_inserter(out)};
-  visitor(std::move(children));
+  visitor(&children);
 
   DCHECK(!out.empty());
   DCHECK(std::none_of(out.begin(), out.end(),

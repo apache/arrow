@@ -21,5 +21,7 @@ ARG python=3.6
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG pandas=latest
+ARG numpy=latest
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_pandas.sh ${pandas}
+RUN conda uninstall -q -y numpy && \
+    /arrow/ci/scripts/install_pandas.sh ${pandas} ${numpy}

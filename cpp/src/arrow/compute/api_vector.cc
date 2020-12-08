@@ -62,10 +62,10 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> SortIndices(const Table& table, const SortOptions& options,
+Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
                                            ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("sort_indices", {Datum(table)}, &options, ctx));
+                        CallFunction("sort_indices", {datum}, &options, ctx));
   return result.make_array();
 }
 

@@ -267,14 +267,19 @@ uint64_t* PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
 // We need to preserve the options
 using PartitionNthToIndicesState = internal::OptionsWrapper<PartitionNthOptions>;
 
+// Convert string array to binary array and large string array to
+// large binary array. Because we want to reuse kernels for binary
+// array and large binary array to reduce generated codes.
 Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
-                       const std::shared_ptr<DataType>& type,
                        std::shared_ptr<ArrayData>* out) {
-  if (!arr->type->Equals(*type)) {
-    return ::arrow::internal::GetArrayView(arr, type).Value(out);
-  } else {
-    *out = arr;
-    return Status::OK();
+  switch (arr->type->id()) {
+    case Type::STRING:
+      return ::arrow::internal::GetArrayView(arr, binary()).Value(out);
+    case Type::LARGE_STRING:
+      return ::arrow::internal::GetArrayView(arr, large_binary()).Value(out);
+    default:
+      *out = arr;
+      return Status::OK();
   }
 }
 
@@ -289,9 +294,7 @@ struct PartitionNthToIndices {
     }
 
     std::shared_ptr<ArrayData> arg0;
-    KERNEL_RETURN_IF_ERROR(
-        ctx,
-        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    KERNEL_RETURN_IF_ERROR(ctx, GetPhysicalView(batch[0].array(), &arg0));
     ArrayType arr(arg0);
 
     int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
@@ -504,8 +507,9 @@ struct ArraySorter<Int8Type> {
 };
 
 template <typename Type>
-struct ArraySorter<Type, enable_if_t<is_integer_type<Type>::value &&
-                                     (sizeof(typename Type::c_type) > 1)>> {
+struct ArraySorter<Type, enable_if_t<(is_integer_type<Type>::value &&
+                                      (sizeof(typename Type::c_type) > 1)) ||
+                                     is_temporal_type<Type>::value>> {
   ArrayCountOrCompareSorter<Type> impl;
 };
 
@@ -524,9 +528,7 @@ struct ArraySortIndices {
     const auto& options = ArraySortIndicesState::Get(ctx);
 
     std::shared_ptr<ArrayData> arg0;
-    KERNEL_RETURN_IF_ERROR(
-        ctx,
-        GetPhysicalView(batch[0].array(), TypeTraits<InType>::type_singleton(), &arg0));
+    KERNEL_RETURN_IF_ERROR(ctx, GetPhysicalView(batch[0].array(), &arg0));
     ArrayType arr(arg0);
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
@@ -548,6 +550,11 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
+  for (const auto& ty : TemporalTypes()) {
+    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.exec = GenerateTemporal<ExecTemplate, UInt64Type>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
@@ -629,6 +636,11 @@ class ChunkedArraySorter : public TypeVisitor {
   VISIT(UInt64)
   VISIT(Float)
   VISIT(Double)
+  VISIT(Date32)
+  VISIT(Date64)
+  VISIT(Timestamp)
+  VISIT(Time32)
+  VISIT(Time64)
   VISIT(String)
   VISIT(Binary)
   VISIT(LargeString)
@@ -898,6 +910,11 @@ class MultipleKeyTableSorter : public TypeVisitor {
     VISIT(UInt64)
     VISIT(Float)
     VISIT(Double)
+    VISIT(Date32)
+    VISIT(Date64)
+    VISIT(Timestamp)
+    VISIT(Time32)
+    VISIT(Time64)
     VISIT(String)
     VISIT(Binary)
     VISIT(LargeString)
@@ -1038,6 +1055,11 @@ class MultipleKeyTableSorter : public TypeVisitor {
   VISIT(UInt64)
   VISIT(Float)
   VISIT(Double)
+  VISIT(Date32)
+  VISIT(Date64)
+  VISIT(Timestamp)
+  VISIT(Time32)
+  VISIT(Time64)
   VISIT(String)
   VISIT(Binary)
   VISIT(LargeString)

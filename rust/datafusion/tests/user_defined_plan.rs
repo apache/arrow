@@ -85,6 +85,7 @@ use std::task::{Context, Poll};
 use std::{any::Any, collections::BTreeMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
+use datafusion::logical_plan::DFSchemaRef;
 
 /// Execute the specified sql and return the resulting record batches
 /// pretty printed as a String.
@@ -246,7 +247,7 @@ impl OptimizerRule for TopKOptimizerRule {
                     *verbose,
                     &*plan,
                     stringified_plans,
-                    &*schema,
+                    &schema.as_ref().to_owned().into(),
                 )
             }
             _ => {}
@@ -288,7 +289,7 @@ impl UserDefinedLogicalNode for TopKPlanNode {
     }
 
     /// Schema for TopK is the same as the input
-    fn schema(&self) -> &SchemaRef {
+    fn schema(&self) -> &DFSchemaRef {
         self.input.schema()
     }
 

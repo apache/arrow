@@ -52,9 +52,32 @@ You can find more details about each crate on their respective READMEs.
 
 ## Developer's guide to Arrow Rust
 
-Before running tests and examples, it is necessary to set up the local development environment.
+### How to compile
+
+This is a standard cargo project with workspaces. To build it, you need to have `rust` and `cargo`:
+
+```bash
+cd /rust && cargo build
+```
+
+You can also use rust's official docker image:
+
+```bash
+docker run --rm -v $(pwd)/rust:/rust -it rust /bin/bash -c "cd /rust && cargo build"
+```
+
+The command above assumes that are in the root directory of the project, not in the same
+directory as this README.md.
+
+You can also compile specific workspaces,
+
+```bash
+cd /rust/arrow && cargo build
+```
 
 ### Git Submodules
+
+Before running tests and examples, it is necessary to set up the local development environment.
 
 The tests rely on test data that is contained in git submodules.
 
@@ -115,19 +138,3 @@ Search for `allow(clippy::` in the codebase to identify lints that are ignored/a
 * If you are introducing a line that returns a lint warning or error, you may disable the lint on that line.
 * If you have several lints on a function or module, you may disable the lint on the function or module.
 * If a lint is pervasive across multiple modules, you may disable it at the crate level.
-
-## CI and Dockerized builds
-
-There are currently multiple CI systems that build the project and they all use the same docker image. It is possible to run the same build locally.
-
-From the root of the Arrow project, run the following command to build the Docker image that the CI system uses to build the project.
-
-```bash
-docker-compose build debian-rust
-```
-
-Run the following command to build the project in the same way that the CI system will build the project. Note that this currently does cause some files to be written to your local workspace.
-
-```bash
-docker-compose run --rm debian-rust bash
-```

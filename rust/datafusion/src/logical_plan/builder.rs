@@ -30,7 +30,8 @@ use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
     TableSource,
 };
-use crate::physical_plan::hash_utils;
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
+use std::collections::HashSet;
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -49,7 +50,7 @@ impl LogicalPlanBuilder {
     pub fn empty(produce_one_row: bool) -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
             produce_one_row,
-            schema: SchemaRef::new(Schema::empty()),
+            schema: DFSchemaRef::new(DFSchema::empty()),
         })
     }
 
@@ -69,15 +70,11 @@ impl LogicalPlanBuilder {
                 .to_owned(),
         };
 
-        let projected_schema = SchemaRef::new(
-            projection
-                .clone()
-                .map(|p| {
-                    Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
-                })
-                .or(Some(schema.clone()))
-                .unwrap(),
-        );
+        let projected_schema = projection
+            .clone()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
+            .or(Some(schema.clone()))
+            .unwrap();
 
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
@@ -85,7 +82,7 @@ impl LogicalPlanBuilder {
             has_header,
             delimiter: Some(delimiter),
             projection,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
         }))
     }
 
@@ -103,7 +100,7 @@ impl LogicalPlanBuilder {
             path: path.to_owned(),
             schema,
             projection,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
         }))
     }
 
@@ -125,7 +122,7 @@ impl LogicalPlanBuilder {
             schema_name: schema_name.to_owned(),
             source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
-            projected_schema,
+            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
             projection,
         }))
     }
@@ -149,12 +146,12 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Projections", &projected_expr, input_schema)?;
 
-        let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
+        let schema = DFSchema::new(exprlist_to_fields(&projected_expr, input_schema)?)?;
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
             input: Arc::new(self.plan.clone()),
-            schema: SchemaRef::new(schema),
+            schema: DFSchemaRef::new(schema),
         }))
     }
 
@@ -200,17 +197,8 @@ impl LogicalPlanBuilder {
                 .zip(right_keys.iter())
                 .map(|(x, y)| (x.to_string(), y.to_string()))
                 .collect::<Vec<_>>();
-            let physical_join_type = match join_type {
-                JoinType::Inner => hash_utils::JoinType::Inner,
-                JoinType::Left => hash_utils::JoinType::Left,
-                JoinType::Right => hash_utils::JoinType::Right,
-            };
-            let physical_schema = hash_utils::build_join_schema(
-                self.plan.schema(),
-                right.schema(),
-                &on,
-                &physical_join_type,
-            );
+            let join_schema =
+                build_join_schema(self.plan.schema(), right.schema(), &on, &join_type)?;
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right: Arc::new(right.clone()),
@@ -220,7 +208,7 @@ impl LogicalPlanBuilder {
                     .map(|(l, r)| (l.to_string(), r.to_string()))
                     .collect(),
                 join_type,
-                schema: Arc::new(physical_schema),
+                schema: DFSchemaRef::new(join_schema),
             }))
         }
     }
@@ -232,13 +220,14 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
-        let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
+        let aggr_schema =
+            DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: SchemaRef::new(aggr_schema),
+            schema: DFSchemaRef::new(aggr_schema),
         }))
     }
 
@@ -255,7 +244,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema,
+            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
         }))
     }
 
@@ -265,11 +254,60 @@ impl LogicalPlanBuilder {
     }
 }
 
+/// Creates a schema for a join operation.
+/// The fields from the left side are first
+fn build_join_schema(
+    left: &DFSchema,
+    right: &DFSchema,
+    on: &[(String, String)],
+    join_type: &JoinType,
+) -> Result<DFSchema> {
+    let fields: Vec<DFField> = match join_type {
+        JoinType::Inner | JoinType::Left => {
+            // remove right-side join keys if they have the same names as the left-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
+
+            let left_fields = left.fields().iter();
+
+            let right_fields = right
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()));
+
+            // left then right
+            left_fields.chain(right_fields).cloned().collect()
+        }
+        JoinType::Right => {
+            // remove left-side join keys if they have the same names as the right-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
+
+            let left_fields = left
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()));
+
+            let right_fields = right.fields().iter();
+
+            // left then right
+            left_fields.chain(right_fields).cloned().collect()
+        }
+    };
+    DFSchema::new(fields)
+}
+
 /// Errors if one or more expressions have equal names.
 fn validate_unique_names(
     node_name: &str,
     expressions: &[Expr],
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<()> {
     let mut unique_names = HashMap::new();
     expressions.iter().enumerate().map(|(position, expr)| {
