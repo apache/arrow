@@ -220,6 +220,22 @@ Result<T> CIntFromRScalar(RScalar* obj) {
   return Status::Invalid("Cannot convert to Int");
 }
 
+Status RScalar_to_days(RScalar* value, int32_t* days) {
+  switch (value->rtype) {
+    case DATE_DBL: {
+      *days = static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
+      return Status::OK();
+    }
+    case DATE_INT: {
+      *days = *reinterpret_cast<int32_t*>(value->data);
+      return Status::OK();
+    }
+    default:
+      break;
+  }
+  return Status::Invalid("invalid conversion to Date");
+}
+
 class RValue {
  public:
   static bool IsNull(RScalar* obj) { return obj->null; }
@@ -285,28 +301,20 @@ class RValue {
 
   static Result<int32_t> Convert(const Date32Type*, const RConversionOptions&,
                                  RScalar* value) {
-    switch (value->rtype) {
-      case DATE_DBL:
-        return static_cast<int32_t>(*reinterpret_cast<double*>(value->data));
-      case DATE_INT:
-        return *reinterpret_cast<int32_t*>(value->data);
-      default:
-        break;
-    }
-
-    return Status::Invalid("invalid conversion to date32");
+    int32_t days;
+    RETURN_NOT_OK(RScalar_to_days(value, &days));
+    return days;
   }
 
   static Result<int64_t> Convert(const Date64Type*, const RConversionOptions&,
                                  RScalar* value) {
     constexpr static int64_t kMillisecondsPerDay = 86400000;
 
-    if (value->rtype == DATE_DBL) {
-      return static_cast<int64_t>(*reinterpret_cast<double*>(value->data) *
-                                  kMillisecondsPerDay);
-    }
+    // first truncate to a number of days since epoch and then convert to milliseconds
+    int32_t days;
+    RETURN_NOT_OK(RScalar_to_days(value, &days));
 
-    return Status::Invalid("invalid conversion to date64");
+    return static_cast<int64_t>(days) * kMillisecondsPerDay;
   }
 
   static Result<int32_t> Convert(const Time32Type*, const RConversionOptions&,
@@ -488,7 +496,7 @@ inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
       return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
     case DATE_INT:
-      return VisitRPrimitiveVector<DATE_INT, double, VisitorFunc>(
+      return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
           x, size, std::forward<VisitorFunc>(func));
 
     case STRING:
