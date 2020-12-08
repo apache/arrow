@@ -1261,7 +1261,6 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   }
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
-    DictionaryKind kind;
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     if (message->type() == MessageType::DICTIONARY_BATCH) {
       return ReadDictionary(*message);
