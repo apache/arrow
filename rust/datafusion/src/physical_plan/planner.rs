@@ -35,7 +35,6 @@ use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
-use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
@@ -224,13 +223,6 @@ impl DefaultPhysicalPlanner {
                     initial_aggr,
                 )?))
             }
-            LogicalPlan::ParquetScan {
-                path, projection, ..
-            } => Ok(Arc::new(ParquetExec::try_new(
-                path,
-                projection.to_owned(),
-                batch_size,
-            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();

@@ -90,6 +90,8 @@ impl LogicalPlanBuilder {
 
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
+        let provider = Arc::new(ParquetTable::try_new(path)?);
+
         let p = ParquetTable::try_new(path)?;
         let schema = p.schema();
 
@@ -97,13 +99,17 @@ impl LogicalPlanBuilder {
             .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
+        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
 
-        Ok(Self::from(&LogicalPlan::ParquetScan {
-            path: path.to_owned(),
-            schema,
-            projection,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
-        }))
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema.clone(),
+            projected_schema,
+            projection: None,
+        };
+
+        Ok(Self::from(&table_scan))
     }
 
     /// Scan a data source

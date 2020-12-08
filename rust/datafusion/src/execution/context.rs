@@ -214,18 +214,9 @@ impl ExecutionContext {
 
     /// Creates a DataFrame for reading a Parquet data source.
     pub fn read_parquet(&mut self, filename: &str) -> Result<Arc<dyn DataFrame>> {
-        let parquet = ParquetTable::try_new(filename)?;
-
-        let table_scan = LogicalPlan::ParquetScan {
-            path: filename.to_string(),
-            schema: parquet.schema(),
-            projection: None,
-            projected_schema: Arc::new(DFSchema::from(&parquet.schema())?),
-        };
-
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
-            &LogicalPlanBuilder::from(&table_scan).build()?,
+            &LogicalPlanBuilder::scan_parquet(&filename, None)?.build()?,
         )))
     }
 
