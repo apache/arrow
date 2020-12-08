@@ -24,6 +24,15 @@ use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::physical_plan::ExecutionPlan;
 
+/// The table statistics
+#[derive(Clone)]
+pub struct Statistics {
+    /// The number of table rows
+    pub num_rows: i64,
+    /// total byte of the table rows
+    pub total_byte_size: i64,
+}
+
 /// Source table
 pub trait TableProvider {
     /// Returns the table provider as [`Any`](std::any::Any) so that it can be
@@ -39,4 +48,8 @@ pub trait TableProvider {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>>;
+
+    /// Returns the table Statistics
+    /// Statistics should be optional because not all data sources can provide statistics.
+    fn statistics(&self) -> Option<Statistics>;
 }
