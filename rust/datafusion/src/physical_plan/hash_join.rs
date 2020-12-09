@@ -317,6 +317,7 @@ fn build_batch_from_indices(
     Ok(RecordBatch::try_new(Arc::new(schema.clone()), columns)?)
 }
 
+/// Create a key `Vec<u8>` that is used as key for the hashmap
 pub(crate) fn create_key(
     group_by_keys: &[ArrayRef],
     row: usize,

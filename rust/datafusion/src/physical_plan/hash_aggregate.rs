@@ -733,7 +733,7 @@ fn finalize_aggregation(
     }
 }
 
-/// Create a Vec<GroupByScalar> that can be used as a map key
+/// Create a Box<[GroupByScalar]> for the group by values
 pub(crate) fn create_group_by_values(
     group_by_keys: &[ArrayRef],
     row: usize,
