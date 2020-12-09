@@ -161,8 +161,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void SetFilter(Expression2 filter) {
-    ASSERT_OK_AND_ASSIGN(std::tie(opts_->filter2, ctx_->expression_state),
-                         filter.Bind(*schema_));
+    ASSERT_OK_AND_ASSIGN(opts_->filter2, filter.Bind(*schema_));
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
@@ -196,7 +195,6 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
                                 Expression2 filter) {
     schema_ = opts_->schema();
     ASSERT_OK_AND_ASSIGN(auto bound, filter.Bind(*schema_));
-    ctx_->expression_state = bound.second;
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
     ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(bound))
 

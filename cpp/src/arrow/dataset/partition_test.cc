@@ -45,21 +45,20 @@ class TestPartitioning : public ::testing::Test {
 
   void AssertParse(const std::string& path, Expression2 expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
-    ASSERT_OK_AND_ASSIGN(std::tie(expected, std::ignore),
-                         expected.Bind(*partitioning_->schema()));
+    ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*partitioning_->schema()));
     ASSERT_EQ(parsed, expected);
   }
 
   template <StatusCode code = StatusCode::Invalid>
   void AssertFormatError(Expression2 expr) {
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(*written_schema_));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*written_schema_));
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
   void AssertFormat(Expression2 expr, const std::string& expected) {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(*written_schema_));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*written_schema_));
 
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
     ASSERT_EQ(formatted, expected);
@@ -70,7 +69,7 @@ class TestPartitioning : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(auto bound, roundtripped.Bind(*partitioning_->schema()));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(bound, expr));
-    ASSERT_EQ(simplified.first, literal(true));
+    ASSERT_EQ(simplified, literal(true));
   }
 
   void AssertInspect(const std::vector<std::string>& paths,
@@ -366,9 +365,7 @@ TEST_F(TestPartitioning, EtlThenHive) {
             fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
         ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
 
-        auto expr = and_(etl_expr, alphabeta_expr);
-        ARROW_ASSIGN_OR_RAISE(std::tie(expr, std::ignore), expr.Bind(*schm));
-        return expr;
+        return and_(etl_expr, alphabeta_expr).Bind(*schm);
       });
 
   AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
@@ -411,8 +408,7 @@ TEST_F(TestPartitioning, Set) {
           auto is_in_expr = call("is_in", {field_ref(matches[1])},
                                  compute::SetLookupOptions{ints(set), true});
 
-          ARROW_ASSIGN_OR_RAISE(std::tie(is_in_expr, std::ignore),
-                                is_in_expr.Bind(*schm));
+          ARROW_ASSIGN_OR_RAISE(is_in_expr, is_in_expr.Bind(*schm));
 
           subexpressions.push_back(is_in_expr);
         }
@@ -457,9 +453,7 @@ class RangePartitioning : public Partitioning {
                             max_cmp(field_ref(key->name), literal(max))));
     }
 
-    Expression2 expr;
-    ARROW_ASSIGN_OR_RAISE(std::tie(expr, std::ignore), and_(ranges).Bind(*schema_));
-    return expr;
+    return and_(ranges).Bind(*schema_);
   }
 
   static Status DoRegex(const std::string& segment, std::smatch* matches) {

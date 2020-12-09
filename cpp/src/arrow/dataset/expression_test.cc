@@ -64,6 +64,9 @@ TEST(Expression2, Equality) {
 
   EXPECT_EQ(call("add", {literal(3), call("index_in", {field_ref("beta")})}),
             call("add", {literal(3), call("index_in", {field_ref("beta")})}));
+
+  // FIXME options are not currently compared, so two cast exprs will compare equal
+  // regardless of differing target type
 }
 
 TEST(Expression2, Hash) {
@@ -183,8 +186,7 @@ TEST(Expression2, BindFieldRef) {
   {
     auto expr = field_ref("alpha");
     // binding a field_ref looks up that field's type in the input Schema
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore),
-                         expr.Bind(Schema({field("alpha", int32())})));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({field("alpha", int32())})));
     EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
     EXPECT_TRUE(expr.IsBound());
   }
@@ -192,7 +194,7 @@ TEST(Expression2, BindFieldRef) {
   {
     // if the field is not found, a null scalar will be emitted
     auto expr = field_ref("alpha");
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(Schema({})));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({})));
     EXPECT_EQ(expr.descr(), ValueDescr::Scalar(null()));
     EXPECT_TRUE(expr.IsBound());
   }
@@ -208,7 +210,7 @@ TEST(Expression2, BindFieldRef) {
   {
     // referencing nested fields is supported
     auto expr = field_ref("a", "b");
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore),
+    ASSERT_OK_AND_ASSIGN(expr,
                          expr.Bind(Schema({field("a", struct_({field("b", int32())}))})));
     EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
     EXPECT_TRUE(expr.IsBound());
@@ -219,7 +221,7 @@ TEST(Expression2, BindCall) {
   auto expr = call("add", {field_ref("a"), field_ref("b")});
   EXPECT_FALSE(expr.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore),
+  ASSERT_OK_AND_ASSIGN(expr,
                        expr.Bind(Schema({field("a", int32()), field("b", int32())})));
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
   EXPECT_TRUE(expr.IsBound());
@@ -234,7 +236,7 @@ TEST(Expression2, BindDictionaryTransparent) {
   EXPECT_FALSE(expr.IsBound());
 
   ASSERT_OK_AND_ASSIGN(
-      std::tie(expr, std::ignore),
+      expr,
       expr.Bind(Schema({field("a", utf8()), field("b", dictionary(int32(), utf8()))})));
 
   EXPECT_EQ(expr.descr(), ValueDescr::Array(boolean()));
@@ -248,7 +250,7 @@ TEST(Expression2, BindNestedCall) {
                                      field_ref("d")})});
   EXPECT_FALSE(expr.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore),
+  ASSERT_OK_AND_ASSIGN(expr,
                        expr.Bind(Schema({field("a", int32()), field("b", int32()),
                                          field("c", int32()), field("d", int32())})));
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
@@ -259,9 +261,8 @@ TEST(Expression2, ExecuteFieldRef) {
   auto AssertRefIs = [](FieldRef ref, Datum in, Datum expected) {
     auto expr = field_ref(ref);
 
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(in.descr()));
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         ExecuteScalarExpression(expr, /*state=*/nullptr, in));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
+    ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));
 
     AssertDatumsEqual(actual, expected, /*verbose=*/true);
   };
@@ -295,7 +296,7 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression2& expr, const Datum&
   auto call = expr.call();
   if (call == nullptr) {
     // already tested execution of field_ref, execution of literal is trivial
-    return ExecuteScalarExpression(expr, /*state=*/nullptr, input);
+    return ExecuteScalarExpression(expr, input);
   }
 
   std::vector<Datum> arguments(call->arguments.size());
@@ -335,10 +336,9 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression2& expr, const Datum&
 }
 
 void AssertExecute(Expression2 expr, Datum in) {
-  std::shared_ptr<ExpressionState> state;
-  ASSERT_OK_AND_ASSIGN(std::tie(expr, state), expr.Bind(in.descr()));
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, state.get(), in));
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));
 
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveExecuteScalarExpression(expr, in));
 
@@ -400,26 +400,17 @@ TEST(Expression2, ExecuteDictionaryTransparent) {
 
 struct {
   void operator()(Expression2 expr, Expression2 expected) {
-    this->operator()(expr, expected,
-                     [](Expression2::BoundWithState, Expression2::BoundWithState,
-                        Expression2::BoundWithState) {});
-  }
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*kBoringSchema));
 
-  template <typename ExtraExpectations>
-  void operator()(Expression2 expr, Expression2 unbound_expected,
-                  const ExtraExpectations& expect) {
-    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto folded, FoldConstants(bound));
+    ASSERT_OK_AND_ASSIGN(auto folded, FoldConstants(expr));
 
-    EXPECT_EQ(folded.first, expected.first);
+    EXPECT_EQ(folded, expected);
 
-    if (folded.first == expr) {
+    if (folded == expr) {
       // no change -> must be identical
-      EXPECT_TRUE(Identical(folded.first, expr));
+      EXPECT_TRUE(Identical(folded, expr));
     }
-
-    expect(bound, folded, expected);
   }
 
 } ExpectFoldsTo;
@@ -476,15 +467,7 @@ TEST(Expression2, FoldConstants) {
       call("is_in",
            {call("add", {field_ref("i32"), call("multiply", {literal(2), literal(3)})})},
            in_123),
-      call("is_in", {call("add", {field_ref("i32"), literal(6)})}, in_123),
-      [](Expression2::BoundWithState bound, Expression2::BoundWithState folded,
-         Expression2::BoundWithState) {
-        const compute::KernelState* state = bound.second->Get(bound.first);
-        const compute::KernelState* folded_state = folded.second->Get(folded.first);
-        EXPECT_EQ(folded_state, state) << "The kernel state associated with is_in (the "
-                                          "hash table for looking up membership) "
-                                          "must be associated with the folded is_in call";
-      });
+      call("is_in", {call("add", {field_ref("i32"), literal(6)})}, in_123));
 }
 
 TEST(Expression2, FoldConstantsBoolean) {
@@ -507,8 +490,7 @@ TEST(Expression2, ExtractKnownFieldValues) {
   struct {
     void operator()(Expression2 guarantee,
                     std::unordered_map<FieldRef, Datum, FieldRef::Hash> expected) {
-      ASSERT_OK_AND_ASSIGN(std::tie(guarantee, std::ignore),
-                           guarantee.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(guarantee, guarantee.Bind(*kBoringSchema));
       ASSERT_OK_AND_ASSIGN(auto actual, ExtractKnownFieldValues(guarantee));
       EXPECT_THAT(actual, UnorderedElementsAreArray(expected))
           << "  guarantee: " << guarantee.ToString();
@@ -553,11 +535,11 @@ TEST(Expression2, ReplaceFieldsWithKnownValues) {
         ASSERT_OK_AND_ASSIGN(auto replaced,
                              ReplaceFieldsWithKnownValues(known_values, bound));
 
-        EXPECT_EQ(replaced.first, expected.first);
+        EXPECT_EQ(replaced, expected);
 
-        if (replaced.first == expr) {
+        if (replaced == expr) {
           // no change -> must be identical
-          EXPECT_TRUE(Identical(replaced.first, expr));
+          EXPECT_TRUE(Identical(replaced, expr));
         }
       };
 
@@ -598,11 +580,11 @@ struct {
     ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
     ASSERT_OK_AND_ASSIGN(auto actual, Canonicalize(bound));
 
-    EXPECT_EQ(actual.first, expected.first);
+    EXPECT_EQ(actual, expected);
 
-    if (actual.first == expr) {
+    if (actual == expr) {
       // no change -> must be identical
-      EXPECT_TRUE(Identical(actual.first, expr));
+      EXPECT_TRUE(Identical(actual, expr));
     }
   }
 } ExpectCanonicalizesTo;
@@ -666,19 +648,17 @@ struct Simplify {
 
     void Expect(Expression2 unbound_expected) {
       ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
-      ASSERT_OK_AND_ASSIGN(std::tie(guarantee, std::ignore),
-                           guarantee.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(guarantee, guarantee.Bind(*kBoringSchema));
 
       ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(bound, guarantee));
 
       ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
-      EXPECT_EQ(simplified.first, expected.first)
-          << "  original:   " << expr.ToString() << "\n"
-          << "  guarantee:  " << guarantee.ToString() << "\n"
-          << (simplified.first == bound.first ? "  (no change)\n" : "");
+      EXPECT_EQ(simplified, expected) << "  original:   " << expr.ToString() << "\n"
+                                      << "  guarantee:  " << guarantee.ToString() << "\n"
+                                      << (simplified == bound ? "  (no change)\n" : "");
 
-      if (simplified.first == bound.first) {
-        EXPECT_TRUE(Identical(simplified.first, bound.first));
+      if (simplified == bound) {
+        EXPECT_TRUE(Identical(simplified, bound));
       }
     }
     void ExpectUnchanged() { Expect(expr); }
@@ -781,10 +761,8 @@ TEST(Expression2, SingleComparisonGuarantees) {
             StructArray::Make({ArrayFromJSON(int32(), satisfying_i32[guarantee_op])},
                               {"i32"}));
 
-        std::shared_ptr<ExpressionState> state;
-        ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(*kBoringSchema));
-        ASSERT_OK_AND_ASSIGN(Datum evaluated,
-                             ExecuteScalarExpression(filter, state.get(), input));
+        ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(Datum evaluated, ExecuteScalarExpression(filter, input));
 
         // ensure that the simplified filter is as simplified as it could be
         // (this is always possible for single comparisons)
@@ -840,7 +818,7 @@ TEST(Expression2, SimplifyThenExecute) {
   ASSERT_OK_AND_ASSIGN(auto guarantee,
                        equal(field_ref("f32"), literal(0.F)).Bind(*kBoringSchema));
 
-  ASSERT_OK_AND_ASSIGN(bound, SimplifyWithGuarantee(bound, guarantee.first));
+  ASSERT_OK_AND_ASSIGN(bound, SimplifyWithGuarantee(bound, guarantee));
 
   auto input = RecordBatchFromJSON(kBoringSchema, R"([
       {"i32": 0, "f32": -0.1},
@@ -851,8 +829,7 @@ TEST(Expression2, SimplifyThenExecute) {
       {"i32": 0, "f32": null},
       {"i32": 0, "f32":  1.0}
   ])");
-  ASSERT_OK_AND_ASSIGN(Datum evaluated,
-                       ExecuteScalarExpression(bound.first, bound.second.get(), input));
+  ASSERT_OK_AND_ASSIGN(Datum evaluated, ExecuteScalarExpression(bound, input));
 }
 
 TEST(Expression2, Filter) {
@@ -861,9 +838,8 @@ TEST(Expression2, Filter) {
     auto batch = RecordBatchFromJSON(s, batch_json);
     auto expected_mask = batch->column(0);
 
-    std::shared_ptr<ExpressionState> state;
-    ASSERT_OK_AND_ASSIGN(std::tie(filter, state), filter.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(Datum mask, ExecuteScalarExpression(filter, state.get(), batch));
+    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(Datum mask, ExecuteScalarExpression(filter, batch));
 
     AssertDatumsEqual(expected_mask, mask);
   };

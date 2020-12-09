@@ -150,7 +150,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 /// significant performance boost when scanning high latency file systems.
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
-  Result<FragmentVector> SplitByRowGroup(Expression2::BoundWithState predicate);
+  Result<FragmentVector> SplitByRowGroup(Expression2 predicate);
 
   /// \brief Return the RowGroups selected by this fragment.
   const std::vector<int>& row_groups() const {
@@ -166,7 +166,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
-  Result<std::shared_ptr<Fragment>> Subset(Expression2::BoundWithState predicate);
+  Result<std::shared_ptr<Fragment>> Subset(Expression2 predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
  private:
@@ -185,7 +185,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   // Return a filtered subset of row group indices.
-  Result<std::vector<int>> FilterRowGroups(Expression2::BoundWithState predicate);
+  Result<std::vector<int>> FilterRowGroups(Expression2 predicate);
 
   ParquetFileFormat& parquet_format_;
 

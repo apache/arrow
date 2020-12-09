@@ -226,8 +226,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetFilter(Expression2 filter) {
-    ASSERT_OK_AND_ASSIGN(std::tie(options_->filter2, ctx_->expression_state),
-                         filter.Bind(*schema_));
+    ASSERT_OK_AND_ASSIGN(options_->filter2, filter.Bind(*schema_));
   }
 
   std::shared_ptr<Schema> schema_;
@@ -381,13 +380,13 @@ struct MakeFileSystemDatasetMixin {
         continue;
       }
 
-      ASSERT_OK_AND_ASSIGN(std::tie(partitions[i], std::ignore), partitions[i].Bind(*s));
+      ASSERT_OK_AND_ASSIGN(partitions[i], partitions[i].Bind(*s));
       ASSERT_OK_AND_ASSIGN(auto fragment,
                            format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 
-    ASSERT_OK_AND_ASSIGN(std::tie(root_partition, std::ignore), root_partition.Bind(*s));
+    ASSERT_OK_AND_ASSIGN(root_partition, root_partition.Bind(*s));
     ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format, fs_,
                                                            std::move(fragments)));
   }
@@ -438,7 +437,7 @@ void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
                                              std::vector<Expression2> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   for (auto& expr : expected) {
-    ASSERT_OK_AND_ASSIGN(std::tie(expr, std::ignore), expr.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
   }
   // Ordering is not guaranteed.
   EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
@@ -591,9 +590,6 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
     scan_options_ = ScanOptions::Make(source_schema_);
-    ASSERT_OK_AND_ASSIGN(
-        std::tie(scan_options_->filter2, scan_context_->expression_state),
-        literal(true).Bind(*source_schema_));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {

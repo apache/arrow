@@ -54,7 +54,9 @@ class ARROW_DS_EXPORT Expression2 {
 
     // post-Bind properties:
     const compute::Kernel* kernel = NULLPTR;
-    compute::Function::Kind function_kind;
+    compute::Function::Kind
+        function_kind;  // XXX give Kernel a non-owning pointer to its Function
+    std::shared_ptr<compute::KernelState> kernel_state;
   };
 
   std::string ToString() const;
@@ -67,10 +69,18 @@ class ARROW_DS_EXPORT Expression2 {
   /// Bind this expression to the given input type, looking up Kernels and field types.
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
-  using BoundWithState = std::pair<Expression2, std::shared_ptr<ExpressionState>>;
-  Result<BoundWithState> Bind(ValueDescr in, compute::ExecContext* = NULLPTR) const;
-  Result<BoundWithState> Bind(const Schema& in_schema,
-                              compute::ExecContext* = NULLPTR) const;
+  Result<Expression2> Bind(ValueDescr in, compute::ExecContext* = NULLPTR) const;
+  Result<Expression2> Bind(const Schema& in_schema,
+                           compute::ExecContext* = NULLPTR) const;
+
+  // XXX someday
+  // Clone all KernelState in this bound expression. If any function referenced by this
+  // expression has mutable KernelState, it is not safe to execute or apply simplification
+  // passes to it (or copies of it!) from multiple threads. Cloning state produces new
+  // KernelStates where necessary to ensure that Expression2s may be manipulated safely
+  // on multiple threads.
+  // Result<ExpressionState> CloneState() const;
+  // Status SetState(ExpressionState);
 
   /// Return true if all an expression's field references have explicit ValueDescr and all
   /// of its functions' kernels are looked up.
@@ -175,27 +185,25 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
 /// equivalent Expressions may result in different canonicalized expressions.
 /// TODO this could be a strong canonicalization
 ARROW_DS_EXPORT
-Result<Expression2::BoundWithState> Canonicalize(Expression2::BoundWithState,
-                                                 compute::ExecContext* = NULLPTR);
+Result<Expression2> Canonicalize(Expression2, compute::ExecContext* = NULLPTR);
 
 /// Simplify Expressions based on literal arguments (for example, add(null, x) will always
 /// be null so replace the call with a null literal). Includes early evaluation of all
 /// calls whose arguments are entirely literal.
 ARROW_DS_EXPORT
-Result<Expression2::BoundWithState> FoldConstants(Expression2::BoundWithState);
+Result<Expression2> FoldConstants(Expression2);
 
 ARROW_DS_EXPORT
-Result<Expression2::BoundWithState> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
-    Expression2::BoundWithState);
+Result<Expression2> ReplaceFieldsWithKnownValues(
+    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values, Expression2);
 
 /// Simplify an expression by replacing subexpressions based on a guarantee:
 /// a boolean expression which is guaranteed to evaluate to `true`. For example, this is
 /// used to remove redundant function calls from a filter expression or to replace a
 /// reference to a constant-value field with a literal.
 ARROW_DS_EXPORT
-Result<Expression2::BoundWithState> SimplifyWithGuarantee(
-    Expression2::BoundWithState, const Expression2& guaranteed_true_predicate);
+Result<Expression2> SimplifyWithGuarantee(Expression2,
+                                          const Expression2& guaranteed_true_predicate);
 
 /// @}
 
@@ -203,8 +211,7 @@ Result<Expression2::BoundWithState> SimplifyWithGuarantee(
 
 /// Execute a scalar expression against the provided state and input Datum. This
 /// expression must be bound.
-Result<Datum> ExecuteScalarExpression(const Expression2&, ExpressionState*,
-                                      const Datum& input,
+Result<Datum> ExecuteScalarExpression(const Expression2&, const Datum& input,
                                       compute::ExecContext* = NULLPTR);
 
 // Serialization

@@ -111,11 +111,11 @@ Result<FragmentIterator> Dataset::GetFragments() {
   return GetFragments(std::move(predicate));
 }
 
-Result<FragmentIterator> Dataset::GetFragments(Expression2::BoundWithState predicate) {
+Result<FragmentIterator> Dataset::GetFragments(Expression2 predicate) {
   ARROW_ASSIGN_OR_RAISE(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
-  return predicate.first.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
-                                         : MakeEmptyIterator<std::shared_ptr<Fragment>>();
+  return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
+                                   : MakeEmptyIterator<std::shared_ptr<Fragment>>();
 }
 
 struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
@@ -155,7 +155,7 @@ Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
   return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
 }
 
-Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression2::BoundWithState) {
+Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression2) {
   auto schema = this->schema();
 
   auto create_fragment =
@@ -196,8 +196,7 @@ Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 
-Result<FragmentIterator> UnionDataset::GetFragmentsImpl(
-    Expression2::BoundWithState predicate) {
+Result<FragmentIterator> UnionDataset::GetFragmentsImpl(Expression2 predicate) {
   return GetFragmentsFromDatasets(children_, predicate);
 }
 
