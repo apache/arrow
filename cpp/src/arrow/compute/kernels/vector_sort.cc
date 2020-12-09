@@ -26,6 +26,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/table.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
@@ -136,6 +137,30 @@ struct ChunkedArrayResolver {
 
   mutable int64_t cached_chunk_;
 };
+
+// We could try to reproduce the concrete Array classes' facilities
+// (such as cached raw values pointer) in a separate hierarchy of
+// physical accessors, but doing so ends up too cumbersome.
+// Instead, we simply create the desired concrete Array objects.
+ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
+                              const std::shared_ptr<DataType>& physical_type) {
+  const auto& chunks = chunked_array.chunks();
+  ArrayVector physical(chunks.size());
+  std::transform(chunks.begin(), chunks.end(), physical.begin(),
+                 [&](const std::shared_ptr<Array>& array) {
+                   auto new_data = array->data()->Copy();
+                   new_data->type = physical_type;
+                   return MakeArray(std::move(new_data));
+                 });
+  return physical;
+}
+
+std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {
+  std::vector<const Array*> pointers(arrays.size());
+  std::transform(arrays.begin(), arrays.end(), pointers.begin(),
+                 [&](const std::shared_ptr<Array>& array) { return array.get(); });
+  return pointers;
+}
 
 // NOTE: std::partition is usually faster than std::stable_partition.
 
@@ -267,22 +292,6 @@ uint64_t* PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
 // We need to preserve the options
 using PartitionNthToIndicesState = internal::OptionsWrapper<PartitionNthOptions>;
 
-// Convert string array to binary array and large string array to
-// large binary array. Because we want to reuse kernels for binary
-// array and large binary array to reduce generated codes.
-Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
-                       std::shared_ptr<ArrayData>* out) {
-  switch (arr->type->id()) {
-    case Type::STRING:
-      return ::arrow::internal::GetArrayView(arr, binary()).Value(out);
-    case Type::LARGE_STRING:
-      return ::arrow::internal::GetArrayView(arr, large_binary()).Value(out);
-    default:
-      *out = arr;
-      return Status::OK();
-  }
-}
-
 template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
@@ -293,9 +302,7 @@ struct PartitionNthToIndices {
       return;
     }
 
-    std::shared_ptr<ArrayData> arg0;
-    KERNEL_RETURN_IF_ERROR(ctx, GetPhysicalView(batch[0].array(), &arg0));
-    ArrayType arr(arg0);
+    ArrayType arr(batch[0].array());
 
     int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
     if (pivot > arr.length()) {
@@ -527,9 +534,7 @@ struct ArraySortIndices {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
 
-    std::shared_ptr<ArrayData> arg0;
-    KERNEL_RETURN_IF_ERROR(ctx, GetPhysicalView(batch[0].array(), &arg0));
-    ArrayType arr(arg0);
+    ArrayType arr(batch[0].array());
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
@@ -548,18 +553,21 @@ struct ArraySortIndices {
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
+    auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
+    auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateTemporal<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
+    auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*ty);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
 }
@@ -617,11 +625,13 @@ class ChunkedArraySorter : public TypeVisitor {
         indices_begin_(indices_begin),
         indices_end_(indices_end),
         chunked_array_(chunked_array),
+        physical_type_(GetPhysicalType(chunked_array.type())),
+        physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
         order_(order),
         can_use_array_sorter_(can_use_array_sorter),
         ctx_(ctx) {}
 
-  Status Sort() { return chunked_array_.type()->Accept(this); }
+  Status Sort() { return physical_type_->Accept(this); }
 
 #define VISIT(TYPE) \
   Status Visit(const TYPE##Type& type) override { return SortInternal<TYPE##Type>(); }
@@ -636,14 +646,7 @@ class ChunkedArraySorter : public TypeVisitor {
   VISIT(UInt64)
   VISIT(Float)
   VISIT(Double)
-  VISIT(Date32)
-  VISIT(Date64)
-  VISIT(Timestamp)
-  VISIT(Time32)
-  VISIT(Time64)
-  VISIT(String)
   VISIT(Binary)
-  VISIT(LargeString)
   VISIT(LargeBinary)
 
 #undef VISIT
@@ -657,12 +660,7 @@ class ChunkedArraySorter : public TypeVisitor {
     if (num_chunks == 0) {
       return Status::OK();
     }
-    const auto& shared_arrays = chunked_array_.chunks();
-    std::vector<const Array*> arrays(num_chunks);
-    for (int i = 0; i < num_chunks; ++i) {
-      const auto& array = shared_arrays[i];
-      arrays[i] = array.get();
-    }
+    const auto arrays = GetArrayPointers(physical_chunks_);
     if (can_use_array_sorter_) {
       // Sort each chunk independently and merge to sorted indices.
       // This is a serial implementation.
@@ -799,6 +797,8 @@ class ChunkedArraySorter : public TypeVisitor {
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   const ChunkedArray& chunked_array_;
+  const std::shared_ptr<DataType> physical_type_;
+  const ArrayVector physical_chunks_;
   const SortOrder order_;
   const bool can_use_array_sorter_;
   ExecContext* ctx_;
@@ -837,29 +837,28 @@ class MultipleKeyTableSorter : public TypeVisitor {
   // Preprocessed sort key.
   struct ResolvedSortKey {
     ResolvedSortKey(const ChunkedArray& chunked_array, const SortOrder order)
-        : order(order) {
-      type = chunked_array.type().get();
-      null_count = chunked_array.null_count();
-      num_chunks = chunked_array.num_chunks();
-      for (const auto& chunk : chunked_array.chunks()) {
-        chunks.push_back(chunk.get());
-      }
-      resolver.reset(new ChunkedArrayResolver(chunks));
-    }
+        : order(order),
+          type(GetPhysicalType(chunked_array.type())),
+          chunks(GetPhysicalChunks(chunked_array, type)),
+          chunk_pointers(GetArrayPointers(chunks)),
+          null_count(chunked_array.null_count()),
+          num_chunks(chunked_array.num_chunks()),
+          resolver(chunk_pointers) {}
 
     // Finds the target chunk and index in the target chunk from an
     // index in chunked array.
     template <typename ArrayType>
     ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
-      return resolver->Resolve<ArrayType>(index);
+      return resolver.Resolve<ArrayType>(index);
     }
 
-    SortOrder order;
-    DataType* type;
-    int64_t null_count;
-    int num_chunks;
-    std::vector<const Array*> chunks;
-    std::unique_ptr<const ChunkedArrayResolver> resolver;
+    const SortOrder order;
+    const std::shared_ptr<DataType> type;
+    const ArrayVector chunks;
+    const std::vector<const Array*> chunk_pointers;
+    const int64_t null_count;
+    const int num_chunks;
+    const ChunkedArrayResolver resolver;
   };
 
   // Compare two records in the same table.
@@ -910,14 +909,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
     VISIT(UInt64)
     VISIT(Float)
     VISIT(Double)
-    VISIT(Date32)
-    VISIT(Date64)
-    VISIT(Timestamp)
-    VISIT(Time32)
-    VISIT(Time64)
-    VISIT(String)
     VISIT(Binary)
-    VISIT(LargeString)
     VISIT(LargeBinary)
 
 #undef VISIT
@@ -1008,6 +1000,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
     static std::vector<ResolvedSortKey> ResolveSortKeys(
         const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
       std::vector<ResolvedSortKey> resolved;
+      resolved.reserve(sort_keys.size());
       for (const auto& sort_key : sort_keys) {
         const auto& chunked_array = table.GetColumnByName(sort_key.name);
         if (!chunked_array) {
@@ -1055,14 +1048,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
   VISIT(UInt64)
   VISIT(Float)
   VISIT(Double)
-  VISIT(Date32)
-  VISIT(Date64)
-  VISIT(Timestamp)
-  VISIT(Time32)
-  VISIT(Time64)
-  VISIT(String)
   VISIT(Binary)
-  VISIT(LargeString)
   VISIT(LargeBinary)
 
 #undef VISIT
