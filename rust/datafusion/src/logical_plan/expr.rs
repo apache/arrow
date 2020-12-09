@@ -277,7 +277,7 @@ impl Expr {
                 ..
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
-            Expr::Between { .. } => Ok(true),
+            Expr::Between { ref expr, .. } => expr.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
