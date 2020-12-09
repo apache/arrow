@@ -95,11 +95,9 @@ pub fn sort_to_indices(
         DataType::UInt32 => sort_primitive::<UInt32Type, _>(values, v, n, cmp, &options),
         DataType::UInt64 => sort_primitive::<UInt64Type, _>(values, v, n, cmp, &options),
         DataType::Float32 => {
-            //let (v, nan) = partition_nan::<Float32Type>(values, v);
             sort_primitive::<Float32Type, _>(values, v, n, total_cmp_32, &options)
         }
         DataType::Float64 => {
-            //let (v, nan) = partition_nan::<Float64Type>(values, v);
             sort_primitive::<Float64Type, _>(values, v, n, total_cmp_64, &options)
         }
         DataType::Date32(_) => {
@@ -295,10 +293,10 @@ fn sort_boolean(
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_and_nan_values(result_slice, nulls_len, valids, descending);
+        insert_valid_values(result_slice, nulls_len, valids, descending);
     } else {
         // nulls last
-        insert_valid_and_nan_values(result_slice, 0, valids, descending);
+        insert_valid_values(result_slice, 0, valids, descending);
         result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
@@ -381,7 +379,7 @@ where
 }
 
 // insert valid and nan values in the correct order depending on the descending flag
-fn insert_valid_and_nan_values<T: ArrowNativeType>(
+fn insert_valid_values<T: ArrowNativeType>(
     result_slice: &mut [u32],
     offset: usize,
     valids: Vec<(u32, T)>,
