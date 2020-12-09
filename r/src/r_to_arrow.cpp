@@ -668,6 +668,10 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   Status Append(RScalar* value) override {
     return this->primitive_builder_->AppendNull();
   }
+
+  Status AppendRange(SEXP, R_xlen_t start, R_xlen_t size) override {
+    return this->primitive_builder_->AppendNulls(size);
+  }
 };
 
 template <typename T>
@@ -872,7 +876,6 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-
   Status Append(RScalar* value) override {
     if (value->rtype != DATAFRAME) {
       return Status::Invalid("expecting a data frame");
