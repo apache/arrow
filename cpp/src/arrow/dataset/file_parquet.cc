@@ -298,8 +298,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
   // metdata, it will not be excluded.
   if (parquet_fragment->metadata() != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(
-                                          {options->filter2, context->expression_state}));
+    ARROW_ASSIGN_OR_RAISE(row_groups,
+                          parquet_fragment->FilterRowGroups(options->filter2));
 
     pre_filtered = true;
     if (row_groups.empty()) MakeEmpty();
@@ -314,8 +314,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
 
   if (!pre_filtered) {
     // row groups were not already filtered; do this now
-    ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(
-                                          {options->filter2, context->expression_state}));
+    ARROW_ASSIGN_OR_RAISE(row_groups,
+                          parquet_fragment->FilterRowGroups(options->filter2));
 
     if (row_groups.empty()) MakeEmpty();
   }
@@ -457,8 +457,7 @@ Status ParquetFileFragment::SetMetadata(
   return Status::OK();
 }
 
-Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
-    Expression2::BoundWithState predicate) {
+Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression2 predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
 
@@ -476,8 +475,7 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
   return fragments;
 }
 
-Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
-    Expression2::BoundWithState predicate) {
+Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(Expression2 predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
   return Subset(std::move(row_groups));
@@ -502,19 +500,18 @@ inline void FoldingAnd(Expression2* l, Expression2 r) {
   }
 }
 
-Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
-    Expression2::BoundWithState predicate) {
+Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression2 predicate) {
   auto lock = physical_schema_mutex_.Lock();
 
   DCHECK_NE(metadata_, nullptr);
   ARROW_ASSIGN_OR_RAISE(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
 
-  if (!predicate.first.IsSatisfiable()) {
+  if (!predicate.IsSatisfiable()) {
     return std::vector<int>{};
   }
 
-  for (const FieldRef& ref : FieldsInExpression(predicate.first)) {
+  for (const FieldRef& ref : FieldsInExpression(predicate)) {
     ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOneOrNone(*physical_schema_));
 
     if (!path) continue;
@@ -529,7 +526,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
       if (auto minmax =
               ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
-        ARROW_ASSIGN_OR_RAISE(std::tie(statistics_expressions_[i], std::ignore),
+        ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
                               statistics_expressions_[i].Bind(*physical_schema_));
       }
 
@@ -541,7 +538,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
   for (size_t i = 0; i < row_groups_->size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto row_group_predicate,
                           SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
-    if (row_group_predicate.first.IsSatisfiable()) {
+    if (row_group_predicate.IsSatisfiable()) {
       row_groups.push_back(row_groups_->at(i));
     }
   }

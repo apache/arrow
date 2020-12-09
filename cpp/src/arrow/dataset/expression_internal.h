@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
@@ -70,38 +71,6 @@ inline std::vector<ValueDescr> GetDescriptors(const std::vector<Datum>& values) 
   }
   return descrs;
 }
-
-struct ARROW_DS_EXPORT ExpressionState {
-  std::unordered_map<Expression2, std::shared_ptr<compute::KernelState>,
-                     Expression2::Hash>
-      kernel_states;
-
-  compute::KernelState* Get(const Expression2& expr) const {
-    auto it = kernel_states.find(expr);
-    if (it == kernel_states.end()) return nullptr;
-    return it->second.get();
-  }
-
-  void Replace(const Expression2& expr, const Expression2& replacement) {
-    auto it = kernel_states.find(expr);
-    if (it == kernel_states.end()) return;
-
-    auto kernel_state = std::move(it->second);
-    kernel_states.erase(it);
-    kernel_states.emplace(replacement, std::move(kernel_state));
-  }
-
-  void Drop(const Expression2& expr) {
-    auto it = kernel_states.find(expr);
-    if (it == kernel_states.end()) return;
-    kernel_states.erase(it);
-  }
-
-  void MoveFrom(ExpressionState* other) {
-    std::move(other->kernel_states.begin(), other->kernel_states.end(),
-              std::inserter(kernel_states, kernel_states.end()));
-  }
-};
 
 struct FieldPathGetDatumImpl {
   template <typename T, typename = decltype(FieldPath{}.Get(std::declval<const T&>()))>
@@ -417,6 +386,16 @@ struct FlattenedAssociativeChain {
     }));
   }
 };
+
+inline Result<std::shared_ptr<compute::Function>> GetFunction(
+    const Expression2::Call& call, compute::ExecContext* exec_context) {
+  if (call.function != "cast") {
+    return exec_context->func_registry()->GetFunction(call.function);
+  }
+  // XXX this special case is strange; why not make "cast" a ScalarFunction?
+  const auto& to_type = checked_cast<const compute::CastOptions&>(*call.options).to_type;
+  return compute::GetCastFunction(to_type);
+}
 
 }  // namespace dataset
 }  // namespace arrow

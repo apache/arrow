@@ -72,8 +72,7 @@ Result<FragmentIterator> Scanner::GetFragments() {
   // Transform Datasets in a flat Iterator<Fragment>. This
   // iterator is lazily constructed, i.e. Dataset::GetFragments is
   // not invoked until a Fragment is requested.
-  return GetFragmentsFromDatasets(
-      {dataset_}, {scan_options_->filter2, scan_context_->expression_state});
+  return GetFragmentsFromDatasets({dataset_}, scan_options_->filter2);
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
@@ -124,8 +123,7 @@ Status ScannerBuilder::Project(std::vector<std::string> columns) {
 }
 
 Status ScannerBuilder::Filter(const Expression2& filter) {
-  ARROW_ASSIGN_OR_RAISE(std::tie(scan_options_->filter2, scan_context_->expression_state),
-                        filter.Bind(*schema()));
+  ARROW_ASSIGN_OR_RAISE(scan_options_->filter2, filter.Bind(*schema()));
   return Status::OK();
 }
 

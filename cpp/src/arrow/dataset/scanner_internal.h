@@ -31,15 +31,13 @@
 namespace arrow {
 namespace dataset {
 
-inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
-                                             Expression2::BoundWithState filter,
+inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression2 filter,
                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
         compute::ExecContext exec_context{pool};
         ARROW_ASSIGN_OR_RAISE(Datum mask,
-                              ExecuteScalarExpression(filter.first, filter.second.get(),
-                                                      Datum(in), &exec_context));
+                              ExecuteScalarExpression(filter, Datum(in), &exec_context));
 
         if (mask.is_scalar()) {
           const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
@@ -83,9 +81,8 @@ class FilterAndProjectScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
-    ARROW_ASSIGN_OR_RAISE(
-        Expression2::BoundWithState simplified_filter,
-        SimplifyWithGuarantee({filter_, context_->expression_state}, partition_));
+    ARROW_ASSIGN_OR_RAISE(Expression2 simplified_filter,
+                          SimplifyWithGuarantee(filter_, partition_));
 
     RecordBatchIterator filter_it =
         FilterRecordBatch(std::move(it), simplified_filter, context_->pool);

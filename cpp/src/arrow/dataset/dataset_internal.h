@@ -35,8 +35,8 @@ namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
-inline Result<FragmentIterator> GetFragmentsFromDatasets(
-    const DatasetVector& datasets, Expression2::BoundWithState predicate) {
+inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& datasets,
+                                                         Expression2 predicate) {
   // Iterator<Dataset>
   auto datasets_it = MakeVectorIterator(datasets);
 

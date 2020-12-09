@@ -137,15 +137,14 @@ std::string FileSystemDataset::ToString() const {
   return repr;
 }
 
-Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
-    Expression2::BoundWithState predicate) {
+Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression2 predicate) {
   FragmentVector fragments;
 
   for (const auto& fragment : fragments_) {
     ARROW_ASSIGN_OR_RAISE(
         auto simplified,
         SimplifyWithGuarantee(predicate, fragment->partition_expression()));
-    if (simplified.first.IsSatisfiable()) {
+    if (simplified.IsSatisfiable()) {
       fragments.push_back(fragment);
     }
   }
@@ -323,8 +322,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                   .Bind(*scanner->schema()));
           auto batch = std::move(groups.batches[i]);
 
-          ARROW_ASSIGN_OR_RAISE(
-              auto part, write_options.partitioning->Format(partition_expression.first));
+          ARROW_ASSIGN_OR_RAISE(auto part,
+                                write_options.partitioning->Format(partition_expression));
 
           WriteQueue* queue;
           {

@@ -22,7 +22,6 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/compute/registry.h"
 #include "arrow/dataset/expression_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/io/memory.h"
@@ -379,67 +378,29 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
-Result<std::shared_ptr<ExpressionState>> CloneExpressionState(
-    const ExpressionState& state, compute::ExecContext* exec_context) {
-  auto clone = std::make_shared<ExpressionState>();
-  clone->kernel_states.reserve(state.kernel_states.size());
-
-  for (const auto& sub_state : state.kernel_states) {
-    auto call = CallNotNull(sub_state.first);
-
-    if (KernelStateIsImmutable(call->function)) {
-      // The kernel's state is immutable so it's safe to just
-      // share a pointer between threads
-      clone->kernel_states.insert(sub_state);
-      continue;
-    }
-
-    // The kernel's state must be re-initialized.
-    ARROW_ASSIGN_OR_RAISE(auto kernel_state, InitKernelState(*call, exec_context));
-    clone->kernel_states.emplace(sub_state.first, std::move(kernel_state));
-  }
-
-  return clone;
-}
-
-Result<Expression2::BoundWithState> Expression2::Bind(
-    ValueDescr in, compute::ExecContext* exec_context) const {
+Result<Expression2> Expression2::Bind(ValueDescr in,
+                                      compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Bind(std::move(in), &exec_context);
   }
 
-  BoundWithState ret{*this, std::make_shared<ExpressionState>()};
-
-  if (literal()) return ret;
+  if (literal()) return *this;
 
   if (auto ref = field_ref()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOneOrNone(*in.type));
-    ret.first.descr_ =
-        field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
-    return ret;
+    auto out = *this;
+    out.descr_ = field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
+    return out;
   }
 
   auto bound_call = *CallNotNull(*this);
 
-  std::shared_ptr<compute::Function> function;
-  if (bound_call.function == "cast") {
-    // XXX this special case is strange; why not make "cast" a ScalarFunction?
-    const auto& to_type =
-        checked_cast<const compute::CastOptions&>(*bound_call.options).to_type;
-    ARROW_ASSIGN_OR_RAISE(function, compute::GetCastFunction(to_type));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(
-        function, exec_context->func_registry()->GetFunction(bound_call.function));
-  }
+  ARROW_ASSIGN_OR_RAISE(auto function, GetFunction(bound_call, exec_context));
   bound_call.function_kind = function->kind();
 
-  auto state = std::make_shared<ExpressionState>();
-  for (size_t i = 0; i < bound_call.arguments.size(); ++i) {
-    std::shared_ptr<ExpressionState> argument_state;
-    ARROW_ASSIGN_OR_RAISE(std::tie(bound_call.arguments[i], argument_state),
-                          bound_call.arguments[i].Bind(in, exec_context));
-    state->MoveFrom(argument_state.get());
+  for (auto&& argument : bound_call.arguments) {
+    ARROW_ASSIGN_OR_RAISE(argument, argument.Bind(in, exec_context));
   }
 
   if (RequriesDictionaryTransparency(bound_call)) {
@@ -447,7 +408,7 @@ Result<Expression2::BoundWithState> Expression2::Bind(
   }
 
   auto descrs = GetDescriptors(bound_call.arguments);
-  for (auto& descr : descrs) {
+  for (auto&& descr : descrs) {
     if (RequriesDictionaryTransparency(bound_call)) {
       RETURN_NOT_OK(EnsureNotDictionary(&descr));
     }
@@ -456,29 +417,26 @@ Result<Expression2::BoundWithState> Expression2::Bind(
   ARROW_ASSIGN_OR_RAISE(bound_call.kernel, function->DispatchExact(descrs));
 
   compute::KernelContext kernel_context(exec_context);
-  ARROW_ASSIGN_OR_RAISE(auto kernel_state, InitKernelState(bound_call, exec_context));
-  kernel_context.SetState(kernel_state.get());
+  ARROW_ASSIGN_OR_RAISE(bound_call.kernel_state,
+                        InitKernelState(bound_call, exec_context));
+  kernel_context.SetState(bound_call.kernel_state.get());
 
   ARROW_ASSIGN_OR_RAISE(auto descr, bound_call.kernel->signature->out_type().Resolve(
                                         &kernel_context, descrs));
 
-  Expression2 bound(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
-
-  state->kernel_states.emplace(bound, std::move(kernel_state));
-  return BoundWithState{std::move(bound), std::move(state)};
+  return Expression2(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
 }
 
-Result<Expression2::BoundWithState> Expression2::Bind(
-    const Schema& in_schema, compute::ExecContext* exec_context) const {
+Result<Expression2> Expression2::Bind(const Schema& in_schema,
+                                      compute::ExecContext* exec_context) const {
   return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
 }
 
-Result<Datum> ExecuteScalarExpression(const Expression2& expr, ExpressionState* state,
-                                      const Datum& input,
+Result<Datum> ExecuteScalarExpression(const Expression2& expr, const Datum& input,
                                       compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
-    return ExecuteScalarExpression(expr, state, input, &exec_context);
+    return ExecuteScalarExpression(expr, input, &exec_context);
   }
 
   if (!expr.IsBound()) {
@@ -510,8 +468,8 @@ Result<Datum> ExecuteScalarExpression(const Expression2& expr, ExpressionState* 
 
   std::vector<Datum> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(arguments[i], ExecuteScalarExpression(call->arguments[i], state,
-                                                                input, exec_context));
+    ARROW_ASSIGN_OR_RAISE(
+        arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
 
     if (RequriesDictionaryTransparency(*call)) {
       RETURN_NOT_OK(EnsureNotDictionary(&arguments[i]));
@@ -521,7 +479,7 @@ Result<Datum> ExecuteScalarExpression(const Expression2& expr, ExpressionState* 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
 
   compute::KernelContext kernel_context(exec_context);
-  kernel_context.SetState(state->Get(expr));
+  kernel_context.SetState(call->kernel_state.get());
 
   auto kernel = call->kernel;
   auto descrs = GetDescriptors(arguments);
@@ -601,7 +559,7 @@ std::vector<FieldRef> FieldsInExpression(const Expression2& expr) {
 }
 
 template <typename PreVisit, typename PostVisitCall>
-Result<Expression2> Modify(Expression2 expr, ExpressionState* state, const PreVisit& pre,
+Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
                            const PostVisitCall& post_call) {
   ARROW_ASSIGN_OR_RAISE(expr, Result<Expression2>(pre(std::move(expr))));
 
@@ -613,7 +571,7 @@ Result<Expression2> Modify(Expression2 expr, ExpressionState* state, const PreVi
   auto modified_argument = modified_call.arguments.begin();
 
   for (const auto& argument : call->arguments) {
-    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, state, pre, post_call));
+    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, pre, post_call));
 
     if (!Identical(*modified_argument, argument)) {
       at_least_one_modified = true;
@@ -626,45 +584,24 @@ Result<Expression2> Modify(Expression2 expr, ExpressionState* state, const PreVi
     auto modified_expr = Expression2(
         std::make_shared<Expression2::Impl>(std::move(modified_call)), expr.descr());
 
-    // if expr had associated kernel state, associate it with modified_expr
-    state->Replace(expr, modified_expr);
     return post_call(std::move(modified_expr), &expr);
   }
 
   return post_call(std::move(expr), nullptr);
 }
 
-template <typename PreVisit, typename PostVisitCall>
-Result<Expression2::BoundWithState> Modify(Expression2::BoundWithState bound,
-                                           const PreVisit& pre,
-                                           const PostVisitCall& post_call) {
-  DCHECK(bound.first.IsBound());
-
-  auto expr = std::move(bound.first);
-  auto state = bound.second.get();
-
-  ARROW_ASSIGN_OR_RAISE(expr, Modify(std::move(expr), state, pre, post_call));
-
-  bound.first = std::move(expr);
-
-  return bound;
-}
-
-Result<Expression2::BoundWithState> FoldConstants(Expression2::BoundWithState bound) {
-  bound.second = std::make_shared<ExpressionState>(*bound.second);
-  auto state = bound.second.get();
+Result<Expression2> FoldConstants(Expression2 expr) {
   return Modify(
-      std::move(bound), [](Expression2 expr) { return expr; },
-      [state](Expression2 expr, ...) -> Result<Expression2> {
+      std::move(expr), [](Expression2 expr) { return expr; },
+      [](Expression2 expr, ...) -> Result<Expression2> {
         auto call = CallNotNull(expr);
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression2& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
           static const Datum ignored_input;
           ARROW_ASSIGN_OR_RAISE(Datum constant,
-                                ExecuteScalarExpression(expr, state, ignored_input));
+                                ExecuteScalarExpression(expr, ignored_input));
 
-          state->Drop(expr);
           return literal(std::move(constant));
         }
 
@@ -676,7 +613,6 @@ Result<Expression2::BoundWithState> FoldConstants(Expression2::BoundWithState bo
           // to null *now* if any of their inputs is a null literal
           for (const auto& argument : call->arguments) {
             if (argument.IsNullLiteral()) {
-              state->Drop(expr);
               return argument;
             }
           }
@@ -722,12 +658,8 @@ inline std::vector<Expression2> GuaranteeConjunctionMembers(
 Status ExtractKnownFieldValuesImpl(
     std::vector<Expression2>* conjunction_members,
     std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
-  {
-    auto empty_state = std::make_shared<ExpressionState>();
-    for (auto&& member : *conjunction_members) {
-      ARROW_ASSIGN_OR_RAISE(std::tie(member, std::ignore),
-                            Canonicalize({std::move(member), empty_state}));
-    }
+  for (auto&& member : *conjunction_members) {
+    ARROW_ASSIGN_OR_RAISE(member, Canonicalize({std::move(member)}));
   }
 
   auto unconsumed_end =
@@ -780,12 +712,11 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
   return known_values;
 }
 
-Result<Expression2::BoundWithState> ReplaceFieldsWithKnownValues(
+Result<Expression2> ReplaceFieldsWithKnownValues(
     const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
-    Expression2::BoundWithState bound) {
-  bound.second = std::make_shared<ExpressionState>(*bound.second);
+    Expression2 expr) {
   return Modify(
-      std::move(bound),
+      std::move(expr),
       [&known_values](Expression2 expr) {
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
@@ -807,11 +738,10 @@ inline bool IsBinaryAssociativeCommutative(const Expression2::Call& call) {
   return it != binary_associative_commutative.end();
 }
 
-Result<Expression2::BoundWithState> Canonicalize(Expression2::BoundWithState bound,
-                                                 compute::ExecContext* exec_context) {
+Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
-    return Canonicalize(std::move(bound), &exec_context);
+    return Canonicalize(std::move(expr), &exec_context);
   }
 
   // If potentially reconstructing more deeply than a call's immediate arguments
@@ -830,7 +760,7 @@ Result<Expression2::BoundWithState> Canonicalize(Expression2::BoundWithState bou
   } AlreadyCanonicalized;
 
   return Modify(
-      std::move(bound),
+      std::move(expr),
       [&AlreadyCanonicalized, exec_context](Expression2 expr) -> Result<Expression2> {
         auto call = expr.call();
         if (!call) return expr;
@@ -906,10 +836,10 @@ Result<Expression2::BoundWithState> Canonicalize(Expression2::BoundWithState bou
       [](Expression2 expr, ...) { return expr; });
 }
 
-Result<Expression2::BoundWithState> DirectComparisonSimplification(
-    Expression2::BoundWithState bound, const Expression2::Call& guarantee) {
+Result<Expression2> DirectComparisonSimplification(Expression2 expr,
+                                                   const Expression2::Call& guarantee) {
   return Modify(
-      std::move(bound), [](Expression2 expr) { return expr; },
+      std::move(expr), [](Expression2 expr) { return expr; },
       [&guarantee](Expression2 expr, ...) -> Result<Expression2> {
         auto call = expr.call();
         if (!call) return expr;
@@ -964,8 +894,8 @@ Result<Expression2::BoundWithState> DirectComparisonSimplification(
       });
 }
 
-Result<Expression2::BoundWithState> SimplifyWithGuarantee(
-    Expression2::BoundWithState bound, const Expression2& guaranteed_true_predicate) {
+Result<Expression2> SimplifyWithGuarantee(Expression2 expr,
+                                          const Expression2& guaranteed_true_predicate) {
   if (!guaranteed_true_predicate.IsBound()) {
     return Status::Invalid("guaranteed_true_predicate was not bound");
   }
@@ -975,29 +905,29 @@ Result<Expression2::BoundWithState> SimplifyWithGuarantee(
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
 
-  ARROW_ASSIGN_OR_RAISE(bound,
-                        ReplaceFieldsWithKnownValues(known_values, std::move(bound)));
+  ARROW_ASSIGN_OR_RAISE(expr,
+                        ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
 
-  auto CanonicalizeAndFoldConstants = [&bound] {
-    ARROW_ASSIGN_OR_RAISE(bound, Canonicalize(std::move(bound)));
-    ARROW_ASSIGN_OR_RAISE(bound, FoldConstants(std::move(bound)));
+  auto CanonicalizeAndFoldConstants = [&expr] {
+    ARROW_ASSIGN_OR_RAISE(expr, Canonicalize(std::move(expr)));
+    ARROW_ASSIGN_OR_RAISE(expr, FoldConstants(std::move(expr)));
     return Status::OK();
   };
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   for (const auto& guarantee : conjunction_members) {
     if (Comparison::Get(guarantee) && guarantee.call()->arguments[1].literal()) {
-      ARROW_ASSIGN_OR_RAISE(auto simplified, DirectComparisonSimplification(
-                                                 bound, *CallNotNull(guarantee)));
+      ARROW_ASSIGN_OR_RAISE(
+          auto simplified, DirectComparisonSimplification(expr, *CallNotNull(guarantee)));
 
-      if (Identical(simplified.first, bound.first)) continue;
+      if (Identical(simplified, expr)) continue;
 
-      bound = std::move(simplified);
+      expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }
   }
 
-  return bound;
+  return expr;
 }
 
 Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {

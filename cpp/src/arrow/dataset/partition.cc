@@ -186,9 +186,7 @@ Result<Expression2> KeyValuePartitioning::Parse(const std::string& path) const {
     expressions.push_back(std::move(expr));
   }
 
-  auto parsed = and_(std::move(expressions));
-  ARROW_ASSIGN_OR_RAISE(std::tie(parsed, std::ignore), parsed.Bind(*schema_))
-  return parsed;
+  return and_(std::move(expressions)).Bind(*schema_);
 }
 
 Result<std::string> KeyValuePartitioning::Format(const Expression2& expr) const {

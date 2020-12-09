@@ -375,7 +375,7 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   for (const auto& maybe_fragment : fragment_it) {
     ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
-    EXPECT_EQ(fragment->partition_expression(), expected.first);
+    EXPECT_EQ(fragment->partition_expression(), expected);
   }
 }
 

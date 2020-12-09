@@ -234,7 +234,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
 
  protected:
   Result<FragmentIterator> GetFragmentsImpl(
-      Expression2::BoundWithState predicate) override;
+      Expression2 predicate) override;
 
   FileSystemDataset(std::shared_ptr<Schema> schema, Expression2 root_partition,
                     std::shared_ptr<FileFormat> format,

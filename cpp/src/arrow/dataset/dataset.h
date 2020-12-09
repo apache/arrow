@@ -122,7 +122,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.
-  Result<FragmentIterator> GetFragments(Expression2::BoundWithState predicate);
+  Result<FragmentIterator> GetFragments(Expression2 predicate);
   Result<FragmentIterator> GetFragments();
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -148,8 +148,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
 
   Dataset(std::shared_ptr<Schema> schema, Expression2 partition_expression);
 
-  virtual Result<FragmentIterator> GetFragmentsImpl(
-      Expression2::BoundWithState predicate) = 0;
+  virtual Result<FragmentIterator> GetFragmentsImpl(Expression2 predicate) = 0;
 
   std::shared_ptr<Schema> schema_;
   Expression2 partition_expression_ = literal(true);
@@ -182,7 +181,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
  protected:
   Result<FragmentIterator> GetFragmentsImpl(
-      Expression2::BoundWithState predicate) override;
+      Expression2 predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
@@ -207,7 +206,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
 
  protected:
   Result<FragmentIterator> GetFragmentsImpl(
-      Expression2::BoundWithState predicate) override;
+      Expression2 predicate) override;
 
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}

@@ -69,8 +69,6 @@ class ParquetFileWriter;
 class ParquetFileWriteOptions;
 
 class Expression;
-
-struct ExpressionState;
 class Expression2;
 
 class Partitioning;

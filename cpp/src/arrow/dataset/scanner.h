@@ -48,8 +48,6 @@ struct ARROW_DS_EXPORT ScanContext {
 
   /// Return a threaded or serial TaskGroup according to use_threads.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-
-  std::shared_ptr<ExpressionState> expression_state;
 };
 
 class ARROW_DS_EXPORT ScanOptions {
