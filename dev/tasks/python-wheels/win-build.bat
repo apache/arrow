@@ -46,33 +46,34 @@ pushd arrow\cpp\build
 
 cmake -A "%ARCH%" ^
       -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-      -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
-      -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_DEPENDENCY_SOURCE=CONDA ^
-      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
-      -DARROW_WITH_BZ2=OFF ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
-      -DARROW_WITH_LZ4=ON ^
-      -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_BROTLI=ON ^
       -DARROW_DATASET=ON ^
+      -DARROW_DEPENDENCY_SOURCE=BUNDLED ^
       -DARROW_FLIGHT=ON ^
       -DARROW_GANDIVA=OFF ^
-      -DARROW_LZ4_USE_SHARED=OFF ^
       -DARROW_MIMALLOC=ON ^
+      -DARROW_OPENSSL_USE_SHARED=OFF ^
       -DARROW_PARQUET=ON ^
+      -DARROW_PROTOBUF_USE_SHARED=OFF ^
       -DARROW_PYTHON=ON ^
       -DARROW_SNAPPY_USE_SHARED=OFF ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
-      -DBrotli_SOURCE=BUNDLED ^
-      -Dzstd_SOURCE=BUNDLED ^
-      -Dutf8proc_SOURCE=BUNDLED ^
+      -DARROW_WITH_BROTLI=ON ^
+      -DARROW_WITH_BZ2=OFF ^
+      -DARROW_WITH_LZ4=ON ^
+      -DARROW_WITH_SNAPPY=ON ^
+      -DARROW_WITH_ZLIB=ON ^
+      -DARROW_WITH_ZSTD=ON ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       .. || exit /B
+cmake ^
+  --build . ^
+  --config Release ^
+  --parallel %NUMBER_OF_PROCESSORS% ^
+  --target grpc_ep || exit /B
 cmake ^
   --build . ^
   --config Release ^
