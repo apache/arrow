@@ -45,8 +45,7 @@ template <typename ArrayType,
           typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
 class ArrayIterator {
  public:
-  using value_type =
-      arrow::util::optional<decltype(ValueAccessor()(std::declval<ArrayType>(), 0))>;
+  using value_type = arrow::util::optional<typename ValueAccessor::ValueType>;
   using difference_type = int64_t;
   using iterator_category = std::random_access_iterator_tag;
 

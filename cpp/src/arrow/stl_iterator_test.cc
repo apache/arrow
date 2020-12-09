@@ -35,30 +35,19 @@ using util::optional;
 
 namespace stl {
 
-template <typename T>
-void AssertOptionalEquals(optional<T> value, T expected) {
-  ASSERT_TRUE(value.has_value());
-  ASSERT_EQ(*value, expected);
-}
-
-template <typename T>
-void AssertOptionalEmpty(optional<T> value) {
-  ASSERT_FALSE(value.has_value());
-}
-
 TEST(ArrayIterator, Basics) {
   auto array =
       checked_pointer_cast<Int32Array>(ArrayFromJSON(int32(), "[4, 5, null, 6]"));
 
   ArrayIterator<Int32Array> it(*array);
   optional<int32_t> v = *it;
-  AssertOptionalEquals(v, 4);
-  AssertOptionalEquals(it[0], 4);
+  ASSERT_EQ(*v, 4);
+  ASSERT_EQ(*it[0], 4);
   ++it;
-  AssertOptionalEquals(it[0], 5);
-  AssertOptionalEquals(*it, 5);
-  AssertOptionalEmpty(it[1]);
-  AssertOptionalEquals(it[2], 6);
+  ASSERT_EQ(*it[0], 5);
+  ASSERT_EQ(**it, 5);
+  ASSERT_EQ(it[1], nullopt);
+  ASSERT_EQ(*it[2], 6);
 }
 
 TEST(ArrayIterator, Arithmetic) {
@@ -67,27 +56,27 @@ TEST(ArrayIterator, Arithmetic) {
 
   ArrayIterator<Int32Array> it(*array);
   auto it2 = it + 2;
-  AssertOptionalEquals(*it, 4);
-  AssertOptionalEmpty(*it2);
+  ASSERT_EQ(**it, 4);
+  ASSERT_EQ(*it2, nullopt);
   ASSERT_EQ(it2 - it, 2);
   ASSERT_EQ(it - it2, -2);
   auto it3 = it++;
   ASSERT_EQ(it2 - it, 1);
   ASSERT_EQ(it2 - it3, 2);
-  AssertOptionalEquals(*it3, 4);
-  AssertOptionalEquals(*it, 5);
+  ASSERT_EQ(**it3, 4);
+  ASSERT_EQ(**it, 5);
   auto it4 = ++it;
-  AssertOptionalEmpty(*it);
-  AssertOptionalEmpty(*it4);
+  ASSERT_EQ(*it, nullopt);
+  ASSERT_EQ(*it4, nullopt);
   ASSERT_EQ(it2 - it, 0);
   ASSERT_EQ(it2 - it4, 0);
   auto it5 = it + 3;
-  AssertOptionalEquals(*it5, 7);
-  AssertOptionalEquals(*(it5 - 2), 6);
-  AssertOptionalEquals(*(it5 + (-2)), 6);
+  ASSERT_EQ(**it5, 7);
+  ASSERT_EQ(**(it5 - 2), 6);
+  ASSERT_EQ(**(it5 + (-2)), 6);
   auto it6 = (--it5)--;
-  AssertOptionalEmpty(*it6);
-  AssertOptionalEquals(*it5, 6);
+  ASSERT_EQ(*it6, nullopt);
+  ASSERT_EQ(**it5, 6);
   ASSERT_EQ(it6 - it5, 1);
 }
 
@@ -207,7 +196,7 @@ TEST(ArrayIterator, StdPartitionPoint) {
   auto it = std::partition_point(array->begin(), array->end(),
                                  [](optional<double> v) { return v.has_value(); });
   ASSERT_EQ(it.index(), 4);
-  AssertOptionalEmpty(*it);
+  ASSERT_EQ(*it, nullopt);
 
   array =
       checked_pointer_cast<DoubleArray>(ArrayFromJSON(float64(), "[null, null, null]"));
