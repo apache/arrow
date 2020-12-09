@@ -225,6 +225,11 @@ struct DiffTimeData {
   int multiplier;
 };
 
+struct DataFrameRow {
+  SEXP data;
+  R_xlen_t row;
+};
+
 Status RScalar_to_days(RScalar* value, int32_t* days) {
   constexpr int64_t kSecondsPerDay = 86400;
 
@@ -483,22 +488,31 @@ bool is_NA<int64_t>(int64_t value) {
 }
 
 template <RVectorType rtype, typename T, class VisitorFunc>
-inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+inline Status VisitRPrimitiveVector(SEXP x, R_xlen_t start, R_xlen_t size,
+                                    VisitorFunc&& func) {
   RScalar obj{rtype, nullptr, false};
   cpp11::r_vector<T> values(x);
-  for (T value : values) {
+  auto it = values.begin() + start;
+
+  for (R_xlen_t i = 0; i < size; i++, ++it) {
+    auto value = *it;
     obj.data = reinterpret_cast<void*>(&value);
     obj.null = is_NA<T>(value);
     RETURN_NOT_OK(func(&obj));
   }
+
   return Status::OK();
 }
 
 template <class VisitorFunc>
-inline Status VisitInt64Vector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+inline Status VisitInt64Vector(SEXP x, R_xlen_t start, R_xlen_t size,
+                               VisitorFunc&& func) {
   RScalar obj{INT64, nullptr, false};
   cpp11::doubles values(x);
-  for (double value : values) {
+  auto it = values.begin() + start;
+
+  for (R_xlen_t i = 0; i < size; i++, ++it) {
+    double value = *it;
     obj.data = reinterpret_cast<void*>(&value);
     obj.null = is_NA<int64_t>(*reinterpret_cast<int64_t*>(&value));
     RETURN_NOT_OK(func(&obj));
@@ -507,14 +521,16 @@ inline Status VisitInt64Vector(SEXP x, R_xlen_t size, VisitorFunc&& func) {
 }
 
 template <class VisitorFunc>
-inline Status VisitFactor(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+inline Status VisitFactor(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
   cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
   SEXP* levels_ptr = const_cast<SEXP*>(STRING_PTR_RO(levels));
 
   RScalar obj{FACTOR, nullptr, false};
   cpp11::r_vector<int> values(x);
+  auto it = values.begin() + start;
 
-  for (int value : values) {
+  for (R_xlen_t i = 0; i < size; i++, ++it) {
+    int value = *it;
     if (is_NA<int>(value)) {
       obj.null = true;
     } else {
@@ -545,14 +561,16 @@ Status GetDifftimeMultiplier(SEXP obj, int* res) {
 }
 
 template <class VisitorFunc>
-inline Status VisitDifftime(SEXP x, R_xlen_t size, VisitorFunc&& func) {
+inline Status VisitDifftime(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
   DiffTimeData scalar;
   RETURN_NOT_OK(GetDifftimeMultiplier(x, &scalar.multiplier));
 
   RScalar obj{TIME, reinterpret_cast<void*>(&scalar), false};
   cpp11::doubles values(x);
+  auto it = values.begin() + start;
 
-  for (double value : values) {
+  for (R_xlen_t i = 0; i < size; i++, ++it) {
+    double value = *it;
     scalar.data = value;
     obj.null = is_NA<double>(value);
     RETURN_NOT_OK(func(&obj));
@@ -560,78 +578,85 @@ inline Status VisitDifftime(SEXP x, R_xlen_t size, VisitorFunc&& func) {
   return Status::OK();
 }
 
-template <typename T>
-inline Status VisitDataFrame(SEXP x, R_xlen_t size, T* converter);
+template <class VisitorFunc>
+inline Status VisitDataFrame(SEXP x, R_xlen_t start, R_xlen_t size, VisitorFunc&& func) {
+  DataFrameRow row({x, start});
+  RScalar obj{DATAFRAME, reinterpret_cast<void*>(&row), false};
 
-template <typename T>
-inline Status VisitVector(SEXP x, R_xlen_t size, T* converter) {
-  if (converter->type()->id() == Type::STRUCT) {
-    return VisitDataFrame(x, size, converter);
+  for (R_xlen_t i = 0; i < size; i++) {
+    ++row.row;
+    RETURN_NOT_OK(func(&obj));
   }
-
-  RVectorType rtype = GetVectorType(x);
-  auto func = [&converter](RScalar* obj) { return converter->Append(obj); };
-  using VisitorFunc = decltype(func);
-
-  switch (rtype) {
-    case BOOLEAN:
-      return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-    case UINT8:
-      return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-    case INT32:
-      return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-    case FLOAT64:
-      return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-    case DATE_DBL:
-      return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-    case DATE_INT:
-      return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-
-    case STRING:
-      return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-
-    case INT64:
-      return VisitInt64Vector<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
-
-    case BINARY:
-      return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-
-    case LIST:
-      return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-
-    case FACTOR:
-      return VisitFactor<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
-
-    case TIME:
-      return VisitDifftime<VisitorFunc>(x, size, std::forward<VisitorFunc>(func));
-
-    case POSIXCT:
-      return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
-          x, size, std::forward<VisitorFunc>(func));
-
-    default:
-      break;
-  }
-
-  return Status::Invalid("No visitor for R type ", rtype);
+  return Status::OK();
 }
 
-template <typename T>
-Status Extend(T* converter, SEXP x, R_xlen_t size) {
-  RETURN_NOT_OK(converter->Reserve(size));
-  return VisitVector(x, size, converter);
-}
+class RConverter : public Converter<RScalar*, RConversionOptions> {
+ public:
+  virtual Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) {
+    RETURN_NOT_OK(this->Reserve(size));
 
-using RConverter = Converter<RScalar*, RConversionOptions>;
+    RVectorType rtype = GetVectorType(x);
+    auto func = [this](RScalar* obj) { return Append(obj); };
+    using VisitorFunc = decltype(func);
+
+    switch (rtype) {
+      case BOOLEAN:
+        return VisitRPrimitiveVector<BOOLEAN, cpp11::r_bool, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+      case UINT8:
+        return VisitRPrimitiveVector<UINT8, uint8_t, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+      case INT32:
+        return VisitRPrimitiveVector<INT32, int, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+      case FLOAT64:
+        return VisitRPrimitiveVector<FLOAT64, double, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+      case DATE_DBL:
+        return VisitRPrimitiveVector<DATE_DBL, double, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+      case DATE_INT:
+        return VisitRPrimitiveVector<DATE_INT, int, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+
+      case STRING:
+        return VisitRPrimitiveVector<STRING, cpp11::r_string, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+
+      case INT64:
+        return VisitInt64Vector<VisitorFunc>(x, start, size,
+                                             std::forward<VisitorFunc>(func));
+
+      case BINARY:
+        return VisitRPrimitiveVector<BINARY, SEXP, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+
+      case LIST:
+        return VisitRPrimitiveVector<LIST, SEXP, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+
+      case FACTOR:
+        return VisitFactor<VisitorFunc>(x, start, size, std::forward<VisitorFunc>(func));
+
+      case TIME:
+        return VisitDifftime<VisitorFunc>(x, start, size,
+                                          std::forward<VisitorFunc>(func));
+
+      case POSIXCT:
+        return VisitRPrimitiveVector<POSIXCT, double, VisitorFunc>(
+            x, start, size, std::forward<VisitorFunc>(func));
+
+      case DATAFRAME:
+        return VisitDataFrame<VisitorFunc>(x, start, size,
+                                           std::forward<VisitorFunc>(func));
+
+      default:
+        break;
+    }
+
+    return Status::Invalid("No visitor for R type ", rtype);
+  }
+};
 
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
@@ -652,7 +677,7 @@ class RPrimitiveConverter<
                    is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       return this->primitive_builder_->AppendNull();
     } else {
@@ -668,7 +693,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       return this->primitive_builder_->AppendNull();
     } else {
@@ -686,7 +711,7 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else {
@@ -711,7 +736,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else {
@@ -737,7 +762,7 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       return this->primitive_builder_->AppendNull();
     } else {
@@ -764,7 +789,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     // TODO: look in lubridate
     return Status::NotImplemented("conversion to duration not yet implemented");
   }
@@ -822,7 +847,7 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Append(RScalar* value) {
+  Status Append(RScalar* value) override {
     if (RValue::IsNull(value)) {
       return this->list_builder_->AppendNull();
     }
@@ -834,7 +859,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     SEXP obj = *reinterpret_cast<SEXP*>(value->data);
     R_xlen_t size = XLENGTH(obj);
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
-    return Extend(this->value_converter_.get(), obj, size);
+    return this->value_converter_.get()->AppendRange(obj, 0, size);
   }
 };
 
@@ -847,18 +872,19 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
+
   Status Append(RScalar* value) override {
-    return Status::NotImplemented("RStructConverter does not use Append()");
+    if (value->rtype != DATAFRAME) {
+      return Status::Invalid("expecting a data frame");
+    }
+
+    auto row = reinterpret_cast<DataFrameRow*>(value);
+    return AppendRange(row->data, row->row, 1);
   }
 
-  Status Reserve(int64_t additional_capacity) override {
-    // in contrast with StructConverter, this does not Reserve()
-    // on children, because it will be done as part of Visit() > Extend()
-    return this->builder_->Reserve(additional_capacity);
-  }
+  Status AppendRange(SEXP x, R_xlen_t start, R_xlen_t size) override {
+    RETURN_NOT_OK(this->builder_->Reserve(size));
 
-  Status Visit(SEXP x, R_xlen_t size) {
-    // iterate over columns of x
     R_xlen_t n_columns = XLENGTH(x);
     if (!Rf_inherits(x, "data.frame")) {
       return Status::Invalid("Can only convert data frames to Struct type");
@@ -870,7 +896,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
-      RETURN_NOT_OK(Extend(this->children_[i].get(), VECTOR_ELT(x, i), size));
+      RETURN_NOT_OK(this->children_[i]->AppendRange(VECTOR_ELT(x, i), start, size));
     }
 
     return Status::OK();
@@ -881,11 +907,6 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     return StructConverter<RConverter, RConverterTrait>::Init(pool);
   }
 };
-
-template <typename T>
-inline Status VisitDataFrame(SEXP x, R_xlen_t size, T* converter) {
-  return static_cast<RStructConverter*>(converter)->Visit(x, size);
-}
 
 template <>
 struct RConverterTrait<DictionaryType> {
@@ -908,7 +929,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x, SEXP s_type) {
 
   auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
       options.type, options, gc_memory_pool()));
-  StopIfNotOk(Extend(converter.get(), x, options.size));
+  StopIfNotOk(converter->AppendRange(x, 0, options.size));
 
   return ValueOrStop(converter->ToArray());
 }
