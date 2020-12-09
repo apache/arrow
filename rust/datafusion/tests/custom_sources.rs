@@ -20,8 +20,8 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use datafusion::{datasource::{TableProvider, datasource::Statistics}, physical_plan::collect};
 use datafusion::error::{DataFusionError, Result};
+use datafusion::{datasource::{TableProvider, datasource::Statistics}, physical_plan::collect};
 
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
