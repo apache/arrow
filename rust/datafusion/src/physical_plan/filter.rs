@@ -174,12 +174,12 @@ impl RecordBatchStream for FilterExecStream {
 mod tests {
 
     use super::*;
-    use crate::logical_plan::Operator;
     use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::*;
     use crate::physical_plan::ExecutionPlan;
     use crate::scalar::ScalarValue;
     use crate::test;
+    use crate::{logical_plan::Operator, physical_plan::collect};
     use std::iter::Iterator;
 
     #[tokio::test]
@@ -212,7 +212,7 @@ mod tests {
         let filter: Arc<dyn ExecutionPlan> =
             Arc::new(FilterExec::try_new(predicate, Arc::new(csv))?);
 
-        let results = test::execute(filter).await?;
+        let results = collect(filter).await?;
 
         results
             .iter()

@@ -19,9 +19,7 @@
 
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
-use crate::execution::context::ExecutionContext;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
-use crate::physical_plan::ExecutionPlan;
 use arrow::array::{self, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -52,12 +50,6 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
 /// Get the value of the ARROW_TEST_DATA environment variable
 pub fn arrow_testdata_path() -> String {
     env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined")
-}
-
-/// Execute a physical plan and collect the results
-pub async fn execute(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
-    let ctx = ExecutionContext::new();
-    ctx.collect(plan).await
 }
 
 /// Generated partitioned copy of a CSV file

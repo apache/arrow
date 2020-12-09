@@ -19,13 +19,13 @@
 
 use std::sync::Arc;
 
-use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{
     col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
 };
+use crate::{arrow::record_batch::RecordBatch, physical_plan::collect};
 
 use async_trait::async_trait;
 
@@ -122,7 +122,7 @@ impl DataFrame for DataFrameImpl {
         let ctx = ExecutionContext::from(self.ctx_state.clone());
         let plan = ctx.optimize(&self.plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        Ok(ctx.collect(plan).await?)
+        Ok(collect(plan).await?)
     }
 
     /// Returns the schema from the logical plan
