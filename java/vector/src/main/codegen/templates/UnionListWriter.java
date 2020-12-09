@@ -194,13 +194,13 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   @Override
   public void startList() {
     vector.startNewValue(idx());
-    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
+    writer.setPosition(vector.getOffsetBuffer().getInt(((long) idx() + 1L) * OFFSET_WIDTH));
     listStarted = true;
   }
 
   @Override
   public void endList() {
-    vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
+    vector.getOffsetBuffer().setInt(((long) idx() + 1L) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
     listStarted = false;
   }
