@@ -543,10 +543,7 @@ impl Decoder {
     }
 
     /// Read the next batch of records
-    pub fn next_batch<'a, 'b, I>(
-        &'a self,
-        value_iter: &'b mut I,
-    ) -> Result<Option<RecordBatch>>
+    pub fn next_batch<I>(&self, value_iter: &mut I) -> Result<Option<RecordBatch>>
     where
         I: Iterator<Item = Result<Value>>,
     {
