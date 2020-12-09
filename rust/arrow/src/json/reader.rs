@@ -329,6 +329,7 @@ pub fn infer_json_schema<R: Read>(
     infer_json_schema_from_iterator(ValueIter::new(reader, max_read_records))
 }
 
+/// Infer the fields of a JSON file by reading all items from the JSON Value Iterator.
 pub fn infer_json_schema_from_iterator<I>(value_iter: I) -> Result<SchemaRef>
 where
     I: Iterator<Item = Result<Value>>,
@@ -471,31 +472,51 @@ where
     generate_schema(values)
 }
 
-/// JSON file reader
+/// JSON values to Arrow record batch decoder. Decoder's next_batch method takes a JSON Value
+/// iterator as input and outputs Arrow record batch.
+///
+/// # Examples
+/// ```
+/// use arrow::json::reader::{Decoder, ValueIter, infer_json_schema};
+/// use std::fs::File;
+/// use std::io::{BufReader, Seek, SeekFrom};
+///
+/// let mut reader =
+///     BufReader::new(File::open("test/data/mixed_arrays.json").unwrap());
+/// let inferred_schema = infer_json_schema(&mut reader, None).unwrap();
+/// let batch_size = 1024;
+/// let decoder = Decoder::new(inferred_schema, batch_size, None);
+///
+/// // seek back to start so that the original file is usable again
+/// reader.seek(SeekFrom::Start(0)).unwrap();
+/// let mut value_reader = ValueIter::new(&mut reader, None);
+/// let batch = decoder.next_batch(&mut value_reader).unwrap().unwrap();
+/// assert_eq!(4, batch.num_rows());
+/// assert_eq!(4, batch.num_columns());
+/// ```
 #[derive(Debug)]
-pub struct Reader<R: Read> {
+pub struct Decoder {
     /// Explicit schema for the JSON file
     schema: SchemaRef,
     /// Optional projection for which columns to load (case-sensitive names)
     projection: Option<Vec<String>>,
-    /// File reader
-    reader: BufReader<R>,
     /// Batch size (number of records to load each time)
     batch_size: usize,
 }
 
-impl<R: Read> Reader<R> {
-    /// Create a new JSON Reader from any value that implements the `Read` trait.
-    ///
-    /// If reading a `File`, you can customise the Reader, such as to enable schema
-    /// inference, use `ReaderBuilder`.
+impl Decoder {
+    /// Create a new JSON decoder from any value that implements the `Iterator<Item=Result<Value>>`
+    /// trait.
     pub fn new(
-        reader: R,
         schema: SchemaRef,
         batch_size: usize,
         projection: Option<Vec<String>>,
     ) -> Self {
-        Self::from_buf_reader(BufReader::new(reader), schema, batch_size, projection)
+        Self {
+            schema,
+            projection,
+            batch_size,
+        }
     }
 
     /// Returns the schema of the reader, useful for getting the schema without reading
@@ -521,29 +542,17 @@ impl<R: Read> Reader<R> {
         }
     }
 
-    /// Create a new JSON Reader from a `BufReader<R: Read>`
-    ///
-    /// To customize the schema, such as to enable schema inference, use `ReaderBuilder`
-    pub fn from_buf_reader(
-        reader: BufReader<R>,
-        schema: SchemaRef,
-        batch_size: usize,
-        projection: Option<Vec<String>>,
-    ) -> Self {
-        Self {
-            schema,
-            projection,
-            reader,
-            batch_size,
-        }
-    }
-
     /// Read the next batch of records
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+    pub fn next_batch<'a, 'b, I>(
+        &'a self,
+        value_iter: &'b mut I,
+    ) -> Result<Option<RecordBatch>>
+    where
+        I: Iterator<Item = Result<Value>>,
+    {
         let mut rows: Vec<Value> = Vec::with_capacity(self.batch_size);
 
-        for value in ValueIter::new(&mut self.reader, Some(self.batch_size)) {
+        for value in value_iter.by_ref().take(self.batch_size) {
             rows.push(value?);
         }
         if rows.is_empty() {
@@ -1162,6 +1171,57 @@ impl<R: Read> Reader<R> {
     }
 }
 
+/// JSON file reader
+#[derive(Debug)]
+pub struct Reader<R: Read> {
+    reader: BufReader<R>,
+    /// JSON value decoder
+    decoder: Decoder,
+}
+
+impl<R: Read> Reader<R> {
+    /// Create a new JSON Reader from any value that implements the `Read` trait.
+    ///
+    /// If reading a `File`, you can customise the Reader, such as to enable schema
+    /// inference, use `ReaderBuilder`.
+    pub fn new(
+        reader: R,
+        schema: SchemaRef,
+        batch_size: usize,
+        projection: Option<Vec<String>>,
+    ) -> Self {
+        Self::from_buf_reader(BufReader::new(reader), schema, batch_size, projection)
+    }
+
+    /// Create a new JSON Reader from a `BufReader<R: Read>`
+    ///
+    /// To customize the schema, such as to enable schema inference, use `ReaderBuilder`
+    pub fn from_buf_reader(
+        reader: BufReader<R>,
+        schema: SchemaRef,
+        batch_size: usize,
+        projection: Option<Vec<String>>,
+    ) -> Self {
+        Self {
+            reader,
+            decoder: Decoder::new(schema, batch_size, projection),
+        }
+    }
+
+    /// Returns the schema of the reader, useful for getting the schema without reading
+    /// record batches
+    pub fn schema(&self) -> SchemaRef {
+        self.decoder.schema()
+    }
+
+    /// Read the next batch of records
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
+        self.decoder
+            .next_batch(&mut ValueIter::new(&mut self.reader, None))
+    }
+}
+
 /// JSON file reader builder
 #[derive(Debug)]
 pub struct ReaderBuilder {
@@ -1248,7 +1308,10 @@ impl ReaderBuilder {
     }
 
     /// Create a new `Reader` from the `ReaderBuilder`
-    pub fn build<R: Read + Seek>(self, source: R) -> Result<Reader<R>> {
+    pub fn build<R>(self, source: R) -> Result<Reader<R>>
+    where
+        R: Read + Seek,
+    {
         let mut buf_reader = BufReader::new(source);
 
         // check if schema should be inferred
@@ -1276,6 +1339,7 @@ mod tests {
     use super::*;
     use flate2::read::GzDecoder;
     use std::fs::File;
+    use std::io::Cursor;
 
     #[test]
     fn test_json_basic() {
@@ -1546,13 +1610,34 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Not valid JSON")]
-    fn test_invalid_file() {
-        let builder = ReaderBuilder::new().infer_schema(None).with_batch_size(64);
+    fn test_invalid_json_infer_schema() {
+        let re = infer_json_schema_from_seekable(
+            &mut BufReader::new(
+                File::open("test/data/uk_cities_with_headers.csv").unwrap(),
+            ),
+            None,
+        );
+        assert_eq!(
+            re.err().unwrap().to_string(),
+            "Json error: Not valid JSON: expected value at line 1 column 1",
+        );
+    }
+
+    #[test]
+    fn test_invalid_json_read_record() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "a",
+            DataType::Struct(vec![Field::new("a", DataType::Utf8, true)]),
+            true,
+        )]));
+        let builder = ReaderBuilder::new().with_schema(schema).with_batch_size(64);
         let mut reader: Reader<File> = builder
             .build::<File>(File::open("test/data/uk_cities_with_headers.csv").unwrap())
             .unwrap();
-        let _batch = reader.next().unwrap().unwrap();
+        assert_eq!(
+            reader.next().err().unwrap().to_string(),
+            "Json error: Not valid JSON: expected value at line 1 column 1",
+        );
     }
 
     #[test]
@@ -1865,6 +1950,26 @@ mod tests {
             &Dictionary(Box::new(DataType::Int64), Box::new(DataType::Utf8)),
             d.1.data_type()
         );
+    }
+
+    #[test]
+    fn test_skip_empty_lines() {
+        let builder = ReaderBuilder::new().infer_schema(None).with_batch_size(64);
+        let json_content = "
+        {\"a\": 1}
+
+        {\"a\": 2}
+
+        {\"a\": 3}";
+        let mut reader = builder.build(Cursor::new(json_content)).unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(3, batch.num_rows());
+
+        let schema = reader.schema();
+        let c = schema.column_with_name("a").unwrap();
+        assert_eq!(&DataType::Int64, c.1.data_type());
     }
 
     #[test]
