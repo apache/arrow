@@ -25,6 +25,7 @@ use std::sync::Arc;
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
+use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::common;
@@ -35,6 +36,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct MemTable {
     schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
+    statistics: Option<Statistics>,
 }
 
 impl MemTable {
@@ -48,6 +50,7 @@ impl MemTable {
             Ok(Self {
                 schema,
                 batches: partitions,
+                statistics: None,
             })
         } else {
             Err(DataFusionError::Plan(
@@ -131,6 +134,10 @@ impl TableProvider for MemTable {
             projected_schema,
             projection.clone(),
         )?))
+    }
+
+    fn statistics(&self) -> Option<Statistics> {
+        self.statistics.clone()
     }
 }
 

@@ -20,6 +20,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
+use datafusion::datasource::datasource::Statistics;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
 
@@ -144,6 +145,10 @@ impl TableProvider for CustomTableProvider {
         Ok(Arc::new(CustomExecutionPlan {
             projection: projection.clone(),
         }))
+    }
+
+    fn statistics(&self) -> Option<Statistics> {
+        None
     }
 }
 
