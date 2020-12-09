@@ -24,13 +24,14 @@ use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::physical_plan::ExecutionPlan;
 
-/// The table statistics
+/// This table statistics are estimates.
+/// It can not be used directly in the precise compute
 #[derive(Clone)]
 pub struct Statistics {
     /// The number of table rows
-    pub num_rows: i64,
+    pub num_rows: usize,
     /// total byte of the table rows
-    pub total_byte_size: i64,
+    pub total_byte_size: usize,
 }
 
 /// Source table
