@@ -99,11 +99,12 @@ class ArrayDataEndianSwapper {
 
   template <typename T>
   Result<std::shared_ptr<Buffer>> ByteSwapBuffer(std::shared_ptr<Buffer>& in_buffer,
-                                                 int64_t length) {
+                                                 int64_t buffer_size,
+                                                 int64_t swap_length) {
     auto in_data = reinterpret_cast<const T*>(in_buffer->data());
-    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
+    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(buffer_size));
     auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
-    for (int64_t i = 0; i < length; i++) {
+    for (int64_t i = 0; i < swap_length; i++) {
 #if ARROW_LITTLE_ENDIAN
       out_data[i] = BitUtil::FromBigEndian(in_data[i]);
 #else
@@ -119,8 +120,10 @@ class ArrayDataEndianSwapper {
       return Status::OK();
     }
     // offset has one more element rather than data->length
-    ARROW_ASSIGN_OR_RAISE(data_->buffers[index],
-                          ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index], length_ + 1));
+    ARROW_ASSIGN_OR_RAISE(
+        data_->buffers[index],
+        ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index],
+                                   data_->buffers[index]->size() + 1, length_ + 1));
     return Status::OK();
   }
 
@@ -136,7 +139,8 @@ class ArrayDataEndianSwapper {
   Visit(const T& type) {
     using value_type = typename T::c_type;
     ARROW_ASSIGN_OR_RAISE(data_->buffers[1],
-                          ByteSwapBuffer<value_type>(data_->buffers[1], length_));
+                          ByteSwapBuffer<value_type>(data_->buffers[1],
+                                                     data_->buffers[1]->size(), length_));
     return Status::OK();
   }
 
@@ -194,7 +198,8 @@ class ArrayDataEndianSwapper {
 
   Status Visit(const DayTimeIntervalType& type) {
     ARROW_ASSIGN_OR_RAISE(data_->buffers[1],
-                          ByteSwapBuffer<uint32_t>(data_->buffers[1], length_ * 2));
+                          ByteSwapBuffer<uint32_t>(
+                              data_->buffers[1], data_->buffers[1]->size(), length_ * 2));
     return Status::OK();
   }
 
