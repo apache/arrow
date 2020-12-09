@@ -23,9 +23,9 @@
 @rem --file=arrow\ci\conda_env_gandiva.yml ^
 
 @rem create conda environment for compiling
+@rem FIXME: Update to numpy 1.16.6
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
-    --file=arrow\ci\conda_env_cpp.yml ^
-    --file=arrow\ci\conda_env_python.yml ^
+    cmake ninja pkg-config numpy=1.16.5 ^
     "vs2015_runtime<14.16" ^
     python=%PYTHON_VERSION% || exit /B
 
