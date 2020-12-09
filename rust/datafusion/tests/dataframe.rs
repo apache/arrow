@@ -63,9 +63,10 @@ async fn join() -> Result<()> {
 
     ctx.register_table("aa", Box::new(table1));
 
+    let df1 = ctx.table("aa")?;
+
     ctx.register_table("aaa", Box::new(table2));
 
-    let df1 = ctx.table("aa")?;
     let df2 = ctx.table("aaa")?;
 
     let a = df1.join(df2, JoinType::Inner, &["a"], &["a"])?;

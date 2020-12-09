@@ -17,11 +17,14 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
-use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
 use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Mutex,
+};
 
 use futures::{StreamExt, TryStreamExt};
 
@@ -91,7 +94,7 @@ use parquet::arrow::ArrowWriter;
 /// ```
 pub struct ExecutionContext {
     /// Internal state for the context
-    pub state: ExecutionContextState,
+    pub state: Arc<Mutex<ExecutionContextState>>,
 }
 
 impl ExecutionContext {
@@ -103,22 +106,16 @@ impl ExecutionContext {
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
         Self {
-            state: ExecutionContextState {
+            state: Arc::new(Mutex::new(ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
                 aggregate_functions: HashMap::new(),
                 config,
-            },
+            })),
         }
     }
 
-    /// Get the configuration of this execution context
-    pub fn config(&self) -> &ExecutionConfig {
-        &self.state.config
-    }
-
-    /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
     pub fn sql(&mut self, sql: &str) -> Result<Arc<dyn DataFrame>> {
         let plan = self.create_logical_plan(sql)?;
@@ -168,7 +165,8 @@ impl ExecutionContext {
         }
 
         // create a query planner
-        let query_planner = SqlToRel::new(&self.state);
+        let state = self.state.lock().unwrap().clone();
+        let query_planner = SqlToRel::new(&state);
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
@@ -178,12 +176,18 @@ impl ExecutionContext {
         variable_type: VarType,
         provider: Arc<dyn VarProvider + Send + Sync>,
     ) {
-        self.state.var_provider.insert(variable_type, provider);
+        self.state
+            .lock()
+            .unwrap()
+            .var_provider
+            .insert(variable_type, provider);
     }
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarUDF) {
         self.state
+            .lock()
+            .unwrap()
             .scalar_functions
             .insert(f.name.clone(), Arc::new(f));
     }
@@ -191,6 +195,8 @@ impl ExecutionContext {
     /// Register a aggregate UDF
     pub fn register_udaf(&mut self, f: AggregateUDF) {
         self.state
+            .lock()
+            .unwrap()
             .aggregate_functions
             .insert(f.name.clone(), Arc::new(f));
     }
@@ -261,6 +267,8 @@ impl ExecutionContext {
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
         self.state
+            .lock()
+            .unwrap()
             .datasources
             .insert(name.to_string(), provider.into());
     }
@@ -269,7 +277,7 @@ impl ExecutionContext {
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self.state.datasources.get(table_name) {
+        match self.state.lock().unwrap().datasources.get(table_name) {
             Some(provider) => {
                 let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
@@ -292,7 +300,13 @@ impl ExecutionContext {
 
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
-        self.state.datasources.keys().cloned().collect()
+        self.state
+            .lock()
+            .unwrap()
+            .datasources
+            .keys()
+            .cloned()
+            .collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -301,7 +315,12 @@ impl ExecutionContext {
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
 
-        self.state.config.query_planner.rewrite_logical_plan(plan)
+        self.state
+            .lock()
+            .unwrap()
+            .config
+            .query_planner
+            .rewrite_logical_plan(plan)
     }
 
     /// Create a physical plan from a logical plan
@@ -309,10 +328,11 @@ impl ExecutionContext {
         &self,
         logical_plan: &LogicalPlan,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        self.state
+        let state = self.state.lock().unwrap();
+        state
             .config
             .query_planner
-            .create_physical_plan(logical_plan, &self.state)
+            .create_physical_plan(logical_plan, &state)
     }
 
     /// Execute a query and write the results to a partitioned CSV file
@@ -373,16 +393,25 @@ impl ExecutionContext {
         }
         Ok(())
     }
+}
 
-    /// get the registry, that allows to construct logical expressions of UDFs
-    pub fn registry(&self) -> &dyn FunctionRegistry {
-        &self.state
+impl From<Arc<Mutex<ExecutionContextState>>> for ExecutionContext {
+    fn from(state: Arc<Mutex<ExecutionContextState>>) -> Self {
+        ExecutionContext { state }
     }
 }
 
-impl From<ExecutionContextState> for ExecutionContext {
-    fn from(state: ExecutionContextState) -> Self {
-        ExecutionContext { state }
+impl FunctionRegistry for ExecutionContext {
+    fn udfs(&self) -> HashSet<String> {
+        self.state.lock().unwrap().udfs()
+    }
+
+    fn udf(&self, name: &str) -> Result<Arc<ScalarUDF>> {
+        self.state.lock().unwrap().udf(name)
+    }
+
+    fn udaf(&self, name: &str) -> Result<Arc<AggregateUDF>> {
+        self.state.lock().unwrap().udaf(name)
     }
 }
 
@@ -502,10 +531,10 @@ impl FunctionRegistry for ExecutionContextState {
         self.scalar_functions.keys().cloned().collect()
     }
 
-    fn udf(&self, name: &str) -> Result<&ScalarUDF> {
+    fn udf(&self, name: &str) -> Result<Arc<ScalarUDF>> {
         let result = self.scalar_functions.get(name);
 
-        result.map(|x| x.as_ref()).ok_or_else(|| {
+        result.cloned().ok_or_else(|| {
             DataFusionError::Plan(format!(
                 "There is no UDF named \"{}\" in the registry",
                 name
@@ -513,10 +542,10 @@ impl FunctionRegistry for ExecutionContextState {
         })
     }
 
-    fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
+    fn udaf(&self, name: &str) -> Result<Arc<AggregateUDF>> {
         let result = self.aggregate_functions.get(name);
 
-        result.map(|x| x.as_ref()).ok_or_else(|| {
+        result.cloned().ok_or_else(|| {
             DataFusionError::Plan(format!(
                 "There is no UDAF named \"{}\" in the registry",
                 name
@@ -678,7 +707,14 @@ mod tests {
         let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx.state.datasources.get("test").unwrap().schema();
+        let schema = ctx
+            .state
+            .lock()
+            .unwrap()
+            .datasources
+            .get("test")
+            .unwrap()
+            .schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
@@ -1319,7 +1355,7 @@ mod tests {
             .project(vec![
                 col("a"),
                 col("b"),
-                ctx.registry().udf("my_add")?.call(vec![col("a"), col("b")]),
+                ctx.udf("my_add")?.call(vec![col("a"), col("b")]),
             ])?
             .build()?;
 

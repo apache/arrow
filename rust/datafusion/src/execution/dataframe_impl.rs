@@ -17,7 +17,7 @@
 
 //! Implementation of DataFrame API
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::dataframe::*;
 use crate::error::Result;
@@ -31,13 +31,13 @@ use async_trait::async_trait;
 
 /// Implementation of DataFrame API
 pub struct DataFrameImpl {
-    ctx_state: ExecutionContextState,
+    ctx_state: Arc<Mutex<ExecutionContextState>>,
     plan: LogicalPlan,
 }
 
 impl DataFrameImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(ctx_state: ExecutionContextState, plan: &LogicalPlan) -> Self {
+    pub fn new(ctx_state: Arc<Mutex<ExecutionContextState>>, plan: &LogicalPlan) -> Self {
         Self {
             ctx_state,
             plan: plan.clone(),
@@ -119,7 +119,8 @@ impl DataFrame for DataFrameImpl {
     // Convert the logical plan represented by this DataFrame into a physical plan and
     // execute it
     async fn collect(&self) -> Result<Vec<RecordBatch>> {
-        let ctx = ExecutionContext::from(self.ctx_state.clone());
+        let state = self.ctx_state.lock().unwrap().clone();
+        let ctx = ExecutionContext::from(Arc::new(Mutex::new(state)));
         let plan = ctx.optimize(&self.plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
         Ok(collect(plan).await?)
@@ -137,8 +138,9 @@ impl DataFrame for DataFrameImpl {
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
-    fn registry(&self) -> &dyn FunctionRegistry {
-        &self.ctx_state
+    fn registry(&self) -> Arc<dyn FunctionRegistry> {
+        let registry = self.ctx_state.lock().unwrap().clone();
+        Arc::new(registry)
     }
 }
 
