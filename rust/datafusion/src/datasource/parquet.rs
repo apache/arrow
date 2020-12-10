@@ -33,7 +33,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct ParquetTable {
     path: String,
     schema: SchemaRef,
-    statistics: Option<Statistics>,
+    statistics: Statistics,
 }
 
 impl ParquetTable {
@@ -44,7 +44,7 @@ impl ParquetTable {
         Ok(Self {
             path: path.to_string(),
             schema,
-            statistics: None,
+            statistics: Statistics::default(),
         })
     }
 }
@@ -73,7 +73,7 @@ impl TableProvider for ParquetTable {
         )?))
     }
 
-    fn statistics(&self) -> Option<Statistics> {
+    fn statistics(&self) -> Statistics {
         self.statistics.clone()
     }
 }
@@ -82,8 +82,7 @@ impl TableProvider for ParquetTable {
 mod tests {
     use super::*;
     use arrow::array::{
-        BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
-        TimestampNanosecondArray,
+        BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array, TimestampNanosecondArray,
     };
     use arrow::record_batch::RecordBatch;
     use futures::StreamExt;
@@ -303,8 +302,7 @@ mod tests {
     }
 
     fn load_table(name: &str) -> Result<Box<dyn TableProvider>> {
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename)?;
         Ok(Box::new(table))

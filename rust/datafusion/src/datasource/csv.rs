@@ -53,7 +53,7 @@ pub struct CsvFile {
     has_header: bool,
     delimiter: u8,
     file_extension: String,
-    statistics: Option<Statistics>,
+    statistics: Statistics,
 }
 
 impl CsvFile {
@@ -77,7 +77,7 @@ impl CsvFile {
             has_header: options.has_header,
             delimiter: options.delimiter,
             file_extension: String::from(options.file_extension),
-            statistics: None,
+            statistics: Statistics::default(),
         })
     }
 }
@@ -108,7 +108,7 @@ impl TableProvider for CsvFile {
         )?))
     }
 
-    fn statistics(&self) -> Option<Statistics> {
+    fn statistics(&self) -> Statistics {
         self.statistics.clone()
     }
 }

@@ -36,7 +36,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct MemTable {
     schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
-    statistics: Option<Statistics>,
+    statistics: Statistics,
 }
 
 impl MemTable {
@@ -47,10 +47,17 @@ impl MemTable {
                 .iter()
                 .all(|batches| batches.schema().as_ref() == schema.as_ref())
         }) {
+            let num_rows: usize = partitions
+                .iter()
+                .map(|batches| batches.iter().map(|batch| batch.num_rows()).sum::<usize>())
+                .sum();
             Ok(Self {
                 schema,
                 batches: partitions,
-                statistics: None,
+                statistics: Statistics {
+                    num_rows: Some(num_rows),
+                    total_byte_size: None,
+                },
             })
         } else {
             Err(DataFusionError::Plan(
@@ -136,7 +143,7 @@ impl TableProvider for MemTable {
         )?))
     }
 
-    fn statistics(&self) -> Option<Statistics> {
+    fn statistics(&self) -> Statistics {
         self.statistics.clone()
     }
 }
@@ -166,6 +173,8 @@ mod tests {
         )?;
 
         let provider = MemTable::new(schema, vec![vec![batch]])?;
+
+        assert_eq!(provider.statistics().num_rows, Some(3));
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
