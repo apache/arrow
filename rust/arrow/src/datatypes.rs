@@ -485,7 +485,7 @@ impl ArrowDictionaryKeyType for UInt64Type {}
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -568,15 +568,12 @@ where
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
+#[cfg(not(simd_x86))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(simd_x86)]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -773,10 +770,8 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
+
+        #[cfg(not(simd_x86))]
         impl ArrowNumericType for $impl_ty {}
     };
 }
@@ -812,7 +807,7 @@ make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
 /// A subtype of primitive type that represents signed numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub trait ArrowSignedNumericType: ArrowNumericType
 where
     Self::SignedSimd: Neg<Output = Self::SignedSimd>,
@@ -833,10 +828,7 @@ where
     fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]);
 }
 
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
+#[cfg(not(simd_x86))]
 pub trait ArrowSignedNumericType: ArrowNumericType
 where
     Self::Native: Neg<Output = Self::Native>,
@@ -845,7 +837,7 @@ where
 
 macro_rules! make_signed_numeric_type {
     ($impl_ty:ty, $simd_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(simd_x86)]
         impl ArrowSignedNumericType for $impl_ty {
             type SignedSimd = $simd_ty;
 
@@ -868,10 +860,7 @@ macro_rules! make_signed_numeric_type {
             }
         }
 
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
+        #[cfg(not(simd_x86))]
         impl ArrowSignedNumericType for $impl_ty {}
     };
 }
@@ -2886,11 +2875,7 @@ mod tests {
     }
 }
 
-#[cfg(all(
-    test,
-    any(target_arch = "x86", target_arch = "x86_64"),
-    feature = "simd"
-))]
+#[cfg(all(test, simd_x86))]
 mod arrow_numeric_type_tests {
     use crate::datatypes::{
         ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,

@@ -67,6 +67,9 @@ criterion = "0.3"
 flate2 = "1"
 tempfile = "3"
 
+[build-dependencies]
+cfg_aliases = "0.1"
+
 [[bench]]
 name = "aggregate_kernels"
 harness = false
