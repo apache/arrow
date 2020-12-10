@@ -41,13 +41,13 @@ TEST(ArrayIterator, Basics) {
 
   ArrayIterator<Int32Array> it(*array);
   optional<int32_t> v = *it;
-  ASSERT_EQ(*v, 4);
-  ASSERT_EQ(*it[0], 4);
+  ASSERT_EQ(v, 4);
+  ASSERT_EQ(it[0], 4);
   ++it;
-  ASSERT_EQ(*it[0], 5);
-  ASSERT_EQ(**it, 5);
+  ASSERT_EQ(it[0], 5);
+  ASSERT_EQ(*it, 5);
   ASSERT_EQ(it[1], nullopt);
-  ASSERT_EQ(*it[2], 6);
+  ASSERT_EQ(it[2], 6);
 }
 
 TEST(ArrayIterator, Arithmetic) {
@@ -56,27 +56,27 @@ TEST(ArrayIterator, Arithmetic) {
 
   ArrayIterator<Int32Array> it(*array);
   auto it2 = it + 2;
-  ASSERT_EQ(**it, 4);
+  ASSERT_EQ(*it, 4);
   ASSERT_EQ(*it2, nullopt);
   ASSERT_EQ(it2 - it, 2);
   ASSERT_EQ(it - it2, -2);
   auto it3 = it++;
   ASSERT_EQ(it2 - it, 1);
   ASSERT_EQ(it2 - it3, 2);
-  ASSERT_EQ(**it3, 4);
-  ASSERT_EQ(**it, 5);
+  ASSERT_EQ(*it3, 4);
+  ASSERT_EQ(*it, 5);
   auto it4 = ++it;
   ASSERT_EQ(*it, nullopt);
   ASSERT_EQ(*it4, nullopt);
   ASSERT_EQ(it2 - it, 0);
   ASSERT_EQ(it2 - it4, 0);
   auto it5 = it + 3;
-  ASSERT_EQ(**it5, 7);
-  ASSERT_EQ(**(it5 - 2), 6);
-  ASSERT_EQ(**(it5 + (-2)), 6);
+  ASSERT_EQ(*it5, 7);
+  ASSERT_EQ(*(it5 - 2), 6);
+  ASSERT_EQ(*(it5 + (-2)), 6);
   auto it6 = (--it5)--;
   ASSERT_EQ(*it6, nullopt);
-  ASSERT_EQ(**it5, 6);
+  ASSERT_EQ(*it5, 6);
   ASSERT_EQ(it6 - it5, 1);
 }
 
