@@ -157,7 +157,7 @@ def _handle_options(name, option_class, options, kwargs):
             "Function {!r} expected a {} parameter, got {}"
             .format(name, option_class, type(options)))
 
-    return option_class()
+    return options
 
 
 _wrapper_template = dedent("""\

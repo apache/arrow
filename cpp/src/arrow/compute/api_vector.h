@@ -85,6 +85,8 @@ struct ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 struct ARROW_EXPORT SortOptions : public FunctionOptions {
   explicit SortOptions(std::vector<SortKey> sort_keys = {}) : sort_keys(sort_keys) {}
 
+  static SortOptions Defaults() { return SortOptions{}; }
+
   std::vector<SortKey> sort_keys;
 };
 
