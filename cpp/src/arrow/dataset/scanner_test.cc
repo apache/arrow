@@ -191,15 +191,13 @@ TEST_F(TestScannerBuilder, TestFilter) {
                             call("equal", {field_ref("b"), literal(true)}),
                         })));
 
-  ASSERT_RAISES(NotImplemented,
-                builder.Filter(call("equal", {field_ref("i64"), literal<double>(10)})));
+  ASSERT_OK(builder.Filter(call("equal", {field_ref("i64"), literal<double>(10)})));
 
   ASSERT_RAISES(
-      NotImplemented,
-      builder.Filter(call("equal", {field_ref("not_a_column"), literal<double>(10)})));
+      Invalid, builder.Filter(call("equal", {field_ref("not_a_column"), literal(true)})));
 
   ASSERT_RAISES(
-      NotImplemented,
+      Invalid,
       builder.Filter(
           call("or_kleene", {
                                 call("equal", {field_ref("i64"), literal<int64_t>(10)}),

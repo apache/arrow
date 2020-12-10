@@ -45,21 +45,17 @@ class TestPartitioning : public ::testing::Test {
 
   void AssertParse(const std::string& path, Expression2 expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
-    ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*partitioning_->schema()));
     ASSERT_EQ(parsed, expected);
   }
 
   template <StatusCode code = StatusCode::Invalid>
   void AssertFormatError(Expression2 expr) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*written_schema_));
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
   void AssertFormat(Expression2 expr, const std::string& expected) {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*written_schema_));
-
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
     ASSERT_EQ(formatted, expected);
 
@@ -67,8 +63,8 @@ class TestPartitioning : public ::testing::Test {
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(Expression2 roundtripped, partitioning_->Parse(formatted));
 
-    ASSERT_OK_AND_ASSIGN(auto bound, roundtripped.Bind(*partitioning_->schema()));
-    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(bound, expr));
+    ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
+    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
     ASSERT_EQ(simplified, literal(true));
   }
 
@@ -365,7 +361,7 @@ TEST_F(TestPartitioning, EtlThenHive) {
             fs::internal::JoinAbstractPath(etl_segments_end, alphabeta_segments_end);
         ARROW_ASSIGN_OR_RAISE(auto alphabeta_expr, alphabeta_part.Parse(alphabeta_path));
 
-        return and_(etl_expr, alphabeta_expr).Bind(*schm);
+        return and_(etl_expr, alphabeta_expr);
       });
 
   AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
@@ -405,12 +401,8 @@ TEST_F(TestPartitioning, Set) {
             set.push_back(checked_cast<const Int32Scalar&>(*s).value);
           }
 
-          auto is_in_expr = call("is_in", {field_ref(matches[1])},
-                                 compute::SetLookupOptions{ints(set), true});
-
-          ARROW_ASSIGN_OR_RAISE(is_in_expr, is_in_expr.Bind(*schm));
-
-          subexpressions.push_back(is_in_expr);
+          subexpressions.push_back(call("is_in", {field_ref(matches[1])},
+                                        compute::SetLookupOptions{ints(set), true}));
         }
         return and_(std::move(subexpressions));
       });
@@ -453,7 +445,7 @@ class RangePartitioning : public Partitioning {
                             max_cmp(field_ref(key->name), literal(max))));
     }
 
-    return and_(ranges).Bind(*schema_);
+    return and_(ranges);
   }
 
   static Status DoRegex(const std::string& segment, std::smatch* matches) {

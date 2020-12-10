@@ -149,6 +149,18 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Dat
 // ----------------------------------------------------------------------
 
 void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  auto Finish = [&](Result<Datum> result) {
+    if (!result.ok()) {
+      ctx->SetStatus(result.status());
+      return;
+    }
+    *out = *result;
+  };
+
+  if (out->is_scalar()) {
+    return Finish(batch[0].scalar_as<DictionaryScalar>().GetEncodedValue());
+  }
+
   DictionaryArray dict_arr(batch[0].array());
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
 
@@ -160,16 +172,15 @@ void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return;
   }
 
-  Result<Datum> result = Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
-                              /*options=*/TakeOptions::Defaults(), ctx->exec_context());
-  if (!result.ok()) {
-    ctx->SetStatus(result.status());
-    return;
-  }
-  *out = *result;
+  return Finish(Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
+                     /*options=*/TakeOptions::Defaults(), ctx->exec_context()));
 }
 
 void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (out->is_scalar()) {
+    out->scalar()->is_valid = false;
+    return;
+  }
   ArrayData* output = out->mutable_array();
   output->buffers = {nullptr};
   output->null_count = batch.length;
@@ -261,9 +272,9 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
     //
     // XXX: Uses Take and does its own memory allocation for the moment. We can
     // fix this later.
-    DCHECK_OK(func->AddKernel(
-        Type::DICTIONARY, {InputType::Array(Type::DICTIONARY)}, out_ty, UnpackDictionary,
-        NullHandling::COMPUTED_NO_PREALLOCATE, MemAllocation::NO_PREALLOCATE));
+    DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, out_ty,
+                              UnpackDictionary, NullHandling::COMPUTED_NO_PREALLOCATE,
+                              MemAllocation::NO_PREALLOCATE));
   }
 
   // From extension type to this type

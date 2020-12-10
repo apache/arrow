@@ -140,10 +140,16 @@ struct Comparison {
     return nullptr;
   }
 
+  // Execute a simple Comparison between scalars, casting the RHS if types disagree
   static Result<type> Execute(Datum l, Datum r) {
     if (!l.is_scalar() || !r.is_scalar()) {
       return Status::Invalid("Cannot Execute Comparison on non-scalars");
     }
+
+    if (!l.type()->Equals(r.type())) {
+      ARROW_ASSIGN_OR_RAISE(r, compute::Cast(r, l.type()));
+    }
+
     std::vector<Datum> arguments{std::move(l), std::move(r)};
 
     ARROW_ASSIGN_OR_RAISE(auto equal, compute::CallFunction("equal", arguments));
@@ -201,6 +207,11 @@ struct Comparison {
   }
 };
 
+inline const compute::CastOptions* GetCastOptions(const Expression2::Call& call) {
+  if (call.function != "cast") return nullptr;
+  return checked_cast<const compute::CastOptions*>(call.options.get());
+}
+
 inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
@@ -211,45 +222,37 @@ inline const compute::SetLookupOptions* GetSetLookupOptions(
   return checked_cast<const compute::SetLookupOptions*>(call.options.get());
 }
 
-inline bool RequriesDictionaryTransparency(const Expression2::Call& call) {
-  // TODO move this functionality into compute::
+inline const compute::StructOptions* GetStructOptions(const Expression2::Call& call) {
+  if (call.function != "struct") return nullptr;
+  return checked_cast<const compute::StructOptions*>(call.options.get());
+}
 
-  // Functions which don't provide kernels for dictionary types. Dictionaries will be
-  // decoded for these functions.
-  if (Comparison::Get(call.function)) return true;
+inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression2::Call& call) {
+  if (call.function != "strptime") return nullptr;
+  return checked_cast<const compute::StrptimeOptions*>(call.options.get());
+}
 
-  if (IsSetLookup(call.function)) return true;
-
-  return false;
+inline const std::shared_ptr<DataType>& GetDictionaryValueType(
+    const std::shared_ptr<DataType>& type) {
+  if (type && type->id() == Type::DICTIONARY) {
+    return checked_cast<const DictionaryType&>(*type).value_type();
+  }
+  static std::shared_ptr<DataType> null;
+  return null;
 }
 
 inline Status EnsureNotDictionary(ValueDescr* descr) {
-  const auto& type = descr->type;
-  if (type && type->id() == Type::DICTIONARY) {
-    descr->type = checked_cast<const DictionaryType&>(*type).value_type();
+  if (auto value_type = GetDictionaryValueType(descr->type)) {
+    descr->type = std::move(value_type);
   }
   return Status::OK();
 }
 
 inline Status EnsureNotDictionary(Datum* datum) {
-  if (datum->type()->id() != Type::DICTIONARY) {
-    return Status::OK();
+  if (datum->type()->id() == Type::DICTIONARY) {
+    const auto& type = checked_cast<const DictionaryType&>(*datum->type()).value_type();
+    ARROW_ASSIGN_OR_RAISE(*datum, compute::Cast(*datum, type));
   }
-
-  if (datum->is_scalar()) {
-    ARROW_ASSIGN_OR_RAISE(
-        *datum,
-        checked_cast<const DictionaryScalar&>(*datum->scalar()).GetEncodedValue());
-    return Status::OK();
-  }
-
-  DCHECK_EQ(datum->kind(), Datum::ARRAY);
-  ArrayData indices = *datum->array();
-  indices.type = checked_cast<const DictionaryType&>(*datum->type()).index_type();
-  auto values = std::move(indices.dictionary);
-
-  ARROW_ASSIGN_OR_RAISE(
-      *datum, compute::Take(values, indices, compute::TakeOptions::NoBoundsCheck()));
   return Status::OK();
 }
 
@@ -395,6 +398,38 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
   const auto& to_type = checked_cast<const compute::CastOptions&>(*call.options).to_type;
   return compute::GetCastFunction(to_type);
+}
+
+template <typename PreVisit, typename PostVisitCall>
+Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
+                           const PostVisitCall& post_call) {
+  ARROW_ASSIGN_OR_RAISE(expr, Result<Expression2>(pre(std::move(expr))));
+
+  auto call = expr.call();
+  if (!call) return expr;
+
+  bool at_least_one_modified = false;
+  auto modified_call = *call;
+  auto modified_argument = modified_call.arguments.begin();
+
+  for (const auto& argument : call->arguments) {
+    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, pre, post_call));
+
+    if (!Identical(*modified_argument, argument)) {
+      at_least_one_modified = true;
+    }
+    ++modified_argument;
+  }
+
+  if (at_least_one_modified) {
+    // reconstruct the call expression with the modified arguments
+    auto modified_expr = Expression2(
+        std::make_shared<Expression2::Impl>(std::move(modified_call)), expr.descr());
+
+    return post_call(std::move(modified_expr), &expr);
+  }
+
+  return post_call(std::move(expr), nullptr);
 }
 
 }  // namespace dataset

@@ -786,8 +786,7 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
 
   // Selects re-ordered virtual column with a filter on a physical column
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset->NewScan());
-  ASSERT_OK(scan_builder->Filter("phy_1"_ == 111));
-
+  ASSERT_OK(scan_builder->Filter(equal(field_ref("phy_1"), literal(111))));
   ASSERT_OK(scan_builder->Project({"part"}));
 
   ASSERT_OK_AND_ASSIGN(auto scanner, scan_builder->Finish());

@@ -983,7 +983,8 @@ struct InsertImplicitCastsImpl {
 
     if (!op.type->Equals(set->type())) {
       // cast the set (which we assume to be small) to match op.type
-      ARROW_ASSIGN_OR_RAISE(auto encoded_set, CastOrDictionaryEncode(*set, op.type, {}));
+      ARROW_ASSIGN_OR_RAISE(auto encoded_set, CastOrDictionaryEncode(
+                                                  *set, op.type, compute::CastOptions{}));
       set = encoded_set.make_array();
     }
 
