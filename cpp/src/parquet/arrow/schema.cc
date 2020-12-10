@@ -35,6 +35,7 @@
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
+using arrow::DecimalType;
 using arrow::Field;
 using arrow::FieldVector;
 using arrow::KeyValueMetadata;
@@ -54,7 +55,6 @@ using ParquetType = parquet::Type;
 using parquet::ConvertedType;
 using parquet::LogicalType;
 
-using parquet::internal::DecimalSize;
 using parquet::internal::LevelInfo;
 
 namespace parquet {
@@ -297,12 +297,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
-    case ArrowTypeId::DECIMAL: {
+    case ArrowTypeId::DECIMAL128:
+    case ArrowTypeId::DECIMAL256: {
       type = ParquetType::FIXED_LEN_BYTE_ARRAY;
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
-      length = DecimalSize(precision);
+      length = DecimalType::DecimalSize(precision);
       PARQUET_CATCH_NOT_OK(logical_type = LogicalType::Decimal(precision, scale));
     } break;
     case ArrowTypeId::DATE32:
@@ -877,6 +878,12 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
       (origin_type->id() == ::arrow::Type::LARGE_STRING &&
        inferred_type->id() == ::arrow::Type::STRING)) {
     // Read back binary-like arrays with the intended offset width.
+    inferred->field = inferred->field->WithType(origin_type);
+    modified = true;
+  }
+
+  if (origin_type->id() == ::arrow::Type::DECIMAL256 &&
+      inferred_type->id() == ::arrow::Type::DECIMAL128) {
     inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }

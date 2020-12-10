@@ -1333,29 +1333,39 @@ TEST(Decimal256Test, Multiply) {
   }
 }
 
-TEST(Decimal256Test, Divide) {
+TEST(Decimal256, Add) {
   ASSERT_EQ(Decimal256(33), Decimal256(100) / Decimal256(3));
   ASSERT_EQ(Decimal256(66), Decimal256(200) / Decimal256(3));
   ASSERT_EQ(Decimal256(66), Decimal256(20100) / Decimal256(301));
   ASSERT_EQ(Decimal256(-66), Decimal256(-20100) / Decimal256(301));
   ASSERT_EQ(Decimal256(-66), Decimal256(20100) / Decimal256(-301));
   ASSERT_EQ(Decimal256(66), Decimal256(-20100) / Decimal256(-301));
-  ASSERT_EQ(Decimal256("-5192296858534827628530496329343552"),
-            Decimal256("-269599466671506397946670150910580797473777870509761363"
-                       "24636208709184") /
-                Decimal256("5192296858534827628530496329874417"));
-  ASSERT_EQ(Decimal256("5192296858534827628530496329343552"),
-            Decimal256("-269599466671506397946670150910580797473777870509761363"
-                       "24636208709184") /
-                Decimal256("-5192296858534827628530496329874417"));
-  ASSERT_EQ(Decimal256("5192296858534827628530496329343552"),
-            Decimal256("2695994666715063979466701509105807974737778705097613632"
-                       "4636208709184") /
-                Decimal256("5192296858534827628530496329874417"));
-  ASSERT_EQ(Decimal256("-5192296858534827628530496329343552"),
-            Decimal256("2695994666715063979466701509105807974737778705097613632"
-                       "4636208709184") /
-                Decimal256("-5192296858534827628530496329874417"));
+}
+
+TEST(Decimal256Test, Shift) {
+  Decimal256 v(1024);
+  v <<= 16;
+  ASSERT_EQ(v, Decimal256("67108864"));
+  v <<= 66;
+  ASSERT_EQ(v, Decimal256("4951760157141521099596496896"));
+  v <<= 128;
+  ASSERT_EQ(
+      v,
+      Decimal256("1684996666696914987166688442938726917102321526408785780068975640576"));
+}
+
+TEST(Decimal256Test, Add) {
+  EXPECT_EQ(Decimal256(103), Decimal256(100) + Decimal256(3));
+  EXPECT_EQ(Decimal256(203), Decimal256(200) + Decimal256(3));
+  EXPECT_EQ(Decimal256(20401), Decimal256(20100) + Decimal256(301));
+  EXPECT_EQ(Decimal256(-19799), Decimal256(-20100) + Decimal256(301));
+  EXPECT_EQ(Decimal256(19799), Decimal256(20100) + Decimal256(-301));
+  EXPECT_EQ(Decimal256(-20401), Decimal256(-20100) + Decimal256(-301));
+  EXPECT_EQ(Decimal256("100000000000000000000000000000000001"),
+            Decimal256("99999999999999999999999999999999999") + Decimal256("2"));
+  EXPECT_EQ(Decimal256("120200000000000000000000000000002019"),
+            Decimal256("99999999999999999999999999999999999") +
+                Decimal256("20200000000000000000000000000002020"));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
@@ -1364,8 +1374,8 @@ TEST(Decimal256Test, Divide) {
         continue;
       }
 
-      Decimal256 result = Decimal256(x) / Decimal256(y);
-      ASSERT_EQ(Decimal256(static_cast<int64_t>(x) / y), result)
+      Decimal256 result = Decimal256(x) + Decimal256(y);
+      ASSERT_EQ(Decimal256(static_cast<int64_t>(x) + y), result)
           << " x: " << x << " y: " << y;
     }
   }
@@ -1417,6 +1427,67 @@ TEST(Decimal256Test, Rescale) {
       ASSERT_OK_AND_EQ(Decimal256(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
+}
+
+TEST(Decimal256, FromBigEndianTest) {
+  // We test out a variety of scenarios:
+  //
+  // * Positive values that are left shifted
+  //   and filled in with the same bit pattern
+  // * Negated of the positive values
+  // * Complement of the positive values
+  //
+  // For the positive values, we can call FromBigEndian
+  // with a length that is less than 16, whereas we must
+  // pass all 32 bytes for the negative and complement.
+  //
+  // We use a number of bit patterns to increase the coverage
+  // of scenarios
+  for (int32_t start : {1, 1, 15, /* 00001111 */
+                        85,       /* 01010101 */
+                        127 /* 01111111 */}) {
+    Decimal256 value(start);
+    for (int ii = 0; ii < 32; ++ii) {
+      auto native_endian = value.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
+      // Limit the number of bytes we are passing to make
+      // sure that it works correctly. That's why all of the
+      // 'start' values don't have a 1 in the most significant
+      // bit place
+      ASSERT_OK_AND_EQ(value,
+                       Decimal256::FromBigEndian(native_endian.data() + 31 - ii, ii + 1));
+
+      // Negate it
+      auto negated = -value;
+      native_endian = negated.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
+      // The sign bit is looked up in the MSB
+      ASSERT_OK_AND_EQ(negated,
+                       Decimal256::FromBigEndian(native_endian.data() + 31 - ii, ii + 1));
+
+      // Take the complement
+      auto complement = ~value;
+      native_endian = complement.ToBytes();
+#if ARROW_LITTLE_ENDIAN
+      // convert to big endian
+      std::reverse(native_endian.begin(), native_endian.end());
+#endif
+      ASSERT_OK_AND_EQ(complement, Decimal256::FromBigEndian(native_endian.data(), 32));
+
+      value <<= 8;
+      value += Decimal256(start);
+    }
+  }
+}
+
+TEST(Decimal256Test, TestFromBigEndianBadLength) {
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(nullptr, -1));
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(nullptr, 33));
 }
 
 class Decimal256ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
