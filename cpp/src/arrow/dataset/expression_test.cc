@@ -52,6 +52,9 @@ TEST(Expression, ToString) {
 
   EXPECT_EQ(literal(3).ToString(), "3");
 
+  auto ts = *MakeScalar("1990-10-23 10:23:33")->CastTo(timestamp(TimeUnit::NANO));
+  EXPECT_EQ(literal(ts).ToString(), "656677413000000000");
+
   EXPECT_EQ(call("add", {literal(3), field_ref("beta")}).ToString(),
             "add(3,FieldRef(beta))");
 

@@ -118,8 +118,8 @@ struct ARROW_EXPORT Datum {
   /// \brief Empty datum, to be populated elsewhere
   Datum() = default;
 
-  Datum(const Datum& other) noexcept = default;
-  Datum& operator=(const Datum& other) noexcept = default;
+  Datum(const Datum& other) = default;
+  Datum& operator=(const Datum& other) = default;
   Datum(Datum&& other) noexcept = default;
   Datum& operator=(Datum&& other) noexcept = default;
 
