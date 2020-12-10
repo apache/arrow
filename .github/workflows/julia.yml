@@ -47,7 +47,7 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
-          arch: 64
+          arch: x64
       - uses: julia-actions/julia-runtest@v1
         with:
           project: julia/Arrow
