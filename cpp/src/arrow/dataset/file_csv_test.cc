@@ -23,7 +23,6 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
@@ -148,7 +147,7 @@ N/A,bar
   schema_ = schema({field("f64", utf8()), field("str", utf8())});
   ScannerBuilder builder(schema_, fragment, ctx_);
   // filter expression validated against declared schema
-  ASSERT_OK(builder.Filter("f64"_ == "str"_));
+  ASSERT_OK(builder.Filter(equal(field_ref("f64"), field_ref("str"))));
   // project only "str"
   ASSERT_OK(builder.Project({"str"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());

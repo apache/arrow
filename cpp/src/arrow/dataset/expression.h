@@ -103,12 +103,6 @@ class ARROW_DS_EXPORT Expression2 {
   const Datum* literal() const;
   const FieldRef* field_ref() const;
 
-  // FIXME remove these
-  operator std::shared_ptr<Expression>() const;  // NOLINT runtime/explicit
-  Expression2(const Expression& expr);           // NOLINT runtime/explicit
-  Expression2(std::shared_ptr<Expression> expr)  // NOLINT runtime/explicit
-      : Expression2(*expr) {}
-
   const ValueDescr& descr() const { return descr_; }
 
   using Impl = util::Variant<Datum, FieldRef, Call>;
@@ -244,11 +238,6 @@ ARROW_DS_EXPORT Expression2 and_(const std::vector<Expression2>&);
 ARROW_DS_EXPORT Expression2 or_(Expression2 lhs, Expression2 rhs);
 ARROW_DS_EXPORT Expression2 or_(const std::vector<Expression2>&);
 ARROW_DS_EXPORT Expression2 not_(Expression2 operand);
-
-// FIXME remove these
-ARROW_DS_EXPORT Expression2 operator&&(Expression2 lhs, Expression2 rhs);
-ARROW_DS_EXPORT Expression2 operator||(Expression2 lhs, Expression2 rhs);
-ARROW_DS_EXPORT Result<Expression2> InsertImplicitCasts(Expression2, const Schema&);
 
 }  // namespace dataset
 }  // namespace arrow

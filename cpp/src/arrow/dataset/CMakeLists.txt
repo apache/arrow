@@ -25,7 +25,6 @@ set(ARROW_DATASET_SRCS
     expression.cc
     file_base.cc
     file_ipc.cc
-    filter.cc
     partition.cc
     projector.cc
     scanner.cc)
@@ -110,7 +109,6 @@ add_arrow_dataset_test(discovery_test)
 add_arrow_dataset_test(expression_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
-add_arrow_dataset_test(filter_test)
 add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
 

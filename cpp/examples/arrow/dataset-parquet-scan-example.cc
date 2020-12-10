@@ -18,9 +18,9 @@
 #include <arrow/api.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
+#include <arrow/dataset/expression.h>
 #include <arrow/dataset/file_base.h>
 #include <arrow/dataset/file_parquet.h>
-#include <arrow/dataset/filter.h>
 #include <arrow/dataset/scanner.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/path_util.h>

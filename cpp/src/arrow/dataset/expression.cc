@@ -23,7 +23,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/dataset/expression_internal.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -48,144 +47,6 @@ const Datum* Expression2::literal() const { return util::get_if<Datum>(impl_.get
 
 const FieldRef* Expression2::field_ref() const {
   return util::get_if<FieldRef>(impl_.get());
-}
-
-Expression2::operator std::shared_ptr<Expression>() const {
-  if (auto lit = literal()) {
-    DCHECK(lit->is_scalar());
-    return std::make_shared<ScalarExpression>(lit->scalar());
-  }
-
-  if (auto ref = field_ref()) {
-    DCHECK(ref->name());
-    return std::make_shared<FieldExpression>(*ref->name());
-  }
-
-  auto call = CallNotNull(*this);
-  if (call->function == "invert") {
-    return std::make_shared<NotExpression>(call->arguments[0]);
-  }
-
-  if (call->function == "cast") {
-    const auto& options = checked_cast<const compute::CastOptions&>(*call->options);
-    return std::make_shared<CastExpression>(call->arguments[0], options.to_type, options);
-  }
-
-  if (call->function == "and_kleene") {
-    return std::make_shared<AndExpression>(call->arguments[0], call->arguments[1]);
-  }
-
-  if (call->function == "or_kleene") {
-    return std::make_shared<OrExpression>(call->arguments[0], call->arguments[1]);
-  }
-
-  if (auto cmp = Comparison::Get(call->function)) {
-    compute::CompareOperator op = [&] {
-      switch (*cmp) {
-        case Comparison::EQUAL:
-          return compute::EQUAL;
-        case Comparison::LESS:
-          return compute::LESS;
-        case Comparison::GREATER:
-          return compute::GREATER;
-        case Comparison::NOT_EQUAL:
-          return compute::NOT_EQUAL;
-        case Comparison::LESS_EQUAL:
-          return compute::LESS_EQUAL;
-        case Comparison::GREATER_EQUAL:
-          return compute::GREATER_EQUAL;
-        default:
-          break;
-      }
-      return static_cast<compute::CompareOperator>(-1);
-    }();
-
-    return std::make_shared<ComparisonExpression>(op, call->arguments[0],
-                                                  call->arguments[1]);
-  }
-
-  if (call->function == "is_valid") {
-    return std::make_shared<IsValidExpression>(call->arguments[0]);
-  }
-
-  if (call->function == "is_in") {
-    auto set = checked_cast<const compute::SetLookupOptions&>(*call->options)
-                   .value_set.make_array();
-    return std::make_shared<InExpression>(call->arguments[0], std::move(set));
-  }
-
-  DCHECK(false) << "untranslatable Expression2: " << ToString();
-  return nullptr;
-}
-
-Expression2::Expression2(const Expression& expr) {
-  switch (expr.type()) {
-    case ExpressionType::FIELD:
-      *this =
-          ::arrow::dataset::field_ref(checked_cast<const FieldExpression&>(expr).name());
-      return;
-
-    case ExpressionType::SCALAR:
-      *this =
-          ::arrow::dataset::literal(checked_cast<const ScalarExpression&>(expr).value());
-      return;
-
-    case ExpressionType::NOT:
-      *this = ::arrow::dataset::call(
-          "invert", {checked_cast<const NotExpression&>(expr).operand()});
-      return;
-
-    case ExpressionType::CAST: {
-      const auto& cast_expr = checked_cast<const CastExpression&>(expr);
-      auto options = cast_expr.options();
-      options.to_type = cast_expr.to_type();
-      *this = ::arrow::dataset::call("cast", {cast_expr.operand()}, std::move(options));
-      return;
-    }
-
-    case ExpressionType::AND: {
-      const auto& and_expr = checked_cast<const AndExpression&>(expr);
-      *this = ::arrow::dataset::call("and_kleene",
-                                     {and_expr.left_operand(), and_expr.right_operand()});
-      return;
-    }
-
-    case ExpressionType::OR: {
-      const auto& or_expr = checked_cast<const OrExpression&>(expr);
-      *this = ::arrow::dataset::call("or_kleene",
-                                     {or_expr.left_operand(), or_expr.right_operand()});
-      return;
-    }
-
-    case ExpressionType::COMPARISON: {
-      const auto& cmp_expr = checked_cast<const ComparisonExpression&>(expr);
-      static std::array<std::string, 6> ops = {
-          "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
-      };
-      *this = ::arrow::dataset::call(ops[cmp_expr.op()],
-                                     {cmp_expr.left_operand(), cmp_expr.right_operand()});
-      return;
-    }
-
-    case ExpressionType::IS_VALID: {
-      const auto& is_valid_expr = checked_cast<const IsValidExpression&>(expr);
-      *this = ::arrow::dataset::call("is_valid", {is_valid_expr.operand()});
-      return;
-    }
-
-    case ExpressionType::IN: {
-      const auto& in_expr = checked_cast<const InExpression&>(expr);
-      *this = ::arrow::dataset::call(
-          "is_in", {in_expr.operand()},
-          compute::SetLookupOptions{in_expr.set(), /*skip_nulls=*/true});
-      return;
-    }
-
-    default:
-      break;
-  }
-
-  DCHECK(false) << "untranslatable Expression: " << expr.ToString();
 }
 
 std::string Expression2::ToString() const {
@@ -1032,6 +893,9 @@ Result<Expression2> SimplifyWithGuarantee(Expression2 expr,
   return expr;
 }
 
+// Serialization is accomplished by converting expressions to KeyValueMetadata and storing
+// this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
+// columns. Finally, the RecordBatch is written to an IPC file.
 Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
   struct {
     std::shared_ptr<KeyValueMetadata> metadata_ = std::make_shared<KeyValueMetadata>();
@@ -1236,11 +1100,6 @@ Expression2 operator&&(Expression2 lhs, Expression2 rhs) {
 
 Expression2 operator||(Expression2 lhs, Expression2 rhs) {
   return or_(std::move(lhs), std::move(rhs));
-}
-
-Result<Expression2> InsertImplicitCasts(Expression2 expr, const Schema& s) {
-  std::shared_ptr<Expression> e(expr);
-  return InsertImplicitCasts(*e, s);
 }
 
 }  // namespace dataset
