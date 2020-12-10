@@ -49,7 +49,9 @@ impl MemTable {
         }) {
             let num_rows: usize = partitions
                 .iter()
-                .map(|batches| batches.iter().map(|batch| batch.num_rows()).sum::<usize>())
+                .map(|batches| {
+                    batches.iter().map(|batch| batch.num_rows()).sum::<usize>()
+                })
                 .sum();
             Ok(Self {
                 schema,
