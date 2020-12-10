@@ -21,14 +21,12 @@ on:
     paths:
       - '.github/workflows/julia.yml'
       - 'ci/docker/*_julia.dockerfile'
-      - 'ci/scripts/julia_*'
       - 'julia/**'
   pull_request:
     paths:
       - '.github/workflows/julia.yml'
       - 'ci/docker/*_julia.dockerfile'
       - 'ci/docker/**'
-      - 'ci/scripts/julia_*'
       - 'julia/**'
 
 jobs:
