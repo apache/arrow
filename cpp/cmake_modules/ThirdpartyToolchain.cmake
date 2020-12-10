@@ -2387,7 +2387,11 @@ macro(build_grpc)
   set(
     GRPC_STATIC_LIBRARY_UPB
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
+  if (MSVC)
+    set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin.exe")
+  else()
+    set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
+  endif()
 
   set(GRPC_CMAKE_PREFIX)
 

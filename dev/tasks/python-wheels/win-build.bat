@@ -68,6 +68,7 @@ cmake -A "%ARCH%" ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_VERBOSE_MAKEFILE=ON ^
       -DMSVC_LINK_VERBOSE=ON ^
       .. || exit /B
 cmake ^
@@ -75,6 +76,11 @@ cmake ^
   --config Release ^
   --parallel %NUMBER_OF_PROCESSORS% ^
   --target grpc_ep || exit /B
+cmake ^
+  --build . ^
+  --config Release ^
+  --parallel %NUMBER_OF_PROCESSORS% ^
+  --target toolchain || exit /B
 cmake ^
   --build . ^
   --config Release ^
