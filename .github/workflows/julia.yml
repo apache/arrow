@@ -20,18 +20,15 @@ on:
   push:
     paths:
       - '.github/workflows/julia.yml'
-      - 'ci/docker/*_julia.dockerfile'
       - 'julia/**'
   pull_request:
     paths:
       - '.github/workflows/julia.yml'
-      - 'ci/docker/*_julia.dockerfile'
-      - 'ci/docker/**'
       - 'julia/**'
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: AMD64 ${{ matrix.os }} Julia ${{ matrix.version }}
     env:
       JULIA_NUM_THREADS: 2
     runs-on: ${{ matrix.os }}
@@ -44,14 +41,13 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
-        arch:
-          - x64
+          - windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
+          arch: 64
       - uses: julia-actions/julia-runtest@v1
         with:
           project: julia/Arrow
