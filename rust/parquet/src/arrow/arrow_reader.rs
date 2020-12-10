@@ -404,7 +404,7 @@ mod tests {
         let expected = 1..25;
 
         for (i, v) in expected.enumerate() {
-            assert_eq!(col.value(i), v * 100 as i128);
+            assert_eq!(col.value(i), v * 100_i128);
         }
     }
 
