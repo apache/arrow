@@ -194,6 +194,92 @@ GArrowCompareOptions *
 garrow_compare_options_new(void);
 
 
+/**
+ * GArrowSortOrder:
+ * @GARROW_SORT_ORDER_ASCENDING: Sort in ascending order.
+ * @GARROW_SORT_ORDER_DESCENDING: Sort in descending order.
+ *
+ * They are corresponding to `arrow::compute::SortOrder` values.
+ *
+ * Since: 3.0.0
+ */
+typedef enum {
+  GARROW_SORT_ORDER_ASCENDING,
+  GARROW_SORT_ORDER_DESCENDING,
+} GArrowSortOrder;
+
+#define GARROW_TYPE_ARRAY_SORT_OPTIONS (garrow_array_sort_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowArraySortOptions,
+                         garrow_array_sort_options,
+                         GARROW,
+                         ARRAY_SORT_OPTIONS,
+                         GObject)
+struct _GArrowArraySortOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowArraySortOptions *
+garrow_array_sort_options_new(GArrowSortOrder order);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_array_sort_options_equal(GArrowArraySortOptions *options,
+                                GArrowArraySortOptions *other_options);
+
+
+#define GARROW_TYPE_SORT_KEY (garrow_sort_key_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSortKey,
+                         garrow_sort_key,
+                         GARROW,
+                         SORT_KEY,
+                         GObject)
+struct _GArrowSortKeyClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowSortKey *
+garrow_sort_key_new(const gchar *name, GArrowSortOrder order);
+
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_sort_key_equal(GArrowSortKey *sort_key,
+                      GArrowSortKey *other_sort_key);
+
+
+#define GARROW_TYPE_SORT_OPTIONS (garrow_sort_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSortOptions,
+                         garrow_sort_options,
+                         GARROW,
+                         SORT_OPTIONS,
+                         GObject)
+struct _GArrowSortOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowSortOptions *
+garrow_sort_options_new(GList *sort_keys);
+GARROW_AVAILABLE_IN_3_0
+gboolean
+garrow_sort_options_equal(GArrowSortOptions *options,
+                          GArrowSortOptions *other_options);
+GARROW_AVAILABLE_IN_3_0
+GList *
+garrow_sort_options_get_sort_keys(GArrowSortOptions *options);
+GARROW_AVAILABLE_IN_3_0
+void
+garrow_sort_options_set_sort_keys(GArrowSortOptions *options,
+                                  GList *sort_keys);
+GARROW_AVAILABLE_IN_3_0
+void
+garrow_sort_options_add_sort_key(GArrowSortOptions *options,
+                                 GArrowSortKey *sort_key);
+
+
 GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowDataType *target_data_type,
                                GArrowCastOptions *options,
@@ -378,19 +464,6 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
                                  GArrowChunkedArray *right,
                                  GError **error);
 
-/**
- * GArrowSortOrder:
- * @GARROW_SORT_ORDER_ASCENDING: Sort in ascending order.
- * @GARROW_SORT_ORDER_DESCENDING: Sort in descending order.
- *
- * They are corresponding to `arrow::compute::SortOrder` values.
- *
- * Since: 3.0.0
- */
-typedef enum {
-  GARROW_SORT_ORDER_ASCENDING,
-  GARROW_SORT_ORDER_DESCENDING,
-} GArrowSortOrder;
 
 GARROW_AVAILABLE_IN_3_0
 GArrowUInt64Array *
@@ -402,6 +475,26 @@ GARROW_AVAILABLE_IN_0_15
 GArrowUInt64Array *
 garrow_array_sort_to_indices(GArrowArray *array,
                              GError **error);
+
+GARROW_AVAILABLE_IN_3_0
+GArrowUInt64Array *
+garrow_chunked_array_sort_indices(GArrowChunkedArray *chunked_array,
+                                  GArrowSortOrder order,
+                                  GError **error);
+
+
+GARROW_AVAILABLE_IN_3_0
+GArrowUInt64Array *
+garrow_record_batch_sort_indices(GArrowRecordBatch *record_batch,
+                                 GArrowSortOptions *options,
+                                 GError **error);
+
+GARROW_AVAILABLE_IN_3_0
+GArrowUInt64Array *
+garrow_table_sort_indices(GArrowTable *table,
+                          GArrowSortOptions *options,
+                          GError **error);
+
 
 GARROW_AVAILABLE_IN_0_16
 GArrowTable *

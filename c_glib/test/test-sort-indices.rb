@@ -18,31 +18,52 @@
 class TestSortIndices < Test::Unit::TestCase
   include Helper::Buildable
 
-  sub_test_case("Integer") do
-    def test_no_null
-      array = build_int16_array([1, 0, 4, -3])
-      assert_equal(build_uint64_array([3, 1, 0, 2]),
-                   array.sort_indices(:ascending))
-    end
-
-    def test_null
-      array = build_int16_array([nil, 1, 0, nil, 4, 3])
-      assert_equal(build_uint64_array([2, 1, 5, 4, 0, 3]),
-                   array.sort_indices(:ascending))
-    end
+  def test_array
+    array = build_int16_array([nil, 1, 0, nil, 4, 3])
+    assert_equal(build_uint64_array([2, 1, 5, 4, 0, 3]),
+                 array.sort_indices(:ascending))
   end
 
-  sub_test_case("String") do
-    def test_no_null
-      array = build_string_array(["hello", "world", "a", "z"])
-      assert_equal(build_uint64_array([2, 0, 1, 3]),
-                   array.sort_indices(:ascending))
-    end
+  def test_chunked_array
+    arrays = [
+      build_int16_array([1]),
+      build_int16_array([0, 4, -3]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(arrays)
+    assert_equal(build_uint64_array([3, 1, 0, 2]),
+                 chunked_array.sort_indices(:ascending))
+  end
 
-    def test_null
-      array = build_string_array([nil, "b", "a", nil, "c", "d"])
-      assert_equal(build_uint64_array([2, 1, 4, 5, 0, 3]),
-                   array.sort_indices(:ascending))
-    end
+  def test_record_batch
+    columns = {
+      column1: build_int16_array([  1,   0,   4,    4, -3,   1]),
+      column2: build_string_array(["a", "a", "b", "c", "d", "a"]),
+    }
+    record_batch = build_record_batch(columns)
+    sort_keys = [
+      Arrow::SortKey.new("column1", :ascending),
+      Arrow::SortKey.new("column2", :descending),
+    ]
+    options = Arrow::SortOptions.new(sort_keys)
+    assert_equal(build_uint64_array([4, 1, 0, 5, 3, 2]),
+                 record_batch.sort_indices(options))
+  end
+
+  def test_table
+    raw_array1 = [ 1,   0,   4,    4, -3,   1]
+    raw_array2 = ["a", "a", "b", "c", "d", "a"]
+    columns = {
+      column1: Arrow::ChunkedArray.new([build_int16_array(raw_array1[0...1]),
+                                        build_int16_array(raw_array1[1...3]),
+                                        build_int16_array(raw_array1[3..-1])]),
+      column2: Arrow::ChunkedArray.new([build_string_array(raw_array2[0...2]),
+                                        build_string_array(raw_array2[2..-1])]),
+    }
+    table = build_table(columns)
+    options = Arrow::SortOptions.new
+    options.add_sort_key(Arrow::SortKey.new("column1", :ascending))
+    options.add_sort_key(Arrow::SortKey.new("column2", :descending))
+    assert_equal(build_uint64_array([4, 1, 0, 5, 3, 2]),
+                 table.sort_indices(options))
   end
 end
