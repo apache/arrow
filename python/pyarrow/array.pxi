@@ -2243,10 +2243,7 @@ cdef class ExtensionArray(Array):
         return result
 
     def _to_pandas(self, options, **kwargs):
-        result = Array._to_pandas(self, options, **kwargs)
-        # TODO(wesm): is passing through these parameters to the storage array
-        # correct?
-        return result.to_pandas(options, **kwargs)
+        return Array._to_pandas(self.storage, options, **kwargs)
 
     def to_numpy(self, **kwargs):
         """
