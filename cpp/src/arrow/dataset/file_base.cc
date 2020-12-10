@@ -60,12 +60,12 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression2 partition_expression) {
+    FileSource source, Expression partition_expression) {
   return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression2 partition_expression,
+    FileSource source, Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(
       new FileFragment(std::move(source), shared_from_this(),
@@ -82,7 +82,7 @@ Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options
 }
 
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
-                                     Expression2 root_partition,
+                                     Expression root_partition,
                                      std::shared_ptr<FileFormat> format,
                                      std::shared_ptr<fs::FileSystem> filesystem,
                                      std::vector<std::shared_ptr<FileFragment>> fragments)
@@ -92,7 +92,7 @@ FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
       fragments_(std::move(fragments)) {}
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, Expression2 root_partition,
+    std::shared_ptr<Schema> schema, Expression root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<std::shared_ptr<FileFragment>> fragments) {
   return std::shared_ptr<FileSystemDataset>(new FileSystemDataset(
@@ -136,7 +136,7 @@ std::string FileSystemDataset::ToString() const {
   return repr;
 }
 
-Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression2 predicate) {
+Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
   FragmentVector fragments;
 
   for (const auto& fragment : fragments_) {

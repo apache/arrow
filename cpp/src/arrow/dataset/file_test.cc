@@ -122,7 +122,7 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto root_partition = equal(field_ref("i32"), literal(5));
   MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
 
-  auto GetFragments = [&](Expression2 filter) {
+  auto GetFragments = [&](Expression filter) {
     return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
   };
 
@@ -156,7 +156,7 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
   };
 
-  std::vector<Expression2> partitions = {
+  std::vector<Expression> partitions = {
       equal(field_ref("state"), literal("NY")),
 
       and_(equal(field_ref("state"), literal("NY")),
@@ -186,7 +186,7 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   // Default filter should always return all data.
   AssertFragmentsAreFromPath(*dataset_->GetFragments(), all_cities);
 
-  auto GetFragments = [&](Expression2 filter) {
+  auto GetFragments = [&](Expression filter) {
     return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
   };
 
@@ -212,7 +212,7 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
   };
 
-  std::vector<Expression2> partitions = {
+  std::vector<Expression> partitions = {
       equal(field_ref("state"), literal("NY")),
 
       and_(equal(field_ref("state"), literal("NY")),

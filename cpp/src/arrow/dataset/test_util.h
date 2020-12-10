@@ -199,7 +199,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     SetFilter(literal(true));
   }
 
-  void SetFilter(Expression2 filter) {
+  void SetFilter(Expression filter) {
     ASSERT_OK_AND_ASSIGN(options_->filter2, filter.Bind(*schema_));
   }
 
@@ -336,8 +336,8 @@ struct MakeFileSystemDatasetMixin {
   }
 
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
-                   Expression2 root_partition = literal(true),
-                   std::vector<Expression2> partitions = {},
+                   Expression root_partition = literal(true),
+                   std::vector<Expression> partitions = {},
                    std::shared_ptr<Schema> s = kBoringSchema) {
     auto n_fragments = infos.size();
     if (partitions.empty()) {
@@ -397,8 +397,8 @@ void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> ex
               testing::UnorderedElementsAreArray(expected));
 }
 
-static std::vector<Expression2> PartitionExpressionsOf(const FragmentVector& fragments) {
-  std::vector<Expression2> partition_expressions;
+static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& fragments) {
+  std::vector<Expression> partition_expressions;
   std::transform(fragments.begin(), fragments.end(),
                  std::back_inserter(partition_expressions),
                  [](const std::shared_ptr<Fragment>& fragment) {
@@ -408,7 +408,7 @@ static std::vector<Expression2> PartitionExpressionsOf(const FragmentVector& fra
 }
 
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
-                                             std::vector<Expression2> expected) {
+                                             std::vector<Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   for (auto& expr : expected) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));

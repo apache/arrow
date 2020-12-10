@@ -68,7 +68,7 @@ class ParquetFileFragment;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
 
-class Expression2;
+class Expression;
 
 class Partitioning;
 class PartitioningFactory;
