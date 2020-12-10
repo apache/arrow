@@ -118,7 +118,7 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+
 | Replacement dictionaries    | ✓     | ✓     |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
-| Delta dictionaries          |       |       |       |            |       |       |
+| Delta dictionaries          | ✓ (1) |       |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
 | Tensors                     | ✓     |       |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
@@ -126,6 +126,13 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+
 | Custom schema metadata      | ✓     | ✓     |       |            |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+
+
+Notes:
+
+* \(1) Delta dictionaries not supported on nested dictionaries
+
+.. seealso::
+   The :ref:`format-ipc` specification.
 
 
 Flight RPC
@@ -175,6 +182,22 @@ C Data Interface
 
 .. seealso::
    The :ref:`C Data Interface <c-data-interface>` specification.
+
+
+C Stream Interface (experimental)
+=================================
+
++-----------------------------+-------+--------+
+| Feature                     | C++   | Python |
+|                             |       |        |
++=============================+=======+========+
+| Stream export               | ✓     | ✓      |
++-----------------------------+-------+--------+
+| Stream import               | ✓     | ✓      |
++-----------------------------+-------+--------+
+
+.. seealso::
+   The :ref:`C Stream Interface <c-stream-interface>` specification.
 
 
 Third-Party Data Formats
