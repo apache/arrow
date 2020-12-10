@@ -33,15 +33,15 @@ using internal::checked_cast;
 
 namespace dataset {
 
-bool Identical(const Expression2& l, const Expression2& r) { return l.impl_ == r.impl_; }
+bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
 
-const Expression2::Call* CallNotNull(const Expression2& expr) {
+const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
   DCHECK_NE(call, nullptr);
   return call;
 }
 
-inline void GetAllFieldRefs(const Expression2& expr,
+inline void GetAllFieldRefs(const Expression& expr,
                             std::unordered_set<FieldRef, FieldRef::Hash>* refs) {
   if (auto lit = expr.literal()) return;
 
@@ -50,12 +50,12 @@ inline void GetAllFieldRefs(const Expression2& expr,
     return;
   }
 
-  for (const Expression2& arg : CallNotNull(expr)->arguments) {
+  for (const Expression& arg : CallNotNull(expr)->arguments) {
     GetAllFieldRefs(arg, refs);
   }
 }
 
-inline std::vector<ValueDescr> GetDescriptors(const std::vector<Expression2>& exprs) {
+inline std::vector<ValueDescr> GetDescriptors(const std::vector<Expression>& exprs) {
   std::vector<ValueDescr> descrs(exprs.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     DCHECK(exprs[i].IsBound());
@@ -133,7 +133,7 @@ struct Comparison {
     return it != flipped_comparisons.end() ? &it->second : nullptr;
   }
 
-  static const type* Get(const Expression2& expr) {
+  static const type* Get(const Expression& expr) {
     if (auto call = expr.call()) {
       return Comparison::Get(call->function);
     }
@@ -207,7 +207,7 @@ struct Comparison {
   }
 };
 
-inline const compute::CastOptions* GetCastOptions(const Expression2::Call& call) {
+inline const compute::CastOptions* GetCastOptions(const Expression::Call& call) {
   if (call.function != "cast") return nullptr;
   return checked_cast<const compute::CastOptions*>(call.options.get());
 }
@@ -217,17 +217,17 @@ inline bool IsSetLookup(const std::string& function) {
 }
 
 inline const compute::SetLookupOptions* GetSetLookupOptions(
-    const Expression2::Call& call) {
+    const Expression::Call& call) {
   if (!IsSetLookup(call.function)) return nullptr;
   return checked_cast<const compute::SetLookupOptions*>(call.options.get());
 }
 
-inline const compute::StructOptions* GetStructOptions(const Expression2::Call& call) {
+inline const compute::StructOptions* GetStructOptions(const Expression::Call& call) {
   if (call.function != "struct") return nullptr;
   return checked_cast<const compute::StructOptions*>(call.options.get());
 }
 
-inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression2::Call& call) {
+inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {
   if (call.function != "strptime") return nullptr;
   return checked_cast<const compute::StrptimeOptions*>(call.options.get());
 }
@@ -256,7 +256,7 @@ inline Status EnsureNotDictionary(Datum* datum) {
   return Status::OK();
 }
 
-inline Status EnsureNotDictionary(Expression2::Call* call) {
+inline Status EnsureNotDictionary(Expression::Call* call) {
   if (auto options = GetSetLookupOptions(*call)) {
     auto new_options = *options;
     RETURN_NOT_OK(EnsureNotDictionary(&new_options.value_set));
@@ -266,7 +266,7 @@ inline Status EnsureNotDictionary(Expression2::Call* call) {
 }
 
 inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
-    const Expression2::Call& call) {
+    const Expression::Call& call) {
   if (call.options == nullptr) {
     return nullptr;
   }
@@ -318,7 +318,7 @@ inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
 }
 
 inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
-                                              Expression2::Call* call) {
+                                              Expression::Call* call) {
   if (repr == nullptr) {
     call->options = nullptr;
     return Status::OK();
@@ -359,9 +359,9 @@ inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
 
 struct FlattenedAssociativeChain {
   bool was_left_folded = true;
-  std::vector<Expression2> exprs, fringe;
+  std::vector<Expression> exprs, fringe;
 
-  explicit FlattenedAssociativeChain(Expression2 expr) : exprs{std::move(expr)} {
+  explicit FlattenedAssociativeChain(Expression expr) : exprs{std::move(expr)} {
     auto call = CallNotNull(exprs.back());
     fringe = call->arguments;
 
@@ -384,14 +384,14 @@ struct FlattenedAssociativeChain {
       // NB: no increment so we hit sub_call's first argument next iteration
     }
 
-    DCHECK(std::all_of(exprs.begin(), exprs.end(), [](const Expression2& expr) {
+    DCHECK(std::all_of(exprs.begin(), exprs.end(), [](const Expression& expr) {
       return CallNotNull(expr)->options == nullptr;
     }));
   }
 };
 
 inline Result<std::shared_ptr<compute::Function>> GetFunction(
-    const Expression2::Call& call, compute::ExecContext* exec_context) {
+    const Expression::Call& call, compute::ExecContext* exec_context) {
   if (call.function != "cast") {
     return exec_context->func_registry()->GetFunction(call.function);
   }
@@ -401,9 +401,9 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
 }
 
 template <typename PreVisit, typename PostVisitCall>
-Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
+Result<Expression> Modify(Expression expr, const PreVisit& pre,
                            const PostVisitCall& post_call) {
-  ARROW_ASSIGN_OR_RAISE(expr, Result<Expression2>(pre(std::move(expr))));
+  ARROW_ASSIGN_OR_RAISE(expr, Result<Expression>(pre(std::move(expr))));
 
   auto call = expr.call();
   if (!call) return expr;
@@ -423,8 +423,8 @@ Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
 
   if (at_least_one_modified) {
     // reconstruct the call expression with the modified arguments
-    auto modified_expr = Expression2(
-        std::make_shared<Expression2::Impl>(std::move(modified_call)), expr.descr());
+    auto modified_expr = Expression(
+        std::make_shared<Expression::Impl>(std::move(modified_call)), expr.descr());
 
     return post_call(std::move(modified_expr), &expr);
   }

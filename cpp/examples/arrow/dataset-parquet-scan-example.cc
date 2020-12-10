@@ -60,7 +60,7 @@ struct Configuration {
 
   // Indicates the filter by which rows will be filtered. This optimization can
   // make use of partition information and/or file metadata if possible.
-  ds::Expression2 filter =
+  ds::Expression filter =
       ds::greater(ds::field_ref("total_amount"), ds::literal(1000.0f));
 
   ds::InspectOptions inspect_options{};
@@ -146,7 +146,7 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(
 
 std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
-                                                   ds::Expression2 filter,
+                                                   ds::Expression filter,
                                                    bool use_threads) {
   auto scanner_builder = dataset->NewScan().ValueOrDie();
 

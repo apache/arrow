@@ -30,7 +30,7 @@
 namespace arrow {
 namespace dataset {
 
-inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression2 filter,
+inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
@@ -70,7 +70,7 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression2 partition)
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
       : ScanTask(task->options(), task->context()),
         task_(std::move(task)),
         partition_(std::move(partition)),
@@ -80,7 +80,7 @@ class FilterAndProjectScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
-    ARROW_ASSIGN_OR_RAISE(Expression2 simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(filter_, partition_));
 
     RecordBatchIterator filter_it =
@@ -94,8 +94,8 @@ class FilterAndProjectScanTask : public ScanTask {
 
  private:
   std::shared_ptr<ScanTask> task_;
-  Expression2 partition_;
-  Expression2 filter_;
+  Expression partition_;
+  Expression filter_;
   RecordBatchProjector projector_;
 };
 

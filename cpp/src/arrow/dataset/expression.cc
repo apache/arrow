@@ -39,17 +39,17 @@ using internal::checked_pointer_cast;
 
 namespace dataset {
 
-const Expression2::Call* Expression2::call() const {
+const Expression::Call* Expression::call() const {
   return util::get_if<Call>(impl_.get());
 }
 
-const Datum* Expression2::literal() const { return util::get_if<Datum>(impl_.get()); }
+const Datum* Expression::literal() const { return util::get_if<Datum>(impl_.get()); }
 
-const FieldRef* Expression2::field_ref() const {
+const FieldRef* Expression::field_ref() const {
   return util::get_if<FieldRef>(impl_.get());
 }
 
-std::string Expression2::ToString() const {
+std::string Expression::ToString() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
       return lit->scalar()->ToString();
@@ -118,14 +118,14 @@ std::string Expression2::ToString() const {
   return out;
 }
 
-void PrintTo(const Expression2& expr, std::ostream* os) {
+void PrintTo(const Expression& expr, std::ostream* os) {
   *os << expr.ToString();
   if (expr.IsBound()) {
     *os << "[bound]";
   }
 }
 
-bool Expression2::Equals(const Expression2& other) const {
+bool Expression::Equals(const Expression& other) const {
   if (Identical(*this, other)) return true;
 
   if (impl_->index() != other.impl_->index()) {
@@ -192,7 +192,7 @@ bool Expression2::Equals(const Expression2& other) const {
   return false;
 }
 
-size_t Expression2::hash() const {
+size_t Expression::hash() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
       return Scalar::Hash::hash(*lit->scalar());
@@ -213,7 +213,7 @@ size_t Expression2::hash() const {
   return out;
 }
 
-bool Expression2::IsBound() const {
+bool Expression::IsBound() const {
   if (descr_.type == nullptr) return false;
 
   if (auto lit = literal()) return true;
@@ -222,14 +222,14 @@ bool Expression2::IsBound() const {
 
   auto call = CallNotNull(*this);
 
-  for (const Expression2& arg : call->arguments) {
+  for (const Expression& arg : call->arguments) {
     if (!arg.IsBound()) return false;
   }
 
   return call->kernel != nullptr;
 }
 
-bool Expression2::IsScalarExpression() const {
+bool Expression::IsScalarExpression() const {
   if (auto lit = literal()) {
     return lit->is_scalar();
   }
@@ -239,7 +239,7 @@ bool Expression2::IsScalarExpression() const {
 
   auto call = CallNotNull(*this);
 
-  for (const Expression2& arg : call->arguments) {
+  for (const Expression& arg : call->arguments) {
     if (!arg.IsScalarExpression()) return false;
   }
 
@@ -259,7 +259,7 @@ bool Expression2::IsScalarExpression() const {
   return call->function_kind == compute::Function::SCALAR;
 }
 
-bool Expression2::IsNullLiteral() const {
+bool Expression::IsNullLiteral() const {
   if (auto lit = literal()) {
     if (lit->null_count() == lit->length()) {
       return true;
@@ -269,7 +269,7 @@ bool Expression2::IsNullLiteral() const {
   return false;
 }
 
-bool Expression2::IsSatisfiable() const {
+bool Expression::IsSatisfiable() const {
   if (descr_.type && descr_.type->id() == Type::NA) {
     return false;
   }
@@ -303,7 +303,7 @@ inline bool KernelStateIsImmutable(const std::string& function) {
 }
 
 Result<std::unique_ptr<compute::KernelState>> InitKernelState(
-    const Expression2::Call& call, compute::ExecContext* exec_context) {
+    const Expression::Call& call, compute::ExecContext* exec_context) {
   if (!call.kernel->init) return nullptr;
 
   compute::KernelContext kernel_context(exec_context);
@@ -314,7 +314,7 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
-Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression2* expr) {
+Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
   if (expr->descr().type->Equals(to_type)) {
     return Status::OK();
   }
@@ -334,15 +334,15 @@ Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression2* expr) {
 
   auto call_with_cast = *CallNotNull(with_cast);
   call_with_cast.arguments[0] = std::move(*expr);
-  *expr = Expression2(std::make_shared<Expression2::Impl>(std::move(call_with_cast)),
+  *expr = Expression(std::make_shared<Expression::Impl>(std::move(call_with_cast)),
                       ValueDescr{std::move(to_type), expr->descr().shape});
 
   return Status::OK();
 }
 
-Status InsertImplicitCasts(Expression2::Call* call) {
+Status InsertImplicitCasts(Expression::Call* call) {
   DCHECK(std::all_of(call->arguments.begin(), call->arguments.end(),
-                     [](const Expression2& argument) { return argument.IsBound(); }));
+                     [](const Expression& argument) { return argument.IsBound(); }));
 
   if (Comparison::Get(call->function)) {
     for (auto&& argument : call->arguments) {
@@ -389,7 +389,7 @@ Status InsertImplicitCasts(Expression2::Call* call) {
   return Status::OK();
 }
 
-Result<Expression2> Expression2::Bind(ValueDescr in,
+Result<Expression> Expression::Bind(ValueDescr in,
                                       compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
@@ -426,15 +426,15 @@ Result<Expression2> Expression2::Bind(ValueDescr in,
   ARROW_ASSIGN_OR_RAISE(auto descr, bound_call.kernel->signature->out_type().Resolve(
                                         &kernel_context, descrs));
 
-  return Expression2(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
+  return Expression(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
 }
 
-Result<Expression2> Expression2::Bind(const Schema& in_schema,
+Result<Expression> Expression::Bind(const Schema& in_schema,
                                       compute::ExecContext* exec_context) const {
   return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
 }
 
-Result<Datum> ExecuteScalarExpression(const Expression2& expr, const Datum& input,
+Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input,
                                       compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
@@ -489,12 +489,12 @@ Result<Datum> ExecuteScalarExpression(const Expression2& expr, const Datum& inpu
   return executor->WrapResults(arguments, listener->values());
 }
 
-std::array<std::pair<const Expression2&, const Expression2&>, 2>
-ArgumentsAndFlippedArguments(const Expression2::Call& call) {
+std::array<std::pair<const Expression&, const Expression&>, 2>
+ArgumentsAndFlippedArguments(const Expression::Call& call) {
   DCHECK_EQ(call.arguments.size(), 2);
-  return {std::pair<const Expression2&, const Expression2&>{call.arguments[0],
+  return {std::pair<const Expression&, const Expression&>{call.arguments[0],
                                                             call.arguments[1]},
-          std::pair<const Expression2&, const Expression2&>{call.arguments[1],
+          std::pair<const Expression&, const Expression&>{call.arguments[1],
                                                             call.arguments[0]}};
 }
 
@@ -511,14 +511,14 @@ util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
 }
 
 util::optional<compute::NullHandling::type> GetNullHandling(
-    const Expression2::Call& call) {
+    const Expression::Call& call) {
   if (call.function_kind == compute::Function::SCALAR) {
     return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
   }
   return util::nullopt;
 }
 
-bool DefinitelyNotNull(const Expression2& expr) {
+bool DefinitelyNotNull(const Expression& expr) {
   DCHECK(expr.IsBound());
 
   if (expr.literal()) {
@@ -541,7 +541,7 @@ bool DefinitelyNotNull(const Expression2& expr) {
   return false;
 }
 
-std::vector<FieldRef> FieldsInExpression(const Expression2& expr) {
+std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
   if (auto lit = expr.literal()) return {};
 
   if (auto ref = expr.field_ref()) {
@@ -549,20 +549,20 @@ std::vector<FieldRef> FieldsInExpression(const Expression2& expr) {
   }
 
   std::vector<FieldRef> fields;
-  for (const Expression2& arg : CallNotNull(expr)->arguments) {
+  for (const Expression& arg : CallNotNull(expr)->arguments) {
     auto argument_fields = FieldsInExpression(arg);
     std::move(argument_fields.begin(), argument_fields.end(), std::back_inserter(fields));
   }
   return fields;
 }
 
-Result<Expression2> FoldConstants(Expression2 expr) {
+Result<Expression> FoldConstants(Expression expr) {
   return Modify(
-      std::move(expr), [](Expression2 expr) { return expr; },
-      [](Expression2 expr, ...) -> Result<Expression2> {
+      std::move(expr), [](Expression expr) { return expr; },
+      [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
-                        [](const Expression2& argument) { return argument.literal(); })) {
+                        [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
           static const Datum ignored_input;
           ARROW_ASSIGN_OR_RAISE(Datum constant,
@@ -616,8 +616,8 @@ Result<Expression2> FoldConstants(Expression2 expr) {
       });
 }
 
-inline std::vector<Expression2> GuaranteeConjunctionMembers(
-    const Expression2& guaranteed_true_predicate) {
+inline std::vector<Expression> GuaranteeConjunctionMembers(
+    const Expression& guaranteed_true_predicate) {
   auto guarantee = guaranteed_true_predicate.call();
   if (!guarantee || guarantee->function != "and_kleene") {
     return {guaranteed_true_predicate};
@@ -628,11 +628,11 @@ inline std::vector<Expression2> GuaranteeConjunctionMembers(
 // Conjunction members which are represented in known_values are erased from
 // conjunction_members
 Status ExtractKnownFieldValuesImpl(
-    std::vector<Expression2>* conjunction_members,
+    std::vector<Expression>* conjunction_members,
     std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
   auto unconsumed_end =
       std::partition(conjunction_members->begin(), conjunction_members->end(),
-                     [](const Expression2& expr) {
+                     [](const Expression& expr) {
                        // search for an equality conditions between a field and a literal
                        auto call = expr.call();
                        if (!call) return true;
@@ -670,24 +670,24 @@ Status ExtractKnownFieldValuesImpl(
 }
 
 Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
-    const Expression2& guaranteed_true_predicate) {
+    const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
   return known_values;
 }
 
-Result<Expression2> ReplaceFieldsWithKnownValues(
+Result<Expression> ReplaceFieldsWithKnownValues(
     const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
-    Expression2 expr) {
+    Expression expr) {
   if (!expr.IsBound()) {
     return Status::Invalid(
-        "ReplaceFieldsWithKnownValues called on an unbound Expression2");
+        "ReplaceFieldsWithKnownValues called on an unbound Expression");
   }
 
   return Modify(
       std::move(expr),
-      [&known_values](Expression2 expr) -> Result<Expression2> {
+      [&known_values](Expression expr) -> Result<Expression> {
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
@@ -698,10 +698,10 @@ Result<Expression2> ReplaceFieldsWithKnownValues(
         }
         return expr;
       },
-      [](Expression2 expr, ...) { return expr; });
+      [](Expression expr, ...) { return expr; });
 }
 
-inline bool IsBinaryAssociativeCommutative(const Expression2::Call& call) {
+inline bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
   static std::unordered_set<std::string> binary_associative_commutative{
       "and",      "or",  "and_kleene",       "or_kleene",  "xor",
       "multiply", "add", "multiply_checked", "add_checked"};
@@ -710,7 +710,7 @@ inline bool IsBinaryAssociativeCommutative(const Expression2::Call& call) {
   return it != binary_associative_commutative.end();
 }
 
-Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_context) {
+Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Canonicalize(std::move(expr), &exec_context);
@@ -720,20 +720,20 @@ Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_co
   // (for example, when reorganizing an associative chain), add expressions to this set to
   // avoid unnecessary work
   struct {
-    std::unordered_set<Expression2, Expression2::Hash> set_;
+    std::unordered_set<Expression, Expression::Hash> set_;
 
-    bool operator()(const Expression2& expr) const {
+    bool operator()(const Expression& expr) const {
       return set_.find(expr) != set_.end();
     }
 
-    void Add(std::vector<Expression2> exprs) {
+    void Add(std::vector<Expression> exprs) {
       std::move(exprs.begin(), exprs.end(), std::inserter(set_, set_.end()));
     }
   } AlreadyCanonicalized;
 
   return Modify(
       std::move(expr),
-      [&AlreadyCanonicalized, exec_context](Expression2 expr) -> Result<Expression2> {
+      [&AlreadyCanonicalized, exec_context](Expression expr) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
 
@@ -741,13 +741,13 @@ Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_co
 
         if (IsBinaryAssociativeCommutative(*call)) {
           struct {
-            int Priority(const Expression2& operand) const {
+            int Priority(const Expression& operand) const {
               // order literals first, starting with nulls
               if (operand.IsNullLiteral()) return 0;
               if (operand.literal()) return 1;
               return 2;
             }
-            bool operator()(const Expression2& l, const Expression2& r) const {
+            bool operator()(const Expression& l, const Expression& r) const {
               return Priority(l) < Priority(r);
             }
           } CanonicalOrdering;
@@ -766,10 +766,10 @@ Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_co
           const auto& descr = expr.descr();
           auto folded = FoldLeft(
               chain.fringe.begin(), chain.fringe.end(),
-              [call, &descr, &AlreadyCanonicalized](Expression2 l, Expression2 r) {
+              [call, &descr, &AlreadyCanonicalized](Expression l, Expression r) {
                 auto ret = *call;
                 ret.arguments = {std::move(l), std::move(r)};
-                Expression2 expr(std::make_shared<Expression2::Impl>(std::move(ret)),
+                Expression expr(std::make_shared<Expression::Impl>(std::move(ret)),
                                  descr);
                 AlreadyCanonicalized.Add({expr});
                 return expr;
@@ -792,22 +792,22 @@ Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_co
             ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
 
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
-            return Expression2(
-                std::make_shared<Expression2::Impl>(std::move(flipped_call)),
+            return Expression(
+                std::make_shared<Expression::Impl>(std::move(flipped_call)),
                 expr.descr());
           }
         }
 
         return expr;
       },
-      [](Expression2 expr, ...) { return expr; });
+      [](Expression expr, ...) { return expr; });
 }
 
-Result<Expression2> DirectComparisonSimplification(Expression2 expr,
-                                                   const Expression2::Call& guarantee) {
+Result<Expression> DirectComparisonSimplification(Expression expr,
+                                                   const Expression::Call& guarantee) {
   return Modify(
-      std::move(expr), [](Expression2 expr) { return expr; },
-      [&guarantee](Expression2 expr, ...) -> Result<Expression2> {
+      std::move(expr), [](Expression expr) { return expr; },
+      [&guarantee](Expression expr, ...) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
 
@@ -861,8 +861,8 @@ Result<Expression2> DirectComparisonSimplification(Expression2 expr,
       });
 }
 
-Result<Expression2> SimplifyWithGuarantee(Expression2 expr,
-                                          const Expression2& guaranteed_true_predicate) {
+Result<Expression> SimplifyWithGuarantee(Expression expr,
+                                          const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
@@ -896,7 +896,7 @@ Result<Expression2> SimplifyWithGuarantee(Expression2 expr,
 // Serialization is accomplished by converting expressions to KeyValueMetadata and storing
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
 // columns. Finally, the RecordBatch is written to an IPC file.
-Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
+Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
   struct {
     std::shared_ptr<KeyValueMetadata> metadata_ = std::make_shared<KeyValueMetadata>();
     ArrayVector columns_;
@@ -908,7 +908,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
       return std::to_string(ret);
     }
 
-    Status Visit(const Expression2& expr) {
+    Status Visit(const Expression& expr) {
       if (auto lit = expr.literal()) {
         if (!lit->is_scalar()) {
           return Status::NotImplemented("Serialization of non-scalar literals");
@@ -943,7 +943,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
       return Status::OK();
     }
 
-    Result<std::shared_ptr<RecordBatch>> operator()(const Expression2& expr) {
+    Result<std::shared_ptr<RecordBatch>> operator()(const Expression& expr) {
       RETURN_NOT_OK(Visit(expr));
       FieldVector fields(columns_.size());
       for (size_t i = 0; i < fields.size(); ++i) {
@@ -962,16 +962,16 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression2& expr) {
   return stream->Finish();
 }
 
-Result<Expression2> Deserialize(const Buffer& buffer) {
+Result<Expression> Deserialize(const Buffer& buffer) {
   io::BufferReader stream(buffer);
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
   if (batch->schema()->metadata() == nullptr) {
-    return Status::Invalid("serialized Expression2's batch repr had null metadata");
+    return Status::Invalid("serialized Expression's batch repr had null metadata");
   }
   if (batch->num_rows() != 1) {
     return Status::Invalid(
-        "serialized Expression2's batch repr was not a single row - had ",
+        "serialized Expression's batch repr was not a single row - had ",
         batch->num_rows());
   }
 
@@ -992,9 +992,9 @@ Result<Expression2> Deserialize(const Buffer& buffer) {
       return batch_.column(column_index)->GetScalar(0);
     }
 
-    Result<Expression2> GetOne() {
+    Result<Expression> GetOne() {
       if (index_ >= metadata().size()) {
-        return Status::Invalid("unterminated serialized Expression2");
+        return Status::Invalid("unterminated serialized Expression");
       }
 
       const std::string& key = metadata().key(index_);
@@ -1011,17 +1011,17 @@ Result<Expression2> Deserialize(const Buffer& buffer) {
       }
 
       if (key != "call") {
-        return Status::Invalid("Unrecognized serialized Expression2 key ", key);
+        return Status::Invalid("Unrecognized serialized Expression key ", key);
       }
 
-      std::vector<Expression2> arguments;
+      std::vector<Expression> arguments;
       while (metadata().key(index_) != "end") {
         if (metadata().key(index_) == "options") {
           ARROW_ASSIGN_OR_RAISE(auto options_scalar, GetScalar(metadata().value(index_)));
           auto expr = call(value, std::move(arguments));
           RETURN_NOT_OK(FunctionOptionsFromStructScalar(
               checked_cast<const StructScalar*>(options_scalar.get()),
-              const_cast<Expression2::Call*>(expr.call())));
+              const_cast<Expression::Call*>(expr.call())));
           index_ += 2;
           return expr;
         }
@@ -1038,40 +1038,40 @@ Result<Expression2> Deserialize(const Buffer& buffer) {
   return FromRecordBatch{*batch, 0}.GetOne();
 }
 
-Expression2 project(std::vector<Expression2> values, std::vector<std::string> names) {
+Expression project(std::vector<Expression> values, std::vector<std::string> names) {
   return call("struct", std::move(values), compute::StructOptions{std::move(names)});
 }
 
-Expression2 equal(Expression2 lhs, Expression2 rhs) {
+Expression equal(Expression lhs, Expression rhs) {
   return call("equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 not_equal(Expression2 lhs, Expression2 rhs) {
+Expression not_equal(Expression lhs, Expression rhs) {
   return call("not_equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 less(Expression2 lhs, Expression2 rhs) {
+Expression less(Expression lhs, Expression rhs) {
   return call("less", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 less_equal(Expression2 lhs, Expression2 rhs) {
+Expression less_equal(Expression lhs, Expression rhs) {
   return call("less_equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 greater(Expression2 lhs, Expression2 rhs) {
+Expression greater(Expression lhs, Expression rhs) {
   return call("greater", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 greater_equal(Expression2 lhs, Expression2 rhs) {
+Expression greater_equal(Expression lhs, Expression rhs) {
   return call("greater_equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 and_(Expression2 lhs, Expression2 rhs) {
+Expression and_(Expression lhs, Expression rhs) {
   return call("and_kleene", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 and_(const std::vector<Expression2>& operands) {
-  auto folded = FoldLeft<Expression2(Expression2, Expression2)>(operands.begin(),
+Expression and_(const std::vector<Expression>& operands) {
+  auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
                                                                 operands.end(), and_);
   if (folded) {
     return std::move(*folded);
@@ -1079,12 +1079,12 @@ Expression2 and_(const std::vector<Expression2>& operands) {
   return literal(true);
 }
 
-Expression2 or_(Expression2 lhs, Expression2 rhs) {
+Expression or_(Expression lhs, Expression rhs) {
   return call("or_kleene", {std::move(lhs), std::move(rhs)});
 }
 
-Expression2 or_(const std::vector<Expression2>& operands) {
-  auto folded = FoldLeft<Expression2(Expression2, Expression2)>(operands.begin(),
+Expression or_(const std::vector<Expression>& operands) {
+  auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
                                                                 operands.end(), or_);
   if (folded) {
     return std::move(*folded);
@@ -1092,13 +1092,13 @@ Expression2 or_(const std::vector<Expression2>& operands) {
   return literal(false);
 }
 
-Expression2 not_(Expression2 operand) { return call("invert", {std::move(operand)}); }
+Expression not_(Expression operand) { return call("invert", {std::move(operand)}); }
 
-Expression2 operator&&(Expression2 lhs, Expression2 rhs) {
+Expression operator&&(Expression lhs, Expression rhs) {
   return and_(std::move(lhs), std::move(rhs));
 }
 
-Expression2 operator||(Expression2 lhs, Expression2 rhs) {
+Expression operator||(Expression lhs, Expression rhs) {
   return or_(std::move(lhs), std::move(rhs));
 }
 

@@ -124,7 +124,7 @@ static Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
   return manifest;
 }
 
-static util::optional<Expression2> ColumnChunkStatisticsAsExpression(
+static util::optional<Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
@@ -331,7 +331,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
 }
 
 Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, Expression2 partition_expression,
+    FileSource source, Expression partition_expression,
     std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups) {
   return std::shared_ptr<ParquetFileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
@@ -339,7 +339,7 @@ Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, Expression2 partition_expression,
+    FileSource source, Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
@@ -394,7 +394,7 @@ Status ParquetFileWriter::Finish() { return parquet_writer_->Close(); }
 
 ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<FileFormat> format,
-                                         Expression2 partition_expression,
+                                         Expression partition_expression,
                                          std::shared_ptr<Schema> physical_schema,
                                          util::optional<std::vector<int>> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
@@ -456,7 +456,7 @@ Status ParquetFileFragment::SetMetadata(
   return Status::OK();
 }
 
-Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression2 predicate) {
+Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
 
@@ -474,7 +474,7 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression2 predicat
   return fragments;
 }
 
-Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(Expression2 predicate) {
+Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(Expression predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
   return Subset(std::move(row_groups));
@@ -491,7 +491,7 @@ Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
   return new_fragment;
 }
 
-inline void FoldingAnd(Expression2* l, Expression2 r) {
+inline void FoldingAnd(Expression* l, Expression r) {
   if (*l == literal(true)) {
     *l = std::move(r);
   } else {
@@ -499,7 +499,7 @@ inline void FoldingAnd(Expression2* l, Expression2 r) {
   }
 }
 
-Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression2 predicate) {
+Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression predicate) {
   auto lock = physical_schema_mutex_.Lock();
 
   DCHECK_NE(metadata_, nullptr);

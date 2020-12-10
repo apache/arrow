@@ -63,7 +63,7 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<ScanOptions> ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Filter
-  Expression2 filter2 = literal(true);
+  Expression filter2 = literal(true);
 
   // Schema to which record batches will be reconciled
   const std::shared_ptr<Schema>& schema() const { return projector.schema(); }
@@ -220,7 +220,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(const Expression2& filter);
+  Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanContext;

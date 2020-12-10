@@ -50,11 +50,11 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<Expression2> Parse(const std::string& path) const override {
+    Result<Expression> Parse(const std::string& path) const override {
       return literal(true);
     }
 
-    Result<std::string> Format(const Expression2& expr) const override {
+    Result<std::string> Format(const Expression& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
@@ -68,7 +68,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression2& expr,
+Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
                                                       RecordBatchProjector* projector) {
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values) {
@@ -85,9 +85,9 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression2& expr,
   return Status::OK();
 }
 
-inline Expression2 ConjunctionFromGroupingRow(Scalar* row) {
+inline Expression ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
-  std::vector<Expression2> equality_expressions(values->size());
+  std::vector<Expression> equality_expressions(values->size());
   for (size_t i = 0; i < values->size(); ++i) {
     const std::string& name = row->type->field(static_cast<int>(i))->name();
     equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
@@ -135,7 +135,7 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   return out;
 }
 
-Result<Expression2> KeyValuePartitioning::ConvertKey(const Key& key) const {
+Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
   if (!match) {
     return literal(true);
@@ -178,8 +178,8 @@ Result<Expression2> KeyValuePartitioning::ConvertKey(const Key& key) const {
   return equal(field_ref(field->name()), literal(std::move(converted)));
 }
 
-Result<Expression2> KeyValuePartitioning::Parse(const std::string& path) const {
-  std::vector<Expression2> expressions;
+Result<Expression> KeyValuePartitioning::Parse(const std::string& path) const {
+  std::vector<Expression> expressions;
 
   for (const Key& key : ParseKeys(path)) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
@@ -190,7 +190,7 @@ Result<Expression2> KeyValuePartitioning::Parse(const std::string& path) const {
   return and_(std::move(expressions));
 }
 
-Result<std::string> KeyValuePartitioning::Format(const Expression2& expr) const {
+Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
   std::vector<Scalar*> values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
