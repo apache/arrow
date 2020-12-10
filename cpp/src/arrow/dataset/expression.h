@@ -70,8 +70,7 @@ class ARROW_DS_EXPORT Expression {
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
   Result<Expression> Bind(ValueDescr in, compute::ExecContext* = NULLPTR) const;
-  Result<Expression> Bind(const Schema& in_schema,
-                           compute::ExecContext* = NULLPTR) const;
+  Result<Expression> Bind(const Schema& in_schema, compute::ExecContext* = NULLPTR) const;
 
   // XXX someday
   // Clone all KernelState in this bound expression. If any function referenced by this
@@ -124,14 +123,12 @@ class ARROW_DS_EXPORT Expression {
 };
 
 inline bool operator==(const Expression& l, const Expression& r) { return l.Equals(r); }
-inline bool operator!=(const Expression& l, const Expression& r) {
-  return !l.Equals(r);
-}
+inline bool operator!=(const Expression& l, const Expression& r) { return !l.Equals(r); }
 
 // Factories
 
 inline Expression call(std::string function, std::vector<Expression> arguments,
-                        std::shared_ptr<compute::FunctionOptions> options = NULLPTR) {
+                       std::shared_ptr<compute::FunctionOptions> options = NULLPTR) {
   Expression::Call call;
   call.function = std::move(function);
   call.arguments = std::move(arguments);
@@ -142,7 +139,7 @@ inline Expression call(std::string function, std::vector<Expression> arguments,
 template <typename Options, typename = typename std::enable_if<std::is_base_of<
                                 compute::FunctionOptions, Options>::value>::type>
 Expression call(std::string function, std::vector<Expression> arguments,
-                 Options options) {
+                Options options) {
   return call(std::move(function), std::move(arguments),
               std::make_shared<Options>(std::move(options)));
 }
@@ -157,8 +154,11 @@ template <typename Arg>
 Expression literal(Arg&& arg) {
   Datum lit(std::forward<Arg>(arg));
   ValueDescr descr = lit.descr();
-  return Expression(std::make_shared<Expression::Impl>(std::move(lit)),
-                     std::move(descr));
+  return Expression(std::make_shared<Expression::Impl>(std::move(lit)), std::move(descr));
+}
+
+inline Expression literal(std::shared_ptr<Scalar> scalar) {
+  return literal(Datum(std::move(scalar)));
 }
 
 ARROW_DS_EXPORT
@@ -172,8 +172,7 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
 ///
 /// @{
 ///
-/// These operate on a bound expression and its bound state simultaneously,
-/// ensuring that Call Expressions' KernelState can be utilized or reassociated.
+/// These operate on bound expressions.
 
 /// Weak canonicalization which establishes guarantees for subsequent passes. Even
 /// equivalent Expressions may result in different canonicalized expressions.
@@ -197,7 +196,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(
 /// reference to a constant-value field with a literal.
 ARROW_DS_EXPORT
 Result<Expression> SimplifyWithGuarantee(Expression,
-                                          const Expression& guaranteed_true_predicate);
+                                         const Expression& guaranteed_true_predicate);
 
 /// @}
 
@@ -219,7 +218,7 @@ Result<Expression> Deserialize(const Buffer&);
 // Convenience aliases for factories
 
 ARROW_DS_EXPORT Expression project(std::vector<Expression> values,
-                                    std::vector<std::string> names);
+                                   std::vector<std::string> names);
 
 ARROW_DS_EXPORT Expression equal(Expression lhs, Expression rhs);
 

@@ -191,7 +191,7 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(
       arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
-  return from_datum(out);
+  return from_datum(std::move(out));
 }
 
 #endif
