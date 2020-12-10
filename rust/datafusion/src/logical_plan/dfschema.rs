@@ -251,8 +251,8 @@ impl ToDFSchema for Schema {
 
 impl ToDFSchema for SchemaRef {
     fn to_dfschema(self) -> Result<DFSchema> {
-        // attempt to use the Schema the Arc wraps, and only if if
-        // that is not possible clone the Arc
+        // Attempt to use the Schema directly if there are no other
+        // references, otherwise clone
         match Self::try_unwrap(self) {
             Ok(schema) => DFSchema::try_from(schema),
             Err(schemaref) => DFSchema::try_from(schemaref.as_ref().clone()),
