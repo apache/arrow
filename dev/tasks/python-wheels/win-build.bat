@@ -68,6 +68,7 @@ cmake -A "%ARCH%" ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DMSVC_LINK_VERBOSE=ON ^
       .. || exit /B
 cmake ^
   --build . ^
