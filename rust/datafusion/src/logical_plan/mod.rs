@@ -31,7 +31,7 @@ mod plan;
 mod registry;
 
 pub use builder::LogicalPlanBuilder;
-pub use dfschema::{DFField, DFSchema, DFSchemaRef};
+pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;
 pub use expr::{
     abs, acos, and, array, asin, atan, avg, binary_expr, case, ceil, col, concat, cos,
