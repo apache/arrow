@@ -1321,5 +1321,150 @@ TEST_F(TestVarStdKernelIntegerLength, Basics) {
 }
 #endif
 
+//
+// Quantile
+//
+
+template <typename ArrowType>
+class TestPrimitiveQuantileKernel : public ::testing::Test {
+ public:
+  using Traits = TypeTraits<ArrowType>;
+
+  void AssertQuantilesAre(const Datum& array, QuantileOptions options,
+                          const std::vector<std::vector<double>>& expected) {
+    ASSERT_EQ(options.q.size(), expected.size());
+
+    for (size_t i = 0; i < this->interpolations.size(); ++i) {
+      options.interpolation = this->interpolations[i];
+
+      ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
+      const auto& out_array = out.make_array();
+      ASSERT_OK(out_array->ValidateFull());
+      ASSERT_EQ(out_array->length(), options.q.size());
+      ASSERT_EQ(out_array->null_count(), 0);
+
+      const double* quantiles = out_array->data()->GetValues<double>(1);
+      for (int64_t j = 0; j < out_array->length(); ++j) {
+        ASSERT_EQ(quantiles[j], expected[j][i]);
+      }
+    }
+  }
+
+  void AssertQuantilesAre(const std::string& json, const std::vector<double>& q,
+                          const std::vector<std::vector<double>>& expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantilesAre(array, QuantileOptions{q}, expected);
+  }
+
+  void AssertQuantilesAre(const std::vector<std::string>& json,
+                          const std::vector<double>& q,
+                          const std::vector<std::vector<double>>& expected) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantilesAre(chunked, QuantileOptions{q}, expected);
+  }
+
+  void AssertQuantileIs(const Datum& array, double q,
+                        const std::vector<double>& expected) {
+    AssertQuantilesAre(array, QuantileOptions{q}, {expected});
+  }
+
+  void AssertQuantileIs(const std::string& json, double q,
+                        const std::vector<double>& expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantileIs(array, q, expected);
+  }
+
+  void AssertQuantileIs(const std::vector<std::string>& json, double q,
+                        const std::vector<double>& expected) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantileIs(chunked, q, expected);
+  }
+
+  void AssertQuantilesEmpty(const Datum& array, const std::vector<double>& q) {
+    QuantileOptions options{q};
+    for (auto interpolation : this->interpolations) {
+      options.interpolation = interpolation;
+      ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
+      ASSERT_OK(out.make_array()->ValidateFull());
+      ASSERT_EQ(out.array()->length, 0);
+    }
+  }
+
+  void AssertQuantilesEmpty(const std::string& json, const std::vector<double>& q) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertQuantilesEmpty(array, q);
+  }
+
+  void AssertQuantilesEmpty(const std::vector<std::string>& json,
+                            const std::vector<double>& q) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertQuantilesEmpty(chunked, q);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
+  std::vector<enum QuantileOptions::Interpolation> interpolations{
+      QuantileOptions::LINEAR, QuantileOptions::LOWER, QuantileOptions::HIGHER,
+      QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
+};
+
+template <typename ArrowType>
+class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+TYPED_TEST_SUITE(TestIntegerQuantileKernel, IntegralArrowTypes);
+TYPED_TEST(TestIntegerQuantileKernel, Basics) {
+  // reference values from numpy
+  // ordered by interpolation method: {linear, lower, higher, nearest, midpoint}
+  this->AssertQuantileIs("[1, 2]", 0.5, {1.5, 1, 2, 1, 1.5});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.5, {3, 3, 3, 3, 3});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.33, {1.98, 1, 2, 2, 1.5});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.9, {8.4, 8, 9, 8, 8.5});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, {0, 0, 0, 0, 0});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, {9, 9, 9, 9, 9});
+  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {0.5, 0.9},
+                           {{3, 3, 3, 3, 3}, {8.4, 8, 9, 8, 8.5}});
+
+  this->AssertQuantileIs("[5, null, null, 3, 9, null, 8, 1, 2, 0]", 0.21,
+                         {1.26, 1, 2, 1, 1.5});
+  this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.5, 0.9},
+                           {{3, 3, 3, 3, 3}, {8.4, 8, 9, 8, 8.5}});
+
+  this->AssertQuantileIs({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"}, 0.33,
+                         {1.98, 1, 2, 2, 1.5});
+  this->AssertQuantilesAre({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"},
+                           {0.21, 1}, {{1.26, 1, 2, 1, 1.5}, {9, 9, 9, 9, 9}});
+
+  this->AssertQuantilesEmpty("[]", {0.5});
+  this->AssertQuantilesEmpty("[null, null, null]", {0.1, 0.2});
+  this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
+}
+
+TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
+TYPED_TEST(TestFloatingQuantileKernel, Floats) {
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, {4.5, 2, 7, 2, 4.5});
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
+                         {-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY});
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.9,
+                         {INFINITY, 11, INFINITY, 11, INFINITY});
+  this->AssertQuantilesAre("[-9, 7, Inf, -Inf, 2, 11]", {0.3, 0.6},
+                           {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+
+  this->AssertQuantileIs("[NaN, -9, 7, Inf, null, null, -Inf, NaN, 2, 11]", 0.5,
+                         {4.5, 2, 7, 2, 4.5});
+  this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.3, 0.6},
+                           {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+
+  this->AssertQuantileIs({"[NaN, -9, 7, Inf]", "[null, NaN]", "[-Inf, NaN, 2, 11]"}, 0.5,
+                         {4.5, 2, 7, 2, 4.5});
+  this->AssertQuantilesAre({"[null, -9, 7, Inf]", "[NaN, NaN]", "[-Inf, null, 2, 11]"},
+                           {0.3, 0.6}, {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+
+  this->AssertQuantilesEmpty("[]", {0.5, 0.6});
+  this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
+  this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
+}
+
 }  // namespace compute
 }  // namespace arrow
