@@ -23,7 +23,6 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"

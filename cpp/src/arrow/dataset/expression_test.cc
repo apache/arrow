@@ -216,46 +216,42 @@ TEST(Expression2, BindLiteral) {
   }
 }
 
+void ExpectBindsTo(Expression2 expr, Expression2 expected,
+                   Expression2* bound_out = nullptr) {
+  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+  EXPECT_TRUE(bound.IsBound());
+
+  ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*kBoringSchema));
+  EXPECT_EQ(bound, expected) << " unbound: " << expr.ToString();
+
+  if (bound_out) {
+    *bound_out = bound;
+  }
+}
+
 TEST(Expression2, BindFieldRef) {
   // an unbound field_ref does not have the output ValueDescr set
-  {
-    auto expr = field_ref("alpha");
-    EXPECT_EQ(expr.descr(), ValueDescr{});
-    EXPECT_FALSE(expr.IsBound());
-  }
+  auto expr = field_ref("alpha");
+  EXPECT_EQ(expr.descr(), ValueDescr{});
+  EXPECT_FALSE(expr.IsBound());
 
-  {
-    auto expr = field_ref("alpha");
-    // binding a field_ref looks up that field's type in the input Schema
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({field("alpha", int32())})));
-    EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
-    EXPECT_TRUE(expr.IsBound());
-  }
+  ExpectBindsTo(field_ref("i32"), field_ref("i32"), &expr);
+  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
-  {
-    // if the field is not found, a null scalar will be emitted
-    auto expr = field_ref("alpha");
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({})));
-    EXPECT_EQ(expr.descr(), ValueDescr::Scalar(null()));
-    EXPECT_TRUE(expr.IsBound());
-  }
+  // if the field is not found, a null scalar will be emitted
+  ExpectBindsTo(field_ref("no such field"), field_ref("no such field"), &expr);
+  EXPECT_EQ(expr.descr(), ValueDescr::Scalar(null()));
 
-  {
-    // referencing a field by name is not supported if that name is not unique
-    // in the input schema
-    auto expr = field_ref("alpha");
-    ASSERT_RAISES(
-        Invalid, expr.Bind(Schema({field("alpha", int32()), field("alpha", float32())})));
-  }
+  // referencing a field by name is not supported if that name is not unique
+  // in the input schema
+  ASSERT_RAISES(Invalid, field_ref("alpha").Bind(Schema(
+                             {field("alpha", int32()), field("alpha", float32())})));
 
-  {
-    // referencing nested fields is supported
-    auto expr = field_ref("a", "b");
-    ASSERT_OK_AND_ASSIGN(expr,
-                         expr.Bind(Schema({field("a", struct_({field("b", int32())}))})));
-    EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
-    EXPECT_TRUE(expr.IsBound());
-  }
+  // referencing nested fields is supported
+  ASSERT_OK_AND_ASSIGN(expr, field_ref("a", "b").Bind(
+                                 Schema({field("a", struct_({field("b", int32())}))})));
+  EXPECT_TRUE(expr.IsBound());
+  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 }
 
 TEST(Expression2, BindCall) {
@@ -275,53 +271,32 @@ TEST(Expression2, BindCall) {
 TEST(Expression2, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to same type
-    ASSERT_OK_AND_ASSIGN(auto expr,
-                         cmp(field_ref("i32"), field_ref("i64")).Bind(*kBoringSchema));
-
+    ExpectBindsTo(cmp(field_ref("i32"), field_ref("i64")),
+                  cmp(field_ref("i32"), cast(field_ref("i64"), int32())));
     // NB: RHS is cast unless LHS is scalar.
-    ASSERT_OK_AND_ASSIGN(
-        auto expected,
-        cmp(field_ref("i32"), cast(field_ref("i64"), int32())).Bind(*kBoringSchema));
-
-    EXPECT_EQ(expr, expected);
 
     // cast dictionary to value type
-    ASSERT_OK_AND_ASSIGN(
-        expr, cmp(field_ref("dict_str"), field_ref("str")).Bind(*kBoringSchema));
-
-    ASSERT_OK_AND_ASSIGN(
-        expected,
-        cmp(cast(field_ref("dict_str"), utf8()), field_ref("str")).Bind(*kBoringSchema));
-
-    EXPECT_EQ(expr, expected);
+    ExpectBindsTo(cmp(field_ref("dict_str"), field_ref("str")),
+                  cmp(cast(field_ref("dict_str"), utf8()), field_ref("str")));
   }
+
+  // scalars are directly cast when possible:
+  ExpectBindsTo(
+      equal(field_ref("ts_ns"), literal("1990-10-23 10:23:33")),
+      equal(field_ref("ts_ns"),
+            literal(
+                *MakeScalar("1990-10-23 10:23:33")->CastTo(timestamp(TimeUnit::NANO)))));
 
   // cast value_set to argument type
   auto Opts = [](std::shared_ptr<DataType> type) {
     return compute::SetLookupOptions{ArrayFromJSON(type, R"(["a"])")};
   };
-  ASSERT_OK_AND_ASSIGN(
-      auto expr, call("is_in", {field_ref("str")}, Opts(binary())).Bind(*kBoringSchema));
-  ASSERT_OK_AND_ASSIGN(
-      auto expected,
-      call("is_in", {field_ref("str")}, Opts(utf8())).Bind(*kBoringSchema));
-
-  EXPECT_EQ(expr, expected);
+  ExpectBindsTo(call("is_in", {field_ref("str")}, Opts(binary())),
+                call("is_in", {field_ref("str")}, Opts(utf8())));
 
   // dictionary decode set then cast to argument type
-  ASSERT_OK_AND_ASSIGN(
-      expr, call("is_in", {field_ref("str")}, Opts(dictionary(int32(), binary())))
-                .Bind(*kBoringSchema));
-
-  EXPECT_EQ(expr, expected);
-}
-
-TEST(Expression2, BindDictionaryTransparent) {
-  ASSERT_OK_AND_ASSIGN(
-      auto expr, equal(field_ref("str"), field_ref("dict_str")).Bind(*kBoringSchema));
-
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(boolean()));
-  EXPECT_TRUE(expr.IsBound());
+  ExpectBindsTo(call("is_in", {field_ref("str")}, Opts(dictionary(int32(), binary()))),
+                call("is_in", {field_ref("str")}, Opts(utf8())));
 }
 
 TEST(Expression2, BindNestedCall) {

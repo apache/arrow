@@ -33,7 +33,6 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -59,36 +58,8 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
     field("str", utf8()),
     field("dict_str", dictionary(int32(), utf8())),
+    field("ts_ns", timestamp(TimeUnit::NANO)),
 });
-
-inline namespace string_literals {
-// clang-format off
-inline FieldExpression operator"" _(const char* name, size_t name_length) {
-  // clang-format on
-  return FieldExpression({name, name_length});
-}
-}  // namespace string_literals
-
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                   \
-  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<  \
-                            Expression, typename std::decay<T>::type>::value>::type> \
-  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                 \
-    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(),                   \
-                                scalar(std::forward<T>(rhs)));                       \
-  }                                                                                  \
-                                                                                     \
-  inline ComparisonExpression operator OP(const Expression& lhs,                     \
-                                          const Expression& rhs) {                   \
-    return ComparisonExpression(CompareOperator::NAME, lhs.Copy(), rhs.Copy());      \
-  }
-
-COMPARISON_FACTORY(EQUAL, equal, ==)
-COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
-COMPARISON_FACTORY(GREATER, greater, >)
-COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
-COMPARISON_FACTORY(LESS, less, <)
-COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
-#undef COMPARISON_FACTORY
 
 using fs::internal::GetAbstractPathExtension;
 using internal::checked_cast;

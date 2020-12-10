@@ -23,7 +23,6 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"

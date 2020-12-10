@@ -159,19 +159,19 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   std::vector<Expression2> partitions = {
       equal(field_ref("state"), literal("NY")),
 
-      equal(field_ref("state"), literal("NY")) and
-          equal(field_ref("city"), literal("New York")),
+      and_(equal(field_ref("state"), literal("NY")),
+           equal(field_ref("city"), literal("New York"))),
 
-      equal(field_ref("state"), literal("NY")) and
-          equal(field_ref("city"), literal("Franklin")),
+      and_(equal(field_ref("state"), literal("NY")),
+           equal(field_ref("city"), literal("Franklin"))),
 
       equal(field_ref("state"), literal("CA")),
 
-      equal(field_ref("state"), literal("CA")) and
-          equal(field_ref("city"), literal("San Francisco")),
+      and_(equal(field_ref("state"), literal("CA")),
+           equal(field_ref("city"), literal("San Francisco"))),
 
-      equal(field_ref("state"), literal("CA")) and
-          equal(field_ref("city"), literal("Franklin")),
+      and_(equal(field_ref("state"), literal("CA")),
+           equal(field_ref("city"), literal("Franklin"))),
   };
 
   MakeDataset(
@@ -215,19 +215,19 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
   std::vector<Expression2> partitions = {
       equal(field_ref("state"), literal("NY")),
 
-      equal(field_ref("state"), literal("NY")) and
-          equal(field_ref("city"), literal("New York")),
+      and_(equal(field_ref("state"), literal("NY")),
+           equal(field_ref("city"), literal("New York"))),
 
-      equal(field_ref("state"), literal("NY")) and
-          equal(field_ref("city"), literal("Franklin")),
+      and_(equal(field_ref("state"), literal("NY")),
+           equal(field_ref("city"), literal("Franklin"))),
 
       equal(field_ref("state"), literal("CA")),
 
-      equal(field_ref("state"), literal("CA")) and
-          equal(field_ref("city"), literal("San Francisco")),
+      and_(equal(field_ref("state"), literal("CA")),
+           equal(field_ref("city"), literal("San Francisco"))),
 
-      equal(field_ref("state"), literal("CA")) and
-          equal(field_ref("city"), literal("Franklin")),
+      and_(equal(field_ref("state"), literal("CA")),
+           equal(field_ref("city"), literal("Franklin"))),
   };
 
   MakeDataset(

@@ -702,8 +702,10 @@ TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
   //   when some of the columns may not be materialized
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
   ASSERT_OK(scan_builder->Project({"phy_2", "phy_3", "phy_4"}));
-  ASSERT_OK(scan_builder->Filter(("part_df"_ == 1 && "phy_2"_ == 211) ||
-                                 ("part_ds"_ == 2 && "phy_4"_ != 422)));
+  ASSERT_OK(scan_builder->Filter(or_(and_(equal(field_ref("part_df"), literal(1)),
+                                          equal(field_ref("phy_2"), literal(211))),
+                                     and_(equal(field_ref("part_ds"), literal(2)),
+                                          not_equal(field_ref("phy_4"), literal(422))))));
 
   using TupleType = std::tuple<i32, i32, i32>;
   std::vector<TupleType> rows = {
@@ -734,7 +736,7 @@ TEST_F(TestSchemaUnification, SelectPartitionColumns) {
 TEST_F(TestSchemaUnification, SelectPartitionColumnsFilterPhysicalColumn) {
   // Selects re-ordered virtual columns with a filter on a physical columns
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
-  ASSERT_OK(scan_builder->Filter("phy_1"_ == 111));
+  ASSERT_OK(scan_builder->Filter(equal(field_ref("phy_1"), literal(111))));
 
   ASSERT_OK(scan_builder->Project({"part_df", "part_ds"}));
   using TupleType = std::tuple<i32, i32>;
@@ -748,7 +750,7 @@ TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
   // Selects mix of physical/virtual with a different order and uses a filter on
   // a physical column not selected.
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
-  ASSERT_OK(scan_builder->Filter("phy_2"_ >= 212));
+  ASSERT_OK(scan_builder->Filter(greater_equal(field_ref("phy_2"), literal(212))));
   ASSERT_OK(scan_builder->Project({"part_df", "phy_3", "part_ds", "phy_1"}));
 
   using TupleType = std::tuple<i32, i32, i32, i32>;
