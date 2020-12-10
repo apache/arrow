@@ -19,6 +19,7 @@
 //! fields with optional relation names.
 
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
@@ -86,20 +87,6 @@ impl DFSchema {
             }
         }
         Ok(Self { fields })
-    }
-
-    /// Create a `DFSchema` from an Arrow schema
-    pub fn try_from(schema: Schema) -> Result<Self> {
-        Self::new(
-            schema
-                .fields()
-                .into_iter()
-                .map(|f| DFField {
-                    field: f.clone(),
-                    qualifier: None,
-                })
-                .collect(),
-        )
     }
 
     /// Create a `DFSchema` from an Arrow schema
@@ -217,6 +204,23 @@ impl Into<Schema> for DFSchema {
                     } else {
                         f.field
                     }
+                })
+                .collect(),
+        )
+    }
+}
+
+/// Create a `DFSchema` from an Arrow schema
+impl TryFrom<Schema> for DFSchema {
+    type Error = DataFusionError;
+    fn try_from(schema: Schema) -> std::result::Result<Self, Self::Error> {
+        Self::new(
+            schema
+                .fields()
+                .into_iter()
+                .map(|f| DFField {
+                    field: f.clone(),
+                    qualifier: None,
                 })
                 .collect(),
         )
