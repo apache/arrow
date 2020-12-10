@@ -1801,6 +1801,10 @@ TYPED_TEST(TestDictionaryCast, Basic) {
     // TODO: Should casting dictionary scalars work?
     this->CheckPass(*dict_arr, *expected, expected->type(), CastOptions::Safe(),
                     /*check_scalar=*/false);
+
+    auto opts = CastOptions::Safe();
+    opts.to_type = expected->type();
+    CheckScalarUnary("cast", dict_arr, expected, &opts);
   }
 }
 

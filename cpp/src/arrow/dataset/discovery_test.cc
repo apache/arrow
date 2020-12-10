@@ -369,7 +369,7 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
   // column. In such case, the filename should not be used.
   MakeFactory({fs::File("one/file.parquet")});
 
-  ASSERT_OK_AND_ASSIGN(auto expected, equal(field_ref("first"), literal("one")).Bind(*s));
+  auto expected = equal(field_ref("first"), literal("one"));
 
   ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish());
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());

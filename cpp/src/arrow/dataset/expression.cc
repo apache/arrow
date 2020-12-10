@@ -213,7 +213,47 @@ std::string Expression2::ToString() const {
   for (const auto& arg : call->arguments) {
     out += arg.ToString() + ",";
   }
-  out.back() = ')';
+
+  if (!call->options) {
+    out.back() = ')';
+    return out;
+  }
+
+  if (call->options) {
+    out += " {";
+
+    if (auto options = GetSetLookupOptions(*call)) {
+      DCHECK_EQ(options->value_set.kind(), Datum::ARRAY);
+      out += "value_set:" + options->value_set.make_array()->ToString();
+      if (options->skip_nulls) {
+        out += ",skip_nulls";
+      }
+    }
+
+    if (auto options = GetCastOptions(*call)) {
+      out += "to_type:" + options->to_type->ToString();
+      if (options->allow_int_overflow) out += ",allow_int_overflow";
+      if (options->allow_time_truncate) out += ",allow_time_truncate";
+      if (options->allow_time_overflow) out += ",allow_time_overflow";
+      if (options->allow_decimal_truncate) out += ",allow_decimal_truncate";
+      if (options->allow_float_truncate) out += ",allow_float_truncate";
+      if (options->allow_invalid_utf8) out += ",allow_invalid_utf8";
+    }
+
+    if (auto options = GetStructOptions(*call)) {
+      for (const auto& field_name : options->field_names) {
+        out += field_name + ",";
+      }
+      out.resize(out.size() - 1);
+    }
+
+    if (auto options = GetStrptimeOptions(*call)) {
+      out += "format:" + options->format;
+      out += ",unit:" + internal::ToString(options->unit);
+    }
+
+    out += "})";
+  }
   return out;
 }
 
@@ -246,14 +286,49 @@ bool Expression2::Equals(const Expression2& other) const {
     return false;
   }
 
-  // FIXME compare FunctionOptions for equality
   for (size_t i = 0; i < call->arguments.size(); ++i) {
     if (!call->arguments[i].Equals(other_call->arguments[i])) {
       return false;
     }
   }
 
-  return true;
+  if (call->options == other_call->options) return true;
+
+  if (auto options = GetSetLookupOptions(*call)) {
+    auto other_options = GetSetLookupOptions(*other_call);
+    return options->value_set == other_options->value_set &&
+           options->skip_nulls == other_options->skip_nulls;
+  }
+
+  if (auto options = GetCastOptions(*call)) {
+    auto other_options = GetCastOptions(*other_call);
+    for (auto safety_opt : {
+             &compute::CastOptions::allow_int_overflow,
+             &compute::CastOptions::allow_time_truncate,
+             &compute::CastOptions::allow_time_overflow,
+             &compute::CastOptions::allow_decimal_truncate,
+             &compute::CastOptions::allow_float_truncate,
+             &compute::CastOptions::allow_invalid_utf8,
+         }) {
+      if (options->*safety_opt != other_options->*safety_opt) return false;
+    }
+    return options->to_type->Equals(other_options->to_type);
+  }
+
+  if (auto options = GetStructOptions(*call)) {
+    auto other_options = GetStructOptions(*other_call);
+    return options->field_names == other_options->field_names;
+  }
+
+  if (auto options = GetStrptimeOptions(*call)) {
+    auto other_options = GetStrptimeOptions(*other_call);
+    return options->format == other_options->format &&
+           options->unit == other_options->unit;
+  }
+
+  ARROW_LOG(WARNING) << "comparing unknown FunctionOptions for function "
+                     << call->function;
+  return false;
 }
 
 size_t Expression2::hash() const {
@@ -378,6 +453,81 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   return std::move(kernel_state);
 }
 
+Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression2* expr) {
+  if (expr->descr().type->Equals(to_type)) {
+    return Status::OK();
+  }
+
+  if (auto lit = expr->literal()) {
+    ARROW_ASSIGN_OR_RAISE(Datum new_lit, compute::Cast(*lit, to_type));
+    *expr = literal(std::move(new_lit));
+    return Status::OK();
+  }
+
+  // FIXME the resulting cast Call must be bound but this is a hack
+  auto with_cast = call("cast", {literal(MakeNullScalar(expr->descr().type))},
+                        compute::CastOptions::Safe(to_type));
+
+  static ValueDescr ignored_descr;
+  ARROW_ASSIGN_OR_RAISE(with_cast, with_cast.Bind(ignored_descr));
+
+  auto call_with_cast = *CallNotNull(with_cast);
+  call_with_cast.arguments[0] = std::move(*expr);
+  *expr = Expression2(std::make_shared<Expression2::Impl>(std::move(call_with_cast)),
+                      ValueDescr{std::move(to_type), expr->descr().shape});
+
+  return Status::OK();
+}
+
+Status InsertImplicitCasts(Expression2::Call* call) {
+  DCHECK(std::all_of(call->arguments.begin(), call->arguments.end(),
+                     [](const Expression2& argument) { return argument.IsBound(); }));
+
+  if (Comparison::Get(call->function)) {
+    for (auto&& argument : call->arguments) {
+      if (auto value_type = GetDictionaryValueType(argument.descr().type)) {
+        RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &argument));
+      }
+    }
+
+    if (call->arguments[0].descr().shape == ValueDescr::SCALAR) {
+      // argument 0 is scalar so casting is cheap
+      return MaybeInsertCast(call->arguments[1].descr().type, &call->arguments[0]);
+    } else {
+      return MaybeInsertCast(call->arguments[0].descr().type, &call->arguments[1]);
+    }
+  }
+
+  if (auto options = GetSetLookupOptions(*call)) {
+    if (auto value_type = GetDictionaryValueType(call->arguments[0].descr().type)) {
+      // DICTIONARY input is not supported; decode it.
+      RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &call->arguments[0]));
+    }
+
+    if (options->value_set.type()->id() == Type::DICTIONARY) {
+      // DICTIONARY value_set is not supported; decode it.
+      auto new_options = std::make_shared<compute::SetLookupOptions>(*options);
+      RETURN_NOT_OK(EnsureNotDictionary(&new_options->value_set));
+      options = new_options.get();
+      call->options = std::move(new_options);
+    }
+
+    if (!options->value_set.type()->Equals(call->arguments[0].descr().type)) {
+      // The value_set is assumed smaller than inputs, casting it should be cheaper.
+      auto new_options = std::make_shared<compute::SetLookupOptions>(*options);
+      ARROW_ASSIGN_OR_RAISE(new_options->value_set,
+                            compute::Cast(std::move(new_options->value_set),
+                                          call->arguments[0].descr().type));
+      options = new_options.get();
+      call->options = std::move(new_options);
+    }
+
+    return Status::OK();
+  }
+
+  return Status::OK();
+}
+
 Result<Expression2> Expression2::Bind(ValueDescr in,
                                       compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
@@ -402,18 +552,9 @@ Result<Expression2> Expression2::Bind(ValueDescr in,
   for (auto&& argument : bound_call.arguments) {
     ARROW_ASSIGN_OR_RAISE(argument, argument.Bind(in, exec_context));
   }
-
-  if (RequriesDictionaryTransparency(bound_call)) {
-    RETURN_NOT_OK(EnsureNotDictionary(&bound_call));
-  }
+  RETURN_NOT_OK(InsertImplicitCasts(&bound_call));
 
   auto descrs = GetDescriptors(bound_call.arguments);
-  for (auto&& descr : descrs) {
-    if (RequriesDictionaryTransparency(bound_call)) {
-      RETURN_NOT_OK(EnsureNotDictionary(&descr));
-    }
-  }
-
   ARROW_ASSIGN_OR_RAISE(bound_call.kernel, function->DispatchExact(descrs));
 
   compute::KernelContext kernel_context(exec_context);
@@ -470,10 +611,6 @@ Result<Datum> ExecuteScalarExpression(const Expression2& expr, const Datum& inpu
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
         arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-
-    if (RequriesDictionaryTransparency(*call)) {
-      RETURN_NOT_OK(EnsureNotDictionary(&arguments[i]));
-    }
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
@@ -558,38 +695,6 @@ std::vector<FieldRef> FieldsInExpression(const Expression2& expr) {
   return fields;
 }
 
-template <typename PreVisit, typename PostVisitCall>
-Result<Expression2> Modify(Expression2 expr, const PreVisit& pre,
-                           const PostVisitCall& post_call) {
-  ARROW_ASSIGN_OR_RAISE(expr, Result<Expression2>(pre(std::move(expr))));
-
-  auto call = expr.call();
-  if (!call) return expr;
-
-  bool at_least_one_modified = false;
-  auto modified_call = *call;
-  auto modified_argument = modified_call.arguments.begin();
-
-  for (const auto& argument : call->arguments) {
-    ARROW_ASSIGN_OR_RAISE(*modified_argument, Modify(argument, pre, post_call));
-
-    if (!Identical(*modified_argument, argument)) {
-      at_least_one_modified = true;
-    }
-    ++modified_argument;
-  }
-
-  if (at_least_one_modified) {
-    // reconstruct the call expression with the modified arguments
-    auto modified_expr = Expression2(
-        std::make_shared<Expression2::Impl>(std::move(modified_call)), expr.descr());
-
-    return post_call(std::move(modified_expr), &expr);
-  }
-
-  return post_call(std::move(expr), nullptr);
-}
-
 Result<Expression2> FoldConstants(Expression2 expr) {
   return Modify(
       std::move(expr), [](Expression2 expr) { return expr; },
@@ -625,6 +730,9 @@ Result<Expression2> FoldConstants(Expression2 expr) {
 
             // false and x == false
             if (args.first == literal(false)) return args.first;
+
+            // x and x == x
+            if (args.first == args.second) return args.first;
           }
           return expr;
         }
@@ -636,6 +744,9 @@ Result<Expression2> FoldConstants(Expression2 expr) {
 
             // true or x == true
             if (args.first == literal(true)) return args.first;
+
+            // x or x == x
+            if (args.first == args.second) return args.first;
           }
           return expr;
         }
@@ -658,10 +769,6 @@ inline std::vector<Expression2> GuaranteeConjunctionMembers(
 Status ExtractKnownFieldValuesImpl(
     std::vector<Expression2>* conjunction_members,
     std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
-  for (auto&& member : *conjunction_members) {
-    ARROW_ASSIGN_OR_RAISE(member, Canonicalize({std::move(member)}));
-  }
-
   auto unconsumed_end =
       std::partition(conjunction_members->begin(), conjunction_members->end(),
                      [](const Expression2& expr) {
@@ -703,9 +810,6 @@ Status ExtractKnownFieldValuesImpl(
 
 Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
     const Expression2& guaranteed_true_predicate) {
-  if (!guaranteed_true_predicate.IsBound()) {
-    return Status::Invalid("guaranteed_true_predicate was not bound");
-  }
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
   RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
@@ -715,13 +819,20 @@ Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldVal
 Result<Expression2> ReplaceFieldsWithKnownValues(
     const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
     Expression2 expr) {
+  if (!expr.IsBound()) {
+    return Status::Invalid(
+        "ReplaceFieldsWithKnownValues called on an unbound Expression2");
+  }
+
   return Modify(
       std::move(expr),
-      [&known_values](Expression2 expr) {
+      [&known_values](Expression2 expr) -> Result<Expression2> {
         if (auto ref = expr.field_ref()) {
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
-            return literal(it->second);
+            ARROW_ASSIGN_OR_RAISE(Datum lit,
+                                  compute::Cast(it->second, expr.descr().type));
+            return literal(std::move(lit));
           }
         }
         return expr;
@@ -817,11 +928,6 @@ Result<Expression2> Canonicalize(Expression2 expr, compute::ExecContext* exec_co
                 exec_context->func_registry()->GetFunction(flipped_call.function));
 
             auto descrs = GetDescriptors(flipped_call.arguments);
-            for (auto& descr : descrs) {
-              if (RequriesDictionaryTransparency(flipped_call)) {
-                RETURN_NOT_OK(EnsureNotDictionary(&descr));
-              }
-            }
             ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
 
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
@@ -896,10 +1002,6 @@ Result<Expression2> DirectComparisonSimplification(Expression2 expr,
 
 Result<Expression2> SimplifyWithGuarantee(Expression2 expr,
                                           const Expression2& guaranteed_true_predicate) {
-  if (!guaranteed_true_predicate.IsBound()) {
-    return Status::Invalid("guaranteed_true_predicate was not bound");
-  }
-
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;

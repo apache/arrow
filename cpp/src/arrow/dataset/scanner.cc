@@ -123,6 +123,9 @@ Status ScannerBuilder::Project(std::vector<std::string> columns) {
 }
 
 Status ScannerBuilder::Filter(const Expression2& filter) {
+  for (const auto& ref : FieldsInExpression(filter)) {
+    RETURN_NOT_OK(ref.FindOne(*schema()));
+  }
   ARROW_ASSIGN_OR_RAISE(scan_options_->filter2, filter.Bind(*schema()));
   return Status::OK();
 }

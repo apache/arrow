@@ -186,14 +186,10 @@ Result<Expression2> KeyValuePartitioning::Parse(const std::string& path) const {
     expressions.push_back(std::move(expr));
   }
 
-  return and_(std::move(expressions)).Bind(*schema_);
+  return and_(std::move(expressions));
 }
 
 Result<std::string> KeyValuePartitioning::Format(const Expression2& expr) const {
-  if (!expr.IsBound()) {
-    return Status::Invalid("formatted partition expressions must be bound");
-  }
-
   std::vector<Scalar*> values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));

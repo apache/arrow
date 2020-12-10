@@ -53,9 +53,12 @@ namespace dataset {
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("i32", int32()),
     field("i32_req", int32(), /*nullable=*/false),
+    field("i64", int64()),
     field("f32", float32()),
     field("f32_req", float32(), /*nullable=*/false),
     field("bool", boolean()),
+    field("str", utf8()),
+    field("dict_str", dictionary(int32(), utf8())),
 });
 
 inline namespace string_literals {
