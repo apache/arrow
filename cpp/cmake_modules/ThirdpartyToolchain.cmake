@@ -284,7 +284,7 @@ if(NOT ARROW_COMPUTE)
   # utf8proc is only potentially used in kernels for now
   set(ARROW_WITH_UTF8PROC OFF)
 endif()
-if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA))
+if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA) AND (NOT ARROW_WITH_GRPC))
   set(ARROW_WITH_RE2 OFF)
 endif()
 
@@ -2131,6 +2131,7 @@ macro(build_re2)
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
+  set(RE2_VENDORED TRUE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
 endmacro()
@@ -2455,6 +2456,13 @@ macro(build_grpc)
       -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
+  if(RE2_VENDORED)
+    list(APPEND GRPC_CMAKE_ARGS
+      -Dre2_ROOT=${RE2_PREFIX}
+      -DCMAKE_POLICY_DEFAULT_CMP0074=NEW
+    )
+    add_dependencies(grpc_dependencies re2_ep)
+  endif()
   if(OPENSSL_ROOT_DIR)
     list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()
