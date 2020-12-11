@@ -1333,8 +1333,6 @@ TEST(Decimal256Test, Multiply) {
   }
 }
 
-
-
 TEST(Decimal256Test, Shift) {
   Decimal256 v(1024);
   v <<= 16;
