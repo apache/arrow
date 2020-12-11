@@ -43,8 +43,8 @@ use arrow::{
 use pin_project_lite::pin_project;
 
 use super::{
-    common, expressions::Column, group_scalar::GroupByScalar, RecordBatchStream,
-    SendableRecordBatchStream,
+    common, expressions::Column, group_scalar::GroupByScalar, hash_join::create_key,
+    RecordBatchStream, SendableRecordBatchStream,
 };
 use ahash::RandomState;
 use hashbrown::HashMap;
@@ -245,12 +245,14 @@ fn group_aggregate_batch(
     // create vector large enough to hold the grouping key
     // this is an optimization to avoid allocating `key` on every row.
     // it will be overwritten on every iteration of the loop below
-    let mut key = Vec::with_capacity(group_values.len());
+    let mut group_by_values = Vec::with_capacity(group_values.len());
     for _ in 0..group_values.len() {
-        key.push(GroupByScalar::UInt32(0));
+        group_by_values.push(GroupByScalar::UInt32(0));
     }
 
-    let mut key = key.into_boxed_slice();
+    let mut group_by_values = group_by_values.into_boxed_slice();
+
+    let mut key = Vec::with_capacity(group_values.len());
 
     // 1.1 construct the key from the group values
     // 1.2 construct the mapping key if it does not exist
@@ -263,16 +265,21 @@ fn group_aggregate_batch(
         // 1.1
         create_key(&group_values, row, &mut key)
             .map_err(DataFusionError::into_arrow_external_error)?;
+
         accumulators
             .raw_entry_mut()
             .from_key(&key)
             // 1.3
-            .and_modify(|_, (_, v)| v.push(row as u32))
+            .and_modify(|_, (_, _, v)| v.push(row as u32))
             // 1.2
             .or_insert_with(|| {
                 // We can safely unwrap here as we checked we can create an accumulator before
                 let accumulator_set = create_accumulators(aggr_expr).unwrap();
-                (key.clone(), (accumulator_set, vec![row as u32]))
+                let _ = create_group_by_values(&group_values, row, &mut group_by_values);
+                (
+                    key.clone(),
+                    (group_by_values.clone(), accumulator_set, vec![row as u32]),
+                )
             });
     }
 
@@ -284,7 +291,7 @@ fn group_aggregate_batch(
     accumulators
         .iter_mut()
         // 2.1
-        .map(|(_, (accumulator_set, indices))| {
+        .map(|(_, (_, accumulator_set, indices))| {
             // 2.2
             accumulator_set
                 .into_iter()
@@ -391,7 +398,7 @@ impl GroupedHashAggregateStream {
 
 type AccumulatorSet = Vec<Box<dyn Accumulator>>;
 type Accumulators =
-    HashMap<Box<[GroupByScalar]>, (AccumulatorSet, Vec<u32>), RandomState>;
+    HashMap<Vec<u8>, (Box<[GroupByScalar]>, AccumulatorSet, Vec<u32>), RandomState>;
 
 impl Stream for GroupedHashAggregateStream {
     type Item = ArrowResult<RecordBatch>;
@@ -646,10 +653,10 @@ fn create_batch_from_map(
     // 5. concatenate the arrays over the second index [j] into a single vec<ArrayRef>.
     let arrays = accumulators
         .iter()
-        .map(|(k, (accumulator_set, _))| {
+        .map(|(_, (group_by_values, accumulator_set, _))| {
             // 2.
             let mut groups = (0..num_group_expr)
-                .map(|i| match &k[i] {
+                .map(|i| match &group_by_values[i] {
                     GroupByScalar::Int8(n) => {
                         Arc::new(Int8Array::from(vec![*n])) as ArrayRef
                     }
@@ -726,8 +733,8 @@ fn finalize_aggregation(
     }
 }
 
-/// Create a Vec<GroupByScalar> that can be used as a map key
-pub(crate) fn create_key(
+/// Create a Box<[GroupByScalar]> for the group by values
+pub(crate) fn create_group_by_values(
     group_by_keys: &[ArrayRef],
     row: usize,
     vec: &mut Box<[GroupByScalar]>,
