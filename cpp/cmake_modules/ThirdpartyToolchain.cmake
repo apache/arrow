@@ -2340,10 +2340,20 @@ macro(build_grpc)
   # Abseil libraries gRPC depends on
   set(_ABSL_LIBS
       bad_optional_access
+      base
+      cord
+      graphcycles_internal
       int128
+      malloc_internal
       raw_logging_internal
+      spinlock_wait
+      stacktrace
+      status
       str_format_internal
       strings
+      strings_internal
+      symbolize
+      synchronization
       throw_delegate
       time
       time_zone)
