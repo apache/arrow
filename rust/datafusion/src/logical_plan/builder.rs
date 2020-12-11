@@ -100,7 +100,7 @@ impl LogicalPlanBuilder {
 
         let projected_schema = projection
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
-            .map_or(SchemaRef::new(schema.clone()), SchemaRef::new)
+            .map_or(SchemaRef::new(schema), SchemaRef::new)
             .to_dfschema_ref()?;
 
         let provider = Arc::new(CsvFile::try_new(path, options)?);

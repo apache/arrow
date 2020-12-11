@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{
-    ToDFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan,
+    Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
