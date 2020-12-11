@@ -1986,7 +1986,7 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
     static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte decimals supported");
+                  "only 16 and 32 byte Decimals supported");
     if (byte_width == 32) {
       *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[3]);
       *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[2]);
