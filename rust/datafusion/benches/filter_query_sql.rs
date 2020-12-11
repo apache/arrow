@@ -61,7 +61,7 @@ fn create_context(array_len: usize, batch_size: usize) -> Result<ExecutionContex
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![batches])?;
+    let provider = MemTable::try_new(schema, vec![batches])?;
     ctx.register_table("t", Box::new(provider));
 
     Ok(ctx)

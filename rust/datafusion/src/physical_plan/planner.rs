@@ -26,7 +26,6 @@ use crate::logical_plan::{
     DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, TableSource,
     UserDefinedLogicalNode,
 };
-use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
@@ -34,9 +33,7 @@ use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
 use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
-use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
@@ -156,32 +153,6 @@ impl DefaultPhysicalPlanner {
                     provider.scan(projection, batch_size)
                 }
             },
-            LogicalPlan::InMemoryScan {
-                data,
-                projection,
-                projected_schema,
-                ..
-            } => Ok(Arc::new(MemoryExec::try_new(
-                data,
-                projected_schema.as_ref().to_owned().into(),
-                projection.to_owned(),
-            )?)),
-            LogicalPlan::CsvScan {
-                path,
-                schema,
-                has_header,
-                delimiter,
-                projection,
-                ..
-            } => Ok(Arc::new(CsvExec::try_new(
-                path,
-                CsvReadOptions::new()
-                    .schema(schema.as_ref())
-                    .delimiter_option(*delimiter)
-                    .has_header(*has_header),
-                projection.to_owned(),
-                batch_size,
-            )?)),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
@@ -241,13 +212,6 @@ impl DefaultPhysicalPlanner {
                     initial_aggr,
                 )?))
             }
-            LogicalPlan::ParquetScan {
-                path, projection, ..
-            } => Ok(Arc::new(ParquetExec::try_new(
-                path,
-                projection.to_owned(),
-                batch_size,
-            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();

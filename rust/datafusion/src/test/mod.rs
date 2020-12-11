@@ -45,7 +45,7 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
         ],
     )
     .unwrap();
-    let provider = MemTable::new(dual_schema, vec![vec![batch]]).unwrap();
+    let provider = MemTable::try_new(dual_schema, vec![vec![batch]]).unwrap();
     Box::new(provider)
 }
 

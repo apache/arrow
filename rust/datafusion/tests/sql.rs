@@ -1040,7 +1040,7 @@ fn create_case_context() -> Result<ExecutionContext> {
             None,
         ]))],
     )?;
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     ctx.register_table("t1", Box::new(table));
     Ok(ctx)
 }
@@ -1190,7 +1190,7 @@ fn create_join_context(
             ])),
         ],
     )?;
-    let t1_table = MemTable::new(t1_schema, vec![vec![t1_data]])?;
+    let t1_table = MemTable::try_new(t1_schema, vec![vec![t1_data]])?;
     ctx.register_table("t1", Box::new(t1_table));
 
     let t2_schema = Arc::new(Schema::new(vec![
@@ -1209,7 +1209,7 @@ fn create_join_context(
             ])),
         ],
     )?;
-    let t2_table = MemTable::new(t2_schema, vec![vec![t2_data]])?;
+    let t2_table = MemTable::try_new(t2_schema, vec![vec![t2_data]])?;
     ctx.register_table("t2", Box::new(t2_table));
 
     Ok(ctx)
@@ -1411,7 +1411,7 @@ async fn generic_query_length<T: 'static + Array + From<Vec<&'static str>>>(
         vec![Arc::new(T::from(vec!["", "a", "aa", "aaa"]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1445,7 +1445,7 @@ async fn query_not() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1471,7 +1471,7 @@ async fn query_concat() -> Result<()> {
         ],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1502,7 +1502,7 @@ async fn query_array() -> Result<()> {
         ],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1591,7 +1591,7 @@ fn make_timestamp_nano_table() -> Result<Box<MemTable>> {
             Arc::new(Int32Array::from(vec![Some(1), Some(2), Some(3)])),
         ],
     )?;
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     Ok(Box::new(table))
 }
 
@@ -1621,7 +1621,7 @@ async fn query_is_null() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1645,7 +1645,7 @@ async fn query_is_not_null() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1672,7 +1672,7 @@ async fn query_count_distinct() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1702,7 +1702,7 @@ async fn query_on_string_dictionary() -> Result<()> {
 
     let data = RecordBatch::try_new(schema.clone(), vec![array])?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
 
@@ -1772,7 +1772,7 @@ async fn query_scalar_minus_array() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
