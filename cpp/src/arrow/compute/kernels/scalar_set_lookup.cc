@@ -19,10 +19,10 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -255,25 +255,8 @@ struct IndexInVisitor {
   }
 };
 
-void ExecArrayOrScalar(KernelContext* ctx, const Datum& in, Datum* out,
-                       std::function<Status(const ArrayData&)> array_impl) {
-  if (in.is_array()) {
-    KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in.array()));
-    return;
-  }
-
-  std::shared_ptr<Array> in_array;
-  std::shared_ptr<Scalar> out_scalar;
-  KERNEL_RETURN_IF_ERROR(ctx, MakeArrayFromScalar(*in.scalar(), 1).Value(&in_array));
-  KERNEL_RETURN_IF_ERROR(ctx, array_impl(*in_array->data()));
-  KERNEL_RETURN_IF_ERROR(ctx, out->make_array()->GetScalar(0).Value(&out_scalar));
-  *out = std::move(out_scalar);
-}
-
 void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
-    return IndexInVisitor(ctx, in, out).Execute();
-  });
+  KERNEL_RETURN_IF_ERROR(ctx, IndexInVisitor(ctx, *batch[0].array(), out).Execute());
 }
 
 // ----------------------------------------------------------------------
@@ -360,9 +343,7 @@ struct IsInVisitor {
 };
 
 void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExecArrayOrScalar(ctx, batch[0], out, [&](const ArrayData& in) {
-    return IsInVisitor(ctx, in, out).Execute();
-  });
+  KERNEL_RETURN_IF_ERROR(ctx, IsInVisitor(ctx, *batch[0].array(), out).Execute());
 }
 
 // Unary set lookup kernels available for the following input types
@@ -451,7 +432,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
-    isin_base.exec = ExecIsIn;
+    isin_base.exec = TrivialScalarUnaryAsArraysExec(ExecIsIn);
     auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary(), &is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
@@ -468,7 +449,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel index_in_base;
     index_in_base.init = InitSetLookup;
-    index_in_base.exec = ExecIndexIn;
+    index_in_base.exec = TrivialScalarUnaryAsArraysExec(ExecIndexIn);
     index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto index_in =

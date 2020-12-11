@@ -57,6 +57,29 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
   return arg;
 }
 
+ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec) {
+  return [exec](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (out->is_array()) {
+      return exec(ctx, batch, out);
+    }
+
+    if (!batch[0].scalar()->is_valid) {
+      out->scalar()->is_valid = false;
+      return;
+    }
+
+    Datum array_in, array_out;
+    KERNEL_RETURN_IF_ERROR(
+        ctx, MakeArrayFromScalar(*batch[0].scalar(), 1).As<Datum>().Value(&array_in));
+    KERNEL_RETURN_IF_ERROR(
+        ctx, MakeArrayFromScalar(*out->scalar(), 1).As<Datum>().Value(&array_out));
+
+    exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out);
+    KERNEL_RETURN_IF_ERROR(ctx,
+                           array_out.make_array()->GetScalar(0).As<Datum>().Value(out));
+  };
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

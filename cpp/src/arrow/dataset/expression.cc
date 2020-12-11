@@ -335,7 +335,7 @@ Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
   auto call_with_cast = *CallNotNull(with_cast);
   call_with_cast.arguments[0] = std::move(*expr);
   *expr = Expression(std::make_shared<Expression::Impl>(std::move(call_with_cast)),
-                      ValueDescr{std::move(to_type), expr->descr().shape});
+                     ValueDescr{std::move(to_type), expr->descr().shape});
 
   return Status::OK();
 }
@@ -344,7 +344,7 @@ Status InsertImplicitCasts(Expression::Call* call) {
   DCHECK(std::all_of(call->arguments.begin(), call->arguments.end(),
                      [](const Expression& argument) { return argument.IsBound(); }));
 
-  if (Comparison::Get(call->function)) {
+  if (IsSameTypesBinary(call->function)) {
     for (auto&& argument : call->arguments) {
       if (auto value_type = GetDictionaryValueType(argument.descr().type)) {
         RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &argument));
@@ -390,7 +390,7 @@ Status InsertImplicitCasts(Expression::Call* call) {
 }
 
 Result<Expression> Expression::Bind(ValueDescr in,
-                                      compute::ExecContext* exec_context) const {
+                                    compute::ExecContext* exec_context) const {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
     return Bind(std::move(in), &exec_context);
@@ -430,7 +430,7 @@ Result<Expression> Expression::Bind(ValueDescr in,
 }
 
 Result<Expression> Expression::Bind(const Schema& in_schema,
-                                      compute::ExecContext* exec_context) const {
+                                    compute::ExecContext* exec_context) const {
   return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
 }
 
@@ -493,9 +493,9 @@ std::array<std::pair<const Expression&, const Expression&>, 2>
 ArgumentsAndFlippedArguments(const Expression::Call& call) {
   DCHECK_EQ(call.arguments.size(), 2);
   return {std::pair<const Expression&, const Expression&>{call.arguments[0],
-                                                            call.arguments[1]},
+                                                          call.arguments[1]},
           std::pair<const Expression&, const Expression&>{call.arguments[1],
-                                                            call.arguments[0]}};
+                                                          call.arguments[0]}};
 }
 
 template <typename BinOp, typename It,
@@ -764,16 +764,16 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
           // fold the chain back up
           const auto& descr = expr.descr();
-          auto folded = FoldLeft(
-              chain.fringe.begin(), chain.fringe.end(),
-              [call, &descr, &AlreadyCanonicalized](Expression l, Expression r) {
-                auto ret = *call;
-                ret.arguments = {std::move(l), std::move(r)};
-                Expression expr(std::make_shared<Expression::Impl>(std::move(ret)),
-                                 descr);
-                AlreadyCanonicalized.Add({expr});
-                return expr;
-              });
+          auto folded =
+              FoldLeft(chain.fringe.begin(), chain.fringe.end(),
+                       [call, &descr, &AlreadyCanonicalized](Expression l, Expression r) {
+                         auto ret = *call;
+                         ret.arguments = {std::move(l), std::move(r)};
+                         Expression expr(
+                             std::make_shared<Expression::Impl>(std::move(ret)), descr);
+                         AlreadyCanonicalized.Add({expr});
+                         return expr;
+                       });
           return std::move(*folded);
         }
 
@@ -792,9 +792,8 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
             ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
 
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
-            return Expression(
-                std::make_shared<Expression::Impl>(std::move(flipped_call)),
-                expr.descr());
+            return Expression(std::make_shared<Expression::Impl>(std::move(flipped_call)),
+                              expr.descr());
           }
         }
 
@@ -804,7 +803,7 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 }
 
 Result<Expression> DirectComparisonSimplification(Expression expr,
-                                                   const Expression::Call& guarantee) {
+                                                  const Expression::Call& guarantee) {
   return Modify(
       std::move(expr), [](Expression expr) { return expr; },
       [&guarantee](Expression expr, ...) -> Result<Expression> {
@@ -862,7 +861,7 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
 }
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
-                                          const Expression& guaranteed_true_predicate) {
+                                         const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
@@ -1072,7 +1071,7 @@ Expression and_(Expression lhs, Expression rhs) {
 
 Expression and_(const std::vector<Expression>& operands) {
   auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
-                                                                operands.end(), and_);
+                                                             operands.end(), and_);
   if (folded) {
     return std::move(*folded);
   }
@@ -1084,8 +1083,8 @@ Expression or_(Expression lhs, Expression rhs) {
 }
 
 Expression or_(const std::vector<Expression>& operands) {
-  auto folded = FoldLeft<Expression(Expression, Expression)>(operands.begin(),
-                                                                operands.end(), or_);
+  auto folded =
+      FoldLeft<Expression(Expression, Expression)>(operands.begin(), operands.end(), or_);
   if (folded) {
     return std::move(*folded);
   }

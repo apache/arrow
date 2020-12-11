@@ -126,7 +126,6 @@ struct CastFunctor<
     enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
                 (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     const ArrayData& input = *batch[0].array();
@@ -147,7 +146,6 @@ struct CastFunctor<
 template <>
 struct CastFunctor<Date32Type, TimestampType> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     const ArrayData& input = *batch[0].array();
@@ -170,7 +168,6 @@ struct CastFunctor<Date32Type, TimestampType> {
 template <>
 struct CastFunctor<Date64Type, TimestampType> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
@@ -224,7 +221,6 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
   using out_t = typename O::c_type;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     const ArrayData& input = *batch[0].array();
@@ -245,7 +241,6 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
 template <>
 struct CastFunctor<Date64Type, Date32Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     ShiftTime<int32_t, int64_t>(ctx, util::MULTIPLY, kMillisecondsInDay,
@@ -256,10 +251,41 @@ struct CastFunctor<Date64Type, Date32Type> {
 template <>
 struct CastFunctor<Date32Type, Date64Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: Make this work on scalar inputs
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     ShiftTime<int64_t, int32_t>(ctx, util::DIVIDE, kMillisecondsInDay, *batch[0].array(),
+                                out->mutable_array());
+  }
+};
+
+// ----------------------------------------------------------------------
+// date32, date64 to timestamp
+
+template <>
+struct CastFunctor<TimestampType, Date32Type> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
+    const auto& out_type = checked_cast<const TimestampType&>(*out->type());
+    // get conversion SECOND -> unit
+    auto conversion = util::GetTimestampConversion(TimeUnit::SECOND, out_type.unit());
+    DCHECK_EQ(conversion.first, util::MULTIPLY);
+
+    // multiply to achieve days -> unit
+    conversion.second *= kMillisecondsInDay / 1000;
+    ShiftTime<int32_t, int64_t>(ctx, util::MULTIPLY, conversion.second, *batch[0].array(),
+                                out->mutable_array());
+  }
+};
+
+template <>
+struct CastFunctor<TimestampType, Date64Type> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+
+    const auto& out_type = checked_cast<const TimestampType&>(*out->type());
+    auto conversion = util::GetTimestampConversion(TimeUnit::MILLI, out_type.unit());
+    ShiftTime<int64_t, int64_t>(ctx, util::MULTIPLY, conversion.second, *batch[0].array(),
                                 out->mutable_array());
   }
 };
@@ -307,11 +333,11 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
 
   // date64 -> date32
-  AddSimpleCast<Date64Type, Date32Type>(date64(), date32(), func.get());
+  AddSimpleArrayOnlyCast<Date64Type, Date32Type>(date64(), date32(), func.get());
 
   // timestamp -> date32
-  AddSimpleCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
-                                           func.get());
+  AddSimpleArrayOnlyCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
+                                                    func.get());
   return func;
 }
 
@@ -324,11 +350,11 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
 
   // date32 -> date64
-  AddSimpleCast<Date32Type, Date64Type>(date32(), date64(), func.get());
+  AddSimpleArrayOnlyCast<Date32Type, Date64Type>(date32(), date64(), func.get());
 
   // timestamp -> date64
-  AddSimpleCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
-                                           func.get());
+  AddSimpleArrayOnlyCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
+                                                    func.get());
   return func;
 }
 
@@ -358,8 +384,8 @@ std::shared_ptr<CastFunction> GetTime32Cast() {
   AddZeroCopyCast(Type::INT32, /*in_type=*/int32(), kOutputTargetType, func.get());
 
   // time64 -> time32
-  AddSimpleCast<Time64Type, Time32Type>(InputType(Type::TIME64), kOutputTargetType,
-                                        func.get());
+  AddSimpleArrayOnlyCast<Time64Type, Time32Type>(InputType(Type::TIME64),
+                                                 kOutputTargetType, func.get());
 
   // time32 -> time32
   AddCrossUnitCast<Time32Type>(func.get());
@@ -375,8 +401,8 @@ std::shared_ptr<CastFunction> GetTime64Cast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // time32 -> time64
-  AddSimpleCast<Time32Type, Time64Type>(InputType(Type::TIME32), kOutputTargetType,
-                                        func.get());
+  AddSimpleArrayOnlyCast<Time32Type, Time64Type>(InputType(Type::TIME32),
+                                                 kOutputTargetType, func.get());
 
   // Between durations
   AddCrossUnitCast<Time64Type>(func.get());
@@ -392,17 +418,18 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // From date types
-  // TODO: ARROW-8876, these casts are not implemented
-  // AddSimpleCast<Date32Type, TimestampType>(InputType(Type::DATE32),
-  //                                          kOutputTargetType, func.get());
-  // AddSimpleCast<Date64Type, TimestampType>(InputType(Type::DATE64),
-  //                                          kOutputTargetType, func.get());
+  // TODO: ARROW-8876, these casts are not directly tested
+  AddSimpleArrayOnlyCast<Date32Type, TimestampType>(InputType(Type::DATE32),
+                                                    kOutputTargetType, func.get());
+  AddSimpleArrayOnlyCast<Date64Type, TimestampType>(InputType(Type::DATE64),
+                                                    kOutputTargetType, func.get());
 
   // string -> timestamp
-  AddSimpleCast<StringType, TimestampType>(utf8(), kOutputTargetType, func.get());
+  AddSimpleArrayOnlyCast<StringType, TimestampType>(utf8(), kOutputTargetType,
+                                                    func.get());
   // large_string -> timestamp
-  AddSimpleCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
-                                                func.get());
+  AddSimpleArrayOnlyCast<LargeStringType, TimestampType>(large_utf8(), kOutputTargetType,
+                                                         func.get());
 
   // From one timestamp to another
   AddCrossUnitCast<TimestampType>(func.get());
