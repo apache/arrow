@@ -810,7 +810,7 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
     case 38:
       return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
     default:
-      return std::ceil((precision / 8.0) * std::log2(10));
+      return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10)));
   }
   DCHECK(false);
   return -1;
