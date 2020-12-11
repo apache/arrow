@@ -45,7 +45,7 @@ impl MemTable {
         if partitions
             .iter()
             .flatten()
-            .all(|batches| batches.schema().as_ref() == schema.as_ref())
+            .all(|batches| batches.schema() == schema)
         {
             let num_rows: usize = partitions
                 .iter()

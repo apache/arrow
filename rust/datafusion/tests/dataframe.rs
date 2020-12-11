@@ -78,7 +78,10 @@ impl RecordBatchStream for TestCustomRecordBatchStream {
 impl Stream for TestCustomRecordBatchStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         if self.nb_batch > 0 {
             self.get_mut().nb_batch -= 1;
             Poll::Ready(Some(TEST_CUSTOM_RECORD_BATCH!()))
