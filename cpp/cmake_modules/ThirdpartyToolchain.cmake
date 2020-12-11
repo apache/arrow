@@ -353,7 +353,7 @@ else()
   set_urls(
     BOOST_SOURCE_URL
     # These are trimmed boost bundles we maintain.
-    # See cpp/build_support/trim-boost.sh
+    # See cpp/build-support/trim-boost.sh
     "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
@@ -672,92 +672,99 @@ macro(build_boost)
   # This is needed by the thrift_ep build
   set(BOOST_ROOT ${BOOST_PREFIX})
 
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-  set(BOOST_BUILD_LINK "static")
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_BUILD_VARIANT "debug")
-  else()
-    set(BOOST_BUILD_VARIANT "release")
-  endif()
-  if(MSVC)
-    set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
-  else()
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
-  endif()
-
-  set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
-  string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
-  list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-              "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
-  set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
-                          "variant=${BOOST_BUILD_VARIANT}")
-  if(MSVC)
-    string(REGEX
-           REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
-    list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
-    set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
-    foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
-      list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
-    endforeach()
-    list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
-  else()
-    list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
-  endif()
-
-  if(MSVC)
-    string(REGEX
-           REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                   ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
-                   ${ARROW_BOOST_BUILD_VERSION})
-    set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
-    if(BOOST_BUILD_VARIANT STREQUAL "debug")
-      set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
+  if(ARROW_BOOST_REQUIRE_LIBRARY)
+    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+    set(BOOST_BUILD_LINK "static")
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_BUILD_VARIANT "debug")
+    else()
+      set(BOOST_BUILD_VARIANT "release")
     endif()
-    set(BOOST_LIBRARY_SUFFIX
-        "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
+    if(MSVC)
+      set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
+    else()
+      set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
+    endif()
+
+    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+    string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
+    list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
+                "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
+    set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
+                            "variant=${BOOST_BUILD_VARIANT}")
+    if(MSVC)
+      string(REGEX
+             REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
+      list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+      set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
+      foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
+        list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
+      endforeach()
+      list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
+    else()
+      list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
+    endif()
+
+    if(MSVC)
+      string(REGEX
+             REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
+                     ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
+                     ${ARROW_BOOST_BUILD_VERSION})
+      set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
+      if(BOOST_BUILD_VARIANT STREQUAL "debug")
+        set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
+      endif()
+      set(BOOST_LIBRARY_SUFFIX
+          "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
+    else()
+      set(BOOST_LIBRARY_SUFFIX "")
+    endif()
+    set(
+      BOOST_STATIC_SYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_FILESYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_REGEX_LIBRARY
+      "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
+    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                             ${BOOST_STATIC_REGEX_LIBRARY})
+
+    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+
+    externalproject_add(boost_ep
+                        URL ${BOOST_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                        BUILD_IN_SOURCE 1
+                        CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                        BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                        INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
+                boost_regex_static)
   else()
-    set(BOOST_LIBRARY_SUFFIX "")
+    externalproject_add(boost_ep
+                        ${EP_LOG_OPTIONS}
+                        BUILD_COMMAND ""
+                        CONFIGURE_COMMAND ""
+                        INSTALL_COMMAND ""
+                        URL ${BOOST_SOURCE_URL})
   endif()
-  set(
-    BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_REGEX_LIBRARY
-
-    "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
-  set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                           ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                           ${BOOST_STATIC_REGEX_LIBRARY})
-
-  add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-  add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-  add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
-  externalproject_add(boost_ep
-                      URL ${BOOST_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                      BUILD_IN_SOURCE 1
-                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
   set(BOOST_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
-              boost_regex_static)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -825,17 +832,32 @@ else()
   set(PARQUET_REQUIRES_BOOST FALSE)
 endif()
 
+# Compilers that don't support int128_t have a compile-time
+# (header-only) dependency on Boost for int128_t.
+if(ARROW_USE_UBSAN)
+  # NOTE: Avoid native int128_t on clang with UBSan as it produces linker errors
+  # (such as "undefined reference to '__muloti4'")
+  set(ARROW_USE_NATIVE_INT128 FALSE)
+else()
+  include(CheckCXXSymbolExists)
+  check_cxx_symbol_exists("__SIZEOF_INT128__" "" ARROW_USE_NATIVE_INT128)
+endif()
+
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
-   OR ARROW_GANDIVA
    OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
-   OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
    OR (ARROW_PARQUET AND PARQUET_REQUIRES_BOOST))
   set(ARROW_BOOST_REQUIRED TRUE)
+  set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
+elseif(ARROW_GANDIVA
+       OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
+       OR (NOT ARROW_USE_NATIVE_INT128))
+  set(ARROW_BOOST_REQUIRED TRUE)
+  set(ARROW_BOOST_REQUIRE_LIBRARY FALSE)
 else()
   set(ARROW_BOOST_REQUIRED FALSE)
 endif()

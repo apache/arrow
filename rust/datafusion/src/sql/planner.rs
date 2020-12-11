@@ -662,6 +662,18 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
             },
 
+            SQLExpr::Between {
+                ref expr,
+                ref negated,
+                ref low,
+                ref high,
+            } => Ok(Expr::Between {
+                expr: Box::new(self.sql_to_rex(&expr, &schema)?),
+                negated: *negated,
+                low: Box::new(self.sql_to_rex(&low, &schema)?),
+                high: Box::new(self.sql_to_rex(&high, &schema)?),
+            }),
+
             SQLExpr::BinaryOp {
                 ref left,
                 ref op,
@@ -992,6 +1004,26 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_between() {
+        let sql = "SELECT state FROM person WHERE age BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_between_negated() {
+        let sql = "SELECT state FROM person WHERE age NOT BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age NOT BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
         quick_test(sql, expected);
     }
 

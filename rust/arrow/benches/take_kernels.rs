@@ -47,6 +47,20 @@ where
     Arc::new(array) as ArrayRef
 }
 
+// cast array from specified primitive array type to desired data type
+fn create_boolean(size: usize) -> ArrayRef
+where
+    Standard: Distribution<bool>,
+{
+    let array: BooleanArray = seedable_rng()
+        .sample_iter(&Standard)
+        .take(size)
+        .map(Some)
+        .collect();
+
+    Arc::new(array) as ArrayRef
+}
+
 fn create_strings(size: usize, null_density: f32) -> ArrayRef {
     let rng = &mut seedable_rng();
 
@@ -101,23 +115,23 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_primitive::<BooleanType>(512);
+    let values = create_boolean(512);
     let indices = create_random_index(512, 0.0);
     c.bench_function("take bool 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_primitive::<BooleanType>(1024);
+    let values = create_boolean(1024);
     let indices = create_random_index(1024, 0.0);
     c.bench_function("take bool 1024", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
 
-    let values = create_primitive::<BooleanType>(512);
+    let values = create_boolean(512);
     let indices = create_random_index(512, 0.5);
     c.bench_function("take bool nulls 512", |b| {
         b.iter(|| bench_take(&values, &indices))
     });
-    let values = create_primitive::<BooleanType>(1024);
+    let values = create_boolean(1024);
     let indices = create_random_index(1024, 0.5);
     c.bench_function("take bool nulls 1024", |b| {
         b.iter(|| bench_take(&values, &indices))

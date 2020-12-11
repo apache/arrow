@@ -18,6 +18,7 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
+use arrow::array::ArrayRef;
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -26,21 +27,24 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use hashbrown::HashMap;
 
 use arrow::array::{make_array, Array, MutableArrayData};
+use arrow::datatypes::DataType;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use super::{expressions::col, hash_aggregate::create_key};
+use arrow::array::{
+    Int16Array, Int32Array, Int64Array, Int8Array, StringArray, UInt16Array, UInt32Array,
+    UInt64Array, UInt8Array,
+};
+
+use super::expressions::col;
 use super::{
     hash_utils::{build_join_schema, check_join_is_valid, JoinOn, JoinType},
     merge::MergeExec,
 };
 use crate::error::{DataFusionError, Result};
 
-use super::{
-    group_scalar::GroupByScalar, ExecutionPlan, Partitioning, RecordBatchStream,
-    SendableRecordBatchStream,
-};
+use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream};
 use ahash::RandomState;
 
 // An index of (batch, row) uniquely identifying a row in a part.
@@ -52,7 +56,7 @@ type JoinIndex = Option<(usize, usize)>;
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
-type JoinHashMap = HashMap<Box<[GroupByScalar]>, Vec<Index>, RandomState>;
+type JoinHashMap = HashMap<Vec<u8>, Vec<Index>, RandomState>;
 type JoinLeftData = (JoinHashMap, Vec<RecordBatch>);
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -205,11 +209,6 @@ fn update_hash(
         .collect::<Result<Vec<_>>>()?;
 
     let mut key = Vec::with_capacity(keys_values.len());
-    for _ in 0..keys_values.len() {
-        key.push(GroupByScalar::UInt32(0));
-    }
-
-    let mut key = key.into_boxed_slice();
 
     // update the hash map
     for row in 0..batch.num_rows() {
@@ -318,6 +317,67 @@ fn build_batch_from_indices(
     Ok(RecordBatch::try_new(Arc::new(schema.clone()), columns)?)
 }
 
+/// Create a key `Vec<u8>` that is used as key for the hashmap
+pub(crate) fn create_key(
+    group_by_keys: &[ArrayRef],
+    row: usize,
+    vec: &mut Vec<u8>,
+) -> Result<()> {
+    vec.clear();
+    for i in 0..group_by_keys.len() {
+        let col = &group_by_keys[i];
+        match col.data_type() {
+            DataType::UInt8 => {
+                let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::UInt16 => {
+                let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::UInt32 => {
+                let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::UInt64 => {
+                let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Int8 => {
+                let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Int16 => {
+                let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Int32 => {
+                let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Int64 => {
+                let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
+                vec.extend(array.value(row).to_le_bytes().iter());
+            }
+            DataType::Utf8 => {
+                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+                let value = array.value(row);
+                // store the size
+                vec.extend(value.len().to_le_bytes().iter());
+                // store the string value
+                vec.extend(array.value(row).as_bytes().iter());
+            }
+            _ => {
+                // This is internal because we should have caught this before.
+                return Err(DataFusionError::Internal(
+                    "Unsupported GROUP BY data type".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
@@ -370,9 +430,8 @@ fn build_join_indexes(
         JoinType::Inner => {
             // inner => key intersection
             // unfortunately rust does not support intersection of map keys :(
-            let left_set: HashSet<Box<[GroupByScalar]>> = left.keys().cloned().collect();
-            let left_right: HashSet<Box<[GroupByScalar]>> =
-                right.keys().cloned().collect();
+            let left_set: HashSet<Vec<u8>> = left.keys().cloned().collect();
+            let left_right: HashSet<Vec<u8>> = right.keys().cloned().collect();
             let inner = left_set.intersection(&left_right);
 
             let mut indexes = Vec::new(); // unknown a prior size

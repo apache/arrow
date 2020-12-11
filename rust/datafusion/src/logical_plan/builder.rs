@@ -19,12 +19,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::{
+    datatypes::{Schema, SchemaRef},
+    record_batch::RecordBatch,
+};
 
-use crate::datasource::csv::{CsvFile, CsvReadOptions};
-use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::{
+    datasource::{parquet::ParquetTable, CsvFile, MemTable},
+    prelude::CsvReadOptions,
+};
 
 use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
@@ -54,14 +59,36 @@ impl LogicalPlanBuilder {
         })
     }
 
+    /// Scan a memory data source
+    pub fn scan_memory(
+        partitions: Vec<Vec<RecordBatch>>,
+        schema: SchemaRef,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        let provider = Arc::new(MemTable::try_new(schema.clone(), partitions)?);
+
+        let projected_schema = projection
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
+        let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
+        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
+
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema,
+            projected_schema,
+            projection: None,
+        };
+
+        Ok(Self::from(&table_scan))
+    }
+
     /// Scan a CSV data source
     pub fn scan_csv(
         path: &str,
         options: CsvReadOptions,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let has_header = options.has_header;
-        let delimiter = options.delimiter;
         let schema: Schema = match options.schema {
             Some(s) => s.to_owned(),
             None => CsvFile::try_new(path, options)?
@@ -71,37 +98,44 @@ impl LogicalPlanBuilder {
         };
 
         let projected_schema = projection
-            .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
-            .or(Some(schema.clone()))
+            .or(Some(schema))
             .unwrap();
+        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
 
-        Ok(Self::from(&LogicalPlan::CsvScan {
-            path: path.to_owned(),
-            schema: SchemaRef::new(schema),
-            has_header,
-            delimiter: Some(delimiter),
-            projection,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
-        }))
+        let provider = Arc::new(CsvFile::try_new(path, options)?);
+        let schema = provider.schema();
+
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema,
+            projected_schema,
+            projection: None,
+        };
+
+        Ok(Self::from(&table_scan))
     }
 
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        let p = ParquetTable::try_new(path)?;
-        let schema = p.schema();
+        let provider = Arc::new(ParquetTable::try_new(path)?);
+        let schema = provider.schema();
 
         let projected_schema = projection
-            .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
         let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
+        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
 
-        Ok(Self::from(&LogicalPlan::ParquetScan {
-            path: path.to_owned(),
-            schema,
-            projection,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
-        }))
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema,
+            projected_schema,
+            projection: None,
+        };
+
+        Ok(Self::from(&table_scan))
     }
 
     /// Scan a data source
@@ -352,26 +386,6 @@ mod tests {
         let expected = "Projection: #id\
         \n  Filter: #state Eq Utf8(\"CO\")\
         \n    TableScan: employee.csv projection=Some([0, 3])";
-
-        assert_eq!(expected, format!("{:?}", plan));
-
-        Ok(())
-    }
-
-    #[test]
-    fn plan_builder_csv() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan_csv(
-            "employee.csv",
-            CsvReadOptions::new().schema(&employee_schema()),
-            Some(vec![0, 3]),
-        )?
-        .filter(col("state").eq(lit("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
-
-        let expected = "Projection: #id\
-        \n  Filter: #state Eq Utf8(\"CO\")\
-        \n    CsvScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));
 

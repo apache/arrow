@@ -25,10 +25,10 @@ use std::vec::Vec;
 
 use arrow::array::{
     Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanBufferBuilder, BufferBuilderTrait, FixedSizeBinaryArray,
-    FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder, ListBuilder,
-    OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray, StringBuilder,
-    StructArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait,
+    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
+    ListBuilder, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray,
+    StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -305,8 +305,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
         let array = match T::get_physical_type() {
             PhysicalType::BOOLEAN => {
-                Arc::new(PrimitiveArray::<ArrowBooleanType>::from(array_data.build()))
-                    as ArrayRef
+                Arc::new(BooleanArray::from(array_data.build())) as ArrayRef
             }
             PhysicalType::INT32 => {
                 Arc::new(PrimitiveArray::<ArrowInt32Type>::from(array_data.build()))
@@ -627,7 +626,8 @@ fn build_empty_list_array(item_type: ArrowType) -> Result<ArrayRef> {
             build_empty_list_array_with_primitive_items!(ArrowFloat64Type)
         }
         ArrowType::Boolean => {
-            build_empty_list_array_with_primitive_items!(ArrowBooleanType)
+            //build_empty_list_array_with_primitive_items!(ArrowBooleanType)
+            todo!()
         }
         ArrowType::Date32(_) => {
             build_empty_list_array_with_primitive_items!(ArrowDate32Type)
@@ -772,7 +772,8 @@ fn remove_indices(
             remove_primitive_array_indices!(arr, ArrowFloat64Type, indices)
         }
         ArrowType::Boolean => {
-            remove_primitive_array_indices!(arr, ArrowBooleanType, indices)
+            todo!()
+            //remove_primitive_array_indices!(arr, ArrowBooleanType, indices)
         }
         ArrowType::Date32(_) => {
             remove_primitive_array_indices!(arr, ArrowDate32Type, indices)

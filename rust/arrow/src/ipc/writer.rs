@@ -825,6 +825,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
@@ -869,6 +870,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(

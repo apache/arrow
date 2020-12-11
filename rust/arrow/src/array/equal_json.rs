@@ -38,14 +38,28 @@ pub trait JsonEqual {
 /// Implement array equals for numeric type
 impl<T: ArrowPrimitiveType> JsonEqual for PrimitiveArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
-        if self.len() != json.len() {
-            return false;
-        }
+        self.len() == json.len()
+            && (0..self.len()).all(|i| match json[i] {
+                Value::Null => self.is_null(i),
+                v => {
+                    self.is_valid(i)
+                        && Some(v) == self.value(i).into_json_value().as_ref()
+                }
+            })
+    }
+}
 
-        (0..self.len()).all(|i| match json[i] {
-            Value::Null => self.is_null(i),
-            v => self.is_valid(i) && Some(v) == self.value(i).into_json_value().as_ref(),
-        })
+/// Implement array equals for numeric type
+impl JsonEqual for BooleanArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        self.len() == json.len()
+            && (0..self.len()).all(|i| match json[i] {
+                Value::Null => self.is_null(i),
+                v => {
+                    self.is_valid(i)
+                        && Some(v) == self.value(i).into_json_value().as_ref()
+                }
+            })
     }
 }
 
@@ -900,7 +914,6 @@ mod tests {
         "#,
         )
         .unwrap();
-        println!("{:?}", arrow_array);
         assert!(arrow_array.eq(&json_array));
         assert!(json_array.eq(&arrow_array));
 
