@@ -242,7 +242,7 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::ExactSizeIterator
 mod tests {
     use std::sync::Arc;
 
-    use crate::array::{ArrayRef, BinaryArray, Int32Array, StringArray};
+    use crate::array::{ArrayRef, BinaryArray, BooleanArray, Int32Array, StringArray};
 
     #[test]
     fn test_primitive_array_iter_round_trip() {
@@ -309,6 +309,16 @@ mod tests {
 
         // to and from iter
         let result: BinaryArray = array.iter().collect();
+
+        assert_eq!(result, array);
+    }
+
+    #[test]
+    fn test_boolean_array_iter_round_trip() {
+        let array = BooleanArray::from(vec![Some(true), None, Some(false)]);
+
+        // to and from iter
+        let result: BooleanArray = array.iter().collect();
 
         assert_eq!(result, array);
     }

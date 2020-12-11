@@ -136,31 +136,7 @@ impl From<Vec<bool>> for BooleanArray {
 
 impl From<Vec<Option<bool>>> for BooleanArray {
     fn from(data: Vec<Option<bool>>) -> Self {
-        let data_len = data.len();
-        let num_byte = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new_null(data.len());
-        let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
-
-        {
-            let null_slice = null_buf.data_mut();
-            let val_slice = val_buf.data_mut();
-
-            for (i, v) in data.iter().enumerate() {
-                if let Some(b) = v {
-                    bit_util::set_bit(null_slice, i);
-                    if *b {
-                        bit_util::set_bit(val_slice, i);
-                    }
-                }
-            }
-        }
-
-        let array_data = ArrayData::builder(DataType::Boolean)
-            .len(data_len)
-            .add_buffer(val_buf.freeze())
-            .null_bit_buffer(null_buf.freeze())
-            .build();
-        BooleanArray::from(array_data)
+        BooleanArray::from_iter(data.iter())
     }
 }
 
