@@ -437,14 +437,14 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
     if (null_count > 0) {
       for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
         if (!fixed_size_binary_array.IsNull(i)) {
-          RawBytesToDecimalBytes<DecimalType>(fixed_size_binary_array.GetValue(i),
-                                              byte_width, out_ptr);
+          RETURN_NOT_OK(RawBytesToDecimalBytes<DecimalType>(
+              fixed_size_binary_array.GetValue(i), byte_width, out_ptr));
         }
       }
     } else {
       for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
-        RawBytesToDecimalBytes<DecimalType>(fixed_size_binary_array.GetValue(i),
-                                            byte_width, out_ptr);
+        RETURN_NOT_OK(RawBytesToDecimalBytes<DecimalType>(
+            fixed_size_binary_array.GetValue(i), byte_width, out_ptr));
       }
     }
 
@@ -490,7 +490,8 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
       // all rows, if there are not
       if ((null_count > 0 && !binary_array.IsNull(i)) || null_count <= 0) {
         using DecimalType = typename DecimalTypeTrait<DecimalArrayType>::value;
-        RawBytesToDecimalBytes<DecimalType>(record_loc, record_len, out_ptr);
+        RETURN_NOT_OK(
+            RawBytesToDecimalBytes<DecimalType>(record_loc, record_len, out_ptr));
       }
     }
     *out = std::make_shared<DecimalArrayType>(type, length, std::move(data),
