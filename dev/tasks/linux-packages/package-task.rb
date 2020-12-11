@@ -295,7 +295,7 @@ class PackageTask
     cp(deb_archive_name,
        File.join(tmp_dir, deb_archive_name))
     apt_targets.each do |target|
-      apt_prepare_debian_dirs(tmp_dir, target)
+      apt_prepare_debian_dir(tmp_dir, target)
     end
 
     env_sh = "#{apt_dir}/env.sh"
