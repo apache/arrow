@@ -100,7 +100,7 @@ pub(super) fn compare_option_bitmap(
 /// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
 /// elements)
 pub(super) fn take_value_indices_from_list<IndexType, OffsetType>(
-    values: &ArrayRef,
+    list: &GenericListArray<OffsetType::Native>,
     indices: &PrimitiveArray<IndexType>,
 ) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType::Native>)>
 where
@@ -112,10 +112,6 @@ where
 {
     // TODO: benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
-    let list = values
-        .as_any()
-        .downcast_ref::<GenericListArray<OffsetType::Native>>()
-        .unwrap();
     let offsets: Vec<OffsetType::Native> =
         (0..=list.len()).map(|i| list.value_offset(i)).collect();
 
@@ -148,6 +144,26 @@ where
     }
 
     Ok((PrimitiveArray::<OffsetType>::from(values), new_offsets))
+}
+
+/// Takes/filters a fixed size list array's inner data using the offsets of the list array.
+pub(super) fn take_value_indices_from_fixed_size_list(
+    list: &FixedSizeListArray,
+    indices: &PrimitiveArray<Int32Type>,
+    length: <Int32Type as ArrowPrimitiveType>::Native,
+) -> PrimitiveArray<Int32Type> {
+    let mut values = vec![];
+
+    for i in 0..indices.len() {
+        if indices.is_valid(i) {
+            let index = indices.value(i) as usize;
+            let start = list.value_offset(index);
+
+            values.extend(start..start + length);
+        }
+    }
+
+    PrimitiveArray::<Int32Type>::from(values)
 }
 
 /// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
@@ -215,13 +231,14 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
 
     use std::sync::Arc;
 
-    use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
+    use crate::util::bit_util;
+    use crate::{array::ArrayData, buffer::MutableBuffer};
 
     fn make_data_with_null_bit_buffer(
         len: usize,
@@ -302,7 +319,7 @@ mod tests {
         list_data_type: DataType,
         values: PrimitiveArray<P>,
         offsets: Vec<S>,
-    ) -> ArrayRef
+    ) -> GenericListArray<S>
     where
         P: ArrowPrimitiveType,
         S: OffsetSizeTrait,
@@ -315,7 +332,54 @@ mod tests {
             .add_child_data(value_data)
             .build();
 
-        Arc::new(GenericListArray::<S>::from(list_data))
+        GenericListArray::<S>::from(list_data)
+    }
+
+    pub(crate) fn build_fixed_size_list<T>(
+        list_values: Vec<Option<Vec<Option<T::Native>>>>,
+        length: <Int32Type as ArrowPrimitiveType>::Native,
+    ) -> FixedSizeListArray
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let mut values = vec![];
+        let mut list_null_count = 0;
+        let mut list_nullable = false;
+        let list_len = list_values.len();
+
+        let num_bytes = bit_util::ceil(list_len, 8);
+        let mut list_bitmap = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+        for (idx, list_element) in list_values.into_iter().enumerate() {
+            if let Some(items) = list_element {
+                // every sub-array should have the same length
+                debug_assert_eq!(length as usize, items.len());
+
+                values.extend(items.into_iter());
+            } else {
+                list_nullable = true;
+                list_null_count += 1;
+                bit_util::unset_bit(&mut list_bitmap.data_mut(), idx);
+                values.extend(vec![None; length as usize].into_iter());
+            }
+        }
+
+        let list_data_type = DataType::FixedSizeList(
+            Box::new(Field::new("item", T::DATA_TYPE, list_nullable)),
+            length,
+        );
+
+        let child_data = PrimitiveArray::<T>::from(values).data();
+
+        let list_data = ArrayData::builder(list_data_type)
+            .len(list_len)
+            .offset(0)
+            .null_count(list_null_count)
+            .null_bit_buffer(list_bitmap.freeze())
+            .add_child_data(child_data)
+            .build();
+
+        FixedSizeListArray::from(list_data)
     }
 
     #[test]
@@ -327,8 +391,7 @@ mod tests {
         );
         let indices = UInt32Array::from(vec![2, 0]);
 
-        let (indexed, offsets) =
-            take_value_indices_from_list::<_, Int32Type>(&list, &indices).unwrap();
+        let (indexed, offsets) = take_value_indices_from_list(&list, &indices).unwrap();
 
         assert_eq!(indexed, Int32Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
         assert_eq!(offsets, vec![0, 5, 7]);
@@ -348,6 +411,32 @@ mod tests {
 
         assert_eq!(indexed, Int64Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
         assert_eq!(offsets, vec![0, 5, 7]);
+    }
+
+    #[test]
+    fn test_take_value_index_from_fixed_list() {
+        let list = build_fixed_size_list::<Int32Type>(
+            vec![
+                Some(vec![Some(1), Some(2), None]),
+                Some(vec![Some(4), None, Some(6)]),
+                None,
+                Some(vec![None, Some(8), Some(9)]),
+            ],
+            3,
+        );
+
+        let indices = Int32Array::from(vec![2, 1, 0]);
+        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
+
+        assert_eq!(indexed, Int32Array::from(vec![6, 7, 8, 3, 4, 5, 0, 1, 2]));
+
+        let indices = Int32Array::from(vec![3, 2, 1, 2, 0]);
+        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
+
+        assert_eq!(
+            indexed,
+            Int32Array::from(vec![9, 10, 11, 6, 7, 8, 3, 4, 5, 6, 7, 8, 0, 1, 2])
+        );
     }
 
     #[test]

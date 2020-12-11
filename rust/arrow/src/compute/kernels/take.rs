@@ -20,7 +20,9 @@
 use std::{ops::AddAssign, sync::Arc};
 
 use crate::buffer::{Buffer, MutableBuffer};
-use crate::compute::util::take_value_indices_from_list;
+use crate::compute::util::{
+    take_value_indices_from_fixed_size_list, take_value_indices_from_list,
+};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
@@ -145,6 +147,9 @@ where
         DataType::LargeUtf8 => take_string::<i64, _>(values, indices),
         DataType::List(_) => take_list::<_, Int32Type>(values, indices),
         DataType::LargeList(_) => take_list::<_, Int64Type>(values, indices),
+        DataType::FixedSizeList(_, length) => {
+            take_fixed_size_list(values, indices, *length)
+        }
         DataType::Struct(fields) => {
             let struct_: &StructArray =
                 values.as_any().downcast_ref::<StructArray>().unwrap();
@@ -494,7 +499,7 @@ where
         .unwrap();
 
     let (list_indices, offsets) =
-        take_value_indices_from_list::<IndexType, OffsetType>(values, indices)?;
+        take_value_indices_from_list::<IndexType, OffsetType>(list, indices)?;
 
     let taken = take_impl::<OffsetType>(&list.values(), &list_indices, None)?;
     // determine null count and null buffer, which are a function of `values` and `indices`
@@ -526,6 +531,56 @@ where
     let list_array =
         Arc::new(GenericListArray::<OffsetType::Native>::from(list_data)) as ArrayRef;
     Ok(list_array)
+}
+
+/// `take` implementation for `FixedSizeListArray`
+///
+/// Calculates the index and indexed offset for the inner array,
+/// applying `take` on the inner array, then reconstructing a list array
+/// with the indexed offsets
+fn take_fixed_size_list<IndexType>(
+    values: &ArrayRef,
+    indices: &PrimitiveArray<IndexType>,
+    length: <Int32Type as ArrowPrimitiveType>::Native,
+) -> Result<ArrayRef>
+where
+    IndexType: ArrowNumericType,
+    IndexType::Native: ToPrimitive,
+{
+    let indices = indices
+        .as_any()
+        .downcast_ref::<PrimitiveArray<Int32Type>>()
+        .expect("FixedSizeListArray's indices type should be 32-bit signed integer");
+    let list = values
+        .as_any()
+        .downcast_ref::<FixedSizeListArray>()
+        .unwrap();
+
+    let list_indices = take_value_indices_from_fixed_size_list(list, indices, length);
+    let taken = take_impl::<Int32Type>(&list.values(), &list_indices, None)?;
+
+    // determine null count and null buffer, which are a function of `values` and `indices`
+    let mut null_count = 0;
+    let num_bytes = bit_util::ceil(indices.len(), 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+    let null_slice = null_buf.data_mut();
+
+    for i in 0..indices.len() {
+        if !indices.is_valid(i) || list.is_null(indices.value(i) as usize) {
+            bit_util::unset_bit(null_slice, i);
+            null_count += 1;
+        }
+    }
+
+    let list_data = ArrayDataBuilder::new(list.data_type().clone())
+        .len(indices.len())
+        .null_count(null_count)
+        .null_bit_buffer(null_buf.freeze())
+        .offset(0)
+        .add_child_data(taken.data())
+        .build();
+
+    Ok(Arc::new(FixedSizeListArray::from(list_data)))
 }
 
 /// `take` implementation for dictionary arrays
@@ -563,6 +618,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compute::util::tests::build_fixed_size_list;
 
     fn test_take_boolean_arrays(
         data: Vec<Option<bool>>,
@@ -1091,6 +1147,28 @@ mod tests {
         }};
     }
 
+    fn do_take_fixed_size_list_test<T>(
+        length: <Int32Type as ArrowPrimitiveType>::Native,
+        input_data: Vec<Option<Vec<Option<T::Native>>>>,
+        indices: Vec<<Int32Type as ArrowPrimitiveType>::Native>,
+        expected_data: Vec<Option<Vec<Option<T::Native>>>>,
+    ) where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let indices = Int32Array::from(indices);
+
+        let input_array: ArrayRef =
+            Arc::new(build_fixed_size_list::<T>(input_data, length));
+
+        let output = take_fixed_size_list(&input_array, &indices, length).unwrap();
+
+        let expected: ArrayRef =
+            Arc::new(build_fixed_size_list::<T>(expected_data, length));
+
+        assert_eq!(&output, &expected)
+    }
+
     #[test]
     fn test_take_list() {
         test_take_list!(i32, List, ListArray);
@@ -1119,6 +1197,62 @@ mod tests {
     #[test]
     fn test_test_take_large_list_with_nulls() {
         test_take_list_with_nulls!(i64, LargeList, LargeListArray);
+    }
+
+    #[test]
+    fn test_take_fixed_size_list() {
+        do_take_fixed_size_list_test::<Int32Type>(
+            3,
+            vec![
+                Some(vec![None, Some(1), Some(2)]),
+                Some(vec![Some(3), Some(4), None]),
+                Some(vec![Some(6), Some(7), Some(8)]),
+            ],
+            vec![2, 1, 0],
+            vec![
+                Some(vec![Some(6), Some(7), Some(8)]),
+                Some(vec![Some(3), Some(4), None]),
+                Some(vec![None, Some(1), Some(2)]),
+            ],
+        );
+
+        do_take_fixed_size_list_test::<UInt8Type>(
+            1,
+            vec![
+                Some(vec![Some(1)]),
+                Some(vec![Some(2)]),
+                Some(vec![Some(3)]),
+                Some(vec![Some(4)]),
+                Some(vec![Some(5)]),
+                Some(vec![Some(6)]),
+                Some(vec![Some(7)]),
+                Some(vec![Some(8)]),
+            ],
+            vec![2, 7, 0],
+            vec![
+                Some(vec![Some(3)]),
+                Some(vec![Some(8)]),
+                Some(vec![Some(1)]),
+            ],
+        );
+
+        do_take_fixed_size_list_test::<UInt64Type>(
+            3,
+            vec![
+                Some(vec![Some(10), Some(11), Some(12)]),
+                Some(vec![Some(13), Some(14), Some(15)]),
+                None,
+                Some(vec![Some(16), Some(17), Some(18)]),
+            ],
+            vec![3, 2, 1, 2, 0],
+            vec![
+                Some(vec![Some(16), Some(17), Some(18)]),
+                None,
+                Some(vec![Some(13), Some(14), Some(15)]),
+                None,
+                Some(vec![Some(10), Some(11), Some(12)]),
+            ],
+        );
     }
 
     #[test]
