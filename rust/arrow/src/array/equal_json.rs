@@ -900,7 +900,6 @@ mod tests {
         "#,
         )
         .unwrap();
-        println!("{:?}", arrow_array);
         assert!(arrow_array.eq(&json_array));
         assert!(json_array.eq(&arrow_array));
 

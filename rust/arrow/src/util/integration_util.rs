@@ -331,6 +331,10 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<StructArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
+                    DataType::Decimal(_, _) => {
+                        let arr = arr.as_any().downcast_ref::<DecimalArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::Dictionary(ref key_type, _) => match key_type.as_ref() {
                         DataType::Int8 => {
                             let arr = arr

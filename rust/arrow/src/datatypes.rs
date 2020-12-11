@@ -990,6 +990,23 @@ impl DataType {
                         ))
                     }
                 }
+                Some(s) if s == "decimal" => {
+                    // return a list with any type as its child isn't defined in the map
+                    let precision = match map.get("precision") {
+                        Some(p) => Ok(p.as_u64().unwrap() as usize),
+                        None => Err(ArrowError::ParseError(
+                            "Expecting a precision for decimal".to_string(),
+                        )),
+                    };
+                    let scale = match map.get("scale") {
+                        Some(s) => Ok(s.as_u64().unwrap() as usize),
+                        _ => Err(ArrowError::ParseError(
+                            "Expecting a scale for decimal".to_string(),
+                        )),
+                    };
+
+                    Ok(DataType::Decimal(precision?, scale?))
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
