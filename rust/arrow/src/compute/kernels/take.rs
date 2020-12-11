@@ -1192,15 +1192,15 @@ mod tests {
         do_take_fixed_size_list_test::<Int32Type>(
             3,
             vec![
-                Some(vec![Some(0), Some(1), Some(2)]),
-                Some(vec![Some(3), Some(4), Some(5)]),
+                Some(vec![None, Some(1), Some(2)]),
+                Some(vec![Some(3), Some(4), None]),
                 Some(vec![Some(6), Some(7), Some(8)]),
             ],
             vec![2, 1, 0],
             vec![
                 Some(vec![Some(6), Some(7), Some(8)]),
-                Some(vec![Some(3), Some(4), Some(5)]),
-                Some(vec![Some(0), Some(1), Some(2)]),
+                Some(vec![Some(3), Some(4), None]),
+                Some(vec![None, Some(1), Some(2)]),
             ],
         );
 
