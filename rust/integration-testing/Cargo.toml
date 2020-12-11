@@ -32,15 +32,3 @@ serde = { version = "1.0", features = ["rc"] }
 serde_derive = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 hex = "0.4"
-
-[[bin]]
-name = "arrow-file-to-stream"
-path = "src/bin/arrow-file-to-stream.rs"
-
-[[bin]]
-name = "arrow-stream-to-file"
-path = "src/bin/arrow-stream-to-file.rs"
-
-[[bin]]
-name = "arrow-json-integration-test"
-path = "src/bin/arrow-json-integration-test.rs"
