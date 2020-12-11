@@ -94,7 +94,7 @@ pub fn sort_to_indices(
     let (v, n) = partition_validity(values);
 
     match values.data_type() {
-        DataType::Boolean => sort_boolean(values, v, n, vec![], &options),
+        DataType::Boolean => sort_boolean(values, v, n, &options),
         DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, vec![], &options),
         DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, vec![], &options),
         DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, vec![], &options),
@@ -225,7 +225,6 @@ fn sort_boolean(
     values: &ArrayRef,
     value_indices: Vec<u32>,
     null_indices: Vec<u32>,
-    nan_indices: Vec<u32>,
     options: &SortOptions,
 ) -> Result<UInt32Array> {
     let values = values
@@ -241,18 +240,15 @@ fn sort_boolean(
         .collect::<Vec<(u32, bool)>>();
 
     let mut nulls = null_indices;
-    let mut nans = nan_indices;
 
     let valids_len = valids.len();
     let nulls_len = nulls.len();
-    let nans_len = nans.len();
 
     if !descending {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN"));
+        valids.sort_by(|a, b| a.1.cmp(&b.1));
     } else {
-        valids.sort_by(|a, b| a.1.partial_cmp(&b.1).expect("unexpected NaN").reverse());
+        valids.sort_by(|a, b| a.1.cmp(&b.1).reverse());
         // reverse to keep a stable ordering
-        nans.reverse();
         nulls.reverse();
     }
 
@@ -262,15 +258,15 @@ fn sort_boolean(
     result.resize(values.len() * std::mem::size_of::<u32>());
     let result_slice: &mut [u32] = result.typed_data_mut();
 
-    debug_assert_eq!(result_slice.len(), nulls_len + nans_len + valids_len);
+    debug_assert_eq!(result_slice.len(), nulls_len + valids_len);
 
     if options.nulls_first {
         result_slice[0..nulls_len].copy_from_slice(&nulls);
-        insert_valid_and_nan_values(result_slice, nulls_len, valids, nans, descending);
+        insert_valid_and_nan_values(result_slice, nulls_len, valids, vec![], descending);
     } else {
         // nulls last
-        insert_valid_and_nan_values(result_slice, 0, valids, nans, descending);
-        result_slice[valids_len + nans_len..].copy_from_slice(nulls.as_slice())
+        insert_valid_and_nan_values(result_slice, 0, valids, vec![], descending);
+        result_slice[valids_len..].copy_from_slice(nulls.as_slice())
     }
 
     let result_data = Arc::new(ArrayData::new(
