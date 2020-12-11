@@ -42,14 +42,14 @@ pub struct MemTable {
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
     pub fn new(schema: SchemaRef, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
-        if partitions.iter().all(|partition| {
-            partition
-                .iter()
-                .all(|batches| batches.schema().as_ref() == schema.as_ref())
-        }) {
+        if partitions
+            .iter()
+            .flatten()
+            .all(|batches| batches.schema().as_ref() == schema.as_ref())
+        {
             let num_rows: usize = partitions
                 .iter()
-                .map(|batches| batches.iter().map(|batch| batch.num_rows()).sum::<usize>())
+                .flat_map(|batches| batches.iter().map(|batch| batch.num_rows()))
                 .sum();
             Ok(Self {
                 schema,
