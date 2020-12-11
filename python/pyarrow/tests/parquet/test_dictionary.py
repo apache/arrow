@@ -16,8 +16,9 @@
 # under the License.
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
@@ -32,6 +33,8 @@ try:
     import pandas.testing as tm
 except ImportError:
     pd = tm = None
+
+pytestmark = pytest.mark.parquet
 
 
 def _simple_table_write_read(table, use_legacy_dataset):

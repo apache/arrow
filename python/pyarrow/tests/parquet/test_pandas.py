@@ -21,8 +21,9 @@ import json
 from distutils.version import LooseVersion
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
@@ -38,10 +39,14 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
+
     from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
                                               alltypes_sample)
 except ImportError:
     pd = tm = None
+
+
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas

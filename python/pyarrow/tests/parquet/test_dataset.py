@@ -20,8 +20,9 @@ import os
 from distutils.version import LooseVersion
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
@@ -33,8 +34,7 @@ from pyarrow.util import guid
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
-        _read_table, _test_dataframe, _test_read_common_metadata_files,
-        _test_write_to_dataset_no_partitions,
+        _read_table, _test_dataframe, _test_write_to_dataset_no_partitions,
         _test_write_to_dataset_with_partitions, _write_table)
 except ImportError:
     pq = None
@@ -46,6 +46,8 @@ try:
 
 except ImportError:
     pd = tm = None
+
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
@@ -593,6 +595,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
     s3_example_s3fs, use_legacy_dataset
 ):
     import s3fs
+
     from pyarrow.filesystem import S3FSWrapper
 
     if s3fs.__version__ >= LooseVersion("0.5"):
@@ -696,6 +699,41 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     _visit_level(base_dir, 0, [])
 
 
+def _test_read_common_metadata_files(fs, base_path):
+    import pandas as pd
+
+    import pyarrow.parquet as pq
+
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    base_path = str(base_path)
+    data_path = os.path.join(base_path, 'data.parquet')
+
+    table = pa.Table.from_pandas(df)
+
+    with fs.open(data_path, 'wb') as f:
+        _write_table(table, f)
+
+    metadata_path = os.path.join(base_path, '_common_metadata')
+    with fs.open(metadata_path, 'wb') as f:
+        pq.write_metadata(table.schema, f)
+
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    assert dataset.common_metadata_path == str(metadata_path)
+
+    with fs.open(data_path) as f:
+        common_schema = pq.read_metadata(f).schema
+    assert dataset.schema.equals(common_schema)
+
+    # handle list of one directory
+    dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
+    assert dataset2.schema.equals(dataset.schema)
+
+
 @pytest.mark.pandas
 def test_read_common_metadata_files(tempdir):
     fs = LocalFileSystem._get_instance()
@@ -766,6 +804,30 @@ def _filter_partition(df, part_keys):
         predicate &= df[name] == value
 
     return df[predicate].drop(to_drop, axis=1)
+
+
+@parametrize_legacy_dataset
+@pytest.mark.pandas
+def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
+    # ARROW-4076 apply filter before schema validation
+    # to avoid checking unneeded schemas
+
+    # create partitioned dataset with mismatching schemas which would
+    # otherwise raise if first validation all schemas
+    dir1 = tempdir / 'A=0'
+    dir1.mkdir()
+    table1 = pa.Table.from_pandas(pd.DataFrame({'B': [1, 2, 3]}))
+    pq.write_table(table1, dir1 / 'data.parquet')
+
+    dir2 = tempdir / 'A=1'
+    dir2.mkdir()
+    table2 = pa.Table.from_pandas(pd.DataFrame({'B': ['a', 'b', 'c']}))
+    pq.write_table(table2, dir2 / 'data.parquet')
+
+    # read single file using filter
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]],
+                          use_legacy_dataset=use_legacy_dataset)
+    assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))
 
 
 @pytest.mark.pandas

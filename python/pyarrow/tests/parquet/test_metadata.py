@@ -20,9 +20,9 @@ import io
 from collections import OrderedDict
 
 import numpy as np
-import pyarrow as pa
 import pytest
-from pyarrow.filesystem import LocalFileSystem
+
+import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
 
 try:
@@ -35,9 +35,13 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
+
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
+
+
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
@@ -345,35 +349,6 @@ def test_field_id_metadata():
 
 
 @pytest.mark.pandas
-def test_read_metadata_files(tempdir):
-    fs = LocalFileSystem._get_instance()
-
-    N = 100
-    df = pd.DataFrame({
-        'index': np.arange(N),
-        'values': np.random.randn(N)
-    }, columns=['index', 'values'])
-
-    data_path = tempdir / 'data.parquet'
-
-    table = pa.Table.from_pandas(df)
-
-    with fs.open(data_path, 'wb') as f:
-        _write_table(table, f)
-
-    metadata_path = tempdir / '_metadata'
-    with fs.open(metadata_path, 'wb') as f:
-        pq.write_metadata(table.schema, f)
-
-    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-    assert dataset.metadata_path == str(metadata_path)
-
-    with fs.open(data_path) as f:
-        metadata_schema = pq.read_metadata(f).schema
-    assert dataset.schema.equals(metadata_schema)
-
-
-@pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
     metapath = str(tempdir / "_metadata")
@@ -473,3 +448,30 @@ def test_parquet_metadata_empty_to_dict(tempdir):
     assert len(metadata_dict["row_groups"]) == 1
     assert len(metadata_dict["row_groups"][0]["columns"]) == 1
     assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
+
+
+@pytest.mark.pandas
+def test_compare_schemas():
+    df = alltypes_sample(size=10000)
+
+    fileh = make_sample_file(df)
+    fileh2 = make_sample_file(df)
+    fileh3 = make_sample_file(df[df.columns[::2]])
+
+    # ParquetSchema
+    assert isinstance(fileh.schema, pq.ParquetSchema)
+    assert fileh.schema.equals(fileh.schema)
+    assert fileh.schema == fileh.schema
+    assert fileh.schema.equals(fileh2.schema)
+    assert fileh.schema == fileh2.schema
+    assert fileh.schema != 'arbitrary object'
+    assert not fileh.schema.equals(fileh3.schema)
+    assert fileh.schema != fileh3.schema
+
+    # ColumnSchema
+    assert isinstance(fileh.schema[0], pq.ColumnSchema)
+    assert fileh.schema[0].equals(fileh.schema[0])
+    assert fileh.schema[0] == fileh.schema[0]
+    assert not fileh.schema[0].equals(fileh.schema[1])
+    assert fileh.schema[0] != fileh.schema[1]
+    assert fileh.schema[0] != 'arbitrary object'

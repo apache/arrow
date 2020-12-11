@@ -19,8 +19,9 @@ import io
 import os
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 
@@ -96,40 +97,6 @@ def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=True):
     return result.to_pandas()
 
 
-def _test_read_common_metadata_files(fs, base_path):
-    import pandas as pd
-    import pyarrow.parquet as pq
-
-    N = 100
-    df = pd.DataFrame({
-        'index': np.arange(N),
-        'values': np.random.randn(N)
-    }, columns=['index', 'values'])
-
-    base_path = str(base_path)
-    data_path = os.path.join(base_path, 'data.parquet')
-
-    table = pa.Table.from_pandas(df)
-
-    with fs.open(data_path, 'wb') as f:
-        _write_table(table, f)
-
-    metadata_path = os.path.join(base_path, '_common_metadata')
-    with fs.open(metadata_path, 'wb') as f:
-        pq.write_metadata(table.schema, f)
-
-    dataset = pq.ParquetDataset(base_path, filesystem=fs)
-    assert dataset.common_metadata_path == str(metadata_path)
-
-    with fs.open(data_path) as f:
-        common_schema = pq.read_metadata(f).schema
-    assert dataset.schema.equals(common_schema)
-
-    # handle list of one directory
-    dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
-    assert dataset2.schema.equals(dataset.schema)
-
-
 def _random_integers(size, dtype):
     # We do not generate integers outside the int64 range
     platform_int_info = np.iinfo('int_')
@@ -172,6 +139,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                                            index_name=None):
     import pandas as pd
     import pandas.testing as tm
+
     import pyarrow.parquet as pq
 
     # ARROW-1400
@@ -231,6 +199,7 @@ def _test_write_to_dataset_no_partitions(base_path,
                                          use_legacy_dataset=True,
                                          filesystem=None):
     import pandas as pd
+
     import pyarrow.parquet as pq
 
     # ARROW-1400

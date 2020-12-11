@@ -18,8 +18,9 @@
 import datetime
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip
 
 try:
@@ -32,9 +33,13 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
+
     from pyarrow.tests.parquet.common import _roundtrip_pandas_dataframe
 except ImportError:
     pd = tm = None
+
+
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas

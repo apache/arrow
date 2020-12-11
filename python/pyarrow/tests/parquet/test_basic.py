@@ -20,13 +20,13 @@ import io
 import os
 
 import numpy as np
-import pyarrow as pa
 import pytest
+
+import pyarrow as pa
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          make_sample_file,
                                           parametrize_legacy_dataset)
 
 try:
@@ -40,11 +40,15 @@ except ImportError:
 try:
     import pandas as pd
     import pandas.testing as tm
+
     from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
                                                dataframe_with_lists)
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
+
+
+pytestmark = pytest.mark.parquet
 
 
 def test_large_binary():
@@ -386,33 +390,6 @@ def test_compression_level(use_legacy_dataset):
         with pytest.raises((ValueError, OSError)):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
-
-
-@pytest.mark.pandas
-def test_compare_schemas():
-    df = alltypes_sample(size=10000)
-
-    fileh = make_sample_file(df)
-    fileh2 = make_sample_file(df)
-    fileh3 = make_sample_file(df[df.columns[::2]])
-
-    # ParquetSchema
-    assert isinstance(fileh.schema, pq.ParquetSchema)
-    assert fileh.schema.equals(fileh.schema)
-    assert fileh.schema == fileh.schema
-    assert fileh.schema.equals(fileh2.schema)
-    assert fileh.schema == fileh2.schema
-    assert fileh.schema != 'arbitrary object'
-    assert not fileh.schema.equals(fileh3.schema)
-    assert fileh.schema != fileh3.schema
-
-    # ColumnSchema
-    assert isinstance(fileh.schema[0], pq.ColumnSchema)
-    assert fileh.schema[0].equals(fileh.schema[0])
-    assert fileh.schema[0] == fileh.schema[0]
-    assert not fileh.schema[0].equals(fileh.schema[1])
-    assert fileh.schema[0] != fileh.schema[1]
-    assert fileh.schema[0] != 'arbitrary object'
 
 
 def test_validate_schema_write_table(tempdir):
@@ -955,30 +932,6 @@ def test_parquet_file_too_small(tempdir, use_legacy_dataset):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
-
-
-@parametrize_legacy_dataset
-@pytest.mark.pandas
-def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
-    # ARROW-4076 apply filter before schema validation
-    # to avoid checking unneeded schemas
-
-    # create partitioned dataset with mismatching schemas which would
-    # otherwise raise if first validation all schemas
-    dir1 = tempdir / 'A=0'
-    dir1.mkdir()
-    table1 = pa.Table.from_pandas(pd.DataFrame({'B': [1, 2, 3]}))
-    pq.write_table(table1, dir1 / 'data.parquet')
-
-    dir2 = tempdir / 'A=1'
-    dir2.mkdir()
-    table2 = pa.Table.from_pandas(pd.DataFrame({'B': ['a', 'b', 'c']}))
-    pq.write_table(table2, dir2 / 'data.parquet')
-
-    # read single file using filter
-    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]],
-                          use_legacy_dataset=use_legacy_dataset)
-    assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))
 
 
 @pytest.mark.pandas
