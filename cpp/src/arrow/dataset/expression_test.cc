@@ -219,18 +219,24 @@ TEST(Expression, BindLiteral) {
   }
 }
 
-void ExpectBindsTo(Expression expr, Expression expected,
+void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
                    Expression* bound_out = nullptr) {
+  if (!expected) {
+    expected = expr;
+  }
+
   ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
   EXPECT_TRUE(bound.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*kBoringSchema));
-  EXPECT_EQ(bound, expected) << " unbound: " << expr.ToString();
+  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(*kBoringSchema));
+  EXPECT_EQ(bound, *expected) << " unbound: " << expr.ToString();
 
   if (bound_out) {
     *bound_out = bound;
   }
 }
+
+const auto no_change = util::nullopt;
 
 TEST(Expression, BindFieldRef) {
   // an unbound field_ref does not have the output ValueDescr set
@@ -238,11 +244,11 @@ TEST(Expression, BindFieldRef) {
   EXPECT_EQ(expr.descr(), ValueDescr{});
   EXPECT_FALSE(expr.IsBound());
 
-  ExpectBindsTo(field_ref("i32"), field_ref("i32"), &expr);
+  ExpectBindsTo(field_ref("i32"), no_change, &expr);
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
   // if the field is not found, a null scalar will be emitted
-  ExpectBindsTo(field_ref("no such field"), field_ref("no such field"), &expr);
+  ExpectBindsTo(field_ref("no such field"), no_change, &expr);
   EXPECT_EQ(expr.descr(), ValueDescr::Scalar(null()));
 
   // referencing a field by name is not supported if that name is not unique
@@ -258,17 +264,19 @@ TEST(Expression, BindFieldRef) {
 }
 
 TEST(Expression, BindCall) {
-  auto expr = call("add", {field_ref("a"), field_ref("b")});
+  auto expr = call("add", {field_ref("i32"), field_ref("i32_req")});
   EXPECT_FALSE(expr.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expr,
-                       expr.Bind(Schema({field("a", int32()), field("b", int32())})));
+  ExpectBindsTo(expr, no_change, &expr);
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
-  EXPECT_TRUE(expr.IsBound());
 
-  expr = call("add", {field_ref("a"), literal(3.5)});
-  ASSERT_RAISES(NotImplemented,
-                expr.Bind(Schema({field("a", int32()), field("b", int32())})));
+  // literal(3) may be safely cast to float32, so binding this expr casts that literal:
+  ExpectBindsTo(call("add", {field_ref("f32"), literal(3)}),
+                call("add", {field_ref("f32"), literal(3.0F)}));
+
+  // literal(3.5) may not be safely cast to int32, so binding this expr fails:
+  ASSERT_RAISES(Invalid,
+                call("add", {field_ref("i32"), literal(3.5)}).Bind(*kBoringSchema));
 }
 
 TEST(Expression, BindWithImplicitCasts) {
@@ -284,11 +292,9 @@ TEST(Expression, BindWithImplicitCasts) {
   }
 
   // scalars are directly cast when possible:
-  ExpectBindsTo(
-      equal(field_ref("ts_ns"), literal("1990-10-23 10:23:33")),
-      equal(field_ref("ts_ns"),
-            literal(
-                *MakeScalar("1990-10-23 10:23:33")->CastTo(timestamp(TimeUnit::NANO)))));
+  auto ts_scalar = MakeScalar("1990-10-23")->CastTo(timestamp(TimeUnit::NANO));
+  ExpectBindsTo(equal(field_ref("ts_ns"), literal("1990-10-23")),
+                equal(field_ref("ts_ns"), literal(*ts_scalar)));
 
   // cast value_set to argument type
   auto Opts = [](std::shared_ptr<DataType> type) {
@@ -509,7 +515,10 @@ TEST(Expression, FoldConstants) {
                                 literal(2),
                             }));
 
-  compute::SetLookupOptions in_123(ArrayFromJSON(int32(), "[1,2,3]"), true);
+  compute::SetLookupOptions in_123(ArrayFromJSON(int32(), "[1,2,3]"));
+
+  ExpectFoldsTo(call("is_in", {literal(2)}, in_123), literal(true));
+
   ExpectFoldsTo(
       call("is_in",
            {call("add", {field_ref("i32"), call("multiply", {literal(2), literal(3)})})},
@@ -931,6 +940,17 @@ TEST(Expression, Filter) {
       {"i32": 0, "f32":  0.1, "in": 1},
       {"i32": 0, "f32": null, "in": 1},
       {"i32": 0, "f32":  1.0, "in": 1}
+  ])");
+
+  ExpectFilter(
+      greater(call("multiply", {field_ref("f32"), field_ref("f64")}), literal(0)), R"([
+      {"f64":  0.3, "f32":  0.1, "in": 1},
+      {"f64": -0.1, "f32":  0.3, "in": 0},
+      {"f64":  0.1, "f32":  0.2, "in": 1},
+      {"f64":  0.0, "f32": -0.1, "in": 0},
+      {"f64":  1.0, "f32":  0.1, "in": 1},
+      {"f64": -2.0, "f32": null, "in": null},
+      {"f64":  3.0, "f32":  1.0, "in": 1}
   ])");
 }
 

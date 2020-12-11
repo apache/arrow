@@ -216,6 +216,14 @@ inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
 
+inline bool IsSameTypesBinary(const std::string& function) {
+  if (Comparison::Get(function)) return true;
+
+  static std::unordered_set<std::string> set{"add", "subtract", "multiply", "divide"};
+
+  return set.find(function) != set.end();
+}
+
 inline const compute::SetLookupOptions* GetSetLookupOptions(
     const Expression::Call& call) {
   if (!IsSetLookup(call.function)) return nullptr;
@@ -402,7 +410,7 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
 
 template <typename PreVisit, typename PostVisitCall>
 Result<Expression> Modify(Expression expr, const PreVisit& pre,
-                           const PostVisitCall& post_call) {
+                          const PostVisitCall& post_call) {
   ARROW_ASSIGN_OR_RAISE(expr, Result<Expression>(pre(std::move(expr))));
 
   auto call = expr.call();

@@ -21,6 +21,7 @@
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 
 namespace arrow {
 
@@ -60,6 +61,13 @@ template <typename InType, typename OutType>
 void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
   DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
                             CastFunctor<OutType, InType>::Exec));
+}
+
+template <typename InType, typename OutType>
+void AddSimpleArrayOnlyCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
+  DCHECK_OK(func->AddKernel(
+      InType::type_id, {in_ty}, out_ty,
+      TrivialScalarUnaryAsArraysExec(CastFunctor<OutType, InType>::Exec)));
 }
 
 void ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
