@@ -1,0 +1,142 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  build:
+    name: Build wheel for OS X
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Arrow
+        run: |
+          set -ex
+
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+
+      - name: Build wheel
+        run: |
+          set -ex
+
+          git clone https://github.com/matthew-brett/multibuild
+          git -C multibuild checkout 8882150df6529658700b66bec124dfb77eefca26
+
+          # source utilities required for wheel builds
+          export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
+          source multibuild/common_utils.sh
+          source multibuild/travis_osx_steps.sh
+
+          # provided by travis_osx_steps
+          before_install
+
+          brew install \
+            automake \
+            bison \
+            boost \
+            ccache \
+            cmake \
+            flatbuffers \
+            flex \
+            git \
+            openblas \
+            openssl@1.1 \
+            protobuf \
+            python@3.8 \
+            thrift \
+            wget
+
+          # overridden by osx-build.sh
+          build_wheel arrow
+
+          # test the built wheels, move Homebrew directory to ensure things
+          # are properly statically-linked
+          CELLAR=$(brew --cellar)
+          sudo mv $CELLAR{,.bak}
+
+          # make a new Cellar, allowing numpy to dynamically link to openblas
+          sudo mkdir $CELLAR
+          sudo ln -s ../Cellar.bak/openblas $CELLAR/openblas
+          # and brew's openblas will need gcc
+          sudo ln -s ../Cellar.bak/gcc $CELLAR/gcc
+
+          # install the built wheel and test dependencies (osx-build.sh)
+          install_wheel arrow
+
+          # run unit tests before removing the system libraries (osx-build.sh)
+          ulimit -S -n 4096 && run_unit_tests arrow
+
+          # run the import tests (osx-build.sh)
+          run_import_tests
+
+          # restore the original Cellar
+          sudo rm $CELLAR/{gcc,openblas}
+          sudo rmdir $CELLAR
+          sudo mv $CELLAR{.bak,}
+        env:
+          # pyarrow config
+          ARROW_S3: {{ arrow_s3 }}
+          MACOSX_DEPLOYMENT_TARGET: {{ macos_deployment_target }}
+          PYARROW_BUILD_VERBOSE: 1
+          PYARROW_VERSION: {{ arrow.no_rc_version }}
+
+          # multibuild config
+          MB_PYTHON_VERSION: {{ python_version }}
+          PLAT: x86_64
+
+      - name: Setup Crossbow
+        run: |
+          pip3 install \
+            click \
+            github3.py \
+            jinja2 \
+            jira \
+            pygit2 \
+            ruamel.yaml \
+            setuptools_scm \
+            toolz
+
+      - name: Upload artifacts
+        run: |
+          python3 arrow/dev/tasks/crossbow.py \
+            --queue-path $(pwd) \
+            --queue-remote {{ queue_remote_url }} \
+            upload-artifacts \
+            --sha {{ task.branch }} \
+            --tag {{ task.tag }} \
+            --pattern "arrow/python/dist/*.whl"
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {% if arrow.branch == 'master' %}
+      - name: Upload package to Gemfury
+        run: |
+          # upload to gemfury pypi repository, there should be a single wheel
+          path=$(ls arrow/python/dist/*.whl)
+          curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+        env:
+          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+      {% endif %}
