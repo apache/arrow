@@ -22,11 +22,21 @@
 
 @rem --file=arrow\ci\conda_env_gandiva.yml ^
 
-@rem create conda environment for compiling
 @rem FIXME: Update to numpy 1.16.6
+SET NUMPY_VERSION=1.16.5
+SET VS_VERSION=
+if %PYTHON_VERSION% == 3.6 (
+    @rem When using this variable do not quote it because in batch files
+    @rem quotes are included when rendered.
+    SET VS_VERSION="<14.16"
+) else if %PYTHON_VERSION% == 3.9 (
+    SET NUMPY_VERSION=1.19.5
+)
+
+@rem create conda environment for compiling
 call conda.bat create -n wheel-build -q -y -c conda-forge ^
-    cmake ninja pkg-config numpy=1.16.5 ^
-    "vs2015_runtime<14.16" ^
+    cmake ninja pkg-config numpy=%NUMPY_VERSION% ^
+    vs2015_runtime%VS_VERSION% ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
@@ -111,6 +121,6 @@ python -c "import pyarrow.flight" || exit /B
 python -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests, but disable the cython because there is a linking
-@rem issue on python 3.8
+@rem issue on python 3.9
 set PYARROW_TEST_CYTHON=OFF
 python -m pytest -rs --pyargs pyarrow || exit /B
