@@ -46,7 +46,7 @@ fn record_batches_to_csv() {
         Some(-556132.25),
     ]);
     let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-    let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+    let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 
     let b = RecordBatch::try_new(
         Arc::new(schema),

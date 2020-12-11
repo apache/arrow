@@ -430,15 +430,13 @@ mod tests {
     fn test_dense_mixed() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", false).unwrap();
         builder.append::<Int64Type>("c", 3).unwrap();
         builder.append::<Int32Type>("a", 4).unwrap();
         builder.append::<Int64Type>("c", 5).unwrap();
         builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         let union = builder.build().unwrap();
 
-        assert_eq!(7, union.len());
+        assert_eq!(5, union.len());
         for i in 0..union.len() {
             let slot = union.value(i);
             assert_eq!(false, union.is_null(i));
@@ -450,40 +448,28 @@ mod tests {
                     assert_eq!(1_i32, value);
                 }
                 1 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(false, value);
-                }
-                2 => {
                     let slot = slot.as_any().downcast_ref::<Int64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(3_i64, value);
                 }
-                3 => {
+                2 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(4_i32, value);
                 }
-                4 => {
+                3 => {
                     let slot = slot.as_any().downcast_ref::<Int64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(5_i64, value);
                 }
-                5 => {
+                4 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(6_i32, value);
-                }
-                6 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
                 }
                 _ => unreachable!(),
             }
@@ -494,15 +480,13 @@ mod tests {
     fn test_dense_mixed_with_nulls() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", false).unwrap();
         builder.append::<Int64Type>("c", 3).unwrap();
         builder.append::<Int32Type>("a", 10).unwrap();
         builder.append_null().unwrap();
         builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         let union = builder.build().unwrap();
 
-        assert_eq!(7, union.len());
+        assert_eq!(5, union.len());
         for i in 0..union.len() {
             let slot = union.value(i);
             match i {
@@ -514,40 +498,26 @@ mod tests {
                     assert_eq!(1_i32, value);
                 }
                 1 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(false, union.is_null(i));
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(false, value);
-                }
-                2 => {
                     let slot = slot.as_any().downcast_ref::<Int64Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(3_i64, value);
                 }
-                3 => {
+                2 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(10_i32, value);
                 }
-                4 => assert!(union.is_null(i)),
-                5 => {
+                3 => assert!(union.is_null(i)),
+                4 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(6_i32, value);
-                }
-                6 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(false, union.is_null(i));
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
                 }
                 _ => unreachable!(),
             }
@@ -558,15 +528,13 @@ mod tests {
     fn test_dense_mixed_with_nulls_and_offset() {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", false).unwrap();
         builder.append::<Int64Type>("c", 3).unwrap();
         builder.append::<Int32Type>("a", 10).unwrap();
         builder.append_null().unwrap();
         builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         let union = builder.build().unwrap();
 
-        let slice = union.slice(3, 3);
+        let slice = union.slice(2, 3);
         let new_union = slice.as_any().downcast_ref::<UnionArray>().unwrap();
 
         assert_eq!(3, new_union.len());
@@ -739,17 +707,15 @@ mod tests {
 
     #[test]
     fn test_sparse_mixed() {
-        let mut builder = UnionBuilder::new_sparse(7);
+        let mut builder = UnionBuilder::new_sparse(5);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         builder.append::<Float64Type>("c", 3.0).unwrap();
         builder.append::<Int32Type>("a", 4).unwrap();
         builder.append::<Float64Type>("c", 5.0).unwrap();
         builder.append::<Int32Type>("a", 6).unwrap();
-        builder.append::<BooleanType>("b", false).unwrap();
         let union = builder.build().unwrap();
 
-        let expected_type_ids = vec![0_i8, 1, 2, 0, 2, 0, 1];
+        let expected_type_ids = vec![0_i8, 1, 0, 1, 0];
 
         // Check type ids
         assert_eq!(
@@ -774,40 +740,28 @@ mod tests {
                     assert_eq!(1_i32, value);
                 }
                 1 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
-                }
-                2 => {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert!(value - 3_f64 < f64::EPSILON);
                 }
-                3 => {
+                2 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(4_i32, value);
                 }
-                4 => {
+                3 => {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert!(5_f64 - value < f64::EPSILON);
                 }
-                5 => {
+                4 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert_eq!(6_i32, value);
-                }
-                6 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(false, value);
                 }
                 _ => unreachable!(),
             }
@@ -816,15 +770,14 @@ mod tests {
 
     #[test]
     fn test_sparse_mixed_with_nulls() {
-        let mut builder = UnionBuilder::new_sparse(7);
+        let mut builder = UnionBuilder::new_sparse(5);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         builder.append_null().unwrap();
         builder.append::<Float64Type>("c", 3.0).unwrap();
         builder.append::<Int32Type>("a", 4).unwrap();
         let union = builder.build().unwrap();
 
-        let expected_type_ids = vec![0_i8, 1, 0, 2, 0];
+        let expected_type_ids = vec![0_i8, 0, 1, 0];
 
         // Check type ids
         assert_eq!(
@@ -848,22 +801,15 @@ mod tests {
                     let value = slot.value(0);
                     assert_eq!(1_i32, value);
                 }
-                1 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(false, union.is_null(i));
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
-                }
-                2 => assert!(union.is_null(i)),
-                3 => {
+                1 => assert!(union.is_null(i)),
+                2 => {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert!(value - 3_f64 < f64::EPSILON);
                 }
-                4 => {
+                3 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
@@ -877,39 +823,31 @@ mod tests {
 
     #[test]
     fn test_sparse_mixed_with_nulls_and_offset() {
-        let mut builder = UnionBuilder::new_sparse(7);
+        let mut builder = UnionBuilder::new_sparse(5);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", true).unwrap();
         builder.append_null().unwrap();
         builder.append::<Float64Type>("c", 3.0).unwrap();
         builder.append_null().unwrap();
         builder.append::<Int32Type>("a", 4).unwrap();
         let union = builder.build().unwrap();
 
-        let slice = union.slice(1, 5);
+        let slice = union.slice(1, 4);
         let new_union = slice.as_any().downcast_ref::<UnionArray>().unwrap();
 
-        assert_eq!(5, new_union.len());
+        assert_eq!(4, new_union.len());
         for i in 0..new_union.len() {
             let slot = new_union.value(i);
             match i {
-                0 => {
-                    let slot = slot.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    assert_eq!(false, new_union.is_null(i));
-                    assert_eq!(slot.len(), 1);
-                    let value = slot.value(0);
-                    assert_eq!(true, value);
-                }
-                1 => assert!(new_union.is_null(i)),
-                2 => {
+                0 => assert!(new_union.is_null(i)),
+                1 => {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(false, new_union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
                     assert!(value - 3_f64 < f64::EPSILON);
                 }
-                3 => assert!(new_union.is_null(i)),
-                4 => {
+                2 => assert!(new_union.is_null(i)),
+                3 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
                     assert_eq!(false, new_union.is_null(i));
                     assert_eq!(slot.len(), 1);

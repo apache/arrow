@@ -41,7 +41,6 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -220,9 +219,9 @@ pub trait ArrowPrimitiveType: 'static {
     /// the corresponding Arrow data type of this primitive type.
     const DATA_TYPE: DataType;
 
-    /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize {
-        size_of::<Self::Native>() * 8
+    /// Returns the byte width of this primitive type.
+    fn get_byte_width() -> usize {
+        size_of::<Self::Native>()
     }
 
     /// Returns a default value of this primitive type.
@@ -230,15 +229,6 @@ pub trait ArrowPrimitiveType: 'static {
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
     fn default_value() -> Self::Native {
         Default::default()
-    }
-
-    /// Returns a value offset from the given pointer by the given index. The default
-    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
-    /// # Safety
-    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
-    /// must be less than the size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        *(raw_ptr.add(i))
     }
 }
 
@@ -377,20 +367,8 @@ impl ArrowNativeType for f64 {
 #[derive(Debug)]
 pub struct BooleanType {}
 
-impl ArrowPrimitiveType for BooleanType {
-    type Native = bool;
-    const DATA_TYPE: DataType = DataType::Boolean;
-
-    fn get_bit_width() -> usize {
-        1
-    }
-
-    /// # Safety
-    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
-    /// size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        bit_util::get_bit_raw(raw_ptr as *const u8, i)
-    }
+impl BooleanType {
+    pub const DATA_TYPE: DataType = DataType::Boolean;
 }
 
 macro_rules! make_type {

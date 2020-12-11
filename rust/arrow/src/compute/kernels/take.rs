@@ -564,6 +564,18 @@ where
 mod tests {
     use super::*;
 
+    fn test_take_boolean_arrays(
+        data: Vec<Option<bool>>,
+        index: &UInt32Array,
+        options: Option<TakeOptions>,
+        expected_data: Vec<Option<bool>>,
+    ) {
+        let output = BooleanArray::from(data);
+        let expected = Arc::new(BooleanArray::from(expected_data)) as ArrayRef;
+        let output = take(&(Arc::new(output) as ArrayRef), index, options).unwrap();
+        assert_eq!(&output, &expected)
+    }
+
     fn test_take_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
         index: &UInt32Array,
@@ -825,7 +837,7 @@ mod tests {
     fn test_take_primitive_bool() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
         // boolean
-        test_take_primitive_arrays::<BooleanType>(
+        test_take_boolean_arrays(
             vec![Some(false), None, Some(true), Some(false), None],
             &index,
             None,

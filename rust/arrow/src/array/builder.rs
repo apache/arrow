@@ -254,15 +254,7 @@ pub trait BufferBuilderTrait<T: ArrowPrimitiveType> {
 impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn new(capacity: usize) -> Self {
-        let buffer = if matches!(T::DATA_TYPE, DataType::Boolean) {
-            let byte_capacity = bit_util::ceil(capacity, 8);
-            let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
-            let mut buffer = MutableBuffer::new(actual_capacity);
-            buffer.set_null_bits(0, actual_capacity);
-            buffer
-        } else {
-            MutableBuffer::new(capacity * mem::size_of::<T::Native>())
-        };
+        let buffer = MutableBuffer::new(capacity * mem::size_of::<T::Native>());
 
         Self {
             buffer,
@@ -280,17 +272,13 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     }
 
     fn capacity(&self) -> usize {
-        let bit_capacity = self.buffer.capacity() * 8;
-        bit_capacity / T::get_bit_width()
+        let byte_capacity = self.buffer.capacity();
+        byte_capacity / T::get_byte_width()
     }
 
     #[inline]
     fn advance(&mut self, i: usize) -> Result<()> {
-        let new_buffer_len = if matches!(T::DATA_TYPE, DataType::Boolean) {
-            bit_util::ceil(self.len + i, 8)
-        } else {
-            (self.len + i) * mem::size_of::<T::Native>()
-        };
+        let new_buffer_len = (self.len + i) * mem::size_of::<T::Native>();
         self.buffer.resize(new_buffer_len);
         self.len += i;
         Ok(())
@@ -299,54 +287,22 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
     #[inline]
     fn reserve(&mut self, n: usize) {
         let new_capacity = self.len + n;
-        if matches!(T::DATA_TYPE, DataType::Boolean) {
-            if new_capacity > self.capacity() {
-                let new_byte_capacity = bit_util::ceil(new_capacity, 8);
-                let existing_capacity = self.buffer.capacity();
-                let new_capacity = self.buffer.reserve(new_byte_capacity);
-                self.buffer
-                    .set_null_bits(existing_capacity, new_capacity - existing_capacity);
-            }
-        } else {
-            let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
-            self.buffer.reserve(byte_capacity);
-        }
+        let byte_capacity = mem::size_of::<T::Native>() * new_capacity;
+        self.buffer.reserve(byte_capacity);
     }
 
     #[inline]
     fn append(&mut self, v: T::Native) -> Result<()> {
         self.reserve(1);
-        if matches!(T::DATA_TYPE, DataType::Boolean) {
-            if v != T::default_value() {
-                unsafe {
-                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
-                }
-            }
-            self.len += 1;
-        } else {
-            self.write_bytes(v.to_byte_slice(), 1);
-        }
+        self.write_bytes(v.to_byte_slice(), 1);
         Ok(())
     }
 
     #[inline]
     fn append_n(&mut self, n: usize, v: T::Native) -> Result<()> {
         self.reserve(n);
-        if matches!(T::DATA_TYPE, DataType::Boolean) {
-            if n != 0 && v != T::default_value() {
-                let data = unsafe {
-                    std::slice::from_raw_parts_mut(
-                        self.buffer.raw_data_mut(),
-                        self.buffer.capacity(),
-                    )
-                };
-                (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
-            }
-            self.len += n;
-        } else {
-            for _ in 0..n {
-                self.write_bytes(v.to_byte_slice(), 1);
-            }
+        for _ in 0..n {
+            self.write_bytes(v.to_byte_slice(), 1);
         }
         Ok(())
     }
@@ -356,40 +312,127 @@ impl<T: ArrowPrimitiveType> BufferBuilderTrait<T> for BufferBuilder<T> {
         let array_slots = slice.len();
         self.reserve(array_slots);
 
-        if matches!(T::DATA_TYPE, DataType::Boolean) {
-            for v in slice {
-                if *v != T::default_value() {
-                    // For performance the `len` of the buffer is not
-                    // updated on each append but is updated in the
-                    // `freeze` method instead.
-                    unsafe {
-                        bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
-                    }
-                }
-                self.len += 1;
-            }
-            Ok(())
-        } else {
-            self.write_bytes(slice.to_byte_slice(), array_slots);
-            Ok(())
-        }
+        self.write_bytes(slice.to_byte_slice(), array_slots);
+        Ok(())
     }
 
     #[inline]
     fn finish(&mut self) -> Buffer {
-        if matches!(T::DATA_TYPE, DataType::Boolean) {
-            // `append` does not update the buffer's `len` so do it before `freeze` is called.
-            let new_buffer_len = bit_util::ceil(self.len, 8);
-            debug_assert!(new_buffer_len >= self.buffer.len());
-            let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
-            self.len = 0;
-            buf.resize(new_buffer_len);
-            buf.freeze()
-        } else {
-            let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
-            self.len = 0;
-            buf.freeze()
+        let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        self.len = 0;
+        buf.freeze()
+    }
+}
+
+#[derive(Debug)]
+pub struct BooleanBufferBuilder {
+    buffer: MutableBuffer,
+    len: usize,
+}
+
+impl BooleanBufferBuilder {
+    #[inline]
+    pub fn new(capacity: usize) -> Self {
+        let byte_capacity = bit_util::ceil(capacity, 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.set_null_bits(0, actual_capacity);
+
+        Self { buffer, len: 0 }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.buffer.capacity() * 8
+    }
+
+    #[inline]
+    pub fn advance(&mut self, i: usize) -> Result<()> {
+        let new_buffer_len = bit_util::ceil(self.len + i, 8);
+        self.buffer.resize(new_buffer_len);
+        self.len += i;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn reserve(&mut self, n: usize) {
+        let new_capacity = self.len + n;
+        if new_capacity > self.capacity() {
+            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
+            let existing_capacity = self.buffer.capacity();
+            let new_capacity = self.buffer.reserve(new_byte_capacity);
+            self.buffer
+                .set_null_bits(existing_capacity, new_capacity - existing_capacity);
         }
+    }
+
+    #[inline]
+    pub fn append(&mut self, v: bool) -> Result<()> {
+        self.reserve(1);
+        if v {
+            let data = unsafe {
+                std::slice::from_raw_parts_mut(
+                    self.buffer.raw_data_mut(),
+                    self.buffer.capacity(),
+                )
+            };
+            bit_util::set_bit(data, self.len);
+        }
+        self.len += 1;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn append_n(&mut self, n: usize, v: bool) -> Result<()> {
+        self.reserve(n);
+        if n != 0 && v {
+            let data = unsafe {
+                std::slice::from_raw_parts_mut(
+                    self.buffer.raw_data_mut(),
+                    self.buffer.capacity(),
+                )
+            };
+            (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
+        }
+        self.len += n;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
+        let array_slots = slice.len();
+        self.reserve(array_slots);
+
+        for v in slice {
+            if *v {
+                // For performance the `len` of the buffer is not
+                // updated on each append but is updated in the
+                // `freeze` method instead.
+                unsafe {
+                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
+                }
+            }
+            self.len += 1;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub fn finish(&mut self) -> Buffer {
+        // `append` does not update the buffer's `len` so do it before `freeze` is called.
+        let new_buffer_len = bit_util::ceil(self.len, 8);
+        debug_assert!(new_buffer_len >= self.buffer.len());
+        let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        self.len = 0;
+        buf.resize(new_buffer_len);
+        buf.freeze()
     }
 }
 
@@ -440,6 +483,169 @@ pub trait ArrayBuilder: Any {
 
     /// Returns the boxed builder as a box of `Any`.
     fn into_box_any(self: Box<Self>) -> Box<Any>;
+}
+
+///  Array builder for fixed-width primitive types
+#[derive(Debug)]
+pub struct BooleanBuilder {
+    values_builder: BooleanBufferBuilder,
+    bitmap_builder: BooleanBufferBuilder,
+}
+
+impl BooleanBuilder {
+    /// Creates a new primitive array builder
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            values_builder: BooleanBufferBuilder::new(capacity),
+            bitmap_builder: BooleanBufferBuilder::new(capacity),
+        }
+    }
+
+    /// Returns the capacity of this builder measured in slots of type `T`
+    pub fn capacity(&self) -> usize {
+        self.values_builder.capacity()
+    }
+
+    /// Appends a value of type `T` into the builder
+    pub fn append_value(&mut self, v: bool) -> Result<()> {
+        self.bitmap_builder.append(true)?;
+        self.values_builder.append(v)?;
+        Ok(())
+    }
+
+    /// Appends a null slot into the builder
+    pub fn append_null(&mut self) -> Result<()> {
+        self.bitmap_builder.append(false)?;
+        self.values_builder.advance(1)?;
+        Ok(())
+    }
+
+    /// Appends an `Option<T>` into the builder
+    pub fn append_option(&mut self, v: Option<bool>) -> Result<()> {
+        match v {
+            None => self.append_null()?,
+            Some(v) => self.append_value(v)?,
+        };
+        Ok(())
+    }
+
+    /// Appends a slice of type `T` into the builder
+    pub fn append_slice(&mut self, v: &[bool]) -> Result<()> {
+        self.bitmap_builder.append_n(v.len(), true)?;
+        self.values_builder.append_slice(v)?;
+        Ok(())
+    }
+
+    /// Appends values from a slice of type `T` and a validity boolean slice
+    pub fn append_values(&mut self, values: &[bool], is_valid: &[bool]) -> Result<()> {
+        if values.len() != is_valid.len() {
+            return Err(ArrowError::InvalidArgumentError(
+                "Value and validity lengths must be equal".to_string(),
+            ));
+        }
+        self.bitmap_builder.append_slice(is_valid)?;
+        self.values_builder.append_slice(values)
+    }
+
+    /// Builds the [BooleanArray] and reset this builder.
+    pub fn finish(&mut self) -> BooleanArray {
+        let len = self.len();
+        let null_bit_buffer = self.bitmap_builder.finish();
+        let null_count = len - null_bit_buffer.count_set_bits();
+        let mut builder = ArrayData::builder(DataType::Boolean)
+            .len(len)
+            .add_buffer(self.values_builder.finish());
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(null_bit_buffer);
+        }
+        let data = builder.build();
+        BooleanArray::from(data)
+    }
+}
+
+impl ArrayBuilder for BooleanBuilder {
+    /// Returns the builder as a non-mutable `Any` reference.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Returns the builder as a mutable `Any` reference.
+    fn as_any_mut(&mut self) -> &mut Any {
+        self
+    }
+
+    /// Returns the boxed builder as a box of `Any`.
+    fn into_box_any(self: Box<Self>) -> Box<Any> {
+        self
+    }
+
+    /// Returns the number of array slots in the builder
+    fn len(&self) -> usize {
+        self.values_builder.len
+    }
+
+    /// Returns whether the number of array slots is zero
+    fn is_empty(&self) -> bool {
+        self.values_builder.is_empty()
+    }
+
+    /// Appends data from other arrays into the builder
+    ///
+    /// This is most useful when concatenating arrays of the same type into a builder.
+    fn append_data(&mut self, data: &[ArrayDataRef]) -> Result<()> {
+        // validate arraydata and reserve memory
+        let mut total_len = 0;
+        for array in data {
+            if array.data_type() != &self.data_type() {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Cannot append data to builder if data types are different"
+                        .to_string(),
+                ));
+            }
+            if array.buffers().len() != 1 {
+                return Err(ArrowError::InvalidArgumentError(
+                    "Primitive arrays should have 1 buffer".to_string(),
+                ));
+            }
+            total_len += array.len();
+        }
+        // reserve memory
+        self.values_builder.reserve(total_len);
+        self.bitmap_builder.reserve(total_len);
+
+        for array in data {
+            let len = array.len();
+            if len == 0 {
+                continue;
+            }
+
+            // booleans are bit-packed, thus we iterate through the array
+            let array = BooleanArray::from(array.clone());
+            for i in 0..len {
+                self.values_builder.append(array.value(i))?;
+            }
+
+            for i in 0..len {
+                // account for offset as `ArrayData` does not
+                self.bitmap_builder.append(array.is_valid(i))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the data type of the builder
+    ///
+    /// This is used for validating array data types in `append_data`
+    fn data_type(&self) -> DataType {
+        DataType::Boolean
+    }
+
+    /// Builds the array and reset this builder.
+    fn finish(&mut self) -> ArrayRef {
+        Arc::new(self.finish())
+    }
 }
 
 ///  Array builder for fixed-width primitive types
@@ -499,7 +705,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
         self.values_builder.reserve(total_len);
         self.bitmap_builder.reserve(total_len);
 
-        let mul = T::get_bit_width() / 8;
+        let mul = T::get_byte_width();
         for array in data {
             let len = array.len();
             if len == 0 {
@@ -2403,7 +2609,6 @@ impl FieldData {
     fn append_null_dynamic(&mut self) -> Result<()> {
         match self.data_type {
             DataType::Null => unimplemented!(),
-            DataType::Boolean => self.append_null::<BooleanType>()?,
             DataType::Int8 => self.append_null::<Int8Type>()?,
             DataType::Int16 => self.append_null::<Int16Type>()?,
             DataType::Int32

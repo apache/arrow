@@ -297,12 +297,7 @@ where
         left_data
             .buffers()
             .iter()
-            .map(|buf| {
-                buf.bit_slice(
-                    left.offset() * T::get_bit_width(),
-                    left.len() * T::get_bit_width(),
-                )
-            })
+            .map(|buf| buf.slice(left.offset() * T::get_byte_width()))
             .collect::<Vec<_>>()
     };
 
