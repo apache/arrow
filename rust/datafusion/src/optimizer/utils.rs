@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{
-    DFSchema, DFSchemaRef, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan,
+    Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
@@ -131,7 +131,7 @@ pub fn optimize_explain(
         verbose,
         plan,
         stringified_plans,
-        schema: DFSchemaRef::new(DFSchema::from(schema)?),
+        schema: schema.clone().to_dfschema_ref()?,
     })
 }
 

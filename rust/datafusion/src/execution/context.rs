@@ -35,7 +35,7 @@ use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
-    DFSchema, DFSchemaRef, FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
+    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource, ToDFSchema,
 };
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -230,7 +230,7 @@ impl ExecutionContext {
             schema_name: "".to_string(),
             source: TableSource::FromProvider(provider),
             table_schema: schema.clone(),
-            projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            projected_schema: schema.to_dfschema_ref()?,
             projection: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
@@ -282,7 +282,7 @@ impl ExecutionContext {
                     schema_name: "".to_string(),
                     source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
-                    projected_schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+                    projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(

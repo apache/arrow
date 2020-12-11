@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    and, lit, DFSchema, DFSchemaRef, Expr, LogicalPlan, LogicalPlanBuilder, Operator,
-    PlanType, StringifiedPlan,
+    and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
+    StringifiedPlan, ToDFSchema,
 };
 use crate::scalar::ScalarValue;
 use crate::{
@@ -141,7 +141,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let schema = self.build_schema(&columns)?;
 
         Ok(LogicalPlan::CreateExternalTable {
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
             name: name.clone(),
             location: location.clone(),
             file_type: file_type.clone(),
@@ -170,7 +170,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             verbose,
             plan,
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
         })
     }
 

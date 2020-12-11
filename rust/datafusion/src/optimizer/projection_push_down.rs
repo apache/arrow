@@ -19,7 +19,7 @@
 //! loaded into memory
 
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan};
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan, ToDFSchema};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::Schema;
@@ -103,10 +103,7 @@ fn get_projected_schema(
         projected_fields.push(DFField::from(schema.fields()[*i].clone()));
     }
 
-    Ok((
-        projection,
-        DFSchemaRef::new(DFSchema::new(projected_fields)?),
-    ))
+    Ok((projection, projected_fields.to_dfschema_ref()?))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.

@@ -19,6 +19,7 @@
 //! fields with optional relation names.
 
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
@@ -89,21 +90,7 @@ impl DFSchema {
     }
 
     /// Create a `DFSchema` from an Arrow schema
-    pub fn from(schema: &Schema) -> Result<Self> {
-        Self::new(
-            schema
-                .fields()
-                .iter()
-                .map(|f| DFField {
-                    field: f.clone(),
-                    qualifier: None,
-                })
-                .collect(),
-        )
-    }
-
-    /// Create a `DFSchema` from an Arrow schema
-    pub fn from_qualified(qualifier: &str, schema: &Schema) -> Result<Self> {
+    pub fn try_from_qualified(qualifier: &str, schema: &Schema) -> Result<Self> {
         Self::new(
             schema
                 .fields()
@@ -202,10 +189,11 @@ impl DFSchema {
 }
 
 impl Into<Schema> for DFSchema {
+    /// Convert a schema into a DFSchema
     fn into(self) -> Schema {
         Schema::new(
             self.fields
-                .iter()
+                .into_iter()
                 .map(|f| {
                     if f.qualifier().is_some() {
                         Field::new(
@@ -214,8 +202,25 @@ impl Into<Schema> for DFSchema {
                             f.is_nullable(),
                         )
                     } else {
-                        f.field.clone()
+                        f.field
                     }
+                })
+                .collect(),
+        )
+    }
+}
+
+/// Create a `DFSchema` from an Arrow schema
+impl TryFrom<Schema> for DFSchema {
+    type Error = DataFusionError;
+    fn try_from(schema: Schema) -> std::result::Result<Self, Self::Error> {
+        Self::new(
+            schema
+                .fields()
+                .into_iter()
+                .map(|f| DFField {
+                    field: f.clone(),
+                    qualifier: None,
                 })
                 .collect(),
         )
@@ -225,6 +230,43 @@ impl Into<Schema> for DFSchema {
 impl Into<SchemaRef> for DFSchema {
     fn into(self) -> SchemaRef {
         SchemaRef::new(self.into())
+    }
+}
+
+/// Convenience trait to convert Schema like things to DFSchema and DFSchemaRef with fewer keystrokes
+pub trait ToDFSchema
+where
+    Self: Sized,
+{
+    /// Attempt to create a DSSchema
+    fn to_dfschema(self) -> Result<DFSchema>;
+
+    /// Attempt to create a DSSchemaRef
+    fn to_dfschema_ref(self) -> Result<DFSchemaRef> {
+        Ok(Arc::new(self.to_dfschema()?))
+    }
+}
+
+impl ToDFSchema for Schema {
+    fn to_dfschema(self) -> Result<DFSchema> {
+        DFSchema::try_from(self)
+    }
+}
+
+impl ToDFSchema for SchemaRef {
+    fn to_dfschema(self) -> Result<DFSchema> {
+        // Attempt to use the Schema directly if there are no other
+        // references, otherwise clone
+        match Self::try_unwrap(self) {
+            Ok(schema) => DFSchema::try_from(schema),
+            Err(schemaref) => DFSchema::try_from(schemaref.as_ref().clone()),
+        }
+    }
+}
+
+impl ToDFSchema for Vec<DFField> {
+    fn to_dfschema(self) -> Result<DFSchema> {
+        DFSchema::new(self)
     }
 }
 
@@ -334,21 +376,21 @@ mod tests {
 
     #[test]
     fn from_unqualified_schema() -> Result<()> {
-        let schema = DFSchema::from(&test_schema_1())?;
+        let schema = DFSchema::try_from(test_schema_1())?;
         assert_eq!("c0, c1", schema.to_string());
         Ok(())
     }
 
     #[test]
     fn from_qualified_schema() -> Result<()> {
-        let schema = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let schema = DFSchema::try_from_qualified("t1", &test_schema_1())?;
         assert_eq!("t1.c0, t1.c1", schema.to_string());
         Ok(())
     }
 
     #[test]
     fn from_qualified_schema_into_arrow_schema() -> Result<()> {
-        let schema = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let schema = DFSchema::try_from_qualified("t1", &test_schema_1())?;
         let arrow_schema: Schema = schema.into();
         assert_eq!("t1.c0: Boolean, t1.c1: Boolean", arrow_schema.to_string());
         Ok(())
@@ -356,8 +398,8 @@ mod tests {
 
     #[test]
     fn join_qualified() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
-        let right = DFSchema::from_qualified("t2", &test_schema_1())?;
+        let left = DFSchema::try_from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::try_from_qualified("t2", &test_schema_1())?;
         let join = left.join(&right)?;
         assert_eq!("t1.c0, t1.c1, t2.c0, t2.c1", join.to_string());
         // test valid access
@@ -372,8 +414,8 @@ mod tests {
 
     #[test]
     fn join_qualified_duplicate() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
-        let right = DFSchema::from_qualified("t1", &test_schema_1())?;
+        let left = DFSchema::try_from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::try_from_qualified("t1", &test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
@@ -386,8 +428,8 @@ mod tests {
 
     #[test]
     fn join_unqualified_duplicate() -> Result<()> {
-        let left = DFSchema::from(&test_schema_1())?;
-        let right = DFSchema::from(&test_schema_1())?;
+        let left = DFSchema::try_from(test_schema_1())?;
+        let right = DFSchema::try_from(test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
@@ -400,8 +442,8 @@ mod tests {
 
     #[test]
     fn join_mixed() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
-        let right = DFSchema::from(&test_schema_2())?;
+        let left = DFSchema::try_from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::try_from(test_schema_2())?;
         let join = left.join(&right)?;
         assert_eq!("t1.c0, t1.c1, c100, c101", join.to_string());
         // test valid access
@@ -418,8 +460,8 @@ mod tests {
 
     #[test]
     fn join_mixed_duplicate() -> Result<()> {
-        let left = DFSchema::from_qualified("t1", &test_schema_1())?;
-        let right = DFSchema::from(&test_schema_1())?;
+        let left = DFSchema::try_from_qualified("t1", &test_schema_1())?;
+        let right = DFSchema::try_from(test_schema_1())?;
         let join = left.join(&right);
         assert!(join.is_err());
         assert_eq!(
@@ -428,6 +470,37 @@ mod tests {
             &format!("{}", join.err().unwrap())
         );
         Ok(())
+    }
+
+    #[test]
+    fn into() {
+        // Demonstrate how to convert back and forth between Schema, SchemaRef, DFSchema, and DFSchemaRef
+        let arrow_schema = Schema::new(vec![Field::new("c0", DataType::Int64, true)]);
+        let arrow_schema_ref = Arc::new(arrow_schema.clone());
+
+        let df_schema =
+            DFSchema::new(vec![DFField::new(None, "c0", DataType::Int64, true)]).unwrap();
+        let df_schema_ref = Arc::new(df_schema.clone());
+
+        {
+            let arrow_schema = arrow_schema.clone();
+            let arrow_schema_ref = arrow_schema_ref.clone();
+
+            assert_eq!(df_schema, arrow_schema.to_dfschema().unwrap());
+            assert_eq!(df_schema, arrow_schema_ref.to_dfschema().unwrap());
+        }
+
+        {
+            let arrow_schema = arrow_schema.clone();
+            let arrow_schema_ref = arrow_schema_ref.clone();
+
+            assert_eq!(df_schema_ref, arrow_schema.to_dfschema_ref().unwrap());
+            assert_eq!(df_schema_ref, arrow_schema_ref.to_dfschema_ref().unwrap());
+        }
+
+        // Now, consume the refs
+        assert_eq!(df_schema_ref, arrow_schema.to_dfschema_ref().unwrap());
+        assert_eq!(df_schema_ref, arrow_schema_ref.to_dfschema_ref().unwrap());
     }
 
     fn test_schema_1() -> Schema {

@@ -31,6 +31,7 @@ use crate::{
     prelude::CsvReadOptions,
 };
 
+use super::dfschema::ToDFSchema;
 use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
     TableSource,
@@ -68,9 +69,9 @@ impl LogicalPlanBuilder {
         let provider = Arc::new(MemTable::try_new(schema.clone(), partitions)?);
 
         let projected_schema = projection
-            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
-        let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
-        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
+            .map_or(schema.clone(), SchemaRef::new)
+            .to_dfschema_ref()?;
 
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
@@ -99,9 +100,8 @@ impl LogicalPlanBuilder {
 
         let projected_schema = projection
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
-            .or(Some(schema))
-            .unwrap();
-        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
+            .map_or(SchemaRef::new(schema), SchemaRef::new)
+            .to_dfschema_ref()?;
 
         let provider = Arc::new(CsvFile::try_new(path, options)?);
         let schema = provider.schema();
@@ -123,9 +123,9 @@ impl LogicalPlanBuilder {
         let schema = provider.schema();
 
         let projected_schema = projection
-            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
-        let projected_schema = projected_schema.map_or(schema.clone(), SchemaRef::new);
-        let projected_schema = DFSchemaRef::new(DFSchema::from(&projected_schema)?);
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
+            .map_or(schema.clone(), SchemaRef::new)
+            .to_dfschema_ref()?;
 
         let table_scan = LogicalPlan::TableScan {
             schema_name: "".to_string(),
@@ -156,7 +156,7 @@ impl LogicalPlanBuilder {
             schema_name: schema_name.to_owned(),
             source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
-            projected_schema: DFSchemaRef::new(DFSchema::from(&projected_schema)?),
+            projected_schema: projected_schema.to_dfschema_ref()?,
             projection,
         }))
     }
@@ -278,7 +278,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
         }))
     }
 

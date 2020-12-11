@@ -32,7 +32,7 @@ use arrow::{
 use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{DFSchema, LogicalPlan};
+use datafusion::logical_plan::{LogicalPlan, ToDFSchema};
 use datafusion::prelude::create_udf;
 
 #[tokio::test]
@@ -1352,7 +1352,7 @@ async fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<Vec<String>> {
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
     assert_eq!(
         logical_schema.as_ref(),
-        &DFSchema::from(physical_schema.as_ref()).unwrap()
+        &physical_schema.to_dfschema().unwrap()
     );
 
     result_vec(&results)
