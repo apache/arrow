@@ -30,6 +30,7 @@ call conda.bat create -n wheel-build -q -y -c conda-forge ^
     python=%PYTHON_VERSION% || exit /B
 
 call conda.bat activate wheel-build
+python -m pip install cython setuptools-scm
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
