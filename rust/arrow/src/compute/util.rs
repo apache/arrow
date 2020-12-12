@@ -172,7 +172,7 @@ pub(super) fn take_value_indices_from_fixed_size_list(
 /// Lanes of the SIMD mask can be set to 'valid' (`true`) if the corresponding array slot is not
 /// `NULL`, as indicated by it's `Bitmap`, and is within the length of the array.  Lanes outside the
 /// length represent padding and are set to 'invalid' (`false`).
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 unsafe fn is_valid<T>(
     bitmap: &Option<Bitmap>,
     i: usize,
@@ -210,7 +210,7 @@ where
 /// Note that `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
 /// function is used to prepare `array`'s for binary operations.  The `bitmap` argument is the
 /// `Bitmap` after the binary operation.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub(super) unsafe fn simd_load_set_invalid<T>(
     array: &PrimitiveArray<T>,
     bitmap: &Option<Bitmap>,
@@ -440,7 +440,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     fn test_is_valid() {
         let a = Int32Array::from(vec![
             Some(15),
@@ -468,7 +468,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     fn test_simd_load_set_invalid() {
         let a = Int64Array::from(vec![None, Some(15), Some(5), Some(0)]);
         let new_bitmap = &Some(Bitmap::from(Buffer::from([0b00001010])));

@@ -37,7 +37,7 @@ use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
 use crate::compute::util::combine_option_bitmap;
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
@@ -72,7 +72,7 @@ where
 }
 
 /// SIMD vectorized version of `signed_unary_math_op` above.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn simd_signed_unary_math_op<T, F>(
     array: &PrimitiveArray<T>,
     op: F,
@@ -217,7 +217,7 @@ where
 }
 
 /// SIMD vectorized version of `math_op` above.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn simd_math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -269,7 +269,7 @@ where
 /// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
 /// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
 /// slots and padding.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -338,11 +338,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_math_op(&left, &right, |a, b| a + b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| a + b)
+    #[cfg(not(simd_x86))]
+    return math_op(left, right, |a, b| a + b);
 }
 
 /// Perform `left - right` operation on two arrays. If either left or right value is null
@@ -359,11 +358,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_math_op(&left, &right, |a, b| a - b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| a - b)
+    #[cfg(not(simd_x86))]
+    return math_op(left, right, |a, b| a - b);
 }
 
 /// Perform `-` operation on an array. If value is null then the result is also null.
@@ -372,13 +370,9 @@ where
     T: datatypes::ArrowSignedNumericType,
     T::Native: Neg<Output = T::Native>,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_signed_unary_math_op(array, |x| -x);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
+    #[cfg(not(simd_x86))]
     return signed_unary_math_op(array, |x| -x);
 }
 
@@ -396,11 +390,10 @@ where
         + Div<Output = T::Native>
         + Zero,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_math_op(&left, &right, |a, b| a * b);
-
-    #[allow(unreachable_code)]
-    math_op(left, right, |a, b| a * b)
+    #[cfg(not(simd_x86))]
+    return math_op(left, right, |a, b| a * b);
 }
 
 /// Perform `left / right` operation on two arrays. If either left or right value is null
@@ -419,11 +412,10 @@ where
         + Zero
         + One,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_divide(&left, &right);
-
-    #[allow(unreachable_code)]
-    math_divide(&left, &right)
+    #[cfg(not(simd_x86))]
+    return math_divide(&left, &right);
 }
 
 #[cfg(test)]
