@@ -550,7 +550,16 @@ impl Decoder {
         let mut rows: Vec<Value> = Vec::with_capacity(self.batch_size);
 
         for value in value_iter.by_ref().take(self.batch_size) {
-            rows.push(value?);
+            let v = value?;
+            match v {
+                Value::Object(_) => rows.push(v),
+                _ => {
+                    return Err(ArrowError::JsonError(format!(
+                        "Row needs to be of type object, got: {:?}",
+                        v
+                    )));
+                }
+            }
         }
         if rows.is_empty() {
             // reached end of file
@@ -1967,6 +1976,19 @@ mod tests {
         let schema = reader.schema();
         let c = schema.column_with_name("a").unwrap();
         assert_eq!(&DataType::Int64, c.1.data_type());
+    }
+
+    #[test]
+    fn test_row_type_validation() {
+        let builder = ReaderBuilder::new().infer_schema(None).with_batch_size(64);
+        let json_content = "
+        [1, \"hello\"]
+        \"world\"";
+        let re = builder.build(Cursor::new(json_content));
+        assert_eq!(
+            re.err().unwrap().to_string(),
+            r#"Json error: Expected JSON record to be an object, found Array([Number(1), String("hello")])"#,
+        );
     }
 
     #[test]
