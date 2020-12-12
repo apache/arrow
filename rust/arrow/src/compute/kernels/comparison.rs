@@ -77,11 +77,21 @@ macro_rules! compare_op {
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
-        let mut result = BooleanBufferBuilder::new($left.len());
-        for i in 0..$left.len() {
-            result.append($op($left.value(i), $right))?;
-        }
 
+        let byte_capacity = bit_util::ceil($left.len(), 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.resize(byte_capacity);
+        let data = buffer.raw_data_mut();
+
+        for i in 0..$left.len() {
+            if $op($left.value(i), $right) {
+                unsafe {
+                    bit_util::set_bit_raw(data, i);
+                }
+            }
+        }
+        
         let data = ArrayData::new(
             DataType::Boolean,
             $left.len(),
