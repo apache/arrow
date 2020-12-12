@@ -49,11 +49,6 @@ pub struct RecordReader<T: DataType> {
     in_middle_of_record: bool,
 }
 
-#[derive(Debug)]
-struct FatPtr<'a, T> {
-    ptr: &'a mut [T],
-}
-
 impl<T: DataType> RecordReader<T> {
     pub fn new(column_schema: ColumnDescPtr) -> Self {
         let (def_levels, null_map) = if column_schema.max_def_level() > 0 {
@@ -375,9 +370,8 @@ impl<T: DataType> RecordReader<T> {
     /// Split values into records according repetition definition and returns number of
     /// records read.
     fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
-        let rep_levels = self.rep_levels.as_mut().map(|buf| {
-            let (prefix, rep_levels, suffix) =
-                unsafe { buf.data_mut().align_to_mut::<i16>() };
+        let rep_levels = self.rep_levels.as_ref().map(|buf| {
+            let (prefix, rep_levels, suffix) = unsafe { buf.data().align_to::<i16>() };
             assert!(prefix.is_empty() && suffix.is_empty());
             rep_levels
         });
