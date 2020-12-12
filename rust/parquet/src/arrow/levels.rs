@@ -347,7 +347,7 @@ impl LevelInfo {
         let has_repetition = self.is_list || is_list;
 
         // keep track of parent definition nulls seen through the definition_mask
-        // let mut nulls_seen = 0;
+        let mut nulls_seen = 0;
 
         // Push any initial array slots that are null, useful if we have a list or struct whose
         // first value is null, i.e. `[null, [1, 2, 3], ...].
@@ -372,129 +372,147 @@ impl LevelInfo {
         //
         // A list that has no empty slots should return the same slots as its offsets,
         // plus an accumulation of parent list slots that are empty.
-        self.array_offsets.windows(2).enumerate().for_each(|(w_index, w)| {
-            // get the index of the start (from) and end (to)
-            let from = w[0] as usize;
-            let to = w[1] as usize;
-            let parent_mask = self.definition_mask[w_index];
-            if current_def_level > 2 {
-                dbg!((from, to, parent_mask));
-            }
+        self.array_offsets
+            .windows(2)
+            .enumerate()
+            .for_each(|(w_index, w)| {
+                // get the index of the start (from) and end (to)
+                let from = w[0] as usize;
+                let to = w[1] as usize;
+                let parent_len = to - from;
+                let is_parent_valid = self.array_mask[w_index];
+                let parent_mask = self.definition_mask[w_index];
 
-            // If the parent slot is empty, fill it once to show the nullness.
-            // There is an edge-case where this child slot's parent is null, in which case we should
-            // inherit the parent's levels instead of creating them at this level
-            if from == to {
-                // increase the def_index so we don't index incorrectly when computing repetition
-                def_index += 1;
-                // check if the parent is null
-                if !parent_mask.0 {
-                    // we subtract 1 because we want the first level that was null, which will be
-                    // the level before we had to set the mask as null
+                // if the parent is null, the slots in the child do not matter, we have a null
+                if !is_parent_valid && self.is_list {
                     definition.push(parent_mask.1 - 1);
                     repetition.push(0);
                     definition_mask.push(parent_mask);
+                    nulls_seen += 1;
                 } else {
-                    // reflect a null slot at current level
-                    definition.push(self.max_definition);
-                    repetition.push(0);
-                    definition_mask.push((false, self.max_definition));
-                }
-            }
-
-            // If it's not empty, iterate through the values, checking if they should be null because
-            // of any null prior parents (using self.definition_mask)
-            (from..to).for_each(|index| {
-                // if the parent definition mask is false, the array slots must be false too
-                let mask = array_mask[index];
-                let array_from = array_offsets[index];
-                let array_to = array_offsets[index + 1];
-                if current_def_level > 2 {
-                    dbg!((index, array_from, array_to));
-                }
-
-                let parent_def_level = &self.definition[index]; // + nulls_seen
-
-                // if array_len == 0, the child is null
-                let array_len = array_to - array_from;
-
-                // compute the definition level
-                // what happens if array's len is 0?
-                if array_len == 0 {
-                    definition.push(self.max_definition);
-                    repetition.push(0); // TODO: validate that this is 0 for deeply nested lists
-                    definition_mask.push((false, current_def_level));
-                    // increase the def_index so we don't index incorrectly when computing repetition
-                    def_index += 1;
-                }
-                (array_from..array_to).for_each(|_| {
-                    if !parent_mask.0 {
-                        definition.push(self.definition[w_index]);
-                        // repetition.push(1); // TODO: should this be 0?
-                        definition_mask.push(parent_mask);
-                    } else {
-                        definition.push(if *parent_def_level == self.max_definition {
-                            // TODO: haven't validated this in deeply-nested lists
-                            self.max_definition + mask as i16
+                    // If the parent slot is empty, fill it once to show the nullness.
+                    // There is an edge-case where this child slot's parent is null, in which case we should
+                    // inherit the parent's levels instead of creating them at this level
+                    if parent_len == 0 {
+                        // increase the def_index so we don't index incorrectly when computing repetition
+                        def_index += 1;
+                        // check if the parent is null
+                        if !parent_mask.0 {
+                            // we subtract 1 because we want the first level that was null, which will be
+                            // the level before we had to set the mask as null
+                            definition.push(parent_mask.1 - 1);
+                            repetition.push(0);
+                            definition_mask.push(parent_mask);
                         } else {
-                            *parent_def_level
+                            // reflect a null slot at current level
+                            definition.push(self.max_definition);
+                            repetition.push(0);
+                            definition_mask.push((false, self.max_definition));
+                        }
+                    }
+
+                    // If it's not empty, iterate through the values, checking if they should be null because
+                    // of any null prior parents (using self.definition_mask)
+                    (from..to).for_each(|index| {
+                        // if the parent definition mask is false, the array slots must be false too
+                        let mask = array_mask[index];
+                        let array_from = array_offsets[index];
+                        let array_to = array_offsets[index + 1];
+
+                        let parent_def_level = &self.definition[index + nulls_seen];
+
+                        // if array_len == 0, the child is null
+                        let array_len = array_to - array_from;
+
+                        // compute the definition level
+                        // what happens if array's len is 0?
+                        if array_len == 0 {
+                            definition.push(self.max_definition);
+                            repetition.push(0); // TODO: validate that this is 0 for deeply nested lists
+                            definition_mask.push((false, current_def_level));
+                            // increase the def_index so we don't index incorrectly when computing repetition
+                            def_index += 1;
+                        }
+                        (array_from..array_to).for_each(|_| {
+                            if !parent_mask.0 {
+                                definition.push(self.definition[w_index]);
+                                // repetition.push(1); // TODO: should this be 0?
+                                definition_mask.push(parent_mask);
+                            } else {
+                                definition.push(
+                                    if *parent_def_level == self.max_definition {
+                                        // TODO: haven't validated this in deeply-nested lists
+                                        self.max_definition + mask as i16
+                                    } else {
+                                        *parent_def_level
+                                    },
+                                );
+                                definition_mask.push((true, current_def_level));
+                            }
                         });
-                        definition_mask.push((true, current_def_level));
-                    }
-                });
 
-                // 11-11-2020 (23:57GMT)
-                // we are pushing defined repetitions even if a definition is < max
-                // I had initially separated the repetition logic here so that I
-                // don't perform a `has_repetition` check on each loop.
-                // The downside's that I now need to index into `definitions` so I
-                // can check if a value is defined or not.
+                        if has_repetition && array_len > 0 {
+                            // compute the repetition level
 
-                if has_repetition && array_len > 0 {
-                    // compute the repetition level
-
-                    match &self.repetition {
-                        Some(rep) => {
-                            // make index mutable so we can traverse the parent with it
-                            let parent_rep = rep[index];
-                            dbg!((parent_rep, index));
-                            // TODO(11/11/2020) need correct variable to mask repetitions correctly
-                            if definition[def_index] == current_def_level {
-                                repetition.push(parent_rep);
-                                def_index += 1;
-                                (1..array_len).for_each(|_| {
-                                    repetition.push(parent_rep + 1); // was parent_rep + 1
-                                    def_index += 1;
-                                });
-                            } else {
-                                (0..array_len).for_each(|_| {
-                                    repetition.push(parent_rep); // TODO: should it be anything else?
-                                                        // TODO: use an append instead of pushes
-                                    def_index += 1;
-                                });
+                            match &self.repetition {
+                                Some(rep) => {
+                                    // make index mutable so we can traverse the parent with it
+                                    let max_rep = rep.iter().max().cloned().unwrap_or(0);
+                                    let parent_rep = rep[index];
+                                    dbg!((
+                                        parent_rep, max_rep, index, from, to, array_from,
+                                        array_to
+                                    ));
+                                    // TODO(11/11/2020) need correct variable to mask repetitions correctly
+                                    // we check if we are seeing the first value of the parent
+                                    if index == from {
+                                        repetition.push(0); // was parent_rep
+                                        def_index += 1;
+                                        (1..array_len).for_each(|_| {
+                                            repetition.push({
+                                                if parent_rep == max_rep {
+                                                    parent_rep + 1
+                                                } else {
+                                                    parent_rep + 2
+                                                }
+                                            }); // was parent_rep + 1
+                                            def_index += 1;
+                                        });
+                                    } else {
+                                        repetition.push(1);
+                                        def_index += 1;
+                                        (1..array_len).for_each(|_| {
+                                            repetition.push(if parent_rep == max_rep {
+                                                parent_rep + 1
+                                            } else {
+                                                parent_rep + 2
+                                            }); // was parent_rep + 1
+                                            def_index += 1;
+                                        });
+                                    }
+                                }
+                                None => {
+                                    if definition[def_index] == current_def_level {
+                                        repetition.push(0);
+                                        def_index += 1;
+                                        (1..array_len).for_each(|_| {
+                                            repetition.push(1); // was parent_rep + 1
+                                            def_index += 1;
+                                        });
+                                    } else {
+                                        repetition.push(0);
+                                        def_index += 1;
+                                        (1..array_len).for_each(|_| {
+                                            repetition.push(1); // was parent_rep + 1
+                                            def_index += 1;
+                                        });
+                                    }
+                                }
                             }
                         }
-                        None => {
-                            if definition[def_index] == current_def_level {
-                                repetition.push(0);
-                                def_index += 1;
-                                (1..array_len).for_each(|_| {
-                                    repetition.push(1); // was parent_rep + 1
-                                    def_index += 1;
-                                });
-                            } else {
-                                (0..array_len).for_each(|_| {
-                                    dbg!("----------------------------------------");
-                                    repetition.push(0); // TODO: should it be anything else?
-                                                        // TODO: use an append instead of pushes
-                                    def_index += 1;
-                                });
-                            }
-                        }
-                    }
+                    });
                 }
             });
-        });
 
         Self {
             definition,
@@ -513,7 +531,6 @@ impl LevelInfo {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,9 +545,9 @@ mod tests {
             definition_mask: vec![(true, 1), (true, 1)],
             array_offsets: vec![0, 1, 2], // 2 records, root offsets always sequential
             array_mask: vec![true, true], // both lists defined
-            max_definition: 0,            // at the root, set to 0 (only works in this example, we start at 1 with Arrow data)
-            is_list: false,               // root is never list
-            is_nullable: false,           // root in example is non-nullable
+            max_definition: 0, // at the root, set to 0 (only works in this example, we start at 1 with Arrow data)
+            is_list: false,    // root is never list
+            is_nullable: false, // root in example is non-nullable
         };
         // offset into array, each level1 has 2 values
         let array_offsets = vec![0, 2, 4];
@@ -589,6 +606,13 @@ mod tests {
             is_list: true,
             is_nullable: false,
         };
+        assert_eq!(&levels.definition, &expected_levels.definition);
+        assert_eq!(&levels.repetition, &expected_levels.repetition);
+        assert_eq!(&levels.definition_mask, &expected_levels.definition_mask);
+        assert_eq!(&levels.array_offsets, &expected_levels.array_offsets);
+        assert_eq!(&levels.max_definition, &expected_levels.max_definition);
+        assert_eq!(&levels.is_list, &expected_levels.is_list);
+        assert_eq!(&levels.is_nullable, &expected_levels.is_nullable);
         assert_eq!(&levels, &expected_levels);
     }
 
@@ -634,13 +658,7 @@ mod tests {
         let parent_levels = LevelInfo {
             definition: vec![1; 5],
             repetition: None,
-            definition_mask: vec![
-                (true, 1),
-                (true, 1),
-                (true, 1),
-                (true, 1),
-                (true, 1),
-            ],
+            definition_mask: vec![(true, 1), (true, 1), (true, 1), (true, 1), (true, 1)],
             array_offsets: (0..=5).collect(),
             array_mask: vec![true, true, true, true, true],
             max_definition: 0,
@@ -797,6 +815,13 @@ mod tests {
             is_nullable: true,
             is_list: true,
         };
+        assert_eq!(&levels.definition, &expected_levels.definition);
+        assert_eq!(&levels.repetition, &expected_levels.repetition);
+        assert_eq!(&levels.definition_mask, &expected_levels.definition_mask);
+        assert_eq!(&levels.array_offsets, &expected_levels.array_offsets);
+        assert_eq!(&levels.max_definition, &expected_levels.max_definition);
+        assert_eq!(&levels.is_list, &expected_levels.is_list);
+        assert_eq!(&levels.is_nullable, &expected_levels.is_nullable);
         assert_eq!(&levels, &expected_levels);
 
         // nested lists (using previous test)
@@ -824,8 +849,20 @@ mod tests {
             // (def: 2) 16 17 [18] are 2 (defined at all levels)
             // (def: 2) 18 19 [20] are 2 (defined at all levels)
             // (def: 2) 20 21 [22] are 2 (defined at all levels)
+            // 
+            // 0 1 [2] are 0 (not defined at level 1)
+            // [2] is 1, but has 0 slots so is not populated (defined at level 1 only)
+            // 2 3 [4] are 0
+            // 4 5 6 7 [8] are 1 (defined at level 1 only)
+            // 8 9 10 [11] are 2 (defined at both levels)
+            //
+            // 0: [[100, 101], [102, 103]]
+            // 1: []
+            // 2: [[104, 105], [106, 107]]
+            // 3: [[108, 109], [110, 111], [112, 113], [114, 115]]
+            // 4: [[116, 117], [118, 119], [120, 121]]
             definition: vec![
-                0, 0, 0, 0, 0i16, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
             ],
             // TODO: this doesn't feel right, needs some validation
             repetition: Some(vec![
@@ -875,8 +912,13 @@ mod tests {
     #[test]
     fn test_calculate_array_levels_nested_list() {
         // if all array values are defined (e.g. batch<list<_>>)
+        // The array at this level looks like:
+        // 0: [a]
+        // 1: [a]
+        // 2: [a]
+        // 3: [a]
         let parent_levels = LevelInfo {
-            definition: vec![1,1,1,1],
+            definition: vec![1, 1, 1, 1],
             repetition: None,
             definition_mask: vec![(true, 1), (true, 1), (true, 1), (true, 1)],
             array_offsets: vec![0, 1, 2, 3, 4],
@@ -885,6 +927,10 @@ mod tests {
             is_list: false,
             is_nullable: false,
         };
+        // 0: null ([], but mask is false, so it's not just an empty list)
+        // 1: [1, 2, 3]
+        // 2: [4, 5]
+        // 3: [6, 7]
         let array_offsets = vec![0, 0, 3, 5, 7];
         let array_mask = vec![false, true, true, true];
 
@@ -895,6 +941,10 @@ mod tests {
             true,
             2,
         );
+        // 0: [null], level 1 is defined, but not 2
+        // 1: [1, 2, 3]
+        // 2: [4, 5]
+        // 3: [6, 7]
         let expected_levels = LevelInfo {
             definition: vec![1, 2, 2, 2, 2, 2, 2, 2],
             repetition: Some(vec![0, 0, 1, 1, 0, 1, 0, 1]),
@@ -925,8 +975,15 @@ mod tests {
 
         // nested lists (using previous test)
         let nested_parent_levels = levels;
+        // 0: [201]
+        // 1: [202, 203]
+        // 2: null ([])
+        // 3: [204, 205, 206]
+        // 4: [207, 208, 209, 210]
+        // 5: [] (tests a non-null empty list slot)
+        // 6: [211, 212, 213, 214, 215]
         let array_offsets = vec![0, 1, 3, 3, 6, 10, 10, 15];
-        let array_mask = vec![true, true, false, true, true, false, true];
+        let array_mask = vec![true, true, false, true, true, true, true];
         let levels = nested_parent_levels.calculate_list_child_levels(
             array_offsets,
             array_mask,
@@ -934,11 +991,22 @@ mod tests {
             true,
             3,
         );
+        // We have 7 array values, and at least 15 primitives (from array_offsets)
+        // 0: (-)[null], parent was null, no value populated here
+        // 1: (0)[201], (1)[202, 203], (2)[[null]]
+        // 2: (3)[204, 205, 206], (4)[207, 208, 209, 210]
+        // 3: (5)[[]], (6)[211, 212, 213, 214, 215]
+        //
+        // In a JSON syntax with the schema: <struct<list<list<primitive>>>>, this translates into:
+        // 0: {"struct": [ null ]}
+        // 1: {"struct": [ [201], [202, 203], [] ]}
+        // 2: {"struct": [ [204, 205, 206], [207, 208, 209, 210] ]}
+        // 3: {"struct": [ [], [211, 212, 213, 214, 215] ]}
         let expected_levels = LevelInfo {
-            definition: vec![1, 1, 3, 3, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3],
+            definition: vec![1, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3],
             // TODO: 2020/12/05 ended here
             // TODO: have a suspicion that this is missing an increment (i.e. some should be + 1)
-            repetition: Some(vec![0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1]),
+            repetition: Some(vec![0, 0, 1, 2, 0, 0, 2, 2, 1, 2, 2, 2, 0, 1, 2, 2, 2, 2]),
             definition_mask: vec![
                 (false, 2),
                 (true, 3),
@@ -959,7 +1027,7 @@ mod tests {
                 (true, 3),
                 (true, 3),
             ],
-            array_mask: vec![true, true, false, true, true, false, true],
+            array_mask: vec![true, true, false, true, true, true, true],
             array_offsets: vec![0, 1, 3, 3, 6, 10, 10, 15],
             is_list: true,
             is_nullable: true,
@@ -1010,8 +1078,13 @@ mod tests {
             is_list: false,
             is_nullable: true,
         };
-        let b_levels =
-            a_levels.calculate_list_child_levels(b_offsets.clone(), b_mask, false, true, 2);
+        let b_levels = a_levels.calculate_list_child_levels(
+            b_offsets.clone(),
+            b_mask,
+            false,
+            true,
+            2,
+        );
         assert_eq!(&b_expected_levels, &b_levels);
 
         // c's offset and mask
@@ -1028,7 +1101,8 @@ mod tests {
             is_list: false,
             is_nullable: true,
         };
-        let c_levels = b_levels.calculate_list_child_levels(c_offsets, c_mask, false, true, 3);
+        let c_levels =
+            b_levels.calculate_list_child_levels(c_offsets, c_mask, false, true, 3);
         assert_eq!(&c_expected_levels, &c_levels);
     }
 }
