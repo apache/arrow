@@ -84,7 +84,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
 
     /// Returns the element at index `i` as a byte slice.
     pub fn value(&self, i: usize) -> &[u8] {
-        assert!(i < self.data.len(), "BinaryArray out of bounds access");
+        debug_assert!(i < self.data.len(), "BinaryArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -317,7 +317,7 @@ pub struct FixedSizeBinaryArray {
 impl FixedSizeBinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn value(&self, i: usize) -> &[u8] {
-        assert!(
+        debug_assert!(
             i < self.data.len(),
             "FixedSizeBinaryArray out of bounds access"
         );
@@ -468,7 +468,7 @@ pub struct DecimalArray {
 impl DecimalArray {
     /// Returns the element at index `i` as i128.
     pub fn value(&self, i: usize) -> i128 {
-        assert!(i < self.data.len(), "DecimalArray out of bounds access");
+        debug_assert!(i < self.data.len(), "DecimalArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         let raw_val = unsafe {
             let pos = self.value_offset_at(offset);

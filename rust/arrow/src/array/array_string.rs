@@ -85,7 +85,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
 
     /// Returns the element at index `i` as &str
     pub fn value(&self, i: usize) -> &str {
-        assert!(i < self.data.len(), "StringArray out of bounds access");
+        debug_assert!(i < self.data.len(), "StringArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
