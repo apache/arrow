@@ -15,14 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "bigdecimal"
+class TestDecimal256Array < Test::Unit::TestCase
+  def test_format_value
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    builder = Arrow::Decimal256ArrayBuilder.new(data_type)
+    decimal = Arrow::Decimal256.new("23423445")
+    builder.append_value(decimal)
+    array = builder.finish
+    assert_equal("234234.45", array.format_value(0))
+  end
 
-class BigDecimal
-  def to_arrow
-    if precs[0] <= Arrow::Decimal128DataType::MAX_PRECISION
-      Arrow::Decimal128.new(to_s)
-    else
-      Arrow::Decimal256.new(to_s)
-    end
+  def test_value
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    builder = Arrow::Decimal256ArrayBuilder.new(data_type)
+    decimal = Arrow::Decimal256.new("23423445")
+    builder.append_value(decimal)
+    array = builder.finish
+    assert_equal("234234.45",
+                 array.get_value(0).to_string_scale(array.value_data_type.scale))
   end
 end

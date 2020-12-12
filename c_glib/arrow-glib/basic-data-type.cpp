@@ -92,9 +92,11 @@ G_BEGIN_DECLS
  * #GArrowTime64DataType is a class for the number of microseconds or
  * nanoseconds since midnight in 64-bit signed integer data type.
  *
- * #GArrowDecimalDataType is a base class for decimal data type.
+ * #GArrowDecimalDataType is a base class for decimal data types.
  *
  * #GArrowDecimal128DataType is a class for 128-bit decimal data type.
+ *
+ * #GArrowDecimal256DataType is a class for 256-bit decimal data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
@@ -1272,6 +1274,19 @@ garrow_decimal128_data_type_class_init(GArrowDecimal128DataTypeClass *klass)
 }
 
 /**
+ * garrow_decimal128_data_type_max_precision:
+ *
+ * Returns: The max precision of 128-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+gint32
+garrow_decimal128_data_type_max_precision()
+{
+  return arrow::Decimal128Type::kMaxPrecision;
+}
+
+/**
  * garrow_decimal128_data_type_new:
  * @precision: The precision of decimal data.
  * @scale: The scale of decimal data.
@@ -1284,7 +1299,7 @@ GArrowDecimal128DataType *
 garrow_decimal128_data_type_new(gint32 precision,
                                 gint32 scale)
 {
-  auto arrow_data_type = arrow::decimal(precision, scale);
+  auto arrow_data_type = arrow::decimal128(precision, scale);
 
   auto data_type =
     GARROW_DECIMAL128_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
@@ -1292,6 +1307,57 @@ garrow_decimal128_data_type_new(gint32 precision,
                                              NULL));
   return data_type;
 }
+
+
+G_DEFINE_TYPE(GArrowDecimal256DataType,
+              garrow_decimal256_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal256_data_type_init(GArrowDecimal256DataType *object)
+{
+}
+
+static void
+garrow_decimal256_data_type_class_init(GArrowDecimal256DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal256_data_type_max_precision:
+ *
+ * Returns: The max precision of 256-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+gint32
+garrow_decimal256_data_type_max_precision()
+{
+  return arrow::Decimal256Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal256_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ *
+ * Returns: The newly created 256-bit decimal data type.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256DataType *
+garrow_decimal256_data_type_new(gint32 precision,
+                                gint32 scale)
+{
+  auto arrow_data_type = arrow::decimal256(precision, scale);
+
+  auto data_type =
+    GARROW_DECIMAL256_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
+}
+
 
 G_END_DECLS
 
@@ -1386,8 +1452,11 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
     break;
-  case arrow::Type::type::DECIMAL:
+  case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL256:
+    type = GARROW_TYPE_DECIMAL256_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

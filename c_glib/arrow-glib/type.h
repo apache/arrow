@@ -26,15 +26,15 @@ G_BEGIN_DECLS
 /**
  * GArrowType:
  * @GARROW_TYPE_NA: A degenerate NULL type represented as 0 bytes/bits.
- * @GARROW_TYPE_BOOLEAN: A boolean value represented as 1 bit.
- * @GARROW_TYPE_UINT8: Little-endian 8bit unsigned integer.
- * @GARROW_TYPE_INT8: Little-endian 8bit signed integer.
- * @GARROW_TYPE_UINT16: Little-endian 16bit unsigned integer.
- * @GARROW_TYPE_INT16: Little-endian 16bit signed integer.
- * @GARROW_TYPE_UINT32: Little-endian 32bit unsigned integer.
- * @GARROW_TYPE_INT32: Little-endian 32bit signed integer.
- * @GARROW_TYPE_UINT64: Little-endian 64bit unsigned integer.
- * @GARROW_TYPE_INT64: Little-endian 64bit signed integer.
+ * @GARROW_TYPE_BOOLEAN: A boolean value represented as 1-bit.
+ * @GARROW_TYPE_UINT8: Little-endian 8-bit unsigned integer.
+ * @GARROW_TYPE_INT8: Little-endian 8-bit signed integer.
+ * @GARROW_TYPE_UINT16: Little-endian 16-bit unsigned integer.
+ * @GARROW_TYPE_INT16: Little-endian 16-bit signed integer.
+ * @GARROW_TYPE_UINT32: Little-endian 32-bit unsigned integer.
+ * @GARROW_TYPE_INT32: Little-endian 32-bit signed integer.
+ * @GARROW_TYPE_UINT64: Little-endian 64-bit unsigned integer.
+ * @GARROW_TYPE_INT64: Little-endian 64-bit signed integer.
  * @GARROW_TYPE_HALF_FLOAT: 2-byte floating point value.
  * @GARROW_TYPE_FLOAT: 4-byte floating point value.
  * @GARROW_TYPE_DOUBLE: 8-byte floating point value.
@@ -50,8 +50,10 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_TIME64: Exact time encoded with int64, supporting micro- or nanoseconds
  * @GARROW_TYPE_INTERVAL_MONTHS: YEAR_MONTH interval in SQL style.
  * @GARROW_TYPE_INTERVAL_DAY_TIME: DAY_TIME interval in SQL style.
- * @GARROW_TYPE_DECIMAL: Precision- and scale-based decimal
- *   type. Storage type depends on the parameters.
+ * @GARROW_TYPE_DECIMAL128: Precision- and scale-based decimal
+ *   type with 128-bit. Storage type depends on the parameters.
+ * @GARROW_TYPE_DECIMAL256: Precision- and scale-based decimal
+ *   type with 256-bit. Storage type depends on the parameters.
  * @GARROW_TYPE_LIST: A list of some logical data type.
  * @GARROW_TYPE_STRUCT: Struct of logical types.
  * @GARROW_TYPE_SPARSE_UNION: Sparse unions of logical types.
@@ -92,7 +94,8 @@ typedef enum {
   GARROW_TYPE_TIME64,
   GARROW_TYPE_INTERVAL_MONTHS,
   GARROW_TYPE_INTERVAL_DAY_TIME,
-  GARROW_TYPE_DECIMAL,
+  GARROW_TYPE_DECIMAL128,
+  GARROW_TYPE_DECIMAL256,
   GARROW_TYPE_LIST,
   GARROW_TYPE_STRUCT,
   GARROW_TYPE_SPARSE_UNION,

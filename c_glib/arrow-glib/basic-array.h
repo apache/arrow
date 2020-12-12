@@ -604,4 +604,20 @@ gchar *garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
 GArrowDecimal128 *garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
                                                     gint64 i);
 
+#define GARROW_TYPE_DECIMAL256_ARRAY (garrow_decimal256_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256Array,
+                         garrow_decimal256_array,
+                         GARROW,
+                         DECIMAL256_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal256ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+gchar *garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
+                                            gint64 i);
+GArrowDecimal256 *garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
+                                                    gint64 i);
+
 G_END_DECLS

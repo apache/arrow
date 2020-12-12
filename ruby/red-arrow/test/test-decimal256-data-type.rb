@@ -15,14 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "bigdecimal"
+class Decimal256DataTypeTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("ordered arguments") do
+      assert_equal("decimal256(8, 2)",
+                   Arrow::Decimal256DataType.new(8, 2).to_s)
+    end
 
-class BigDecimal
-  def to_arrow
-    if precs[0] <= Arrow::Decimal128DataType::MAX_PRECISION
-      Arrow::Decimal128.new(to_s)
-    else
-      Arrow::Decimal256.new(to_s)
+    test("description") do
+      assert_equal("decimal256(8, 2)",
+                   Arrow::Decimal256DataType.new(precision: 8,
+                                                 scale: 2).to_s)
     end
   end
 end

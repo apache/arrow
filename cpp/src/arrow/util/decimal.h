@@ -190,7 +190,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   using BasicDecimal256::BasicDecimal256;
   /// \endcond
 
-  /// \brief constructor creates a Decimal256 from a BasicDecimal128.
+  /// \brief constructor creates a Decimal256 from a BasicDecimal256.
   constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
 
   /// \brief Parse the number from a base 10 string representation.

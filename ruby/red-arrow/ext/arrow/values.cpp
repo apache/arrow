@@ -85,6 +85,7 @@ namespace red_arrow {
       VISIT(DenseUnion)
       VISIT(Dictionary)
       VISIT(Decimal128)
+      VISIT(Decimal256)
       // TODO
       // VISIT(Extension)
 

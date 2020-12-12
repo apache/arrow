@@ -115,6 +115,17 @@ module Arrow
             builder: Date32ArrayBuilder.new,
             detected: true,
           }
+        when BigDecimal
+          if value.precs[0] > Arrow::Decimal128DataType::MAX_PRECISION
+            {
+              builder: Decimal256ArrayBuilder.new,
+              detected: true,
+            }
+          else
+            {
+              builder: Decimal128ArrayBuilder.new,
+            }
+          end
         when ::Array
           sub_builder_info = nil
           value.each do |sub_value|

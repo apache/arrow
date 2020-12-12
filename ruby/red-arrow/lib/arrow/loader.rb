@@ -56,6 +56,10 @@ module Arrow
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
       require "arrow/decimal128-data-type"
+      require "arrow/decimal256"
+      require "arrow/decimal256-array"
+      require "arrow/decimal256-array-builder"
+      require "arrow/decimal256-data-type"
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
@@ -141,6 +145,7 @@ module Arrow
       when "Arrow::Date32Array",
            "Arrow::Date64Array",
            "Arrow::Decimal128Array",
+           "Arrow::Decimal256Array",
            "Arrow::Time32Array",
            "Arrow::Time64Array",
            "Arrow::TimestampArray"

@@ -23,7 +23,7 @@
 
 #include <arrow-glib/array-builder.hpp>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/decimal128.hpp>
+#include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
@@ -322,7 +322,7 @@ G_BEGIN_DECLS
  * #GArrowTime64ArrayBuilder is the class to create a new
  * #GArrowTime64Array.
  *
- * #GArrowStringDictionaryBuilder is the class to create a new
+ * #GArrowStringDictionaryArrayBuilder is the class to create a new
  * #GArrowDictionaryArray with a dictionary array of #GArrowStringArray.
  *
  * #GArrowListArrayBuilder is the class to create a new
@@ -339,6 +339,9 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimal128ArrayBuilder is the class to create a new
  * #GArrowDecimal128Array.
+ *
+ * #GArrowDecimal256ArrayBuilder is the class to create a new
+ * #GArrowDecimal256Array.
  */
 
 typedef struct GArrowArrayBuilderPrivate_ {
@@ -5461,6 +5464,84 @@ garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builde
      "[decimal128-array-builder][append-null]");
 }
 
+
+G_DEFINE_TYPE(GArrowDecimal256ArrayBuilder,
+              garrow_decimal256_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_decimal256_array_builder_init(GArrowDecimal256ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_decimal256_array_builder_class_init(GArrowDecimal256ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_decimal256_array_builder_new:
+ * @data_type: #GArrowDecimal256DataType for the decimal.
+ *
+ * Returns: A newly created #GArrowDecimal256ArrayBuilder.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256ArrayBuilder *
+garrow_decimal256_array_builder_new(GArrowDecimal256DataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[decimal256-array-builder][new]");
+  return GARROW_DECIMAL256_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_decimal256_array_builder_append_value:
+ * @builder: A #GArrowDecimal256ArrayBuilder.
+ * @value: A decimal value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *builder,
+                                             GArrowDecimal256 *value,
+                                             GError **error)
+{
+  auto arrow_decimal = garrow_decimal256_get_raw(value);
+  return garrow_array_builder_append_value<arrow::Decimal256Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     *arrow_decimal,
+     error,
+     "[decimal256-array-builder][append-value]");
+}
+
+/**
+ * garrow_decimal256_array_builder_append_null:
+ * @builder: A #GArrowDecimal256ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * It appends a new NULL element.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_decimal256_array_builder_append_null(GArrowDecimal256ArrayBuilder *builder,
+                                            GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Decimal256Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[decimal256-array-builder][append-null]");
+}
+
+
 G_END_DECLS
 
 GArrowArrayBuilder *
@@ -5544,12 +5625,16 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
     case arrow::Type::type::MAP:
       type = GARROW_TYPE_MAP_ARRAY_BUILDER;
       break;
-    case arrow::Type::type::DECIMAL:
+    case arrow::Type::type::DECIMAL128:
       type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DECIMAL256:
+      type = GARROW_TYPE_DECIMAL256_ARRAY_BUILDER;
       break;
     case arrow::Type::type::DICTIONARY:
       {
-        const auto& dict_type = arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
+        const auto& dict_type =
+          arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
         switch (dict_type.value_type()->id()) {
           case arrow::Type::type::BINARY:
             type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;

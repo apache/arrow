@@ -326,6 +326,21 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_decimal256
+    values = [
+      {"field" => BigDecimal("92.92")},
+      nil,
+      {"field" => nil},
+    ]
+    target = build({
+                     type: :decimal256,
+                     precision: 38,
+                     scale: 2,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"field" => [true, nil, false]},

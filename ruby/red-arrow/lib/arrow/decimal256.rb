@@ -15,14 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "bigdecimal"
+module Arrow
+  class Decimal256
+    alias_method :to_s_raw, :to_s
 
-class BigDecimal
-  def to_arrow
-    if precs[0] <= Arrow::Decimal128DataType::MAX_PRECISION
-      Arrow::Decimal128.new(to_s)
-    else
-      Arrow::Decimal256.new(to_s)
+    # @overload to_s
+    #
+    #   @return [String]
+    #     The string representation of the decimal.
+    #
+    # @overload to_s(scale)
+    #
+    #   @param scale [Integer] The scale of the decimal.
+    #   @return [String]
+    #      The string representation of the decimal including the scale.
+    #
+    # @since 3.0.0
+    def to_s(scale=nil)
+      if scale
+        to_string_scale(scale)
+      else
+        to_s_raw
+      end
     end
   end
 end

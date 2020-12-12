@@ -354,6 +354,24 @@ module ValuesListArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_decimal256
+    values = [
+      [
+        BigDecimal("92.92"),
+        nil,
+        BigDecimal("29.29"),
+      ],
+      nil,
+    ]
+    target = build({
+                     type: :decimal256,
+                     precision: 38,
+                     scale: 2,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       [

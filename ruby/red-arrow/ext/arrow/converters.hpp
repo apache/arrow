@@ -212,7 +212,17 @@ namespace red_arrow {
 
     inline VALUE convert(const arrow::Decimal128Array& array,
                          const int64_t i) {
-      decimal_buffer_ = array.FormatValue(i);
+      return convert_decimal(std::move(array.FormatValue(i)));
+    }
+
+    inline VALUE convert(const arrow::Decimal256Array& array,
+                         const int64_t i) {
+      return convert_decimal(std::move(array.FormatValue(i)));
+    }
+
+  private:
+    inline VALUE convert_decimal(std::string&& value) {
+      decimal_buffer_ = value;
       return rb_funcall(rb_cObject,
                         id_BigDecimal,
                         1,
@@ -221,7 +231,6 @@ namespace red_arrow {
                                        rb_ascii8bit_encoding()));
     }
 
-  private:
     std::string decimal_buffer_;
     ListArrayValueConverter* list_array_value_converter_;
     StructArrayValueConverter* struct_array_value_converter_;
@@ -289,6 +298,7 @@ namespace red_arrow {
     VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
+    VISIT(Decimal256)
     // TODO
     // VISIT(Extension)
 
@@ -393,6 +403,7 @@ namespace red_arrow {
     VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
+    VISIT(Decimal256)
     // TODO
     // VISIT(Extension)
 
@@ -485,6 +496,7 @@ namespace red_arrow {
     VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
+    VISIT(Decimal256)
     // TODO
     // VISIT(Extension)
 
@@ -609,6 +621,7 @@ namespace red_arrow {
     VISIT(DenseUnion)
     VISIT(Dictionary)
     VISIT(Decimal128)
+    VISIT(Decimal256)
     // TODO
     // VISIT(Extension)
 

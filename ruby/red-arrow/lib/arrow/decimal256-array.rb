@@ -15,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "bigdecimal"
-
-class BigDecimal
-  def to_arrow
-    if precs[0] <= Arrow::Decimal128DataType::MAX_PRECISION
-      Arrow::Decimal128.new(to_s)
-    else
-      Arrow::Decimal256.new(to_s)
+module Arrow
+  class Decimal256Array
+    # @since 3.0.0
+    def get_value(i)
+      BigDecimal(format_value(i))
     end
   end
 end

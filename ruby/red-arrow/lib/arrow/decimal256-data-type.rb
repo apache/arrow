@@ -16,13 +16,13 @@
 # under the License.
 
 module Arrow
-  class Decimal128DataType
+  class Decimal256DataType
     MAX_PRECISION = max_precision
 
     alias_method :initialize_raw, :initialize
     private :initialize_raw
 
-    # Creates a new {Arrow::Decimal128DataType}.
+    # Creates a new {Arrow::Decimal256DataType}.
     #
     # @overload initialize(precision, scale)
     #
@@ -34,7 +34,7 @@ module Arrow
     #     type. It's the number of digits after the decimal point.
     #
     #   @example Create a decimal data type for "XXXXXX.YY" decimal
-    #     Arrow::Decimal128DataType.new(8, 2)
+    #     Arrow::Decimal256DataType.new(8, 2)
     #
     # @overload initialize(description)
     #
@@ -50,8 +50,10 @@ module Arrow
     #     point.
     #
     #   @example Create a decimal data type for "XXXXXX.YY" decimal
-    #     Arrow::Decimal128DataType.new(precision: 8,
+    #     Arrow::Decimal256DataType.new(precision: 8,
     #                                   scale: 2)
+    #
+    # @since 3.0.0
     def initialize(*args)
       n_args = args.size
       case n_args
