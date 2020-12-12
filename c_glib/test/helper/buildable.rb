@@ -194,22 +194,22 @@ module Helper
 
     def build_table(columns)
       fields = []
-      arrays = []
-      columns.each do |name, array|
-        fields << Arrow::Field.new(name, array.value_data_type)
-        arrays << array
+      chunked_arrays = []
+      columns.each do |name, chunked_array|
+        fields << Arrow::Field.new(name, chunked_array.value_data_type)
+        chunked_arrays << chunked_array
       end
       schema = Arrow::Schema.new(fields)
-      Arrow::Table.new(schema, arrays)
+      Arrow::Table.new(schema, chunked_arrays)
     end
 
-    def build_record_batch(arrays)
-      n_rows = arrays.collect {|_, array| array.length}.min || 0
-      fields = arrays.collect do |name, array|
+    def build_record_batch(columns)
+      n_rows = columns.collect {|_, array| array.length}.min || 0
+      fields = columns.collect do |name, array|
         Arrow::Field.new(name, array.value_data_type)
       end
       schema = Arrow::Schema.new(fields)
-      Arrow::RecordBatch.new(schema, n_rows, arrays.values)
+      Arrow::RecordBatch.new(schema, n_rows, columns.values)
     end
 
     private

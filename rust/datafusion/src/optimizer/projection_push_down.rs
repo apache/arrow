@@ -19,7 +19,7 @@
 //! loaded into memory
 
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan};
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan, ToDFSchema};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::Schema;
@@ -103,10 +103,7 @@ fn get_projected_schema(
         projected_fields.push(DFField::from(schema.fields()[*i].clone()));
     }
 
-    Ok((
-        projection,
-        DFSchemaRef::new(DFSchema::new(projected_fields)?),
-    ))
+    Ok((projection, projected_fields.to_dfschema_ref()?))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -265,69 +262,6 @@ fn optimize_plan(
                 schema_name: schema_name.to_string(),
                 source: source.clone(),
                 table_schema: table_schema.clone(),
-                projection: Some(projection),
-                projected_schema,
-            })
-        }
-        LogicalPlan::InMemoryScan {
-            data,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-            Ok(LogicalPlan::InMemoryScan {
-                data: data.clone(),
-                schema: schema.clone(),
-                projection: Some(projection),
-                projected_schema,
-            })
-        }
-        LogicalPlan::CsvScan {
-            path,
-            has_header,
-            delimiter,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-
-            Ok(LogicalPlan::CsvScan {
-                path: path.to_owned(),
-                has_header: *has_header,
-                schema: schema.clone(),
-                delimiter: *delimiter,
-                projection: Some(projection),
-                projected_schema,
-            })
-        }
-        LogicalPlan::ParquetScan {
-            path,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-
-            Ok(LogicalPlan::ParquetScan {
-                path: path.to_owned(),
-                schema: schema.clone(),
                 projection: Some(projection),
                 projected_schema,
             })

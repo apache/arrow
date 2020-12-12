@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    and, lit, DFSchema, DFSchemaRef, Expr, LogicalPlan, LogicalPlanBuilder, Operator,
-    PlanType, StringifiedPlan,
+    and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
+    StringifiedPlan, ToDFSchema,
 };
 use crate::scalar::ScalarValue;
 use crate::{
@@ -141,7 +141,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let schema = self.build_schema(&columns)?;
 
         Ok(LogicalPlan::CreateExternalTable {
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
             name: name.clone(),
             location: location.clone(),
             file_type: file_type.clone(),
@@ -170,7 +170,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             verbose,
             plan,
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
         })
     }
 
@@ -662,6 +662,18 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 }
             },
 
+            SQLExpr::Between {
+                ref expr,
+                ref negated,
+                ref low,
+                ref high,
+            } => Ok(Expr::Between {
+                expr: Box::new(self.sql_to_rex(&expr, &schema)?),
+                negated: *negated,
+                low: Box::new(self.sql_to_rex(&low, &schema)?),
+                high: Box::new(self.sql_to_rex(&high, &schema)?),
+            }),
+
             SQLExpr::BinaryOp {
                 ref left,
                 ref op,
@@ -992,6 +1004,26 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_between() {
+        let sql = "SELECT state FROM person WHERE age BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_between_negated() {
+        let sql = "SELECT state FROM person WHERE age NOT BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age NOT BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
         quick_test(sql, expected);
     }
 

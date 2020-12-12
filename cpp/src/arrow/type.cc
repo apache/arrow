@@ -190,6 +190,32 @@ int GetByteWidth(const DataType& type) {
 
 namespace {
 
+struct PhysicalTypeVisitor {
+  const std::shared_ptr<DataType>& real_type;
+  std::shared_ptr<DataType> result;
+
+  Status Visit(const DataType&) {
+    result = real_type;
+    return Status::OK();
+  }
+
+  template <typename Type, typename PhysicalType = typename Type::PhysicalType>
+  Status Visit(const Type&) {
+    result = TypeTraits<PhysicalType>::type_singleton();
+    return Status::OK();
+  }
+};
+
+}  // namespace
+
+std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& real_type) {
+  PhysicalTypeVisitor visitor{real_type, {}};
+  ARROW_CHECK_OK(VisitTypeInline(*real_type, &visitor));
+  return std::move(visitor.result);
+}
+
+namespace {
+
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise

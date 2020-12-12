@@ -94,9 +94,7 @@ pub fn sort_to_indices(
     let (v, n) = partition_validity(values);
 
     match values.data_type() {
-        DataType::Boolean => {
-            sort_primitive::<BooleanType>(values, v, n, vec![], &options)
-        }
+        DataType::Boolean => sort_boolean(values, v, n, &options),
         DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, vec![], &options),
         DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, vec![], &options),
         DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, vec![], &options),
@@ -220,6 +218,68 @@ impl Default for SortOptions {
             nulls_first: true,
         }
     }
+}
+
+/// Sort primitive values
+fn sort_boolean(
+    values: &ArrayRef,
+    value_indices: Vec<u32>,
+    null_indices: Vec<u32>,
+    options: &SortOptions,
+) -> Result<UInt32Array> {
+    let values = values
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .expect("Unable to downcast to boolean array");
+    let descending = options.descending;
+
+    // create tuples that are used for sorting
+    let mut valids = value_indices
+        .into_iter()
+        .map(|index| (index, values.value(index as usize)))
+        .collect::<Vec<(u32, bool)>>();
+
+    let mut nulls = null_indices;
+
+    let valids_len = valids.len();
+    let nulls_len = nulls.len();
+
+    if !descending {
+        valids.sort_by(|a, b| a.1.cmp(&b.1));
+    } else {
+        valids.sort_by(|a, b| a.1.cmp(&b.1).reverse());
+        // reverse to keep a stable ordering
+        nulls.reverse();
+    }
+
+    // collect results directly into a buffer instead of a vec to avoid another aligned allocation
+    let mut result = MutableBuffer::new(values.len() * std::mem::size_of::<u32>());
+    // sets len to capacity so we can access the whole buffer as a typed slice
+    result.resize(values.len() * std::mem::size_of::<u32>());
+    let result_slice: &mut [u32] = result.typed_data_mut();
+
+    debug_assert_eq!(result_slice.len(), nulls_len + valids_len);
+
+    if options.nulls_first {
+        result_slice[0..nulls_len].copy_from_slice(&nulls);
+        insert_valid_and_nan_values(result_slice, nulls_len, valids, vec![], descending);
+    } else {
+        // nulls last
+        insert_valid_and_nan_values(result_slice, 0, valids, vec![], descending);
+        result_slice[valids_len..].copy_from_slice(nulls.as_slice())
+    }
+
+    let result_data = Arc::new(ArrayData::new(
+        DataType::UInt32,
+        values.len(),
+        Some(0),
+        None,
+        0,
+        vec![result.freeze()],
+        vec![],
+    ));
+
+    Ok(UInt32Array::from(result_data))
 }
 
 /// Sort primitive values
@@ -560,6 +620,17 @@ mod tests {
     use std::iter::FromIterator;
     use std::sync::Arc;
 
+    fn test_sort_to_indices_boolean_arrays(
+        data: Vec<Option<bool>>,
+        options: Option<SortOptions>,
+        expected_data: Vec<u32>,
+    ) {
+        let output = BooleanArray::from(data);
+        let expected = UInt32Array::from(expected_data);
+        let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
+        assert_eq!(output, expected)
+    }
+
     fn test_sort_to_indices_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
         options: Option<SortOptions>,
@@ -825,16 +896,19 @@ mod tests {
             }),
             vec![5, 0, 2, 1, 4, 3],
         );
+    }
 
+    #[test]
+    fn test_sort_boolean() {
         // boolean
-        test_sort_to_indices_primitive_arrays::<BooleanType>(
+        test_sort_to_indices_boolean_arrays(
             vec![None, Some(false), Some(true), Some(true), Some(false), None],
             None,
             vec![0, 5, 1, 4, 2, 3],
         );
 
         // boolean, descending
-        test_sort_to_indices_primitive_arrays::<BooleanType>(
+        test_sort_to_indices_boolean_arrays(
             vec![None, Some(false), Some(true), Some(true), Some(false), None],
             Some(SortOptions {
                 descending: true,
@@ -844,7 +918,7 @@ mod tests {
         );
 
         // boolean, descending, nulls first
-        test_sort_to_indices_primitive_arrays::<BooleanType>(
+        test_sort_to_indices_boolean_arrays(
             vec![None, Some(false), Some(true), Some(true), Some(false), None],
             Some(SortOptions {
                 descending: true,

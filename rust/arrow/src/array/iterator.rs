@@ -18,11 +18,11 @@
 use crate::datatypes::ArrowPrimitiveType;
 
 use super::{
-    Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericStringArray, PrimitiveArray,
-    StringOffsetSizeTrait,
+    Array, BinaryOffsetSizeTrait, BooleanArray, GenericBinaryArray, GenericStringArray,
+    PrimitiveArray, StringOffsetSizeTrait,
 };
 
-/// an iterator that returns Some(T) or None, that can be used on any non-boolean PrimitiveArray
+/// an iterator that returns Some(T) or None, that can be used on any PrimitiveArray
 // Note: This implementation is based on std's [Vec]s' [IntoIter].
 #[derive(Debug)]
 pub struct PrimitiveIter<'a, T: ArrowPrimitiveType> {
@@ -80,6 +80,65 @@ impl<'a, T: ArrowPrimitiveType> std::iter::DoubleEndedIterator for PrimitiveIter
 
 /// all arrays have known size.
 impl<'a, T: ArrowPrimitiveType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
+
+/// an iterator that returns Some(bool) or None.
+// Note: This implementation is based on std's [Vec]s' [IntoIter].
+#[derive(Debug)]
+pub struct BooleanIter<'a> {
+    array: &'a BooleanArray,
+    current: usize,
+    current_end: usize,
+}
+
+impl<'a> BooleanIter<'a> {
+    /// create a new iterator
+    pub fn new(array: &'a BooleanArray) -> Self {
+        BooleanIter {
+            array,
+            current: 0,
+            current_end: array.len(),
+        }
+    }
+}
+
+impl<'a> std::iter::Iterator for BooleanIter<'a> {
+    type Item = Option<bool>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.current_end {
+            None
+        } else if self.array.is_null(self.current) {
+            self.current += 1;
+            Some(None)
+        } else {
+            let old = self.current;
+            self.current += 1;
+            Some(Some(self.array.value(old)))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.array.len(), Some(self.array.len()))
+    }
+}
+
+impl<'a> std::iter::DoubleEndedIterator for BooleanIter<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_end == self.current {
+            None
+        } else {
+            self.current_end -= 1;
+            Some(if self.array.is_null(self.current_end) {
+                None
+            } else {
+                Some(self.array.value(self.current_end))
+            })
+        }
+    }
+}
+
+/// all arrays have known size.
+impl<'a> std::iter::ExactSizeIterator for BooleanIter<'a> {}
 
 /// an iterator that returns `Some(&str)` or `None`, for string arrays
 #[derive(Debug)]
@@ -183,7 +242,7 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::ExactSizeIterator
 mod tests {
     use std::sync::Arc;
 
-    use crate::array::{ArrayRef, BinaryArray, Int32Array, StringArray};
+    use crate::array::{ArrayRef, BinaryArray, BooleanArray, Int32Array, StringArray};
 
     #[test]
     fn test_primitive_array_iter_round_trip() {
@@ -250,6 +309,16 @@ mod tests {
 
         // to and from iter
         let result: BinaryArray = array.iter().collect();
+
+        assert_eq!(result, array);
+    }
+
+    #[test]
+    fn test_boolean_array_iter_round_trip() {
+        let array = BooleanArray::from(vec![Some(true), None, Some(false)]);
+
+        // to and from iter
+        let result: BooleanArray = array.iter().collect();
 
         assert_eq!(result, array);
     }

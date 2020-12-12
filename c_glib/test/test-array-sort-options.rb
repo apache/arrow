@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,39 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestArraySortOptions < Test::Unit::TestCase
+  include Helper::Buildable
 
-arrow_dir=${1}
-source_dir=${1}/rust
+  def test_new
+    options = Arrow::ArraySortOptions.new(:ascending)
+    assert_equal(Arrow::SortOrder::ASCENDING,
+                 options.order)
+  end
 
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
-export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-
-pushd ${source_dir}
-
-# run unit tests excluding arrow, which is run separately
-cargo test --workspace --exclude arrow
-
-# test datafusion examples
-pushd datafusion
-cargo run --example csv_sql
-cargo run --example parquet_sql
-popd
-
-# ARROW-10757 clean artefacts to reclaim space
-cargo clean
-
-# run unit tests with SIMD on
-pushd arrow
-cargo test --features "simd"
-# run unit tests with stable Rust
-cargo +stable test
-
-# test arrow examples
-cargo run --example builders
-cargo run --example dynamic_types
-cargo run --example read_csv
-cargo run --example read_csv_infer_schema
-popd
-
-popd
+  def test_equal
+    assert_equal(Arrow::ArraySortOptions.new(:descending),
+                 Arrow::ArraySortOptions.new(:descending))
+  end
+end

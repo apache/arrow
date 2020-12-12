@@ -479,4 +479,21 @@ void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
 }
 
 }  // namespace sv_lite
+
+namespace optional_lite {
+
+template <typename T>
+void PrintTo(const optional<T>& opt, std::ostream* os) {
+  if (opt.has_value()) {
+    *os << "{";
+    ::testing::internal::UniversalPrint(*opt, os);
+    *os << "}";
+  } else {
+    *os << "nullopt";
+  }
+}
+
+inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
+
+}  // namespace optional_lite
 }  // namespace nonstd

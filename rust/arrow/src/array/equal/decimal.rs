@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{array::ArrayData, array::DecimalArray, datatypes::DataType};
+use crate::{array::ArrayData, datatypes::DataType};
 
 use super::utils::equal_len;
 
@@ -27,9 +27,7 @@ pub(super) fn decimal_equal(
     len: usize,
 ) -> bool {
     let size = match lhs.data_type() {
-        DataType::Decimal(precision, _) => {
-            DecimalArray::calc_fixed_byte_size(*precision) as usize
-        }
+        DataType::Decimal(_, _) => 16,
         _ => unreachable!(),
     };
 

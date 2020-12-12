@@ -84,6 +84,7 @@
 #[allow(clippy::module_inception)]
 mod array;
 mod array_binary;
+mod array_boolean;
 mod array_dictionary;
 mod array_list;
 mod array_primitive;
@@ -116,6 +117,7 @@ pub use self::array_binary::BinaryArray;
 pub use self::array_binary::DecimalArray;
 pub use self::array_binary::FixedSizeBinaryArray;
 pub use self::array_binary::LargeBinaryArray;
+pub use self::array_boolean::BooleanArray;
 pub use self::array_dictionary::DictionaryArray;
 pub use self::array_list::FixedSizeListArray;
 pub use self::array_list::LargeListArray;
@@ -129,7 +131,6 @@ pub use self::null::NullArray;
 
 pub use self::array::make_array;
 
-pub type BooleanArray = PrimitiveArray<BooleanType>;
 pub type Int8Array = PrimitiveArray<Int8Type>;
 pub type Int16Array = PrimitiveArray<Int16Type>;
 pub type Int32Array = PrimitiveArray<Int32Type>;
@@ -176,10 +177,10 @@ pub use self::array_string::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 
+pub use self::builder::BooleanBufferBuilder;
 pub use self::builder::BufferBuilder;
 pub use self::builder::BufferBuilderTrait;
 
-pub type BooleanBufferBuilder = BufferBuilder<BooleanType>;
 pub type Int8BufferBuilder = BufferBuilder<Int8Type>;
 pub type Int16BufferBuilder = BufferBuilder<Int16Type>;
 pub type Int32BufferBuilder = BufferBuilder<Int32Type>;
@@ -210,6 +211,7 @@ pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::BooleanBuilder;
 pub use self::builder::DecimalBuilder;
 pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
@@ -224,7 +226,6 @@ pub use self::builder::StringDictionaryBuilder;
 pub use self::builder::StructBuilder;
 pub use self::builder::UnionBuilder;
 
-pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;
 pub type Int8Builder = PrimitiveBuilder<Int8Type>;
 pub type Int16Builder = PrimitiveBuilder<Int16Type>;
 pub type Int32Builder = PrimitiveBuilder<Int32Type>;

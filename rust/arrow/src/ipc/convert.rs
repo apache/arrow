@@ -97,6 +97,12 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let len = c_fields.len();
     for i in 0..len {
         let c_field: ipc::Field = c_fields.get(i);
+        match c_field.type_type() {
+            ipc::Type::Decimal if fb.endianness() == ipc::Endianness::Big => {
+                unimplemented!("Big Endian is not supported for Decimal!")
+            }
+            _ => (),
+        };
         fields.push(c_field.into());
     }
 
@@ -269,6 +275,10 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             };
 
             DataType::Struct(fields)
+        }
+        ipc::Type::Decimal => {
+            let fsb = field.type_as_decimal().unwrap();
+            DataType::Decimal(fsb.precision() as usize, fsb.scale() as usize)
         }
         t => unimplemented!("Type {:?} not supported", t),
     }
@@ -566,6 +576,17 @@ pub(crate) fn get_fb_field_type<'a>(
             // type in the DictionaryEncoding metadata in the parent field
             get_fb_field_type(value_type, is_nullable, fbb)
         }
+        Decimal(precision, scale) => {
+            let mut builder = ipc::DecimalBuilder::new(fbb);
+            builder.add_precision(*precision as i32);
+            builder.add_scale(*scale as i32);
+            builder.add_bitWidth(128);
+            FBFieldType {
+                type_type: ipc::Type::Decimal,
+                type_: builder.finish().as_union_value(),
+                children: Some(fbb.create_vector(&empty_fields[..])),
+            }
+        }
         t => unimplemented!("Type {:?} not supported", t),
     }
 }
@@ -742,6 +763,7 @@ mod tests {
                     123,
                     true,
                 ),
+                Field::new("decimal<usize, usize>", DataType::Decimal(10, 6), false),
             ],
             md,
         );

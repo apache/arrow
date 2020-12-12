@@ -180,13 +180,13 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   @Override
   public void startList() {
     vector.startNewValue(idx());
-    writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getLong(((long) idx() + 1L) * OFFSET_WIDTH)));
+    writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getLong((idx() + 1L) * OFFSET_WIDTH)));
     listStarted = true;
   }
 
   @Override
   public void endList() {
-    vector.getOffsetBuffer().setLong(((long) idx() + 1L) * OFFSET_WIDTH, writer.idx());
+    vector.getOffsetBuffer().setLong((idx() + 1L) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
     listStarted = false;
   }
@@ -194,13 +194,13 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   @Override
   public void startList() {
     vector.startNewValue(idx());
-    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1L) * OFFSET_WIDTH));
     listStarted = true;
   }
 
   @Override
   public void endList() {
-    vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
+    vector.getOffsetBuffer().setInt((idx() + 1L) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
     listStarted = false;
   }

@@ -76,6 +76,17 @@ pub enum Expr {
     IsNull(Box<Expr>),
     /// arithmetic negation of an expression, the operand must be of a signed numeric data type
     Negative(Box<Expr>),
+    /// Whether an expression is between a given range.
+    Between {
+        /// The value to compare
+        expr: Box<Expr>,
+        /// Whether the expression is negated
+        negated: bool,
+        /// The low end of the range
+        low: Box<Expr>,
+        /// The high end of the range
+        high: Box<Expr>,
+    },
     /// The CASE expression is similar to a series of nested if/else and there are two forms that
     /// can be used. The first form consists of a series of boolean "when" expressions with
     /// corresponding "then" expressions, and an optional "else" expression.
@@ -212,6 +223,7 @@ impl Expr {
                 &right.get_type(schema)?,
             ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
+            Expr::Between { .. } => Ok(DataType::Boolean),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -265,6 +277,7 @@ impl Expr {
                 ..
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
+            Expr::Between { ref expr, .. } => expr.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -773,6 +786,18 @@ impl fmt::Debug for Expr {
             } => fmt_function(f, &fun.to_string(), *distinct, args),
             Expr::AggregateUDF { fun, ref args, .. } => {
                 fmt_function(f, &fun.name, false, args)
+            }
+            Expr::Between {
+                expr,
+                negated,
+                low,
+                high,
+            } => {
+                if *negated {
+                    write!(f, "{:?} NOT BETWEEN {:?} AND {:?}", expr, low, high)
+                } else {
+                    write!(f, "{:?} BETWEEN {:?} AND {:?}", expr, low, high)
+                }
             }
             Expr::Wildcard => write!(f, "*"),
         }

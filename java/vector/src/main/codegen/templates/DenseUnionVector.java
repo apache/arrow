@@ -210,7 +210,7 @@ public class DenseUnionVector implements FieldVector {
     typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
 
     offsetBuffer.readerIndex(0);
-    offsetBuffer.writerIndex(valueCount * OFFSET_WIDTH);
+    offsetBuffer.writerIndex((long) valueCount * OFFSET_WIDTH);
   }
 
   @Override
@@ -402,7 +402,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public int getOffset(int index) {
-    return offsetBuffer.getInt(index * OFFSET_WIDTH);
+    return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
   }
 
   private void reallocTypeBuffer() {
@@ -546,9 +546,9 @@ public class DenseUnionVector implements FieldVector {
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     DenseUnionVector fromCast = (DenseUnionVector) from;
-    int inOffset = fromCast.offsetBuffer.getInt(inIndex * OFFSET_WIDTH);
+    int inOffset = fromCast.offsetBuffer.getInt((long) inIndex * OFFSET_WIDTH);
     fromCast.getReader().setPosition(inOffset);
-    int outOffset = offsetBuffer.getInt(outIndex * OFFSET_WIDTH);
+    int outOffset = offsetBuffer.getInt((long) outIndex * OFFSET_WIDTH);
     getWriter().setPosition(outOffset);
     ComplexCopier.copy(fromCast.reader, writer);
   }
@@ -630,7 +630,7 @@ public class DenseUnionVector implements FieldVector {
       to.typeBuffer = refManager.transferOwnership(slicedBuffer, to.allocator).getTransferredBuffer();
 
       // transfer offset byffer
-      while (to.offsetBuffer.capacity() < length * OFFSET_WIDTH) {
+      while (to.offsetBuffer.capacity() < (long) length * OFFSET_WIDTH) {
         to.reallocOffsetBuffer();
       }
 
@@ -643,10 +643,10 @@ public class DenseUnionVector implements FieldVector {
 
       for (int i = startIndex; i < startIndex + length; i++) {
         byte typeId = typeBuffer.getByte(i);
-        to.offsetBuffer.setInt((i - startIndex) * OFFSET_WIDTH, typeCounts[typeId]);
+        to.offsetBuffer.setInt((long) (i - startIndex) * OFFSET_WIDTH, typeCounts[typeId]);
         typeCounts[typeId] += 1;
         if (typeStarts[typeId] == -1) {
-          typeStarts[typeId] = offsetBuffer.getInt(i * OFFSET_WIDTH);
+          typeStarts[typeId] = offsetBuffer.getInt((long) i * OFFSET_WIDTH);
         }
       }
 
@@ -697,8 +697,8 @@ public class DenseUnionVector implements FieldVector {
     if (count == 0) {
       return 0;
     }
-    return count * TYPE_WIDTH + count * OFFSET_WIDTH + DataSizeRoundingUtil.divideBy8Ceil(count)
-        + internalStruct.getBufferSizeFor(count);
+    return (int) (count * TYPE_WIDTH + (long) count * OFFSET_WIDTH
+        + DataSizeRoundingUtil.divideBy8Ceil(count) + internalStruct.getBufferSizeFor(count));
   }
 
   @Override
@@ -736,7 +736,7 @@ public class DenseUnionVector implements FieldVector {
   public Object getObject(int index) {
     ValueVector vector = getVector(index);
     if (vector != null) {
-      int offset = offsetBuffer.getInt(index * OFFSET_WIDTH);
+      int offset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
       return vector.isNull(offset) ? null : vector.getObject(offset);
     }
     return null;
@@ -799,7 +799,7 @@ public class DenseUnionVector implements FieldVector {
     if (writer == null) {
       writer = new DenseUnionWriter(DenseUnionVector.this);
     }
-    int offset = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    int offset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
     MinorType type = reader.getMinorType();
     writer.setPosition(offset);
     byte typeId = holder.typeId;
@@ -843,7 +843,7 @@ public class DenseUnionVector implements FieldVector {
     int offset = vector.getValueCount();
     vector.setValueCount(offset + 1);
     vector.setSafe(offset, holder);
-    offsetBuffer.setInt(index * OFFSET_WIDTH, offset);
+    offsetBuffer.setInt((long) index * OFFSET_WIDTH, offset);
   }
         </#if>
       </#list>
@@ -869,7 +869,7 @@ public class DenseUnionVector implements FieldVector {
     if (isNull(index)) {
       return 0;
     }
-    int offset = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    int offset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
     return getVector(index).hashCode(offset, hasher);
   }
 

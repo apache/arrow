@@ -1759,6 +1759,16 @@ tasks:
       # use the latest pandas release, so prevent reusing any cached layers
       run: --no-leaf-cache conda-python-pandas
 
+  test-conda-python-3.8-pandas-nightly:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: 3.8
+        PANDAS: nightly
+        NUMPY: nightly
+      run: --no-leaf-cache conda-python-pandas
+
   test-conda-python-3.7-pandas-master:
     ci: github
     template: docker-tests/github.linux.yml

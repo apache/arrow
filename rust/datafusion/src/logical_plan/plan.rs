@@ -23,7 +23,6 @@ use std::{
 };
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
 use crate::sql::parser::FileType;
@@ -132,43 +131,6 @@ pub enum LogicalPlan {
         /// The schema description of the output
         projected_schema: DFSchemaRef,
     },
-    /// Produces rows that come from a `Vec` of in memory `RecordBatch`es
-    InMemoryScan {
-        /// Record batch partitions
-        data: Vec<Vec<RecordBatch>>,
-        /// The schema of the record batches
-        schema: SchemaRef,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: DFSchemaRef,
-    },
-    /// Produces rows by scanning Parquet file(s)
-    ParquetScan {
-        /// The path to the files
-        path: String,
-        /// The schema of the Parquet file(s)
-        schema: SchemaRef,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: DFSchemaRef,
-    },
-    /// Produces rows by scanning a CSV file(s)
-    CsvScan {
-        /// The path to the files
-        path: String,
-        /// The underlying table schema
-        schema: SchemaRef,
-        /// Whether the CSV file(s) have a header containing column names
-        has_header: bool,
-        /// An optional column delimiter. Defaults to `b','`
-        delimiter: Option<u8>,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: DFSchemaRef,
-    },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
         /// Whether to produce a placeholder row
@@ -220,15 +182,6 @@ impl LogicalPlan {
     pub fn schema(&self) -> &DFSchemaRef {
         match self {
             LogicalPlan::EmptyRelation { schema, .. } => &schema,
-            LogicalPlan::InMemoryScan {
-                projected_schema, ..
-            } => &projected_schema,
-            LogicalPlan::CsvScan {
-                projected_schema, ..
-            } => &projected_schema,
-            LogicalPlan::ParquetScan {
-                projected_schema, ..
-            } => &projected_schema,
             LogicalPlan::TableScan {
                 projected_schema, ..
             } => &projected_schema,
@@ -332,9 +285,6 @@ impl LogicalPlan {
             }
             // plans without inputs
             LogicalPlan::TableScan { .. }
-            | LogicalPlan::InMemoryScan { .. }
-            | LogicalPlan::ParquetScan { .. }
-            | LogicalPlan::CsvScan { .. }
             | LogicalPlan::EmptyRelation { .. }
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. } => true,
@@ -538,19 +488,6 @@ impl LogicalPlan {
                             write!(f, "TableScan: projection={:?}", projection)
                         }
                     },
-                    LogicalPlan::InMemoryScan { ref projection, .. } => {
-                        write!(f, "InMemoryScan: projection={:?}", projection)
-                    }
-                    LogicalPlan::CsvScan {
-                        ref path,
-                        ref projection,
-                        ..
-                    } => write!(f, "CsvScan: {} projection={:?}", path, projection),
-                    LogicalPlan::ParquetScan {
-                        ref path,
-                        ref projection,
-                        ..
-                    } => write!(f, "ParquetScan: {} projection={:?}", path, projection),
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
                         for i in 0..expr.len() {

@@ -2979,7 +2979,7 @@ mod tests {
     fn make_union_array() -> UnionArray {
         let mut builder = UnionBuilder::new_dense(7);
         builder.append::<Int32Type>("a", 1).unwrap();
-        builder.append::<BooleanType>("b", false).unwrap();
+        builder.append::<Int64Type>("b", 2).unwrap();
         builder.build().unwrap()
     }
 
