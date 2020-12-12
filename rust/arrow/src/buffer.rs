@@ -836,15 +836,16 @@ impl MutableBuffer {
     }
 
     /// Extends the buffer from a byte slice, incrementing its capacity if needed.
+    #[inline]
     pub fn extend_from_slice(&mut self, bytes: &[u8]) {
-        let remaining_capacity = self.capacity - self.len;
-        if bytes.len() > remaining_capacity {
-            self.reserve(self.len + bytes.len());
+        let new_len = self.len + bytes.len();
+        if new_len > self.capacity {
+            self.reserve(new_len);
         }
         unsafe {
             memory::memcpy(self.data.add(self.len), bytes.as_ptr(), bytes.len());
         }
-        self.len += bytes.len();
+        self.len = new_len;
     }
 
     /// Extends the buffer by `len` with all bytes equal to `0u8`, incrementing its capacity if needed.
