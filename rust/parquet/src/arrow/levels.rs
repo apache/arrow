@@ -345,6 +345,7 @@ impl LevelInfo {
         let mut repetition = vec![];
         let mut definition_mask = vec![];
         let has_repetition = self.is_list || is_list;
+        let mut merged_array_mask = vec![];
 
         // keep track of parent definition nulls seen through the definition_mask
         let mut nulls_seen = 0;
@@ -381,6 +382,8 @@ impl LevelInfo {
                 let to = w[1] as usize;
                 let parent_len = to - from;
                 let is_parent_valid = self.array_mask[w_index];
+                let is_child_valid = array_mask[w_index];
+                let is_valid = is_parent_valid && is_child_valid;
                 let parent_mask = self.definition_mask[w_index];
 
                 // if the parent is null, the slots in the child do not matter, we have a null
@@ -388,6 +391,9 @@ impl LevelInfo {
                     definition.push(parent_mask.1 - 1);
                     repetition.push(0);
                     definition_mask.push(parent_mask);
+                    if parent_len > 0 {
+                        merged_array_mask.push(is_valid);
+                    }
                     nulls_seen += 1;
                 } else {
                     // If the parent slot is empty, fill it once to show the nullness.
@@ -396,6 +402,7 @@ impl LevelInfo {
                     if parent_len == 0 {
                         // increase the def_index so we don't index incorrectly when computing repetition
                         def_index += 1;
+                        merged_array_mask.push(is_valid);
                         // check if the parent is null
                         if !parent_mask.0 {
                             // we subtract 1 because we want the first level that was null, which will be
@@ -418,7 +425,9 @@ impl LevelInfo {
                         let mask = array_mask[index];
                         let array_from = array_offsets[index];
                         let array_to = array_offsets[index + 1];
+                        merged_array_mask.push(is_valid);
 
+                        dbg!((w_index, is_parent_valid, is_child_valid, parent_mask));
                         let parent_def_level = &self.definition[index + nulls_seen];
 
                         // if array_len == 0, the child is null
@@ -522,7 +531,7 @@ impl LevelInfo {
                 Some(repetition)
             },
             definition_mask,
-            array_mask,
+            array_mask: merged_array_mask,
             array_offsets,
             is_list: has_repetition,
             max_definition: current_def_level,
@@ -572,7 +581,16 @@ mod tests {
             is_list: true,
             is_nullable: false,
         };
-        assert_eq!(levels, expected_levels);
+        // the separate asserts make it easier to see what's failing
+        assert_eq!(&levels.definition, &expected_levels.definition);
+        assert_eq!(&levels.repetition, &expected_levels.repetition);
+        assert_eq!(&levels.definition_mask, &expected_levels.definition_mask);
+        assert_eq!(&levels.array_offsets, &expected_levels.array_offsets);
+        assert_eq!(&levels.max_definition, &expected_levels.max_definition);
+        assert_eq!(&levels.is_list, &expected_levels.is_list);
+        assert_eq!(&levels.is_nullable, &expected_levels.is_nullable);
+        // this assert is to help if there are more variables added to the struct
+        assert_eq!(&levels, &expected_levels);
 
         // level2
         let parent_levels = levels;
@@ -810,7 +828,7 @@ mod tests {
                 (true, 2),
             ],
             array_offsets,
-            array_mask,
+            array_mask: vec![false, false, false, true, true],
             max_definition: 2,
             is_nullable: true,
             is_list: true,
@@ -959,7 +977,7 @@ mod tests {
                 (true, 2),
             ],
             array_offsets,
-            array_mask,
+            array_mask: vec![false, true, true, true],
             max_definition: 2,
             is_list: true,
             is_nullable: true,
@@ -1037,6 +1055,7 @@ mod tests {
         assert_eq!(&levels.repetition, &expected_levels.repetition);
         assert_eq!(&levels.definition_mask, &expected_levels.definition_mask);
         assert_eq!(&levels.array_offsets, &expected_levels.array_offsets);
+        assert_eq!(&levels.array_mask, &expected_levels.array_mask);
         assert_eq!(&levels.max_definition, &expected_levels.max_definition);
         assert_eq!(&levels.is_list, &expected_levels.is_list);
         assert_eq!(&levels.is_nullable, &expected_levels.is_nullable);
