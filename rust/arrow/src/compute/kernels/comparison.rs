@@ -98,7 +98,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![result.finish()],
+            vec![buffer.freeze()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
