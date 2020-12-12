@@ -26,12 +26,12 @@ use crate::physical_plan::ExecutionPlan;
 
 /// This table statistics are estimates.
 /// It can not be used directly in the precise compute
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Statistics {
     /// The number of table rows
-    pub num_rows: usize,
+    pub num_rows: Option<usize>,
     /// total byte of the table rows
-    pub total_byte_size: usize,
+    pub total_byte_size: Option<usize>,
 }
 
 /// Source table
@@ -52,5 +52,5 @@ pub trait TableProvider {
 
     /// Returns the table Statistics
     /// Statistics should be optional because not all data sources can provide statistics.
-    fn statistics(&self) -> Option<Statistics>;
+    fn statistics(&self) -> Statistics;
 }

@@ -147,8 +147,8 @@ impl TableProvider for CustomTableProvider {
         }))
     }
 
-    fn statistics(&self) -> Option<Statistics> {
-        None
+    fn statistics(&self) -> Statistics {
+        Statistics::default()
     }
 }
 
