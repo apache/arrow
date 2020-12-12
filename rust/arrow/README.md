@@ -96,6 +96,79 @@ Arrow uses the following features:
 Other than `simd` all the other features are enabled by default. Disabling `prettyprint` might be necessary in order to
 compile Arrow to the `wasm32-unknown-unknown` WASM target.
 
+## Guidelines in usage of `unsafe`
+
+[`unsafe`](https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html) has a high maintenance cost because debugging and testing it is difficult, time consuming, often requires external tools (e.g. `valgrind`), and requires a higher-than-usual attention to details. Undefined behavior is particularly difficult to identify and test, and usage of `unsafe` is the primary cause of undefined behavior in a program written in Rust `[citation needed]`.
+
+This crate only accepts the usage of `unsafe` code upon careful consideration, and strives to avoid it to the largest possible extent.
+
+### When can `unsafe` be used?
+
+Generally, `unsafe` can only be used when a `safe` counterpart is not available or has performance implications. The following is a summary of the current components of the crate that require `unsafe`:
+
+* alloc, dealloc and realloc of buffers along cache lines
+* Interpreting bytes as certain rust types, for access, representation and compute
+* Foreign interfaces (C data interface)
+* Inter-process communication (IPC)
+* SIMD
+* Performance
+
+#### cache-line aligned memory management
+
+The arrow format recommends storing buffers aligned with cache lines, and this crate adopts this behavior.
+However, Rust's global allocator does not allocates memory aligned with cache-lines. As such, many of the low-level operations related to memory management require `unsafe`.
+
+Usage of `unsafe` for the purposes of supporting allocations aligned with cache lines is allowed.
+
+#### Interpreting bytes
+
+The arrow format is specified in bytes (`u8`), which can be logically represented as certain types
+depending on the DataType.
+For many operations, such as access, representation, numerical computation and string manipulation,
+it is often necessary to interpret bytes as other physical types (e.g. `i32`).
+
+Usage of `unsafe` for the purpose of interpreting bytes in their corresponding type (according to the arrow specification) is allowed. Specifically, the pointer to the byte slice must be aligned to the type that it intends to represent and the length of the slice is a multiple of the size of the target type of the transmutation.
+
+#### FFI
+
+The arrow format declares an ABI for zero-copy from and to libraries that implement the specification
+(foreign interfaces). In Rust, receiving and sending pointers via FFI requires usage of `unsafe` due to 
+the impossibility of the compiler to derive the invariants (such as lifetime, null pointers, and pointer alignment), from the source code alone as they are part of the FFI contract.
+
+Usage of `unsafe` for the purposes of supporting FFI is allowed.
+
+#### IPC
+
+The arrow format declares a IPC protocol, which this crate supports. IPC is equivalent to a FFI in that the rust compiler can't reason about the contract's invariants.
+
+Usage of `unsafe` for the purposes of supporting IPC is allowed.
+
+#### SIMD
+
+The API provided by the `packed_simd` library is currently `unsafe`. However, SIMD offers a significant performance improvement over non-SIMD operations.
+
+Usage of `unsafe` for the purposes of supporting SIMD is allowed.
+
+#### Performance
+
+Some operations are significantly faster when `unsafe` is used.
+
+A common usage of `unsafe` is to offer an API to access the `i`th element of an array (e.g. `UInt32Array`).
+This requires accessing the values buffer e.g. `array.buffers()[0]`, picking the slice 
+`[i * size_of<i32>(), (i + 1) * size_of<i32>()]`, and then transmuting it to `i32`. In safe Rust, 
+this operation requires boundary checks that are detrimental to performance.
+
+Usage of `unsafe` for performance reasons is justified only when the performance difference of a publicly available API is estatistically significantly larger than 10%, as demonstrated by a `bench`.
+
+### Considerations when introducing `unsafe`
+
+Usage of `unsafe` in this crate *must*:
+
+* not expose a public API as `safe` when there are necessary invariants for that API to be defined behavior.
+* have code documentation for why a `safe` is not used / possible (e.g. `// 30% performance degradation if the safe counterpart is used, see bench X`)
+* have code documentation about which invariant the user needs to enforce to ensure no undefined behavior (e.g. `// this buffer must be constructed according to the arrow specification`)
+* if applicable, have the necessary `assert`s (not `debug_assert`!) of invariants.
+
 # Publishing to crates.io
 
 An Arrow committer can publish this crate after an official project release has
