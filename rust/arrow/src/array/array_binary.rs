@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::convert::{From, TryInto};
 use std::fmt;
 use std::mem;
 use std::{any::Any, iter::FromIterator};
+use std::{
+    convert::{From, TryInto},
+    sync::Arc,
+};
 
 use super::{
     array::print_long_array, raw_pointer::as_aligned_pointer, raw_pointer::RawPtrBox,
@@ -370,6 +373,45 @@ impl From<Vec<Vec<u8>>> for FixedSizeBinaryArray {
             .add_buffer(Buffer::from(&data))
             .build();
         FixedSizeBinaryArray::from(array_data)
+    }
+}
+
+impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
+    fn from(data: Vec<Option<Vec<u8>>>) -> Self {
+        let len = data.len();
+        assert!(len > 0);
+        // try to estimate the size. This may not be possible no entry is valid => panic
+        let size = data.iter().filter_map(|e| e.as_ref()).next().unwrap().len();
+        assert!(data
+            .iter()
+            .filter_map(|e| e.as_ref())
+            .all(|item| item.len() == size));
+
+        let num_bytes = bit_util::ceil(len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let null_slice = null_buf.data_mut();
+
+        data.iter().enumerate().for_each(|(i, entry)| {
+            if entry.is_some() {
+                bit_util::set_bit(null_slice, i);
+            }
+        });
+
+        let data = data
+            .into_iter()
+            .map(|e| e.unwrap_or_else(|| vec![0; size]))
+            .flatten()
+            .collect::<Vec<_>>();
+        let data = ArrayData::new(
+            DataType::FixedSizeBinary(size as i32),
+            len,
+            None,
+            Some(null_buf.freeze()),
+            0,
+            vec![Buffer::from(&data)],
+            vec![],
+        );
+        FixedSizeBinaryArray::from(Arc::new(data))
     }
 }
 
