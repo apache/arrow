@@ -16,8 +16,7 @@
 // under the License.
 
 use std::cmp::{max, min};
-use std::mem::size_of;
-use std::mem::{replace, swap};
+use std::mem::{replace, size_of};
 
 use crate::column::{page::PageReader, reader::ColumnReaderImpl};
 use crate::data_type::DataType;
@@ -162,9 +161,8 @@ impl<T: DataType> RecordReader<T> {
     pub fn consume_def_levels(&mut self) -> Result<Option<Buffer>> {
         let new_buffer = if let Some(ref mut def_levels_buf) = &mut self.def_levels {
             let num_left_values = self.values_written - self.num_values;
-            let mut new_buffer = MutableBuffer::new(
-                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
-            );
+            // create an empty buffer, as it will be resized below
+            let mut new_buffer = MutableBuffer::new(0);
             let num_bytes = num_left_values * size_of::<i16>();
             let new_len = self.num_values * size_of::<i16>();
 
@@ -190,9 +188,8 @@ impl<T: DataType> RecordReader<T> {
         // TODO: Optimize to reduce the copy
         let new_buffer = if let Some(ref mut rep_levels_buf) = &mut self.rep_levels {
             let num_left_values = self.values_written - self.num_values;
-            let mut new_buffer = MutableBuffer::new(
-                size_of::<i16>() * max(MIN_BATCH_SIZE, num_left_values),
-            );
+            // create an empty buffer, as it will be resized below
+            let mut new_buffer = MutableBuffer::new(0);
             let num_bytes = num_left_values * size_of::<i16>();
             let new_len = self.num_values * size_of::<i16>();
 
@@ -201,8 +198,7 @@ impl<T: DataType> RecordReader<T> {
             let new_rep_levels = new_buffer.data_mut();
             let left_rep_levels = &rep_levels_buf.data_mut()[new_len..];
 
-            new_rep_levels[0..num_left_values]
-                .copy_from_slice(&left_rep_levels[0..num_left_values]);
+            new_rep_levels[0..num_bytes].copy_from_slice(&left_rep_levels[0..num_bytes]);
 
             rep_levels_buf.resize(new_len);
 
@@ -219,17 +215,17 @@ impl<T: DataType> RecordReader<T> {
     pub fn consume_record_data(&mut self) -> Result<Buffer> {
         // TODO: Optimize to reduce the copy
         let num_left_values = self.values_written - self.num_values;
-        let mut new_buffer = MutableBuffer::new(max(MIN_BATCH_SIZE, num_left_values));
-        new_buffer.resize(num_left_values * T::get_type_size());
-
+        // create an empty buffer, as it will be resized below
+        let mut new_buffer = MutableBuffer::new(0);
+        let num_bytes = num_left_values * T::get_type_size();
         let new_len = self.num_values * T::get_type_size();
+
+        new_buffer.resize(num_bytes);
 
         let new_records = new_buffer.data_mut();
         let left_records = &mut self.records.data_mut()[new_len..];
 
-        for idx in 0..num_left_values {
-            swap(&mut new_records[idx], &mut left_records[idx]);
-        }
+        new_records[0..num_bytes].copy_from_slice(&left_records[0..num_bytes]);
 
         self.records.resize(new_len);
 
