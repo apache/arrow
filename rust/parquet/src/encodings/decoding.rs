@@ -22,8 +22,8 @@ use std::{cmp, marker::PhantomData, mem};
 use super::rle::RleDecoder;
 
 use crate::basic::*;
-use crate::data_type::*;
 use crate::data_type::private::*;
+use crate::data_type::*;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 use crate::util::{
@@ -294,11 +294,7 @@ impl<T: DataType> RleValueDecoder<T> {
 
 impl<T: DataType> Decoder<T> for RleValueDecoder<T> {
     #[inline]
-    fn set_data(
-        &mut self,
-        data: ByteBufferPtr,
-        num_values: usize,
-    ) -> Result<()> {
+    fn set_data(&mut self, data: ByteBufferPtr, num_values: usize) -> Result<()> {
         // Only support RLE value reader for boolean values with bit width of 1.
         ensure_phys_ty!(Type::BOOLEAN, "RleValueDecoder only supports BoolType");
 
@@ -543,8 +539,10 @@ trait DeltaBitPackDecoderConversion<T: DataType> {
 impl<T: DataType> DeltaBitPackDecoderConversion<T> for DeltaBitPackDecoder<T> {
     #[inline]
     fn get_delta(&self, index: usize) -> i64 {
-        ensure_phys_ty!(Type::INT32 | Type::INT64,
-            "DeltaBitPackDecoder only supports Int32Type and Int64Type");
+        ensure_phys_ty!(
+            Type::INT32 | Type::INT64,
+            "DeltaBitPackDecoder only supports Int32Type and Int64Type"
+        );
         self.deltas_in_mini_block[index].as_i64().unwrap()
     }
 
@@ -552,21 +550,15 @@ impl<T: DataType> DeltaBitPackDecoderConversion<T> for DeltaBitPackDecoder<T> {
     fn set_decoded_value(&self, buffer: &mut [T::T], index: usize, value: i64) {
         match T::get_physical_type() {
             Type::INT32 => {
-                let val = buffer[index]
-                    .as_mut_any()
-                    .downcast_mut::<i32>()
-                    .unwrap();
+                let val = buffer[index].as_mut_any().downcast_mut::<i32>().unwrap();
 
                 *val = value as i32;
-            },
+            }
             Type::INT64 => {
-                let val = buffer[index]
-                    .as_mut_any()
-                    .downcast_mut::<i64>()
-                    .unwrap();
+                let val = buffer[index].as_mut_any().downcast_mut::<i64>().unwrap();
 
                 *val = value;
-            },
+            }
             _ => panic!("DeltaBitPackDecoder only supports Int32Type and Int64Type"),
         };
     }
@@ -630,15 +622,14 @@ impl<T: DataType> Decoder<T> for DeltaLengthByteArrayDecoder<T> {
                 self.current_idx = 0;
                 self.num_values = num_lengths;
                 Ok(())
-            },
-            _ => {
-                Err(general_err!(
-                    "DeltaLengthByteArrayDecoder only support ByteArrayType"))
             }
+            _ => Err(general_err!(
+                "DeltaLengthByteArrayDecoder only support ByteArrayType"
+            )),
         }
     }
 
-     fn get(&mut self, buffer: &mut [T::T]) -> Result<usize> {
+    fn get(&mut self, buffer: &mut [T::T]) -> Result<usize> {
         match T::get_physical_type() {
             Type::BYTE_ARRAY => {
                 assert!(self.data.is_some());
@@ -660,11 +651,10 @@ impl<T: DataType> Decoder<T> for DeltaLengthByteArrayDecoder<T> {
 
                 self.num_values -= num_values;
                 Ok(num_values)
-            },
-            _ => {
-                Err(general_err!(
-                    "DeltaLengthByteArrayDecoder only support ByteArrayType"))
             }
+            _ => Err(general_err!(
+                "DeltaLengthByteArrayDecoder only support ByteArrayType"
+            )),
         }
     }
 
@@ -1336,7 +1326,7 @@ mod tests {
                     <$ty as DataType>::T::slice_as_bytes(data).to_vec()
                 }
             }
-        }
+        };
     }
 
     to_byte_array_impl!(Int32Type);

@@ -18,9 +18,9 @@
 //! Data types that connect Parquet physical types with their Rust-specific
 //! representations.
 use std::cmp::Ordering;
-use std::ops::{Deref, DerefMut};
-use std::mem;
 use std::fmt;
+use std::mem;
+use std::ops::{Deref, DerefMut};
 use std::str::from_utf8;
 
 use byteorder::{BigEndian, ByteOrder};
@@ -50,7 +50,9 @@ impl Int96 {
     /// Returns underlying data as slice of [`u32`].
     #[inline]
     pub fn data(&self) -> &[u32] {
-        self.value.as_ref().expect("set_data should have been called")
+        self.value
+            .as_ref()
+            .expect("set_data should have been called")
     }
 
     /// Sets data for this INT96 type.
@@ -158,7 +160,10 @@ impl ByteArray {
     /// Returns slice of data.
     #[inline]
     pub fn data(&self) -> &[u8] {
-                self.data.as_ref().expect("set_data should have been called").as_ref()
+        self.data
+            .as_ref()
+            .expect("set_data should have been called")
+            .as_ref()
     }
 
     /// Set data from another byte buffer.
@@ -170,7 +175,12 @@ impl ByteArray {
     /// Returns `ByteArray` instance with slice of values for a data.
     #[inline]
     pub fn slice(&self, start: usize, len: usize) -> Self {
-                Self::from(self.data.as_ref().expect("set_data should have been called").range(start, len))
+        Self::from(
+            self.data
+                .as_ref()
+                .expect("set_data should have been called")
+                .range(start, len),
+        )
     }
 
     pub fn as_utf8(&self) -> Result<&str> {
@@ -504,7 +514,7 @@ macro_rules! unimplemented_slice_as_bytes {
                 unimplemented!()
             }
         }
-    }
+    };
 }
 
 // TODO - Can Int96 and bool be implemented in these terms?
@@ -565,13 +575,13 @@ impl AsBytes for str {
 
 pub(crate) mod private {
     use crate::encodings::decoding::PlainDecoderDetails;
-    use crate::util::bit_util::{BitWriter, BitReader};
+    use crate::util::bit_util::{BitReader, BitWriter};
     use crate::util::memory::ByteBufferPtr;
 
     use byteorder::ByteOrder;
     use std::convert::TryInto;
 
-    use super::{Result, ParquetError, SliceAsBytes};
+    use super::{ParquetError, Result, SliceAsBytes};
 
     pub type BitIndex = u64;
 
@@ -580,7 +590,8 @@ pub(crate) mod private {
     /// This is done to force the associated value type to be unimplementable outside of this
     /// crate, and thus hint to the type system (and end user) traits are public for the contract
     /// and not for extension.
-    pub trait ParquetValueType : std::cmp::PartialEq
+    pub trait ParquetValueType:
+        std::cmp::PartialEq
         + std::fmt::Debug
         + std::fmt::Display
         + std::default::Default
@@ -591,13 +602,24 @@ pub(crate) mod private {
         + PartialOrd
     {
         /// Encode the value directly from a higher level encoder
-        fn encode<W: std::io::Write>(values: &[Self], writer: &mut W, bit_writer: &mut BitWriter) -> Result<()>;
+        fn encode<W: std::io::Write>(
+            values: &[Self],
+            writer: &mut W,
+            bit_writer: &mut BitWriter,
+        ) -> Result<()>;
 
         /// Establish the data that will be decoded in a buffer
-        fn set_data(decoder: &mut PlainDecoderDetails, data: ByteBufferPtr, num_values: usize);
+        fn set_data(
+            decoder: &mut PlainDecoderDetails,
+            data: ByteBufferPtr,
+            num_values: usize,
+        );
 
         /// Decode the value from a given buffer for a higher level decoder
-        fn decode(buffer: &mut [Self], decoder: &mut PlainDecoderDetails) -> Result<usize>;
+        fn decode(
+            buffer: &mut [Self],
+            decoder: &mut PlainDecoderDetails,
+        ) -> Result<usize>;
 
         /// Return the encoded size for a type
         fn dict_encoding_size(&self) -> (usize, usize) {
@@ -631,7 +653,11 @@ pub(crate) mod private {
 
     impl ParquetValueType for bool {
         #[inline]
-        fn encode<W: std::io::Write>(values: &[Self], _: &mut W, bit_writer: &mut BitWriter) -> Result<()> {
+        fn encode<W: std::io::Write>(
+            values: &[Self],
+            _: &mut W,
+            bit_writer: &mut BitWriter,
+        ) -> Result<()> {
             for value in values {
                 bit_writer.put_value(*value as u64, 1);
             }
@@ -639,13 +665,20 @@ pub(crate) mod private {
         }
 
         #[inline]
-        fn set_data(decoder: &mut PlainDecoderDetails, data: ByteBufferPtr, num_values: usize) {
+        fn set_data(
+            decoder: &mut PlainDecoderDetails,
+            data: ByteBufferPtr,
+            num_values: usize,
+        ) {
             decoder.bit_reader.replace(BitReader::new(data));
             decoder.num_values = num_values;
         }
 
         #[inline]
-        fn decode(buffer: &mut [Self], decoder: &mut PlainDecoderDetails) -> Result<usize> {
+        fn decode(
+            buffer: &mut [Self],
+            decoder: &mut PlainDecoderDetails,
+        ) -> Result<usize> {
             let bit_reader = decoder.bit_reader.as_mut().unwrap();
             let num_values = std::cmp::min(buffer.len(), decoder.num_values);
             let values_read = bit_reader.get_batch(&mut buffer[..num_values], 1);
@@ -752,10 +785,17 @@ pub(crate) mod private {
 
     impl ParquetValueType for super::Int96 {
         #[inline]
-        fn encode<W: std::io::Write>(values: &[Self], writer: &mut W, _: &mut BitWriter) -> Result<()> {
+        fn encode<W: std::io::Write>(
+            values: &[Self],
+            writer: &mut W,
+            _: &mut BitWriter,
+        ) -> Result<()> {
             for value in values {
                 let raw = unsafe {
-                    std::slice::from_raw_parts(value.data() as *const [u32] as *const u8, 12)
+                    std::slice::from_raw_parts(
+                        value.data() as *const [u32] as *const u8,
+                        12,
+                    )
                 };
                 writer.write_all(raw)?;
             }
@@ -763,16 +803,26 @@ pub(crate) mod private {
         }
 
         #[inline]
-        fn set_data(decoder: &mut PlainDecoderDetails, data: ByteBufferPtr, num_values: usize) {
+        fn set_data(
+            decoder: &mut PlainDecoderDetails,
+            data: ByteBufferPtr,
+            num_values: usize,
+        ) {
             decoder.data.replace(data);
             decoder.start = 0;
             decoder.num_values = num_values;
         }
 
         #[inline]
-        fn decode(buffer: &mut [Self], decoder: &mut PlainDecoderDetails) -> Result<usize> {
+        fn decode(
+            buffer: &mut [Self],
+            decoder: &mut PlainDecoderDetails,
+        ) -> Result<usize> {
             // TODO - Remove the duplication between this and the general slice method
-            let data = decoder.data.as_ref().expect("set_data should have been called");
+            let data = decoder
+                .data
+                .as_ref()
+                .expect("set_data should have been called");
             let num_values = std::cmp::min(buffer.len(), decoder.num_values);
             let bytes_left = data.len() - decoder.start;
             let bytes_to_decode = 12 * num_values;
@@ -823,7 +873,8 @@ pub(crate) mod private {
     macro_rules! read_num_bytes {
         ($ty:ty, $size:expr, $src:expr) => {{
             assert!($size <= $src.len());
-            let mut buffer = <$ty as $crate::util::bit_util::FromBytes>::Buffer::default();
+            let mut buffer =
+                <$ty as $crate::util::bit_util::FromBytes>::Buffer::default();
             buffer.as_mut()[..$size].copy_from_slice(&$src[..$size]);
             <$ty>::from_ne_bytes(buffer)
         }};
@@ -831,7 +882,11 @@ pub(crate) mod private {
 
     impl ParquetValueType for super::ByteArray {
         #[inline]
-        fn encode<W: std::io::Write>(values: &[Self], writer: &mut W, _: &mut BitWriter) -> Result<()> {
+        fn encode<W: std::io::Write>(
+            values: &[Self],
+            writer: &mut W,
+            _: &mut BitWriter,
+        ) -> Result<()> {
             for value in values {
                 let len: u32 = value.len().try_into().unwrap();
                 writer.write_all(&len.to_ne_bytes())?;
@@ -842,28 +897,37 @@ pub(crate) mod private {
         }
 
         #[inline]
-        fn set_data(decoder: &mut PlainDecoderDetails, data: ByteBufferPtr, num_values: usize) {
+        fn set_data(
+            decoder: &mut PlainDecoderDetails,
+            data: ByteBufferPtr,
+            num_values: usize,
+        ) {
             decoder.data.replace(data);
             decoder.start = 0;
             decoder.num_values = num_values;
         }
 
         #[inline]
-        fn decode(buffer: &mut [Self], decoder: &mut PlainDecoderDetails) -> Result<usize> {
-            let data = decoder.data.as_mut().expect("set_data should have been called");
+        fn decode(
+            buffer: &mut [Self],
+            decoder: &mut PlainDecoderDetails,
+        ) -> Result<usize> {
+            let data = decoder
+                .data
+                .as_mut()
+                .expect("set_data should have been called");
             let num_values = std::cmp::min(buffer.len(), decoder.num_values);
             for i in 0..num_values {
-                let len: usize = read_num_bytes!(u32, 4, data.start_from(decoder.start).as_ref()) as usize;
+                let len: usize =
+                    read_num_bytes!(u32, 4, data.start_from(decoder.start).as_ref())
+                        as usize;
                 decoder.start += std::mem::size_of::<u32>();
 
                 if data.len() < decoder.start + len {
                     return Err(eof_err!("Not enough bytes to decode"));
                 }
 
-                let val: &mut Self = buffer[i]
-                    .as_mut_any()
-                    .downcast_mut()
-                    .unwrap();
+                let val: &mut Self = buffer[i].as_mut_any().downcast_mut().unwrap();
 
                 val.set_data(data.range(decoder.start, len));
                 decoder.start += len;
@@ -891,7 +955,11 @@ pub(crate) mod private {
 
     impl ParquetValueType for super::FixedLenByteArray {
         #[inline]
-        fn encode<W: std::io::Write>(values: &[Self], writer: &mut W, _: &mut BitWriter) -> Result<()> {
+        fn encode<W: std::io::Write>(
+            values: &[Self],
+            writer: &mut W,
+            _: &mut BitWriter,
+        ) -> Result<()> {
             for value in values {
                 let raw = value.data();
                 writer.write_all(raw)?;
@@ -900,17 +968,27 @@ pub(crate) mod private {
         }
 
         #[inline]
-        fn set_data(decoder: &mut PlainDecoderDetails, data: ByteBufferPtr, num_values: usize) {
+        fn set_data(
+            decoder: &mut PlainDecoderDetails,
+            data: ByteBufferPtr,
+            num_values: usize,
+        ) {
             decoder.data.replace(data);
             decoder.start = 0;
             decoder.num_values = num_values;
         }
 
         #[inline]
-        fn decode(buffer: &mut [Self], decoder: &mut PlainDecoderDetails) -> Result<usize> {
+        fn decode(
+            buffer: &mut [Self],
+            decoder: &mut PlainDecoderDetails,
+        ) -> Result<usize> {
             assert!(decoder.type_length > 0);
 
-            let data = decoder.data.as_mut().expect("set_data should have been called");
+            let data = decoder
+                .data
+                .as_mut()
+                .expect("set_data should have been called");
             let num_values = std::cmp::min(buffer.len(), decoder.num_values);
             for i in 0..num_values {
                 let len = decoder.type_length as usize;
@@ -919,10 +997,7 @@ pub(crate) mod private {
                     return Err(eof_err!("Not enough bytes to decode"));
                 }
 
-                let val: &mut Self = buffer[i]
-                    .as_mut_any()
-                    .downcast_mut()
-                    .unwrap();
+                let val: &mut Self = buffer[i].as_mut_any().downcast_mut().unwrap();
 
                 val.set_data(data.range(decoder.start, len));
                 decoder.start += len;
@@ -984,7 +1059,7 @@ pub trait DataType: 'static {
 // Workaround bug in specialization
 pub trait SliceAsBytesDataType: DataType
 where
-    Self::T: SliceAsBytes
+    Self::T: SliceAsBytes,
 {
 }
 

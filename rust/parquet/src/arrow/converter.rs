@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::data_type::{ByteArray, FixedLenByteArray, DataType, Int96};
+use crate::data_type::{ByteArray, DataType, FixedLenByteArray, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
 use arrow::array::{
     Array, ArrayRef, BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder,
@@ -57,8 +57,13 @@ impl FixedSizeArrayConverter {
     }
 }
 
-impl Converter<Vec<Option<FixedLenByteArray>>, FixedSizeBinaryArray> for FixedSizeArrayConverter {
-    fn convert(&self, source: Vec<Option<FixedLenByteArray>>) -> Result<FixedSizeBinaryArray> {
+impl Converter<Vec<Option<FixedLenByteArray>>, FixedSizeBinaryArray>
+    for FixedSizeArrayConverter
+{
+    fn convert(
+        &self,
+        source: Vec<Option<FixedLenByteArray>>,
+    ) -> Result<FixedSizeBinaryArray> {
         let mut builder = FixedSizeBinaryBuilder::new(source.len(), self.byte_width);
         for v in source {
             match v {

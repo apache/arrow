@@ -16,13 +16,7 @@
 // under the License.
 
 //! Contains column writer API.
-use std::{
-    cmp,
-    marker::PhantomData,
-    collections::VecDeque,
-    convert::TryFrom,
-    sync::Arc
-};
+use std::{cmp, collections::VecDeque, convert::TryFrom, marker::PhantomData, sync::Arc};
 
 use crate::basic::{Compression, Encoding, PageType, Type};
 use crate::column::page::{CompressedPage, Page, PageWriteSpec, PageWriter};
@@ -974,7 +968,9 @@ fn fallback_encoding(kind: Type, props: &WriterProperties) -> Encoding {
         (Type::INT32, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
         (Type::INT64, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BINARY_PACKED,
         (Type::BYTE_ARRAY, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BYTE_ARRAY,
-        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => Encoding::DELTA_BYTE_ARRAY,
+        (Type::FIXED_LEN_BYTE_ARRAY, WriterVersion::PARQUET_2_0) => {
+            Encoding::DELTA_BYTE_ARRAY
+        }
         _ => Encoding::PLAIN,
     }
 }

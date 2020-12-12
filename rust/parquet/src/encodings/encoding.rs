@@ -20,8 +20,8 @@
 use std::{cmp, io::Write, marker::PhantomData};
 
 use crate::basic::*;
-use crate::data_type::*;
 use crate::data_type::private::ParquetValueType;
+use crate::data_type::*;
 use crate::encodings::rle::RleEncoder;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
@@ -300,15 +300,13 @@ impl<T: DataType> DictEncoder<T> {
         let unique_size = match T::get_physical_type() {
             Type::BYTE_ARRAY => base_size + num_elements,
             Type::FIXED_LEN_BYTE_ARRAY => self.desc.type_length() as usize,
-            _ => base_size
+            _ => base_size,
         };
 
         self.uniques_size_in_bytes += unique_size;
         self.uniques.push(value);
 
-        if self.uniques.size()
-            > (self.hash_table_size as f32 * MAX_HASH_LOAD) as usize
-        {
+        if self.uniques.size() > (self.hash_table_size as f32 * MAX_HASH_LOAD) as usize {
             self.double_table_size();
         }
 
@@ -447,7 +445,10 @@ impl<T: DataType> Encoder<T> for RleValueEncoder<T> {
     #[inline]
     fn flush_buffer(&mut self) -> Result<ByteBufferPtr> {
         ensure_phys_ty!(Type::BOOLEAN, "RleValueEncoder only supports BoolType");
-        let rle_encoder = self.encoder.as_mut().expect("RLE value encoder is not initialized");
+        let rle_encoder = self
+            .encoder
+            .as_mut()
+            .expect("RLE value encoder is not initialized");
 
         // Flush all encoder buffers and raw values
         let encoded_data = {
@@ -700,8 +701,10 @@ trait DeltaBitPackEncoderConversion<T: DataType> {
 impl<T: DataType> DeltaBitPackEncoderConversion<T> for DeltaBitPackEncoder<T> {
     #[inline]
     fn assert_supported_type() {
-        ensure_phys_ty!(Type::INT32 | Type::INT64,
-            "DeltaBitPackDecoder only supports Int32Type and Int64Type");
+        ensure_phys_ty!(
+            Type::INT32 | Type::INT64,
+            "DeltaBitPackDecoder only supports Int32Type and Int64Type"
+        );
     }
 
     #[inline]
@@ -717,7 +720,7 @@ impl<T: DataType> DeltaBitPackEncoderConversion<T> for DeltaBitPackEncoder<T> {
         match T::get_physical_type() {
             Type::INT32 => (left as i32).wrapping_sub(right as i32) as i64,
             Type::INT64 => left.wrapping_sub(right),
-            _ => panic!("DeltaBitPackDecoder only supports Int32Type and Int64Type")
+            _ => panic!("DeltaBitPackDecoder only supports Int32Type and Int64Type"),
         }
     }
 
@@ -727,7 +730,7 @@ impl<T: DataType> DeltaBitPackEncoderConversion<T> for DeltaBitPackEncoder<T> {
             // Conversion of i32 -> u32 -> u64 is to avoid non-zero left most bytes in int repr
             Type::INT32 => (left as i32).wrapping_sub(right as i32) as u32 as u64,
             Type::INT64 => left.wrapping_sub(right) as u64,
-            _ => panic!("DeltaBitPackDecoder only supports Int32Type and Int64Type")
+            _ => panic!("DeltaBitPackDecoder only supports Int32Type and Int64Type"),
         }
     }
 }
@@ -762,17 +765,19 @@ impl<T: DataType> DeltaLengthByteArrayEncoder<T> {
 
 impl<T: DataType> Encoder<T> for DeltaLengthByteArrayEncoder<T> {
     fn put(&mut self, values: &[T::T]) -> Result<()> {
-        ensure_phys_ty!(Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY,
+        ensure_phys_ty!(
+            Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY,
             "DeltaLengthByteArrayEncoder only supports ByteArrayType"
         );
 
-        let val_it = || values
-            .iter()
-            .map(|x| x.as_any().downcast_ref::<ByteArray>().unwrap());
+        let val_it = || {
+            values
+                .iter()
+                .map(|x| x.as_any().downcast_ref::<ByteArray>().unwrap())
+        };
 
-        let lengths: Vec<i32> = val_it()
-            .map(|byte_array| byte_array.len() as i32)
-            .collect();
+        let lengths: Vec<i32> =
+            val_it().map(|byte_array| byte_array.len() as i32).collect();
         self.len_encoder.put(&lengths)?;
         for byte_array in val_it() {
             self.encoded_size += byte_array.len();
@@ -795,7 +800,8 @@ impl<T: DataType> Encoder<T> for DeltaLengthByteArrayEncoder<T> {
     }
 
     fn flush_buffer(&mut self) -> Result<ByteBufferPtr> {
-        ensure_phys_ty!(Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY,
+        ensure_phys_ty!(
+            Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY,
             "DeltaLengthByteArrayEncoder only supports ByteArrayType"
         );
 

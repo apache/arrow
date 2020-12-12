@@ -409,9 +409,8 @@ impl RleDecoder {
             } else if self.bit_packed_left > 0 {
                 let mut num_values =
                     cmp::min(buffer.len() - values_read, self.bit_packed_left as usize);
-                let bit_reader = self.bit_reader
-                    .as_mut()
-                    .expect("bit_reader should be set");
+                let bit_reader =
+                    self.bit_reader.as_mut().expect("bit_reader should be set");
 
                 num_values = bit_reader.get_batch::<T>(
                     &mut buffer[values_read..values_read + num_values],
@@ -451,9 +450,8 @@ impl RleDecoder {
                 self.rle_left -= num_values as u32;
                 values_read += num_values;
             } else if self.bit_packed_left > 0 {
-                let bit_reader = self.bit_reader
-                    .as_mut()
-                    .expect("bit_reader should be set");
+                let bit_reader =
+                    self.bit_reader.as_mut().expect("bit_reader should be set");
 
                 let mut num_values =
                     cmp::min(max_values - values_read, self.bit_packed_left as usize);
@@ -465,7 +463,8 @@ impl RleDecoder {
                         self.bit_width as usize,
                     );
                     for i in 0..num_values {
-                        buffer[values_read + i] = dict[self.index_buf[i] as usize].clone();
+                        buffer[values_read + i] =
+                            dict[self.index_buf[i] as usize].clone();
                     }
                     self.bit_packed_left -= num_values as u32;
                     values_read += num_values;
@@ -483,9 +482,7 @@ impl RleDecoder {
 
     #[inline]
     fn reload(&mut self) -> bool {
-        let bit_reader = self.bit_reader
-            .as_mut()
-            .expect("bit_reader should be set");
+        let bit_reader = self.bit_reader.as_mut().expect("bit_reader should be set");
 
         if let Some(indicator_value) = bit_reader.get_vlq_int() {
             if indicator_value & 1 == 1 {
@@ -493,13 +490,12 @@ impl RleDecoder {
             } else {
                 self.rle_left = (indicator_value >> 1) as u32;
                 let value_width = bit_util::ceil(self.bit_width as i64, 8);
-                self.current_value =
-                    bit_reader.get_aligned::<u64>(value_width as usize);
+                self.current_value = bit_reader.get_aligned::<u64>(value_width as usize);
                 assert!(self.current_value.is_some());
             }
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 }
