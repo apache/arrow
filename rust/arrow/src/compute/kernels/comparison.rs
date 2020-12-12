@@ -91,7 +91,7 @@ macro_rules! compare_op_scalar {
                 }
             }
         }
-        
+
         let data = ArrayData::new(
             DataType::Boolean,
             $left.len(),
