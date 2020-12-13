@@ -14,6 +14,7 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
+use crate::datasource::datasource::TableProviderFilterPushDown;
 use crate::logical_plan::{and, LogicalPlan};
 use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
@@ -338,6 +339,45 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
                 Ok(plan)
             }
         }
+        LogicalPlan::TableScan {
+            source,
+            projected_schema,
+            filters,
+            projection,
+            table_name,
+        } => {
+            let mut used_columns = HashSet::new();
+            let mut new_filters = filters.clone();
+
+            for (filter_expr, cols) in &state.filters {
+                let (preserve_filter_node, add_to_provider) =
+                    match source.supports_filter_pushdown(filter_expr)? {
+                        TableProviderFilterPushDown::Unsupported => (true, false),
+                        TableProviderFilterPushDown::Inexact => (true, true),
+                        TableProviderFilterPushDown::Exact => (false, true),
+                    };
+
+                if preserve_filter_node {
+                    used_columns.extend(cols.clone());
+                }
+
+                if add_to_provider {
+                    new_filters.push(filter_expr.clone());
+                }
+            }
+
+            issue_filters(
+                state,
+                used_columns,
+                &LogicalPlan::TableScan {
+                    source: source.clone(),
+                    projection: projection.clone(),
+                    projected_schema: projected_schema.clone(),
+                    table_name: table_name.clone(),
+                    filters: new_filters,
+                },
+            )
+        }
         _ => {
             // all other plans are _not_ filter-commutable
             let used_columns = plan
@@ -389,9 +429,13 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{lit, sum, Expr, LogicalPlanBuilder, Operator};
+    use crate::datasource::datasource::Statistics;
+    use crate::datasource::TableProvider;
+    use crate::logical_plan::{lit, sum, DFSchema, Expr, LogicalPlanBuilder, Operator};
+    use crate::physical_plan::ExecutionPlan;
     use crate::test::*;
     use crate::{logical_plan::col, prelude::JoinType};
+    use arrow::datatypes::SchemaRef;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
         let mut rule = FilterPushDown::new();
@@ -871,7 +915,101 @@ mod tests {
         \n      TableScan: test projection=None\
         \n  Projection: #a, #c\
         \n    TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
 
+    struct PushDownProvider {
+        pub filter_support: TableProviderFilterPushDown,
+    }
+
+    impl TableProvider for PushDownProvider {
+        fn schema(&self) -> SchemaRef {
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new(
+                    "a",
+                    arrow::datatypes::DataType::Int32,
+                    true,
+                ),
+            ]))
+        }
+
+        fn scan(
+            &self,
+            _: &Option<Vec<usize>>,
+            _: usize,
+            _: &[Expr],
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            unimplemented!()
+        }
+
+        fn supports_filter_pushdown(
+            &self,
+            _: &Expr,
+        ) -> Result<TableProviderFilterPushDown> {
+            Ok(self.filter_support.clone())
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn statistics(&self) -> Statistics {
+            Statistics::default()
+        }
+    }
+
+    fn table_scan_with_pushdown_provider(
+        filter_support: TableProviderFilterPushDown,
+    ) -> Result<LogicalPlan> {
+        let test_provider = PushDownProvider { filter_support };
+
+        let table_scan = LogicalPlan::TableScan {
+            table_name: "".into(),
+            filters: vec![],
+            projected_schema: Arc::new(DFSchema::try_from_qualified(
+                "",
+                &*test_provider.schema(),
+            )?),
+            projection: None,
+            source: Arc::new(test_provider),
+        };
+
+        LogicalPlanBuilder::from(&table_scan)
+            .filter(col("a").eq(lit(1i64)))?
+            .build()
+    }
+
+    #[test]
+    fn filter_with_table_provider_exact() -> Result<()> {
+        let plan = table_scan_with_pushdown_provider(TableProviderFilterPushDown::Exact)?;
+
+        let expected = "\
+        TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_inexact() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Inexact)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_unsupported() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Unsupported)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }

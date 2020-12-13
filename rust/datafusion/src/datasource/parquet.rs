@@ -26,6 +26,7 @@ use arrow::datatypes::*;
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::Result;
+use crate::logical_plan::Expr;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::ExecutionPlan;
 
@@ -65,6 +66,7 @@ impl TableProvider for ParquetTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(ParquetExec::try_new(
             &self.path,
@@ -93,7 +95,7 @@ mod tests {
     async fn read_small_batches() -> Result<()> {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
-        let exec = table.scan(&projection, 2)?;
+        let exec = table.scan(&projection, 2, &[])?;
         let stream = exec.execute(0).await?;
 
         let count = stream
@@ -314,7 +316,7 @@ mod tests {
         table: Box<dyn TableProvider>,
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
-        let exec = table.scan(projection, 1024)?;
+        let exec = table.scan(projection, 1024, &[])?;
         let mut it = exec.execute(0).await?;
         it.next()
             .await

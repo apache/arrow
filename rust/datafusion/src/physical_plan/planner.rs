@@ -137,8 +137,11 @@ impl DefaultPhysicalPlanner {
 
         match logical_plan {
             LogicalPlan::TableScan {
-                source, projection, ..
-            } => source.scan(projection, batch_size),
+                source,
+                projection,
+                filters,
+                ..
+            } => source.scan(projection, batch_size, filters),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,

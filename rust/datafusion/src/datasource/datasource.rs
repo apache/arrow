@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
+use crate::logical_plan::Expr;
 use crate::physical_plan::ExecutionPlan;
 
 /// This table statistics are estimates.
@@ -32,6 +33,23 @@ pub struct Statistics {
     pub num_rows: Option<usize>,
     /// total byte of the table rows
     pub total_byte_size: Option<usize>,
+}
+
+/// Indicates whether and how a filter expression can be handled by a
+/// TableProvider for table scans.
+#[derive(Debug, Clone)]
+pub enum TableProviderFilterPushDown {
+    /// The expression cannot be used by the provider.
+    Unsupported,
+    /// The expression can be used to help minimise the data retrieved,
+    /// but the provider cannot guarantee that all returned tuples
+    /// satisfy the filter. The Filter plan node containing this expression
+    /// will be preserved.
+    Inexact,
+    /// The provider guarantees that all returned data satisfies this
+    /// filter expression. The Filter plan node containing this expression
+    /// will be removed.
+    Exact,
 }
 
 /// Source table
@@ -48,9 +66,19 @@ pub trait TableProvider {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// Returns the table Statistics
     /// Statistics should be optional because not all data sources can provide statistics.
     fn statistics(&self) -> Statistics;
+
+    /// Tests whether the table provider can make use of a filter expression
+    /// to optimise data retrieval.
+    fn supports_filter_pushdown(
+        &self,
+        _filter: &Expr,
+    ) -> Result<TableProviderFilterPushDown> {
+        Ok(TableProviderFilterPushDown::Unsupported)
+    }
 }
