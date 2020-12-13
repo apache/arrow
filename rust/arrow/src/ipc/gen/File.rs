@@ -25,13 +25,23 @@ use std::{cmp::Ordering, mem};
 
 // struct Block, aligned to 8
 #[repr(C, align(8))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Block {
     offset_: i64,
     metaDataLength_: i32,
     padding0__: u32,
     bodyLength_: i64,
 } // pub struct Block
+impl std::fmt::Debug for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Block")
+            .field("offset", &self.offset())
+            .field("metaDataLength", &self.metaDataLength())
+            .field("bodyLength", &self.bodyLength())
+            .finish()
+    }
+}
+
 impl flatbuffers::SafeSliceAccess for Block {}
 impl<'a> flatbuffers::Follow<'a> for Block {
     type Inner = &'a Block;
@@ -52,7 +62,7 @@ impl<'b> flatbuffers::Push for Block {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            std::slice::from_raw_parts(self as *const Block as *const u8, Self::size())
+            ::std::slice::from_raw_parts(self as *const Block as *const u8, Self::size())
         };
         dst.copy_from_slice(src);
     }
@@ -63,14 +73,14 @@ impl<'b> flatbuffers::Push for &'b Block {
     #[inline]
     fn push(&self, dst: &mut [u8], _rest: &[u8]) {
         let src = unsafe {
-            std::slice::from_raw_parts(*self as *const Block as *const u8, Self::size())
+            ::std::slice::from_raw_parts(*self as *const Block as *const u8, Self::size())
         };
         dst.copy_from_slice(src);
     }
 }
 
 impl Block {
-    pub fn new<'a>(_offset: i64, _metaDataLength: i32, _bodyLength: i64) -> Self {
+    pub fn new(_offset: i64, _metaDataLength: i32, _bodyLength: i64) -> Self {
         Block {
             offset_: _offset.to_little_endian(),
             metaDataLength_: _metaDataLength.to_little_endian(),
@@ -80,22 +90,22 @@ impl Block {
         }
     }
     /// Index to the start of the RecordBlock (note this is past the Message header)
-    pub fn offset<'a>(&'a self) -> i64 {
+    pub fn offset(&self) -> i64 {
         self.offset_.from_little_endian()
     }
     /// Length of the metadata
-    pub fn metaDataLength<'a>(&'a self) -> i32 {
+    pub fn metaDataLength(&self) -> i32 {
         self.metaDataLength_.from_little_endian()
     }
     /// Length of the data (this is aligned so there can be a gap between this and
     /// the metadata).
-    pub fn bodyLength<'a>(&'a self) -> i64 {
+    pub fn bodyLength(&self) -> i64 {
         self.bodyLength_.from_little_endian()
     }
 }
 
 pub enum FooterOffset {}
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 
 /// ----------------------------------------------------------------------
 /// Arrow File metadata
@@ -109,7 +119,7 @@ impl<'a> flatbuffers::Follow<'a> for Footer<'a> {
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
         Self {
-            _tab: flatbuffers::Table { buf: buf, loc: loc },
+            _tab: flatbuffers::Table { buf, loc },
         }
     }
 }
@@ -280,6 +290,17 @@ impl<'a: 'b, 'b> FooterBuilder<'a, 'b> {
     }
 }
 
+impl std::fmt::Debug for Footer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ds = f.debug_struct("Footer");
+        ds.field("version", &self.version());
+        ds.field("schema", &self.schema());
+        ds.field("dictionaries", &self.dictionaries());
+        ds.field("recordBatches", &self.recordBatches());
+        ds.field("custom_metadata", &self.custom_metadata());
+        ds.finish()
+    }
+}
 #[inline]
 pub fn get_root_as_footer<'a>(buf: &'a [u8]) -> Footer<'a> {
     flatbuffers::get_root::<Footer<'a>>(buf)
