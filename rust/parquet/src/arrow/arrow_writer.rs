@@ -571,7 +571,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ARROW-10766: list support is incomplete"]
     fn arrow_writer_list() {
         // define schema
         let schema = Schema::new(vec![Field::new(
@@ -671,7 +670,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ARROW-10766: list support is incomplete"]
     fn arrow_writer_complex() {
         // define schema
         let struct_field_d = Field::new("d", DataType::Float64, true);
@@ -1175,7 +1173,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ARROW-10766: list support is incomplete"]
     fn list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =
@@ -1200,7 +1197,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "ARROW-10766: list support is incomplete"]
     fn large_list_single_column() {
         let a_values = Int32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let a_value_offsets =

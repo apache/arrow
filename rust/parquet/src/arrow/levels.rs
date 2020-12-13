@@ -39,7 +39,7 @@
 //!
 //! [1] https://github.com/apache/parquet-format#nested-encoding
 
-use arrow::array::{Array, ArrayRef, StructArray};
+use arrow::array::{Array, ArrayRef, StructArray, make_array};
 use arrow::datatypes::{DataType, Field};
 use arrow::record_batch::RecordBatch;
 
@@ -217,9 +217,120 @@ impl LevelInfo {
             }
             DataType::FixedSizeBinary(_) => unimplemented!(),
             DataType::Decimal(_, _) => unimplemented!(),
-            DataType::List(_list_field) | DataType::LargeList(_list_field) => {
-                // TODO: ARROW-10766, it is better to not write lists at all until they are correct
-                todo!("List writing not yet implemented, see ARROW-10766")
+            DataType::List(list_field) | DataType::LargeList(list_field) => {
+                let array_data = array.data();
+                let child_data = array_data.child_data().get(0).unwrap();
+                // get offsets, accounting for large offsets if present
+                let offsets: Vec<i64> = {
+                    if let DataType::LargeList(_) = array.data_type() {
+                        unsafe { array_data.buffers()[0].typed_data::<i64>() }.to_vec()
+                    } else {
+                        let offsets =
+                            unsafe { array_data.buffers()[0].typed_data::<i32>() };
+                        offsets.to_vec().into_iter().map(|v| v as i64).collect()
+                    }
+                };
+                let child_array = make_array(child_data.clone());
+
+                let mut list_def_levels = Vec::with_capacity(child_array.len());
+                let mut list_rep_levels = Vec::with_capacity(child_array.len());
+                let rep_levels: Vec<i16> = self.repetition
+                    .map(|l| l.to_vec())
+                    .unwrap_or_else(|| vec![0i16; self.definition.len()]);
+                self.definition
+                    .iter()
+                    .zip(rep_levels)
+                    .zip(offsets.windows(2))
+                    .for_each(|((parent_def_level, parent_rep_level), window)| {
+                        if *parent_def_level == 0 {
+                            // parent is null, list element must also be null
+                            list_def_levels.push(0);
+                            list_rep_levels.push(0);
+                        } else {
+                            // parent is not null, check if list is empty or null
+                            let start = window[0];
+                            let end = window[1];
+                            let len = end - start;
+                            if len == 0 {
+                                list_def_levels.push(*parent_def_level - 1);
+                                list_rep_levels.push(parent_rep_level);
+                            } else {
+                                list_def_levels.push(*parent_def_level);
+                                list_rep_levels.push(parent_rep_level);
+                                for _ in 1..len {
+                                    list_def_levels.push(*parent_def_level);
+                                    list_rep_levels.push(parent_rep_level + 1);
+                                }
+                            }
+                        }
+                    });
+
+                let list_level = Self {
+                    definition: list_def_levels,
+                    repetition: Some(list_rep_levels),
+                    array_offsets: (),
+                    array_mask: (),
+                    definition_mask: (),
+                    max_definition: self.max_definition + !field.is_nullable() as i16,
+                    is_list: true,
+                    is_nullable: field.is_nullable(),
+                };
+
+                // if datatype is a primitive, we can construct levels of the child array
+                match child_array.data_type() {
+                    // TODO: The behaviour of a <list<null>> is untested
+                    DataType::Null => vec![Self {
+                        definition: list_def_levels,
+                        repetition: Some(list_rep_levels),
+                    }],
+                    DataType::Boolean
+                    | DataType::Int8
+                    | DataType::Int16
+                    | DataType::Int32
+                    | DataType::Int64
+                    | DataType::UInt8
+                    | DataType::UInt16
+                    | DataType::UInt32
+                    | DataType::UInt64
+                    | DataType::Float16
+                    | DataType::Float32
+                    | DataType::Float64
+                    | DataType::Timestamp(_, _)
+                    | DataType::Date32(_)
+                    | DataType::Date64(_)
+                    | DataType::Time32(_)
+                    | DataType::Time64(_)
+                    | DataType::Duration(_)
+                    | DataType::Interval(_) => {
+                        vec![Self {
+                            definition: self.get_primitive_def_levels(&child_array, list_field),
+                            // TODO: if we change this when working on lists, then update the above comment
+                            repetition: Some(list_rep_levels),
+                            definition_mask: self.definition_mask.clone(), // TODO: update
+                            array_offsets: self.array_offsets.clone(), // TODO: update
+                            array_mask: self.array_mask.clone(), // TODO: update
+                            is_list: self.is_list,
+                            // if the current value is non-null, but it's a child of another, we reduce
+                            // the max definition to indicate that all its applicable values can be taken
+                            max_definition: level + ((field.is_nullable() && level > 1) as i16),
+                            is_nullable: field.is_nullable(),
+                        }]
+                    }
+                    DataType::Binary
+                    | DataType::Utf8
+                    | DataType::LargeUtf8 => unimplemented!(),
+                    DataType::FixedSizeBinary(_) => unimplemented!(),
+                    DataType::Decimal(_, _) => unimplemented!(),
+                    DataType::LargeBinary => unimplemented!(),
+                    DataType::List(_) | DataType::LargeList(_) => {
+                        // nested list
+                        unimplemented!()
+                    }
+                    DataType::FixedSizeList(_, _) => unimplemented!(),
+                    DataType::Struct(_) => list_level.calculate_array_levels(&child_array, list_field, level + (field.is_nullable() as i16)),
+                    DataType::Union(_) => unimplemented!(),
+                    DataType::Dictionary(_, _) => unimplemented!(),
+                }
             }
             DataType::FixedSizeList(_, _) => unimplemented!(),
             DataType::Struct(struct_fields) => {
@@ -867,7 +978,7 @@ mod tests {
             // (def: 2) 16 17 [18] are 2 (defined at all levels)
             // (def: 2) 18 19 [20] are 2 (defined at all levels)
             // (def: 2) 20 21 [22] are 2 (defined at all levels)
-            // 
+            //
             // 0 1 [2] are 0 (not defined at level 1)
             // [2] is 1, but has 0 slots so is not populated (defined at level 1 only)
             // 2 3 [4] are 0
