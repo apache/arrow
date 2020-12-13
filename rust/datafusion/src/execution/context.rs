@@ -27,7 +27,6 @@ use futures::{StreamExt, TryStreamExt};
 
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -40,9 +39,7 @@ use crate::logical_plan::{
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
-use crate::physical_plan::common;
 use crate::physical_plan::csv::CsvReadOptions;
-use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::physical_plan::udf::ScalarUDF;
 use crate::physical_plan::ExecutionPlan;
@@ -321,27 +318,6 @@ impl ExecutionContext {
             .create_physical_plan(logical_plan, &self.state)
     }
 
-    /// Execute a physical plan and collect the results in memory
-    pub async fn collect(
-        &self,
-        plan: Arc<dyn ExecutionPlan>,
-    ) -> Result<Vec<RecordBatch>> {
-        match plan.output_partitioning().partition_count() {
-            0 => Ok(vec![]),
-            1 => {
-                let it = plan.execute(0).await?;
-                common::collect(it).await
-            }
-            _ => {
-                // merge into a single partition
-                let plan = MergeExec::new(plan.clone());
-                // MergeExec must produce a single partition
-                assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0).await?).await
-            }
-        }
-    }
-
     /// Execute a query and write the results to a partitioned CSV file
     pub async fn write_csv(
         &self,
@@ -554,6 +530,7 @@ mod tests {
 
     use super::*;
     use crate::logical_plan::{col, create_udf, sum};
+    use crate::physical_plan::collect;
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use crate::variable::VarType;
@@ -563,6 +540,7 @@ mod tests {
     };
     use arrow::array::{ArrayRef, Float64Array, Int32Array, StringArray};
     use arrow::compute::add;
+    use arrow::record_batch::RecordBatch;
     use std::fs::File;
     use std::thread::{self, JoinHandle};
     use std::{io::prelude::*, sync::Mutex};
@@ -602,7 +580,8 @@ mod tests {
         let provider = test::create_table_dual();
         ctx.register_table("dual", provider);
 
-        let results = collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
+        let results =
+            plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
 
         let batch = &results[0];
         assert_eq!(2, batch.num_columns());
@@ -638,7 +617,7 @@ mod tests {
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
 
-        let results = ctx.collect(physical_plan).await?;
+        let results = collect(physical_plan).await?;
 
         // there should be one batch per partition
         assert_eq!(results.len(), partition_count);
@@ -685,7 +664,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan).await?;
+        let batches = collect(physical_plan).await?;
         assert_eq!(4, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(10, batches[0].num_rows());
@@ -763,7 +742,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("b", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan).await?;
+        let batches = collect(physical_plan).await?;
         assert_eq!(1, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(4, batches[0].num_rows());
@@ -1032,7 +1011,7 @@ mod tests {
             CsvReadOptions::new().schema(&schema).has_header(false),
         )?;
 
-        let results = collect(
+        let results = plan_and_collect(
             &mut ctx,
             "
               SELECT
@@ -1175,11 +1154,11 @@ mod tests {
         ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
-        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
-        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
+        let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
+        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
+        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
+        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
+        let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
         let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
         let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
@@ -1216,11 +1195,11 @@ mod tests {
         ctx.register_parquet("part3", &format!("{}/part-3.parquet", out_dir))?;
         ctx.register_parquet("allparts", &out_dir)?;
 
-        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
-        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
+        let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
+        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
+        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
+        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
+        let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
         let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
         let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
@@ -1254,7 +1233,8 @@ mod tests {
                 .file_extension(file_extension),
         )?;
         let results =
-            collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test").await?;
+            plan_and_collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test")
+                .await?;
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].num_rows(), 1);
@@ -1349,7 +1329,7 @@ mod tests {
 
         let plan = ctx.optimize(&plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        let result = ctx.collect(plan).await?;
+        let result = collect(plan).await?;
 
         let batch = &result[0];
         assert_eq!(3, batch.num_columns());
@@ -1401,7 +1381,7 @@ mod tests {
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let result = collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
+        let result = plan_and_collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
 
         let batch = &result[0];
         assert_eq!(1, batch.num_columns());
@@ -1449,7 +1429,7 @@ mod tests {
 
         ctx.register_udaf(my_avg);
 
-        let result = collect(&mut ctx, "SELECT MY_AVG(a) FROM t").await?;
+        let result = plan_and_collect(&mut ctx, "SELECT MY_AVG(a) FROM t").await?;
 
         let batch = &result[0];
         assert_eq!(1, batch.num_columns());
@@ -1505,11 +1485,14 @@ mod tests {
     }
 
     /// Execute SQL and return results
-    async fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+    async fn plan_and_collect(
+        ctx: &mut ExecutionContext,
+        sql: &str,
+    ) -> Result<Vec<RecordBatch>> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.collect(physical_plan).await
+        collect(physical_plan).await
     }
 
     fn field_names(result: &RecordBatch) -> Vec<String> {
@@ -1525,7 +1508,7 @@ mod tests {
     async fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
-        collect(&mut ctx, sql).await
+        plan_and_collect(&mut ctx, sql).await
     }
 
     /// Execute SQL and write results to partitioned csv files

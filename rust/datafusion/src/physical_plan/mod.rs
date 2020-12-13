@@ -32,6 +32,8 @@ use arrow::{array::ArrayRef, datatypes::Field};
 use async_trait::async_trait;
 use futures::stream::Stream;
 
+use self::merge::MergeExec;
+
 /// Trait for types that stream [arrow::record_batch::RecordBatch]
 pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
     /// Returns the schema of this `RecordBatchStream`.
@@ -82,6 +84,24 @@ pub trait ExecutionPlan: Debug + Send + Sync {
 
     /// creates an iterator
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
+}
+
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            common::collect(it).await
+        }
+        _ => {
+            // merge into a single partition
+            let plan = MergeExec::new(plan.clone());
+            // MergeExec must produce a single partition
+            assert_eq!(1, plan.output_partitioning().partition_count());
+            common::collect(plan.execute(0).await?).await
+        }
+    }
 }
 
 /// Partitioning schemes supported by operators.

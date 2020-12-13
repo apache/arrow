@@ -21,8 +21,8 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use datafusion::datasource::datasource::Statistics;
-use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
+use datafusion::{datasource::TableProvider, physical_plan::collect};
 
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
@@ -186,7 +186,7 @@ async fn custom_source_dataframe() -> Result<()> {
     assert_eq!(1, physical_plan.schema().fields().len());
     assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-    let batches = ctx.collect(physical_plan).await?;
+    let batches = collect(physical_plan).await?;
     let origin_rec_batch = TEST_CUSTOM_RECORD_BATCH!()?;
     assert_eq!(1, batches.len());
     assert_eq!(1, batches[0].num_columns());
