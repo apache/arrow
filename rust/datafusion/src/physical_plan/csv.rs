@@ -87,11 +87,8 @@ impl<'a> CsvReadOptions<'a> {
 
     /// Configure delimiter setting with Option, None value will be ignored
     pub fn delimiter_option(mut self, delimiter: Option<u8>) -> Self {
-        match delimiter {
-            Some(d) => {
-                self.delimiter = d;
-            }
-            _ => (),
+        if let Some(d) = delimiter {
+            self.delimiter = d;
         }
         self
     }

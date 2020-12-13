@@ -241,7 +241,7 @@ mod tests {
             Err(DataFusionError::Internal(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }
-            _ => assert!(false, "Scan should failed on invalid projection"),
+            _ => panic!("Scan should failed on invalid projection"),
         };
 
         Ok(())
@@ -275,10 +275,7 @@ mod tests {
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)
             ),
-            _ => assert!(
-                false,
-                "MemTable::new should have failed due to schema mismatch"
-            ),
+            _ => panic!("MemTable::new should have failed due to schema mismatch"),
         }
 
         Ok(())

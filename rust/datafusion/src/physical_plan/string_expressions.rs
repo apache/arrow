@@ -36,7 +36,7 @@ pub fn concatenate(args: &[ArrayRef]) -> Result<StringArray> {
     // downcast all arguments to strings
     let args = downcast_vec!(args, StringArray).collect::<Result<Vec<&StringArray>>>()?;
     // do not accept 0 arguments.
-    if args.len() == 0 {
+    if args.is_empty() {
         return Err(DataFusionError::Internal(
             "Concatenate was called with 0 arguments. It requires at least one."
                 .to_string(),

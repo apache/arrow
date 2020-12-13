@@ -344,7 +344,7 @@ fn validate_unique_names(
     input_schema: &DFSchema,
 ) -> Result<()> {
     let mut unique_names = HashMap::new();
-    expressions.iter().enumerate().map(|(position, expr)| {
+    expressions.iter().enumerate().try_for_each(|(position, expr)| {
         let name = expr.name(input_schema)?;
         match unique_names.get(&name) {
             None => {
@@ -361,7 +361,7 @@ fn validate_unique_names(
                 ))
             }
         }
-    }).collect::<Result<()>>()
+    })
 }
 
 #[cfg(test)]

@@ -290,11 +290,10 @@ fn group_aggregate_batch(
     // 2.5 clear indices
     accumulators
         .iter_mut()
-        // 2.1
-        .map(|(_, (_, accumulator_set, indices))| {
+        .try_for_each(|(_, (_, accumulator_set, indices))| {
             // 2.2
             accumulator_set
-                .into_iter()
+                .iter_mut()
                 .zip(&aggr_input_values)
                 .map(|(accumulator, aggr_array)| {
                     (
@@ -313,19 +312,19 @@ fn group_aggregate_batch(
                             .collect::<Vec<ArrayRef>>(),
                     )
                 })
-                // 2.4
-                .map(|(accumulator, values)| match mode {
+                .try_for_each(|(accumulator, values)| match mode {
                     AggregateMode::Partial => accumulator.update_batch(&values),
                     AggregateMode::Final => {
                         // note: the aggregation here is over states, not values, thus the merge
                         accumulator.merge_batch(&values)
                     }
                 })
-                .collect::<Result<()>>()
                 // 2.5
-                .and(Ok(indices.clear()))
-        })
-        .collect::<Result<()>>()?;
+                .and({
+                    indices.clear();
+                    Ok(())
+                })
+        })?;
     Ok(accumulators)
 }
 
@@ -684,7 +683,7 @@ fn create_batch_from_map(
         // 4.
         .collect::<ArrowResult<Vec<Vec<ArrayRef>>>>()?;
 
-    let batch = if arrays.len() != 0 {
+    let batch = if !arrays.is_empty() {
         // 5.
         let columns = concatenate(arrays)?;
         RecordBatch::try_new(Arc::new(output_schema.to_owned()), columns)?
@@ -716,8 +715,8 @@ fn finalize_aggregation(
                 .iter()
                 .map(|accumulator| accumulator.state())
                 .map(|value| {
-                    value.and_then(|e| {
-                        Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
+                    value.map(|e| {
+                        e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>()
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -727,7 +726,7 @@ fn finalize_aggregation(
             // merge the state to the final value
             accumulators
                 .iter()
-                .map(|accumulator| accumulator.evaluate().and_then(|v| Ok(v.to_array())))
+                .map(|accumulator| accumulator.evaluate().map(|v| v.to_array()))
                 .collect::<Result<Vec<ArrayRef>>>()
         }
     }

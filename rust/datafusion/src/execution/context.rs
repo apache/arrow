@@ -106,7 +106,7 @@ impl ExecutionContext {
 
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
-        let ctx = Self {
+        Self {
             state: ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
@@ -114,8 +114,7 @@ impl ExecutionContext {
                 aggregate_functions: HashMap::new(),
                 config,
             },
-        };
-        ctx
+        }
     }
 
     /// Get the configuration of this execution context
@@ -514,15 +513,11 @@ impl SchemaProvider for ExecutionContextState {
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
-        self.scalar_functions
-            .get(name)
-            .and_then(|func| Some(func.clone()))
+        self.scalar_functions.get(name).cloned()
     }
 
     fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>> {
-        self.aggregate_functions
-            .get(name)
-            .and_then(|func| Some(func.clone()))
+        self.aggregate_functions.get(name).cloned()
     }
 }
 
@@ -676,9 +671,9 @@ mod tests {
                     assert_eq!(table_schema.fields().len(), 2);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
-                _ => assert!(false, "input to projection should be TableScan"),
+                _ => panic!("input to projection should be TableScan"),
             },
-            _ => assert!(false, "expect optimized_plan to be projection"),
+            _ => panic!("expect optimized_plan to be projection"),
         }
 
         let expected = "Projection: #c2\
@@ -754,9 +749,9 @@ mod tests {
                     assert_eq!(table_schema.fields().len(), 3);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
-                _ => assert!(false, "input to projection should be InMemoryScan"),
+                _ => panic!("input to projection should be InMemoryScan"),
             },
-            _ => assert!(false, "expect optimized_plan to be projection"),
+            _ => panic!("expect optimized_plan to be projection"),
         }
 
         let expected = "Projection: #b\

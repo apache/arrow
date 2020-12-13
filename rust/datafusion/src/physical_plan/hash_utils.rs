@@ -52,7 +52,7 @@ fn check_join_set_is_valid(
     right: &HashSet<String>,
     on: &JoinOn,
 ) -> Result<()> {
-    if on.len() == 0 {
+    if on.is_empty() {
         return Err(DataFusionError::Plan(
             "The 'on' clause of a join cannot be empty".to_string(),
         ));
@@ -63,7 +63,7 @@ fn check_join_set_is_valid(
     let on_right = &on.iter().map(|on| on.1.to_string()).collect::<HashSet<_>>();
     let right_missing = on_right.difference(right).collect::<HashSet<_>>();
 
-    if (left_missing.len() > 0) | (right_missing.len() > 0) {
+    if !left_missing.is_empty() | !right_missing.is_empty() {
         return Err(DataFusionError::Plan(format!(
                 "The left or right side of the join does not have all columns on \"on\": \nMissing on the left: {:?}\nMissing on the right: {:?}",
                 left_missing,
@@ -78,7 +78,7 @@ fn check_join_set_is_valid(
 
     let collisions = left.intersection(&remaining).collect::<HashSet<_>>();
 
-    if collisions.len() > 0 {
+    if !collisions.is_empty() {
         return Err(DataFusionError::Plan(format!(
                 "The left schema and the right schema have the following columns with the same name without being on the ON statement: {:?}. Consider aliasing them.",
                 collisions,

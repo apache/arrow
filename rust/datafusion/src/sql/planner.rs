@@ -369,7 +369,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             join_keys.push((r.as_str(), l.as_str()));
                         }
                     }
-                    if join_keys.len() == 0 {
+                    if join_keys.is_empty() {
                         return Err(DataFusionError::NotImplemented(
                             "Cartesian joins are not supported".to_string(),
                         ));
@@ -419,7 +419,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             .collect();
 
         // apply projection or aggregate
-        let plan = if (select.group_by.len() > 0) | (aggr_expr.len() > 0) {
+        let plan = if !select.group_by.is_empty() | !aggr_expr.is_empty() {
             self.aggregate(&plan, projection_expr, &select.group_by, aggr_expr)?
         } else {
             self.project(&plan, projection_expr)?
@@ -505,7 +505,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         plan: &LogicalPlan,
         order_by: &Vec<OrderByExpr>,
     ) -> Result<LogicalPlan> {
-        if order_by.len() == 0 {
+        if order_by.is_empty() {
             return Ok(plan.clone());
         }
 

@@ -163,8 +163,7 @@ impl ScalarValue {
 
     /// whether this value is null or not.
     pub fn is_null(&self) -> bool {
-        match *self {
-            ScalarValue::Boolean(None)
+        matches!(*self, ScalarValue::Boolean(None)
             | ScalarValue::UInt8(None)
             | ScalarValue::UInt16(None)
             | ScalarValue::UInt32(None)
@@ -177,9 +176,7 @@ impl ScalarValue {
             | ScalarValue::Float64(None)
             | ScalarValue::Utf8(None)
             | ScalarValue::LargeUtf8(None)
-            | ScalarValue::List(None, _) => true,
-            _ => false,
-        }
+            | ScalarValue::List(None, _))
     }
 
     /// Converts a scalar value into an 1-row array.
@@ -391,20 +388,20 @@ impl TryFrom<&DataType> for ScalarValue {
 
     fn try_from(datatype: &DataType) -> Result<Self> {
         Ok(match datatype {
-            &DataType::Boolean => ScalarValue::Boolean(None),
-            &DataType::Float64 => ScalarValue::Float64(None),
-            &DataType::Float32 => ScalarValue::Float32(None),
-            &DataType::Int8 => ScalarValue::Int8(None),
-            &DataType::Int16 => ScalarValue::Int16(None),
-            &DataType::Int32 => ScalarValue::Int32(None),
-            &DataType::Int64 => ScalarValue::Int64(None),
-            &DataType::UInt8 => ScalarValue::UInt8(None),
-            &DataType::UInt16 => ScalarValue::UInt16(None),
-            &DataType::UInt32 => ScalarValue::UInt32(None),
-            &DataType::UInt64 => ScalarValue::UInt64(None),
-            &DataType::Utf8 => ScalarValue::Utf8(None),
-            &DataType::LargeUtf8 => ScalarValue::LargeUtf8(None),
-            &DataType::List(ref nested_type) => {
+            DataType::Boolean => ScalarValue::Boolean(None),
+            DataType::Float64 => ScalarValue::Float64(None),
+            DataType::Float32 => ScalarValue::Float32(None),
+            DataType::Int8 => ScalarValue::Int8(None),
+            DataType::Int16 => ScalarValue::Int16(None),
+            DataType::Int32 => ScalarValue::Int32(None),
+            DataType::Int64 => ScalarValue::Int64(None),
+            DataType::UInt8 => ScalarValue::UInt8(None),
+            DataType::UInt16 => ScalarValue::UInt16(None),
+            DataType::UInt32 => ScalarValue::UInt32(None),
+            DataType::UInt64 => ScalarValue::UInt64(None),
+            DataType::Utf8 => ScalarValue::Utf8(None),
+            DataType::LargeUtf8 => ScalarValue::LargeUtf8(None),
+            DataType::List(ref nested_type) => {
                 ScalarValue::List(None, nested_type.data_type().clone())
             }
             _ => {

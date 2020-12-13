@@ -78,8 +78,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 
     let f = File::open(&path)?;
     let f = BufReader::new(f);
-    let mut i = 0;
-    for line in f.lines() {
+    for (i, line) in f.lines().enumerate() {
         let line = line.unwrap();
 
         if i == 0 {
@@ -94,8 +93,6 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
             writers[partition].write_all(line.as_bytes()).unwrap();
             writers[partition].write_all(b"\n").unwrap();
         }
-
-        i += 1;
     }
     for w in writers.iter_mut() {
         w.flush().unwrap();

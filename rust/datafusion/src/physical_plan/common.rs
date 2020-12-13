@@ -101,10 +101,8 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
             if let Some(path_name) = path.to_str() {
                 if path.is_dir() {
                     build_file_list(path_name, filenames, ext)?;
-                } else {
-                    if path_name.ends_with(ext) {
-                        filenames.push(path_name.to_string());
-                    }
+                } else if path_name.ends_with(ext) {
+                    filenames.push(path_name.to_string());
                 }
             } else {
                 return Err(DataFusionError::Plan("Invalid path".to_string()));

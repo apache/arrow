@@ -185,18 +185,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of arrays.
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
-        if values.len() == 0 {
+        if values.is_empty() {
             return Ok(());
         };
-        (0..values[0].len())
-            .map(|index| {
-                let v = values
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.update(&v)
-            })
-            .collect::<Result<_>>()
+        (0..values[0].len()).try_for_each(|index| {
+            let v = values
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.update(&v)
+        })
     }
 
     /// updates the accumulator's state from a vector of scalars.
@@ -204,18 +202,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of states.
     fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        if states.len() == 0 {
+        if states.is_empty() {
             return Ok(());
         };
-        (0..states[0].len())
-            .map(|index| {
-                let v = states
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.merge(&v)
-            })
-            .collect::<Result<_>>()
+        (0..states[0].len()).try_for_each(|index| {
+            let v = states
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.merge(&v)
+        })
     }
 
     /// returns its value based on its current state.
