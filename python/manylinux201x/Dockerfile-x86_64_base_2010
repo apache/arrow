@@ -17,7 +17,7 @@
 
 # See https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
 # to update base image.
-FROM quay.io/pypa/manylinux2010_x86_64:2020-03-07-1825e8f
+FROM quay.io/pypa/manylinux2010_x86_64:2020-12-10-f10f3bb
 
 # Install build dependencies
 RUN yum install -y xz bison ccache flex wget
@@ -32,7 +32,7 @@ ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 8882150df6529658700b66bec124dfb77eefca26
 # Remove unneeded Python versions
 RUN rm -rf /opt/_internal/cpython-2.7.*
 

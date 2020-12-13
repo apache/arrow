@@ -15,13 +15,13 @@ channel_targets:
 cuda_compiler:
 - nvcc
 cuda_compiler_version:
-- None
+- '9.2'
 cxx_compiler:
 - gxx
 cxx_compiler_version:
 - '7'
 docker_image:
-- condaforge/linux-anvil-comp7
+- condaforge/linux-anvil-cuda:9.2
 gflags:
 - '2.2'
 glog:
@@ -33,7 +33,7 @@ libprotobuf:
 lz4_c:
 - 1.9.2
 numpy:
-- '1.16'
+- '1.19'
 orc:
 - 1.6.5
 pin_run_as_build:
@@ -49,7 +49,7 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.7.* *_cpython
+- 3.9.* *_cpython
 re2:
 - 2020.10.01
 snappy:
