@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(re2Alt_FIND_VERSION)
+  list(APPEND find_package_args ${re2Alt_FIND_VERSION})
+endif()
+if(re2Alt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(re2 ${find_package_args})
+if(re2_FOUND)
+  set(re2Alt_FOUND TRUE)
+  return()
+endif()
+
 find_package(PkgConfig QUIET)
 pkg_check_modules(RE2_PC re2)
 if(RE2_PC_FOUND)
@@ -60,16 +73,9 @@ else()
   find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(RE2 REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
+find_package_handle_standard_args(re2Alt REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 
-if(RE2_FOUND)
-  if(NOT TARGET RE2::re2)
-    add_library(RE2::re2 UNKNOWN IMPORTED)
-    set_target_properties(RE2::re2
-                          PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
-                                     INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
-  endif()
-  # Some third-party dependencies (namely gRPC) are on the look-out for a lower-case re2 Target.
+if(re2Alt_FOUND)
   if(NOT TARGET re2::re2)
     add_library(re2::re2 UNKNOWN IMPORTED)
     set_target_properties(re2::re2

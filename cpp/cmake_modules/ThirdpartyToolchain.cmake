@@ -52,7 +52,7 @@ endif()
 set(ARROW_THIRDPARTY_DEPENDENCIES
     AWSSDK
     benchmark
-    BOOST
+    Boost
     Brotli
     BZip2
     c-ares
@@ -63,7 +63,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     LLVM
     Lz4
     ORC
-    RE2
+    re2
     Protobuf
     RapidJSON
     Snappy
@@ -78,6 +78,22 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
 # together
 if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
   set(GTest_SOURCE "BUNDLED")
+endif()
+
+# For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
+# isn't specified and "BOOST_SOURCE" is specified.
+# We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
+# upstreams (CMake and Boost) use "Boost" not "BOOST" as package name.
+if("${Boost_SOURCE}" STREQUAL "" AND NOT "${BOOST_SOURCE}" STREQUAL "")
+  set(Boost_SOURCE ${BOOST_SOURCE})
+endif()
+
+# For backward compatibility. We use "RE2_SOURCE" if "re2_SOURCE"
+# isn't specified and "RE2_SOURCE" is specified.
+# We renamed "RE2" dependency name to "re2" in 3.0.0 because
+# upstream uses "re2" not "RE2" as package name.
+if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
+  set(re2_SOURCE ${RE2_SOURCE})
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -122,6 +138,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_awssdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
+    build_boost()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Brotli")
     build_brotli()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
@@ -142,7 +160,9 @@ macro(build_dependency DEPENDENCY_NAME)
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
+    build_rapidjson()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
     build_snappy()
@@ -161,18 +181,18 @@ endmacro()
 
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
-macro(provide_find_module DEPENDENCY_NAME)
-  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${DEPENDENCY_NAME}.cmake")
+macro(provide_find_module PACKAGE_NAME)
+  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing cmake module for ${DEPENDENCY_NAME}")
+    message(STATUS "Providing cmake module for ${PACKAGE_NAME}")
     install(FILES "${module_}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
   endif()
   unset(module_)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  set(options)
-  set(one_value_args REQUIRED_VERSION)
+  set(options HAVE_ALT)
+  set(one_value_args REQUIRED_VERSION IS_RUNTIME_DEPENDENCY)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -181,14 +201,22 @@ macro(resolve_dependency DEPENDENCY_NAME)
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
+  if("${ARG_IS_RUNTIME_DEPENDENCY}" STREQUAL "")
+    set(ARG_IS_RUNTIME_DEPENDENCY TRUE)
+  endif()
 
+  if(ARG_HAVE_ALT)
+    set(PACKAGE_NAME "${DEPENDENCY_NAME}Alt")
+  else()
+    set(PACKAGE_NAME ${DEPENDENCY_NAME})
+  endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     if(ARG_REQUIRED_VERSION)
-      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION})
+      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION})
     else()
-      find_package(${DEPENDENCY_NAME})
+      find_package(${PACKAGE_NAME})
     endif()
-    if(${${DEPENDENCY_NAME}_FOUND})
+    if(${${PACKAGE_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -198,14 +226,14 @@ macro(resolve_dependency DEPENDENCY_NAME)
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     if(ARG_REQUIRED_VERSION)
-      find_package(${DEPENDENCY_NAME} ${ARG_REQUIRED_VERSION} REQUIRED)
+      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION} REQUIRED)
     else()
-      find_package(${DEPENDENCY_NAME} REQUIRED)
+      find_package(${PACKAGE_NAME} REQUIRED)
     endif()
   endif()
-  if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    provide_find_module(${DEPENDENCY_NAME})
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${DEPENDENCY_NAME})
+  if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
+    provide_find_module(${PACKAGE_NAME})
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
   endif()
 endmacro()
 
@@ -865,16 +893,12 @@ else()
 endif()
 
 if(ARROW_BOOST_REQUIRED)
-  if(BOOST_SOURCE STREQUAL "AUTO")
-    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
-    if(NOT BoostAlt_FOUND)
-      build_boost()
-    endif()
-  elseif(BOOST_SOURCE STREQUAL "BUNDLED")
-    build_boost()
-  elseif(BOOST_SOURCE STREQUAL "SYSTEM")
-    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
-  endif()
+  resolve_dependency(Boost
+                     HAVE_ALT
+                     REQUIRED_VERSION
+                     ${ARROW_BOOST_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     ${ARROW_BOOST_REQUIRE_LIBRARY})
 
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
@@ -1208,24 +1232,7 @@ endmacro()
 
 if(ARROW_NEED_GFLAGS)
   set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
-  if(gflags_SOURCE STREQUAL "AUTO")
-    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION} QUIET)
-    if(NOT gflags_FOUND)
-      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION})
-    endif()
-    if(NOT gflags_FOUND AND NOT gflagsAlt_FOUND)
-      build_gflags()
-    endif()
-  elseif(gflags_SOURCE STREQUAL "BUNDLED")
-    build_gflags()
-  elseif(gflags_SOURCE STREQUAL "SYSTEM")
-    # gflagsConfig.cmake is not installed on Ubuntu/Debian
-    # TODO: Make a bug report upstream
-    find_package(gflags ${ARROW_GFLAGS_REQUIRED_VERSION})
-    if(NOT gflags_FOUND)
-      find_package(gflagsAlt ${ARROW_GFLAGS_REQUIRED_VERSION} REQUIRED)
-    endif()
-  endif()
+  resolve_dependency(gflags HAVE_ALT REQUIRED_VERSION ${ARROW_GFLAGS_REQUIRED_VERSION})
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
@@ -1871,7 +1878,7 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 macro(build_rapidjson)
-  message(STATUS "Building rapidjson from source")
+  message(STATUS "Building RapidJSON from source")
   set(RAPIDJSON_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
   set(RAPIDJSON_CMAKE_ARGS
@@ -1898,36 +1905,8 @@ endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
-  if(RapidJSON_SOURCE STREQUAL "AUTO")
-    # Fedora packages place the package information at the wrong location.
-    # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON
-                 ${ARROW_RAPIDJSON_REQUIRED_VERSION}
-                 QUIET
-                 HINTS
-                 "${CMAKE_ROOT}")
-    if(RapidJSON_FOUND)
-      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
-    else()
-      # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
-    endif()
-    if(NOT RapidJSON_FOUND AND NOT RapidJSONAlt_FOUND)
-      build_rapidjson()
-    endif()
-  elseif(RapidJSON_SOURCE STREQUAL "BUNDLED")
-    build_rapidjson()
-  elseif(RapidJSON_SOURCE STREQUAL "SYSTEM")
-    # Fedora packages place the package information at the wrong location.
-    # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
-    if(RapidJSON_FOUND)
-      set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
-    else()
-      # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
-    endif()
-  endif()
+  resolve_dependency(RapidJSON HAVE_ALT REQUIRED_VERSION
+                     ${ARROW_RAPIDJSON_REQUIRED_VERSION})
 
   if(RapidJSON_INCLUDE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
@@ -2130,7 +2109,7 @@ endif()
 # RE2 (required for Gandiva)
 
 macro(build_re2)
-  message(STATUS "Building re2 from source")
+  message(STATUS "Building RE2 from source")
   set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
   set(RE2_STATIC_LIB
       "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -2145,23 +2124,23 @@ macro(build_re2)
                       BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
-  add_library(RE2::re2 STATIC IMPORTED)
-  set_target_properties(RE2::re2
+  add_library(re2::re2 STATIC IMPORTED)
+  set_target_properties(re2::re2
                         PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
 
   add_dependencies(toolchain re2_ep)
-  add_dependencies(RE2::re2 re2_ep)
+  add_dependencies(re2::re2 re2_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS RE2::re2)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  resolve_dependency(RE2)
+  resolve_dependency(re2 HAVE_ALT)
   add_definitions(-DARROW_WITH_RE2)
 
   # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(RE2_INCLUDE_DIR RE2::re2 INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${RE2_INCLUDE_DIR})
 endif()
 
@@ -2578,24 +2557,7 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
-  if(gRPC_SOURCE STREQUAL "AUTO")
-    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
-    if(NOT gRPC_FOUND)
-      # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION})
-    endif()
-    if(NOT gRPC_FOUND AND NOT gRPCAlt_FOUND)
-      build_grpc()
-    endif()
-  elseif(gRPC_SOURCE STREQUAL "BUNDLED")
-    build_grpc()
-  elseif(gRPC_SOURCE STREQUAL "SYSTEM")
-    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
-    if(NOT gRPC_FOUND)
-      # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION} REQUIRED)
-    endif()
-  endif()
+  resolve_dependency(gRPC HAVE_ALT REQUIRED_VERSION ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(TARGET gRPC::address_sorting)
     set(GRPC_HAS_ADDRESS_SORTING TRUE)
