@@ -556,7 +556,7 @@ mod tests {
     /// is irrelevant
     fn assert_same_rows(result: &[String], expected: &[&str]) {
         // convert to set since row order is irrelevant
-        let result = result.iter().map(|s| s.clone()).collect::<HashSet<_>>();
+        let result = result.iter().cloned().collect::<HashSet<_>>();
 
         let expected = expected
             .iter()

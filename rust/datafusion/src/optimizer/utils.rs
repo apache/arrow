@@ -244,12 +244,10 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         }
         Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
         Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::AggregateFunction { args, .. } => {
-            Ok(args.iter().map(|e| e.clone()).collect())
-        }
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarFunction { args, .. } => Ok(args.clone()),
+        Expr::ScalarUDF { args, .. } => Ok(args.clone()),
+        Expr::AggregateFunction { args, .. } => Ok(args.clone()),
+        Expr::AggregateUDF { args, .. } => Ok(args.clone()),
         Expr::Case {
             expr,
             when_then_expr,
@@ -373,8 +371,8 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             asc, nulls_first, ..
         } => Ok(Expr::Sort {
             expr: Box::new(expressions[0].clone()),
-            asc: asc.clone(),
-            nulls_first: nulls_first.clone(),
+            asc: *asc,
+            nulls_first: *nulls_first,
         }),
         Expr::Between { negated, .. } => {
             let expr = Expr::BinaryExpr {

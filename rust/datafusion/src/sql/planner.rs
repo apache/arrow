@@ -415,7 +415,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let aggr_expr: Vec<Expr> = projection_expr
             .iter()
             .filter(|e| is_aggregate_expr(e))
-            .map(|e| e.clone())
+            .cloned()
             .collect();
 
         // apply projection or aggregate

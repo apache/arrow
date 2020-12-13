@@ -338,7 +338,7 @@ impl DefaultPhysicalPlanner {
                 let mut stringified_plans = stringified_plans
                     .iter()
                     .filter(|s| s.should_display(*verbose))
-                    .map(|s| s.clone())
+                    .cloned()
                     .collect::<Vec<_>>();
 
                 // add in the physical plan if requested

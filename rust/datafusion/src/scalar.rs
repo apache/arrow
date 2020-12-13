@@ -241,9 +241,12 @@ impl ScalarValue {
             DataType::Utf8 => typed_cast!(array, index, StringArray, Utf8),
             DataType::LargeUtf8 => typed_cast!(array, index, LargeStringArray, LargeUtf8),
             DataType::List(nested_type) => {
-                let list_array = array.as_any().downcast_ref::<ListArray>().ok_or(
-                    DataFusionError::Internal("Failed to downcast ListArray".to_string()),
-                )?;
+                let list_array =
+                    array.as_any().downcast_ref::<ListArray>().ok_or_else(|| {
+                        DataFusionError::Internal(
+                            "Failed to downcast ListArray".to_string(),
+                        )
+                    })?;
                 let value = match list_array.is_null(index) {
                     true => None,
                     false => {
