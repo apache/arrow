@@ -629,6 +629,14 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 data_type: convert_data_type(data_type)?,
             }),
 
+            SQLExpr::TypedString {
+                ref data_type,
+                ref value,
+            } => Ok(Expr::Cast {
+                expr: Box::new(lit(&**value)),
+                data_type: convert_data_type(data_type)?,
+            }),
+
             SQLExpr::IsNull(ref expr) => {
                 Ok(Expr::IsNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
@@ -1308,6 +1316,14 @@ mod tests {
             \n      TableScan: person projection=None\
             \n      TableScan: orders projection=None\
             \n    TableScan: lineitem projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_typedstring() {
+        let sql = "SELECT date '2020-12-10' AS date FROM person";
+        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32(Day)) AS date\
+            \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
