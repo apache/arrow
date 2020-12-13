@@ -202,10 +202,10 @@ impl LimitStream {
 
     fn stream_limit(&mut self, batch: RecordBatch) -> Option<RecordBatch> {
         if self.current_len == self.limit {
-            return None;
+            None
         } else if self.current_len + batch.num_rows() <= self.limit {
             self.current_len += batch.num_rows();
-            return Some(batch);
+            Some(batch)
         } else {
             let batch_rows = self.limit - self.current_len;
             self.current_len = self.limit;

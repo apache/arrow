@@ -68,11 +68,10 @@ fn get_predicates<'a>(
         .filters
         .iter()
         .filter(|(_, columns)| {
-            columns
+            !columns
                 .intersection(used_columns)
                 .collect::<HashSet<_>>()
-                .len()
-                > 0
+                .is_empty()
         })
         .map(|&(ref a, ref b)| (a, b))
         .unzip()
@@ -330,7 +329,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
 
 impl OptimizerRule for FilterPushDown {
     fn name(&self) -> &str {
-        return "filter_push_down";
+        "filter_push_down"
     }
 
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
@@ -354,13 +353,10 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
         .map(|e| rewrite(e, &projection))
         .collect::<Result<Vec<_>>>()?;
 
-    match expr {
-        Expr::Column(name) => {
-            if let Some(expr) = projection.get(name) {
-                return Ok(expr.clone());
-            }
+    if let Expr::Column(name) = expr {
+        if let Some(expr) = projection.get(name) {
+            return Ok(expr.clone());
         }
-        _ => {}
     }
 
     utils::rewrite_expression(&expr, &expressions)

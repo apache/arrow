@@ -438,7 +438,7 @@ mod tests {
         }
 
         fn name(&self) -> &str {
-            return "test_optimizer";
+            "test_optimizer"
         }
     }
 
@@ -476,11 +476,7 @@ mod tests {
                 ];
                 assert_eq!(*stringified_plans, expected_stringified_plans);
             }
-            _ => assert!(
-                false,
-                "Expected explain plan but got {:?}",
-                optimized_explain
-            ),
+            _ => panic!("Expected explain plan but got {:?}", optimized_explain),
         }
 
         Ok(())

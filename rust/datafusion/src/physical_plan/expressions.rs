@@ -1638,7 +1638,7 @@ impl fmt::Display for NotExpr {
 
 impl PhysicalExpr for NotExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
@@ -1791,7 +1791,7 @@ impl fmt::Display for IsNullExpr {
 }
 impl PhysicalExpr for IsNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1836,7 +1836,7 @@ impl fmt::Display for IsNotNullExpr {
 }
 impl PhysicalExpr for IsNotNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1911,7 +1911,7 @@ impl CaseExpr {
         when_then_expr: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
         else_expr: Option<Arc<dyn PhysicalExpr>>,
     ) -> Result<Self> {
-        if when_then_expr.len() == 0 {
+        if when_then_expr.is_empty() {
             Err(DataFusionError::Execution(
                 "There must be at least one WHEN clause".to_string(),
             ))
@@ -2280,11 +2280,16 @@ pub struct CastExpr {
 
 /// Determine if a DataType is signed numeric or not
 pub fn is_signed_numeric(dt: &DataType) -> bool {
-    match dt {
-        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => true,
-        _ => false,
-    }
+    matches!(
+        dt,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float16
+            | DataType::Float32
+            | DataType::Float64
+    )
 }
 
 /// Determine if a DataType is numeric or not

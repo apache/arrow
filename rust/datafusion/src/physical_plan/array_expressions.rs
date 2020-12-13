@@ -61,7 +61,7 @@ macro_rules! array {
 /// put values in an array.
 pub fn array(args: &[ArrayRef]) -> Result<ArrayRef> {
     // do not accept 0 arguments.
-    if args.len() == 0 {
+    if args.is_empty() {
         return Err(DataFusionError::Internal(
             "array requires at least one argument".to_string(),
         ));

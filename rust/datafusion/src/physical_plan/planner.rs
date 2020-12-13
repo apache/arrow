@@ -105,7 +105,7 @@ impl DefaultPhysicalPlanner {
             .map(|child| self.optimize_plan(child.clone(), ctx_state))
             .collect::<Result<Vec<_>>>()?;
 
-        if children.len() == 0 {
+        if children.is_empty() {
             // leaf node, children cannot be replaced
             Ok(plan.clone())
         } else {
@@ -782,7 +782,7 @@ mod tests {
 
         let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",
@@ -826,7 +826,7 @@ mod tests {
                 dict_is_ordered: false }\
         ], metadata: {} }";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",
