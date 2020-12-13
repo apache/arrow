@@ -917,6 +917,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
+        let max_def_level = def_levels.iter().max().unwrap();
+
         // Need to remove from the values array the nulls that represent null lists rather than null items
         // null lists have def_level = 0
         let mut null_list_indices: Vec<usize> = Vec::new();
@@ -930,6 +932,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             _ => remove_indices(next_batch_array.clone(), item_type, null_list_indices)?,
         };
 
+        dbg!(&batch_values);
+
         // null list has def_level = 0
         // empty list has def_level = 1
         // null item in a list has def_level = 2
@@ -942,8 +946,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             if rep_levels[i] == 0 {
                 offsets.push(cur_offset)
             }
-            if def_levels[i] > 0 {
-                cur_offset += OffsetSize::one();
+            if def_levels[i] == *max_def_level {
+                cur_offset = cur_offset + OffsetSize::one();
             }
         }
         offsets.push(cur_offset);
@@ -953,7 +957,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let null_slice = null_buf.as_slice_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
-            if rep_levels[i] == 0 && def_levels[i] != 0 {
+            if rep_levels[i] == 0 && def_levels[i] == *max_def_level {
                 bit_util::set_bit(null_slice, list_index);
             }
             if rep_levels[i] == 0 {
