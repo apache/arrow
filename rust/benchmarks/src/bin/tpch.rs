@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, DateUnit, Field, Schema};
 use arrow::util::pretty;
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::{CsvFile, MemTable, TableProvider};
@@ -187,7 +187,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             from
                 lineitem
             where
-                l_shipdate <= '1998-09-02'
+                l_shipdate <= date '1998-09-02'
             group by
                 l_returnflag,
                 l_linestatus
@@ -256,8 +256,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 c_mktsegment = 'BUILDING'
                 and c_custkey = o_custkey
                 and l_orderkey = o_orderkey
-                and o_orderdate < '1995-03-15'
-                and l_shipdate > '1995-03-15'
+                and o_orderdate < date '1995-03-15'
+                and l_shipdate > date '1995-03-15'
             group by
                 l_orderkey,
                 o_orderdate,
@@ -337,8 +337,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 and s_nationkey = n_nationkey
                 and n_regionkey = r_regionkey
                 and r_name = 'ASIA'
-                and o_orderdate >= '1994-01-01'
-                and o_orderdate < '1995-01-01'
+                and o_orderdate >= date '1994-01-01'
+                and o_orderdate < date '1995-01-01'
             group by
                 n_name
             order by
@@ -363,9 +363,9 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             from
                 lineitem
             where
-                l_shipdate >= '1994-01-01'
-                and l_shipdate < '1995-01-01'
-                and l_discount between 0.06 - 0.01 and 0.06 + 0.01
+                l_shipdate >= date '1994-01-01'
+                and l_shipdate < date '1995-01-01'
+                and l_discount > 0.06 - 0.01 and l_discount < 0.06 + 0.01
                 and l_quantity < 24;"
         ),
 
@@ -399,7 +399,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             (n1.n_name = 'FRANCE' and n2.n_name = 'GERMANY')
                             or (n1.n_name = 'GERMANY' and n2.n_name = 'FRANCE')
                         )
-                        and l_shipdate > '1995-01-01' and l_shipdate < '1996-12-31'
+                        and l_shipdate > date '1995-01-01' and l_shipdate < date '1996-12-31'
                 ) as shipping
             group by
                 supp_nation,
@@ -442,7 +442,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                         and n1.n_regionkey = r_regionkey
                         and r_name = 'AMERICA'
                         and s_nationkey = n2.n_nationkey
-                        and o_orderdate between '1995-01-01' and '1996-12-31'
+                        and o_orderdate between date '1995-01-01' and date '1996-12-31'
                         and p_type = 'ECONOMY ANODIZED STEEL'
                 ) as all_nations
             group by
@@ -486,6 +486,39 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 o_year desc;"
         ),
 
+        // 10 => ctx.create_logical_plan(
+        //     "select
+        //         c_custkey,
+        //         c_name,
+        //         sum(l_extendedprice * (1 - l_discount)) as revenue,
+        //         c_acctbal,
+        //         n_name,
+        //         c_address,
+        //         c_phone,
+        //         c_comment
+        //     from
+        //         customer,
+        //         orders,
+        //         lineitem,
+        //         nation
+        //     where
+        //         c_custkey = o_custkey
+        //         and l_orderkey = o_orderkey
+        //         and o_orderdate >= date '1993-10-01'
+        //         and o_orderdate < date '1993-10-01' + interval '3' month
+        //         and l_returnflag = 'R'
+        //         and c_nationkey = n_nationkey
+        //     group by
+        //         c_custkey,
+        //         c_name,
+        //         c_acctbal,
+        //         c_phone,
+        //         n_name,
+        //         c_address,
+        //         c_comment
+        //     order by
+        //         revenue desc;"
+        // ),
         10 => ctx.create_logical_plan(
             "select
                 c_custkey,
@@ -504,8 +537,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 c_custkey = o_custkey
                 and l_orderkey = o_orderkey
-                and o_orderdate >= '1993-10-01'
-                and o_orderdate < '1994-01-01'
+                and o_orderdate >= date '1993-10-01'
+                and o_orderdate < date '1994-01-01'
                 and l_returnflag = 'R'
                 and c_nationkey = n_nationkey
             group by
@@ -606,8 +639,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 (l_shipmode = 'MAIL' or l_shipmode = 'SHIP')
                 and l_commitdate < l_receiptdate
                 and l_shipdate < l_commitdate
-                and l_receiptdate >= '1994-01-01'
-                and l_receiptdate < '1995-01-01'
+                and l_receiptdate >= date '1994-01-01'
+                and l_receiptdate < date '1995-01-01'
             group by
                 l_shipmode
             order by
@@ -649,8 +682,8 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                 part
             where
                 l_partkey = p_partkey
-                and l_shipdate >= '1995-09-01'
-                and l_shipdate < '1995-10-01';"
+                and l_shipdate >= date '1995-09-01'
+                and l_shipdate < date '1995-10-01';"
         ),
 
         15 => ctx.create_logical_plan(
@@ -1072,7 +1105,7 @@ fn get_schema(table: &str) -> Schema {
             Field::new("o_custkey", DataType::UInt32, false),
             Field::new("o_orderstatus", DataType::Utf8, false),
             Field::new("o_totalprice", DataType::Float64, false), // decimal
-            Field::new("o_orderdate", DataType::Utf8, false),
+            Field::new("o_orderdate", DataType::Date32(DateUnit::Day), false),
             Field::new("o_orderpriority", DataType::Utf8, false),
             Field::new("o_clerk", DataType::Utf8, false),
             Field::new("o_shippriority", DataType::UInt32, false),
@@ -1090,9 +1123,9 @@ fn get_schema(table: &str) -> Schema {
             Field::new("l_tax", DataType::Float64, false),      // decimal
             Field::new("l_returnflag", DataType::Utf8, false),
             Field::new("l_linestatus", DataType::Utf8, false),
-            Field::new("l_shipdate", DataType::Utf8, false),
-            Field::new("l_commitdate", DataType::Utf8, false),
-            Field::new("l_receiptdate", DataType::Utf8, false),
+            Field::new("l_shipdate", DataType::Date32(DateUnit::Day), false),
+            Field::new("l_commitdate", DataType::Date32(DateUnit::Day), false),
+            Field::new("l_receiptdate", DataType::Date32(DateUnit::Day), false),
             Field::new("l_shipinstruct", DataType::Utf8, false),
             Field::new("l_shipmode", DataType::Utf8, false),
             Field::new("l_comment", DataType::Utf8, false),

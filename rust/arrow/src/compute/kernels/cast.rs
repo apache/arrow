@@ -72,6 +72,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Boolean, _) => DataType::is_numeric(to_type) || to_type == &Utf8,
 
         (Utf8, Date32(DateUnit::Day)) => true,
+        (Utf8, Date64(DateUnit::Millisecond)) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
         (_, Utf8) => DataType::is_numeric(from_type) || from_type == &Binary,
 
@@ -392,6 +393,26 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                             Ok(date) => builder.append_value(
                                 (date.and_time(zero_time).timestamp() / SECONDS_IN_DAY)
                                     as i32,
+                            )?,
+                            Err(_) => builder.append_null()?, // not a valid date
+                        };
+                    }
+                }
+                Ok(Arc::new(builder.finish()) as ArrayRef)
+            }
+            Date64(DateUnit::Millisecond) => {
+                use chrono::{NaiveDate, NaiveTime};
+                let zero_time = NaiveTime::from_hms(0, 0, 0);
+                let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
+                let mut builder = PrimitiveBuilder::<Date64Type>::new(string_array.len());
+                for i in 0..string_array.len() {
+                    if string_array.is_null(i) {
+                        builder.append_null()?;
+                    } else {
+                        match NaiveDate::parse_from_str(string_array.value(i), "%Y-%m-%d")
+                        {
+                            Ok(date) => builder.append_value(
+                                date.and_time(zero_time).timestamp_millis() as i64,
                             )?,
                             Err(_) => builder.append_null()?, // not a valid date
                         };
@@ -2773,6 +2794,31 @@ mod tests {
             / SECONDS_IN_DAY) as i32;
         assert_eq!(true, c.is_valid(1)); // "2000-2-2"
         assert_eq!(date_value, c.value(1));
+
+        // test invalid inputs
+        assert_eq!(false, c.is_valid(2)); // "2000-00-00"
+        assert_eq!(false, c.is_valid(3)); // "2000-01-01T12:00:00"
+        assert_eq!(false, c.is_valid(4)); // "2000"
+    }
+
+    #[test]
+    fn test_cast_utf8_to_date64() {
+        let a = StringArray::from(vec![
+            "2000-01-01",          // valid date with leading 0s
+            "2000-2-2",            // valid date without leading 0s
+            "2000-00-00",          // invalid month and day
+            "2000-01-01T12:00:00", // date + time is invalid
+            "2000",                // just a year is invalid
+        ]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
+        let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
+
+        // test valid inputs
+        assert_eq!(true, c.is_valid(0)); // "2000-01-01"
+        assert_eq!(946684800000, c.value(0));
+        assert_eq!(true, c.is_valid(1)); // "2000-2-2"
+        assert_eq!(949449600000, c.value(1));
 
         // test invalid inputs
         assert_eq!(false, c.is_valid(2)); // "2000-00-00"
