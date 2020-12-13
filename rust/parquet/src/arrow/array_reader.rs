@@ -873,6 +873,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             ));
         }
 
+        let max_def_level = def_levels.iter().max().unwrap();
+
         // Need to remove from the values array the nulls that represent null lists rather than null items
         // null lists have def_level = 0
         let mut null_list_indices: Vec<usize> = Vec::new();
@@ -886,6 +888,8 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             _ => remove_indices(next_batch_array.clone(), item_type, null_list_indices)?,
         };
 
+        dbg!(&batch_values);
+
         // null list has def_level = 0
         // empty list has def_level = 1
         // null item in a list has def_level = 2
@@ -898,7 +902,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
             if rep_levels[i] == 0 {
                 offsets.push(cur_offset)
             }
-            if def_levels[i] > 0 {
+            if def_levels[i] == *max_def_level {
                 cur_offset = cur_offset + OffsetSize::one();
             }
         }
@@ -909,7 +913,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let null_slice = null_buf.data_mut();
         let mut list_index = 0;
         for i in 0..rep_levels.len() {
-            if rep_levels[i] == 0 && def_levels[i] != 0 {
+            if rep_levels[i] == 0 && def_levels[i] == *max_def_level {
                 bit_util::set_bit(null_slice, list_index);
             }
             if rep_levels[i] == 0 {
@@ -918,15 +922,11 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         }
         let value_offsets = Buffer::from(&offsets.to_byte_slice());
 
-        // null list has def_level = 0
-        let null_count = def_levels.iter().filter(|x| x == &&0).count();
-
         let list_data = ArrayData::builder(self.get_data_type().clone())
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
             .add_child_data(batch_values.data())
             .null_bit_buffer(null_buf.freeze())
-            .null_count(null_count)
             .offset(next_batch_array.offset())
             .build();
 

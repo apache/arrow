@@ -504,7 +504,7 @@ mod tests {
 
         // Construct a list array from the above two
         let a_list_data = ArrayData::builder(DataType::List(Box::new(Field::new(
-            "items",
+            "item",
             DataType::Int32,
             true,
         ))))
@@ -1101,6 +1101,7 @@ mod tests {
         ))))
         .len(5)
         .add_buffer(a_value_offsets)
+        .null_bit_buffer(Buffer::from(vec![0b00011011]))
         .add_child_data(a_values.data())
         .build();
 
@@ -1126,6 +1127,7 @@ mod tests {
         .len(5)
         .add_buffer(a_value_offsets)
         .add_child_data(a_values.data())
+        .null_bit_buffer(Buffer::from(vec![0b00011011]))
         .build();
 
         // I think this setup is incorrect because this should pass
