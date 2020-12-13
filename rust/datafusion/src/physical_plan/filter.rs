@@ -134,12 +134,12 @@ fn batch_filter(
             array
                 .as_any()
                 .downcast_ref::<BooleanArray>()
-                .ok_or(
+                .ok_or_else(|| {
                     DataFusionError::Internal(
                         "Filter predicate evaluated to non-boolean value".to_string(),
                     )
-                    .into_arrow_external_error(),
-                )
+                    .into_arrow_external_error()
+                })
                 // apply filter array to record batch
                 .and_then(|filter_array| filter_record_batch(batch, filter_array))
         })

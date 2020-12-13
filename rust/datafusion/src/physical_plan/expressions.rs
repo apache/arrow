@@ -892,8 +892,8 @@ impl CountAccumulator {
     fn update_from_option(&mut self, delta: &Option<u64>) -> Result<()> {
         self.count = ScalarValue::UInt64(match (&self.count, delta) {
             (ScalarValue::UInt64(None), None) => None,
-            (ScalarValue::UInt64(None), Some(rhs)) => Some(rhs.clone()),
-            (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
+            (ScalarValue::UInt64(None), Some(rhs)) => Some(*rhs),
+            (ScalarValue::UInt64(Some(lhs)), None) => Some(*lhs),
             (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
             _ => {
                 return Err(DataFusionError::Internal(
@@ -1649,11 +1649,15 @@ impl PhysicalExpr for NotExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => {
-                let array = array.as_any().downcast_ref::<BooleanArray>().ok_or(
-                    DataFusionError::Internal(
-                        "boolean_op failed to downcast array".to_owned(),
-                    ),
-                )?;
+                let array =
+                    array
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .ok_or_else(|| {
+                            DataFusionError::Internal(
+                                "boolean_op failed to downcast array".to_owned(),
+                            )
+                        })?;
                 Ok(ColumnarValue::Array(Arc::new(
                     arrow::compute::kernels::boolean::not(array)?,
                 )))

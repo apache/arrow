@@ -165,7 +165,7 @@ impl ExecutionPlan for HashAggregateExec {
             )))
         } else {
             Ok(Box::pin(GroupedHashAggregateStream::new(
-                self.mode.clone(),
+                self.mode,
                 self.schema.clone(),
                 group_expr,
                 self.aggr_expr.clone(),
