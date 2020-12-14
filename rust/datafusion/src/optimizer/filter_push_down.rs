@@ -216,36 +216,35 @@ fn issue_filters(
 }
 
 /// converts "A AND B AND C" => [A, B, C]
-fn split_members(predicate: &Expr) -> Vec<&Expr> {
+fn split_members<'a>(predicate: &'a Expr, predicates: &mut Vec<&'a Expr>) {
     match predicate {
         Expr::BinaryExpr {
             right,
             op: Operator::And,
             left,
         } => {
-            let mut a = split_members(&left);
-            a.extend(split_members(&right));
-            a
+            split_members(&left, predicates);
+            split_members(&right, predicates);
         }
-        other => vec![other],
+        other => predicates.push(other),
     }
 }
 
 fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
     match plan {
         LogicalPlan::Filter { input, predicate } => {
-            let predicates = split_members(predicate);
+            let mut predicates = vec![];
+            split_members(predicate, &mut predicates);
 
             predicates
                 .into_iter()
-                .map(|predicate| {
+                .try_for_each::<_, Result<()>>(|predicate| {
                     let mut columns: HashSet<String> = HashSet::new();
                     utils::expr_to_column_names(predicate, &mut columns)?;
                     // collect the predicate
                     state.filters.push((predicate.clone(), columns));
                     Ok(())
-                })
-                .collect::<Result<_>>()?;
+                })?;
 
             optimize(input, state)
         }
