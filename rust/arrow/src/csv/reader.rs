@@ -519,7 +519,7 @@ impl Parser for Date32Type {
                 let days = chrono::NaiveDate::parse_from_str(string, "%Y-%m-%d").ok()?;
                 Self::Native::from_i32(since(days, from_ymd(1970, 1, 1)).num_days() as i32)
             }
-            _ => unreachable!("No other "),
+            _ => None,
         }
     }
 }
@@ -534,7 +534,7 @@ impl Parser for Date64Type {
                         .ok()?;
                 Self::Native::from_i64(millis)
             }
-            _ => unreachable!(""),
+            _ => None,
         }
     }
 }
