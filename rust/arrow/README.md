@@ -99,7 +99,7 @@ compile Arrow to the `wasm32-unknown-unknown` WASM target.
 ## Guidelines in usage of `unsafe`
 
 [`unsafe`](https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html) has a high maintenance cost because debugging and testing it is difficult, time consuming, often requires external tools (e.g. `valgrind`), and requires a higher-than-usual attention to details. Undefined behavior is particularly difficult to identify and test, and usage of `unsafe` is the primary cause of undefined behavior in a program written in Rust `[citation needed]`.
-
+For two real world examples of where `unsafe` has consumed time in the past in this project see [#8545](https://github.com/apache/arrow/pull/8645) and [8829](https://github.com/apache/arrow/pull/8829)
 This crate only accepts the usage of `unsafe` code upon careful consideration, and strives to avoid it to the largest possible extent.
 
 ### When can `unsafe` be used?
