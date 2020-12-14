@@ -63,6 +63,9 @@ TypeToDataType() {
   return time64(TimeUnit::NANO);
 }
 
+// ----------------------------------------------------------------------
+// Tests for NthToIndices
+
 template <typename ArrayType>
 class NthComparator {
  public:
@@ -227,6 +230,32 @@ class Random : public RandomImpl {
 };
 
 template <>
+class Random<FloatType> : public RandomImpl {
+  using CType = float;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator.Float32(count, std::numeric_limits<CType>::min(),
+                             std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
+class Random<DoubleType> : public RandomImpl {
+  using CType = double;
+
+ public:
+  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
+
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
+    return generator.Float64(count, std::numeric_limits<CType>::min(),
+                             std::numeric_limits<CType>::max(), null_prob, nan_prob);
+  }
+};
+
+template <>
 class Random<StringType> : public RandomImpl {
  public:
   explicit Random(random::SeedType seed) : RandomImpl(seed) {}
@@ -267,24 +296,41 @@ TYPED_TEST(TestNthToIndicesRandom, RandomValues) {
   }
 }
 
-using arrow::internal::checked_pointer_cast;
+// ----------------------------------------------------------------------
+// Tests for SortToIndices
+
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, order));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+template <typename T>
+void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+// `Options` may be both SortOptions or SortOrder
+template <typename T, typename Options>
+void AssertSortIndices(const std::shared_ptr<T>& input, Options&& options,
+                       const std::string& expected) {
+  AssertSortIndices(input, std::forward<Options>(options),
+                    ArrayFromJSON(uint64(), expected));
+}
 
 template <typename ArrowType>
 class TestArraySortIndicesKernel : public TestBase {
- private:
-  void AssertArraysSortIndices(const std::shared_ptr<Array> values, SortOrder order,
-                               const std::shared_ptr<Array> expected) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, SortIndices(*values, order));
-    ASSERT_OK(actual->ValidateFull());
-    AssertArraysEqual(*expected, *actual);
-  }
-
- protected:
+ public:
   virtual void AssertSortIndices(const std::string& values, SortOrder order,
                                  const std::string& expected) {
     auto type = TypeToDataType<ArrowType>();
-    AssertArraysSortIndices(ArrayFromJSON(type, values), order,
-                            ArrayFromJSON(uint64(), expected));
+    arrow::compute::AssertSortIndices(ArrayFromJSON(type, values), order,
+                                      ArrayFromJSON(uint64(), expected));
   }
 
   virtual void AssertSortIndices(const std::string& values, const std::string& expected) {
@@ -494,19 +540,7 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
 }
 
 // Test basic cases for chunked array.
-class TestChunkedArraySortIndices : public ::testing::Test {
- protected:
-  void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
-                         SortOrder order, const std::shared_ptr<Array> expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*chunked_array, order));
-    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-  }
-
-  void AssertSortIndices(const std::shared_ptr<ChunkedArray> chunked_array,
-                         SortOrder order, const std::string expected) {
-    AssertSortIndices(chunked_array, order, ArrayFromJSON(uint64(), expected));
-  }
-};
+class TestChunkedArraySortIndices : public ::testing::Test {};
 
 TEST_F(TestChunkedArraySortIndices, Null) {
   auto chunked_array = ChunkedArrayFromJSON(uint8(), {
@@ -514,8 +548,8 @@ TEST_F(TestChunkedArraySortIndices, Null) {
                                                          "[3, null, 2]",
                                                          "[1]",
                                                      });
-  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 5, 4, 2, 0, 3]");
-  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 4, 1, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 5, 4, 2, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 4, 1, 5, 0, 3]");
 }
 
 TEST_F(TestChunkedArraySortIndices, NaN) {
@@ -524,8 +558,8 @@ TEST_F(TestChunkedArraySortIndices, NaN) {
                                                            "[3, null, NaN]",
                                                            "[NaN, 1]",
                                                        });
-  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
-  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 1, 6, 4, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, "[1, 6, 2, 4, 5, 0, 3]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, "[2, 1, 6, 4, 5, 0, 3]");
 }
 
 // Tests for temporal types
@@ -543,8 +577,8 @@ TYPED_TEST(TestChunkedArraySortIndicesForTemporal, NoNull) {
                                                       "[3, 2, 1]",
                                                       "[5, 0]",
                                                   });
-  this->AssertSortIndices(chunked_array, SortOrder::Ascending, "[0, 6, 1, 4, 3, 2, 5]");
-  this->AssertSortIndices(chunked_array, SortOrder::Descending, "[5, 2, 3, 1, 4, 0, 6]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, "[0, 6, 1, 4, 3, 2, 5]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, "[5, 2, 3, 1, 4, 0, 6]");
 }
 
 // Base class for testing against random chunked array.
@@ -622,57 +656,206 @@ class TestChunkedArrayRandomNarrow : public TestChunkedArrayRandomBase<Type> {
 TYPED_TEST_SUITE(TestChunkedArrayRandomNarrow, IntegralArrowTypes);
 TYPED_TEST(TestChunkedArrayRandomNarrow, SortIndices) { this->TestSortIndices(1000); }
 
-// Test basic cases for table.
-class TestTableSortIndices : public ::testing::Test {
- protected:
-  void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
-                         const std::shared_ptr<Array> expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*table), options));
-    AssertArraysEqual(*expected, *actual);
-  }
+// Test basic cases for record batch.
+class TestRecordBatchSortIndices : public ::testing::Test {};
 
-  void AssertSortIndices(const std::shared_ptr<Table> table, const SortOptions& options,
-                         const std::string expected) {
-    AssertSortIndices(table, options, ArrayFromJSON(uint64(), expected));
-  }
-};
-
-TEST_F(TestTableSortIndices, Null) {
-  auto table = TableFromJSON(schema({
-                                 {field("a", uint8())},
-                                 {field("b", uint8())},
-                             }),
-                             {"["
-                              "{\"a\": null, \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 3},"
-                              "{\"a\": 3,    \"b\": null},"
-                              "{\"a\": null, \"b\": null},"
-                              "{\"a\": 2,    \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 5}"
-                              "]"});
+TEST_F(TestRecordBatchSortIndices, NoNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  this->AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": 4},
+                                       {"a": 0,    "b": 6},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5},
+                                       {"a": 1,    "b": 3}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+}
+
+TEST_F(TestRecordBatchSortIndices, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5}
+                                       ])");
+  AssertSortIndices(batch, options, "[5, 1, 4, 2, 0, 3]");
+}
+
+TEST_F(TestRecordBatchSortIndices, NaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": 5},
+                                       {"a": 1,    "b": NaN},
+                                       {"a": 3,    "b": 4},
+                                       {"a": 0,    "b": 6},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  AssertSortIndices(batch, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+}
+
+TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": null, "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": null},
+                                       {"a": null, "b": null},
+                                       {"a": NaN,  "b": null},
+                                       {"a": NaN,  "b": NaN},
+                                       {"a": NaN,  "b": 5},
+                                       {"a": 1,    "b": 5}
+                                      ])");
+  AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+}
+
+TEST_F(TestRecordBatchSortIndices, MoreTypes) {
+  auto schema = ::arrow::schema({
+      {field("a", timestamp(TimeUnit::MICRO))},
+      {field("b", large_utf8())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": "05"},
+                                       {"a": 1,    "b": "03"},
+                                       {"a": 3,    "b": "04"},
+                                       {"a": 0,    "b": "06"},
+                                       {"a": 2,    "b": "05"},
+                                       {"a": 1,    "b": "05"}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+}
+
+// Test basic cases for table.
+class TestTableSortIndices : public ::testing::Test {};
+
+TEST_F(TestTableSortIndices, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null}
+                                    ])",
+                                 R"([{"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
 }
 
 TEST_F(TestTableSortIndices, NaN) {
-  auto table = TableFromJSON(schema({
-                                 {field("a", float32())},
-                                 {field("b", float32())},
-                             }),
-                             {"["
-                              "{\"a\": null, \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 3},"
-                              "{\"a\": 3,    \"b\": null},"
-                              "{\"a\": null, \"b\": null},"
-                              "{\"a\": NaN,  \"b\": null},"
-                              "{\"a\": NaN,  \"b\": NaN},"
-                              "{\"a\": NaN,  \"b\": 5},"
-                              "{\"a\": 1,    \"b\": 5}"
-                              "]"});
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  this->AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+  std::shared_ptr<Table> table;
+  table = TableFromJSON(schema, {R"([{"a": 3,    "b": 5},
+                                     {"a": 1,    "b": NaN},
+                                     {"a": 3,    "b": 4},
+                                     {"a": 0,    "b": 6},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": 3,    "b": 5},
+                                     {"a": 1,    "b": NaN},
+                                     {"a": 3,    "b": 4},
+                                     {"a": 0,    "b": 6}
+                                    ])",
+                                 R"([{"a": NaN,  "b": 5},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[3, 7, 1, 0, 2, 4, 6, 5]");
+}
+
+TEST_F(TestTableSortIndices, NaNAndNull) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  std::shared_ptr<Table> table;
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null}
+                                    ])",
+                                 R"([{"a": NaN,  "b": null},
+                                     {"a": NaN,  "b": NaN},
+                                     {"a": NaN,  "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
 // Tests for temporal types
@@ -701,7 +884,7 @@ TYPED_TEST(TestTableSortIndicesForTemporal, NoNull) {
                               "]"});
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  this->AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
+  AssertSortIndices(table, options, "[0, 6, 1, 4, 7, 3, 2, 5]");
 }
 
 // For random table tests.
@@ -733,7 +916,8 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
         if (lhs_array_->IsNull(lhs_index_)) return false;
         status_ = lhs_array_->type()->Accept(this);
         if (compared_ == 0) continue;
-        if (pair.second == SortOrder::Ascending) {
+        // If either value is NaN, it must sort after the other regardless of order
+        if (pair.second == SortOrder::Ascending || lhs_isnan_ || rhs_isnan_) {
           return compared_ < 0;
         } else {
           return compared_ > 0;
@@ -791,11 +975,14 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
       auto lhs_value = checked_cast<const ArrayType*>(lhs_array_)->GetView(lhs_index_);
       auto rhs_value = checked_cast<const ArrayType*>(rhs_array_)->GetView(rhs_index_);
       if (is_floating_type<Type>::value) {
-        const bool lhs_isnan = lhs_value != lhs_value;
-        const bool rhs_isnan = rhs_value != rhs_value;
-        if (lhs_isnan && rhs_isnan) return 0;
-        if (rhs_isnan) return 1;
-        if (lhs_isnan) return -1;
+        lhs_isnan_ = lhs_value != lhs_value;
+        rhs_isnan_ = rhs_value != rhs_value;
+        if (lhs_isnan_ && rhs_isnan_) return 0;
+        // NaN is considered greater than non-NaN
+        if (rhs_isnan_) return -1;
+        if (lhs_isnan_) return 1;
+      } else {
+        lhs_isnan_ = rhs_isnan_ = false;
       }
       if (lhs_value == rhs_value) {
         return 0;
@@ -814,6 +1001,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     int64_t rhs_;
     const Array* rhs_array_;
     int64_t rhs_index_;
+    bool lhs_isnan_, rhs_isnan_;
     int compared_;
     Status status_;
   };
@@ -826,8 +1014,8 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     for (int i = 1; i < table.num_rows(); i++) {
       uint64_t lhs = offsets.Value(i - 1);
       uint64_t rhs = offsets.Value(i);
-      ASSERT_TRUE(comparator(lhs, rhs));
       ASSERT_OK(comparator.status());
+      ASSERT_TRUE(comparator(lhs, rhs)) << "lhs = " << lhs << ", rhs = " << rhs;
     }
   }
 };
@@ -851,15 +1039,15 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   const auto length = 200;
   std::vector<std::shared_ptr<Array>> columns = {
       Random<UInt8Type>(seed).Generate(length, null_probability),
-      Random<UInt16Type>(seed).Generate(length, null_probability),
+      Random<UInt16Type>(seed).Generate(length, 0.0),
       Random<UInt32Type>(seed).Generate(length, null_probability),
-      Random<UInt64Type>(seed).Generate(length, null_probability),
-      Random<Int8Type>(seed).Generate(length, null_probability),
+      Random<UInt64Type>(seed).Generate(length, 0.0),
+      Random<Int8Type>(seed).Generate(length, 0.0),
       Random<Int16Type>(seed).Generate(length, null_probability),
-      Random<Int32Type>(seed).Generate(length, null_probability),
+      Random<Int32Type>(seed).Generate(length, 0.0),
       Random<Int64Type>(seed).Generate(length, null_probability),
-      Random<FloatType>(seed).Generate(length, null_probability),
-      Random<DoubleType>(seed).Generate(length, null_probability),
+      Random<FloatType>(seed).Generate(length, null_probability, 1 - null_probability),
+      Random<DoubleType>(seed).Generate(length, 0.0, null_probability),
       Random<StringType>(seed).Generate(length, null_probability),
   };
   const auto table = Table::Make(schema(fields), columns, length);
@@ -884,6 +1072,13 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*chunked_table), options));
     Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
   }
+  // Also validate RecordBatch sorting
+  TableBatchReader reader(*table);
+  RecordBatchVector batches;
+  ASSERT_OK(reader.ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*batches[0]), options));
+  Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
 }
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
