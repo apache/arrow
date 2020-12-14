@@ -753,7 +753,9 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
       }
       little_endian_array[word_idx] = word;
     }
-    // Move on to the next word.
+    // Move on to the next word. length could become negative but this
+    // is accounted for in the logic above (this cases is so we can
+    // handle sign extension).
     length -= sizeof(uint64_t);
   }
 
