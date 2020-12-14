@@ -1329,14 +1329,9 @@ macro(build_protobuf)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
   # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
-  set(
-    PROTOBUF_STATIC_LIB
-    "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    PROTOC_STATIC_LIB
-    "${PROTOBUF_PREFIX}/lib/libprotoc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  set(PROTOBUF_STATIC_LIB
+      "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(PROTOC_STATIC_LIB "${PROTOBUF_PREFIX}/lib/libprotoc${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
   set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
 
@@ -2398,7 +2393,7 @@ macro(build_grpc)
   set(
     GRPC_STATIC_LIBRARY_UPB
     "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  if (MSVC)
+  if(MSVC)
     set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin.exe")
   else()
     set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin")
@@ -2481,10 +2476,8 @@ macro(build_grpc)
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
   if(RE2_VENDORED)
-    list(APPEND GRPC_CMAKE_ARGS
-      -Dre2_ROOT=${RE2_PREFIX}
-      -DCMAKE_POLICY_DEFAULT_CMP0074=NEW
-    )
+    list(APPEND GRPC_CMAKE_ARGS -Dre2_ROOT=${RE2_PREFIX}
+                -DCMAKE_POLICY_DEFAULT_CMP0074=NEW)
     add_dependencies(grpc_dependencies re2_ep)
   endif()
   if(OPENSSL_ROOT_DIR)
