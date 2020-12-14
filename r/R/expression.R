@@ -182,36 +182,44 @@ Expression$field_ref <- function(name) {
 Expression$scalar <- function(x) {
   dataset___expr__scalar(Scalar$create(x))
 }
+Expression$call <- function(name, arguments, options = list()) {
+  dataset___expr__call(name, arguments, options)
+}
 Expression$compare <- function(OP, e1, e2) {
   comp_func <- comparison_function_map[[OP]]
   if (is.null(comp_func)) {
     stop(OP, " is not a supported comparison function", call. = FALSE)
   }
-  comp_func(e1, e2)
+  Expression$call(comp_func, list(e1, e2))
 }
 
 comparison_function_map <- list(
-  "==" = dataset___expr__equal,
-  "!=" = dataset___expr__not_equal,
-  ">" = dataset___expr__greater,
-  ">=" = dataset___expr__greater_equal,
-  "<" = dataset___expr__less,
-  "<=" = dataset___expr__less_equal
+  "==" = "equal",
+  "!=" = "not_equal",
+  ">" = "greater",
+  ">=" = "greater_equal",
+  "<" = "less",
+  "<=" = "less_equal"
 )
 Expression$in_ <- function(x, set) {
-  dataset___expr__in(x, Array$create(set))
+  Expression$call("is_in", list(x),
+                  options = list(value_set = Array$create(set),
+                                 skip_nulls = TRUE))
 }
 Expression$and <- function(e1, e2) {
-  dataset___expr__and(e1, e2)
+  Expression$call("and_kleene", list(e1, e2))
 }
 Expression$or <- function(e1, e2) {
-  dataset___expr__or(e1, e2)
+  Expression$call("or_kleene", list(e1, e2))
 }
 Expression$not <- function(e1) {
-  dataset___expr__not(e1)
+  Expression$call("invert", list(e1))
 }
 Expression$is_valid <- function(e1) {
-  dataset___expr__is_valid(e1)
+  Expression$call("is_valid", list(e1))
+}
+Expression$is_null <- function(e1) {
+  Expression$call("is_null", list(e1))
 }
 
 #' @export
@@ -253,4 +261,4 @@ make_expression <- function(operator, e1, e2) {
 }
 
 #' @export
-is.na.Expression <- function(x) !Expression$is_valid(x)
+is.na.Expression <- function(x) Expression$is_null(x)

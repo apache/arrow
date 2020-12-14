@@ -126,7 +126,6 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
   // This assumes that R objects have already been converted to Arrow objects;
   // that seems right but should we do the wrapping here too/instead?
   cpp11::stop("to_datum: Not implemented for type %s", Rf_type2char(TYPEOF(x)));
-  return arrow::Datum();
 }
 }  // namespace cpp11
 
@@ -151,9 +150,7 @@ SEXP from_datum(arrow::Datum datum) {
       break;
   }
 
-  auto str = datum.ToString();
-  cpp11::stop("from_datum: Not implemented for Datum %s", str.c_str());
-  return R_NilValue;
+  cpp11::stop("from_datum: Not implemented for Datum %s", datum.ToString().c_str());
 }
 
 std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
@@ -180,6 +177,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     out->null_handling =
         cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIP : Options::EMIT_NULL;
     return out;
+  }
+
+  if (func_name == "is_in" || func_name == "index_in") {
+    using Options = arrow::compute::SetLookupOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value_set"]),
+                                     cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
   return nullptr;

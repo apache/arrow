@@ -2846,6 +2846,23 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
+extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type func_name(func_name_sexp);
+	arrow::r::Input<cpp11::list>::type argument_list(argument_list_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(dataset___expr__call(func_name, argument_list, options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+	Rf_error("Cannot call dataset___expr__call(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
 extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
@@ -2856,180 +2873,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 	Rf_error("Cannot call dataset___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__equal(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__not_equal(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__not_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__greater(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__greater(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__greater_equal(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__greater_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__less(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__less(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__less_equal(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__less_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
-extern "C" SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__in(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__in(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__and(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__and(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
-extern "C" SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
-	return cpp11::as_sexp(dataset___expr__or(lhs, rhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__or(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
-extern "C" SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	return cpp11::as_sexp(dataset___expr__not(lhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
-	Rf_error("Cannot call dataset___expr__not(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// expression.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Expression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
-extern "C" SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	return cpp11::as_sexp(dataset___expr__is_valid(lhs));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
-	Rf_error("Cannot call dataset___expr__is_valid(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6605,18 +6448,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
+		{ "_arrow_dataset___expr__call", (DL_FUNC) &_arrow_dataset___expr__call, 3}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
-		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
-		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2}, 
-		{ "_arrow_dataset___expr__greater", (DL_FUNC) &_arrow_dataset___expr__greater, 2}, 
-		{ "_arrow_dataset___expr__greater_equal", (DL_FUNC) &_arrow_dataset___expr__greater_equal, 2}, 
-		{ "_arrow_dataset___expr__less", (DL_FUNC) &_arrow_dataset___expr__less, 2}, 
-		{ "_arrow_dataset___expr__less_equal", (DL_FUNC) &_arrow_dataset___expr__less_equal, 2}, 
-		{ "_arrow_dataset___expr__in", (DL_FUNC) &_arrow_dataset___expr__in, 2}, 
-		{ "_arrow_dataset___expr__and", (DL_FUNC) &_arrow_dataset___expr__and, 2}, 
-		{ "_arrow_dataset___expr__or", (DL_FUNC) &_arrow_dataset___expr__or, 2}, 
-		{ "_arrow_dataset___expr__not", (DL_FUNC) &_arrow_dataset___expr__not, 1}, 
-		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 

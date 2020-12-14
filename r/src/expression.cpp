@@ -23,94 +23,34 @@
 #include <arrow/dataset/api.h>
 namespace ds = ::arrow::dataset;
 
-std::shared_ptr<ds::Expression> Share(ds::Expression expr) {
-  return std::make_shared<ds::Expression>(std::move(expr));
+std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
+    std::string func_name, cpp11::list options);
+
+// [[arrow::export]]
+std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name,
+                                                     cpp11::list argument_list,
+                                                     cpp11::list options) {
+  std::vector<ds::Expression> arguments;
+  for (SEXP argument : argument_list) {
+    auto argument_ptr = cpp11::as_cpp<std::shared_ptr<ds::Expression>>(argument);
+    arguments.push_back(*argument_ptr);
+  }
+
+  auto options_ptr = make_compute_options(func_name, options);
+
+  return std::make_shared<ds::Expression>(
+      ds::call(std::move(func_name), std::move(arguments), std::move(options_ptr)));
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
-  return Share(ds::field_ref(std::move(name)));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::equal(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__not_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::not_equal(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__greater(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::greater(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__greater_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::greater_equal(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__less(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::less(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__less_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::less_equal(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__in(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<arrow::Array>& rhs) {
-  return Share(ds::call("is_in", {*lhs}, arrow::compute::SetLookupOptions{rhs}));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__and(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::and_(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__or(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return Share(ds::or_(*lhs, *rhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__not(
-    const std::shared_ptr<ds::Expression>& lhs) {
-  return Share(ds::not_(*lhs));
-}
-
-// [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__is_valid(
-    const std::shared_ptr<ds::Expression>& lhs) {
-  return Share(ds::call("is_valid", {*lhs}));
+  return std::make_shared<ds::Expression>(ds::field_ref(std::move(name)));
 }
 
 // [[arrow::export]]
 std::shared_ptr<ds::Expression> dataset___expr__scalar(
     const std::shared_ptr<arrow::Scalar>& x) {
-  return Share(ds::literal(x));
+  return std::make_shared<ds::Expression>(ds::literal(std::move(x)));
 }
 
 // [[arrow::export]]
