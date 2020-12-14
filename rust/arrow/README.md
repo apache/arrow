@@ -98,7 +98,7 @@ compile Arrow to the `wasm32-unknown-unknown` WASM target.
 
 ## Guidelines in usage of `unsafe`
 
-[`unsafe`](https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html) has a high maintenance cost because debugging and testing it is difficult, time consuming, often requires external tools (e.g. `valgrind`), and requires a higher-than-usual attention to details. Undefined behavior is particularly difficult to identify and test, and usage of `unsafe` is the primary cause of undefined behavior in a program written in Rust `[citation needed]`.
+[`unsafe`](https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html) has a high maintenance cost because debugging and testing it is difficult, time consuming, often requires external tools (e.g. `valgrind`), and requires a higher-than-usual attention to details. Undefined behavior is particularly difficult to identify and test, and usage of `unsafe` is the [primary cause of undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html) in a program written in Rust.
 For two real world examples of where `unsafe` has consumed time in the past in this project see [#8545](https://github.com/apache/arrow/pull/8645) and [8829](https://github.com/apache/arrow/pull/8829)
 This crate only accepts the usage of `unsafe` code upon careful consideration, and strives to avoid it to the largest possible extent.
 
@@ -111,14 +111,12 @@ Generally, `unsafe` should only be used when a `safe` counterpart is not availab
 * Foreign interfaces (C data interface)
 * Inter-process communication (IPC)
 * SIMD
-* Performance
+* Performance (e.g. omit bounds checks, use of pointers to avoid bound checks)
 
 #### cache-line aligned memory management
 
 The arrow format recommends storing buffers aligned with cache lines, and this crate adopts this behavior.
 However, Rust's global allocator does not allocates memory aligned with cache-lines. As such, many of the low-level operations related to memory management require `unsafe`.
-
-Usage of `unsafe` for the purposes of supporting allocations aligned with cache lines is allowed.
 
 #### Interpreting bytes
 
@@ -135,19 +133,13 @@ The arrow format declares an ABI for zero-copy from and to libraries that implem
 (foreign interfaces). In Rust, receiving and sending pointers via FFI requires usage of `unsafe` due to 
 the impossibility of the compiler to derive the invariants (such as lifetime, null pointers, and pointer alignment), from the source code alone as they are part of the FFI contract.
 
-Usage of `unsafe` for the purposes of supporting FFI is allowed.
-
 #### IPC
 
 The arrow format declares a IPC protocol, which this crate supports. IPC is equivalent to a FFI in that the rust compiler can't reason about the contract's invariants.
 
-Usage of `unsafe` for the purposes of supporting IPC is allowed.
-
 #### SIMD
 
 The API provided by the `packed_simd` library is currently `unsafe`. However, SIMD offers a significant performance improvement over non-SIMD operations.
-
-Usage of `unsafe` for the purposes of supporting SIMD is allowed.
 
 #### Performance
 
@@ -167,7 +159,7 @@ Usage of `unsafe` in this crate *must*:
 * not expose a public API as `safe` when there are necessary invariants for that API to be defined behavior.
 * have code documentation for why `safe` is not used / possible (e.g. `// 30% performance degradation if the safe counterpart is used, see bench X`)
 * have code documentation about which invariant the user needs to enforce to ensure no undefined behavior (e.g. `// this buffer must be constructed according to the arrow specification`)
-* if applicable, have the necessary `assert`s (not `debug_assert`!) of invariants.
+* if applicable, use `debug_assert`s to relevant invariants (e.g. bound checks)
 
 # Publishing to crates.io
 
