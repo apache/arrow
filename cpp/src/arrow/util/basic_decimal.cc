@@ -1074,7 +1074,7 @@ BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
     // Account for shifts larger then 64 bits
     little_endian_array_[i] = little_endian_array_[i - cross_word_shift];
     little_endian_array_[i] <<= in_word_shift;
-    if (in_word_shift != 0 && i > cross_word_shift + 1) {
+    if (in_word_shift != 0 && i >= cross_word_shift + 1) {
       little_endian_array_[i] |=
           little_endian_array_[i - (cross_word_shift + 1)] >> (64 - in_word_shift);
     }

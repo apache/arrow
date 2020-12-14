@@ -1334,15 +1334,51 @@ TEST(Decimal256Test, Multiply) {
 }
 
 TEST(Decimal256Test, Shift) {
-  Decimal256 v(1024);
-  v <<= 16;
-  ASSERT_EQ(v, Decimal256("67108864"));
-  v <<= 66;
-  ASSERT_EQ(v, Decimal256("4951760157141521099596496896"));
-  v <<= 128;
-  ASSERT_EQ(
-      v,
-      Decimal256("1684996666696914987166688442938726917102321526408785780068975640576"));
+  {
+    // Values compared against python's implementation of shift.
+    Decimal256 v(967);
+    v <<= 16;
+    ASSERT_EQ(v, Decimal256("63373312"));
+    v <<= 66;
+    ASSERT_EQ(v, Decimal256("4676125070269385647763488768"));
+    v <<= 128;
+    ASSERT_EQ(v,
+              Decimal256(
+                  "1591202906929606242763855199532957938318305582067671727858104926208"));
+  }
+  {
+    // Values compared against python's implementation of shift.
+    Decimal256 v(0xEFFACDA);
+    v <<= 17;
+    ASSERT_EQ(v, Decimal256("32982558834688"));
+    v <<= 67;
+    ASSERT_EQ(v, Decimal256("4867366573756459829801535578046464"));
+    v <<= 129;
+    ASSERT_EQ(
+        v,
+        Decimal256(
+            "3312558036779413504434176328500812891073739806516698535430241719490183168"));
+    v <<= 43;
+    ASSERT_EQ(v, Decimal256(0));
+  }
+
+  {
+    // Values compared against python's implementation of shift.
+    Decimal256 v("-12346789123456789123456789");
+    v <<= 15;
+    ASSERT_EQ(v, Decimal256("-404579585997432065997432061952"))
+        << std::hex << v.little_endian_array()[0] << " " << v.little_endian_array()[1]
+        << " " << v.little_endian_array()[2] << " " << v.little_endian_array()[3] << "\n"
+        << Decimal256("-404579585997432065997432061952").little_endian_array()[0] << " "
+        << Decimal256("-404579585997432065997432061952").little_endian_array()[1] << " "
+        << Decimal256("-404579585997432065997432061952").little_endian_array()[2] << " "
+        << Decimal256("-404579585997432065997432061952").little_endian_array()[3];
+    v <<= 30;
+    ASSERT_EQ(v, Decimal256("-434414022622047565860171081516421480448"));
+    v <<= 66;
+    ASSERT_EQ(v,
+              Decimal256("-32054097189358332105678889809255994470201895906771963215872"));
+  }
 }
 
 TEST(Decimal256Test, Add) {
