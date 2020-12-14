@@ -381,7 +381,7 @@ def_numeric_from_vec!(TimestampMicrosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
-    pub fn from_vec(data: Vec<i64>, timezone: Option<Arc<String>>) -> Self {
+    pub fn from_vec(data: Vec<i64>, timezone: Option<String>) -> Self {
         let array_data =
             ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
                 .len(data.len())
@@ -393,7 +393,7 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of Option<i64> values and an optional timezone
-    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<Arc<String>>) -> Self {
+    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<String>) -> Self {
         // TODO: duplicated from def_numeric_from_vec! macro, it looks possible to convert to generic
         let data_len = data.len();
         let mut null_buf = MutableBuffer::new_null(data_len);
