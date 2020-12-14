@@ -1809,7 +1809,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
-    enum CSortOrder" arrow::compute::SortOrder":
+    ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
         CSortOrder_Descending \
