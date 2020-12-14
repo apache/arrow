@@ -2126,9 +2126,10 @@ macro(build_re2)
                                    INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
   if(NOT TARGET re2::re2)
     add_library(re2::re2 STATIC IMPORTED)
-    set_target_properties(re2::re2
-                          PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
-                                     INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
+    set_target_properties(
+      re2::re2
+      PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
+                 "${RE2_PREFIX}/include")
   endif()
 
   add_dependencies(toolchain re2_ep)
