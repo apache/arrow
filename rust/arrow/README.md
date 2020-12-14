@@ -104,7 +104,7 @@ This crate only accepts the usage of `unsafe` code upon careful consideration, a
 
 ### When can `unsafe` be used?
 
-Generally, `unsafe` can only be used when a `safe` counterpart is not available or has performance implications. The following is a summary of the current components of the crate that require `unsafe`:
+Generally, `unsafe` should only be used when a `safe` counterpart is not available and there is no `safe` way to achieve additional performance in that area. The following is a summary of the current components of the crate that require `unsafe`:
 
 * alloc, dealloc and realloc of buffers along cache lines
 * Interpreting bytes as certain rust types, for access, representation and compute
