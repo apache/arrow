@@ -1,6 +1,6 @@
-c_int|c_float|c_string|c_bool
-1|1.1|"1.11"|true
-2|2.2|"2.22"|true
-3||"3.33"|true
-4|4.4||false
-5|6.6|""|false
+c_int|c_float|c_string|c_bool|c_date
+1|1.1|"1.11"|true|1970-01-01
+2|2.2|"2.22"|true|2020-11-08
+3||"3.33"|true|1969-12-31
+4|4.4||false|
+5|6.6|""|false|1990-01-01

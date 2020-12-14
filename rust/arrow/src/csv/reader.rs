@@ -65,6 +65,9 @@ lazy_static! {
         .case_insensitive(true)
         .build()
         .unwrap();
+    static ref DATE_RE: Regex = Regex::new(r"^\d{4}-\d\d-\d\d$").unwrap();
+    static ref DATETIME_RE: Regex =
+        Regex::new(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$").unwrap();
 }
 
 /// Infer the data type of a record
@@ -81,6 +84,10 @@ fn infer_field_schema(string: &str) -> DataType {
         DataType::Float64
     } else if INTEGER_RE.is_match(string) {
         DataType::Int64
+    } else if DATETIME_RE.is_match(string) {
+        DataType::Date64(DateUnit::Millisecond)
+    } else if DATE_RE.is_match(string) {
+        DataType::Date32(DateUnit::Day)
     } else {
         DataType::Utf8
     }
@@ -436,6 +443,12 @@ fn parse(
                 &DataType::Float64 => {
                     build_primitive_array::<Float64Type>(line_number, rows, i)
                 }
+                &DataType::Date32(_) => {
+                    build_primitive_array::<Date32Type>(line_number, rows, i)
+                }
+                &DataType::Date64(_) => {
+                    build_primitive_array::<Date64Type>(line_number, rows, i)
+                }
                 &DataType::Utf8 => {
                     let mut builder = StringBuilder::new(rows.len());
                     for row in rows.iter() {
@@ -495,6 +508,36 @@ impl Parser for Int32Type {}
 impl Parser for Int16Type {}
 
 impl Parser for Int8Type {}
+
+impl Parser for Date32Type {
+    fn parse(string: &str) -> Option<i32> {
+        let from_ymd = chrono::NaiveDate::from_ymd;
+        let since = chrono::NaiveDate::signed_duration_since;
+
+        match Self::DATA_TYPE {
+            DataType::Date32(DateUnit::Day) => {
+                let days = chrono::NaiveDate::parse_from_str(string, "%Y-%m-%d").ok()?;
+                Self::Native::from_i32(since(days, from_ymd(1970, 1, 1)).num_days() as i32)
+            }
+            _ => unreachable!("No other "),
+        }
+    }
+}
+
+impl Parser for Date64Type {
+    fn parse(string: &str) -> Option<i64> {
+        match Self::DATA_TYPE {
+            DataType::Date64(DateUnit::Millisecond) => {
+                let millis =
+                    chrono::NaiveDateTime::parse_from_str(string, "%Y-%m-%dT%H:%M:%S")
+                        .map(|t| t.timestamp_millis())
+                        .ok()?;
+                Self::Native::from_i64(millis)
+            }
+            _ => unreachable!(""),
+        }
+    }
+}
 
 fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
     T::parse(string)
@@ -929,13 +972,13 @@ mod tests {
             .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
-            .with_projection(vec![0, 1, 2, 3]);
+            .with_projection(vec![0, 1, 2, 3, 4]);
 
         let mut csv = builder.build(file).unwrap();
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(5, batch.num_rows());
-        assert_eq!(4, batch.num_columns());
+        assert_eq!(5, batch.num_columns());
 
         let schema = batch.schema();
 
@@ -943,11 +986,16 @@ mod tests {
         assert_eq!(&DataType::Float64, schema.field(1).data_type());
         assert_eq!(&DataType::Float64, schema.field(2).data_type());
         assert_eq!(&DataType::Boolean, schema.field(3).data_type());
+        assert_eq!(
+            &DataType::Date32(DateUnit::Day),
+            schema.field(4).data_type()
+        );
 
         assert_eq!(false, schema.field(0).is_nullable());
         assert_eq!(true, schema.field(1).is_nullable());
         assert_eq!(true, schema.field(2).is_nullable());
         assert_eq!(false, schema.field(3).is_nullable());
+        assert_eq!(true, schema.field(4).is_nullable());
 
         assert_eq!(false, batch.column(1).is_null(0));
         assert_eq!(false, batch.column(1).is_null(1));
@@ -995,6 +1043,34 @@ mod tests {
         assert_eq!(infer_field_schema("10.2"), DataType::Float64);
         assert_eq!(infer_field_schema("true"), DataType::Boolean);
         assert_eq!(infer_field_schema("false"), DataType::Boolean);
+        assert_eq!(
+            infer_field_schema("2020-11-08"),
+            DataType::Date32(DateUnit::Day)
+        );
+        assert_eq!(
+            infer_field_schema("2020-11-08T14:20:01"),
+            DataType::Date64(DateUnit::Millisecond)
+        );
+    }
+
+    #[test]
+    fn parse_date32() {
+        assert_eq!(parse_item::<Date32Type>("1970-01-01").unwrap(), 0);
+        assert_eq!(parse_item::<Date32Type>("2020-03-15").unwrap(), 18336);
+        assert_eq!(parse_item::<Date32Type>("1945-05-08").unwrap(), -9004);
+    }
+
+    #[test]
+    fn parse_date64() {
+        assert_eq!(parse_item::<Date64Type>("1970-01-01T00:00:00").unwrap(), 0);
+        assert_eq!(
+            parse_item::<Date64Type>("2018-11-13T17:11:10").unwrap(),
+            1542129070000
+        );
+        assert_eq!(
+            parse_item::<Date64Type>("1900-02-28T12:34:56").unwrap(),
+            -2203932304000
+        );
     }
 
     #[test]
