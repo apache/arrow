@@ -504,33 +504,45 @@ class TokenClientAuthHandler(ClientAuthHandler):
     def get_token(self):
         return self.token
 
-class HeaderAuthServerMiddleware(ServerMiddleware):
-    """A ServerMiddleware that transports incoming username and passowrd."""
-    def sending_headers(self):
-        #TODO: add username and password to headers
-
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
     """A ServerMiddlewareFactory that validates incoming username and password."""
     def start_call(self, info, headers):
-        #TODO: validates incoming username and password
+        values = headers.get('authorization').split(' ')
+        token = ''
 
-class BearerTokenServerMiddleware(ServerMiddleware):
-    """A ServerMiddleware that transports incoming bearer token."""
+        if value[0] == 'Basic'
+            decoded = base64.b64decode(value[1])
+            pair = decoded.split(':')
+            assert pair[0] == 'test'
+            assert pair[1] == 'password'
+            token = 'token1234'
+        elif value[0] == 'Bearer'
+            token = value[1]
+            assert token == 'token1234'
+        else
+            raise flight.FlightUnauthenticatedError('No token or username password pair found.')
+
+        return HeaderAuthServerMiddleware(token)
+
+class HeaderAuthServerMiddleware(ServerMiddleware):
+    """A ServerMiddleware that transports incoming username and passowrd."""
+    def __init__(self, token):
+        self.token = token
+
     def sending_headers(self):
-        #TODO: add bearer token to headers
+        return {'authorization' : 'Bearer ' + self.token}
 
-class BearerTokenServerMiddlewareFactory(ServerMiddlewareFactory):
-    """A ServerMiddlewareFactory that validates incoming bearer token."""
-    def start_call(self, info, headers):
-        #TODO: validates incoming bearer token
-
-class HeaderTokenAuthFlightServer(FlightServerBase):
+class HeaderAuthFlightServer(FlightServerBase):
     """A Flight server that tests with basic token authentication. """
-    def __init__(self, middlewares=None):
-        super().__init__(None, None, None, None, None, middlewares)
+    def __init__(self, middleware=None):
+        super().__init__(None, None, None, None, None, middleware)
 
-    def list_flights(self, context, criteria):
-        raise NotImplementedError
+    def do_action(self, context, criteria):
+        # TODO: Check that otken passed in is token1234
+        middleware = context.get_middleware('auth')
+        if middleware:
+            return [middleware.token.encode()]
+        raise flight.FlightUnauthenticatedError('No token auth middleare found.')
 
 class HeaderServerMiddleware(ServerMiddleware):
     """Expose a per-call value to the RPC method body."""
@@ -1021,37 +1033,45 @@ def test_token_auth_invalid():
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
+header_auth_server_middleware_factory = HeaderAuthServerMiddlewareFactory()
+
 # TODO: Add test(s) for AuthenticateBasicToken
 def test_authenticate_basic_token() :
     """Test autheticateBasicToken with bearer token and auth headers."""
     # TODO: Modify test
-    with EchoStreamFlightServer() as server:
+    with HeaderAuthFlightServer(middleware={
+        "auth": HeaderServerMiddlewareFactory(),
+    }) as server:
         client = FlightClient(('localhost', server.port))
-        token_pair = client.authenticateBasicToken(b'test', b'p4ssw0rd')
+        token_pair = client.authenticateBasicToken(b'test', b'password')
         assert token_pair[0] == b'authorization'
-        assert token_pair[1] == b'Bearer ' + ''
+        assert token_pair[1] == b'Bearer ' + b'token1234'
 
 # TODO: Add test(s) for AuthenticateBasicToken
 def test_authenticate_basic_token_invalid_password() :
     """Test autheticateBasicToken with an invalid password."""
     # TODO: Modify test
-    with EchoStreamFlightServer() as server:
+    with HeaderAuthFlightServer(middleware={
+        "auth": HeaderServerMiddlewareFactory(),
+    }) as server:
         client = FlightClient(('localhost', server.port))
         with pytest.raises(flight.FlightUnauthenticatedError):
-            client.authenticateBasicToken(b'test', b'wrong')
+            client.authenticateBasicToken(b'test', b'badpassword')
 
 # TODO: Add test(s) for AuthenticateBasicToken
 def test_authenticate_basic_token_and_action() :
     """Test autheticateBasicToken with an invalid password."""
     # TODO: Modify test
-    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
+    with HeaderAuthFlightServer(middleware={
+        "auth": HeaderServerMiddlewareFactory(),
+    }) as server:
         client = FlightClient(('localhost', server.port))
-        token_pair = client.authenticateBasicToken(b'test', b'p4ssw0rd')
+        token_pair = client.authenticateBasicToken(b'test', b'password')
         assert token_pair[0] == b'authorization'
-        assert token_pair[1] == b'Bearer ' + ''
+        assert token_pair[1] == b'Bearer ' + b'token1234'
         action = flight.Action('who-am-i', b'')
-        identity = next(client.do_action(action, flight.FlightCallOptions(token_pair)))
-        assert identity.body.to_pybytes() == b'test'
+        option = flight.FlightCallOptions(headers=token_pair)
+        client.do_action(action, option)
 
 def test_location_invalid():
     """Test constructing invalid URIs."""

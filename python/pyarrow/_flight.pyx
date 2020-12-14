@@ -1165,8 +1165,8 @@ cdef class FlightClient(_Weakrefable):
 
         Returns
         -------
-        option : FlightCallOptions 
-            A FlightCallOptions with token auth header appended to the headers.
+        pair : pair[string, string] 
+            A pair representing the FlightCallOptions header entry of a bearer token.
         """
         cdef:
             CResult[pair[c_string, c_string]] result
