@@ -14,11 +14,11 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
-use crate::error::Result;
 use crate::logical_plan::{and, LogicalPlan};
 use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use crate::{error::Result, logical_plan::Operator};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -214,13 +214,37 @@ fn issue_filters(
     push_down(&state, &plan)
 }
 
+/// converts "A AND B AND C" => [A, B, C]
+fn split_members<'a>(predicate: &'a Expr, predicates: &mut Vec<&'a Expr>) {
+    match predicate {
+        Expr::BinaryExpr {
+            right,
+            op: Operator::And,
+            left,
+        } => {
+            split_members(&left, predicates);
+            split_members(&right, predicates);
+        }
+        other => predicates.push(other),
+    }
+}
+
 fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
     match plan {
         LogicalPlan::Filter { input, predicate } => {
-            let mut columns: HashSet<String> = HashSet::new();
-            utils::expr_to_column_names(predicate, &mut columns)?;
-            // collect the predicate
-            state.filters.push((predicate.clone(), columns));
+            let mut predicates = vec![];
+            split_members(predicate, &mut predicates);
+
+            predicates
+                .into_iter()
+                .try_for_each::<_, Result<()>>(|predicate| {
+                    let mut columns: HashSet<String> = HashSet::new();
+                    utils::expr_to_column_names(predicate, &mut columns)?;
+                    // collect the predicate
+                    state.filters.push((predicate.clone(), columns));
+                    Ok(())
+                })?;
+
             optimize(input, state)
         }
         LogicalPlan::Projection {
@@ -584,6 +608,43 @@ mod tests {
         // filter is before the projections
         let expected = "\
         Filter: #SUM(c) Gt Int64(10)\
+        \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+        \n    Projection: #a AS b, #c\
+        \n      Filter: #a Gt Int64(10)\
+        \n        TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    /// verifies that when a filter with two predicates is applied after an aggregation that only allows one to be pushed, one is pushed
+    /// and the other not.
+    #[test]
+    fn split_filter() -> Result<()> {
+        // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a").alias("b"), col("c")])?
+            .aggregate(vec![col("b")], vec![sum(col("c"))])?
+            .filter(and(
+                col("SUM(c)").gt(lit(10i64)),
+                and(col("b").gt(lit(10i64)), col("SUM(c)").lt(lit(20i64))),
+            ))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #SUM(c) Gt Int64(10) And #b Gt Int64(10) And #SUM(c) Lt Int64(20)\
+            \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+            \n    Projection: #a AS b, #c\
+            \n      TableScan: test projection=None"
+        );
+
+        // filter is before the projections
+        let expected = "\
+        Filter: #SUM(c) Gt Int64(10) And #SUM(c) Lt Int64(20)\
         \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
         \n    Projection: #a AS b, #c\
         \n      Filter: #a Gt Int64(10)\
