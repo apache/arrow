@@ -179,7 +179,7 @@ struct Comparison {
         return GREATER_EQUAL;
       case GREATER_EQUAL:
         return LESS_EQUAL;
-    };
+    }
     DCHECK(false);
     return NA;
   }
@@ -201,7 +201,7 @@ struct Comparison {
         return "less_equal";
       case GREATER_EQUAL:
         return "greater_equal";
-    };
+    }
     DCHECK(false);
     return "na";
   }

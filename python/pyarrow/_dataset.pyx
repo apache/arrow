@@ -86,24 +86,22 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 cdef class Expression(_Weakrefable):
 
     cdef:
-        shared_ptr[CExpression] wrapped
-        CExpression* expr
+        CExpression expr
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
-    cdef void init(self, const shared_ptr[CExpression]& sp):
-        self.wrapped = sp
-        self.expr = sp.get()
+    cdef void init(self, const CExpression& sp):
+        self.expr = sp
 
     @staticmethod
-    cdef wrap(const shared_ptr[CExpression]& sp):
+    cdef wrap(const CExpression& sp):
         cdef Expression self = Expression.__new__(Expression)
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CExpression] unwrap(self):
-        return self.wrapped
+    cdef inline CExpression unwrap(self):
+        return self.expr
 
     def equals(self, Expression other):
         return self.expr.Equals(other.unwrap())
@@ -119,7 +117,7 @@ cdef class Expression(_Weakrefable):
     @staticmethod
     def _deserialize(Buffer buffer not None):
         c_buffer = pyarrow_unwrap_buffer(buffer)
-        c_expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
+        #c_expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
         return Expression.wrap(move(c_expr))
 
     def __reduce__(self):
@@ -157,16 +155,16 @@ cdef class Expression(_Weakrefable):
         return Expression.wrap(CMakeNotExpression(self.unwrap()))
 
     @staticmethod
-    cdef shared_ptr[CExpression] _expr_or_scalar(object expr) except *:
+    cdef CExpression _expr_or_scalar(object expr) except *:
         if isinstance(expr, Expression):
             return (<Expression> expr).unwrap()
         return (<Expression> Expression._scalar(expr)).unwrap()
 
     def __richcmp__(self, other, int op):
         cdef:
-            shared_ptr[CExpression] c_expr
-            shared_ptr[CExpression] c_left
-            shared_ptr[CExpression] c_right
+            CExpression c_expr
+            CExpression c_left
+            CExpression c_right
 
         c_left = self.unwrap()
         c_right = Expression._expr_or_scalar(other)
@@ -212,10 +210,17 @@ cdef class Expression(_Weakrefable):
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""
+        cdef:
+            vector[CExpression] arguments
+        arguments.push_back(self.expr)
+
         if not isinstance(values, pa.Array):
             values = pa.array(values)
         c_values = pyarrow_unwrap_array(values)
-        return Expression.wrap(self.expr.In(c_values).Copy())
+        return Expression.wrap(CMakeCallExpression(
+            tobytes("is_in"),
+            move(arguments),
+            move(SetLookupOptions(values).set_lookup_options)))
 
     @staticmethod
     def _field(str name not None):
@@ -231,11 +236,7 @@ cdef class Expression(_Weakrefable):
         else:
             scalar = pa.scalar(value)
 
-        return Expression.wrap(
-            shared_ptr[CExpression](
-                new CScalarExpression(move(scalar.unwrap()))
-            )
-        )
+        return Expression.wrap(CMakeScalarExpression(scalar.unwrap()))
 
 
 _deserialize = Expression._deserialize
@@ -288,12 +289,7 @@ cdef class Dataset(_Weakrefable):
         An Expression which evaluates to true for all data viewed by this
         Dataset.
         """
-        cdef shared_ptr[CExpression] expr
-        expr = self.dataset.partition_expression()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
+        return Expression.wrap(self.dataset.partition_expression())
 
     def replace_schema(self, Schema schema not None):
         """
@@ -322,13 +318,13 @@ cdef class Dataset(_Weakrefable):
         fragments : iterator of Fragment
         """
         cdef:
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             CFragmentIterator c_iterator
 
         if filter is None:
             c_fragments = self.dataset.GetFragments()
         else:
-            c_filter = _insert_implicit_casts(filter, self.schema)
+            c_filter = _bind(filter, self.schema)
             c_fragments = self.dataset.GetFragments(c_filter)
 
         for maybe_fragment in c_fragments:
@@ -593,19 +589,14 @@ cdef class FileSystemDataset(Dataset):
         return FileFormat.wrap(self.filesystem_dataset.format())
 
 
-cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
-                                                    Schema schema) except *:
+cdef CExpression _bind(Expression filter, Schema schema) except *:
     assert schema is not None
 
     if filter is None:
         return _true.unwrap()
 
-    return GetResultValue(
-        CInsertImplicitCasts(
-            deref(filter.unwrap().get()),
-            deref(pyarrow_unwrap_schema(schema).get())
-        )
-    )
+    return GetResultValue(filter.unwrap().Bind(
+            deref(pyarrow_unwrap_schema(schema).get())))
 
 
 cdef class FileWriteOptions(_Weakrefable):
@@ -1035,11 +1026,11 @@ cdef class ParquetFileFragment(FileFragment):
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             shared_ptr[CFragment] c_fragment
 
         schema = schema or self.physical_schema
-        c_filter = _insert_implicit_casts(filter, schema)
+        c_filter = _bind(filter, schema)
         with nogil:
             c_fragments = move(GetResultValue(
                 self.parquet_file_fragment.SplitByRowGroup(move(c_filter))))
@@ -1072,7 +1063,7 @@ cdef class ParquetFileFragment(FileFragment):
         ParquetFileFragment
         """
         cdef:
-            shared_ptr[CExpression] c_filter
+            CExpression c_filter
             vector[int] c_row_group_ids
             shared_ptr[CFragment] c_fragment
 
@@ -1083,7 +1074,7 @@ cdef class ParquetFileFragment(FileFragment):
 
         if filter is not None:
             schema = schema or self.physical_schema
-            c_filter = _insert_implicit_casts(filter, schema)
+            c_filter = _bind(filter, schema)
             with nogil:
                 c_fragment = move(GetResultValue(
                     self.parquet_file_fragment.SubsetWithFilter(
@@ -1408,7 +1399,7 @@ cdef class Partitioning(_Weakrefable):
         return self.wrapped
 
     def parse(self, path):
-        cdef CResult[shared_ptr[CExpression]] result
+        cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
@@ -1643,11 +1634,7 @@ cdef class DatasetFactory(_Weakrefable):
 
     @property
     def root_partition(self):
-        cdef shared_ptr[CExpression] expr = self.factory.root_partition()
-        if expr.get() == nullptr:
-            return None
-        else:
-            return Expression.wrap(expr)
+        return Expression.wrap(self.factory.root_partition())
 
     @root_partition.setter
     def root_partition(self, Expression expr):
@@ -2121,13 +2108,13 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             int batch_size=_DEFAULT_BATCH_SIZE) except *:
     cdef:
         CScannerBuilder *builder
-
     builder = ptr.get()
+
+    check_status(builder.Filter(_bind(
+        filter, pyarrow_wrap_schema(builder.schema()))))
+
     if columns is not None:
         check_status(builder.Project([tobytes(c) for c in columns]))
-
-    check_status(builder.Filter(_insert_implicit_casts(
-        filter, pyarrow_wrap_schema(builder.schema()))))
 
     check_status(builder.BatchSize(batch_size))
 
@@ -2296,12 +2283,12 @@ def _get_partition_keys(Expression partition_expression):
     is converted to {'part': 'a', 'year': 2016}
     """
     cdef:
-        shared_ptr[CExpression] expr = partition_expression.unwrap()
+        CExpression expr = partition_expression.unwrap()
         pair[c_string, shared_ptr[CScalar]] name_val
 
     return {
         frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
-        for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
+        for name_val in GetResultValue(CGetPartitionKeys(expr))
     }
 
 
