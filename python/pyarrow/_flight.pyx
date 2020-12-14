@@ -1150,6 +1150,33 @@ cdef class FlightClient(_Weakrefable):
                 self.client.get().Authenticate(deref(c_options),
                                                move(handler)))
 
+    # TODO: Add authenticateBasicToken
+    def authenticateBasicToken(self, username, password, options: FlightCallOptions = None) :
+        """Authenticate to the server with header token authentication.
+
+        Parameters
+        ----------
+        username : string 
+            Username to authenticate with
+        password : string 
+            Password to authenticate with
+        options  : FlightCallOptions
+            Options for this call
+
+        Returns
+        -------
+        option : FlightCallOptions 
+            A FlightCallOptions with token auth header appended to the headers.
+        """
+        cdef:
+            CResult[pair[c_string, c_string]] result
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+
+        result = self.client.get().AuthenticateBasicToken(deref(c_options),
+                                                          username,
+                                                          password)
+        return GetResultValue(result)
+
     def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
         cdef:

@@ -224,7 +224,6 @@ class EchoStreamFlightServer(EchoFlightServer):
             return [context.peer_identity(), context.peer().encode("utf-8")]
         raise NotImplementedError
 
-
 class GetInfoFlightServer(FlightServerBase):
     """A Flight server that tests GetFlightInfo."""
 
@@ -505,6 +504,33 @@ class TokenClientAuthHandler(ClientAuthHandler):
     def get_token(self):
         return self.token
 
+class HeaderAuthServerMiddleware(ServerMiddleware):
+    """A ServerMiddleware that transports incoming username and passowrd."""
+    def sending_headers(self):
+        #TODO: add username and password to headers
+
+class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
+    """A ServerMiddlewareFactory that validates incoming username and password."""
+    def start_call(self, info, headers):
+        #TODO: validates incoming username and password
+
+class BearerTokenServerMiddleware(ServerMiddleware):
+    """A ServerMiddleware that transports incoming bearer token."""
+    def sending_headers(self):
+        #TODO: add bearer token to headers
+
+class BearerTokenServerMiddlewareFactory(ServerMiddlewareFactory):
+    """A ServerMiddlewareFactory that validates incoming bearer token."""
+    def start_call(self, info, headers):
+        #TODO: validates incoming bearer token
+
+class HeaderTokenAuthFlightServer(FlightServerBase):
+    """A Flight server that tests with basic token authentication. """
+    def __init__(self, middlewares=None):
+        super().__init__(None, None, None, None, None, middlewares)
+
+    def list_flights(self, context, criteria):
+        raise NotImplementedError
 
 class HeaderServerMiddleware(ServerMiddleware):
     """Expose a per-call value to the RPC method body."""
@@ -995,6 +1021,37 @@ def test_token_auth_invalid():
         with pytest.raises(flight.FlightUnauthenticatedError):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
+# TODO: Add test(s) for AuthenticateBasicToken
+def test_authenticate_basic_token() :
+    """Test autheticateBasicToken with bearer token and auth headers."""
+    # TODO: Modify test
+    with EchoStreamFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        token_pair = client.authenticateBasicToken(b'test', b'p4ssw0rd')
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer ' + ''
+
+# TODO: Add test(s) for AuthenticateBasicToken
+def test_authenticate_basic_token_invalid_password() :
+    """Test autheticateBasicToken with an invalid password."""
+    # TODO: Modify test
+    with EchoStreamFlightServer() as server:
+        client = FlightClient(('localhost', server.port))
+        with pytest.raises(flight.FlightUnauthenticatedError):
+            client.authenticateBasicToken(b'test', b'wrong')
+
+# TODO: Add test(s) for AuthenticateBasicToken
+def test_authenticate_basic_token_and_action() :
+    """Test autheticateBasicToken with an invalid password."""
+    # TODO: Modify test
+    with EchoStreamFlightServer(auth_handler=token_auth_handler) as server:
+        client = FlightClient(('localhost', server.port))
+        token_pair = client.authenticateBasicToken(b'test', b'p4ssw0rd')
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer ' + ''
+        action = flight.Action('who-am-i', b'')
+        identity = next(client.do_action(action, flight.FlightCallOptions(token_pair)))
+        assert identity.body.to_pybytes() == b'test'
 
 def test_location_invalid():
     """Test constructing invalid URIs."""
