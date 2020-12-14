@@ -465,7 +465,6 @@ struct {
       EXPECT_TRUE(Identical(folded, expr));
     }
   }
-
 } ExpectFoldsTo;
 
 TEST(Expression, FoldConstants) {

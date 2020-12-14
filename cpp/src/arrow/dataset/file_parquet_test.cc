@@ -190,8 +190,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups,
-                                Expression filter) {
+                                std::vector<int> expected_row_groups, Expression filter) {
     schema_ = opts_->schema();
     ASSERT_OK_AND_ASSIGN(auto bound, filter.Bind(*schema_));
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);

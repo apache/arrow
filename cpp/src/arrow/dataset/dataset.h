@@ -94,8 +94,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
   InMemoryFragment(std::shared_ptr<Schema> schema, RecordBatchVector record_batches,
                    Expression = literal(true));
-  explicit InMemoryFragment(RecordBatchVector record_batches,
-                            Expression = literal(true));
+  explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
                                 std::shared_ptr<ScanContext> context) override;
@@ -180,8 +179,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(
-      Expression predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
@@ -205,8 +203,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(
-      Expression predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}
