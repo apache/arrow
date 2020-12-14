@@ -486,13 +486,21 @@ mod tests {
 
     use super::*;
 
-    use crate::array::{
-        Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
-        FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Builder,
-        ListBuilder, PrimitiveBuilder, StringArray, StringDictionaryBuilder, StructArray,
-        UInt8Array,
+    use crate::{
+        array::{
+            Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
+            FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Array,
+            Int64Builder, ListBuilder, PrimitiveBuilder, StringArray,
+            StringDictionaryBuilder, StructArray, UInt8Array,
+        },
+        buffer::Buffer,
+        datatypes::Field,
     };
-    use crate::{array::ListArray, error::Result};
+    use crate::{
+        array::{ListArray, StringBuilder},
+        datatypes::ToByteSlice,
+        error::Result,
+    };
 
     /// tests extending from a primitive array w/ offset nor nulls
     #[test]
@@ -867,4 +875,361 @@ mod tests {
         let expected = FixedSizeBinaryArray::from(vec![vec![0, 2], vec![0, 1]]);
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn test_list_append() -> Result<()> {
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(24));
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+        let a = builder.finish().data();
+
+        let a_builder = Int64Builder::new(24);
+        let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
+        a_builder.values().append_slice(&[12, 13])?;
+        a_builder.append(true)?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[14, 15])?;
+        a_builder.append(true)?;
+        let b = a_builder.finish();
+
+        let b = b.data();
+        let c = b.slice(1, 2);
+
+        let mut mutable =
+            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c], false, 1);
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(2, 0, c.len());
+
+        let finished = mutable.freeze();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            // append first array
+            Some(12),
+            Some(13),
+            Some(14),
+            Some(15),
+            // append second array
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets =
+            Buffer::from(&[0i32, 3, 5, 11, 13, 13, 15, 15, 17].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
+            8,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
+        );
+        assert_eq!(finished, expected_list_data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_nulls_append() -> Result<()> {
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        builder.values().append_slice(&[1, 2, 3])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[4, 5])?;
+        builder.append(true)?;
+        builder.append(false)?;
+        builder.values().append_slice(&[6, 7, 8])?;
+        builder.values().append_null()?;
+        builder.values().append_null()?;
+        builder.values().append_slice(&[9, 10, 11])?;
+        builder.append(true)?;
+        let a = builder.finish();
+        let a = a.data();
+
+        let mut builder = ListBuilder::<Int64Builder>::new(Int64Builder::new(32));
+        builder.values().append_slice(&[12, 13])?;
+        builder.append(true)?;
+        builder.append(false)?;
+        builder.append(true)?;
+        builder.values().append_null()?;
+        builder.values().append_null()?;
+        builder.values().append_slice(&[14, 15])?;
+        builder.append(true)?;
+        let b = builder.finish();
+        let b = b.data();
+        let c = b.slice(1, 2);
+        let d = b.slice(2, 2);
+
+        let mut mutable =
+            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c, &d], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(2, 0, c.len());
+        mutable.extend(3, 0, d.len());
+        let result = mutable.freeze();
+
+        let expected_int_array = Int64Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            None,
+            None,
+            Some(9),
+            Some(10),
+            Some(11),
+            // second array
+            Some(12),
+            Some(13),
+            None,
+            None,
+            Some(14),
+            Some(15),
+            // slice(1, 2) results in no values added
+            None,
+            None,
+            Some(14),
+            Some(15),
+        ]);
+        let list_value_offsets = Buffer::from(
+            &[0, 3, 5, 5, 13, 15, 15, 15, 19, 19, 19, 19, 23].to_byte_slice(),
+        );
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Int64, true))),
+            12,
+            None,
+            Some(Buffer::from(&[0b11011011, 0b1110])),
+            0,
+            vec![list_value_offsets],
+            vec![expected_int_array.data()],
+        );
+        assert_eq!(result, expected_list_data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_list_of_strings_append() -> Result<()> {
+        // [["alpha", "beta", None]]
+        let mut builder = ListBuilder::new(StringBuilder::new(32));
+        builder.values().append_value("Hello")?;
+        builder.values().append_value("Arrow")?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        let a = builder.finish().data();
+
+        // [["alpha", "beta"], [None], ["gamma", "delta", None]]
+        let mut builder = ListBuilder::new(StringBuilder::new(32));
+        builder.values().append_value("alpha")?;
+        builder.values().append_value("beta")?;
+        builder.append(true)?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        builder.values().append_value("gamma")?;
+        builder.values().append_value("delta")?;
+        builder.values().append_null()?;
+        builder.append(true)?;
+        let b = builder.finish().data();
+
+        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(1, 1, 3);
+        mutable.extend(1, 0, 0);
+        let result = mutable.freeze();
+
+        let expected_string_array = StringArray::from(vec![
+            // extend a[0..a.len()]
+            // a[0]
+            Some("Hello"),
+            Some("Arrow"),
+            None,
+            // extend b[0..b.len()]
+            // b[0]
+            Some("alpha"),
+            Some("beta"),
+            // b[1]
+            None,
+            // b[2]
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // extend b[1..3]
+            // b[1]
+            None,
+            // b[2]
+            Some("gamma"),
+            Some("delta"),
+            None,
+            // extend b[0..0]
+        ]);
+        let list_value_offsets = Buffer::from(&[0, 3, 5, 6, 9, 10, 13].to_byte_slice());
+        let expected_list_data = ArrayData::new(
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true))),
+            6,
+            None,
+            None,
+            0,
+            vec![list_value_offsets],
+            vec![expected_string_array.data()],
+        );
+        assert_eq!(result, expected_list_data);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fixed_size_binary_append() -> Result<()> {
+        let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
+        let a = FixedSizeBinaryArray::from(a).data();
+
+        let b = vec![
+            Some(vec![7, 8]),
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            None,
+        ];
+        let b = FixedSizeBinaryArray::from(b).data();
+
+        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+
+        mutable.extend(0, 0, a.len());
+        mutable.extend(1, 0, b.len());
+        mutable.extend(1, 1, 4);
+        mutable.extend(1, 2, 3);
+        mutable.extend(1, 5, 5);
+        let result = mutable.freeze();
+
+        let expected = vec![
+            // a
+            Some(vec![1, 2]),
+            Some(vec![3, 4]),
+            Some(vec![5, 6]),
+            // b
+            Some(vec![7, 8]),
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            None,
+            // b[1..4]
+            Some(vec![9, 10]),
+            None,
+            Some(vec![13, 14]),
+            // b[2..3]
+            None,
+            // b[4..4]
+        ];
+        let expected = FixedSizeBinaryArray::from(expected).data();
+        assert_eq!(&result, expected.as_ref());
+        Ok(())
+    }
+
+    /*
+    // this is an old test used on a meanwhile removed dead code
+    // that is still useful when `MutableArrayData` supports fixed-size lists.
+    #[test]
+    fn test_fixed_size_list_append() -> Result<()> {
+        let int_builder = UInt16Builder::new(64);
+        let mut builder = FixedSizeListBuilder::<UInt16Builder>::new(int_builder, 2);
+        builder.values().append_slice(&[1, 2])?;
+        builder.append(true)?;
+        builder.values().append_slice(&[3, 4])?;
+        builder.append(false)?;
+        builder.values().append_slice(&[5, 6])?;
+        builder.append(true)?;
+
+        let a_builder = UInt16Builder::new(64);
+        let mut a_builder = FixedSizeListBuilder::<UInt16Builder>::new(a_builder, 2);
+        a_builder.values().append_slice(&[7, 8])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[9, 10])?;
+        a_builder.append(true)?;
+        a_builder.values().append_slice(&[11, 12])?;
+        a_builder.append(false)?;
+        a_builder.values().append_slice(&[13, 14])?;
+        a_builder.append(true)?;
+        a_builder.values().append_null()?;
+        a_builder.values().append_null()?;
+        a_builder.append(true)?;
+        let a = a_builder.finish();
+
+        // append array
+        builder.append_data(&[
+            a.data(),
+            a.slice(1, 3).data(),
+            a.slice(2, 1).data(),
+            a.slice(5, 0).data(),
+        ])?;
+        let finished = builder.finish();
+
+        let expected_int_array = UInt16Array::from(vec![
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            // append first array
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            None,
+            None,
+            // append slice(1, 3)
+            Some(9),
+            Some(10),
+            Some(11),
+            Some(12),
+            Some(13),
+            Some(14),
+            // append slice(2, 1)
+            Some(11),
+            Some(12),
+        ]);
+        let expected_list_data = ArrayData::new(
+            DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::UInt16, true)),
+                2,
+            ),
+            12,
+            None,
+            None,
+            0,
+            vec![],
+            vec![expected_int_array.data()],
+        );
+        let expected_list =
+            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+        assert_eq!(&expected_list.values(), &finished.values());
+        assert_eq!(expected_list.len(), finished.len());
+
+        Ok(())
+    }
+    */
 }
