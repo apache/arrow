@@ -231,7 +231,7 @@ pub fn test_table_scan() -> Result<LogicalPlan> {
         Field::new("b", DataType::UInt32, false),
         Field::new("c", DataType::UInt32, false),
     ]);
-    LogicalPlanBuilder::scan("default", "test", &schema, None)?.build()
+    LogicalPlanBuilder::scan_empty("test", &schema, None)?.build()
 }
 
 pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {

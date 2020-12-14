@@ -41,7 +41,5 @@ pub use expr::{
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
-pub use plan::{
-    JoinType, LogicalPlan, PlanType, PlanVisitor, StringifiedPlan, TableSource,
-};
+pub use plan::{JoinType, LogicalPlan, PlanType, PlanVisitor, StringifiedPlan};
 pub use registry::FunctionRegistry;

@@ -18,6 +18,7 @@
 //! via a logical query plan.
 
 use std::{
+    cmp::min,
     fmt::{self, Display},
     sync::Arc,
 };
@@ -31,15 +32,6 @@ use super::display::{GraphvizVisitor, IndentVisitor};
 use super::expr::Expr;
 use super::extension::UserDefinedLogicalNode;
 use crate::logical_plan::dfschema::DFSchemaRef;
-
-/// Describes the source of the table, either registered on the context or by reference
-#[derive(Clone)]
-pub enum TableSource {
-    /// The source provider is registered in the context with the corresponding name
-    FromContext(String),
-    /// The source provider is passed directly by reference
-    FromProvider(Arc<dyn TableProvider + Send + Sync>),
-}
 
 /// Join type
 #[derive(Debug, Clone)]
@@ -120,12 +112,10 @@ pub enum LogicalPlan {
     },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
-        /// The name of the schema
-        schema_name: String,
+        /// The name of the table
+        table_name: String,
         /// The source of the table
-        source: TableSource,
-        /// The schema of the source data
-        table_schema: SchemaRef,
+        source: Arc<dyn TableProvider + Send + Sync>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
@@ -318,7 +308,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -359,7 +349,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -399,7 +389,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -458,7 +448,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .build().unwrap();
     ///
     /// // Format using display
@@ -475,19 +465,17 @@ impl LogicalPlan {
                 match *self.0 {
                     LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
                     LogicalPlan::TableScan {
-                        ref source,
+                        ref table_name,
                         ref projection,
                         ..
-                    } => match source {
-                        TableSource::FromContext(table_name) => write!(
+                    } => {
+                        let sep = " ".repeat(min(1, table_name.len()));
+                        write!(
                             f,
-                            "TableScan: {} projection={:?}",
-                            table_name, projection
-                        ),
-                        TableSource::FromProvider(_) => {
-                            write!(f, "TableScan: projection={:?}", projection)
-                        }
-                    },
+                            "TableScan: {}{}projection={:?}",
+                            table_name, sep, projection
+                        )
+                    }
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
                         for i in 0..expr.len() {
@@ -613,8 +601,7 @@ mod tests {
     }
 
     fn display_plan() -> LogicalPlan {
-        LogicalPlanBuilder::scan(
-            "default",
+        LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),
@@ -911,7 +898,7 @@ mod tests {
     fn test_plan() -> LogicalPlan {
         let schema = Schema::new(vec![Field::new("id", DataType::Int32, false)]);
 
-        LogicalPlanBuilder::scan("default", "employee.csv", &schema, Some(vec![0]))
+        LogicalPlanBuilder::scan_empty("", &schema, Some(vec![0]))
             .unwrap()
             .filter(col("state").eq(lit("CO")))
             .unwrap()

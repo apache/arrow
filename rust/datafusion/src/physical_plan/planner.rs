@@ -23,7 +23,7 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, TableSource,
+    DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan,
     UserDefinedLogicalNode,
 };
 use crate::physical_plan::explain::ExplainExec;
@@ -138,21 +138,7 @@ impl DefaultPhysicalPlanner {
         match logical_plan {
             LogicalPlan::TableScan {
                 source, projection, ..
-            } => match source {
-                TableSource::FromContext(table_name) => {
-                    match ctx_state.datasources.get(table_name) {
-                        Some(provider) => provider.scan(projection, batch_size),
-                        _ => Err(DataFusionError::Plan(format!(
-                            "No table named {}. Existing tables: {:?}",
-                            table_name,
-                            ctx_state.datasources.keys().collect::<Vec<_>>(),
-                        ))),
-                    }
-                }
-                TableSource::FromProvider(ref provider) => {
-                    provider.scan(projection, batch_size)
-                }
-            },
+            } => source.scan(projection, batch_size),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
