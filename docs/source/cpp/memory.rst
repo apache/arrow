@@ -25,6 +25,10 @@ Memory Management
 .. seealso::
    :doc:`Memory management API reference <api/memory>`
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 Buffers
 =======
 

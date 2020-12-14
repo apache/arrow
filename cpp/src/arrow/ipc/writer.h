@@ -109,6 +109,11 @@ class ARROW_EXPORT RecordBatchWriter {
   virtual WriteStats stats() const = 0;
 };
 
+/// \defgroup record-batch-writer-factories Functions for creating RecordBatchWriter
+/// instances
+///
+/// @{
+
 /// Create a new IPC stream writer from stream sink and schema. User is
 /// responsible for closing the actual OutputStream.
 ///
@@ -132,38 +137,40 @@ ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
     std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
+/// Create a new IPC file writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// Create a new IPC file writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// @}
 
 ARROW_DEPRECATED("Use MakeStreamWriter")
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options = IpcWriteOptions::Defaults());
-
-/// Create a new IPC file writer from stream sink and schema
-///
-/// \param[in] sink output stream to write to
-/// \param[in] schema the schema of the record batches to be written
-/// \param[in] options options for serialization, optional
-/// \param[in] metadata custom metadata for File Footer, optional
-/// \return Result<std::shared_ptr<RecordBatchWriter>>
-ARROW_EXPORT
-Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
-    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
-
-/// Create a new IPC file writer from stream sink and schema
-///
-/// \param[in] sink output stream to write to
-/// \param[in] schema the schema of the record batches to be written
-/// \param[in] options options for serialization, optional
-/// \param[in] metadata custom metadata for File Footer, optional
-/// \return Result<std::shared_ptr<RecordBatchWriter>>
-ARROW_EXPORT
-Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
-    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
-    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 ARROW_DEPRECATED("Use MakeFileWriter")
 ARROW_EXPORT
