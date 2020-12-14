@@ -76,16 +76,6 @@ cmake ^
   --build . ^
   --config Release ^
   --parallel %NUMBER_OF_PROCESSORS% ^
-  --target grpc_ep || exit /B
-cmake ^
-  --build . ^
-  --config Release ^
-  --parallel %NUMBER_OF_PROCESSORS% ^
-  --target toolchain || exit /B
-cmake ^
-  --build . ^
-  --config Release ^
-  --parallel %NUMBER_OF_PROCESSORS% ^
   --target install || exit /B
 popd
 
