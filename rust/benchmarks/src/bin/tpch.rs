@@ -366,7 +366,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
             where
                 l_shipdate >= date '1994-01-01'
                 and l_shipdate < date '1995-01-01'
-                and l_discount > 0.06 - 0.01 and l_discount < 0.06 + 0.01
+                and l_discount between 0.06 - 0.01 and 0.06 + 0.01
                 and l_quantity < 24;"
         ),
 
@@ -400,7 +400,7 @@ fn create_logical_plan(ctx: &mut ExecutionContext, query: usize) -> Result<Logic
                             (n1.n_name = 'FRANCE' and n2.n_name = 'GERMANY')
                             or (n1.n_name = 'GERMANY' and n2.n_name = 'FRANCE')
                         )
-                        and l_shipdate > date '1995-01-01' and l_shipdate < date '1996-12-31'
+                        and l_shipdate between date '1995-01-01' and date '1996-12-31'
                 ) as shipping
             group by
                 supp_nation,
