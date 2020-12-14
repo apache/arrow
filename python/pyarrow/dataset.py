@@ -382,7 +382,7 @@ def _ensure_single_source(path, filesystem=None):
 def _filesystem_dataset(source, schema=None, filesystem=None,
                         partitioning=None, format=None,
                         partition_base_dir=None, exclude_invalid_files=None,
-                        selector_ignore_prefixes=None):
+                        selector_ignore_prefixes=None, validate_schema=None):
     """
     Create a FileSystemDataset which can be used to build a Dataset.
 
@@ -408,7 +408,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     )
     factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)
 
-    return factory.finish(schema)
+    return factory.finish(schema, validate_schema=validate_schema)
 
 
 def _in_memory_dataset(source, schema=None, **kwargs):
@@ -499,7 +499,8 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
 
 def dataset(source, schema=None, format=None, filesystem=None,
             partitioning=None, partition_base_dir=None,
-            exclude_invalid_files=None, ignore_prefixes=None):
+            exclude_invalid_files=None, ignore_prefixes=None,
+            validate_schema=None):
     """
     Open a dataset.
 
@@ -575,6 +576,17 @@ or tables, iterable of batches, RecordBatchReader, or URI
         discovery process. This is matched to the basename of a path.
         By default this is ['.', '_'].
         Note that discovery happens only if a directory is passed as source.
+    validate_schema : bool or int, optional
+        Whether to validate the specified or inspected schema. By default
+        (``validate_schema=None``), it will not validate a specified schema
+        or will infer the schema from the first fragment if no `schema` is
+        manually specified.
+        When specifying ``validate_schema=True``, all fragments will be
+        checked for inspecting the schema or for validating the specified
+        schema.
+        You can further specify an integer to have greater control on the
+        exact number of fragments that will be inspected to infer or validate
+        the schema.
 
     Returns
     -------
@@ -649,7 +661,8 @@ or tables, iterable of batches, RecordBatchReader, or URI
         format=format,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        selector_ignore_prefixes=ignore_prefixes
+        selector_ignore_prefixes=ignore_prefixes,
+        validate_schema=validate_schema,
     )
 
     if _is_path_like(source):

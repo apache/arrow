@@ -2659,6 +2659,89 @@ def test_filter_mismatching_schema(tempdir):
 
 
 @pytest.mark.parquet
+def test_dataset_validate_schema_keyword(tempdir):
+    # ARROW-8221
+    import pyarrow.parquet as pq
+
+    basedir = tempdir / "dataset_mismatched_schemas"
+    basedir.mkdir()
+
+    table1 = pa.table({'a': [1, 2, 3], 'b': [1, 2, 3]})
+    pq.write_table(table1, basedir / "data1.parquet")
+    table2 = pa.table({'a': ["a", "b", "c"], 'b': [1, 2, 3]})
+    pq.write_table(table2, basedir / "data2.parquet")
+
+    msg_scanning = "matching names but differing types"
+    msg_inspecting = "Unable to merge: Field a has incompatible types"
+
+    # default (inspecting first fragments) works, but fails scanning
+    dataset = ds.dataset(basedir)
+    assert dataset.schema.equals(table1.schema)
+    with pytest.raises(TypeError, match=msg_scanning):
+        dataset.to_table()
+
+    # validate_schema=True -> inspect all elements -> fails on inspection
+    with pytest.raises(ValueError, match=msg_inspecting):
+        ds.dataset(basedir, validate_schema=True)
+
+    # validate_schema=False -> not possible when not specifying a schema
+    with pytest.raises(ValueError, match="no schema was specified manually"):
+        ds.dataset(basedir, validate_schema=False)
+
+    # validate_schema=integer -> the number of fragments to inspect
+    dataset = ds.dataset(basedir, validate_schema=1)
+    assert dataset.schema.equals(table1.schema)
+    with pytest.raises(TypeError, match=msg_scanning):
+        dataset.to_table()
+
+    with pytest.raises(ValueError, match=msg_inspecting):
+        ds.dataset(basedir, validate_schema=2)
+
+    # with specifying a schema
+    schema1 = pa.schema([('a', 'int64'), ('b', 'int64')])
+    schema2 = pa.schema([('a', 'string'), ('b', 'int64')])
+
+    # default (no validation) works, but fails scanning
+    dataset = ds.dataset(basedir, schema=schema1)
+    assert dataset.schema.equals(schema1)
+    with pytest.raises(TypeError, match=msg_scanning):
+        dataset.to_table()
+
+    # validate_schema=False -> same as default
+    dataset = ds.dataset(basedir, schema=schema1, validate_schema=False)
+    assert dataset.schema.equals(schema1)
+    with pytest.raises(TypeError, match=msg_scanning):
+        dataset.to_table()
+
+    # validate_schema=True -> validate schema of all fragments -> fails
+    with pytest.raises(ValueError, match=msg_inspecting):
+        ds.dataset(basedir, schema=schema1, validate_schema=True)
+
+    # validate_schema=integer -> the number of fragments to validate
+    dataset = ds.dataset(basedir, schema=schema1, validate_schema=1)
+    assert dataset.schema.equals(schema1)
+    with pytest.raises(TypeError, match=msg_scanning):
+        dataset.to_table()
+
+    with pytest.raises(ValueError, match=msg_inspecting):
+        ds.dataset(basedir, schema=schema1, validate_schema=2)
+
+    with pytest.raises(ValueError, match=msg_inspecting):
+        ds.dataset(basedir, schema=schema2, validate_schema=1)
+
+    # validate_schema=integer -> integer needs to be positive
+    with pytest.raises(ValueError, match="positive number of fragments"):
+        ds.dataset(basedir, validate_schema=0)
+
+    with pytest.raises(ValueError, match="positive number of fragments"):
+        ds.dataset(basedir, schema=schema1, validate_schema=0)
+
+    # invalid value for the keyword
+    with pytest.raises(TypeError,):
+        ds.dataset(basedir, validate_schema="test")
+
+
+@pytest.mark.parquet
 @pytest.mark.pandas
 def test_dataset_project_only_partition_columns(tempdir):
     # ARROW-8729

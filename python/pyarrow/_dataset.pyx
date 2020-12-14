@@ -2149,7 +2149,7 @@ cdef class DatasetFactory(_Weakrefable):
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
 
-    def finish(self, Schema schema=None):
+    def finish(self, Schema schema=None, object validate_schema=None):
         """
         Create a Dataset using the inspected schema or an explicit schema
         (if given).
@@ -2165,16 +2165,48 @@ cdef class DatasetFactory(_Weakrefable):
         Dataset
         """
         cdef:
+            CFinishOptions options
+            CInspectOptions inspect_options
             shared_ptr[CSchema] sp_schema
             CResult[shared_ptr[CDataset]] result
+            bint validate_fragments = False
+            int fragments
 
         if schema is not None:
             sp_schema = pyarrow_unwrap_schema(schema)
-            with nogil:
-                result = self.factory.FinishWithSchema(sp_schema)
+            options.schema = sp_schema
+
+        if validate_schema is None:
+            # default of not validating the schema (if specified) or
+            # using the first fragment to inspect schema (fragments=1)
+            pass
+        elif isinstance(validate_schema, bool):
+            if validate_schema:
+                # validate_schema=True -> validate or inspect all fragments
+                validate_fragments = True
+                inspect_options.fragments = -1
+            else:
+                if schema is None:
+                    raise ValueError(
+                        "cannot specify validate_schema=False when no schema "
+                        "was specified manually"
+                    )
         else:
-            with nogil:
-                result = self.factory.Finish()
+            fragments = validate_schema
+            if fragments > 0:
+                validate_fragments = True
+                inspect_options.fragments = fragments
+            else:
+                raise ValueError(
+                    "need to specify positive number of fragments for which "
+                    "to validate the schema"
+                )
+
+        options.validate_fragments = validate_fragments
+        options.inspect_options = inspect_options
+
+        with nogil:
+            result = self.factory.FinishWithOptions(options)
 
         return Dataset.wrap(GetResultValue(result))
 
