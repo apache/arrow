@@ -165,7 +165,7 @@ Usage of `unsafe` for performance reasons is justified only when the performance
 Usage of `unsafe` in this crate *must*:
 
 * not expose a public API as `safe` when there are necessary invariants for that API to be defined behavior.
-* have code documentation for why a `safe` is not used / possible (e.g. `// 30% performance degradation if the safe counterpart is used, see bench X`)
+* have code documentation for why `safe` is not used / possible (e.g. `// 30% performance degradation if the safe counterpart is used, see bench X`)
 * have code documentation about which invariant the user needs to enforce to ensure no undefined behavior (e.g. `// this buffer must be constructed according to the arrow specification`)
 * if applicable, have the necessary `assert`s (not `debug_assert`!) of invariants.
 
