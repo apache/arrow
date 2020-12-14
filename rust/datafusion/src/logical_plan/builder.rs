@@ -65,7 +65,7 @@ impl LogicalPlanBuilder {
         schema: SchemaRef,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let provider = Arc::new(MemTable::try_new(schema.clone(), partitions)?);
+        let provider = Arc::new(MemTable::try_new(schema, partitions)?);
         Self::scan("", provider, projection)
     }
 
@@ -107,7 +107,7 @@ impl LogicalPlanBuilder {
         let projected_schema = projection
             .as_ref()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
-            .map_or(schema.clone(), SchemaRef::new)
+            .map_or(schema, SchemaRef::new)
             .to_dfschema_ref()?;
 
         let table_scan = LogicalPlan::TableScan {
