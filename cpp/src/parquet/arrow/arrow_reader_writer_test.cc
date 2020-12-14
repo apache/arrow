@@ -3333,7 +3333,7 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   auto outer_array = ::arrow::ArrayFromJSON(
       type,
       R"([{"s": "abc", "d": "1.23", "b": true, "i8": 10, "i64": 11 },
-          {"s": "de", "d": "3.45",  "b": true, "i8": 12, "i64": 13 },
+          {"s": "de", "d": "3.45", "b": true, "i8": 12, "i64": 13 },
           {"s": "fghi", "d": "6.78", "b": false, "i8": 14, "i64": 15 },
           {},
           {"s": "jklmo", "d": "9.10", "b": true, "i8": 16, "i64": 17 },

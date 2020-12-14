@@ -409,11 +409,11 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
                                         const std::shared_ptr<DataType>& type,
                                         MemoryPool* pool, std::shared_ptr<Array>* out) {
     const auto& fixed_size_binary_array =
-        static_cast<const ::arrow::FixedSizeBinaryArray&>(array);
+        checked_cast<const ::arrow::FixedSizeBinaryArray&>(array);
 
     // The byte width of each decimal value
     const int32_t type_length =
-        static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+        static_cast<const ::arrow::DecimalType&>(*type).byte_width();
 
     // number of elements in the entire array
     const int64_t length = fixed_size_binary_array.length();
@@ -422,7 +422,7 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
     // this will be different from the decimal array width because we write the minimum
     // number of bytes necessary to represent a given precision
     const int32_t byte_width =
-        static_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
+        checked_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
             .byte_width();
     // allocate memory for the decimal array
     ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
@@ -439,6 +439,8 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
         if (!fixed_size_binary_array.IsNull(i)) {
           RETURN_NOT_OK(RawBytesToDecimalBytes<DecimalType>(
               fixed_size_binary_array.GetValue(i), byte_width, out_ptr));
+        } else {
+          std::memset(out_ptr, 0, type_length);
         }
       }
     } else {
@@ -510,9 +512,14 @@ template <
                                     std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type, Datum* out) {
-  // Decimal256 isn't relevant here because this library never writes
-  // Decimal values as integers and if the decimal value can fit in an
-  // integer it is wasteful to use Decimal256.
+  // Decimal128 and Decimal256 are only Arrow constructs.  Parquet does not
+  // specifically distinguish between decimal byte widths.
+  // Decimal256 isn't relevant here because the Arrow-Parquet C++ bindings never
+  // write Decimal values as integers and if the decimal value can fit in an
+  // integer it is wasteful to use Decimal256. Put another way, the only
+  // way an integer column could be construed as Decimal256 is if an arrow
+  // schema was stored as metadata in the file indicating the column was
+  // Decimal256. The current Arrow-Parquet C++ bindings will never do this.
   DCHECK(type->id() == ::arrow::Type::DECIMAL128);
 
   const int64_t length = reader->values_written();
@@ -648,7 +655,7 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
         } break;
         default:
           return Status::Invalid(
-              "Physical type for decimal must be int32, int64, byte array, or fixed "
+              "Physical type for decimal128 must be int32, int64, byte array, or fixed "
               "length binary");
       }
     } break;
@@ -664,8 +671,7 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
         } break;
         default:
           return Status::Invalid(
-              "Physical type for decimal must be int32, int64, byte array, or fixed "
-              "length binary");
+              "Physical type for decimal256 must be fixed length binary");
       }
       break;
 
