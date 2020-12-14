@@ -96,7 +96,7 @@ pub enum DataType {
     /// * As used in the Olson time zone database (the "tz database" or
     ///   "tzdata"), such as "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-    Timestamp(TimeUnit, Option<Arc<String>>),
+    Timestamp(TimeUnit, Option<String>),
     /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
     Date32(DateUnit),
@@ -994,7 +994,7 @@ impl DataType {
                     };
                     let tz = match map.get("timezone") {
                         None => Ok(None),
-                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        Some(VString(tz)) => Ok(Some(tz.clone())),
                         _ => Err(ArrowError::ParseError(
                             "timezone must be a string".to_string(),
                         )),
@@ -2068,17 +2068,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),

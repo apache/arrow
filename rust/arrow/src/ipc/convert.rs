@@ -24,7 +24,6 @@ use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use DataType::*;
 
@@ -216,8 +215,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
         }
         ipc::Type::Timestamp => {
             let timestamp = field.type_as_timestamp().unwrap();
-            let timezone: Option<Arc<String>> =
-                timestamp.timezone().map(|tz| Arc::new(tz.to_string()));
+            let timezone: Option<String> = timestamp.timezone().map(|tz| tz.to_string());
             match timestamp.unit() {
                 ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second, timezone),
                 ipc::TimeUnit::MILLISECOND => {
@@ -479,7 +477,7 @@ pub(crate) fn get_fb_field_type<'a>(
             }
         }
         Timestamp(unit, tz) => {
-            let tz = tz.clone().unwrap_or_else(|| Arc::new(String::new()));
+            let tz = tz.clone().unwrap_or_else(String::new);
             let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(fbb);
             let time_unit = match unit {
@@ -680,7 +678,7 @@ mod tests {
                     "timestamp[us]",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),
