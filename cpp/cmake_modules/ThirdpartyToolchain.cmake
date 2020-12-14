@@ -2135,6 +2135,9 @@ macro(build_re2)
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
   set(RE2_VENDORED TRUE)
+  # Set values so that FindRE2 finds this too
+  set(RE2_LIB ${RE2_STATIC_LIB})
+  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
 endmacro()
