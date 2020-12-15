@@ -528,10 +528,10 @@ impl Parser for Date64Type {
     fn parse(string: &str) -> Option<i64> {
         match Self::DATA_TYPE {
             DataType::Date64(DateUnit::Millisecond) => {
-                let millis =
-                string.parse::<chrono::NaiveDateTime>()
-                        .map(|t| t.timestamp_millis())
-                        .ok()?;
+                let millis = string
+                    .parse::<chrono::NaiveDateTime>()
+                    .map(|t| t.timestamp_millis())
+                    .ok()?;
                 Self::Native::from_i64(millis)
             }
             _ => None,
