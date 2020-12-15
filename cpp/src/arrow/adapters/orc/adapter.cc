@@ -45,7 +45,6 @@
 #include "arrow/util/range.h"
 #include "arrow/util/visibility.h"
 #include "orc/Exceptions.hh"
-#include "orc/OrcFile.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -453,72 +452,27 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
-class ORCFileWriter::Impl {
- public:
-  Status Open(Schema* schema, const std::shared_ptr<io::FileOutputStream>& file,
-              std::shared_ptr<liborc::WriterOptions> options,
-              std::shared_ptr<ArrowWriterOptions> arrow_options,
-              std::unique_ptr<ORCFileWriter>* writer) {
-    std::unique_ptr<ArrowOutputFile> io_wrapper(new ArrowOutputFile(file));
-    std::unique_ptr<liborc::Writer> liborc_writer;
-    std::unique_ptr<liborc::Type> orcSchema;
-    ORC_THROW_NOT_OK(GetORCType(schema, &orcSchema));
-    try {
-      liborc_writer = createWriter(*orcSchema, io_wrapper.get(), *options);
-    } catch (const liborc::ParseError& e) {
-      return Status::IOError(e.what());
-    }
-    writer_ = std::move(liborc_writer);
-    schema_ = schema;
-    arrow_options_ = arrow_options;
-    num_cols_ = schema->num_fields();
-    return Status::OK();
-  }
-  Status Write(const std::shared_ptr<Table> table) {
-    int64_t numRows = table->num_rows();
-    int64_t batch_size = static_cast<int64_t>(arrow_options_->get_batch_size());
-    int64_t arrowIndexOffset[num_cols_];
-    int arrowChunkOffset[num_cols_];
-    for (int i = 0; i < num_cols_; i++) {
-      arrowIndexOffset[i] = 0;
-      arrowChunkOffset[i] = 0;
-    }
-    ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer_->createRowBatch(batch_size);
-    liborc::StructVectorBatch* root =
-        internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-    std::vector<liborc::ColumnVectorBatch*> fields = root->fields;
-    while (numRows > 0) {
-      for (int i = 0; i < num_cols_; i++) {
-        ORC_THROW_NOT_OK(adapters::orc::FillBatch(
-            schema_->field(i)->type().get(), fields[i], arrowIndexOffset[i],
-            arrowChunkOffset[i], batch_size, table->column(i).get()));
-      }
-      writer_->add(*batch);
-      batch->clear();
-      numRows -= batch_size;
-    }
-    writer_->close();
-    return Status::OK();
-  }
-
- private:
-  std::unique_ptr<liborc::Writer> writer_;
-  std::shared_ptr<ArrowWriterOptions> arrow_options_;
-  Schema* schema_;
-  int num_cols_;
-};
-
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 ORCFileWriter::~ORCFileWriter() {}
 
-Status ORCFileWriter::Open(Schema* schema,
-                           const std::shared_ptr<io::FileOutputStream>& file,
-                           std::shared_ptr<liborc::WriterOptions> options,
-                           std::shared_ptr<ArrowWriterOptions> arrow_options,
+Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
+                           const std::string file_name,
+                           const std::shared_ptr<liborc::WriterOptions>& options,
+                           const std::shared_ptr<ArrowWriterOptions>& arrow_options,
                            std::unique_ptr<ORCFileWriter>* writer) {
   auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  ORC_THROW_NOT_OK(result->impl_->Open(schema, file, options, arrow_options, writer));
+  ORC_THROW_NOT_OK(result->impl_->Open(schema, file_name, options, arrow_options));
+  *writer = std::move(result);
+  return Status::OK();
+}
+Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
+                           const std::shared_ptr<io::FileOutputStream>& file,
+                           const std::shared_ptr<liborc::WriterOptions>& options,
+                           const std::shared_ptr<ArrowWriterOptions>& arrow_options,
+                           std::unique_ptr<ORCFileWriter>* writer) {
+  auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
+  ORC_THROW_NOT_OK(result->impl_->Open(schema, file, options, arrow_options));
   *writer = std::move(result);
   return Status::OK();
 }
