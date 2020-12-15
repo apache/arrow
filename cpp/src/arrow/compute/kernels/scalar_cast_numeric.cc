@@ -282,7 +282,9 @@ struct ParseString {
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
     OutValue result = OutValue(0);
     if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
-      ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
+      ctx->SetStatus(Status::Invalid("Failed to parse string: '", val,
+                                     "' as a scalar of type ",
+                                     TypeTraits<OutType>::type_singleton()->ToString()));
     }
     return result;
   }

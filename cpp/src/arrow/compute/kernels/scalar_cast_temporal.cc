@@ -298,7 +298,8 @@ struct ParseTimestamp {
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
     OutValue result = 0;
     if (ARROW_PREDICT_FALSE(!ParseValue(type, val.data(), val.size(), &result))) {
-      ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
+      ctx->SetStatus(Status::Invalid("Failed to parse string: '", val,
+                                     "' as a scalar of type ", type.ToString()));
     }
     return result;
   }

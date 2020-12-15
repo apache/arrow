@@ -60,7 +60,7 @@ test_that("C++ expressions", {
   expect_is(!(f < 4), "Expression")
   expect_output(
     print(f > 4),
-    'Expression\n(f > 4:double)',
+    'Expression\n(f > 4)',
     fixed = TRUE
   )
   # Interprets that as a list type
