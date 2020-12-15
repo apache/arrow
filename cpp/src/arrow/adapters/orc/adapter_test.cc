@@ -110,30 +110,30 @@ class MemoryOutputStream : public liborc::OutputStream {
   uint64_t length_, natural_write_size_;
 };
 
-class MemoryOutputStreamV2 : public adapters::orc::ArrowOutputFile {
- public:
-  explicit MemoryOutputStreamV2(ssize_t capacity)
-      : ArrowOutputFile(nullptr), data_(capacity) {}
+// class MemoryOutputStreamV2 : public adapters::orc::ArrowOutputFile {
+//  public:
+//   explicit MemoryOutputStreamV2(ssize_t capacity)
+//       : ArrowOutputFile(nullptr), data_(capacity) {}
 
-  void write(const void* buf, size_t size) {
-    memcpy(data_.data() + get_length(), buf, size);
-    set_length(get_length() + size);
-  }
+//   void write(const void* buf, size_t size) {
+//     memcpy(data_.data() + get_length(), buf, size);
+//     set_length(get_length() + size);
+//   }
 
-  const std::string& getName() const {
-    static const std::string filename("MemoryOutputStreamV2");
-    return filename;
-  }
+//   const std::string& getName() const {
+//     static const std::string filename("MemoryOutputStreamV2");
+//     return filename;
+//   }
 
-  const char* getData() const { return data_.data(); }
+//   const char* getData() const { return data_.data(); }
 
-  void close() {}
+//   void close() {}
 
-  void reset() { set_length(0); }
+//   void reset() { set_length(0); }
 
- private:
-  std::vector<char> data_;
-};
+//  private:
+//   std::vector<char> data_;
+// };
 
 std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
                                              const liborc::Type& type,
@@ -16335,53 +16335,6 @@ TEST(TestAdapterWriteNested, writeSparseUnionChunkedMultibatch) {
   writer->close();
 }
 
-TEST(TestAdapterWriteWrapper, wrapInt8NoNulls) {
-  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
-      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/test2.orc");
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, outStream.get(), options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::LongVectorBatch* x =
-      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
-  x->data[0] = 1;
-  x->data[1] = 2;
-  x->numElements = 2;
-  root->numElements = 2;
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteWrapper, wrapInt8NoNullsApp) {
-  std::shared_ptr<io::FileOutputStream> file =
-      std::move(io::FileOutputStream::Open(
-                    "/Users/karlkatzen/Documents/code/orc-files/test.orc", false))
-          .ValueOrDie();
-  std::unique_ptr<adapters::orc::ArrowOutputFile> io_wrapper(
-      new adapters::orc::ArrowOutputFile(file));
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:tinyint>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer =
-      createWriter(*schema, io_wrapper.get(), options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::LongVectorBatch* x =
-      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
-  x->data[0] = 1;
-  x->data[0] = 1;
-  x->data[1] = 2;
-  x->numElements = 2;
-  root->numElements = 2;
-  writer->add(*batch);
-  writer->close();
-}
-
 TEST(TestAdapterWriteWrapper, wrapInt) {
   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
   ORC_UNIQUE_PTR<liborc::Type> schema(
@@ -16422,274 +16375,7 @@ TEST(TestAdapterWriteWrapper, wrapInt) {
   writer->close();
   RecordProperty("length", mem_stream.getLength());
 }
-// TEST(TestAdapterWriteWrapper, writeLListChunkedMultibatch) {
-//   auto sharedPtrArrowType = list(std::make_shared<Field>("a", int32()));
-//   DataType* arrowType = sharedPtrArrowType.get();
-//   int64_t totalLength = 100;
-//   int64_t totalElementLength = 150;
-//   int64_t batchSize = 75;
-//   Int32Builder valuesBuilder1, valuesBuilder3;
-//   int32_t offset1[51], offset3[51];
 
-//   offset1[0] = 0;
-//   for (int i = 0; i < 50; i++) {
-//     switch (i % 4) {
-//       case 0: {
-//         offset1[i + 1] = offset1[i];
-//         break;
-//       }
-//       case 1: {
-//         (void)(valuesBuilder1.Append(i - 1));
-//         offset1[i + 1] = offset1[i] + 1;
-//         break;
-//       }
-//       case 2: {
-//         (void)(valuesBuilder1.AppendNull());
-//         (void)(valuesBuilder1.AppendNull());
-//         offset1[i + 1] = offset1[i] + 2;
-//         break;
-//       }
-//       default: {
-//         (void)(valuesBuilder1.Append(i - 1));
-//         (void)(valuesBuilder1.AppendNull());
-//         (void)(valuesBuilder1.AppendNull());
-//         offset1[i + 1] = offset1[i] + 3;
-//       }
-//     }
-//   }
-
-//   offset3[0] = 0;
-//   for (int i = 0; i < 50; i++) {
-//     switch ((i + 50) % 4) {
-//       case 0: {
-//         offset3[i + 1] = offset3[i];
-//         break;
-//       }
-//       case 1: {
-//         (void)(valuesBuilder3.Append(i + 50 - 1));
-//         offset3[i + 1] = offset3[i] + 1;
-//         break;
-//       }
-//       case 2: {
-//         (void)(valuesBuilder3.AppendNull());
-//         (void)(valuesBuilder3.AppendNull());
-//         offset3[i + 1] = offset3[i] + 2;
-//         break;
-//       }
-//       default: {
-//         (void)(valuesBuilder3.Append(i + 50 - 1));
-//         (void)(valuesBuilder3.AppendNull());
-//         (void)(valuesBuilder3.AppendNull());
-//         offset3[i + 1] = offset3[i] + 3;
-//       }
-//     }
-//   }
-
-//   // Every third entry has null at struct level
-//   uint8_t bitmap1[7] = {
-//       182, 109, 219, 182,
-//       109, 219, 2};  // 10110110 01101101 11011011 10110110 01101101 11011011 00000010
-//   uint8_t bitmap3[7] = {
-//       109, 219, 182, 109,
-//       219, 182, 1};  // 01101101 11011011 10110110 01101101 11011011 10110110 00000001
-
-//   BufferBuilder builder1, builder3, offsetsBuilder1, offsetsBuilder3;
-//   (void)(builder1.Resize(7));
-//   (void)(builder1.Append(bitmap1, 7));
-//   std::shared_ptr<arrow::Buffer> bitmapBuffer1;
-//   if (!builder1.Finish(&bitmapBuffer1).ok()) {
-//     FAIL() << "The offsets buffer can not be constructed!";
-//   }
-//   (void)(builder3.Resize(7));
-//   (void)(builder3.Append(bitmap3, 7));
-//   std::shared_ptr<arrow::Buffer> bitmapBuffer3;
-//   if (!builder3.Finish(&bitmapBuffer3).ok()) {
-//     FAIL() << "The offsets buffer can not be constructed!";
-//   }
-
-//   (void)(offsetsBuilder1.Resize(204));
-//   (void)(offsetsBuilder1.Append(offset1, 204));
-//   std::shared_ptr<arrow::Buffer> offsetsBuffer1;
-//   if (!offsetsBuilder1.Finish(&offsetsBuffer1).ok()) {
-//     FAIL() << "The offsets buffer can not be constructed!";
-//   }
-//   (void)(offsetsBuilder3.Resize(204));
-//   (void)(offsetsBuilder3.Append(offset3, 204));
-//   std::shared_ptr<arrow::Buffer> offsetsBuffer3;
-//   if (!offsetsBuilder3.Finish(&offsetsBuffer3).ok()) {
-//     FAIL() << "The offsets buffer can not be constructed!";
-//   }
-
-//   Int32Builder valuesBuilder0, offsetsBuilder0, valuesBuilder2, offsetsBuilder2,
-//       valuesBuilder4, offsetsBuilder4;
-//   std::shared_ptr<Array> valuesArray0, offsetsArray0, valuesArray2, offsetsArray2,
-//       valuesArray4, offsetsArray4;
-//   (void)(valuesBuilder0.Finish(&valuesArray0));
-//   (void)(offsetsBuilder0.Append(0));
-//   (void)(offsetsBuilder0.Finish(&offsetsArray0));
-//   (void)(valuesBuilder2.Finish(&valuesArray2));
-//   (void)(offsetsBuilder2.Append(0));
-//   (void)(offsetsBuilder2.Finish(&offsetsArray2));
-//   (void)(valuesBuilder4.Finish(&valuesArray4));
-//   (void)(offsetsBuilder4.Append(0));
-//   (void)(offsetsBuilder4.Finish(&offsetsArray4));
-
-//   std::shared_ptr<Array> valuesArray1, valuesArray3;
-//   (void)(valuesBuilder1.Finish(&valuesArray1));
-//   (void)(valuesBuilder3.Finish(&valuesArray3));
-
-//   std::shared_ptr<ListArray> array0 =
-//       ListArray::FromArrays(*offsetsArray0, *valuesArray0).ValueOrDie();
-//   std::shared_ptr<ListArray> array2 =
-//       ListArray::FromArrays(*offsetsArray2, *valuesArray2).ValueOrDie();
-//   std::shared_ptr<ListArray> array4 =
-//       ListArray::FromArrays(*offsetsArray4, *valuesArray4).ValueOrDie();
-//   auto array1 = std::make_shared<ListArray>(sharedPtrArrowType, 50, offsetsBuffer1,
-//                                             valuesArray1, bitmapBuffer1);
-//   auto array3 = std::make_shared<ListArray>(sharedPtrArrowType, 50, offsetsBuffer3,
-//                                             valuesArray3, bitmapBuffer3);
-
-//   ArrayVector av;
-//   av.push_back(array0);
-//   av.push_back(array1);
-//   av.push_back(array2);
-//   av.push_back(array3);
-//   av.push_back(array4);
-//   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
-
-//   ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
-//       liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/test3.orc");
-//   ORC_UNIQUE_PTR<liborc::Type> schema(
-//       liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
-//   liborc::WriterOptions options;
-//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, outStream.get(),
-//   options); ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch =
-//   writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
-//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-//   liborc::ListVectorBatch* x =
-//       internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
-//   liborc::LongVectorBatch* a =
-//       internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
-//   int64_t arrowIndexOffset = 0;
-//   int arrowChunkOffset = 0;
-//   int64_t resultOffset = 0;
-//   int64_t oldValueOffset = 0, valueOffset = 0;
-//   while (resultOffset < totalLength - batchSize) {
-//     Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
-//     arrowChunkOffset,
-//                                          batchSize, carray.get());
-//     if (!st.ok()) {
-//       FAIL() << "ORC ColumnBatch not successfully filled";
-//     }
-//     root->numElements = x->numElements;
-//     writer->add(*batch);
-//     // RecordProperty("aio-" + std::to_string(resultOffset), arrowIndexOffset);
-//     // RecordProperty("aco-" + std::to_string(resultOffset), arrowChunkOffset);
-//     for (int64_t i = 0; i < batchSize; i++) {
-//       // RecordProperty("xn-res" + std::to_string(i + resultOffset), x->notNull[i]);
-//       // RecordProperty("xo-res" + std::to_string(resultOffset) + "-" +
-//       //                    std::to_string(i + resultOffset),
-//       //                x->offsets[i]);
-//       if ((i + resultOffset) % 3) {
-//         EXPECT_TRUE(x->notNull[i]);
-//       } else {
-//         EXPECT_FALSE(x->notNull[i]);
-//       }
-//       EXPECT_EQ(x->offsets[i], testListOffsetGenerator(i + resultOffset) -
-//                                    testListOffsetGenerator(resultOffset));
-//     }
-//     EXPECT_EQ(x->offsets[batchSize], testListOffsetGenerator(batchSize + resultOffset)
-//     -
-//                                          testListOffsetGenerator(resultOffset));
-//     // RecordProperty("xo-res" + std::to_string(resultOffset) + "-" +
-//     //                    std::to_string(batchSize + resultOffset),
-//     //                x->offsets[batchSize]);
-//     resultOffset = resultOffset + batchSize;
-//     oldValueOffset = valueOffset;
-//     valueOffset = testListOffsetGenerator(resultOffset);
-//     // RecordProperty("vo-res" + std::to_string(resultOffset), oldValueOffset);
-//     // RecordProperty("vn-res" + std::to_string(resultOffset), valueOffset);
-//     for (int64_t j = 0; j < valueOffset - oldValueOffset; j++) {
-//       // RecordProperty("an-res" + std::to_string(j + oldValueOffset), a->notNull[j]);
-//       // RecordProperty("av-res" + std::to_string(j + oldValueOffset), a->data[j]);
-//       if ((j + oldValueOffset) % 3) {
-//         EXPECT_FALSE(a->notNull[j]);
-//       } else {
-//         EXPECT_TRUE(a->notNull[j]);
-//         EXPECT_EQ(a->data[j], (j + oldValueOffset) * 2 / 3);
-//       }
-//     }
-//     EXPECT_EQ(x->numElements, batchSize);
-//     EXPECT_EQ(a->numElements, valueOffset - oldValueOffset);
-//     EXPECT_TRUE(x->hasNulls);
-//     EXPECT_TRUE(a->hasNulls);
-//     batch->clear();
-//   }
-//   Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
-//   arrowChunkOffset,
-//                                        batchSize, carray.get());
-
-//   // RecordProperty("aio-" + std::to_string(resultOffset), arrowIndexOffset);
-//   // RecordProperty("aco-" + std::to_string(resultOffset), arrowChunkOffset);
-//   if (!st.ok()) {
-//     FAIL() << "ORC ColumnBatch not successfully filled";
-//   }
-//   int64_t lastBatchSize = totalLength - resultOffset;
-//   EXPECT_EQ(x->numElements, lastBatchSize);
-//   EXPECT_EQ(a->numElements, totalElementLength - valueOffset);
-//   EXPECT_TRUE(x->hasNulls);
-//   EXPECT_TRUE(a->hasNulls);
-//   // RecordProperty("vo-res" + std::to_string(resultOffset), oldValueOffset);
-//   // RecordProperty("vn-res" + std::to_string(resultOffset), valueOffset);
-//   for (int64_t i = 0; i < lastBatchSize; i++) {
-//     // RecordProperty("xn-res" + std::to_string(i + resultOffset), x->notNull[i]);
-//     // RecordProperty(
-//     //     "xo-res" + std::to_string(resultOffset) + "-" + std::to_string(i +
-//     //     resultOffset), x->offsets[i]);
-//     if ((i + resultOffset) % 3) {
-//       EXPECT_TRUE(x->notNull[i]);
-//     } else {
-//       EXPECT_FALSE(x->notNull[i]);
-//     }
-//     EXPECT_EQ(x->offsets[i], testListOffsetGenerator(i + resultOffset) -
-//                                  testListOffsetGenerator(resultOffset));
-//   }
-//   EXPECT_EQ(x->offsets[lastBatchSize],
-//             totalElementLength - testListOffsetGenerator(resultOffset));
-//   // RecordProperty("xo-res" + std::to_string(resultOffset) + "-" +
-//   std::to_string(100),
-//   //                x->offsets[lastBatchSize]);
-//   oldValueOffset = valueOffset;
-//   valueOffset = totalElementLength;
-//   for (int64_t j = 0; j < valueOffset - oldValueOffset; j++) {
-//     // RecordProperty("an-res" + std::to_string(j + oldValueOffset), a->notNull[j]);
-//     // RecordProperty("av-res" + std::to_string(j + oldValueOffset), a->data[j]);
-//     if ((j + oldValueOffset) % 3) {
-//       EXPECT_FALSE(a->notNull[j]);
-//     } else {
-//       EXPECT_TRUE(a->notNull[j]);
-//       EXPECT_EQ(a->data[j], (j + oldValueOffset) * 2 / 3);
-//     }
-//   }
-//   root->numElements = x->numElements;
-//   writer->add(*batch);
-//   writer->close();
-// }
-TEST(TestAdapterWriteWrapper, cat) {
-  int8_t buf[16] = {12, 103, 23, 13, 43, 21, 2, 42, 42, -110, 32, -21, 34, -3, 21, -104};
-  std::shared_ptr<io::FileOutputStream> file =
-      std::move(io::FileOutputStream::Open(
-                    "/Users/karlkatzen/Documents/code/orc-files/test", false))
-          .ValueOrDie();
-  std::unique_ptr<adapters::orc::ArrowOutputFile> io_wrapper(
-      new adapters::orc::ArrowOutputFile(file));
-  io_wrapper->write(buf, 16);
-  io_wrapper->close();
-  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
-      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/test-old");
-  outStream->write(buf, 16);
-  outStream->close();
-}
 TEST(TestAdapterWriteWrapper, wrapperTest) {
   std::vector<std::shared_ptr<Field>> xFields{
       arrow::field("a", int8()), arrow::field("b", float64()), arrow::field("c", utf8())};
@@ -16709,10 +16395,10 @@ TEST(TestAdapterWriteWrapper, wrapperTest) {
   (void)(builder2.Append(6.5));
   (void)(builder2.Append(-82.52));
   (void)(builder2.Finish(&array2));
-  (void)(builder3.Append("Shalom"));
+  (void)(builder3.Append("Shalom Aleichem!"));
   (void)(builder3.AppendNull());
   (void)(builder3.AppendNull());
-  (void)(builder3.Append("Baruch"));
+  (void)(builder3.Append("Baruch Hashem!"));
   (void)(builder3.Finish(&array3));
   ArrayVector av1, av2, av3;
   av1.push_back(array10);
@@ -16732,12 +16418,11 @@ TEST(TestAdapterWriteWrapper, wrapperTest) {
       std::make_shared<liborc::WriterOptions>();
   std::shared_ptr<adapters::orc::ArrowWriterOptions> arrow_options =
       std::make_shared<adapters::orc::ArrowWriterOptions>(1);
-  auto result =
-      std::unique_ptr<adapters::orc::ORCFileWriter>(new adapters::orc::ORCFileWriter());
-  ORC_THROW_NOT_OK(result->Open(sharedPtrSchema,
-                                "/Users/karlkatzen/Documents/code/orc-files/test3.orc",
-                                options, arrow_options));
-  ORC_THROW_NOT_OK(result->Write(table));
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+  ORC_THROW_NOT_OK(adapters::orc::ORCFileWriter::Open(
+      sharedPtrSchema, "/Users/karlkatzen/Documents/code/orc-files/test3.orc", options,
+      arrow_options, &writer));
+  ORC_THROW_NOT_OK(writer->Write(table));
 }  // namespace arrow
 TEST(TestAdapterWriteWrapper, wrapperTest2) {
   std::vector<std::shared_ptr<Field>> xFields{
@@ -16758,10 +16443,10 @@ TEST(TestAdapterWriteWrapper, wrapperTest2) {
   (void)(builder2.Append(6.5));
   (void)(builder2.Append(-82.52));
   (void)(builder2.Finish(&array2));
-  (void)(builder3.Append("Shalom"));
+  (void)(builder3.Append("Shalom Aleichem!"));
   (void)(builder3.AppendNull());
   (void)(builder3.AppendNull());
-  (void)(builder3.Append("Baruch"));
+  (void)(builder3.Append("Baruch Hashem!"));
   (void)(builder3.Finish(&array3));
   ArrayVector av1, av2, av3;
   av1.push_back(array10);
@@ -16780,17 +16465,14 @@ TEST(TestAdapterWriteWrapper, wrapperTest2) {
   std::shared_ptr<liborc::WriterOptions> options =
       std::make_shared<liborc::WriterOptions>();
   std::shared_ptr<adapters::orc::ArrowWriterOptions> arrow_options =
-      std::make_shared<adapters::orc::ArrowWriterOptions>(1);
-  auto result = std::unique_ptr<adapters::orc::ORCFileWriter::Impl>(
-      new adapters::orc::ORCFileWriter::Impl());
-
-  std::unique_ptr<liborc::Writer> liborc_writer;
-  std::unique_ptr<liborc::Type> orcSchema;
+      std::make_shared<adapters::orc::ArrowWriterOptions>(3);
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer;
   std::shared_ptr<io::FileOutputStream> file =
       std::move(io::FileOutputStream::Open(
                     "/Users/karlkatzen/Documents/code/orc-files/test4.orc", false))
           .ValueOrDie();
-  ORC_THROW_NOT_OK(result->Open(sharedPtrSchema, file, options, arrow_options));
-  ORC_THROW_NOT_OK(result->Write(table));
+  ORC_THROW_NOT_OK(adapters::orc::ORCFileWriter::Open(sharedPtrSchema, file, options,
+                                                      arrow_options, &writer));
+  ORC_THROW_NOT_OK(writer->Write(table));
 }
 }  // namespace arrow
