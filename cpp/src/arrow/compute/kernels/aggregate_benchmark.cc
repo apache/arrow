@@ -457,5 +457,36 @@ VARIANCE_KERNEL_BENCHMARK(VarianceKernelInt64, Int64Type);
 VARIANCE_KERNEL_BENCHMARK(VarianceKernelFloat, FloatType);
 VARIANCE_KERNEL_BENCHMARK(VarianceKernelDouble, DoubleType);
 
+//
+// Quantile
+//
+
+template <typename ArrowType>
+void QuantileKernelBench(benchmark::State& state) {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+  QuantileOptions options;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(CType);
+  auto rand = random::RandomArrayGenerator(1926);
+  auto array = rand.Numeric<ArrowType>(array_size, -30000, 30000, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Quantile(array, options).status());
+  }
+}
+
+static void QuantileKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});
+}
+
+#define QUANTILE_KERNEL_BENCHMARK(FuncName, Type)                                     \
+  static void FuncName(benchmark::State& state) { QuantileKernelBench<Type>(state); } \
+  BENCHMARK(FuncName)->Apply(QuantileKernelBenchArgs)
+
+QUANTILE_KERNEL_BENCHMARK(QuantileKernelInt32, Int32Type);
+QUANTILE_KERNEL_BENCHMARK(QuantileKernelInt64, Int64Type);
+QUANTILE_KERNEL_BENCHMARK(QuantileKernelDouble, DoubleType);
+
 }  // namespace compute
 }  // namespace arrow
