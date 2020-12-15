@@ -267,7 +267,7 @@ class ARROW_EXPORT StreamDecoder {
   /// Listener::OnRecordBatchDecoded() to receive decoded record batches
   /// \param[in] options any IPC reading options (optional)
   StreamDecoder(std::shared_ptr<Listener> listener,
-                const IpcReadOptions& options = IpcReadOptions::Defaults());
+                IpcReadOptions options = IpcReadOptions::Defaults());
 
   virtual ~StreamDecoder();
 
@@ -359,6 +359,9 @@ class ARROW_EXPORT StreamDecoder {
   /// \return the number of bytes needed to advance the state of the
   /// decoder
   int64_t next_required_size() const;
+
+  /// \brief Return current read statistics
+  ReadStats stats() const;
 
  private:
   class StreamDecoderImpl;
