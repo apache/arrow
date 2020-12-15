@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, IntervalUnit, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
@@ -300,8 +300,43 @@ fn write_leaf(
             }
             _ => unreachable!("Currently unreachable because data type not supported"),
         },
-        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut _typed) => {
-            unreachable!("Currently unreachable because data type not supported")
+        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut typed) => {
+            let bytes = match column.data_type() {
+                ArrowDataType::Interval(interval_unit) => match interval_unit {
+                    IntervalUnit::YearMonth => {
+                        let array = column
+                            .as_any()
+                            .downcast_ref::<arrow_array::IntervalYearMonthArray>()
+                            .unwrap();
+                        get_interval_ym_array_slice(&array, &indices)
+                    }
+                    IntervalUnit::DayTime => {
+                        let array = column
+                            .as_any()
+                            .downcast_ref::<arrow_array::IntervalDayTimeArray>()
+                            .unwrap();
+                        get_interval_dt_array_slice(&array, &indices)
+                    }
+                },
+                ArrowDataType::FixedSizeBinary(_) => {
+                    let array = column
+                        .as_any()
+                        .downcast_ref::<arrow_array::FixedSizeBinaryArray>()
+                        .unwrap();
+                    get_fsb_array_slice(&array, &indices)
+                }
+                _ => {
+                    return Err(ParquetError::NYI(
+                        "Attempting to write an Arrow type that is not yet implemented"
+                            .to_string(),
+                    ));
+                }
+            };
+            typed.write_batch(
+                bytes.as_slice(),
+                Some(levels.definition.as_slice()),
+                levels.repetition.as_deref(),
+            )?
         }
     };
     Ok(written as i64)
@@ -354,6 +389,51 @@ fn get_bool_array_slice(
     let mut values = Vec::with_capacity(indices.len());
     for i in indices {
         values.push(array.value(*i))
+    }
+    values
+}
+
+/// Returns 12-byte values representing 3 values of months, days and milliseconds (4-bytes each).
+/// An Arrow YearMonth interval only stores months, thus only the first 4 bytes are populated.
+fn get_interval_ym_array_slice(
+    array: &arrow_array::IntervalYearMonthArray,
+    indices: &[usize],
+) -> Vec<FixedLenByteArray> {
+    let mut values = Vec::with_capacity(indices.len());
+    for i in indices {
+        let mut value = array.value(*i).to_le_bytes().to_vec();
+        let mut suffix = vec![0; 8];
+        value.append(&mut suffix);
+        values.push(FixedLenByteArray::from(ByteArray::from(value)))
+    }
+    values
+}
+
+/// Returns 12-byte values representing 3 values of months, days and milliseconds (4-bytes each).
+/// An Arrow DayTime interval only stores days and millis, thus the first 4 bytes are not populated.
+fn get_interval_dt_array_slice(
+    array: &arrow_array::IntervalDayTimeArray,
+    indices: &[usize],
+) -> Vec<FixedLenByteArray> {
+    let mut values = Vec::with_capacity(indices.len());
+    for i in indices {
+        let mut prefix = vec![0; 4];
+        let mut value = array.value(*i).to_le_bytes().to_vec();
+        prefix.append(&mut value);
+        debug_assert_eq!(prefix.len(), 12);
+        values.push(FixedLenByteArray::from(ByteArray::from(prefix)));
+    }
+    values
+}
+
+fn get_fsb_array_slice(
+    array: &arrow_array::FixedSizeBinaryArray,
+    indices: &[usize],
+) -> Vec<FixedLenByteArray> {
+    let mut values = Vec::with_capacity(indices.len());
+    for i in indices {
+        let value = array.value(*i).to_vec();
+        values.push(FixedLenByteArray::from(ByteArray::from(value)))
     }
     values
 }
@@ -955,7 +1035,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Date support isn't correct yet
     fn date64_single_column() {
         required_and_optional::<Date64Array, _>(
             0..SMALL_SIZE as i64,
@@ -1032,7 +1111,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Currently unreachable because data type not supported")]
     fn interval_year_month_single_column() {
         required_and_optional::<IntervalYearMonthArray, _>(
             0..SMALL_SIZE as i32,
@@ -1041,7 +1119,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Currently unreachable because data type not supported")]
     fn interval_day_time_single_column() {
         required_and_optional::<IntervalDayTimeArray, _>(
             0..SMALL_SIZE as i64,

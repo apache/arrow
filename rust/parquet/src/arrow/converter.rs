@@ -19,11 +19,13 @@ use crate::data_type::{ByteArray, DataType, FixedLenByteArray, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
 use arrow::array::{
     Array, ArrayRef, BinaryBuilder, DecimalBuilder, FixedSizeBinaryBuilder,
-    LargeBinaryBuilder, LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder,
-    StringBuilder, StringDictionaryBuilder, TimestampNanosecondBuilder,
+    IntervalDayTimeArray, IntervalDayTimeBuilder, IntervalYearMonthArray,
+    IntervalYearMonthBuilder, LargeBinaryBuilder, LargeStringBuilder, PrimitiveBuilder,
+    PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder,
+    TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
-use std::convert::From;
+use std::convert::{From, TryInto};
 use std::sync::Arc;
 
 use crate::errors::Result;
@@ -109,6 +111,55 @@ impl Converter<Vec<Option<FixedLenByteArray>>, DecimalArray> for DecimalArrayCon
                 Some(array) => {
                     builder.append_value(Self::from_bytes_to_i128(array.data()))
                 }
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+/// An Arrow Interval converter, which reads the first 4 bytes of a Parquet interval,
+/// and interprets it as an i32 value representing the Arrow YearMonth value
+pub struct IntervalYearMonthArrayConverter {}
+
+impl Converter<Vec<Option<FixedLenByteArray>>, IntervalYearMonthArray>
+    for IntervalYearMonthArrayConverter
+{
+    fn convert(
+        &self,
+        source: Vec<Option<FixedLenByteArray>>,
+    ) -> Result<IntervalYearMonthArray> {
+        let mut builder = IntervalYearMonthBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(i32::from_le_bytes(
+                    array.data()[0..4].try_into().unwrap(),
+                )),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+/// An Arrow Interval converter, which reads the last 8 bytes of a Parquet interval,
+/// and interprets it as an i32 value representing the Arrow DayTime value
+pub struct IntervalDayTimeArrayConverter {}
+
+impl Converter<Vec<Option<FixedLenByteArray>>, IntervalDayTimeArray>
+    for IntervalDayTimeArrayConverter
+{
+    fn convert(
+        &self,
+        source: Vec<Option<FixedLenByteArray>>,
+    ) -> Result<IntervalDayTimeArray> {
+        let mut builder = IntervalDayTimeBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(i64::from_le_bytes(
+                    array.data()[4..12].try_into().unwrap(),
+                )),
                 None => builder.append_null(),
             }?
         }
@@ -322,10 +373,21 @@ pub type PrimitiveDictionaryConverter<K, V> = ArrayRefConverter<
 
 pub type Int96Converter =
     ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;
+
 pub type FixedLenBinaryConverter = ArrayRefConverter<
     Vec<Option<FixedLenByteArray>>,
     FixedSizeBinaryArray,
     FixedSizeArrayConverter,
+>;
+pub type IntervalYearMonthConverter = ArrayRefConverter<
+    Vec<Option<FixedLenByteArray>>,
+    IntervalYearMonthArray,
+    IntervalYearMonthArrayConverter,
+>;
+pub type IntervalDayTimeConverter = ArrayRefConverter<
+    Vec<Option<FixedLenByteArray>>,
+    IntervalDayTimeArray,
+    IntervalDayTimeArrayConverter,
 >;
 
 pub type DecimalConverter = ArrayRefConverter<

@@ -368,8 +368,10 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
-        DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::DATE)
+        // date64 is written as a timestamp::millis to preserve the millisecond precision
+        // the exact type is preserved during roundtrips, and is thus not lost
+        DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT64)
+            .with_logical_type(LogicalType::TIMESTAMP_MILLIS)
             .with_repetition(repetition)
             .build(),
         DataType::Time32(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
