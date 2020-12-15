@@ -2243,6 +2243,18 @@ cdef class ExtensionArray(Array):
         return result
 
     def _to_pandas(self, options, **kwargs):
+        pandas_dtype = None
+        try:
+            pandas_dtype = self.type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+        # pandas ExtensionDtype that implements conversion from pyarrow
+        if hasattr(pandas_dtype, '__from_arrow__'):
+            arr = pandas_dtype.__from_arrow__(self)
+            return pandas_api.series(arr)
+
+        # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
 
     def to_numpy(self, **kwargs):

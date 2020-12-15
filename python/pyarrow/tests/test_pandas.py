@@ -3955,6 +3955,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
+    result = arr.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4], dtype='Int64')
+    tm.assert_series_equal(result, expected)
+
     result = table.to_pandas()
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
@@ -3968,6 +3973,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
             raising=False)
+
+    result = arr.to_pandas()
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4])
+    tm.assert_series_equal(result, expected)
 
     with pytest.raises(ValueError):
         table.to_pandas()
@@ -3999,6 +4009,22 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(
         types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
+
+def test_array_to_pandas():
+    if LooseVersion(pd.__version__) < "1.0":
+        pytest.skip("ExtensionDtype __from_arrow__ protocol missing")
+
+    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                pd.interval_range(1, 4).array]:
+        result = pa.array(arr).to_pandas()
+        expected = pd.Series(arr)
+        tm.assert_series_equal(result, expected)
+
+        # TODO implement proper conversion for chunked array
+        # result = pa.table({"col": arr})["col"].to_pandas()
+        # expected = pd.Series(arr, name="col")
+        # tm.assert_series_equal(result, expected)
 
 
 # ----------------------------------------------------------------------
