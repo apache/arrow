@@ -48,23 +48,45 @@ Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
 }
 
 TEST(Expression, ToString) {
-  EXPECT_EQ(field_ref("alpha").ToString(), "FieldRef(alpha)");
+  EXPECT_EQ(field_ref("alpha").ToString(), "alpha");
 
   EXPECT_EQ(literal(3).ToString(), "3");
+  EXPECT_EQ(literal("a").ToString(), "\"a\"");
+  EXPECT_EQ(literal("a\nb").ToString(), "\"a\\nb\"");
+  EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null");
+  EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
+            "\"617A\"");
 
   auto ts = *MakeScalar("1990-10-23 10:23:33")->CastTo(timestamp(TimeUnit::NANO));
   EXPECT_EQ(literal(ts).ToString(), "656677413000000000");
 
-  EXPECT_EQ(call("add", {literal(3), field_ref("beta")}).ToString(),
-            "add(3,FieldRef(beta))");
+  EXPECT_EQ(call("add", {literal(3), field_ref("beta")}).ToString(), "add(3, beta)");
 
   auto in_12 = call("index_in", {field_ref("beta")},
                     compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2]")});
 
-  EXPECT_EQ(in_12.ToString(), "index_in(FieldRef(beta), {value_set:[\n  1,\n  2\n]})");
+  EXPECT_EQ(in_12.ToString(), "index_in(beta, value_set=[\n  1,\n  2\n])");
 
-  EXPECT_EQ(cast(field_ref("a"), int32()).ToString(),
-            "cast(FieldRef(a), {to_type:int32})");
+  EXPECT_EQ(cast(field_ref("a"), int32()).ToString(), "cast(a, to_type=int32)");
+  EXPECT_EQ(cast(field_ref("a"), nullptr).ToString(),
+            "cast(a, to_type=<INVALID NOT PROVIDED>)");
+
+  struct WidgetifyOptions : compute::FunctionOptions {
+    bool really;
+  };
+
+  // NB: corrupted for nullary functions but we don't have any of those
+  EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");
+  EXPECT_EQ(
+      call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
+      "widgetify(1, {NON-REPRESENTABLE OPTIONS})");
+
+  EXPECT_EQ(equal(field_ref("a"), literal(1)).ToString(), "(a == 1)");
+  EXPECT_EQ(less(field_ref("a"), literal(2)).ToString(), "(a < 2)");
+  EXPECT_EQ(greater(field_ref("a"), literal(3)).ToString(), "(a > 3)");
+  EXPECT_EQ(not_equal(field_ref("a"), literal("a")).ToString(), "(a != \"a\")");
+  EXPECT_EQ(less_equal(field_ref("a"), literal("b")).ToString(), "(a <= \"b\")");
+  EXPECT_EQ(greater_equal(field_ref("a"), literal("c")).ToString(), "(a >= \"c\")");
 
   EXPECT_EQ(project(
                 {
@@ -80,8 +102,7 @@ TEST(Expression, ToString) {
                     "b",
                 })
                 .ToString(),
-            "struct(FieldRef(a),FieldRef(a),3," + in_12.ToString() +
-                ", {a,renamed_a,three,b})");
+            "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
 }
 
 TEST(Expression, Equality) {

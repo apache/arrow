@@ -52,6 +52,21 @@ const FieldRef* Expression::field_ref() const {
 std::string Expression::ToString() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
+      switch (lit->type()->id()) {
+        case Type::STRING:
+        case Type::LARGE_STRING:
+          return '"' +
+                 Escape(util::string_view(*lit->scalar_as<BaseBinaryScalar>().value)) +
+                 '"';
+
+        case Type::BINARY:
+        case Type::FIXED_SIZE_BINARY:
+        case Type::LARGE_BINARY:
+          return '"' + lit->scalar_as<BaseBinaryScalar>().value->ToHexString() + '"';
+
+        default:
+          break;
+      }
       return lit->scalar()->ToString();
     }
     return lit->ToString();
@@ -59,7 +74,7 @@ std::string Expression::ToString() const {
 
   if (auto ref = field_ref()) {
     if (auto name = ref->name()) {
-      return "FieldRef(" + *name + ")";
+      return *name;
     }
     if (auto path = ref->field_path()) {
       return path->ToString();
@@ -68,54 +83,62 @@ std::string Expression::ToString() const {
   }
 
   auto call = CallNotNull(*this);
-
-  // FIXME represent FunctionOptions
-  std::string out = call->function + "(";
-  for (const auto& arg : call->arguments) {
-    out += arg.ToString() + ",";
+  if (auto cmp = Comparison::Get(call->function)) {
+    return "(" + call->arguments[0].ToString() + " " + Comparison::GetOp(*cmp) + " " +
+           call->arguments[1].ToString() + ")";
   }
 
-  if (!call->options) {
+  if (auto options = GetStructOptions(*call)) {
+    std::string out = "{";
+    auto argument = call->arguments.begin();
+    for (const auto& field_name : options->field_names) {
+      out += field_name + "=" + argument++->ToString() + ", ";
+    }
+    out.resize(out.size() - 1);
+    out.back() = '}';
+    return out;
+  }
+
+  std::string out = call->function + "(";
+  for (const auto& arg : call->arguments) {
+    out += arg.ToString() + ", ";
+  }
+
+  if (call->options == nullptr) {
+    out.resize(out.size() - 1);
     out.back() = ')';
     return out;
   }
 
-  if (call->options) {
-    out += " {";
-
-    if (auto options = GetSetLookupOptions(*call)) {
-      DCHECK_EQ(options->value_set.kind(), Datum::ARRAY);
-      out += "value_set:" + options->value_set.make_array()->ToString();
-      if (options->skip_nulls) {
-        out += ",skip_nulls";
-      }
+  if (auto options = GetSetLookupOptions(*call)) {
+    DCHECK_EQ(options->value_set.kind(), Datum::ARRAY);
+    out += "value_set=" + options->value_set.make_array()->ToString();
+    if (options->skip_nulls) {
+      out += ", skip_nulls";
     }
-
-    if (auto options = GetCastOptions(*call)) {
-      out += "to_type:" + options->to_type->ToString();
-      if (options->allow_int_overflow) out += ",allow_int_overflow";
-      if (options->allow_time_truncate) out += ",allow_time_truncate";
-      if (options->allow_time_overflow) out += ",allow_time_overflow";
-      if (options->allow_decimal_truncate) out += ",allow_decimal_truncate";
-      if (options->allow_float_truncate) out += ",allow_float_truncate";
-      if (options->allow_invalid_utf8) out += ",allow_invalid_utf8";
-    }
-
-    if (auto options = GetStructOptions(*call)) {
-      for (const auto& field_name : options->field_names) {
-        out += field_name + ",";
-      }
-      out.resize(out.size() - 1);
-    }
-
-    if (auto options = GetStrptimeOptions(*call)) {
-      out += "format:" + options->format;
-      out += ",unit:" + internal::ToString(options->unit);
-    }
-
-    out += "})";
+    return out + ")";
   }
-  return out;
+
+  if (auto options = GetCastOptions(*call)) {
+    if (options->to_type == nullptr) {
+      return out + "to_type=<INVALID NOT PROVIDED>)";
+    }
+    out += "to_type=" + options->to_type->ToString();
+    if (options->allow_int_overflow) out += ", allow_int_overflow";
+    if (options->allow_time_truncate) out += ", allow_time_truncate";
+    if (options->allow_time_overflow) out += ", allow_time_overflow";
+    if (options->allow_decimal_truncate) out += ", allow_decimal_truncate";
+    if (options->allow_float_truncate) out += ", allow_float_truncate";
+    if (options->allow_invalid_utf8) out += ", allow_invalid_utf8";
+    return out + ")";
+  }
+
+  if (auto options = GetStrptimeOptions(*call)) {
+    return out + "format=" + options->format +
+           ", unit=" + internal::ToString(options->unit) + ")";
+  }
+
+  return out + "{NON-REPRESENTABLE OPTIONS})";
 }
 
 void PrintTo(const Expression& expr, std::ostream* os) {

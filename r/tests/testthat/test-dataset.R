@@ -499,7 +499,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
     ds %>%
       filter(int == "fff", part == 1) %>%
       collect(),
-    "error parsing 'fff' as scalar of type int32"
+    "Failed to parse string: 'fff' as a scalar of type int32"
   )
 })
 
@@ -654,7 +654,7 @@ test_that("Dataset and query print methods", {
       "lgl: bool",
       "integer: int32",
       "",
-      "* Filter: (int == 6:double)",
+      "* Filter: (int == 6)",
       "* Grouped by lgl",
       "See $.data for the source Arrow object",
       sep = "\n"

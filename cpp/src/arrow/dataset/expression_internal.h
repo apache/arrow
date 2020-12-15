@@ -205,6 +205,28 @@ struct Comparison {
     DCHECK(false);
     return "na";
   }
+
+  static std::string GetOp(type op) {
+    switch (op) {
+      case NA:
+        DCHECK(false) << "unreachable";
+        break;
+      case EQUAL:
+        return "==";
+      case LESS:
+        return "<";
+      case GREATER:
+        return ">";
+      case NOT_EQUAL:
+        return "!=";
+      case LESS_EQUAL:
+        return "<=";
+      case GREATER_EQUAL:
+        return ">=";
+    }
+    DCHECK(false);
+    return "";
+  }
 };
 
 inline const compute::CastOptions* GetCastOptions(const Expression::Call& call) {
