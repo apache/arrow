@@ -1068,6 +1068,10 @@ mod tests {
             1542129070000
         );
         assert_eq!(
+            parse_item::<Date64Type>("2018-11-13T17:11:10.011").unwrap(),
+            1542129070011
+        );
+        assert_eq!(
             parse_item::<Date64Type>("1900-02-28T12:34:56").unwrap(),
             -2203932304000
         );
