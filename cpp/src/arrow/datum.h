@@ -100,11 +100,13 @@ ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args);
 struct ARROW_EXPORT Datum {
   enum Kind { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE, COLLECTION };
 
+  struct Empty {};
+
   // Datums variants may have a length. This special value indicate that the
   // current variant does not have a length.
   static constexpr int64_t kUnknownLength = -1;
 
-  util::Variant<decltype(NULLPTR), std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
+  util::Variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                 std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
                 std::shared_ptr<Table>, std::vector<Datum>>
       value;
