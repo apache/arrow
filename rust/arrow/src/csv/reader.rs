@@ -992,6 +992,20 @@ mod tests {
             schema.field(5).data_type()
         );
 
+        let names: Vec<&str> =
+            schema.fields().iter().map(|x| x.name().as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "c_int",
+                "c_float",
+                "c_string",
+                "c_bool",
+                "c_date",
+                "c_datetime"
+            ]
+        );
+
         assert_eq!(false, schema.field(0).is_nullable());
         assert_eq!(true, schema.field(1).is_nullable());
         assert_eq!(true, schema.field(2).is_nullable());
