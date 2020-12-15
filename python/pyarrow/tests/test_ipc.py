@@ -37,6 +37,7 @@ except ImportError:
 
 
 class IpcFixture:
+    write_stats = None
 
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
@@ -69,6 +70,7 @@ class IpcFixture:
             for batch in batches:
                 writer.write_batch(batch)
 
+        self.write_stats = writer.stats
         writer.close()
         return batches
 
@@ -91,6 +93,10 @@ class FileFormatFixture(IpcFixture):
             batch = reader.get_batch(i)
             assert batches[i].equals(batch)
             assert reader.schema.equals(batches[0].schema)
+
+        assert isinstance(reader.stats, pa.ipc.ReadStats)
+        assert isinstance(self.write_stats, pa.ipc.WriteStats)
+        assert tuple(reader.stats) == tuple(self.write_stats)
 
 
 class StreamFormatFixture(IpcFixture):
@@ -177,6 +183,12 @@ def test_open_file_from_buffer(file_fixture):
     assert result1.equals(result2)
     assert result1.equals(result3)
 
+    st1 = reader1.stats
+    assert st1.num_messages == 6
+    assert st1.num_record_batches == 5
+    assert reader2.stats == st1
+    assert reader3.stats == st1
+
 
 @pytest.mark.pandas
 def test_file_read_pandas(file_fixture):
@@ -242,6 +254,14 @@ def test_open_stream_from_buffer(stream_fixture):
 
     assert result1.equals(result2)
     assert result1.equals(result3)
+
+    st1 = reader1.stats
+    assert st1.num_messages == 6
+    assert st1.num_record_batches == 5
+    assert reader2.stats == st1
+    assert reader3.stats == st1
+
+    assert tuple(st1) == tuple(stream_fixture.write_stats)
 
 
 @pytest.mark.pandas
@@ -385,6 +405,42 @@ def test_stream_options_roundtrip(stream_fixture, options):
 
     with pytest.raises(StopIteration):
         reader.read_next_batch()
+
+
+def test_dictionary_delta(stream_fixture):
+    ty = pa.dictionary(pa.int8(), pa.utf8())
+    data = [["foo", "foo", None],
+            ["foo", "bar", "foo"],  # potential delta
+            ["foo", "bar"],
+            ["foo", None, "bar", "quux"],  # potential delta
+            ["bar", "quux"],  # replacement
+            ]
+    batches = [
+        pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=['dicts'])
+        for v in data]
+    schema = batches[0].schema
+
+    def write_batches():
+        with stream_fixture._get_writer(pa.MockOutputStream(),
+                                        schema) as writer:
+            for batch in batches:
+                writer.write_batch(batch)
+            return writer.stats
+
+    st = write_batches()
+    assert st.num_record_batches == 5
+    assert st.num_dictionary_batches == 4
+    assert st.num_replaced_dictionaries == 3
+    assert st.num_dictionary_deltas == 0
+
+    stream_fixture.use_legacy_ipc_format = None
+    stream_fixture.options = pa.ipc.IpcWriteOptions(
+        emit_dictionary_deltas=True)
+    st = write_batches()
+    assert st.num_record_batches == 5
+    assert st.num_dictionary_batches == 4
+    assert st.num_replaced_dictionaries == 1
+    assert st.num_dictionary_deltas == 2
 
 
 def test_envvar_set_legacy_ipc_format():

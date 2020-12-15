@@ -244,6 +244,11 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     return std::move(result);
   }
 
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 32.
+  /// \return error status if the length is an invalid value
+  static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
+
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);
 

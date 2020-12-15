@@ -773,6 +773,28 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+// Taken from the Apache Impala codebase. The comments next
+// to the return values are the maximum value that can be represented in 2's
+// complement with the returned number of bytes.
+int32_t DecimalType::DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
+                          << precision;
+
+  // Generated in python with:
+  // >>> decimal_size = lambda prec: int(math.ceil((prec * math.log2(10) + 1) / 8))
+  // >>> [-1] + [decimal_size(i) for i in range(1, 77)]
+  constexpr int32_t kBytes[] = {
+      -1, 1,  1,  2,  2,  3,  3,  4,  4,  4,  5,  5,  6,  6,  6,  7,  7,  8,  8,  9,
+      9,  9,  10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17,
+      17, 18, 18, 18, 19, 19, 20, 20, 21, 21, 21, 22, 22, 23, 23, 23, 24, 24, 25, 25,
+      26, 26, 26, 27, 27, 28, 28, 28, 29, 29, 30, 30, 31, 31, 31, 32, 32};
+
+  if (precision <= 76) {
+    return kBytes[precision];
+  }
+  return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10) + 1));
+}
+
 // ----------------------------------------------------------------------
 // Decimal128 type
 

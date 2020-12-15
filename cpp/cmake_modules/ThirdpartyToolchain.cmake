@@ -778,6 +778,8 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.74.0"
+    "1.74"
     "1.73.0"
     "1.73"
     "1.72.0"

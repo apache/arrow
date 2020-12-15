@@ -143,8 +143,8 @@ fn sort_batches(
                 concat(
                     &batches
                         .iter()
-                        .map(|batch| batch.columns()[i].clone())
-                        .collect::<Vec<ArrayRef>>(),
+                        .map(|batch| batch.column(i).as_ref())
+                        .collect::<Vec<_>>(),
                 )
             })
             .collect::<ArrowResult<Vec<ArrayRef>>>()?,

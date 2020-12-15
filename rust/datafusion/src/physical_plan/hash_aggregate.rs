@@ -632,7 +632,10 @@ impl RecordBatchStream for HashAggregateStream {
 fn concatenate(arrays: Vec<Vec<ArrayRef>>) -> ArrowResult<Vec<ArrayRef>> {
     (0..arrays[0].len())
         .map(|column| {
-            let array_list = arrays.iter().map(|a| a[column].clone()).collect::<Vec<_>>();
+            let array_list = arrays
+                .iter()
+                .map(|a| a[column].as_ref())
+                .collect::<Vec<_>>();
             compute::concat(&array_list)
         })
         .collect::<ArrowResult<Vec<_>>>()

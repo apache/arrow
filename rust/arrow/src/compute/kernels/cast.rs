@@ -1544,7 +1544,7 @@ mod tests {
     fn test_cast_timestamp_to_date32() {
         let a = TimestampMillisecondArray::from_opt_vec(
             vec![Some(864000000005), Some(1545696000001), None],
-            Some(Arc::new(String::from("UTC"))),
+            Some(String::from("UTC")),
         );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
@@ -1572,7 +1572,7 @@ mod tests {
     fn test_cast_timestamp_to_i64() {
         let a = TimestampMillisecondArray::from_opt_vec(
             vec![Some(864000000005), Some(1545696000001), None],
-            Some(Arc::new("UTC".to_string())),
+            Some("UTC".to_string()),
         );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int64).unwrap();
@@ -2861,7 +2861,7 @@ mod tests {
 
     /// Create instances of arrays with varying types for cast tests
     fn get_arrays_of_all_types() -> Vec<ArrayRef> {
-        let tz_name = Arc::new(String::from("America/New_York"));
+        let tz_name = String::from("America/New_York");
         let binary_data: Vec<&[u8]> = vec![b"foo", b"bar"];
         vec![
             Arc::new(BinaryArray::from(binary_data.clone())),
@@ -3054,7 +3054,7 @@ mod tests {
     // Get a selection of datatypes to try and cast to
     fn get_all_types() -> Vec<DataType> {
         use DataType::*;
-        let tz_name = Arc::new(String::from("America/New_York"));
+        let tz_name = String::from("America/New_York");
 
         vec![
             Null,

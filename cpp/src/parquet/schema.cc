@@ -211,7 +211,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       break;
     default:
       ss << ConvertedTypeToString(converted_type);
-      ss << " can not be applied to a primitive type";
+      ss << " cannot be applied to a primitive type";
       throw ParquetException(ss.str());
   }
   // For forward compatibility, create an equivalent logical type

@@ -150,7 +150,7 @@ Hadoop File System (HDFS)
 
 PyArrow comes with bindings to the Hadoop File System (based on C++ bindings
 using ``libhdfs``, a JNI-based interface to the Java Hadoop client). You connect
-using the :class:`HadoopFileSystem` constructor::
+using the :class:`HadoopFileSystem` constructor:
 
 .. code-block:: python
 

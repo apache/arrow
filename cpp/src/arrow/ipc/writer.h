@@ -60,6 +60,23 @@ struct IpcPayload {
   int64_t body_length = 0;
 };
 
+struct WriteStats {
+  /// Number of IPC messages written.
+  int64_t num_messages = 0;
+  /// Number of record batches written.
+  int64_t num_record_batches = 0;
+  /// Number of dictionary batches written.
+  ///
+  /// Note: num_dictionary_batches >= num_dictionary_deltas + num_replaced_dictionaries
+  int64_t num_dictionary_batches = 0;
+
+  /// Number of dictionary deltas written.
+  int64_t num_dictionary_deltas = 0;
+  /// Number of replaced dictionaries (i.e. where a dictionary batch replaces
+  /// an existing dictionary with an unrelated new dictionary).
+  int64_t num_replaced_dictionaries = 0;
+};
+
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
 class ARROW_EXPORT RecordBatchWriter {
@@ -87,6 +104,9 @@ class ARROW_EXPORT RecordBatchWriter {
   ///
   /// \return Status
   virtual Status Close() = 0;
+
+  /// \brief Return current write statistics
+  virtual WriteStats stats() const = 0;
 };
 
 /// Create a new IPC stream writer from stream sink and schema. User is

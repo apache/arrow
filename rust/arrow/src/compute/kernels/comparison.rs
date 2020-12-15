@@ -47,9 +47,20 @@ macro_rules! compare_op {
         let null_bit_buffer =
             combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
-        let mut result = BooleanBufferBuilder::new($left.len());
+        let byte_capacity = bit_util::ceil($left.len(), 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.resize(byte_capacity);
+        let data = buffer.raw_data_mut();
+
         for i in 0..$left.len() {
-            result.append($op($left.value(i), $right.value(i)))?;
+            if $op($left.value(i), $right.value(i)) {
+                // SAFETY: this is safe as `data` has at least $left.len() elements.
+                // and `i` is bound by $left.len()
+                unsafe {
+                    bit_util::set_bit_raw(data, i);
+                }
+            }
         }
 
         let data = ArrayData::new(
@@ -58,7 +69,7 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![result.finish()],
+            vec![buffer.freeze()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -68,9 +79,21 @@ macro_rules! compare_op {
 macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
-        let mut result = BooleanBufferBuilder::new($left.len());
+
+        let byte_capacity = bit_util::ceil($left.len(), 8);
+        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
+        let mut buffer = MutableBuffer::new(actual_capacity);
+        buffer.resize(byte_capacity);
+        let data = buffer.raw_data_mut();
+
         for i in 0..$left.len() {
-            result.append($op($left.value(i), $right))?;
+            if $op($left.value(i), $right) {
+                // SAFETY: this is safe as `data` has at least $left.len() elements
+                // and `i` is bound by $left.len()
+                unsafe {
+                    bit_util::set_bit_raw(data, i);
+                }
+            }
         }
 
         let data = ArrayData::new(
@@ -79,7 +102,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![result.finish()],
+            vec![buffer.freeze()],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))

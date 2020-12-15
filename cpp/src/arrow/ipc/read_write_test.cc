@@ -929,8 +929,11 @@ struct FileWriterHelper {
     return Status::OK();
   }
 
-  Status Finish() {
+  Status Finish(WriteStats* out_stats = nullptr) {
     RETURN_NOT_OK(writer_->Close());
+    if (out_stats) {
+      *out_stats = writer_->stats();
+    }
     RETURN_NOT_OK(sink_->Close());
     // Current offset into stream is the end of the file
     return sink_->Tell().Value(&footer_offset_);
@@ -997,8 +1000,11 @@ struct StreamWriterHelper {
     return Status::OK();
   }
 
-  Status Finish() {
+  Status Finish(WriteStats* out_stats = nullptr) {
     RETURN_NOT_OK(writer_->Close());
+    if (out_stats) {
+      *out_stats = writer_->stats();
+    }
     return sink_->Close();
   }
 
@@ -1034,13 +1040,13 @@ struct StreamWriterHelper {
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, BatchVector* out_batches,
                      ReadStats* out_stats = nullptr) override {
-    if (out_stats) {
-      return Status::NotImplemented("StreamDecoder does not support stats()");
-    }
     auto listener = std::make_shared<CollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
+    if (out_stats) {
+      *out_stats = decoder.stats();
+    }
     return Status::OK();
   }
 
@@ -1763,6 +1769,40 @@ class TestDictionaryReplacement : public ::testing::Test {
     EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
   }
 
+  void TestDeltaDict() {
+    auto type = dictionary(int8(), utf8());
+    auto batch1 = MakeBatch(ArrayFromJSON(type, R"(["foo", "foo", "bar", null])"));
+    // Potential delta
+    auto batch2 = MakeBatch(ArrayFromJSON(type, R"(["foo", "bar", "quux", "foo"])"));
+    // Potential delta
+    auto batch3 =
+        MakeBatch(ArrayFromJSON(type, R"(["foo", "bar", "quux", "zzz", "foo"])"));
+    auto batch4 = MakeBatch(ArrayFromJSON(type, R"(["bar", null, "quux", "foo"])"));
+    BatchVector batches{batch1, batch2, batch3, batch4};
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 9);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 4);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 4);
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 3);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+    }
+
+    write_options_.emit_dictionary_deltas = true;
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 9);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 4);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 4);
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 2);
+    }
+  }
+
   void TestSameDictValuesNested() {
     CheckRoundtrip(SameValuesNestedDictBatches());
 
@@ -1821,13 +1861,96 @@ class TestDictionaryReplacement : public ::testing::Test {
     EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
   }
 
+  void TestDeltaDictNestedOuter() {
+    // Outer dict changes, inner dict remains the same
+    auto value_type = list(dictionary(int8(), utf8()));
+    auto type = dictionary(int8(), value_type);
+    // Inner dict: ["a", "b"]
+    auto batch1_values = ArrayFromJSON(value_type, R"([["a"], ["b"]])");
+    // Potential delta
+    auto batch2_values = ArrayFromJSON(value_type, R"([["a"], ["b"], ["a", "a"]])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, 1]"), batch1_values);
+    auto batch2 =
+        MakeBatch(type, ArrayFromJSON(int8(), "[2, null, 0, 0]"), batch2_values);
+    BatchVector batches{batch1, batch2};
+
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 6);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 2);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 3);
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+    }
+
+    write_options_.emit_dictionary_deltas = true;
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      // Outer dict deltas are not emitted as the read path doesn't support them
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 6);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 2);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 3);
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+    }
+  }
+
+  void TestDeltaDictNestedInner() {
+    // Inner dict changes
+    auto value_type = list(dictionary(int8(), utf8()));
+    auto type = dictionary(int8(), value_type);
+    // Inner dict: ["a"]
+    auto batch1_values = ArrayFromJSON(value_type, R"([["a"]])");
+    // Inner dict: ["a", "b"] => potential delta
+    auto batch2_values = ArrayFromJSON(value_type, R"([["a"], ["b"], ["a", "a"]])");
+    // Inner dict: ["a", "b", "c"] => potential delta
+    auto batch3_values = ArrayFromJSON(value_type, R"([["a"], ["b"], ["c"]])");
+    // Inner dict: ["a", "b", "c"]
+    auto batch4_values = ArrayFromJSON(value_type, R"([["a"], ["b", "c"]])");
+    // Inner dict: ["a", "c", "b"] => replacement
+    auto batch5_values = ArrayFromJSON(value_type, R"([["a"], ["c"], ["b"]])");
+    auto batch1 = MakeBatch(type, ArrayFromJSON(int8(), "[0, null, 0]"), batch1_values);
+    auto batch2 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, 2]"), batch2_values);
+    auto batch3 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, 2]"), batch3_values);
+    auto batch4 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, null]"), batch4_values);
+    auto batch5 = MakeBatch(type, ArrayFromJSON(int8(), "[1, 0, 2]"), batch5_values);
+    BatchVector batches{batch1, batch2, batch3, batch4, batch5};
+
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 15);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 5);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 9);  // 4 inner + 5 outer
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 7);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 0);
+    }
+
+    write_options_.emit_dictionary_deltas = true;
+    if (WriterHelper::kIsFileFormat) {
+      CheckWritingFails(batches, 1);
+    } else {
+      CheckRoundtrip(batches);
+      EXPECT_EQ(read_stats_.num_messages, 15);  // including schema message
+      EXPECT_EQ(read_stats_.num_record_batches, 5);
+      EXPECT_EQ(read_stats_.num_dictionary_batches, 9);  // 4 inner + 5 outer
+      EXPECT_EQ(read_stats_.num_replaced_dictionaries, 5);
+      EXPECT_EQ(read_stats_.num_dictionary_deltas, 2);
+    }
+  }
+
   Status RoundTrip(const BatchVector& in_batches, BatchVector* out_batches) {
     WriterHelper writer_helper;
     RETURN_NOT_OK(writer_helper.Init(in_batches[0]->schema(), write_options_));
     for (const auto& batch : in_batches) {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
-    RETURN_NOT_OK(writer_helper.Finish());
+    RETURN_NOT_OK(writer_helper.Finish(&write_stats_));
     RETURN_NOT_OK(writer_helper.ReadBatches(read_options_, out_batches, &read_stats_));
     for (const auto& batch : *out_batches) {
       RETURN_NOT_OK(batch->ValidateFull());
@@ -1838,6 +1961,7 @@ class TestDictionaryReplacement : public ::testing::Test {
   void CheckRoundtrip(const BatchVector& in_batches) {
     BatchVector out_batches;
     ASSERT_OK(RoundTrip(in_batches, &out_batches));
+    CheckStatsConsistent();
     ASSERT_EQ(in_batches.size(), out_batches.size());
     for (size_t i = 0; i < in_batches.size(); ++i) {
       AssertBatchesEqual(*in_batches[i], *out_batches[i]);
@@ -1851,6 +1975,15 @@ class TestDictionaryReplacement : public ::testing::Test {
       ASSERT_OK(writer_helper.WriteBatch(in_batches[i]));
     }
     ASSERT_RAISES(Invalid, writer_helper.WriteBatch(in_batches[fails_at_batch_num]));
+  }
+
+  void CheckStatsConsistent() {
+    ASSERT_EQ(read_stats_.num_messages, write_stats_.num_messages);
+    ASSERT_EQ(read_stats_.num_record_batches, write_stats_.num_record_batches);
+    ASSERT_EQ(read_stats_.num_dictionary_batches, write_stats_.num_dictionary_batches);
+    ASSERT_EQ(read_stats_.num_replaced_dictionaries,
+              write_stats_.num_replaced_dictionaries);
+    ASSERT_EQ(read_stats_.num_dictionary_deltas, write_stats_.num_dictionary_deltas);
   }
 
   BatchVector DifferentOrderDictBatches() {
@@ -1919,6 +2052,7 @@ class TestDictionaryReplacement : public ::testing::Test {
  protected:
   IpcWriteOptions write_options_ = IpcWriteOptions::Defaults();
   IpcReadOptions read_options_ = IpcReadOptions::Defaults();
+  WriteStats write_stats_;
   ReadStats read_stats_;
 };
 
@@ -1927,6 +2061,8 @@ TYPED_TEST_SUITE_P(TestDictionaryReplacement);
 TYPED_TEST_P(TestDictionaryReplacement, SameDictPointer) { this->TestSameDictPointer(); }
 
 TYPED_TEST_P(TestDictionaryReplacement, SameDictValues) { this->TestSameDictValues(); }
+
+TYPED_TEST_P(TestDictionaryReplacement, DeltaDict) { this->TestDeltaDict(); }
 
 TYPED_TEST_P(TestDictionaryReplacement, SameDictValuesNested) {
   this->TestSameDictValuesNested();
@@ -1940,12 +2076,22 @@ TYPED_TEST_P(TestDictionaryReplacement, DifferentDictValuesNested) {
   this->TestDifferentDictValuesNested();
 }
 
+TYPED_TEST_P(TestDictionaryReplacement, DeltaDictNestedOuter) {
+  this->TestDeltaDictNestedOuter();
+}
+
+TYPED_TEST_P(TestDictionaryReplacement, DeltaDictNestedInner) {
+  this->TestDeltaDictNestedInner();
+}
+
 REGISTER_TYPED_TEST_SUITE_P(TestDictionaryReplacement, SameDictPointer, SameDictValues,
-                            SameDictValuesNested, DifferentDictValues,
-                            DifferentDictValuesNested);
+                            DeltaDict, SameDictValuesNested, DifferentDictValues,
+                            DifferentDictValuesNested, DeltaDictNestedOuter,
+                            DeltaDictNestedInner);
 
 using DictionaryReplacementTestTypes =
-    ::testing::Types<StreamWriterHelper, FileWriterHelper>;
+    ::testing::Types<StreamWriterHelper, StreamDecoderBufferWriterHelper,
+                     FileWriterHelper>;
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestDictionaryReplacement, TestDictionaryReplacement,
                                DictionaryReplacementTestTypes);
