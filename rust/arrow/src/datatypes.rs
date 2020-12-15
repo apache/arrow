@@ -209,6 +209,16 @@ pub trait ArrowNativeType:
     fn to_usize(&self) -> Option<usize> {
         None
     }
+
+    /// Convert native type from i32.
+    fn from_i32(_: i32) -> Option<Self> {
+        None
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(_: i64) -> Option<Self> {
+        None
+    }
 }
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
@@ -278,6 +288,11 @@ impl ArrowNativeType for i32 {
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
     }
+
+    /// Convert native type from i32.
+    fn from_i32(val: i32) -> Option<Self> {
+        Some(val)
+    }
 }
 
 impl ArrowNativeType for i64 {
@@ -291,6 +306,11 @@ impl ArrowNativeType for i64 {
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(val: i64) -> Option<Self> {
+        Some(val)
     }
 }
 
@@ -1333,18 +1353,16 @@ impl Field {
                                 ));
                             }
                             match data_type {
-                                    DataType::List(_) => DataType::List(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::FixedSizeList(_, int) => {
-                                        DataType::FixedSizeList(
-                                            Box::new(Self::from(&values[0])?),
-                                            int,
-                                        )
+                                    DataType::List(_) => {
+                                        DataType::List(Box::new(Self::from(&values[0])?))
                                     }
+                                    DataType::LargeList(_) => {
+                                        DataType::LargeList(Box::new(Self::from(&values[0])?))
+                                    }
+                                    DataType::FixedSizeList(_, int) => DataType::FixedSizeList(
+                                        Box::new(Self::from(&values[0])?),
+                                        int,
+                                    ),
                                     _ => unreachable!(
                                         "Data type should be a list, largelist or fixedsizelist"
                                     ),
