@@ -16419,11 +16419,11 @@ TEST(TestAdapterWriteWrapper, wrapperTest) {
   std::shared_ptr<adapters::orc::ArrowWriterOptions> arrow_options =
       std::make_shared<adapters::orc::ArrowWriterOptions>(1);
   std::unique_ptr<adapters::orc::ORCFileWriter> writer;
-  ORC_THROW_NOT_OK(adapters::orc::ORCFileWriter::Open(
+  ARROW_EXPECT_OK(adapters::orc::ORCFileWriter::Open(
       sharedPtrSchema, "/Users/karlkatzen/Documents/code/orc-files/test3.orc", options,
       arrow_options, &writer));
-  ORC_THROW_NOT_OK(writer->Write(table));
-}  // namespace arrow
+  ARROW_EXPECT_OK(writer->Write(table));
+}
 TEST(TestAdapterWriteWrapper, wrapperTest2) {
   std::vector<std::shared_ptr<Field>> xFields{
       arrow::field("a", int8()), arrow::field("b", float64()), arrow::field("c", utf8())};
@@ -16471,8 +16471,72 @@ TEST(TestAdapterWriteWrapper, wrapperTest2) {
       std::move(io::FileOutputStream::Open(
                     "/Users/karlkatzen/Documents/code/orc-files/test4.orc", false))
           .ValueOrDie();
-  ORC_THROW_NOT_OK(adapters::orc::ORCFileWriter::Open(sharedPtrSchema, file, options,
-                                                      arrow_options, &writer));
-  ORC_THROW_NOT_OK(writer->Write(table));
+  ARROW_EXPECT_OK(adapters::orc::ORCFileWriter::Open(sharedPtrSchema, file, options,
+                                                     arrow_options, &writer));
+  ARROW_EXPECT_OK(writer->Write(table));
+}
+TEST(TestAdapterWriteWrapper, wrapperTest3) {
+  std::vector<std::shared_ptr<Field>> xFields{
+      arrow::field("a", int8()), arrow::field("b", float64()), arrow::field("c", utf8())};
+  std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+  Int8Builder builder10, builder11;
+  DoubleBuilder builder2;
+  StringBuilder builder3;
+  std::shared_ptr<Array> array10, array11, array2, array3;
+  (void)(builder10.Append(1));
+  (void)(builder10.AppendNull());
+  (void)(builder10.Append(-8));
+  (void)(builder10.Finish(&array10));
+  (void)(builder11.AppendNull());
+  (void)(builder11.Finish(&array11));
+  (void)(builder2.AppendNull());
+  (void)(builder2.AppendNull());
+  (void)(builder2.Append(6.5));
+  (void)(builder2.Append(-82.52));
+  (void)(builder2.Finish(&array2));
+  (void)(builder3.Append("Shalom Aleichem!"));
+  (void)(builder3.AppendNull());
+  (void)(builder3.AppendNull());
+  (void)(builder3.Append("Baruch Hashem!"));
+  (void)(builder3.Finish(&array3));
+  ArrayVector av1, av2, av3;
+  av1.push_back(array10);
+  av1.push_back(array11);
+  std::shared_ptr<ChunkedArray> carray1 = std::make_shared<ChunkedArray>(av1);
+  av2.push_back(array2);
+  std::shared_ptr<ChunkedArray> carray2 = std::make_shared<ChunkedArray>(av2);
+  av3.push_back(array3);
+  std::shared_ptr<ChunkedArray> carray3 = std::make_shared<ChunkedArray>(av3);
+  ChunkedArrayVector cv;
+  cv.push_back(carray1);
+  cv.push_back(carray2);
+  cv.push_back(carray3);
+  std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+
+  std::shared_ptr<liborc::WriterOptions> options =
+      std::make_shared<liborc::WriterOptions>();
+  std::shared_ptr<adapters::orc::ArrowWriterOptions> arrow_options =
+      std::make_shared<adapters::orc::ArrowWriterOptions>(1);
+  std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+  std::unique_ptr<liborc::OutputStream> out_stream =
+      std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
+          new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+  ARROW_EXPECT_OK(adapters::orc::ORCFileWriter::Open(sharedPtrSchema, out_stream, options,
+                                                     arrow_options, &writer));
+  ARROW_EXPECT_OK(writer->Write(table));
+  auto output_mem_stream = static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
+  std::shared_ptr<io::RandomAccessFile> in_stream(
+      new io::BufferReader(std::make_shared<Buffer>(
+          reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
+          static_cast<int64_t>(output_mem_stream->getLength()))));
+
+  std::unique_ptr<adapters::orc::ORCFileReader> reader;
+  ASSERT_TRUE(
+      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
+  std::shared_ptr<Table> outputTable;
+  ARROW_EXPECT_OK(reader->Read(&outputTable));
+  EXPECT_EQ(outputTable->num_columns(), 3);
+  EXPECT_EQ(outputTable->num_rows(), 4);
+  EXPECT_TRUE(outputTable->Equals(*table));
 }
 }  // namespace arrow

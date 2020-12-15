@@ -35,25 +35,6 @@
 #include "orc/OrcFile.hh"
 namespace liborc = orc;
 
-#define ORC_THROW_NOT_OK(s)                   \
-  do {                                        \
-    Status _s = (s);                          \
-    if (!_s.ok()) {                           \
-      std::stringstream ss;                   \
-      ss << "Arrow error: " << _s.ToString(); \
-      throw liborc::ParseError(ss.str());     \
-    }                                         \
-  } while (0)
-
-#define ORC_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                             \
-  ORC_THROW_NOT_OK(status_name.status());                 \
-  lhs = std::move(status_name).ValueOrDie();
-
-#define ORC_ASSIGN_OR_THROW(lhs, rexpr)                                              \
-  ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
-                           lhs, rexpr);
-
 namespace arrow {
 
 namespace adapters {
@@ -202,11 +183,19 @@ class ARROW_EXPORT ORCFileWriter {
                      const std::shared_ptr<ArrowWriterOptions>& arrow_options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
+  static Status Open(const std::shared_ptr<Schema>& schema,
+                     std::unique_ptr<liborc::OutputStream>& outStream,
+                     const std::shared_ptr<liborc::WriterOptions>& options,
+                     const std::shared_ptr<ArrowWriterOptions>& arrow_options,
+                     std::unique_ptr<ORCFileWriter>* writer);
+
   /// \brief Write a table
   ///
   /// \param[in] table the Arrow table from which data is extracted
   /// \return Status
   Status Write(const std::shared_ptr<Table> table);
+
+  liborc::OutputStream* ReleaseOutStream();
 
  private:
   class Impl;

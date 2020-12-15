@@ -49,6 +49,25 @@
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
 
+#define ORC_THROW_NOT_OK(s)                   \
+  do {                                        \
+    Status _s = (s);                          \
+    if (!_s.ok()) {                           \
+      std::stringstream ss;                   \
+      ss << "Arrow error: " << _s.ToString(); \
+      throw liborc::ParseError(ss.str());     \
+    }                                         \
+  } while (0)
+
+#define ORC_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                             \
+  ORC_THROW_NOT_OK(status_name.status());                 \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ORC_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                           lhs, rexpr);
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -522,6 +541,23 @@ class ORCFileWriter::Impl {
     num_cols_ = schema->num_fields();
     return Status::OK();
   }
+  Status Open(const std::shared_ptr<Schema>& schema,
+              std::unique_ptr<liborc::OutputStream>& outStream,
+              const std::shared_ptr<liborc::WriterOptions>& options,
+              const std::shared_ptr<ArrowWriterOptions>& arrow_options) {
+    outStream_ = std::move(outStream);
+    ORC_THROW_NOT_OK(GetORCType(schema.get(), &orcSchema_));
+    try {
+      writer_ = createWriter(*orcSchema_, outStream_.get(), *options);
+    } catch (const liborc::ParseError& e) {
+      return Status::IOError(e.what());
+    }
+    schema_ = schema;
+    arrow_options_ = arrow_options;
+    options_ = options;
+    num_cols_ = schema->num_fields();
+    return Status::OK();
+  }
   Status Write(const std::shared_ptr<Table> table) {
     int64_t numRows = table->num_rows();
     int64_t batch_size = static_cast<int64_t>(arrow_options_->get_batch_size());
@@ -545,6 +581,8 @@ class ORCFileWriter::Impl {
     writer_->close();
     return Status::OK();
   }
+
+  liborc::OutputStream* ReleaseOutStream() { return outStream_.release(); }
 
  private:
   ORC_UNIQUE_PTR<liborc::Writer> writer_;
@@ -580,9 +618,23 @@ Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
   *writer = std::move(result);
   return Status::OK();
 }
+Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
+                           std::unique_ptr<liborc::OutputStream>& outStream,
+                           const std::shared_ptr<liborc::WriterOptions>& options,
+                           const std::shared_ptr<ArrowWriterOptions>& arrow_options,
+                           std::unique_ptr<ORCFileWriter>* writer) {
+  auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
+  ORC_THROW_NOT_OK(result->impl_->Open(schema, outStream, options, arrow_options));
+  *writer = std::move(result);
+  return Status::OK();
+}
 
 Status ORCFileWriter::Write(const std::shared_ptr<Table> table) {
   return impl_->Write(table);
+}
+
+liborc::OutputStream* ORCFileWriter::ReleaseOutStream() {
+  return impl_->ReleaseOutStream();
 }
 
 }  // namespace orc
