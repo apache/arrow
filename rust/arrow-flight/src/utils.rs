@@ -23,7 +23,7 @@ use crate::{FlightData, SchemaResult};
 
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result};
-use arrow::ipc::{convert, reader, writer, writer::IpcWriteOptions};
+use arrow::ipc::{convert, reader, writer, writer::EncodedData, writer::IpcWriteOptions};
 use arrow::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
@@ -42,13 +42,18 @@ pub fn flight_data_from_arrow_batch(
     encoded_dictionaries
         .into_iter()
         .chain(std::iter::once(encoded_batch))
-        .map(|data| FlightData {
-            flight_descriptor: None,
-            app_metadata: vec![],
+        .map(Into::into)
+        .collect()
+}
+
+impl From<EncodedData> for FlightData {
+    fn from(data: EncodedData) -> Self {
+        FlightData {
             data_header: data.ipc_message,
             data_body: data.arrow_data,
-        })
-        .collect()
+            ..Default::default()
+        }
+    }
 }
 
 /// Convert a `Schema` to `SchemaResult` by converting to an IPC message
