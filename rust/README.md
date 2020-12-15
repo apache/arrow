@@ -111,10 +111,8 @@ from here on, this is a pure Rust project and `cargo` can be used to run tests, 
 
 ## Code Formatting
 
-Our CI uses `rustfmt` to check code formatting.  Although the project is
-built and tested against nightly rust we use the stable version of
-`rustfmt`.  So before submitting a PR be sure to run the following
-and check for lint issues:
+Our CI uses `rustfmt` to check code formatting. Before submitting a
+PR be sure to run the following and check for lint issues:
 
 ```bash
 cargo +stable fmt --all -- --check
