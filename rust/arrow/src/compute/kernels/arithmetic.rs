@@ -129,7 +129,7 @@ pub fn math_op<T, F>(
     op: F,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> T::Native,
 {
     if left.len() != right.len() {
@@ -169,7 +169,7 @@ fn math_divide<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: ArrowNumericType,
     T::Native: Div<Output = T::Native> + Zero,
 {
     if left.len() != right.len() {
@@ -230,7 +230,7 @@ fn simd_math_op<T, SIMD_OP, SCALAR_OP>(
     scalar_op: SCALAR_OP,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: ArrowNumericType,
     SIMD_OP: Fn(T::Simd, T::Simd) -> T::Simd,
     SCALAR_OP: Fn(T::Native, T::Native) -> T::Native,
 {
@@ -361,7 +361,7 @@ fn simd_divide<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: ArrowNumericType,
     T::Native: One + Zero + Div<Output = T::Native>,
 {
     if left.len() != right.len() {
@@ -478,7 +478,7 @@ pub fn add<T>(
     right: &PrimitiveArray<T>,
 ) -> Result<PrimitiveArray<T>>
 where
-    T: datatypes::ArrowNumericType,
+    T: ArrowNumericType,
     T::Native: Add<Output = T::Native>
         + Sub<Output = T::Native>
         + Mul<Output = T::Native>
