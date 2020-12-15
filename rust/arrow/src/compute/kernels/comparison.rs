@@ -88,6 +88,8 @@ macro_rules! compare_op_scalar {
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
+                // SAFETY: this is safe as `data` has at least $left.len() elements
+                // and `i` is bound by $left.len()
                 unsafe {
                     bit_util::set_bit_raw(data, i);
                 }
