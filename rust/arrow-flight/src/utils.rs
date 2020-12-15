@@ -27,11 +27,11 @@ use arrow::ipc::{convert, reader, writer, writer::EncodedData, writer::IpcWriteO
 use arrow::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to a vector of `FlightData` representing the bytes of the dictionaries
-/// and values
+/// and a `FlightData` representing the bytes of the batch's values
 pub fn flight_data_from_arrow_batch(
     batch: &RecordBatch,
     options: &IpcWriteOptions,
-) -> Vec<FlightData> {
+) -> (Vec<FlightData>, FlightData) {
     let data_gen = writer::IpcDataGenerator::default();
     let mut dictionary_tracker = writer::DictionaryTracker::new(false);
 
@@ -39,11 +39,10 @@ pub fn flight_data_from_arrow_batch(
         .encoded_batch(batch, &mut dictionary_tracker, &options)
         .expect("DictionaryTracker configured above to not error on replacement");
 
-    encoded_dictionaries
-        .into_iter()
-        .chain(std::iter::once(encoded_batch))
-        .map(Into::into)
-        .collect()
+    let flight_dictionaries = encoded_dictionaries.into_iter().map(Into::into).collect();
+    let flight_batch = encoded_batch.into();
+
+    (flight_dictionaries, flight_batch)
 }
 
 impl From<EncodedData> for FlightData {
