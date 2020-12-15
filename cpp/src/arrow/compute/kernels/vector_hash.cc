@@ -620,9 +620,11 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
     DCHECK_OK(func->AddKernel(base));
   }
 
-  base.init = GetHashInit<Action>(Type::DECIMAL);
-  base.signature = KernelSignature::Make({InputType::Array(Type::DECIMAL)}, out_ty);
-  DCHECK_OK(func->AddKernel(base));
+  for (auto t : {Type::DECIMAL128, Type::DECIMAL256}) {
+    base.init = GetHashInit<Action>(t);
+    base.signature = KernelSignature::Make({InputType::Array(t)}, out_ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
 }
 
 const FunctionDoc unique_doc(

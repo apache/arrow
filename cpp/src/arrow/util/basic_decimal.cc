@@ -1041,6 +1041,50 @@ BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
   return result.Abs();
 }
 
+BasicDecimal256& BasicDecimal256::operator+=(const BasicDecimal256& right) {
+  uint64_t carry = 0;
+  for (size_t i = 0; i < little_endian_array_.size(); i++) {
+    const uint64_t right_value = right.little_endian_array_[i];
+    uint64_t sum = right_value + carry;
+    carry = 0;
+    if (sum < right_value) {
+      carry += 1;
+    }
+    sum += little_endian_array_[i];
+    if (sum < little_endian_array_[i]) {
+      carry += 1;
+    }
+    little_endian_array_[i] = sum;
+  }
+  return *this;
+}
+
+BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
+  if (bits == 0) {
+    return *this;
+  }
+  int cross_word_shift = bits / 64;
+  if (static_cast<size_t>(cross_word_shift) >= little_endian_array_.size()) {
+    little_endian_array_ = {0, 0, 0, 0};
+    return *this;
+  }
+  uint32_t in_word_shift = bits % 64;
+  for (int i = static_cast<int>(little_endian_array_.size() - 1); i >= cross_word_shift;
+       i--) {
+    // Account for shifts larger then 64 bits
+    little_endian_array_[i] = little_endian_array_[i - cross_word_shift];
+    little_endian_array_[i] <<= in_word_shift;
+    if (in_word_shift != 0 && i >= cross_word_shift + 1) {
+      little_endian_array_[i] |=
+          little_endian_array_[i - (cross_word_shift + 1)] >> (64 - in_word_shift);
+    }
+  }
+  for (int i = cross_word_shift - 1; i >= 0; i--) {
+    little_endian_array_[i] = 0;
+  }
+  return *this;
+}
+
 std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
   std::array<uint8_t, 32> out{{0}};
   ToBytes(out.data());
@@ -1091,6 +1135,12 @@ DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale
   return DecimalRescale(*this, original_scale, new_scale, out);
 }
 
+bool BasicDecimal256::FitsInPrecision(int32_t precision) const {
+  DCHECK_GT(precision, 0);
+  DCHECK_LE(precision, 76);
+  return BasicDecimal256::Abs(*this) < ScaleMultipliersDecimal256[precision];
+}
+
 const BasicDecimal256& BasicDecimal256::GetScaleMultiplier(int32_t scale) {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, 76);
@@ -1113,11 +1163,28 @@ bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
                                 : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
 }
 
+BasicDecimal256 operator-(const BasicDecimal256& operand) {
+  BasicDecimal256 result(operand);
+  return result.Negate();
+}
+
+BasicDecimal256 operator~(const BasicDecimal256& operand) {
+  const std::array<uint64_t, 4>& arr = operand.little_endian_array();
+  BasicDecimal256 result({~arr[0], ~arr[1], ~arr[2], ~arr[3]});
+  return result;
+}
+
 BasicDecimal256& BasicDecimal256::operator/=(const BasicDecimal256& right) {
   BasicDecimal256 remainder;
   auto s = Divide(right, this, &remainder);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
   return *this;
+}
+
+BasicDecimal256 operator+(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 sum = left;
+  sum += right;
+  return sum;
 }
 
 BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& right) {

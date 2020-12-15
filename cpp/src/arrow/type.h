@@ -880,6 +880,11 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
+  /// \brief Returns the number of bytes needed for precision.
+  ///
+  /// precision must be >= 1
+  static int32_t DecimalSize(int32_t precision);
+
  protected:
   std::string ComputeFingerprint() const override;
 
@@ -905,6 +910,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
+  static constexpr int32_t kByteWidth = 16;
 };
 
 /// \brief Concrete type class for 256-bit decimal data
@@ -925,6 +931,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 76;
+  static constexpr int32_t kByteWidth = 32;
 };
 
 /// \brief Concrete type class for union data
