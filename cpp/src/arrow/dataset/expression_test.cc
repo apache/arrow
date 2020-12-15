@@ -67,6 +67,10 @@ TEST(Expression, ToString) {
 
   EXPECT_EQ(in_12.ToString(), "index_in(beta, value_set=[\n  1,\n  2\n])");
 
+  EXPECT_EQ(and_(field_ref("a"), field_ref("b")).ToString(), "(a and b)");
+  EXPECT_EQ(or_(field_ref("a"), field_ref("b")).ToString(), "(a or b)");
+  EXPECT_EQ(not_(field_ref("a")).ToString(), "invert(a)");
+
   EXPECT_EQ(cast(field_ref("a"), int32()).ToString(), "cast(a, to_type=int32)");
   EXPECT_EQ(cast(field_ref("a"), nullptr).ToString(),
             "cast(a, to_type=<INVALID NOT PROVIDED>)");
