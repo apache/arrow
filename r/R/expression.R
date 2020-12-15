@@ -173,6 +173,31 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
     ToString = function() dataset___expr__ToString(self)
   )
 )
+Expression$create <- function(name, arguments, options = list()) {
+  dataset___expr__call(name, arguments, options)
+}
+
+build_dataset_expression <- function(.Generic, e1, e2, ...) {
+  if (.Generic %in% names(.unary_function_map)) {
+    expr <- Expression$create(.unary_function_map[[.Generic]], list(e1))
+  } else if (.Generic == "%in%") {
+    # Special-case %in%, which is different from the Array function name
+    expr <- Expression$create("is_in", list(e1),
+      options = list(
+        value_set = Array$create(e2),
+        skip_nulls = TRUE)
+      )
+  } else {
+    if (!inherits(e1, "Expression")) {
+      e1 <- Expression$scalar(e1)
+    }
+    if (!inherits(e2, "Expression")) {
+      e2 <- Expression$scalar(e2)
+    }
+    expr <- Expression$create(.binary_function_map[[.Generic]], list(e1, e2), ...)
+  }
+  expr
+}
 
 Expression$field_ref <- function(name) {
   assert_is(name, "character")
@@ -182,83 +207,15 @@ Expression$field_ref <- function(name) {
 Expression$scalar <- function(x) {
   dataset___expr__scalar(Scalar$create(x))
 }
-Expression$call <- function(name, arguments, options = list()) {
-  dataset___expr__call(name, arguments, options)
-}
-Expression$compare <- function(OP, e1, e2) {
-  comp_func <- comparison_function_map[[OP]]
-  if (is.null(comp_func)) {
-    stop(OP, " is not a supported comparison function", call. = FALSE)
-  }
-  Expression$call(comp_func, list(e1, e2))
-}
-
-comparison_function_map <- list(
-  "==" = "equal",
-  "!=" = "not_equal",
-  ">" = "greater",
-  ">=" = "greater_equal",
-  "<" = "less",
-  "<=" = "less_equal"
-)
-Expression$in_ <- function(x, set) {
-  Expression$call("is_in", list(x),
-                  options = list(value_set = Array$create(set),
-                                 skip_nulls = TRUE))
-}
-Expression$and <- function(e1, e2) {
-  Expression$call("and_kleene", list(e1, e2))
-}
-Expression$or <- function(e1, e2) {
-  Expression$call("or_kleene", list(e1, e2))
-}
-Expression$not <- function(e1) {
-  Expression$call("invert", list(e1))
-}
-Expression$is_valid <- function(e1) {
-  Expression$call("is_valid", list(e1))
-}
-Expression$is_null <- function(e1) {
-  Expression$call("is_null", list(e1))
-}
 
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    return(Expression$not(e1))
-  }
-  make_expression(.Generic, e1, e2)
-}
-
-make_expression <- function(operator, e1, e2) {
-  if (operator == "%in%") {
-    # In doesn't take Scalar, it takes Array
-    return(Expression$in_(e1, e2))
-  }
-
-  # Handle unary functions before touching e2
-  if (operator == "is.na") {
-    return(is.na(e1))
-  }
-  if (operator == "!") {
-    return(Expression$not(e1))
-  }
-
-  # Check for non-expressions and convert to Expressions
-  if (!inherits(e1, "Expression")) {
-    e1 <- Expression$scalar(e1)
-  }
-  if (!inherits(e2, "Expression")) {
-    e2 <- Expression$scalar(e2)
-  }
-  if (operator == "&") {
-    Expression$and(e1, e2)
-  } else if (operator == "|") {
-    Expression$or(e1, e2)
+    build_dataset_expression(.Generic, e1)
   } else {
-    Expression$compare(operator, e1, e2)
+    build_dataset_expression(.Generic, e1, e2)
   }
 }
 
 #' @export
-is.na.Expression <- function(x) Expression$is_null(x)
+is.na.Expression <- function(x) Expression$create("is_null", list(x))
