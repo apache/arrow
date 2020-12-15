@@ -13,16 +13,6 @@ the provided scalar (length-1) R value.
 \code{Expression$field_ref(name)} is used to construct an \code{Expression} which
 evaluates to the named column in the \code{Dataset} against which it is evaluated.
 
-\code{Expression$compare(OP, e1, e2)} takes two \code{Expression} operands, constructing
-an \code{Expression} which will evaluate these operands then compare them with the
-relation specified by OP (e.g. "==", "!=", ">", etc.) For example, to filter
-down to rows where the column named "alpha" is less than 5:
-\code{Expression$compare("<", Expression$field_ref("alpha"), Expression$scalar(5))}
-
-\code{Expression$and(e1, e2)}, \code{Expression$or(e1, e2)}, and \code{Expression$not(e1)}
-construct an \code{Expression} combining their arguments with Boolean operators.
-
-\code{Expression$is_valid(x)} is essentially (an inversion of) \code{is.na()} for \code{Expression}s.
-
-\code{Expression$in_(x, set)} evaluates x and returns whether or not it is a member of the set.
+\code{Expression$create(function_name, ..., options)} builds a function-call
+\code{Expression} containing one or more \code{Expression}s.
 }

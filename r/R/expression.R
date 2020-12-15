@@ -153,18 +153,8 @@ print.array_expression <- function(x, ...) {
 #' `Expression$field_ref(name)` is used to construct an `Expression` which
 #' evaluates to the named column in the `Dataset` against which it is evaluated.
 #'
-#' `Expression$compare(OP, e1, e2)` takes two `Expression` operands, constructing
-#' an `Expression` which will evaluate these operands then compare them with the
-#' relation specified by OP (e.g. "==", "!=", ">", etc.) For example, to filter
-#' down to rows where the column named "alpha" is less than 5:
-#' `Expression$compare("<", Expression$field_ref("alpha"), Expression$scalar(5))`
-#'
-#' `Expression$and(e1, e2)`, `Expression$or(e1, e2)`, and `Expression$not(e1)`
-#' construct an `Expression` combining their arguments with Boolean operators.
-#'
-#' `Expression$is_valid(x)` is essentially (an inversion of) `is.na()` for `Expression`s.
-#'
-#' `Expression$in_(x, set)` evaluates x and returns whether or not it is a member of the set.
+#' `Expression$create(function_name, ..., options)` builds a function-call
+#' `Expression` containing one or more `Expression`s.
 #' @name Expression
 #' @rdname Expression
 #' @export
@@ -173,20 +163,32 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
     ToString = function() dataset___expr__ToString(self)
   )
 )
-Expression$create <- function(name, arguments, options = list()) {
-  dataset___expr__call(name, arguments, options)
+Expression$create <- function(function_name,
+                              ...,
+                              args = list(...),
+                              options = empty_named_list()) {
+  assert_that(is.string(function_name))
+  dataset___expr__call(function_name, args, options)
+}
+Expression$field_ref <- function(name) {
+  assert_that(is.string(name))
+  dataset___expr__field_ref(name)
+}
+Expression$scalar <- function(x) {
+  dataset___expr__scalar(Scalar$create(x))
 }
 
 build_dataset_expression <- function(.Generic, e1, e2, ...) {
   if (.Generic %in% names(.unary_function_map)) {
-    expr <- Expression$create(.unary_function_map[[.Generic]], list(e1))
+    expr <- Expression$create(.unary_function_map[[.Generic]], e1)
   } else if (.Generic == "%in%") {
     # Special-case %in%, which is different from the Array function name
-    expr <- Expression$create("is_in", list(e1),
+    expr <- Expression$create("is_in", e1,
       options = list(
         value_set = Array$create(e2),
-        skip_nulls = TRUE)
+        skip_nulls = TRUE
       )
+    )
   } else {
     if (!inherits(e1, "Expression")) {
       e1 <- Expression$scalar(e1)
@@ -194,18 +196,9 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
     if (!inherits(e2, "Expression")) {
       e2 <- Expression$scalar(e2)
     }
-    expr <- Expression$create(.binary_function_map[[.Generic]], list(e1, e2), ...)
+    expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
-}
-
-Expression$field_ref <- function(name) {
-  assert_is(name, "character")
-  assert_that(length(name) == 1)
-  dataset___expr__field_ref(name)
-}
-Expression$scalar <- function(x) {
-  dataset___expr__scalar(Scalar$create(x))
 }
 
 #' @export
@@ -218,4 +211,4 @@ Ops.Expression <- function(e1, e2) {
 }
 
 #' @export
-is.na.Expression <- function(x) Expression$create("is_null", list(x))
+is.na.Expression <- function(x) Expression$create("is_null", x)
