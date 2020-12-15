@@ -969,13 +969,13 @@ mod tests {
             .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
-            .with_projection(vec![0, 1, 2, 3, 4]);
+            .with_projection(vec![0, 1, 2, 3, 4, 5]);
 
         let mut csv = builder.build(file).unwrap();
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(5, batch.num_rows());
-        assert_eq!(5, batch.num_columns());
+        assert_eq!(6, batch.num_columns());
 
         let schema = batch.schema();
 
@@ -987,12 +987,17 @@ mod tests {
             &DataType::Date32(DateUnit::Day),
             schema.field(4).data_type()
         );
+        assert_eq!(
+            &DataType::Date64(DateUnit::Millisecond),
+            schema.field(5).data_type()
+        );
 
         assert_eq!(false, schema.field(0).is_nullable());
         assert_eq!(true, schema.field(1).is_nullable());
         assert_eq!(true, schema.field(2).is_nullable());
         assert_eq!(false, schema.field(3).is_nullable());
         assert_eq!(true, schema.field(4).is_nullable());
+        assert_eq!(true, schema.field(5).is_nullable());
 
         assert_eq!(false, batch.column(1).is_null(0));
         assert_eq!(false, batch.column(1).is_null(1));
