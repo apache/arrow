@@ -400,14 +400,16 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected, const ChunkedArray& actual) {
+Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                   const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
     return util::nullopt;
   }
 
   std::stringstream ss;
   if (expected.length() != actual.length()) {
-    ss << "Expected length " << expected.length() << " but was actually " << actual.length();
+    ss << "Expected length " << expected.length() << " but was actually "
+       << actual.length();
     return ss.str();
   }
 
