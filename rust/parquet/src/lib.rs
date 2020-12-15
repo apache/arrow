@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![feature(specialization)]
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
@@ -39,6 +38,7 @@
 #[macro_use]
 pub mod errors;
 pub mod basic;
+#[macro_use]
 pub mod data_type;
 
 // Exported for external use, such as benchmarks
