@@ -83,9 +83,21 @@ std::string Expression::ToString() const {
   }
 
   auto call = CallNotNull(*this);
-  if (auto cmp = Comparison::Get(call->function)) {
-    return "(" + call->arguments[0].ToString() + " " + Comparison::GetOp(*cmp) + " " +
+  auto binary = [&](std::string op) {
+    return "(" + call->arguments[0].ToString() + " " + op + " " +
            call->arguments[1].ToString() + ")";
+  };
+
+  if (auto cmp = Comparison::Get(call->function)) {
+    return binary(Comparison::GetOp(*cmp));
+  }
+
+  if (call->function == "and_kleene") {
+    return binary("and");
+  }
+
+  if (call->function == "or_kleene") {
+    return binary("or");
   }
 
   if (auto options = GetStructOptions(*call)) {
