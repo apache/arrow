@@ -233,7 +233,8 @@ mod tests {
     };
     use crate::column::writer::get_typed_column_writer_mut;
     use crate::data_type::{
-        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArrayType, Int32Type,
+        BoolType, ByteArray, ByteArrayType, DataType, FixedLenByteArray,
+        FixedLenByteArrayType, Int32Type,
     };
     use crate::errors::Result;
     use crate::file::properties::WriterProperties;
@@ -331,10 +332,10 @@ mod tests {
     struct RandFixedLenGen {}
 
     impl RandGen<FixedLenByteArrayType> for RandFixedLenGen {
-        fn gen(len: i32) -> ByteArray {
+        fn gen(len: i32) -> FixedLenByteArray {
             let mut v = vec![0u8; len as usize];
             rand::thread_rng().fill_bytes(&mut v);
-            v.into()
+            ByteArray::from(v).into()
         }
     }
 

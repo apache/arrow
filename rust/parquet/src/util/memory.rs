@@ -383,12 +383,10 @@ impl<T: Debug> Display for BufferPtr<T> {
 
 impl<T> Drop for BufferPtr<T> {
     fn drop(&mut self) {
-        if self.is_mem_tracked()
-            && Arc::strong_count(&self.data) == 1
-            && Arc::weak_count(&self.data) == 0
-        {
-            let mc = self.mem_tracker.as_ref().unwrap();
-            mc.alloc(-(self.data.capacity() as i64));
+        if let Some(ref mc) = self.mem_tracker {
+            if Arc::strong_count(&self.data) == 1 && Arc::weak_count(&self.data) == 0 {
+                mc.alloc(-(self.data.capacity() as i64));
+            }
         }
     }
 }

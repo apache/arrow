@@ -179,8 +179,8 @@ pub fn from_thrift(
                     old_format,
                 ),
                 Type::FIXED_LEN_BYTE_ARRAY => Statistics::fixed_len_byte_array(
-                    min.map(ByteArray::from),
-                    max.map(ByteArray::from),
+                    min.map(ByteArray::from).map(FixedLenByteArray::from),
+                    max.map(ByteArray::from).map(FixedLenByteArray::from),
                     distinct_count,
                     null_count,
                     old_format,
@@ -259,7 +259,11 @@ impl Statistics {
 
     statistics_new_func![byte_array, Option<ByteArray>, ByteArray];
 
-    statistics_new_func![fixed_len_byte_array, Option<ByteArray>, FixedLenByteArray];
+    statistics_new_func![
+        fixed_len_byte_array,
+        Option<FixedLenByteArray>,
+        FixedLenByteArray
+    ];
 
     /// Returns `true` if statistics have old `min` and `max` fields set.
     /// This means that the column order is likely to be undefined, which, for old files
@@ -423,12 +427,12 @@ impl<T: DataType> fmt::Display for TypedStatistics<T> {
         write!(f, "{{")?;
         write!(f, "min: ")?;
         match self.min {
-            Some(ref value) => self.value_fmt(f, value)?,
+            Some(ref value) => write!(f, "{}", value)?,
             None => write!(f, "N/A")?,
         }
         write!(f, ", max: ")?;
         match self.max {
-            Some(ref value) => self.value_fmt(f, value)?,
+            Some(ref value) => write!(f, "{}", value)?,
             None => write!(f, "N/A")?,
         }
         write!(f, ", distinct_count: ")?;
@@ -464,37 +468,6 @@ impl<T: DataType> cmp::PartialEq for TypedStatistics<T> {
             && self.distinct_count == other.distinct_count
             && self.null_count == other.null_count
             && self.is_min_max_deprecated == other.is_min_max_deprecated
-    }
-}
-
-/// Trait to provide a specific write format for values.
-/// For example, we should display vector slices for byte array types, and original
-/// values for other types.
-trait ValueDisplay<T: DataType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &T::T) -> fmt::Result;
-}
-
-impl<T: DataType> ValueDisplay<T> for TypedStatistics<T> {
-    default fn value_fmt(&self, f: &mut fmt::Formatter, value: &T::T) -> fmt::Result {
-        write!(f, "{:?}", value)
-    }
-}
-
-impl ValueDisplay<Int96Type> for TypedStatistics<Int96Type> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &Int96) -> fmt::Result {
-        write!(f, "{:?}", value.data())
-    }
-}
-
-impl ValueDisplay<ByteArrayType> for TypedStatistics<ByteArrayType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &ByteArray) -> fmt::Result {
-        write!(f, "{:?}", value.data())
-    }
-}
-
-impl ValueDisplay<FixedLenByteArrayType> for TypedStatistics<FixedLenByteArrayType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &ByteArray) -> fmt::Result {
-        write!(f, "{:?}", value.data())
     }
 }
 
@@ -628,8 +601,8 @@ mod tests {
                 0,
                 true
             ) != Statistics::fixed_len_byte_array(
-                Some(ByteArray::from(vec![1, 2, 3])),
-                Some(ByteArray::from(vec![1, 2, 3])),
+                Some(ByteArray::from(vec![1, 2, 3]).into()),
+                Some(ByteArray::from(vec![1, 2, 3]).into()),
                 None,
                 0,
                 true
@@ -679,8 +652,8 @@ mod tests {
         check_stats(Statistics::byte_array(None, None, None, 7, true));
 
         check_stats(Statistics::fixed_len_byte_array(
-            Some(ByteArray::from(vec![1, 2, 3])),
-            Some(ByteArray::from(vec![3, 4, 5])),
+            Some(ByteArray::from(vec![1, 2, 3]).into()),
+            Some(ByteArray::from(vec![3, 4, 5]).into()),
             None,
             7,
             true,
