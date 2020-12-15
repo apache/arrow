@@ -516,7 +516,7 @@ impl Parser for Date32Type {
 
         match Self::DATA_TYPE {
             DataType::Date32(DateUnit::Day) => {
-                let days = chrono::NaiveDate::parse_from_str(string, "%Y-%m-%d").ok()?;
+                let days = string.parse::<chrono::NaiveDate>().ok()?;
                 Self::Native::from_i32(since(days, from_ymd(1970, 1, 1)).num_days() as i32)
             }
             _ => None,
@@ -529,7 +529,7 @@ impl Parser for Date64Type {
         match Self::DATA_TYPE {
             DataType::Date64(DateUnit::Millisecond) => {
                 let millis =
-                    chrono::NaiveDateTime::parse_from_str(string, "%Y-%m-%dT%H:%M:%S")
+                string.parse::<chrono::NaiveDateTime>()
                         .map(|t| t.timestamp_millis())
                         .ok()?;
                 Self::Native::from_i64(millis)
