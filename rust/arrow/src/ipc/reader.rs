@@ -337,6 +337,19 @@ fn create_primitive_array(
             }
             builder.build()
         }
+        Decimal(_, _) => {
+            // read 3 buffers
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..2].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
+        }
         t => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
@@ -941,6 +954,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
@@ -958,6 +972,42 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Big Endian is not supported for Decimal!")]
+    fn read_decimal_be_file_should_panic() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/generated_decimal.arrow_file",
+                testdata
+            ))
+            .unwrap();
+        FileReader::try_new(file).unwrap();
+    }
+
+    #[test]
+    fn read_generated_be_files_should_work() {
+        // complementary to the previous test
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_dictionary",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/{}.arrow_file",
+                testdata, path
+            ))
+            .unwrap();
+
+            FileReader::try_new(file).unwrap();
+        });
+    }
+
+    #[test]
     fn read_generated_streams() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
@@ -969,6 +1019,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(

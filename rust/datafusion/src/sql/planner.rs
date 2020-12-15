@@ -22,8 +22,8 @@ use std::sync::Arc;
 
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    and, lit, DFSchema, DFSchemaRef, Expr, LogicalPlan, LogicalPlanBuilder, Operator,
-    PlanType, StringifiedPlan,
+    and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
+    StringifiedPlan, ToDFSchema,
 };
 use crate::scalar::ScalarValue;
 use crate::{
@@ -141,7 +141,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let schema = self.build_schema(&columns)?;
 
         Ok(LogicalPlan::CreateExternalTable {
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
             name: name.clone(),
             location: location.clone(),
             file_type: file_type.clone(),
@@ -170,7 +170,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             verbose,
             plan,
             stringified_plans,
-            schema: DFSchemaRef::new(DFSchema::from(&schema)?),
+            schema: schema.to_dfschema_ref()?,
         })
     }
 
@@ -369,7 +369,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             join_keys.push((r.as_str(), l.as_str()));
                         }
                     }
-                    if join_keys.len() == 0 {
+                    if join_keys.is_empty() {
                         return Err(DataFusionError::NotImplemented(
                             "Cartesian joins are not supported".to_string(),
                         ));
@@ -415,11 +415,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let aggr_expr: Vec<Expr> = projection_expr
             .iter()
             .filter(|e| is_aggregate_expr(e))
-            .map(|e| e.clone())
+            .cloned()
             .collect();
 
         // apply projection or aggregate
-        let plan = if (select.group_by.len() > 0) | (aggr_expr.len() > 0) {
+        let plan = if !select.group_by.is_empty() | !aggr_expr.is_empty() {
             self.aggregate(&plan, projection_expr, &select.group_by, aggr_expr)?
         } else {
             self.project(&plan, projection_expr)?
@@ -505,7 +505,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         plan: &LogicalPlan,
         order_by: &Vec<OrderByExpr>,
     ) -> Result<LogicalPlan> {
-        if order_by.len() == 0 {
+        if order_by.is_empty() {
             return Ok(plan.clone());
         }
 
@@ -629,6 +629,14 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 data_type: convert_data_type(data_type)?,
             }),
 
+            SQLExpr::TypedString {
+                ref data_type,
+                ref value,
+            } => Ok(Expr::Cast {
+                expr: Box::new(lit(&**value)),
+                data_type: convert_data_type(data_type)?,
+            }),
+
             SQLExpr::IsNull(ref expr) => {
                 Ok(Expr::IsNull(Box::new(self.sql_to_rex(expr, schema)?)))
             }
@@ -661,6 +669,18 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     }
                 }
             },
+
+            SQLExpr::Between {
+                ref expr,
+                ref negated,
+                ref low,
+                ref high,
+            } => Ok(Expr::Between {
+                expr: Box::new(self.sql_to_rex(&expr, &schema)?),
+                negated: *negated,
+                low: Box::new(self.sql_to_rex(&low, &schema)?),
+                high: Box::new(self.sql_to_rex(&high, &schema)?),
+            }),
 
             SQLExpr::BinaryOp {
                 ref left,
@@ -996,6 +1016,26 @@ mod tests {
     }
 
     #[test]
+    fn select_between() {
+        let sql = "SELECT state FROM person WHERE age BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_between_negated() {
+        let sql = "SELECT state FROM person WHERE age NOT BETWEEN 21 AND 65";
+        let expected = "Projection: #state\
+            \n  Filter: #age NOT BETWEEN Int64(21) AND Int64(65)\
+            \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_nested() {
         let sql = "SELECT fn2, last_name
                    FROM (
@@ -1276,6 +1316,14 @@ mod tests {
             \n      TableScan: person projection=None\
             \n      TableScan: orders projection=None\
             \n    TableScan: lineitem projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_typedstring() {
+        let sql = "SELECT date '2020-12-10' AS date FROM person";
+        let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32(Day)) AS date\
+            \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 

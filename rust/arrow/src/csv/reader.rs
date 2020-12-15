@@ -51,7 +51,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
+use crate::array::{ArrayRef, BooleanArray, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -405,9 +405,7 @@ fn parse(
             let i = *i;
             let field = &fields[i];
             match field.data_type() {
-                &DataType::Boolean => {
-                    build_primitive_array::<BooleanType>(line_number, rows, i)
-                }
+                &DataType::Boolean => build_boolean_array(line_number, rows, i),
                 &DataType::Int8 => {
                     build_primitive_array::<Int8Type>(line_number, rows, i)
                 }
@@ -471,18 +469,6 @@ trait Parser: ArrowPrimitiveType {
     }
 }
 
-impl Parser for BooleanType {
-    fn parse(string: &str) -> Option<bool> {
-        if string.eq_ignore_ascii_case("false") {
-            Some(false)
-        } else if string.eq_ignore_ascii_case("true") {
-            Some(true)
-        } else {
-            None
-        }
-    }
-}
-
 impl Parser for Float32Type {
     fn parse(string: &str) -> Option<f32> {
         lexical_core::parse(string.as_bytes()).ok()
@@ -512,6 +498,16 @@ impl Parser for Int8Type {}
 
 fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
     T::parse(string)
+}
+
+fn parse_bool(string: &str) -> Option<bool> {
+    if string.eq_ignore_ascii_case("false") {
+        Some(false)
+    } else if string.eq_ignore_ascii_case("true") {
+        Some(true)
+    } else {
+        None
+    }
 }
 
 // parses a specific column (col_idx) into an Arrow Array.
@@ -545,6 +541,40 @@ fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
             }
         })
         .collect::<Result<PrimitiveArray<T>>>()
+        .map(|e| Arc::new(e) as ArrayRef)
+}
+
+// parses a specific column (col_idx) into an Arrow Array.
+fn build_boolean_array(
+    line_number: usize,
+    rows: &[StringRecord],
+    col_idx: usize,
+) -> Result<ArrayRef> {
+    rows.iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            match row.get(col_idx) {
+                Some(s) => {
+                    if s.is_empty() {
+                        return Ok(None);
+                    }
+
+                    let parsed = parse_bool(s);
+                    match parsed {
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
+                            // TODO: we should surface the underlying error here.
+                            "Error while parsing value {} for column {} at line {}",
+                            s,
+                            col_idx,
+                            line_number + row_index
+                        ))),
+                    }
+                }
+                None => Ok(None),
+            }
+        })
+        .collect::<Result<BooleanArray>>()
         .map(|e| Arc::new(e) as ArrayRef)
 }
 
@@ -1059,21 +1089,21 @@ mod tests {
     #[test]
     fn test_parsing_bool() {
         // Encode the expected behavior of boolean parsing
-        assert_eq!(Some(true), parse_item::<BooleanType>("true"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("tRUe"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("True"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("TRUE"));
-        assert_eq!(None, parse_item::<BooleanType>("t"));
-        assert_eq!(None, parse_item::<BooleanType>("T"));
-        assert_eq!(None, parse_item::<BooleanType>(""));
+        assert_eq!(Some(true), parse_bool("true"));
+        assert_eq!(Some(true), parse_bool("tRUe"));
+        assert_eq!(Some(true), parse_bool("True"));
+        assert_eq!(Some(true), parse_bool("TRUE"));
+        assert_eq!(None, parse_bool("t"));
+        assert_eq!(None, parse_bool("T"));
+        assert_eq!(None, parse_bool(""));
 
-        assert_eq!(Some(false), parse_item::<BooleanType>("false"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("fALse"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("False"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("FALSE"));
-        assert_eq!(None, parse_item::<BooleanType>("f"));
-        assert_eq!(None, parse_item::<BooleanType>("F"));
-        assert_eq!(None, parse_item::<BooleanType>(""));
+        assert_eq!(Some(false), parse_bool("false"));
+        assert_eq!(Some(false), parse_bool("fALse"));
+        assert_eq!(Some(false), parse_bool("False"));
+        assert_eq!(Some(false), parse_bool("FALSE"));
+        assert_eq!(None, parse_bool("f"));
+        assert_eq!(None, parse_bool("F"));
+        assert_eq!(None, parse_bool(""));
     }
 
     #[test]

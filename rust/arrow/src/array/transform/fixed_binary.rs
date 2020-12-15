@@ -43,7 +43,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {
                         // append value
-                        let bytes = &values[start * size..(start + len) * size];
+                        let bytes = &values[i * size..(i + 1) * size];
                         values_buffer.extend_from_slice(bytes);
                     } else {
                         values_buffer.extend(size);

@@ -21,9 +21,9 @@ use futures::Stream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
-use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
 use datafusion::prelude::*;
+use datafusion::{datasource::parquet::ParquetTable, physical_plan::collect};
 
 use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
@@ -66,7 +66,13 @@ impl FlightService for FlightServiceImpl {
 
         let table = ParquetTable::try_new(&request.path[0]).unwrap();
 
-        Ok(Response::new(SchemaResult::from(table.schema().as_ref())))
+        let options = arrow::ipc::writer::IpcWriteOptions::default();
+        let schema_result = arrow_flight::utils::flight_schema_from_arrow_schema(
+            table.schema().as_ref(),
+            &options,
+        );
+
+        Ok(Response::new(schema_result))
     }
 
     async fn do_get(
@@ -99,22 +105,33 @@ impl FlightService for FlightServiceImpl {
                     .map_err(|e| to_tonic_err(&e))?;
 
                 // execute the query
-                let results = ctx
-                    .collect(plan.clone())
-                    .await
-                    .map_err(|e| to_tonic_err(&e))?;
+                let results =
+                    collect(plan.clone()).await.map_err(|e| to_tonic_err(&e))?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }
 
                 // add an initial FlightData message that sends schema
+                let options = arrow::ipc::writer::IpcWriteOptions::default();
                 let schema = plan.schema();
+                let schema_flight_data =
+                    arrow_flight::utils::flight_data_from_arrow_schema(
+                        schema.as_ref(),
+                        &options,
+                    );
+
                 let mut flights: Vec<Result<FlightData, Status>> =
-                    vec![Ok(FlightData::from(schema.as_ref()))];
+                    vec![Ok(schema_flight_data)];
 
                 let mut batches: Vec<Result<FlightData, Status>> = results
                     .iter()
-                    .map(|batch| Ok(FlightData::from(batch)))
+                    .flat_map(|batch| {
+                        let flight_data =
+                            arrow_flight::utils::flight_data_from_arrow_batch(
+                                batch, &options,
+                            );
+                        flight_data.into_iter().map(Ok)
+                    })
                     .collect();
 
                 // append batch vector to schema vector, so that the first message sent is the schema

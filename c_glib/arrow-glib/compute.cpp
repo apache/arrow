@@ -103,6 +103,17 @@ garrow_take(arrow::Datum arrow_values,
   }
 }
 
+namespace {
+  bool
+  garrow_sort_key_equal_raw(const arrow::compute::SortKey &sort_key,
+                            const arrow::compute::SortKey &other_sort_key) {
+    return
+      (sort_key.name == other_sort_key.name) &&
+      (sort_key.order == other_sort_key.order);
+
+  }
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -134,6 +145,12 @@ G_BEGIN_DECLS
  *
  * #GArrowCompareOptions is a class to customize the `equal` function
  * family and garrow_int8_array_compare() family.
+ *
+ * #GArrowArraySortOptions is a class to customize the
+ * `array_sort_indices` function.
+ *
+ * #GArrowSortOptions is a class to customize the `sort_indices`
+ * function.
  *
  * There are many functions to compute data on an array.
  */
@@ -1073,6 +1090,480 @@ garrow_compare_options_new(void)
 {
   auto compare_options = g_object_new(GARROW_TYPE_COMPARE_OPTIONS, NULL);
   return GARROW_COMPARE_OPTIONS(compare_options);
+}
+
+
+typedef struct GArrowArraySortOptionsPrivate_ {
+  arrow::compute::ArraySortOptions options;
+} GArrowArraySortOptionsPrivate;
+
+enum {
+  PROP_ARRAY_SORT_OPTIONS_ORDER = 1,
+};
+
+static arrow::compute::FunctionOptions *
+garrow_array_sort_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_array_sort_options_get_raw(GARROW_ARRAY_SORT_OPTIONS(options));
+}
+
+static void
+garrow_array_sort_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_array_sort_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowArraySortOptions,
+                        garrow_array_sort_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowArraySortOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_array_sort_options_function_options_interface_init))
+
+#define GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(object)   \
+  static_cast<GArrowArraySortOptionsPrivate *>(         \
+    garrow_array_sort_options_get_instance_private(     \
+      GARROW_ARRAY_SORT_OPTIONS(object)))
+
+static void
+garrow_array_sort_options_finalize(GObject *object)
+{
+  auto priv = GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(object);
+  priv->options.~ArraySortOptions();
+  G_OBJECT_CLASS(garrow_array_sort_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_array_sort_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_ARRAY_SORT_OPTIONS_ORDER:
+    priv->options.order =
+      static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_array_sort_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_ARRAY_SORT_OPTIONS_ORDER:
+    g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->options.order));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_array_sort_options_init(GArrowArraySortOptions *object)
+{
+  auto priv = GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::ArraySortOptions();
+}
+
+static void
+garrow_array_sort_options_class_init(GArrowArraySortOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = garrow_array_sort_options_finalize;
+  gobject_class->set_property = garrow_array_sort_options_set_property;
+  gobject_class->get_property = garrow_array_sort_options_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowArraySortOptions:order:
+   *
+   * How to order values.
+   *
+   * Since: 3.0.0
+   */
+  spec = g_param_spec_enum("order",
+                           "Order",
+                           "How to order values",
+                           GARROW_TYPE_SORT_ORDER,
+                           0,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ARRAY_SORT_OPTIONS_ORDER,
+                                  spec);
+}
+
+/**
+ * garrow_array_sort_options_new:
+ * @order: How to order by values.
+ *
+ * Returns: A newly created #GArrowArraySortOptions.
+ *
+ * Since: 3.0.0
+ */
+GArrowArraySortOptions *
+garrow_array_sort_options_new(GArrowSortOrder order)
+{
+  auto array_sort_options =
+    g_object_new(GARROW_TYPE_ARRAY_SORT_OPTIONS,
+                 "order", order,
+                 NULL);
+  return GARROW_ARRAY_SORT_OPTIONS(array_sort_options);
+}
+
+/**
+ * garrow_array_sort_options_equal:
+ * @options: A #GArrowArraySortOptions.
+ * @other_options: A #GArrowArraySortOptions to be compared.
+ *
+ * Returns: %TRUE if both of them have the same order, %FALSE
+ *   otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_array_sort_options_equal(GArrowArraySortOptions *options,
+                                GArrowArraySortOptions *other_options)
+{
+  auto arrow_options = garrow_array_sort_options_get_raw(options);
+  auto arrow_other_options = garrow_array_sort_options_get_raw(other_options);
+  return arrow_options->order == arrow_other_options->order;
+}
+
+
+typedef struct GArrowSortKeyPrivate_ {
+  arrow::compute::SortKey sort_key;
+} GArrowSortKeyPrivate;
+
+enum {
+  PROP_SORT_KEY_NAME = 1,
+  PROP_SORT_KEY_ORDER,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowSortKey,
+                           garrow_sort_key,
+                           G_TYPE_OBJECT)
+
+#define GARROW_SORT_KEY_GET_PRIVATE(object)     \
+  static_cast<GArrowSortKeyPrivate *>(          \
+    garrow_sort_key_get_instance_private(       \
+      GARROW_SORT_KEY(object)))
+
+static void
+garrow_sort_key_finalize(GObject *object)
+{
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
+  priv->sort_key.~SortKey();
+  G_OBJECT_CLASS(garrow_sort_key_parent_class)->finalize(object);
+}
+
+static void
+garrow_sort_key_set_property(GObject *object,
+                             guint prop_id,
+                             const GValue *value,
+                             GParamSpec *pspec)
+{
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SORT_KEY_NAME:
+    priv->sort_key.name = g_value_get_string(value);
+    break;
+  case PROP_SORT_KEY_ORDER:
+    priv->sort_key.order =
+      static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_sort_key_get_property(GObject *object,
+                             guint prop_id,
+                             GValue *value,
+                             GParamSpec *pspec)
+{
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SORT_KEY_NAME:
+    g_value_set_string(value, priv->sort_key.name.c_str());
+    break;
+  case PROP_SORT_KEY_ORDER:
+    g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->sort_key.order));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_sort_key_init(GArrowSortKey *object)
+{
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(object);
+  new(&priv->sort_key) arrow::compute::SortKey("");
+}
+
+static void
+garrow_sort_key_class_init(GArrowSortKeyClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize     = garrow_sort_key_finalize;
+  gobject_class->set_property = garrow_sort_key_set_property;
+  gobject_class->get_property = garrow_sort_key_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSortKey:name:
+   *
+   * The column name to be used.
+   *
+   * Since: 3.0.0
+   */
+  spec = g_param_spec_string("name",
+                             "Name",
+                             "The column name to be used",
+                             NULL,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SORT_KEY_NAME, spec);
+
+  /**
+   * GArrowSortKey:order:
+   *
+   * How to order values.
+   *
+   * Since: 3.0.0
+   */
+  spec = g_param_spec_enum("order",
+                           "Order",
+                           "How to order values",
+                           GARROW_TYPE_SORT_ORDER,
+                           0,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SORT_KEY_ORDER, spec);
+}
+
+/**
+ * garrow_sort_key_new:
+ * @name: A column name to be used.
+ * @order: How to order by this sort key.
+ *
+ * Returns: A newly created #GArrowSortKey.
+ *
+ * Since: 3.0.0
+ */
+GArrowSortKey *
+garrow_sort_key_new(const gchar *name, GArrowSortOrder order)
+{
+  auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY,
+                               "name", name,
+                               "order", order,
+                               NULL);
+  return GARROW_SORT_KEY(sort_key);
+}
+
+/**
+ * garrow_sort_key_equal:
+ * @sort_key: A #GArrowSortKey.
+ * @other_sort_key: A #GArrowSortKey to be compared.
+ *
+ * Returns: %TRUE if both of them have the same name and order, %FALSE
+ *   otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_sort_key_equal(GArrowSortKey *sort_key,
+                      GArrowSortKey *other_sort_key)
+{
+  auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
+  auto arrow_other_sort_key = garrow_sort_key_get_raw(other_sort_key);
+  return garrow_sort_key_equal_raw(*arrow_sort_key,
+                                   *arrow_other_sort_key);
+}
+
+
+typedef struct GArrowSortOptionsPrivate_ {
+  arrow::compute::SortOptions options;
+} GArrowSortOptionsPrivate;
+
+static arrow::compute::FunctionOptions *
+garrow_sort_options_get_raw_function_options(GArrowFunctionOptions *options)
+{
+  return garrow_sort_options_get_raw(GARROW_SORT_OPTIONS(options));
+}
+
+static void
+garrow_sort_options_function_options_interface_init(
+  GArrowFunctionOptionsInterface *iface)
+{
+  iface->get_raw = garrow_sort_options_get_raw_function_options;
+}
+
+G_DEFINE_TYPE_WITH_CODE(GArrowSortOptions,
+                        garrow_sort_options,
+                        G_TYPE_OBJECT,
+                        G_ADD_PRIVATE(GArrowSortOptions)
+                        G_IMPLEMENT_INTERFACE(
+                          GARROW_TYPE_FUNCTION_OPTIONS,
+                          garrow_sort_options_function_options_interface_init))
+
+#define GARROW_SORT_OPTIONS_GET_PRIVATE(object) \
+  static_cast<GArrowSortOptionsPrivate *>(      \
+    garrow_sort_options_get_instance_private(   \
+      GARROW_SORT_OPTIONS(object)))
+
+static void
+garrow_sort_options_finalize(GObject *object)
+{
+  auto priv = GARROW_SORT_OPTIONS_GET_PRIVATE(object);
+  priv->options.~SortOptions();
+  G_OBJECT_CLASS(garrow_sort_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_sort_options_init(GArrowSortOptions *object)
+{
+  auto priv = GARROW_SORT_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::SortOptions();
+}
+
+static void
+garrow_sort_options_class_init(GArrowSortOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_sort_options_finalize;
+}
+
+/**
+ * garrow_sort_options_new:
+ * @sort_keys: (nullable) (element-type GArrowSortKey): The sort keys to be used.
+ *
+ * Returns: A newly created #GArrowSortOptions.
+ *
+ * Since: 3.0.0
+ */
+GArrowSortOptions *
+garrow_sort_options_new(GList *sort_keys)
+{
+  auto sort_options =
+    GARROW_SORT_OPTIONS(g_object_new(GARROW_TYPE_SORT_OPTIONS, NULL));
+  if (sort_keys) {
+    garrow_sort_options_set_sort_keys(sort_options, sort_keys);
+  }
+  return sort_options;
+}
+
+/**
+ * garrow_sort_options_equal:
+ * @options: A #GArrowSortOptions.
+ * @other_options: A #GArrowSortOptions to be compared.
+ *
+ * Returns: %TRUE if both of them have the same sort keys, %FALSE
+ *   otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_sort_options_equal(GArrowSortOptions *options,
+                          GArrowSortOptions *other_options)
+{
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  auto arrow_other_options = garrow_sort_options_get_raw(other_options);
+  if (arrow_options->sort_keys.size() !=
+      arrow_other_options->sort_keys.size()) {
+    return FALSE;
+  }
+  const auto n_sort_keys = arrow_options->sort_keys.size();
+  for (size_t i = 0; i < n_sort_keys; ++i) {
+    if (!garrow_sort_key_equal_raw(arrow_options->sort_keys[i],
+                                   arrow_other_options->sort_keys[i])) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * garrow_sort_options_get_sort_keys:
+ * @options: A #GArrowSortOptions.
+ *
+ * Returns: (transfer full) (element-type GArrowSortKey):
+ *   The sort keys to be used.
+ *
+ * Since: 3.0.0
+ */
+GList *
+garrow_sort_options_get_sort_keys(GArrowSortOptions *options)
+{
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  GList *sort_keys = NULL;
+  for (const auto &arrow_sort_key : arrow_options->sort_keys) {
+    auto sort_key =
+      garrow_sort_key_new(arrow_sort_key.name.c_str(),
+                          static_cast<GArrowSortOrder>(arrow_sort_key.order));
+    sort_keys = g_list_prepend(sort_keys, sort_key);
+  }
+  return g_list_reverse(sort_keys);
+}
+
+/**
+ * garrow_sort_options_add_sort_key:
+ * @options: A #GArrowSortOptions.
+ * @sort_key: The sort key to be added.
+ *
+ * Add a sort key to be used.
+ *
+ * Since: 3.0.0
+ */
+void
+garrow_sort_options_add_sort_key(GArrowSortOptions *options,
+                                 GArrowSortKey *sort_key)
+{
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
+  arrow_options->sort_keys.push_back(*arrow_sort_key);
+}
+
+/**
+ * garrow_sort_options_set_sort_keys:
+ * @options: A #GArrowSortOptions.
+ * @sort_keys: (element-type GArrowSortKey): The sort keys to be used.
+ *
+ * Set sort keys to be used.
+ *
+ * Since: 3.0.0
+ */
+void
+garrow_sort_options_set_sort_keys(GArrowSortOptions *options,
+                                  GList *sort_keys)
+{
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  arrow_options->sort_keys.clear();
+  for (auto node = sort_keys; node; node = node->next) {
+    auto sort_key = GARROW_SORT_KEY(node->data);
+    auto arrow_sort_key = garrow_sort_key_get_raw(sort_key);
+    arrow_options->sort_keys.push_back(*arrow_sort_key);
+  }
 }
 
 
@@ -2224,6 +2715,98 @@ garrow_array_sort_to_indices(GArrowArray *array,
 }
 
 /**
+ * garrow_chunked_array_sort_indices:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @order: The order for sort.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   a chunked array in the specified order on success, %NULL on error.
+ *
+ * Since: 3.0.0
+ */
+GArrowUInt64Array *
+garrow_chunked_array_sort_indices(GArrowChunkedArray *chunked_array,
+                                  GArrowSortOrder order,
+                                  GError **error)
+{
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_chunked_array_raw = arrow_chunked_array.get();
+  auto arrow_order = static_cast<arrow::compute::SortOrder>(order);
+  auto arrow_indices_array =
+    arrow::compute::SortIndices(*arrow_chunked_array_raw, arrow_order);
+  if (garrow::check(error,
+                    arrow_indices_array,
+                    "[chunked-array][sort-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_sort_indices:
+ * @record_batch: A #GArrowRecordBatch.
+ * @options: The options to be used.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   a record batch with the specified options on success, %NULL on error.
+ *
+ * Since: 3.0.0
+ */
+GArrowUInt64Array *
+garrow_record_batch_sort_indices(GArrowRecordBatch *record_batch,
+                                 GArrowSortOptions *options,
+                                 GError **error)
+{
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  auto arrow_record_batch_raw = arrow_record_batch.get();
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  auto arrow_indices_array =
+    arrow::compute::SortIndices(::arrow::Datum(*arrow_record_batch_raw),
+                                *arrow_options);
+  if (garrow::check(error,
+                    arrow_indices_array,
+                    "[record-batch][sort-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_sort_indices:
+ * @table: A #GArrowTable.
+ * @options: The options to be used.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   a table with the specified options on success, %NULL on error.
+ *
+ * Since: 3.0.0
+ */
+GArrowUInt64Array *
+garrow_table_sort_indices(GArrowTable *table,
+                          GArrowSortOptions *options,
+                          GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_table_raw = arrow_table.get();
+  auto arrow_options = garrow_sort_options_get_raw(options);
+  auto arrow_indices_array =
+    arrow::compute::SortIndices(::arrow::Datum(*arrow_table_raw),
+                                *arrow_options);
+  if (garrow::check(error,
+                    arrow_indices_array,
+                    "[table][sort-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&(*arrow_indices_array)));
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_table_filter:
  * @table: A #GArrowTable.
  * @filter: The values indicates which values should be filtered out.
@@ -2515,5 +3098,26 @@ arrow::compute::CompareOptions *
 garrow_compare_options_get_raw(GArrowCompareOptions *compare_options)
 {
   auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(compare_options);
+  return &(priv->options);
+}
+
+arrow::compute::ArraySortOptions *
+garrow_array_sort_options_get_raw(GArrowArraySortOptions *array_sort_options)
+{
+  auto priv = GARROW_ARRAY_SORT_OPTIONS_GET_PRIVATE(array_sort_options);
+  return &(priv->options);
+}
+
+arrow::compute::SortKey *
+garrow_sort_key_get_raw(GArrowSortKey *sort_key)
+{
+  auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
+  return &(priv->sort_key);
+}
+
+arrow::compute::SortOptions *
+garrow_sort_options_get_raw(GArrowSortOptions *sort_options)
+{
+  auto priv = GARROW_SORT_OPTIONS_GET_PRIVATE(sort_options);
   return &(priv->options);
 }

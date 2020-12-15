@@ -29,11 +29,14 @@ use arrow::{
     util::display::array_value_to_string,
 };
 
-use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{DFSchema, LogicalPlan};
+use datafusion::logical_plan::{LogicalPlan, ToDFSchema};
 use datafusion::prelude::create_udf;
+use datafusion::{
+    datasource::{csv::CsvReadOptions, MemTable},
+    physical_plan::collect,
+};
 
 #[tokio::test]
 async fn nyc() -> Result<()> {
@@ -122,7 +125,7 @@ async fn parquet_single_nan_schema() {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let results = ctx.collect(plan).await.unwrap();
+    let results = collect(plan).await.unwrap();
     for batch in results {
         assert_eq!(1, batch.num_rows());
         assert_eq!(1, batch.num_columns());
@@ -156,7 +159,7 @@ async fn parquet_list_columns() {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let results = ctx.collect(plan).await.unwrap();
+    let results = collect(plan).await.unwrap();
 
     //   int64_list              utf8_list
     // 0  [1, 2, 3]        [abc, efg, hij]
@@ -535,7 +538,7 @@ async fn csv_query_avg_multi_batch() -> Result<()> {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let results = ctx.collect(plan).await.unwrap();
+    let results = collect(plan).await.unwrap();
     let batch = &results[0];
     let column = batch.column(0);
     let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -1040,7 +1043,7 @@ fn create_case_context() -> Result<ExecutionContext> {
             None,
         ]))],
     )?;
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     ctx.register_table("t1", Box::new(table));
     Ok(ctx)
 }
@@ -1190,7 +1193,7 @@ fn create_join_context(
             ])),
         ],
     )?;
-    let t1_table = MemTable::new(t1_schema, vec![vec![t1_data]])?;
+    let t1_table = MemTable::try_new(t1_schema, vec![vec![t1_data]])?;
     ctx.register_table("t1", Box::new(t1_table));
 
     let t2_schema = Arc::new(Schema::new(vec![
@@ -1209,7 +1212,7 @@ fn create_join_context(
             ])),
         ],
     )?;
-    let t2_table = MemTable::new(t2_schema, vec![vec![t2_data]])?;
+    let t2_table = MemTable::try_new(t2_schema, vec![vec![t2_data]])?;
     ctx.register_table("t2", Box::new(t2_table));
 
     Ok(ctx)
@@ -1347,12 +1350,12 @@ async fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<Vec<String>> {
     let physical_schema = plan.schema();
 
     let msg = format!("Executing physical plan for '{}': {:?}", sql, plan);
-    let results = ctx.collect(plan).await.expect(&msg);
+    let results = collect(plan).await.expect(&msg);
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
     assert_eq!(
         logical_schema.as_ref(),
-        &DFSchema::from(physical_schema.as_ref()).unwrap()
+        &physical_schema.to_dfschema().unwrap()
     );
 
     result_vec(&results)
@@ -1411,7 +1414,7 @@ async fn generic_query_length<T: 'static + Array + From<Vec<&'static str>>>(
         vec![Arc::new(T::from(vec!["", "a", "aa", "aaa"]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1445,7 +1448,7 @@ async fn query_not() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1471,7 +1474,7 @@ async fn query_concat() -> Result<()> {
         ],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1502,7 +1505,7 @@ async fn query_array() -> Result<()> {
         ],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1591,7 +1594,7 @@ fn make_timestamp_nano_table() -> Result<Box<MemTable>> {
             Arc::new(Int32Array::from(vec![Some(1), Some(2), Some(3)])),
         ],
     )?;
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     Ok(Box::new(table))
 }
 
@@ -1621,7 +1624,7 @@ async fn query_is_null() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1645,7 +1648,7 @@ async fn query_is_not_null() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1672,7 +1675,7 @@ async fn query_count_distinct() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1702,7 +1705,7 @@ async fn query_on_string_dictionary() -> Result<()> {
 
     let data = RecordBatch::try_new(schema.clone(), vec![array])?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
 
@@ -1772,7 +1775,7 @@ async fn query_scalar_minus_array() -> Result<()> {
         ]))],
     )?;
 
-    let table = MemTable::new(schema, vec![vec![data]])?;
+    let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
     ctx.register_table("test", Box::new(table));
@@ -1798,4 +1801,28 @@ where
             );
             assert!((l - r).abs() <= 2.0 * f64::EPSILON);
         });
+}
+
+#[tokio::test]
+async fn csv_between_expr() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c4 FROM aggregate_test_100 WHERE c12 BETWEEN 0.995 AND 1.0";
+    let mut actual = execute(&mut ctx, sql).await;
+    actual.sort();
+    let expected = vec![vec!["10837"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_between_expr_negated() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c4 FROM aggregate_test_100 WHERE c12 NOT BETWEEN 0 AND 0.995";
+    let mut actual = execute(&mut ctx, sql).await;
+    actual.sort();
+    let expected = vec![vec!["10837"]];
+    assert_eq!(expected, actual);
+    Ok(())
 }

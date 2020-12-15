@@ -205,7 +205,8 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
 /// Encodes the Arrow schema into the IPC format, and base64 encodes it
 fn encode_arrow_schema(schema: &Schema) -> String {
     let options = writer::IpcWriteOptions::default();
-    let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&schema, &options);
+    let data_gen = arrow::ipc::writer::IpcDataGenerator::default();
+    let mut serialized_schema = data_gen.schema_to_bytes(&schema, &options);
 
     // manually prepending the length to the schema as arrow uses the legacy IPC format
     // TODO: change after addressing ARROW-9777
@@ -400,12 +401,13 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
-        DataType::Decimal(_, _) => {
-            Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                .with_repetition(repetition)
-                .with_length(10)
-                .build()
-        }
+        DataType::Decimal(precision, _) => Type::primitive_type_builder(
+            name,
+            PhysicalType::FIXED_LEN_BYTE_ARRAY,
+        )
+        .with_repetition(repetition)
+        .with_length((10.0_f64.powi(*precision as i32).log2() / 8.0).ceil() as i32)
+        .build(),
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(LogicalType::UTF8)
@@ -1473,17 +1475,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),

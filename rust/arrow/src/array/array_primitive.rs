@@ -94,7 +94,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
-        unsafe { T::index(self.raw_values.get(), offset) }
+        unsafe { *self.raw_values.get().add(offset) }
     }
 }
 
@@ -381,7 +381,7 @@ def_numeric_from_vec!(TimestampMicrosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
-    pub fn from_vec(data: Vec<i64>, timezone: Option<Arc<String>>) -> Self {
+    pub fn from_vec(data: Vec<i64>, timezone: Option<String>) -> Self {
         let array_data =
             ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
                 .len(data.len())
@@ -393,7 +393,7 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of Option<i64> values and an optional timezone
-    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<Arc<String>>) -> Self {
+    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<String>) -> Self {
         // TODO: duplicated from def_numeric_from_vec! macro, it looks possible to convert to generic
         let data_len = data.len();
         let mut null_buf = MutableBuffer::new_null(data_len);
@@ -419,56 +419,6 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
                 .null_bit_buffer(null_buf.freeze())
                 .build();
         PrimitiveArray::from(array_data)
-    }
-}
-
-/// Constructs a boolean array from a vector. Should only be used for testing.
-impl From<Vec<bool>> for BooleanArray {
-    fn from(data: Vec<bool>) -> Self {
-        let mut mut_buf = MutableBuffer::new_null(data.len());
-        {
-            let mut_slice = mut_buf.data_mut();
-            for (i, b) in data.iter().enumerate() {
-                if *b {
-                    bit_util::set_bit(mut_slice, i);
-                }
-            }
-        }
-        let array_data = ArrayData::builder(DataType::Boolean)
-            .len(data.len())
-            .add_buffer(mut_buf.freeze())
-            .build();
-        BooleanArray::from(array_data)
-    }
-}
-
-impl From<Vec<Option<bool>>> for BooleanArray {
-    fn from(data: Vec<Option<bool>>) -> Self {
-        let data_len = data.len();
-        let num_byte = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new_null(data.len());
-        let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
-
-        {
-            let null_slice = null_buf.data_mut();
-            let val_slice = val_buf.data_mut();
-
-            for (i, v) in data.iter().enumerate() {
-                if let Some(b) = v {
-                    bit_util::set_bit(null_slice, i);
-                    if *b {
-                        bit_util::set_bit(val_slice, i);
-                    }
-                }
-            }
-        }
-
-        let array_data = ArrayData::builder(DataType::Boolean)
-            .len(data_len)
-            .add_buffer(val_buf.freeze())
-            .null_bit_buffer(null_buf.freeze())
-            .build();
-        BooleanArray::from(array_data)
     }
 }
 
@@ -835,28 +785,6 @@ mod tests {
     }
 
     #[test]
-    fn test_boolean_fmt_debug() {
-        let arr = BooleanArray::from(vec![true, false, false]);
-        assert_eq!(
-            "PrimitiveArray<Boolean>\n[\n  true,\n  false,\n  false,\n]",
-            format!("{:?}", arr)
-        );
-    }
-
-    #[test]
-    fn test_boolean_with_null_fmt_debug() {
-        let mut builder = BooleanArray::builder(3);
-        builder.append_value(true).unwrap();
-        builder.append_null().unwrap();
-        builder.append_value(false).unwrap();
-        let arr = builder.finish();
-        assert_eq!(
-            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n]",
-            format!("{:?}", arr)
-        );
-    }
-
-    #[test]
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
             TimestampMillisecondArray::from_vec(vec![1546214400000, 1546214400000], None);
@@ -909,70 +837,6 @@ mod tests {
     fn test_primitive_array_invalid_buffer_len() {
         let data = ArrayData::builder(DataType::Int32).len(5).build();
         Int32Array::from(data);
-    }
-
-    #[test]
-    fn test_boolean_array_from_vec() {
-        let buf = Buffer::from([10_u8]);
-        let arr = BooleanArray::from(vec![false, true, false, true]);
-        assert_eq!(buf, arr.values());
-        assert_eq!(4, arr.len());
-        assert_eq!(0, arr.offset());
-        assert_eq!(0, arr.null_count());
-        for i in 0..4 {
-            assert!(!arr.is_null(i));
-            assert!(arr.is_valid(i));
-            assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
-        }
-    }
-
-    #[test]
-    fn test_boolean_array_from_vec_option() {
-        let buf = Buffer::from([10_u8]);
-        let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
-        assert_eq!(buf, arr.values());
-        assert_eq!(4, arr.len());
-        assert_eq!(0, arr.offset());
-        assert_eq!(1, arr.null_count());
-        for i in 0..4 {
-            if i == 2 {
-                assert!(arr.is_null(i));
-                assert!(!arr.is_valid(i));
-            } else {
-                assert!(!arr.is_null(i));
-                assert!(arr.is_valid(i));
-                assert_eq!(i == 1 || i == 3, arr.value(i), "failed at {}", i)
-            }
-        }
-    }
-
-    #[test]
-    fn test_boolean_array_builder() {
-        // Test building a boolean array with ArrayData builder and offset
-        // 000011011
-        let buf = Buffer::from([27_u8]);
-        let buf2 = buf.clone();
-        let data = ArrayData::builder(DataType::Boolean)
-            .len(5)
-            .offset(2)
-            .add_buffer(buf)
-            .build();
-        let arr = BooleanArray::from(data);
-        assert_eq!(buf2, arr.values());
-        assert_eq!(5, arr.len());
-        assert_eq!(2, arr.offset());
-        assert_eq!(0, arr.null_count());
-        for i in 0..3 {
-            assert_eq!(i != 0, arr.value(i), "failed at {}", i);
-        }
-    }
-
-    #[test]
-    #[should_panic(expected = "PrimitiveArray data should contain a single buffer only \
-                               (values buffer)")]
-    fn test_boolean_array_invalid_buffer_len() {
-        let data = ArrayData::builder(DataType::Boolean).len(5).build();
-        BooleanArray::from(data);
     }
 
     #[test]

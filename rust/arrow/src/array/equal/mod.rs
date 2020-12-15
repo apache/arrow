@@ -20,9 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
-    GenericBinaryArray, GenericListArray, GenericStringArray, NullArray, OffsetSizeTrait,
-    PrimitiveArray, StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray,
+    FixedSizeBinaryArray, GenericBinaryArray, GenericListArray, GenericStringArray,
+    NullArray, OffsetSizeTrait, PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::{
@@ -76,6 +76,12 @@ impl PartialEq for NullArray {
 
 impl<T: ArrowPrimitiveType> PartialEq for PrimitiveArray<T> {
     fn eq(&self, other: &PrimitiveArray<T>) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for BooleanArray {
+    fn eq(&self, other: &BooleanArray) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
 }

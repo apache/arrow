@@ -77,6 +77,9 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
            ${ARROW_GANDIVA_PC_CXX_FLAGS}
            -I${CMAKE_SOURCE_DIR}/src
            -I${ARROW_BINARY_DIR}/src)
+  if(NOT ARROW_USE_NATIVE_INT128)
+    list(APPEND PRECOMPILE_COMMAND -I${Boost_INCLUDE_DIR})
+  endif()
   add_custom_command(OUTPUT ${BC_FILE} COMMAND ${PRECOMPILE_COMMAND} DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()

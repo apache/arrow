@@ -180,7 +180,7 @@ pub fn return_type(
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
 
-    if arg_types.len() == 0 {
+    if arg_types.is_empty() {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
         return Err(DataFusionError::Plan(format!(

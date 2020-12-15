@@ -41,7 +41,6 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -97,7 +96,7 @@ pub enum DataType {
     /// * As used in the Olson time zone database (the "tz database" or
     ///   "tzdata"), such as "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-    Timestamp(TimeUnit, Option<Arc<String>>),
+    Timestamp(TimeUnit, Option<String>),
     /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
     Date32(DateUnit),
@@ -220,9 +219,9 @@ pub trait ArrowPrimitiveType: 'static {
     /// the corresponding Arrow data type of this primitive type.
     const DATA_TYPE: DataType;
 
-    /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize {
-        size_of::<Self::Native>() * 8
+    /// Returns the byte width of this primitive type.
+    fn get_byte_width() -> usize {
+        size_of::<Self::Native>()
     }
 
     /// Returns a default value of this primitive type.
@@ -230,15 +229,6 @@ pub trait ArrowPrimitiveType: 'static {
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
     fn default_value() -> Self::Native {
         Default::default()
-    }
-
-    /// Returns a value offset from the given pointer by the given index. The default
-    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
-    /// # Safety
-    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
-    /// must be less than the size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        *(raw_ptr.add(i))
     }
 }
 
@@ -377,20 +367,8 @@ impl ArrowNativeType for f64 {
 #[derive(Debug)]
 pub struct BooleanType {}
 
-impl ArrowPrimitiveType for BooleanType {
-    type Native = bool;
-    const DATA_TYPE: DataType = DataType::Boolean;
-
-    fn get_bit_width() -> usize {
-        1
-    }
-
-    /// # Safety
-    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
-    /// size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        bit_util::get_bit_raw(raw_ptr as *const u8, i)
-    }
+impl BooleanType {
+    pub const DATA_TYPE: DataType = DataType::Boolean;
 }
 
 macro_rules! make_type {
@@ -507,7 +485,7 @@ impl ArrowDictionaryKeyType for UInt64Type {}
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
@@ -590,15 +568,12 @@ where
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
+#[cfg(not(simd_x86))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(simd_x86)]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -795,10 +770,8 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
+
+        #[cfg(not(simd_x86))]
         impl ArrowNumericType for $impl_ty {}
     };
 }
@@ -834,7 +807,7 @@ make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
 /// A subtype of primitive type that represents signed numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub trait ArrowSignedNumericType: ArrowNumericType
 where
     Self::SignedSimd: Neg<Output = Self::SignedSimd>,
@@ -855,10 +828,7 @@ where
     fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]);
 }
 
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
+#[cfg(not(simd_x86))]
 pub trait ArrowSignedNumericType: ArrowNumericType
 where
     Self::Native: Neg<Output = Self::Native>,
@@ -867,7 +837,7 @@ where
 
 macro_rules! make_signed_numeric_type {
     ($impl_ty:ty, $simd_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(simd_x86)]
         impl ArrowSignedNumericType for $impl_ty {
             type SignedSimd = $simd_ty;
 
@@ -890,10 +860,7 @@ macro_rules! make_signed_numeric_type {
             }
         }
 
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
+        #[cfg(not(simd_x86))]
         impl ArrowSignedNumericType for $impl_ty {}
     };
 }
@@ -990,6 +957,23 @@ impl DataType {
                         ))
                     }
                 }
+                Some(s) if s == "decimal" => {
+                    // return a list with any type as its child isn't defined in the map
+                    let precision = match map.get("precision") {
+                        Some(p) => Ok(p.as_u64().unwrap() as usize),
+                        None => Err(ArrowError::ParseError(
+                            "Expecting a precision for decimal".to_string(),
+                        )),
+                    };
+                    let scale = match map.get("scale") {
+                        Some(s) => Ok(s.as_u64().unwrap() as usize),
+                        _ => Err(ArrowError::ParseError(
+                            "Expecting a scale for decimal".to_string(),
+                        )),
+                    };
+
+                    Ok(DataType::Decimal(precision?, scale?))
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
@@ -1010,7 +994,7 @@ impl DataType {
                     };
                     let tz = match map.get("timezone") {
                         None => Ok(None),
-                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        Some(VString(tz)) => Ok(Some(tz.clone())),
                         _ => Err(ArrowError::ParseError(
                             "timezone must be a string".to_string(),
                         )),
@@ -2084,17 +2068,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),
@@ -2891,11 +2872,7 @@ mod tests {
     }
 }
 
-#[cfg(all(
-    test,
-    any(target_arch = "x86", target_arch = "x86_64"),
-    feature = "simd"
-))]
+#[cfg(all(test, simd_x86))]
 mod arrow_numeric_type_tests {
     use crate::datatypes::{
         ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,

@@ -23,10 +23,9 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    DFSchema, Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource,
+    DFSchema, Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, TableSource,
     UserDefinedLogicalNode,
 };
-use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
@@ -34,9 +33,7 @@ use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
 use crate::physical_plan::hash_utils;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::merge::MergeExec;
-use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
@@ -108,7 +105,7 @@ impl DefaultPhysicalPlanner {
             .map(|child| self.optimize_plan(child.clone(), ctx_state))
             .collect::<Result<Vec<_>>>()?;
 
-        if children.len() == 0 {
+        if children.is_empty() {
             // leaf node, children cannot be replaced
             Ok(plan.clone())
         } else {
@@ -156,32 +153,6 @@ impl DefaultPhysicalPlanner {
                     provider.scan(projection, batch_size)
                 }
             },
-            LogicalPlan::InMemoryScan {
-                data,
-                projection,
-                projected_schema,
-                ..
-            } => Ok(Arc::new(MemoryExec::try_new(
-                data,
-                projected_schema.as_ref().to_owned().into(),
-                projection.to_owned(),
-            )?)),
-            LogicalPlan::CsvScan {
-                path,
-                schema,
-                has_header,
-                delimiter,
-                projection,
-                ..
-            } => Ok(Arc::new(CsvExec::try_new(
-                path,
-                CsvReadOptions::new()
-                    .schema(schema.as_ref())
-                    .delimiter_option(*delimiter)
-                    .has_header(*has_header),
-                projection.to_owned(),
-                batch_size,
-            )?)),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,
@@ -241,13 +212,6 @@ impl DefaultPhysicalPlanner {
                     initial_aggr,
                 )?))
             }
-            LogicalPlan::ParquetScan {
-                path, projection, ..
-            } => Ok(Arc::new(ParquetExec::try_new(
-                path,
-                projection.to_owned(),
-                batch_size,
-            )?)),
             LogicalPlan::Projection { input, expr, .. } => {
                 let input_exec = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();
@@ -374,7 +338,7 @@ impl DefaultPhysicalPlanner {
                 let mut stringified_plans = stringified_plans
                     .iter()
                     .filter(|s| s.should_display(*verbose))
-                    .map(|s| s.clone())
+                    .cloned()
                     .collect::<Vec<_>>();
 
                 // add in the physical plan if requested
@@ -557,6 +521,32 @@ impl DefaultPhysicalPlanner {
                     &physical_args,
                     input_schema,
                 )
+            }
+            Expr::Between {
+                expr,
+                negated,
+                low,
+                high,
+            } => {
+                let value_expr =
+                    self.create_physical_expr(expr, input_schema, ctx_state)?;
+                let low_expr = self.create_physical_expr(low, input_schema, ctx_state)?;
+                let high_expr =
+                    self.create_physical_expr(high, input_schema, ctx_state)?;
+
+                // rewrite the between into the two binary operators
+                let binary_expr = binary(
+                    binary(value_expr.clone(), Operator::GtEq, low_expr, input_schema)?,
+                    Operator::And,
+                    binary(value_expr.clone(), Operator::LtEq, high_expr, input_schema)?,
+                    input_schema,
+                );
+
+                if *negated {
+                    expressions::not(binary_expr?, input_schema)
+                } else {
+                    binary_expr
+                }
             }
             other => Err(DataFusionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
@@ -792,7 +782,7 @@ mod tests {
 
         let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",
@@ -836,7 +826,7 @@ mod tests {
                 dict_is_ordered: false }\
         ], metadata: {} }";
         match plan {
-            Ok(_) => assert!(false, "Expected planning failure"),
+            Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
                 e.to_string().contains(expected_error),
                 "Error '{}' did not contain expected error '{}'",

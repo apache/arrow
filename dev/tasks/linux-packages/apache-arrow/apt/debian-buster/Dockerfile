@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:stretch
+ARG FROM=debian:buster
 FROM ${FROM}
 
 COPY qemu-* /usr/bin/
@@ -29,12 +29,10 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
+
 RUN \
-  echo "deb http://deb.debian.org/debian stretch-backports main" > \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
     /etc/apt/sources.list.d/backports.list
-RUN \
-  echo "deb http://deb.debian.org/debian stretch-backports-sloppy main" > \
-    /etc/apt/sources.list.d/backports-sloppy.list
 
 ARG DEBUG
 RUN \
@@ -42,10 +40,9 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    clang-7 \
     cmake \
+    debhelper \
     devscripts \
-    fakeroot \
     git \
     gtk-doc-tools \
     libboost-filesystem-dev \
@@ -57,33 +54,30 @@ RUN \
     libcurl4-openssl-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
+    libgmock-dev \
     libgoogle-glog-dev \
+    libgtest-dev \
     liblz4-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libthrift-dev \
     libutf8proc-dev \
     libzstd-dev \
-    llvm-7-dev \
     lsb-release \
     ninja-build \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
-    python3-setuptools \
-    python3-wheel \
+    rapidjson-dev \
     tzdata \
     zlib1g-dev && \
-  apt install -y -V -t stretch-backports-sloppy ${quiet} \
-    libarchive13 && \
-  apt install -y -V -t stretch-backports ${quiet} \
-    debhelper \
-    libgmock-dev \
-    libgtest-dev \
-    rapidjson-dev && \
+  apt install -y -V -t buster-backports ${quiet} \
+    clang-8 \
+    llvm-8-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V -t stretch-backports ${quiet} nvidia-cuda-toolkit; \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

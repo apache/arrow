@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Set up Ruby
-        uses: actions/setup-ruby@master
+        uses: actions/setup-ruby@v1
       - name: Checkout Arrow
         run: |
           git clone --no-checkout {{ arrow.remote }} arrow

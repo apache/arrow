@@ -637,7 +637,7 @@ mod tests {
         let array = make_array(data);
 
         // perform some operation
-        let array = kernels::concat::concat(&[array.clone(), array]).unwrap();
+        let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
         let array = array.as_any().downcast_ref::<StringArray>().unwrap();
 
         // verify

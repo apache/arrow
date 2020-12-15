@@ -179,7 +179,7 @@ outputs:
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - cython
-        - numpy 1.16.*
+        - numpy
         - python
         - setuptools
         - setuptools_scm
@@ -244,7 +244,7 @@ outputs:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - cython
-        - numpy 1.16.*
+        - numpy
         - python
         - setuptools
         - setuptools_scm

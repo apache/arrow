@@ -622,10 +622,12 @@ add_arrow_test(table_test
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
 
+set(STL_TEST_SRCS stl_iterator_test.cc)
 if(ARROW_COMPUTE)
   # This unit test uses compute code
-  add_arrow_test(stl_test)
+  list(APPEND STL_TEST_SRCS stl_test.cc)
 endif()
+add_arrow_test(stl_test SOURCES ${STL_TEST_SRCS})
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(compare_benchmark)

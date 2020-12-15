@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 use super::optimizer::OptimizerRule;
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{
-    DFSchema, DFSchemaRef, Expr, LogicalPlan, PlanType, StringifiedPlan,
+    Expr, LogicalPlan, Operator, PlanType, StringifiedPlan, ToDFSchema,
 };
 use crate::prelude::{col, lit};
 use crate::scalar::ScalarValue;
@@ -94,6 +94,14 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::AggregateUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
+        Expr::Between {
+            expr, low, high, ..
+        } => {
+            expr_to_column_names(expr, accum)?;
+            expr_to_column_names(low, accum)?;
+            expr_to_column_names(high, accum)?;
+            Ok(())
+        }
         Expr::Wildcard => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -123,7 +131,7 @@ pub fn optimize_explain(
         verbose,
         plan,
         stringified_plans,
-        schema: DFSchemaRef::new(DFSchema::from(schema)?),
+        schema: schema.clone().to_dfschema_ref()?,
     })
 }
 
@@ -148,9 +156,6 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         LogicalPlan::Extension { node } => node.expressions(),
         // plans without expressions
         LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Limit { .. }
         | LogicalPlan::CreateExternalTable { .. }
@@ -170,9 +175,6 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Extension { node } => node.inputs(),
         // plans without inputs
         LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
@@ -228,9 +230,6 @@ pub fn from_plan(
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
-        | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::ParquetScan { .. }
-        | LogicalPlan::CsvScan { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => Ok(plan.clone()),
     }
@@ -245,12 +244,10 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         }
         Expr::IsNull(e) => Ok(vec![e.as_ref().to_owned()]),
         Expr::IsNotNull(e) => Ok(vec![e.as_ref().to_owned()]),
-        Expr::ScalarFunction { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::ScalarUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
-        Expr::AggregateFunction { args, .. } => {
-            Ok(args.iter().map(|e| e.clone()).collect())
-        }
-        Expr::AggregateUDF { args, .. } => Ok(args.iter().map(|e| e.clone()).collect()),
+        Expr::ScalarFunction { args, .. } => Ok(args.clone()),
+        Expr::ScalarUDF { args, .. } => Ok(args.clone()),
+        Expr::AggregateFunction { args, .. } => Ok(args.clone()),
+        Expr::AggregateUDF { args, .. } => Ok(args.clone()),
         Expr::Case {
             expr,
             when_then_expr,
@@ -280,6 +277,13 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
         Expr::Not(expr) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Negative(expr) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Sort { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
+        Expr::Between {
+            expr, low, high, ..
+        } => Ok(vec![
+            expr.as_ref().to_owned(),
+            low.as_ref().to_owned(),
+            high.as_ref().to_owned(),
+        ]),
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -367,9 +371,30 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             asc, nulls_first, ..
         } => Ok(Expr::Sort {
             expr: Box::new(expressions[0].clone()),
-            asc: asc.clone(),
-            nulls_first: nulls_first.clone(),
+            asc: *asc,
+            nulls_first: *nulls_first,
         }),
+        Expr::Between { negated, .. } => {
+            let expr = Expr::BinaryExpr {
+                left: Box::new(Expr::BinaryExpr {
+                    left: Box::new(expressions[0].clone()),
+                    op: Operator::GtEq,
+                    right: Box::new(expressions[1].clone()),
+                }),
+                op: Operator::And,
+                right: Box::new(Expr::BinaryExpr {
+                    left: Box::new(expressions[0].clone()),
+                    op: Operator::LtEq,
+                    right: Box::new(expressions[2].clone()),
+                }),
+            };
+
+            if *negated {
+                Ok(Expr::Not(Box::new(expr)))
+            } else {
+                Ok(expr)
+            }
+        }
         Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -413,7 +438,7 @@ mod tests {
         }
 
         fn name(&self) -> &str {
-            return "test_optimizer";
+            "test_optimizer"
         }
     }
 
@@ -451,11 +476,7 @@ mod tests {
                 ];
                 assert_eq!(*stringified_plans, expected_stringified_plans);
             }
-            _ => assert!(
-                false,
-                "Expected explain plan but got {:?}",
-                optimized_explain
-            ),
+            _ => panic!("Expected explain plan but got {:?}", optimized_explain),
         }
 
         Ok(())

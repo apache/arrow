@@ -256,31 +256,29 @@ class PackageTask
     "apt"
   end
 
-  def apt_prepare_debian_dirs(tmp_dir)
-    apt_targets.each do |target|
-      source_debian_dir = nil
-      specific_debian_dir = "debian.#{target}"
-      distribution, code_name, _architecture = target.split("-", 3)
-      platform = [distribution, code_name].join("-")
-      platform_debian_dir = "debian.#{platform}"
-      if File.exist?(specific_debian_dir)
-        source_debian_dir = specific_debian_dir
-      elsif File.exist?(platform_debian_dir)
-        source_debian_dir = platform_debian_dir
-      else
-        source_debian_dir = "debian"
-      end
+  def apt_prepare_debian_dir(tmp_dir, target)
+    source_debian_dir = nil
+    specific_debian_dir = "debian.#{target}"
+    distribution, code_name, _architecture = target.split("-", 3)
+    platform = [distribution, code_name].join("-")
+    platform_debian_dir = "debian.#{platform}"
+    if File.exist?(specific_debian_dir)
+      source_debian_dir = specific_debian_dir
+    elsif File.exist?(platform_debian_dir)
+      source_debian_dir = platform_debian_dir
+    else
+      source_debian_dir = "debian"
+    end
 
-      prepared_debian_dir = "#{tmp_dir}/debian.#{target}"
-      cp_r(source_debian_dir, prepared_debian_dir)
-      control_in_path = "#{prepared_debian_dir}/control.in"
-      if File.exist?(control_in_path)
-        control_in = File.read(control_in_path)
-        rm_f(control_in_path)
-        File.open("#{prepared_debian_dir}/control", "w") do |control|
-          prepared_control = apt_prepare_debian_control(control_in, target)
-          control.print(prepared_control)
-        end
+    prepared_debian_dir = "#{tmp_dir}/debian.#{target}"
+    cp_r(source_debian_dir, prepared_debian_dir)
+    control_in_path = "#{prepared_debian_dir}/control.in"
+    if File.exist?(control_in_path)
+      control_in = File.read(control_in_path)
+      rm_f(control_in_path)
+      File.open("#{prepared_debian_dir}/control", "w") do |control|
+        prepared_control = apt_prepare_debian_control(control_in, target)
+        control.print(prepared_control)
       end
     end
   end
@@ -296,7 +294,9 @@ class PackageTask
     mkdir_p(tmp_dir)
     cp(deb_archive_name,
        File.join(tmp_dir, deb_archive_name))
-    apt_prepare_debian_dirs(tmp_dir)
+    apt_targets.each do |target|
+      apt_prepare_debian_dir(tmp_dir, target)
+    end
 
     env_sh = "#{apt_dir}/env.sh"
     File.open(env_sh, "w") do |file|

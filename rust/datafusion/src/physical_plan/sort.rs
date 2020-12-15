@@ -143,8 +143,8 @@ fn sort_batches(
                 concat(
                     &batches
                         .iter()
-                        .map(|batch| batch.columns()[i].clone())
-                        .collect::<Vec<ArrayRef>>(),
+                        .map(|batch| batch.column(i).as_ref())
+                        .collect::<Vec<_>>(),
                 )
             })
             .collect::<ArrowResult<Vec<ArrayRef>>>()?,
@@ -249,10 +249,13 @@ impl RecordBatchStream for SortStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::col;
     use crate::physical_plan::memory::MemoryExec;
     use crate::physical_plan::merge::MergeExec;
+    use crate::physical_plan::{
+        collect,
+        csv::{CsvExec, CsvReadOptions},
+    };
     use crate::test;
     use arrow::array::*;
     use arrow::datatypes::*;
@@ -287,7 +290,7 @@ mod tests {
             2,
         )?);
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
+        let result: Vec<RecordBatch> = collect(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();
@@ -365,7 +368,7 @@ mod tests {
         assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());
         assert_eq!(DataType::Float64, *sort_exec.schema().field(1).data_type());
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
+        let result: Vec<RecordBatch> = collect(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();

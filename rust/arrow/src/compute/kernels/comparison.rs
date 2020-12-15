@@ -29,7 +29,7 @@ use std::sync::Arc;
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::combine_option_bitmap;
-use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
+use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 
@@ -61,7 +61,7 @@ macro_rules! compare_op {
             vec![result.finish()],
             vec![],
         );
-        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+        Ok(BooleanArray::from(Arc::new(data)))
     }};
 }
 
@@ -82,7 +82,7 @@ macro_rules! compare_op_scalar {
             vec![result.finish()],
             vec![],
         );
-        Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+        Ok(BooleanArray::from(Arc::new(data)))
     }};
 }
 
@@ -152,7 +152,7 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 fn is_like_pattern(c: char) -> bool {
@@ -203,7 +203,7 @@ pub fn like_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray>
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
@@ -248,7 +248,7 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray> {
@@ -294,7 +294,7 @@ pub fn nlike_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
         vec![result.finish()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn eq_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray> {
@@ -347,7 +347,7 @@ pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
 
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -402,12 +402,12 @@ where
         vec![result.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Helper function to perform boolean lambda function on values from an array and a scalar value using
 /// SIMD.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn simd_compare_op_scalar<T, F>(
     left: &PrimitiveArray<T>,
     right: T::Native,
@@ -453,7 +453,7 @@ where
         vec![result.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Perform `left == right` operation on two arrays.
@@ -461,14 +461,10 @@ pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::eq);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a == b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a == b);
 }
 
 /// Perform `left == right` operation on an array and a scalar value.
@@ -476,14 +472,10 @@ pub fn eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boolea
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::eq);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a == b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a == b);
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -491,14 +483,10 @@ pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::ne);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a != b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a != b);
 }
 
 /// Perform `left != right` operation on an array and a scalar value.
@@ -506,14 +494,10 @@ pub fn neq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boole
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::ne);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a != b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a != b);
 }
 
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
@@ -522,14 +506,10 @@ pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::lt);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a < b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a < b);
 }
 
 /// Perform `left < right` operation on an array and a scalar value.
@@ -538,14 +518,10 @@ pub fn lt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boolea
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::lt);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a < b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a < b);
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -557,14 +533,10 @@ pub fn lt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::le);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a <= b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a <= b);
 }
 
 /// Perform `left <= right` operation on an array and a scalar value.
@@ -573,14 +545,10 @@ pub fn lt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::le);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a <= b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a <= b);
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -589,14 +557,10 @@ pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::gt);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a > b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a > b);
 }
 
 /// Perform `left > right` operation on an array and a scalar value.
@@ -605,14 +569,10 @@ pub fn gt_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boolea
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::gt);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a > b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a > b);
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -624,14 +584,10 @@ pub fn gt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op(left, right, T::ge);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op!(left, right, |a, b| a >= b)
+    #[cfg(not(simd_x86))]
+    return compare_op!(left, right, |a, b| a >= b);
 }
 
 /// Perform `left >= right` operation on an array and a scalar value.
@@ -640,14 +596,10 @@ pub fn gt_eq_scalar<T>(left: &PrimitiveArray<T>, right: T::Native) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     return simd_compare_op_scalar(left, right, T::ge);
-
-    #[cfg(any(
-        not(any(target_arch = "x86", target_arch = "x86_64")),
-        not(feature = "simd")
-    ))]
-    compare_op_scalar!(left, right, |a, b| a >= b)
+    #[cfg(not(simd_x86))]
+    return compare_op_scalar!(left, right, |a, b| a >= b);
 }
 
 /// Checks if a `GenericListArray` contains a value in the `PrimitiveArray`
@@ -703,7 +655,7 @@ where
         vec![bool_buf.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 /// Checks if a `GenericListArray` contains a value in the `GenericStringArray`
@@ -761,7 +713,7 @@ where
         vec![bool_buf.freeze()],
         vec![],
     );
-    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+    Ok(BooleanArray::from(Arc::new(data)))
 }
 
 // create a buffer and fill it with valid bits
