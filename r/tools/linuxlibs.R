@@ -311,7 +311,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
-  env_vars <- with_s3_support(env_vars)
+  env_vars <- with_s3_support(env_vars, cmake)
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -379,12 +379,12 @@ cmake_version <- function(cmd = "cmake") {
   )
 }
 
-with_s3_support <- function(env_vars) {
+with_s3_support <- function(env_vars, cmake) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
     # User wants S3 support. Let's make sure they're not on gcc < 4.9
     # and make sure that we have curl and openssl system libs
-    info <- system(paste(env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+    info <- system(paste(env_vars, cmake, "--system-information"), intern = TRUE)
     info <- grep("^[A-Z_]* .*$", info, value = TRUE)
     vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
     names(vals) <- sub("^(.*?) .*$", "\\1", info)
@@ -392,10 +392,10 @@ with_s3_support <- function(env_vars) {
         package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
       cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("CURL", NULL, env_vars)) {
+    } else if (!cmake_find_package("CURL", NULL, env_vars, cmake)) {
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
+    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars, cmake)) {
       cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb), version >= 1.0.2; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     }
@@ -403,16 +403,17 @@ with_s3_support <- function(env_vars) {
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
 }
 
-cmake_find_package <- function(pkg, version = NULL, env_vars) {
+cmake_find_package <- function(pkg, version = NULL, env_vars, cmake) {
   td <- tempfile()
   dir.create(td)
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), td))
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   cmake_cmd <- paste0(
-    env_vars,
-    " && cd ", td,
-    " && $CMAKE",
+    " cd ", td,
+    " && ",
+    env_vars, " ",
+    cmake, " ",
     " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
     " ."
