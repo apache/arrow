@@ -380,16 +380,14 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float32 => cast_string_to_numeric::<Float32Type>(array),
             Float64 => cast_string_to_numeric::<Float64Type>(array),
             Date32(DateUnit::Day) => {
-                use chrono::{NaiveDate, NaiveTime};
-                let zero_time = NaiveTime::from_hms(0, 0, 0);
+                let zero_time = chrono::NaiveTime::from_hms(0, 0, 0);
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
                 for i in 0..string_array.len() {
                     if string_array.is_null(i) {
                         builder.append_null()?;
                     } else {
-                        match NaiveDate::parse_from_str(string_array.value(i), "%Y-%m-%d")
-                        {
+                        match string_array.value(i).parse::<chrono::NaiveDate>() {
                             Ok(date) => builder.append_value(
                                 (date.and_time(zero_time).timestamp() / SECONDS_IN_DAY)
                                     as i32,
@@ -401,19 +399,16 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 Ok(Arc::new(builder.finish()) as ArrayRef)
             }
             Date64(DateUnit::Millisecond) => {
-                use chrono::{NaiveDate, NaiveTime};
-                let zero_time = NaiveTime::from_hms(0, 0, 0);
                 let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
                 let mut builder = PrimitiveBuilder::<Date64Type>::new(string_array.len());
                 for i in 0..string_array.len() {
                     if string_array.is_null(i) {
                         builder.append_null()?;
                     } else {
-                        match NaiveDate::parse_from_str(string_array.value(i), "%Y-%m-%d")
-                        {
-                            Ok(date) => builder.append_value(
-                                date.and_time(zero_time).timestamp_millis() as i64,
-                            )?,
+                        match string_array.value(i).parse::<chrono::NaiveDateTime>() {
+                            Ok(date_time) => {
+                                builder.append_value(date_time.timestamp_millis())?
+                            }
                             Err(_) => builder.append_null()?, // not a valid date
                         };
                     }
@@ -2804,26 +2799,29 @@ mod tests {
     #[test]
     fn test_cast_utf8_to_date64() {
         let a = StringArray::from(vec![
-            "2000-01-01",          // valid date with leading 0s
-            "2000-2-2",            // valid date without leading 0s
-            "2000-00-00",          // invalid month and day
-            "2000-01-01T12:00:00", // date + time is invalid
-            "2000",                // just a year is invalid
+            "2000-01-01T12:00:00", // date + time valid
+            "2020-12-15T12:34:56", // date + time valid
+            "2020-2-2T12:34:56",   // valid date time without leading 0s
+            "2000-00-00T12:00:00", // invalid month and day
+            "2000-01-01 12:00:00", // missing the 'T'
+            "2000-01-01",          // just a date is invalid
         ]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
 
         // test valid inputs
-        assert_eq!(true, c.is_valid(0)); // "2000-01-01"
-        assert_eq!(946684800000, c.value(0));
-        assert_eq!(true, c.is_valid(1)); // "2000-2-2"
-        assert_eq!(949449600000, c.value(1));
+        assert_eq!(true, c.is_valid(0)); // "2000-01-01T12:00:00"
+        assert_eq!(946728000000, c.value(0));
+        assert_eq!(true, c.is_valid(1)); // "2020-12-15T12:34:56"
+        assert_eq!(1608035696000, c.value(1));
+        assert_eq!(true, c.is_valid(2)); // "2020-2-2T12:34:56"
+        assert_eq!(1580646896000, c.value(2));
 
         // test invalid inputs
-        assert_eq!(false, c.is_valid(2)); // "2000-00-00"
-        assert_eq!(false, c.is_valid(3)); // "2000-01-01T12:00:00"
-        assert_eq!(false, c.is_valid(4)); // "2000"
+        assert_eq!(false, c.is_valid(3)); // "2000-00-00T12:00:00"
+        assert_eq!(false, c.is_valid(4)); // "2000-01-01 12:00:00"
+        assert_eq!(false, c.is_valid(5)); // "2000-01-01"
     }
 
     #[test]
