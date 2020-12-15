@@ -102,31 +102,33 @@ Types
 Physical types
 ~~~~~~~~~~~~~~
 
-+--------------------------+-------------------------+---------+
-| Physical type            | Mapped Arrow type       | Notes   |
-+==========================+=========================+=========+
-| BOOLEAN                  | Boolean                 |         |
-+--------------------------+-------------------------+---------+
-| INT32                    | Int32 / other           | \(1)    |
-+--------------------------+-------------------------+---------+
-| INT64                    | Int64 / other           | \(1)    |
-+--------------------------+-------------------------+---------+
-| INT96                    | Timestamp (nanoseconds) | \(2)    |
-+--------------------------+-------------------------+---------+
-| FLOAT                    | Float32                 |         |
-+--------------------------+-------------------------+---------+
-| DOUBLE                   | Float64                 |         |
-+--------------------------+-------------------------+---------+
-| BYTE_ARRAY               | Binary / other          | \(1)    |
-+--------------------------+-------------------------+---------+
-| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)    |
-+--------------------------+-------------------------+---------+
++--------------------------+-------------------------+------------+
+| Physical type            | Mapped Arrow type       | Notes      |
++==========================+=========================+============+
+| BOOLEAN                  | Boolean                 |            |
++--------------------------+-------------------------+------------+
+| INT32                    | Int32 / other           | \(1)       |
++--------------------------+-------------------------+------------+
+| INT64                    | Int64 / other           | \(1)       |
++--------------------------+-------------------------+------------+
+| INT96                    | Timestamp (nanoseconds) | \(2)       |
++--------------------------+-------------------------+------------+
+| FLOAT                    | Float32                 |            |
++--------------------------+-------------------------+------------+
+| DOUBLE                   | Float64                 |            |
++--------------------------+-------------------------+------------+
+| BYTE_ARRAY               | Binary / other          | \(1) \(3)  |
++--------------------------+-------------------------+------------+
+| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)       |
++--------------------------+-------------------------+------------+
 
 * \(1) Can be mapped to other Arrow types, depending on the logical type
   (see below).
 
 * \(2) On the write side, :func:`ArrowWriterProperties::support_deprecated_int96_timestamps`
   must be enabled.
+
+* \(3) On the write side, an Arrow LargeBinary can also mapped to BYTE_ARRAY.
 
 Logical types
 ~~~~~~~~~~~~~
@@ -148,8 +150,6 @@ the default physical type mapping is used.
 | DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    |         |
 |                   | / FIXED_LENGTH_BYTE_ARRAY   |                            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | Utf8                       |         |
-+-------------------+-----------------------------+----------------------------+---------+
 | DATE              | INT32                       | Date32                     | \(2)    |
 +-------------------+-----------------------------+----------------------------+---------+
 | TIME              | INT32                       | Time32 (milliseconds)      |         |
@@ -160,25 +160,29 @@ the default physical type mapping is used.
 | TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
 |                   |                             | or nanoseconds)            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(3)    |
+| STRING            | BYTE_ARRAY                  | Utf8                       | \(3)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        | \(3)    |
+| LIST              | Any                         | List                       | \(4)    |
++-------------------+-----------------------------+----------------------------+---------+
+| MAP               | Any                         | Map                        |         |
 +-------------------+-----------------------------+----------------------------+---------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
 * \(2) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(3) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+* \(3) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
+
+* \(4) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
   a Parquet LIST.
 
 Converted types
 ~~~~~~~~~~~~~~~
 
-While converted types are a deprecated Parquet feature (they are superceded
-by logical types, which are more powerful), they are recognized and emitted
-by the Parquet C++ implementation so as to maximize compatibility with other
-Parquet implementations.
+While converted types are deprecated in the Parquet format (they are superceded
+by logical types), they are recognized and emitted by the Parquet C++
+implementation so as to maximize compatibility with other Parquet
+implementations.
 
 Special cases
 ~~~~~~~~~~~~~
