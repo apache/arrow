@@ -33,8 +33,8 @@ The tests of this crate depend on two environment variables to be defined.
 Assuming that you are in this crates' current directory:
 
 ```bash
-export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../../testing/data
+export PARQUET_TEST_DATA=$(cd ../../cpp/submodules/parquet-testing/data; pwd)
+export ARROW_TEST_DATA=$(cd ../../testing/data; pwd)
 cargo test
 ```
 

@@ -209,10 +209,9 @@ fn from_datatype(datatype: &DataType) -> Result<String> {
         DataType::LargeBinary => "Z",
         DataType::Utf8 => "u",
         DataType::LargeUtf8 => "U",
-        _ => {
+        z => {
             return Err(ArrowError::CDataInterface(
-                "The datatype \"{:?}\" is still not supported in Rust implementation"
-                    .to_string(),
+                format!("The datatype \"{:?}\" is still not supported in Rust implementation", z),
             ))
         }
     }

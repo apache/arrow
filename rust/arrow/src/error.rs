@@ -60,7 +60,7 @@ impl From<csv_crate::Error> for ArrowError {
         match error.kind() {
             csv_crate::ErrorKind::Io(error) => ArrowError::CsvError(error.to_string()),
             csv_crate::ErrorKind::Utf8 { pos: _, err } => ArrowError::CsvError(format!(
-                "Encountered UTF-8 error while reading CSV file: {:?}",
+                "Encountered UTF-8 error while reading CSV file: {}",
                 err.to_string()
             )),
             csv_crate::ErrorKind::UnequalLengths {
