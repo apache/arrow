@@ -41,10 +41,25 @@ impl ParquetTable {
     pub fn try_new(path: &str) -> Result<Self> {
         let parquet_exec = ParquetExec::try_new(path, None, 0)?;
         let schema = parquet_exec.schema();
+
+        let metadata = parquet_exec.metadata();
+        let (num_rows, total_byte_size) = metadata.row_groups().iter().fold(
+            (0, 0),
+            |(num_rows, total_byte_size), rg| {
+                (
+                    num_rows + rg.num_rows() as usize,
+                    total_byte_size + rg.total_byte_size() as usize,
+                )
+            },
+        );
+
         Ok(Self {
             path: path.to_string(),
             schema,
-            statistics: Statistics::default(),
+            statistics: Statistics {
+                num_rows: Some(num_rows),
+                total_byte_size: Some(total_byte_size),
+            },
         })
     }
 }
@@ -107,6 +122,10 @@ mod tests {
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
+
+        // test metadata
+        assert_eq!(table.statistics().num_rows, Some(8));
+        assert_eq!(table.statistics().total_byte_size, Some(671));
 
         Ok(())
     }
