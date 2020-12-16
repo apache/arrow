@@ -50,6 +50,9 @@ Page types
 | DICTIONARY_PAGE   |         |
 +-------------------+---------+
 
+*Unsupported page type:* INDEX_PAGE. When reading a Parquet file, pages of
+this type are ignored.
+
 Compression
 -----------
 
@@ -71,6 +74,8 @@ Compression
   LZ4 block format and the ad-hoc Hadoop LZ4 format used by the
   `reference Parquet implementation <https://github.com/apache/parquet-mr>`__.
   On the write side, Parquet C++ always generates the ad-hoc Hadoop LZ4 format.
+
+*Unsupported compression codec:* LZO.
 
 Encodings
 ---------
@@ -95,6 +100,9 @@ Encodings
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.0 (or potentially greater) is selected in :func:`WriterProperties::version`.
+
+*Unsupported encodings:* DELTA_BINARY_PACKED, DELTA_LENGTH_BYTE_ARRAY,
+DELTA_BYTE_ARRAY.
 
 Types
 -----
@@ -134,8 +142,7 @@ Logical types
 ~~~~~~~~~~~~~
 
 Specific logical types can override the default Arrow type mapping for a given
-physical type.  If the Parquet file contains an unrecognized logical type,
-the default physical type mapping is used.
+physical type.
 
 +-------------------+-----------------------------+----------------------------+---------+
 | Logical type      | Physical type               | Mapped Arrow type          | Notes   |
@@ -147,10 +154,10 @@ the default physical type mapping is used.
 +-------------------+-----------------------------+----------------------------+---------+
 | INT               | INT64                       | Int64 / UInt64             |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    |         |
+| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    | \(2)    |
 |                   | / FIXED_LENGTH_BYTE_ARRAY   |                            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| DATE              | INT32                       | Date32                     | \(2)    |
+| DATE              | INT32                       | Date32                     | \(3)    |
 +-------------------+-----------------------------+----------------------------+---------+
 | TIME              | INT32                       | Time32 (milliseconds)      |         |
 +-------------------+-----------------------------+----------------------------+---------+
@@ -160,21 +167,31 @@ the default physical type mapping is used.
 | TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
 |                   |                             | or nanoseconds)            |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| STRING            | BYTE_ARRAY                  | Utf8                       | \(3)    |
+| STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| LIST              | Any                         | List                       | \(4)    |
+| LIST              | Any                         | List                       | \(5)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| MAP               | Any                         | Map                        |         |
+| MAP               | Any                         | Map                        | \(6)    |
 +-------------------+-----------------------------+----------------------------+---------+
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
-* \(2) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
+* \(2) On the write side, a FIXED_LENGTH_BYTE_ARRAY is always emitted.
 
-* \(3) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
+* \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+* \(4) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
+
+* \(5) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
   a Parquet LIST.
+
+* \(6) On the read side, a key with multiple values does not get deduplicated,
+  in contradiction with the
+  `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
+
+*Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
+when reading a Parquet file, the default physical type mapping is used (for
+example, a Parquet JSON column may be read as Arrow Binary or FixedSizeBinary).
 
 Converted types
 ~~~~~~~~~~~~~~~
@@ -207,15 +224,23 @@ and will recreate the original Arrow data, converting the Parquet data as
 required (for example, a LargeList will be recreated from the Parquet LIST
 type).
 
-Details
-"""""""
+As an exemple, when serializing an Arrow LargeList to Parquet:
+
+* The data is written out as a Parquet LIST
+
+* When read back, the Parquet LIST data is decoded as an Arrow LargeList if
+  :func:`ArrowWriterProperties::store_schema` was enabled when writing the file;
+  otherwise, it is decoded as an Arrow List.
+
+Serialization details
+"""""""""""""""""""""
 
 The Arrow schema is serialized as a :ref:`Arrow IPC <format-ipc>` schema message,
 then base64-encoded and stored under the ``ARROW:schema`` metadata key in
 the Parquet file metadata.
 
 Limitations
-"""""""""""
+~~~~~~~~~~~
 
 Writing or reading back FixedSizedList data with null entries is not supported.
 
