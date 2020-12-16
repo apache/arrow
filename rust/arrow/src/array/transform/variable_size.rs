@@ -23,6 +23,7 @@ use crate::{
 
 use super::{Extend, _MutableArrayData, utils::extend_offsets};
 
+#[inline]
 fn extend_offset_values<T: OffsetSizeTrait>(
     buffer: &mut MutableBuffer,
     offsets: &[T],
@@ -44,7 +45,13 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
-                let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+                // JUSTIFICATION
+                //  Benefit
+                //      20% performance improvement extend of strings (see bench `mutable_array`)
+                //  Soundness
+                //      Buffer[0] is initialized with one element, 0, and thus `mutable_offsets.len() - 1` is always valid.
+                let last_offset =
+                    *unsafe { mutable_offsets.get_unchecked(mutable_offsets.len() - 1) };
                 // offsets
                 let buffer = &mut mutable.buffers[0];
                 extend_offsets::<T>(
@@ -61,7 +68,13 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
                 let mutable_offsets = mutable.buffer::<T>(0);
-                let mut last_offset = mutable_offsets[mutable_offsets.len() - 1];
+                // JUSTIFICATION
+                //  Benefit
+                //      20% performance improvement extend of strings (see bench `mutable_array`)
+                //  Soundness
+                //      Buffer[0] is initialized with one element and thus `mutable_offsets.len() - 1` is always valid.
+                let mut last_offset =
+                    *unsafe { mutable_offsets.get_unchecked(mutable_offsets.len() - 1) };
 
                 // nulls present: append item by item, ignoring null entries
                 let (offset_buffer, values_buffer) = mutable.buffers.split_at_mut(1);
@@ -97,7 +110,13 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     len: usize,
 ) {
     let mutable_offsets = mutable.buffer::<T>(0);
-    let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+    // JUSTIFICATION
+    //  Benefit
+    //      20% performance improvement extend of strings (see bench `mutable_array`)
+    //  Soundness
+    //      Buffer[0] is initialized with one element and thus `mutable_offsets.len() - 1` is always valid.
+    let last_offset =
+        *unsafe { mutable_offsets.get_unchecked(mutable_offsets.len() - 1) };
 
     let offset_buffer = &mut mutable.buffers[0];
 
