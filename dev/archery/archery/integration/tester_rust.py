@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import os
+import subprocess
 
 from .tester import Tester
 from .util import run_cmd, ARROW_ROOT_DEFAULT, log
@@ -24,8 +26,8 @@ from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 class RustTester(Tester):
     PRODUCER = True
     CONSUMER = True
-    # FLIGHT_SERVER = True
-    # FLIGHT_CLIENT = True
+    FLIGHT_SERVER = True
+    FLIGHT_CLIENT = True
 
     EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'rust/target/debug')
 
@@ -34,11 +36,11 @@ class RustTester(Tester):
     STREAM_TO_FILE = os.path.join(EXE_PATH, 'arrow-stream-to-file')
     FILE_TO_STREAM = os.path.join(EXE_PATH, 'arrow-file-to-stream')
 
-    # FLIGHT_SERVER_CMD = [
-    #     os.path.join(EXE_PATH, 'flight-test-integration-server')]
-    # FLIGHT_CLIENT_CMD = [
-    #     os.path.join(EXE_PATH, 'flight-test-integration-client'),
-    #     "-host", "localhost"]
+    FLIGHT_SERVER_CMD = [
+        os.path.join(EXE_PATH, 'flight-test-integration-server')]
+    FLIGHT_CLIENT_CMD = [
+        os.path.join(EXE_PATH, 'flight-test-integration-client'),
+        "--host", "localhost"]
 
     name = 'Rust'
 
@@ -72,34 +74,42 @@ class RustTester(Tester):
         cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
         self.run_shell_command(cmd)
 
-    # @contextlib.contextmanager
-    # def flight_server(self):
-    #     cmd = self.FLIGHT_SERVER_CMD + ['-port=0']
-    #     if self.debug:
-    #         log(' '.join(cmd))
-    #     server = subprocess.Popen(cmd,
-    #                               stdout=subprocess.PIPE,
-    #                               stderr=subprocess.PIPE)
-    #     try:
-    #         output = server.stdout.readline().decode()
-    #         if not output.startswith("Server listening on localhost:"):
-    #             server.kill()
-    #             out, err = server.communicate()
-    #             raise RuntimeError(
-    #                 "Flight-C++ server did not start properly, "
-    #                 "stdout:\n{}\n\nstderr:\n{}\n"
-    #                 .format(output + out.decode(), err.decode()))
-    #         port = int(output.split(":")[1])
-    #         yield port
-    #     finally:
-    #         server.kill()
-    #         server.wait(5)
+    @contextlib.contextmanager
+    def flight_server(self, scenario_name=None):
+        cmd = self.FLIGHT_SERVER_CMD + ['--port=0']
+        if scenario_name:
+            cmd = cmd + ["--scenario", scenario_name]
+        if self.debug:
+            log(' '.join(cmd))
+        server = subprocess.Popen(cmd,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
+        try:
+            output = server.stdout.readline().decode()
+            if not output.startswith("Server listening on localhost:"):
+                server.kill()
+                out, err = server.communicate()
+                raise RuntimeError(
+                    "Flight-Rust server did not start properly, "
+                    "stdout:\n{}\n\nstderr:\n{}\n"
+                    .format(output + out.decode(), err.decode()))
+            port = int(output.split(":")[1])
+            yield port
+        finally:
+            server.kill()
+            server.wait(5)
 
-    # def flight_request(self, port, json_path):
-    #     cmd = self.FLIGHT_CLIENT_CMD + [
-    #         '-port=' + str(port),
-    #         '-path=' + json_path,
-    #     ]
-    #     if self.debug:
-    #         log(' '.join(cmd))
-    #     run_cmd(cmd)
+    def flight_request(self, port, json_path=None, scenario_name=None):
+        cmd = self.FLIGHT_CLIENT_CMD + [
+            '--port=' + str(port),
+        ]
+        if json_path:
+            cmd.extend(('--path', json_path))
+        elif scenario_name:
+            cmd.extend(('--scenario', scenario_name))
+        else:
+            raise TypeError("Must provide one of json_path or scenario_name")
+
+        if self.debug:
+            log(' '.join(cmd))
+        run_cmd(cmd)

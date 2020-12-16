@@ -61,11 +61,8 @@ pub fn flight_schema_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
 ) -> SchemaResult {
-    let data_gen = writer::IpcDataGenerator::default();
-    let schema_bytes = data_gen.schema_to_bytes(schema, &options);
-
     SchemaResult {
-        schema: schema_bytes.ipc_message,
+        schema: flight_schema_as_flatbuffer(schema, options),
     }
 }
 
@@ -74,14 +71,39 @@ pub fn flight_data_from_arrow_schema(
     schema: &Schema,
     options: &IpcWriteOptions,
 ) -> FlightData {
-    let data_gen = writer::IpcDataGenerator::default();
-    let schema = data_gen.schema_to_bytes(schema, &options);
+    let data_header = flight_schema_as_flatbuffer(schema, options);
     FlightData {
-        flight_descriptor: None,
-        app_metadata: vec![],
-        data_header: schema.ipc_message,
-        data_body: vec![],
+        data_header,
+        ..Default::default()
     }
+}
+
+/// Convert a `Schema` to bytes in the format expected in `FlightInfo.schema`
+pub fn ipc_message_from_arrow_schema(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> Result<Vec<u8>> {
+    let encoded_data = flight_schema_as_encoded_data(arrow_schema, options);
+
+    let mut schema = vec![];
+    arrow::ipc::writer::write_message(&mut schema, encoded_data, options)?;
+    Ok(schema)
+}
+
+fn flight_schema_as_flatbuffer(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> Vec<u8> {
+    let encoded_data = flight_schema_as_encoded_data(arrow_schema, options);
+    encoded_data.ipc_message
+}
+
+fn flight_schema_as_encoded_data(
+    arrow_schema: &Schema,
+    options: &IpcWriteOptions,
+) -> EncodedData {
+    let data_gen = writer::IpcDataGenerator::default();
+    data_gen.schema_to_bytes(arrow_schema, options)
 }
 
 /// Try convert `FlightData` into an Arrow Schema
@@ -132,16 +154,14 @@ pub fn flight_data_to_arrow_batch(
                 "Unable to convert flight data header to a record batch".to_string(),
             )
         })
-        .map(
-            |batch| {
-                reader::read_record_batch(
-                    &data.data_body,
-                    batch,
-                    schema,
-                    &dictionaries_by_field,
-                )
-            },
-        )?
+        .map(|batch| {
+            reader::read_record_batch(
+                &data.data_body,
+                batch,
+                schema,
+                &dictionaries_by_field,
+            )
+        })?
 }
 
 // TODO: add more explicit conversion that exposes flight descriptor and metadata options
