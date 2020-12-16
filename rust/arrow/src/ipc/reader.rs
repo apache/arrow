@@ -590,7 +590,10 @@ impl<R: Read + Seek> FileReader<R> {
         let mut footer_data = vec![0; footer_len as usize];
         reader.seek(SeekFrom::End(-10 - footer_len as i64))?;
         reader.read_exact(&mut footer_data)?;
-        let footer = ipc::get_root_as_footer(&footer_data[..]);
+
+        let footer = ipc::root_as_footer(&footer_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         let blocks = footer.recordBatches().ok_or_else(|| {
             ArrowError::IoError(
@@ -621,7 +624,9 @@ impl<R: Read + Seek> FileReader<R> {
 
             reader.read_exact(&mut block_data)?;
 
-            let message = ipc::get_root_as_message(&block_data[..]);
+            let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+                ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+            })?;
 
             match message.header_type() {
                 ipc::MessageHeader::DictionaryBatch => {
@@ -698,7 +703,9 @@ impl<R: Read + Seek> FileReader<R> {
         let mut block_data = vec![0; meta_len as usize];
         self.reader.read_exact(&mut block_data)?;
 
-        let message = ipc::get_root_as_message(&block_data[..]);
+        let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         // some old test data's footer metadata is not set, so we account for that
         if self.metadata_version != ipc::MetadataVersion::V1
@@ -804,7 +811,9 @@ impl<R: Read> StreamReader<R> {
         let mut meta_buffer = vec![0; meta_len as usize];
         reader.read_exact(&mut meta_buffer)?;
 
-        let message = ipc::get_root_as_message(meta_buffer.as_slice());
+        let message = ipc::root_as_message(meta_buffer.as_slice()).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
         // message header is a Schema, so read it
         let ipc_schema: ipc::Schema = message.header_as_schema().ok_or_else(|| {
             ArrowError::IoError("Unable to read IPC message as schema".to_string())
@@ -873,7 +882,9 @@ impl<R: Read> StreamReader<R> {
         self.reader.read_exact(&mut meta_buffer)?;
 
         let vecs = &meta_buffer.to_vec();
-        let message = ipc::get_root_as_message(vecs);
+        let message = ipc::root_as_message(vecs).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
 
         match message.header_type() {
             ipc::MessageHeader::Schema => Err(ArrowError::IoError(

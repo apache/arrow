@@ -184,10 +184,13 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
             } else {
                 bytes.as_slice()
             };
-            let message = arrow::ipc::get_root_as_message(slice);
-            message
-                .header_as_schema()
-                .map(arrow::ipc::convert::fb_to_schema)
+            if let Ok(message) = arrow::ipc::root_as_message(slice) {
+                message
+                    .header_as_schema()
+                    .map(arrow::ipc::convert::fb_to_schema)
+            } else {
+                None
+            }
         }
         Err(err) => {
             // The C++ implementation returns an error if the schema can't be parsed.

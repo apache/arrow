@@ -771,6 +771,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     ///
     /// As a prefix tree this would be represented as:
     ///
+    /// ```text
     ///         0          1
     ///        / \         |
     ///       0   1        1
@@ -778,6 +779,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     ///     0   0   1      1
     ///    /|  /|   |    /| |
     ///   1 2 0 2   0   0 1 2
+    /// ```
     /// The type of values in indptrBuffers
     #[inline]
     pub fn indptrType(&self) -> Int<'a> {

@@ -113,7 +113,13 @@ pub fn flight_data_to_arrow_batch(
     schema: SchemaRef,
 ) -> Option<Result<RecordBatch>> {
     // check that the data_header is a record batch message
-    let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
+    let res = arrow::ipc::root_as_message(&data.data_header[..]);
+    if res.is_err() {
+        return None;
+    }
+
+    let message = res.unwrap();
+
     let dictionaries_by_field = Vec::new();
 
     message

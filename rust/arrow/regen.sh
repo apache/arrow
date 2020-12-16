@@ -25,7 +25,7 @@ pushd $DIR/../../
 # so let's build flatc from source.
 
 FB_URL="https://github.com/google/flatbuffers"
-FB_COMMIT="2046bffa40400904c926c2a5bedab67a8d6b7e08"
+FB_COMMIT="f8b203c9c4bec53cb9abceef6bc333a02f272b6b"
 FB_DIR="rust/arrow/.flatbuffers"
 FLATC="$FB_DIR/bazel-bin/flatc"
 
@@ -57,7 +57,7 @@ if [ ! -e "$FLATC" ]; then
 fi
 
 # Execute the code generation:
-$FLATC --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
+$FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
 
 # Now the files are wrongly named so we have to change that.
 popd
@@ -127,10 +127,12 @@ for f in `ls *.rs`; do
     sed -i '' "/\#\!\[allow(unused_imports, dead_code)\]/d" $f
     for name in ${names[@]}; do
         sed -i '' "/use crate::${name}_generated::\*;/d" $f
+        sed -i '' "s/use self::flatbuffers::Verifiable;/use flatbuffers::Verifiable;/g" $f
     done
 
-    # Replace all occurrences of type__ with type_
+    # Replace all occurrences of "type__" with "type_", "TYPE__" with "TYPE_".
     sed -i '' 's/type__/type_/g' $f
+    sed -i '' 's/TYPE__/TYPE_/g' $f
 
     # Some files need prefixes
     if [[ $f == "File.rs" ]]; then 
