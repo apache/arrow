@@ -461,10 +461,10 @@ where
                     Err(e) => return Err(e),
                 }
             }
-            t => {
+            value => {
                 return Err(ArrowError::JsonError(format!(
                     "Expected JSON record to be an object, found {:?}",
-                    t
+                    value
                 )));
             }
         };
@@ -961,7 +961,7 @@ impl Decoder {
                 let mut struct_index = 0;
                 let rows: Vec<Value> = rows
                     .iter()
-                    .map(|row| {
+                    .flat_map(|row| {
                         if let Value::Array(values) = row {
                             values.iter().for_each(|_| {
                                 bit_util::set_bit(null_buffer.data_mut(), struct_index);
@@ -973,7 +973,6 @@ impl Decoder {
                             vec![Value::Null]
                         }
                     })
-                    .flatten()
                     .collect();
                 let arrays =
                     self.build_struct_array(rows.as_slice(), fields.as_slice(), &[])?;
@@ -985,13 +984,10 @@ impl Decoder {
                     .child_data(arrays.into_iter().map(|a| a.data()).collect())
                     .build()
             }
-            DataType::Dictionary(_, _) => {
-                todo!()
-            }
-            t => {
+            datatype => {
                 return Err(ArrowError::JsonError(format!(
                     "Nested list of {:?} not supported",
-                    t
+                    datatype
                 )));
             }
         };
@@ -1021,12 +1017,7 @@ impl Decoder {
     ) -> Result<Vec<ArrayRef>> {
         let arrays: Result<Vec<ArrayRef>> = struct_fields
             .iter()
-            .filter(|field| {
-                if projection.is_empty() {
-                    return true;
-                }
-                projection.contains(field.name())
-            })
+            .filter(|field| projection.is_empty() || projection.contains(field.name()))
             .map(|field| {
                 match field.data_type() {
                     DataType::Null => {
@@ -1248,28 +1239,25 @@ impl Decoder {
     {
         let values = rows
             .iter()
-            .filter_map(|row| {
+            .flat_map(|row| {
                 // read values from list
                 if let Value::Array(values) = row {
-                    Some(
-                        values
-                            .iter()
-                            .map(|value| {
-                                let v: Option<T::Native> =
-                                    value.as_f64().and_then(num::cast::cast);
-                                v
-                            })
-                            .collect::<Vec<Option<T::Native>>>(),
-                    )
+                    values
+                        .iter()
+                        .map(|value| {
+                            let v: Option<T::Native> =
+                                value.as_f64().and_then(num::cast::cast);
+                            v
+                        })
+                        .collect::<Vec<Option<T::Native>>>()
                 } else if let Value::Number(value) = row {
                     // handle the scalar number case
                     let v: Option<T::Native> = value.as_f64().and_then(num::cast::cast);
-                    v.map(|v| vec![Some(v)])
+                    v.map(|v| vec![Some(v)]).unwrap_or_default()
                 } else {
-                    None
+                    vec![]
                 }
             })
-            .flatten()
             .collect::<Vec<Option<T::Native>>>();
         let array = PrimitiveArray::<T>::from_iter(values.iter());
         array.data()
@@ -1298,7 +1286,7 @@ fn json_value_as_string(value: &Value) -> Option<String> {
 fn flatten_json_values(values: &[Value]) -> Vec<Value> {
     values
         .iter()
-        .map(|row| {
+        .flat_map(|row| {
             if let Value::Array(values) = row {
                 values.clone()
             } else if let Value::Null = row {
@@ -1308,7 +1296,6 @@ fn flatten_json_values(values: &[Value]) -> Vec<Value> {
                 vec![row.clone()]
             }
         })
-        .flatten()
         .collect()
 }
 
@@ -1319,21 +1306,18 @@ fn flatten_json_values(values: &[Value]) -> Vec<Value> {
 fn flatten_json_string_values(values: &[Value]) -> Vec<Option<String>> {
     values
         .iter()
-        .filter_map(|row| {
+        .flat_map(|row| {
             if let Value::Array(values) = row {
-                Some(
-                    values
-                        .iter()
-                        .map(json_value_as_string)
-                        .collect::<Vec<Option<_>>>(),
-                )
+                values
+                    .iter()
+                    .map(json_value_as_string)
+                    .collect::<Vec<Option<_>>>()
             } else if let Value::Null = row {
-                None
+                vec![]
             } else {
-                Some(vec![json_value_as_string(row)])
+                vec![json_value_as_string(row)]
             }
         })
-        .flatten()
         .collect::<Vec<Option<_>>>()
 }
 /// JSON file reader
