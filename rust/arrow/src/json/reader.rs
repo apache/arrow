@@ -925,15 +925,15 @@ impl Decoder {
             }
             DataType::Float32 => read_primitive_list_values::<Float32Type>(rows),
             DataType::Float64 => read_primitive_list_values::<Float64Type>(rows),
-            // DataType::Timestamp(_, _) => {
-            //     todo!()
-            // }
-            // DataType::Date32(_) => {
-            //     todo!()
-            // }
-            // DataType::Date64(_) => {todo!()}
-            // DataType::Time32(_) => {todo!()}
-            // DataType::Time64(_) => {todo!()}
+            DataType::Timestamp(_, _)
+            | DataType::Date32(_)
+            | DataType::Date64(_)
+            | DataType::Time32(_)
+            | DataType::Time64(_) => {
+                return Err(ArrowError::JsonError(
+                    "Temporal types are not yet supported, see ARROW-4803".to_string(),
+                ))
+            }
             DataType::Utf8 => {
                 // we expect a list of strings: ["_", "_", "_"]
                 let values = rows
@@ -1000,13 +1000,17 @@ impl Decoder {
             }
             DataType::LargeList(field) => {
                 // extract list values, with non-lists converted to Value::Null
+                // TODO: DRY
                 let rows: Vec<Value> = rows
                     .iter()
                     .map(|row| {
                         if let Value::Array(values) = row {
                             values.clone()
-                        } else {
+                        } else if let Value::Null = row {
                             vec![Value::Null]
+                        } else {
+                            // we interpret a scalar as a single-value list to minimise data loss
+                            vec![row.clone()]
                         }
                     })
                     .flatten()
@@ -1020,14 +1024,18 @@ impl Decoder {
                 let num_bytes = bit_util::ceil(len, 8);
                 let mut null_buffer =
                     MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut struct_index = 0;
                 let rows: Vec<Value> = rows
                     .iter()
-                    .enumerate()
-                    .map(|(i, row)| {
+                    .map(|row| {
                         if let Value::Array(values) = row {
-                            bit_util::set_bit(null_buffer.data_mut(), i);
+                            values.iter().for_each(|_| {
+                                bit_util::set_bit(null_buffer.data_mut(), struct_index);
+                                struct_index += 1;
+                            });
                             values.clone()
                         } else {
+                            struct_index += 1;
                             vec![Value::Null]
                         }
                     })
@@ -1037,7 +1045,6 @@ impl Decoder {
                     self.build_struct_array(rows.as_slice(), fields.as_slice(), &[])?;
                 let data_type = DataType::Struct(fields.clone());
                 let buf = null_buffer.freeze();
-                dbg!(&buf);
                 ArrayDataBuilder::new(data_type)
                     .len(rows.len())
                     .null_bit_buffer(buf)
@@ -1114,7 +1121,7 @@ impl Decoder {
                     DataType::UInt8 => {
                         self.build_primitive_array::<UInt8Type>(rows, field.name())
                     }
-                    // TODO: this is incorrect
+                    // TODO: this is incomplete
                     DataType::Timestamp(unit, _) => match unit {
                         TimeUnit::Second => self
                             .build_primitive_array::<TimestampSecondType>(
@@ -2047,11 +2054,10 @@ mod tests {
             None,
         ]);
         let a = ArrayDataBuilder::new(a_struct_field.data_type().clone())
-            .null_count(2)
             .len(7)
             .add_child_data(b.data())
-            .add_child_data(c)
-            .null_bit_buffer(Buffer::from(vec![0b00011111]))
+            .add_child_data(c.clone())
+            .null_bit_buffer(Buffer::from(vec![0b00111111]))
             .build();
         let a_list = ArrayDataBuilder::new(a_field.data_type().clone())
             .null_count(1)
@@ -2069,15 +2075,43 @@ mod tests {
         // compare the arrays the long way around, to better detect differences
         let read: &ListArray = read.as_any().downcast_ref::<ListArray>().unwrap();
         let expected = expected.as_any().downcast_ref::<ListArray>().unwrap();
-        assert_eq!(read.value_offset(0), expected.value_offset(0));
-        assert_eq!(read.value_offset(1), expected.value_offset(1));
-        assert_eq!(read.value_offset(2), expected.value_offset(2));
-        assert_eq!(read.value_offset(3), expected.value_offset(3));
-        assert_eq!(read.value_offset(4), expected.value_offset(4));
-        assert!(
-            expected.data_ref() == read.data_ref(),
-            format!("{:?} != {:?}", expected.data(), read.data())
+        assert_eq!(
+            read.data().buffers()[0],
+            Buffer::from(vec![0i32, 2, 3, 6, 6, 6].to_byte_slice())
         );
+        // compare list null buffers
+        assert_eq!(read.data().null_buffer(), expected.data().null_buffer());
+        // build struct from list
+        let struct_values = read.values();
+        let struct_array: &StructArray = struct_values
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap();
+        let expected_struct_values = expected.values();
+        let expected_struct_array = expected_struct_values
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap();
+
+        assert_eq!(7, struct_array.len());
+        assert_eq!(1, struct_array.null_count());
+        assert_eq!(7, expected_struct_array.len());
+        assert_eq!(1, expected_struct_array.null_count());
+        // test struct's nulls
+        assert_eq!(
+            struct_array.data().null_buffer(),
+            expected_struct_array.data().null_buffer()
+        );
+        // test struct's fields
+        let read_b = struct_array.column(0);
+        assert_eq!(b.data_ref(), read_b.data_ref());
+        let read_c = struct_array.column(1);
+        assert_eq!(&c, read_c.data_ref());
+        let read_c: &StructArray = read_c.as_any().downcast_ref::<StructArray>().unwrap();
+        let read_d = read_c.column(0);
+        assert_eq!(d.data_ref(), read_d.data_ref());
+
+        assert_eq!(read.data_ref(), expected.data_ref());
     }
 
     #[test]
