@@ -43,8 +43,16 @@ impl ParquetTable {
         let schema = parquet_exec.schema();
 
         let metadata = parquet_exec.metadata();
-        let num_rows = metadata.row_groups().iter().map(|rg| rg.num_rows() as usize).sum();
-        let total_byte_size = metadata.row_groups().iter().map(|rg| rg.total_byte_size() as usize).sum();
+        let num_rows = metadata
+            .row_groups()
+            .iter()
+            .map(|rg| rg.num_rows() as usize)
+            .sum();
+        let total_byte_size = metadata
+            .row_groups()
+            .iter()
+            .map(|rg| rg.total_byte_size() as usize)
+            .sum();
 
         Ok(Self {
             path: path.to_string(),
