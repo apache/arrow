@@ -233,5 +233,5 @@ pub trait DataFrame {
     /// # Ok(())
     /// # }
     /// ```
-    fn registry(&self) -> &dyn FunctionRegistry;
+    fn registry(&self) -> Arc<dyn FunctionRegistry>;
 }
