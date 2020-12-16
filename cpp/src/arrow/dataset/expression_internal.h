@@ -135,7 +135,7 @@ struct Comparison {
 
   static const type* Get(const Expression& expr) {
     if (auto call = expr.call()) {
-      return Comparison::Get(call->function);
+      return Comparison::Get(call->function_name);
     }
     return nullptr;
   }
@@ -230,7 +230,7 @@ struct Comparison {
 };
 
 inline const compute::CastOptions* GetCastOptions(const Expression::Call& call) {
-  if (call.function != "cast") return nullptr;
+  if (call.function_name != "cast") return nullptr;
   return checked_cast<const compute::CastOptions*>(call.options.get());
 }
 
@@ -248,17 +248,17 @@ inline bool IsSameTypesBinary(const std::string& function) {
 
 inline const compute::SetLookupOptions* GetSetLookupOptions(
     const Expression::Call& call) {
-  if (!IsSetLookup(call.function)) return nullptr;
+  if (!IsSetLookup(call.function_name)) return nullptr;
   return checked_cast<const compute::SetLookupOptions*>(call.options.get());
 }
 
 inline const compute::StructOptions* GetStructOptions(const Expression::Call& call) {
-  if (call.function != "struct") return nullptr;
+  if (call.function_name != "struct") return nullptr;
   return checked_cast<const compute::StructOptions*>(call.options.get());
 }
 
 inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {
-  if (call.function != "strptime") return nullptr;
+  if (call.function_name != "strptime") return nullptr;
   return checked_cast<const compute::StrptimeOptions*>(call.options.get());
 }
 
@@ -321,7 +321,7 @@ inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
         {"value_set", "skip_nulls"});
   }
 
-  if (call.function == "cast") {
+  if (call.function_name == "cast") {
     auto options = checked_cast<const compute::CastOptions*>(call.options.get());
     return Finish(
         {
@@ -344,7 +344,7 @@ inline Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
         });
   }
 
-  return Status::NotImplemented("conversion of options for ", call.function);
+  return Status::NotImplemented("conversion of options for ", call.function_name);
 }
 
 inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
@@ -354,7 +354,7 @@ inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
     return Status::OK();
   }
 
-  if (IsSetLookup(call->function)) {
+  if (IsSetLookup(call->function_name)) {
     ARROW_ASSIGN_OR_RAISE(auto value_set, repr->field("value_set"));
     ARROW_ASSIGN_OR_RAISE(auto skip_nulls, repr->field("skip_nulls"));
     call->options = std::make_shared<compute::SetLookupOptions>(
@@ -363,7 +363,7 @@ inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
     return Status::OK();
   }
 
-  if (call->function == "cast") {
+  if (call->function_name == "cast") {
     auto options = std::make_shared<compute::CastOptions>();
     ARROW_ASSIGN_OR_RAISE(auto to_type_holder, repr->field("to_type_holder"));
     options->to_type = to_type_holder->type;
@@ -384,7 +384,7 @@ inline Status FunctionOptionsFromStructScalar(const StructScalar* repr,
     return Status::OK();
   }
 
-  return Status::NotImplemented("conversion of options for ", call->function);
+  return Status::NotImplemented("conversion of options for ", call->function_name);
 }
 
 struct FlattenedAssociativeChain {
@@ -399,7 +399,7 @@ struct FlattenedAssociativeChain {
 
     while (it != fringe.end()) {
       auto sub_call = it->call();
-      if (!sub_call || sub_call->function != call->function) {
+      if (!sub_call || sub_call->function_name != call->function_name) {
         ++it;
         continue;
       }
@@ -422,8 +422,8 @@ struct FlattenedAssociativeChain {
 
 inline Result<std::shared_ptr<compute::Function>> GetFunction(
     const Expression::Call& call, compute::ExecContext* exec_context) {
-  if (call.function != "cast") {
-    return exec_context->func_registry()->GetFunction(call.function);
+  if (call.function_name != "cast") {
+    return exec_context->func_registry()->GetFunction(call.function_name);
   }
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
   const auto& to_type = checked_cast<const compute::CastOptions&>(*call.options).to_type;
@@ -453,8 +453,7 @@ Result<Expression> Modify(Expression expr, const PreVisit& pre,
 
   if (at_least_one_modified) {
     // reconstruct the call expression with the modified arguments
-    auto modified_expr = Expression(
-        std::make_shared<Expression::Impl>(std::move(modified_call)), expr.descr());
+    auto modified_expr = Expression(std::move(modified_call));
 
     return post_call(std::move(modified_expr), &expr);
   }
