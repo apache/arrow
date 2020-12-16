@@ -55,10 +55,10 @@ use arrow::datatypes::{
 use arrow::util::bit_util;
 
 use crate::arrow::converter::{
-    BinaryArrayConverter, BinaryConverter, Converter, FixedLenBinaryConverter,
-    FixedSizeArrayConverter, Int96ArrayConverter, Int96Converter,
-    LargeBinaryArrayConverter, LargeBinaryConverter, LargeUtf8ArrayConverter,
-    LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
+    BinaryArrayConverter, BinaryConverter, Converter, DecimalArrayConverter,
+    DecimalConverter, FixedLenBinaryConverter, FixedSizeArrayConverter,
+    Int96ArrayConverter, Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    LargeUtf8ArrayConverter, LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -1541,6 +1541,33 @@ impl<'a> ArrayReaderBuilder {
                         arrow_type,
                     )?))
                 }
+            }
+            PhysicalType::FIXED_LEN_BYTE_ARRAY
+                if cur_type.get_basic_info().logical_type() == LogicalType::DECIMAL =>
+            {
+                let (precision, scale) = match *cur_type {
+                    Type::PrimitiveType {
+                        ref precision,
+                        ref scale,
+                        ..
+                    } => (*precision, *scale),
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
+                let converter =
+                    DecimalConverter::new(DecimalArrayConverter::new(precision, scale));
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    FixedLenByteArrayType,
+                    DecimalConverter,
+                >::new(
+                    page_iterator,
+                    column_desc,
+                    converter,
+                    arrow_type,
+                )?))
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
                 let byte_width = match *cur_type {

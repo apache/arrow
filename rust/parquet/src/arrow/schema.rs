@@ -606,6 +606,21 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
+        if self.schema.get_basic_info().logical_type() == LogicalType::DECIMAL {
+            let (precision, scale) = match self.schema {
+                Type::PrimitiveType {
+                    ref precision,
+                    ref scale,
+                    ..
+                } => (*precision, *scale),
+                _ => {
+                    return Err(ArrowError(
+                        "Expected a physical type, not a group type".to_string(),
+                    ))
+                }
+            };
+            return Ok(DataType::Decimal(precision as usize, scale as usize));
+        }
         let byte_width = match self.schema {
             Type::PrimitiveType {
                 ref type_length, ..

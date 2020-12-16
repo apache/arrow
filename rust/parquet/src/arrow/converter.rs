@@ -18,9 +18,9 @@
 use crate::data_type::{ByteArray, DataType, FixedLenByteArray, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
 use arrow::array::{
-    Array, ArrayRef, BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder,
-    LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder,
-    StringDictionaryBuilder, TimestampNanosecondBuilder,
+    Array, ArrayRef, BinaryBuilder, DecimalBuilder, FixedSizeBinaryBuilder,
+    LargeBinaryBuilder, LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder,
+    StringBuilder, StringDictionaryBuilder, TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
 use std::convert::From;
@@ -30,7 +30,7 @@ use crate::errors::Result;
 use arrow::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType};
 
 use arrow::array::{
-    BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
+    BinaryArray, DecimalArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
     LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
@@ -68,6 +68,47 @@ impl Converter<Vec<Option<FixedLenByteArray>>, FixedSizeBinaryArray>
         for v in source {
             match v {
                 Some(array) => builder.append_value(array.data()),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+pub struct DecimalArrayConverter {
+    precision: i32,
+    scale: i32,
+}
+
+impl DecimalArrayConverter {
+    pub fn new(precision: i32, scale: i32) -> Self {
+        Self { precision, scale }
+    }
+
+    fn from_bytes_to_i128(b: &[u8]) -> i128 {
+        assert!(b.len() <= 16, "DecimalArray supports only up to size 16");
+        let first_bit = b[0] & 128u8 == 128u8;
+        let mut result = if first_bit { [255u8; 16] } else { [0u8; 16] };
+        for (i, v) in b.iter().enumerate() {
+            result[i + (16 - b.len())] = *v;
+        }
+        i128::from_be_bytes(result)
+    }
+}
+
+impl Converter<Vec<Option<ByteArray>>, DecimalArray> for DecimalArrayConverter {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<DecimalArray> {
+        let mut builder = DecimalBuilder::new(
+            source.len(),
+            self.precision as usize,
+            self.scale as usize,
+        );
+        for v in source {
+            match v {
+                Some(array) => {
+                    builder.append_value(Self::from_bytes_to_i128(array.data()))
+                }
                 None => builder.append_null(),
             }?
         }
@@ -286,6 +327,9 @@ pub type FixedLenBinaryConverter = ArrayRefConverter<
     FixedSizeBinaryArray,
     FixedSizeArrayConverter,
 >;
+
+pub type DecimalConverter =
+    ArrayRefConverter<Vec<Option<ByteArray>>, DecimalArray, DecimalArrayConverter>;
 
 pub struct FromConverter<S, T> {
     _source: PhantomData<S>,
