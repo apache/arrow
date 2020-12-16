@@ -48,15 +48,15 @@ namespace dataset {
 class ARROW_DS_EXPORT Expression {
  public:
   struct Call {
-    std::string function;
+    std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<compute::FunctionOptions> options;
 
     // post-Bind properties:
     const compute::Kernel* kernel = NULLPTR;
-    compute::Function::Kind
-        function_kind;  // XXX give Kernel a non-owning pointer to its Function
+    std::shared_ptr<compute::Function> function;
     std::shared_ptr<compute::KernelState> kernel_state;
+    ValueDescr descr;
   };
 
   std::string ToString() const;
@@ -102,20 +102,23 @@ class ARROW_DS_EXPORT Expression {
   const Datum* literal() const;
   const FieldRef* field_ref() const;
 
-  const ValueDescr& descr() const { return descr_; }
+  ValueDescr descr() const;
+  // XXX someday
+  // NullGeneralization::type nullable() const;
 
-  using Impl = util::Variant<Datum, FieldRef, Call>;
-
-  explicit Expression(std::shared_ptr<Impl> impl, ValueDescr descr = {})
-      : impl_(std::move(impl)), descr_(std::move(descr)) {}
+  struct Parameter {
+    FieldRef ref;
+    ValueDescr descr;
+  };
 
   Expression() = default;
+  explicit Expression(Call call);
+  explicit Expression(Datum literal);
+  explicit Expression(Parameter parameter);
 
  private:
+  using Impl = util::Variant<Datum, Parameter, Call>;
   std::shared_ptr<Impl> impl_;
-  ValueDescr descr_;
-  // XXX someday
-  // NullGeneralization::type evaluates_to_null_;
 
   ARROW_EXPORT friend bool Identical(const Expression& l, const Expression& r);
 
@@ -127,14 +130,20 @@ inline bool operator!=(const Expression& l, const Expression& r) { return !l.Equ
 
 // Factories
 
-inline Expression call(std::string function, std::vector<Expression> arguments,
-                       std::shared_ptr<compute::FunctionOptions> options = NULLPTR) {
-  Expression::Call call;
-  call.function = std::move(function);
-  call.arguments = std::move(arguments);
-  call.options = std::move(options);
-  return Expression(std::make_shared<Expression::Impl>(std::move(call)));
+ARROW_DS_EXPORT
+Expression literal(Datum lit);
+
+template <typename Arg>
+Expression literal(Arg&& arg) {
+  return literal(Datum(std::forward<Arg>(arg)));
 }
+
+ARROW_DS_EXPORT
+Expression field_ref(FieldRef ref);
+
+ARROW_DS_EXPORT
+Expression call(std::string function, std::vector<Expression> arguments,
+                std::shared_ptr<compute::FunctionOptions> options = NULLPTR);
 
 template <typename Options, typename = typename std::enable_if<std::is_base_of<
                                 compute::FunctionOptions, Options>::value>::type>
@@ -142,23 +151,6 @@ Expression call(std::string function, std::vector<Expression> arguments,
                 Options options) {
   return call(std::move(function), std::move(arguments),
               std::make_shared<Options>(std::move(options)));
-}
-
-template <typename... Args>
-Expression field_ref(Args&&... args) {
-  return Expression(
-      std::make_shared<Expression::Impl>(FieldRef(std::forward<Args>(args)...)));
-}
-
-template <typename Arg>
-Expression literal(Arg&& arg) {
-  Datum lit(std::forward<Arg>(arg));
-  ValueDescr descr = lit.descr();
-  return Expression(std::make_shared<Expression::Impl>(std::move(lit)), std::move(descr));
-}
-
-inline Expression literal(std::shared_ptr<Scalar> scalar) {
-  return literal(Datum(std::move(scalar)));
 }
 
 ARROW_DS_EXPORT

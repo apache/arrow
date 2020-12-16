@@ -282,8 +282,9 @@ TEST(Expression, BindFieldRef) {
                              {field("alpha", int32()), field("alpha", float32())})));
 
   // referencing nested fields is supported
-  ASSERT_OK_AND_ASSIGN(expr, field_ref("a", "b").Bind(
-                                 Schema({field("a", struct_({field("b", int32())}))})));
+  ASSERT_OK_AND_ASSIGN(expr,
+                       field_ref(FieldRef("a", "b"))
+                           .Bind(Schema({field("a", struct_({field("b", int32())}))})));
   EXPECT_TRUE(expr.IsBound());
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 }
@@ -476,6 +477,13 @@ TEST(Expression, ExecuteDictionaryTransparent) {
   ])"));
 }
 
+void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
+  if (modified == original) {
+    // no change -> must be identical
+    EXPECT_TRUE(Identical(modified, original)) << "  " << original.ToString();
+  }
+}
+
 struct {
   void operator()(Expression expr, Expression expected) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
@@ -484,11 +492,7 @@ struct {
     ASSERT_OK_AND_ASSIGN(auto folded, FoldConstants(expr));
 
     EXPECT_EQ(folded, expected);
-
-    if (folded == expr) {
-      // no change -> must be identical
-      EXPECT_TRUE(Identical(folded, expr));
-    }
+    ExpectIdenticalIfUnchanged(folded, expr);
   }
 } ExpectFoldsTo;
 
@@ -629,11 +633,7 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
                              ReplaceFieldsWithKnownValues(known_values, expr));
 
         EXPECT_EQ(replaced, expected);
-
-        if (replaced == expr) {
-          // no change -> must be identical
-          EXPECT_TRUE(Identical(replaced, expr));
-        }
+        ExpectIdenticalIfUnchanged(replaced, expr);
       };
 
   std::unordered_map<FieldRef, Datum, FieldRef::Hash> i32_is_3{{"i32", Datum(3)}};
@@ -677,18 +677,14 @@ struct {
     ASSERT_OK_AND_ASSIGN(auto actual, Canonicalize(bound));
 
     EXPECT_EQ(actual, expected);
-
-    if (actual == expr) {
-      // no change -> must be identical
-      EXPECT_TRUE(Identical(actual, expr));
-    }
+    ExpectIdenticalIfUnchanged(actual, bound);
   }
 } ExpectCanonicalizesTo;
 
 TEST(Expression, CanonicalizeTrivial) {
   ExpectCanonicalizesTo(literal(1), literal(1));
 
-  ExpectCanonicalizesTo(field_ref("b"), field_ref("b"));
+  ExpectCanonicalizesTo(field_ref("i32"), field_ref("i32"));
 
   ExpectCanonicalizesTo(equal(field_ref("i32"), field_ref("i32_req")),
                         equal(field_ref("i32"), field_ref("i32_req")));
@@ -752,9 +748,7 @@ struct Simplify {
                                       << "  guarantee:  " << guarantee.ToString() << "\n"
                                       << (simplified == bound ? "  (no change)\n" : "");
 
-      if (simplified == bound) {
-        EXPECT_TRUE(Identical(simplified, bound));
-      }
+      ExpectIdenticalIfUnchanged(simplified, bound);
     }
     void ExpectUnchanged() { Expect(expr); }
     void Expect(bool constant) { Expect(literal(constant)); }

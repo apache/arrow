@@ -429,7 +429,7 @@ TEST_F(TestPartitioning, Set) {
             set.push_back(checked_cast<const Int32Scalar&>(*s).value);
           }
 
-          subexpressions.push_back(call("is_in", {field_ref(matches[1])},
+          subexpressions.push_back(call("is_in", {field_ref(std::string(matches[1]))},
                                         compute::SetLookupOptions{ints(set)}));
         }
         return and_(std::move(subexpressions));

@@ -39,14 +39,54 @@ using internal::checked_pointer_cast;
 
 namespace dataset {
 
-const Expression::Call* Expression::call() const {
-  return util::get_if<Call>(impl_.get());
+Expression::Expression(Call call) : impl_(std::make_shared<Impl>(std::move(call))) {}
+
+Expression::Expression(Datum literal)
+    : impl_(std::make_shared<Impl>(std::move(literal))) {}
+
+Expression::Expression(Parameter parameter)
+    : impl_(std::make_shared<Impl>(std::move(parameter))) {}
+
+Expression literal(Datum lit) { return Expression(std::move(lit)); }
+
+Expression field_ref(FieldRef ref) {
+  return Expression(Expression::Parameter{std::move(ref), {}});
+}
+
+Expression call(std::string function, std::vector<Expression> arguments,
+                std::shared_ptr<compute::FunctionOptions> options) {
+  Expression::Call call;
+  call.function_name = std::move(function);
+  call.arguments = std::move(arguments);
+  call.options = std::move(options);
+  return Expression(std::move(call));
 }
 
 const Datum* Expression::literal() const { return util::get_if<Datum>(impl_.get()); }
 
 const FieldRef* Expression::field_ref() const {
-  return util::get_if<FieldRef>(impl_.get());
+  if (auto parameter = util::get_if<Parameter>(impl_.get())) {
+    return &parameter->ref;
+  }
+  return nullptr;
+}
+
+const Expression::Call* Expression::call() const {
+  return util::get_if<Call>(impl_.get());
+}
+
+ValueDescr Expression::descr() const {
+  if (impl_ == nullptr) return {};
+
+  if (auto lit = literal()) {
+    return lit->descr();
+  }
+
+  if (auto parameter = util::get_if<Parameter>(impl_.get())) {
+    return parameter->descr;
+  }
+
+  return CallNotNull(*this)->descr;
 }
 
 std::string Expression::ToString() const {
@@ -88,16 +128,14 @@ std::string Expression::ToString() const {
            call->arguments[1].ToString() + ")";
   };
 
-  if (auto cmp = Comparison::Get(call->function)) {
+  if (auto cmp = Comparison::Get(call->function_name)) {
     return binary(Comparison::GetOp(*cmp));
   }
 
-  if (call->function == "and_kleene") {
-    return binary("and");
-  }
-
-  if (call->function == "or_kleene") {
-    return binary("or");
+  constexpr util::string_view kleene = "_kleene";
+  if (util::string_view{call->function_name}.ends_with(kleene)) {
+    auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
+    return binary(std::move(op));
   }
 
   if (auto options = GetStructOptions(*call)) {
@@ -111,7 +149,7 @@ std::string Expression::ToString() const {
     return out;
   }
 
-  std::string out = call->function + "(";
+  std::string out = call->function_name + "(";
   for (const auto& arg : call->arguments) {
     out += arg.ToString() + ", ";
   }
@@ -178,7 +216,8 @@ bool Expression::Equals(const Expression& other) const {
   auto call = CallNotNull(*this);
   auto other_call = CallNotNull(other);
 
-  if (call->function != other_call->function || call->kernel != other_call->kernel) {
+  if (call->function_name != other_call->function_name ||
+      call->kernel != other_call->kernel) {
     return false;
   }
 
@@ -223,7 +262,7 @@ bool Expression::Equals(const Expression& other) const {
   }
 
   ARROW_LOG(WARNING) << "comparing unknown FunctionOptions for function "
-                     << call->function;
+                     << call->function_name;
   return false;
 }
 
@@ -241,7 +280,7 @@ size_t Expression::hash() const {
 
   auto call = CallNotNull(*this);
 
-  size_t out = std::hash<std::string>{}(call->function);
+  size_t out = std::hash<std::string>{}(call->function_name);
   for (const auto& arg : call->arguments) {
     out ^= arg.hash();
   }
@@ -249,7 +288,7 @@ size_t Expression::hash() const {
 }
 
 bool Expression::IsBound() const {
-  if (descr_.type == nullptr) return false;
+  if (descr().type == nullptr) return false;
 
   if (auto lit = literal()) return true;
 
@@ -278,20 +317,20 @@ bool Expression::IsScalarExpression() const {
     if (!arg.IsScalarExpression()) return false;
   }
 
-  if (call->kernel == nullptr) {
-    // this expression is not bound; make a best guess based on
-    // the default function registry
-    if (auto function = compute::GetFunctionRegistry()
-                            ->GetFunction(call->function)
-                            .ValueOr(nullptr)) {
-      return function->kind() == compute::Function::SCALAR;
-    }
-
-    // unknown function or other error; conservatively return false
-    return false;
+  if (call->function) {
+    return call->function->kind() == compute::Function::SCALAR;
   }
 
-  return call->function_kind == compute::Function::SCALAR;
+  // this expression is not bound; make a best guess based on
+  // the default function registry
+  if (auto function = compute::GetFunctionRegistry()
+                          ->GetFunction(call->function_name)
+                          .ValueOr(nullptr)) {
+    return function->kind() == compute::Function::SCALAR;
+  }
+
+  // unknown function or other error; conservatively return false
+  return false;
 }
 
 bool Expression::IsNullLiteral() const {
@@ -305,7 +344,7 @@ bool Expression::IsNullLiteral() const {
 }
 
 bool Expression::IsSatisfiable() const {
-  if (descr_.type && descr_.type->id() == Type::NA) {
+  if (descr().type && descr().type->id() == Type::NA) {
     return false;
   }
 
@@ -369,9 +408,9 @@ Status MaybeInsertCast(std::shared_ptr<DataType> to_type, Expression* expr) {
 
   auto call_with_cast = *CallNotNull(with_cast);
   call_with_cast.arguments[0] = std::move(*expr);
-  *expr = Expression(std::make_shared<Expression::Impl>(std::move(call_with_cast)),
-                     ValueDescr{std::move(to_type), expr->descr().shape});
+  call_with_cast.descr = ValueDescr{std::move(to_type), expr->descr().shape};
 
+  *expr = Expression(std::move(call_with_cast));
   return Status::OK();
 }
 
@@ -379,7 +418,7 @@ Status InsertImplicitCasts(Expression::Call* call) {
   DCHECK(std::all_of(call->arguments.begin(), call->arguments.end(),
                      [](const Expression& argument) { return argument.IsBound(); }));
 
-  if (IsSameTypesBinary(call->function)) {
+  if (IsSameTypesBinary(call->function_name)) {
     for (auto&& argument : call->arguments) {
       if (auto value_type = GetDictionaryValueType(argument.descr().type)) {
         RETURN_NOT_OK(MaybeInsertCast(std::move(value_type), &argument));
@@ -389,9 +428,10 @@ Status InsertImplicitCasts(Expression::Call* call) {
     if (call->arguments[0].descr().shape == ValueDescr::SCALAR) {
       // argument 0 is scalar so casting is cheap
       return MaybeInsertCast(call->arguments[1].descr().type, &call->arguments[0]);
-    } else {
-      return MaybeInsertCast(call->arguments[0].descr().type, &call->arguments[1]);
     }
+
+    // cast argument 1 unconditionally
+    return MaybeInsertCast(call->arguments[0].descr().type, &call->arguments[1]);
   }
 
   if (auto options = GetSetLookupOptions(*call)) {
@@ -435,15 +475,13 @@ Result<Expression> Expression::Bind(ValueDescr in,
 
   if (auto ref = field_ref()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOneOrNone(*in.type));
-    auto out = *this;
-    out.descr_ = field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
-    return out;
+    auto descr = field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
+    return Expression{Parameter{*ref, std::move(descr)}};
   }
 
   auto bound_call = *CallNotNull(*this);
 
-  ARROW_ASSIGN_OR_RAISE(auto function, GetFunction(bound_call, exec_context));
-  bound_call.function_kind = function->kind();
+  ARROW_ASSIGN_OR_RAISE(bound_call.function, GetFunction(bound_call, exec_context));
 
   for (auto&& argument : bound_call.arguments) {
     ARROW_ASSIGN_OR_RAISE(argument, argument.Bind(in, exec_context));
@@ -451,17 +489,18 @@ Result<Expression> Expression::Bind(ValueDescr in,
   RETURN_NOT_OK(InsertImplicitCasts(&bound_call));
 
   auto descrs = GetDescriptors(bound_call.arguments);
-  ARROW_ASSIGN_OR_RAISE(bound_call.kernel, function->DispatchExact(descrs));
+  ARROW_ASSIGN_OR_RAISE(bound_call.kernel, bound_call.function->DispatchExact(descrs));
 
   compute::KernelContext kernel_context(exec_context);
   ARROW_ASSIGN_OR_RAISE(bound_call.kernel_state,
                         InitKernelState(bound_call, exec_context));
   kernel_context.SetState(bound_call.kernel_state.get());
 
-  ARROW_ASSIGN_OR_RAISE(auto descr, bound_call.kernel->signature->out_type().Resolve(
-                                        &kernel_context, descrs));
+  ARROW_ASSIGN_OR_RAISE(
+      bound_call.descr,
+      bound_call.kernel->signature->out_type().Resolve(&kernel_context, descrs));
 
-  return Expression(std::make_shared<Impl>(std::move(bound_call)), std::move(descr));
+  return Expression(std::move(bound_call));
 }
 
 Result<Expression> Expression::Bind(const Schema& in_schema,
@@ -547,7 +586,7 @@ util::optional<Out> FoldLeft(It begin, It end, const BinOp& bin_op) {
 
 util::optional<compute::NullHandling::type> GetNullHandling(
     const Expression::Call& call) {
-  if (call.function_kind == compute::Function::SCALAR) {
+  if (call.function && call.function->kind() == compute::Function::SCALAR) {
     return static_cast<const compute::ScalarKernel*>(call.kernel)->null_handling;
   }
   return util::nullopt;
@@ -619,7 +658,7 @@ Result<Expression> FoldConstants(Expression expr) {
           }
         }
 
-        if (call->function == "and_kleene") {
+        if (call->function_name == "and_kleene") {
           for (auto args : ArgumentsAndFlippedArguments(*call)) {
             // true and x == x
             if (args.first == literal(true)) return args.second;
@@ -633,7 +672,7 @@ Result<Expression> FoldConstants(Expression expr) {
           return expr;
         }
 
-        if (call->function == "or_kleene") {
+        if (call->function_name == "or_kleene") {
           for (auto args : ArgumentsAndFlippedArguments(*call)) {
             // false or x == x
             if (args.first == literal(false)) return args.second;
@@ -654,7 +693,7 @@ Result<Expression> FoldConstants(Expression expr) {
 inline std::vector<Expression> GuaranteeConjunctionMembers(
     const Expression& guaranteed_true_predicate) {
   auto guarantee = guaranteed_true_predicate.call();
-  if (!guarantee || guarantee->function != "and_kleene") {
+  if (!guarantee || guarantee->function_name != "and_kleene") {
     return {guaranteed_true_predicate};
   }
   return FlattenedAssociativeChain(guaranteed_true_predicate).fringe;
@@ -672,7 +711,7 @@ Status ExtractKnownFieldValuesImpl(
                        auto call = expr.call();
                        if (!call) return true;
 
-                       if (call->function == "equal") {
+                       if (call->function_name == "equal") {
                          auto ref = call->arguments[0].field_ref();
                          auto lit = call->arguments[1].literal();
                          return !(ref && lit);
@@ -741,7 +780,7 @@ inline bool IsBinaryAssociativeCommutative(const Expression::Call& call) {
       "and",      "or",  "and_kleene",       "or_kleene",  "xor",
       "multiply", "add", "multiply_checked", "add_checked"};
 
-  auto it = binary_associative_commutative.find(call.function);
+  auto it = binary_associative_commutative.find(call.function_name);
   return it != binary_associative_commutative.end();
 }
 
@@ -798,37 +837,35 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
           std::stable_sort(chain.fringe.begin(), chain.fringe.end(), CanonicalOrdering);
 
           // fold the chain back up
-          const auto& descr = expr.descr();
           auto folded =
               FoldLeft(chain.fringe.begin(), chain.fringe.end(),
-                       [call, &descr, &AlreadyCanonicalized](Expression l, Expression r) {
-                         auto ret = *call;
-                         ret.arguments = {std::move(l), std::move(r)};
-                         Expression expr(
-                             std::make_shared<Expression::Impl>(std::move(ret)), descr);
+                       [call, &AlreadyCanonicalized](Expression l, Expression r) {
+                         auto canonicalized_call = *call;
+                         canonicalized_call.arguments = {std::move(l), std::move(r)};
+                         Expression expr(std::move(canonicalized_call));
                          AlreadyCanonicalized.Add({expr});
                          return expr;
                        });
           return std::move(*folded);
         }
 
-        if (auto cmp = Comparison::Get(call->function)) {
+        if (auto cmp = Comparison::Get(call->function_name)) {
           if (call->arguments[0].literal() && !call->arguments[1].literal()) {
             // ensure that literals are on comparisons' RHS
             auto flipped_call = *call;
-            flipped_call.function = Comparison::GetName(Comparison::GetFlipped(*cmp));
+            flipped_call.function_name =
+                Comparison::GetName(Comparison::GetFlipped(*cmp));
             // look up the flipped kernel
             // TODO extract a helper for use here and in Bind
             ARROW_ASSIGN_OR_RAISE(
                 auto function,
-                exec_context->func_registry()->GetFunction(flipped_call.function));
+                exec_context->func_registry()->GetFunction(flipped_call.function_name));
 
             auto descrs = GetDescriptors(flipped_call.arguments);
             ARROW_ASSIGN_OR_RAISE(flipped_call.kernel, function->DispatchExact(descrs));
 
             std::swap(flipped_call.arguments[0], flipped_call.arguments[1]);
-            return Expression(std::make_shared<Expression::Impl>(std::move(flipped_call)),
-                              expr.descr());
+            return Expression(std::move(flipped_call));
           }
         }
 
@@ -847,7 +884,7 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
 
         // Ensure both calls are comparisons with equal LHS and scalar RHS
         auto cmp = Comparison::Get(expr);
-        auto cmp_guarantee = Comparison::Get(guarantee.function);
+        auto cmp_guarantee = Comparison::Get(guarantee.function_name);
         if (!cmp || !cmp_guarantee) return expr;
 
         if (call->arguments[0] != guarantee.arguments[0]) return expr;
@@ -961,7 +998,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
       }
 
       auto call = CallNotNull(expr);
-      metadata_->Append("call", call->function);
+      metadata_->Append("call", call->function_name);
 
       for (const auto& argument : call->arguments) {
         RETURN_NOT_OK(Visit(argument));
@@ -973,7 +1010,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
         metadata_->Append("options", std::move(value));
       }
 
-      metadata_->Append("end", call->function);
+      metadata_->Append("end", call->function_name);
       return Status::OK();
     }
 
