@@ -123,9 +123,9 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
     // XXX (ARROW-10928) We could add a dummy primitive node but that would
     // require special handling when writing and reading, to avoid column index
     // mismatches.
-    return Status::NotImplemented(
-        "Cannot write struct type with no child fields to Parquet. "
-        "Consider adding a dummy field.");
+    return Status::NotImplemented("Cannot write struct type '", name,
+                                  "' with no child field to Parquet. "
+                                  "Consider adding a dummy child field.");
   }
 
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children));
