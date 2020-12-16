@@ -1708,7 +1708,7 @@ impl Schema {
                     }
                 }
             }
-            // merge fileds
+            // merge fields
             for field in &schema.fields {
                 let mut new_field = true;
                 for merged_field in &mut merged.fields {

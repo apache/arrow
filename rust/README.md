@@ -92,22 +92,14 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-To run the tests of the whole crate, create two new environment variables to point to these directories as follows:
+The following Env vars are required to run `cargo test`, examples, etc.
 
 ```bash
-export PARQUET_TEST_DATA=../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../testing/data
+export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)
+export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 ```
 
-To run the tests of an individual crate within the project (e.g. in `datafusion/`), adjust the path
-accordingly:
-
-```bash
-export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../../testing/data
-```
-
-from here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
+From here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
 
 ## Code Formatting
 
