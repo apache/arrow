@@ -478,5 +478,13 @@ TEST(BinaryMemoTable, Stress) {
   ASSERT_EQ(table.size(), map.size());
 }
 
+TEST(BinaryMemoTable, Empty) {
+  BinaryMemoTable<BinaryBuilder> table(default_memory_pool());
+  ASSERT_EQ(table.size(), 0);
+  BinaryMemoTable<BinaryBuilder>::builder_offset_type offsets[1];
+  table.CopyOffsets(0, offsets);
+  EXPECT_EQ(offsets[0], 0);
+}
+
 }  // namespace internal
 }  // namespace arrow
