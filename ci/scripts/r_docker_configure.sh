@@ -44,7 +44,7 @@ fi
 if [[ "$R_TAG" == *centos* && "$DEVTOOLSET_VERSION" > 0 ]]; then
   if [ "`which dnf`" ]; then
     dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
-  else [ "`which yum`" ]; then
+  else
     yum install -y "devtoolset-$DEVTOOLSET_VERSION"
   fi
 fi
