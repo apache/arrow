@@ -504,22 +504,36 @@ class TokenClientAuthHandler(ClientAuthHandler):
     def get_token(self):
         return self.token
 
+class NoopAuthHandler(ServerAuthHandler):
+    """A no-op auth handler."""
+
+    def authenticate(self, outgoing, incoming):
+        """Do nothing."""
+
+    def is_valid(self, token):
+        """Do nothing."""
+
+
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
     """A ServerMiddlewareFactory that validates incoming username and password."""
     def start_call(self, info, headers):
+        print("[HeaderAuthServerMiddlewareFactory] - in start_call")
         values = headers.get('authorization').split(' ')
         token = ''
 
         if value[0] == 'Basic':
+            print("[HeaderAuthServerMiddlewareFactory] - in start_call - found basic header")
             decoded = base64.b64decode(value[1])
             pair = decoded.split(':')
             assert pair[0] == 'test'
             assert pair[1] == 'password'
             token = 'token1234'
         elif value[0] == 'Bearer':
+            print("[HeaderAuthServerMiddlewareFactory] - in start_call - found bearer header")
             token = value[1]
             assert token == 'token1234'
         else:
+            print("[HeaderAuthServerMiddlewareFactory] - in start_call - raise exception")
             raise flight.FlightUnauthenticatedError('No token or username password pair found.')
 
         return HeaderAuthServerMiddleware(token)
@@ -530,12 +544,13 @@ class HeaderAuthServerMiddleware(ServerMiddleware):
         self.token = token
 
     def sending_headers(self):
+        print("[HeaderAuthServerMiddleware] - in sending_headers")
         return {'authorization' : 'Bearer ' + self.token}
 
 class HeaderAuthFlightServer(FlightServerBase):
     """A Flight server that tests with basic token authentication. """
-    def __init__(self, middleware=None):
-        super().__init__(None, None, None, None, None, middleware)
+    def __init__(self, auth_handler, middleware=None):
+        super().__init__(None, auth_handler, None, None, None, middleware)
 
     def do_action(self, context, criteria):
         # TODO: Check that otken passed in is token1234
@@ -1034,24 +1049,28 @@ def test_token_auth_invalid():
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
 
 header_auth_server_middleware_factory = HeaderAuthServerMiddlewareFactory()
+no_op_auth_handler = NoopAuthHandler()
 
 # TODO: Add test(s) for AuthenticateBasicToken
 def test_authenticate_basic_token() :
     """Test autheticateBasicToken with bearer token and auth headers."""
     # TODO: Modify test
-    with HeaderAuthFlightServer(middleware={
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler,middleware={
         "auth": HeaderServerMiddlewareFactory(),
     }) as server:
         client = FlightClient(('localhost', server.port))
-        #token_pair = client.authenticateBasicToken(b'test', b'password')
-        #assert token_pair[0] == b'authorization'
-        #assert token_pair[1] == b'Bearer ' + b'token1234'
+        print("[test_authenticate_basic_token] - client created")
+        token_pair = client.authenticateBasicToken(b'test', b'password')
+        print("test_authenticate_basic_token - ")
+        print(token_pair[0:])
+        assert token_pair[0] == b'authorization'
+        assert token_pair[1] == b'Bearer ' + b'token1234'
 
 # TODO: Add test(s) for AuthenticateBasicToken
 def test_authenticate_basic_token_invalid_password() :
     """Test autheticateBasicToken with an invalid password."""
     # TODO: Modify test
-    with HeaderAuthFlightServer(middleware={
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler,middleware={
         "auth": HeaderServerMiddlewareFactory(),
     }) as server:
         client = FlightClient(('localhost', server.port))
@@ -1062,7 +1081,7 @@ def test_authenticate_basic_token_invalid_password() :
 def test_authenticate_basic_token_and_action() :
     """Test autheticateBasicToken with an invalid password."""
     # TODO: Modify test
-    with HeaderAuthFlightServer(middleware={
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler,middleware={
         "auth": HeaderServerMiddlewareFactory(),
     }) as server:
         client = FlightClient(('localhost', server.port))

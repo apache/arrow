@@ -1171,11 +1171,20 @@ cdef class FlightClient(_Weakrefable):
         cdef:
             CResult[pair[c_string, c_string]] result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            c_string user = tobytes(username)
+            c_string pw = tobytes(password)
 
-        result = self.client.get().AuthenticateBasicToken(deref(c_options),
-                                                          username,
-                                                          password)
-        return GetResultValue(result)
+        print("[authenticateBasicToken] - In method")
+        print("[authenticateBasicToken] - print user -")
+        print(user)
+        print("[authenticateBasicToken] - print pw -")
+        print(pw)
+        with nogil:
+            result = self.client.get().AuthenticateBasicToken(deref(c_options),
+                                                              user, pw)
+        print("[authenticateBasicToken] - Calling GetResult next")
+        # TODO: Need to convert CResult to Python    
+        return pyarrow_wrap_data_type(GetResultValue(result))
 
     def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
@@ -1897,7 +1906,6 @@ cdef CStatus _server_authenticate(void* self, CServerAuthSender* outgoing,
         sender.poison()
         reader.poison()
     return CStatus_OK()
-
 
 cdef CStatus _is_valid(void* self, const c_string& token,
                        c_string* peer_identity) except *:
