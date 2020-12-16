@@ -550,11 +550,11 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
     int field_id = current_id++;
     const void* opaque_element = static_cast<const void*>(&element);
 
-    if (element.num_children == 0) {
+    if (!element.__isset.num_children) {
       // Leaf (primitive) node
       return PrimitiveNode::FromParquet(opaque_element, field_id);
     } else {
-      // Group
+      // Group (may have 0 children)
       NodeVector fields;
       for (int i = 0; i < element.num_children; ++i) {
         std::unique_ptr<Node> field = NextNode();
