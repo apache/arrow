@@ -768,7 +768,7 @@ mod tests {
 
     #[test]
     fn test_primitive_array_negate() {
-        let a: Int64Array = (0..100).into_iter().map(|i| Some(i)).collect();
+        let a: Int64Array = (0..100).into_iter().map(Some).collect();
         let actual = negate(&a).unwrap();
         let expected: Int64Array = (0..100).into_iter().map(|i| Some(-i)).collect();
         assert_eq!(expected, actual);
