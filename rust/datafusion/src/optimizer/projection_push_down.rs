@@ -240,14 +240,13 @@ fn optimize_plan(
         // scans:
         // * remove un-used columns from the scan projection
         LogicalPlan::TableScan {
-            schema_name,
+            table_name,
             source,
-            table_schema,
             projection,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
-                &table_schema,
+                &source.schema(),
                 projection,
                 required_columns,
                 has_projection,
@@ -255,9 +254,8 @@ fn optimize_plan(
 
             // return the table scan with projection
             Ok(LogicalPlan::TableScan {
-                schema_name: schema_name.to_string(),
+                table_name: table_name.to_string(),
                 source: source.clone(),
-                table_schema: table_schema.clone(),
                 projection: Some(projection),
                 projected_schema,
             })

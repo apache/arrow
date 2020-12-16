@@ -20,6 +20,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::datasource::TableProvider;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
@@ -49,11 +50,14 @@ use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
 
-/// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
+/// The ContextProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
-pub trait SchemaProvider {
-    /// Getter for a field description
-    fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
+pub trait ContextProvider {
+    /// Getter for a datasource
+    fn get_table_provider(
+        &self,
+        name: &str,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
     /// Getter for a UDAF description
@@ -61,11 +65,11 @@ pub trait SchemaProvider {
 }
 
 /// SQL query planner
-pub struct SqlToRel<'a, S: SchemaProvider> {
+pub struct SqlToRel<'a, S: ContextProvider> {
     schema_provider: &'a S,
 }
 
-impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
+impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     /// Create a new query planner
     pub fn new(schema_provider: &'a S) -> Self {
         SqlToRel { schema_provider }
@@ -305,16 +309,12 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         match relation {
             TableFactor::Table { name, .. } => {
                 let table_name = name.to_string();
-                match self.schema_provider.get_table_meta(&table_name) {
-                    Some(schema) => LogicalPlanBuilder::scan(
-                        "default",
-                        &table_name,
-                        schema.as_ref(),
-                        None,
-                    )?
-                    .build(),
+                match self.schema_provider.get_table_provider(&table_name) {
+                    Some(provider) => {
+                        LogicalPlanBuilder::scan(&table_name, provider, None)?.build()
+                    }
                     None => Err(DataFusionError::Plan(format!(
-                        "no schema found for table {}",
+                        "no provider found for table {}",
                         name
                     ))),
                 }
@@ -920,6 +920,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::datasource::empty::EmptyTable;
     use crate::{logical_plan::create_udf, sql::parser::DFParser};
     use functions::ScalarFunctionImplementation;
 
@@ -1328,7 +1329,7 @@ mod tests {
     }
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
-        let planner = SqlToRel::new(&MockSchemaProvider {});
+        let planner = SqlToRel::new(&MockContextProvider {});
         let result = DFParser::parse_sql(&sql);
         let ast = result.unwrap();
         planner.statement_to_plan(&ast[0])
@@ -1340,12 +1341,15 @@ mod tests {
         assert_eq!(expected, format!("{:?}", plan));
     }
 
-    struct MockSchemaProvider {}
+    struct MockContextProvider {}
 
-    impl SchemaProvider for MockSchemaProvider {
-        fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-            match name {
-                "person" => Some(Arc::new(Schema::new(vec![
+    impl ContextProvider for MockContextProvider {
+        fn get_table_provider(
+            &self,
+            name: &str,
+        ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+            let schema = match name {
+                "person" => Some(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),
                     Field::new("first_name", DataType::Utf8, false),
                     Field::new("last_name", DataType::Utf8, false),
@@ -1357,19 +1361,19 @@ mod tests {
                         DataType::Timestamp(TimeUnit::Nanosecond, None),
                         false,
                     ),
-                ]))),
-                "orders" => Some(Arc::new(Schema::new(vec![
+                ])),
+                "orders" => Some(Schema::new(vec![
                     Field::new("order_id", DataType::UInt32, false),
                     Field::new("customer_id", DataType::UInt32, false),
                     Field::new("o_item_id", DataType::Utf8, false),
                     Field::new("qty", DataType::Int32, false),
                     Field::new("price", DataType::Float64, false),
-                ]))),
-                "lineitem" => Some(Arc::new(Schema::new(vec![
+                ])),
+                "lineitem" => Some(Schema::new(vec![
                     Field::new("l_item_id", DataType::UInt32, false),
                     Field::new("l_description", DataType::Utf8, false),
-                ]))),
-                "aggregate_test_100" => Some(Arc::new(Schema::new(vec![
+                ])),
+                "aggregate_test_100" => Some(Schema::new(vec![
                     Field::new("c1", DataType::Utf8, false),
                     Field::new("c2", DataType::UInt32, false),
                     Field::new("c3", DataType::Int8, false),
@@ -1383,9 +1387,12 @@ mod tests {
                     Field::new("c11", DataType::Float32, false),
                     Field::new("c12", DataType::Float64, false),
                     Field::new("c13", DataType::Utf8, false),
-                ]))),
+                ])),
                 _ => None,
-            }
+            };
+            schema.map(|s| -> Arc<dyn TableProvider + Send + Sync> {
+                Arc::new(EmptyTable::new(Arc::new(s)))
+            })
         }
 
         fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {

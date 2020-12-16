@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
@@ -53,31 +54,43 @@ namespace Apache.Arrow.Ipc
 
         internal static Schema GetSchema(Flatbuf.Schema schema)
         {
-            var schemaBuilder = new Schema.Builder();
-
+            List<Field> fields = new List<Field>();
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
 
-                schemaBuilder.Field(FieldFromFlatbuffer(field));
+                fields.Add(FieldFromFlatbuffer(field));
             }
 
-            return schemaBuilder.Build();
+            Dictionary<string, string> metadata = schema.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
+            for (int i = 0; i < schema.CustomMetadataLength; i++)
+            {
+                Flatbuf.KeyValue keyValue = schema.CustomMetadata(i).GetValueOrDefault();
+
+                metadata[keyValue.Key] = keyValue.Value;
+            }
+
+            return new Schema(fields, metadata, copyCollections: false);
         }
 
         private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField)
         {
-            Field[] childFields = null;
-            if (flatbufField.ChildrenLength > 0)
+            Field[] childFields = flatbufField.ChildrenLength > 0 ? new Field[flatbufField.ChildrenLength] : null;
+            for (int i = 0; i < flatbufField.ChildrenLength; i++)
             {
-                childFields = new Field[flatbufField.ChildrenLength];
-                for (int i = 0; i < flatbufField.ChildrenLength; i++)
-                {
-                    Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
-                    childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value);
-                }
+                Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
+                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value);
             }
-            return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable);
+
+            Dictionary<string, string> metadata = flatbufField.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
+            for (int i = 0; i < flatbufField.CustomMetadataLength; i++)
+            {
+                Flatbuf.KeyValue keyValue = flatbufField.CustomMetadata(i).GetValueOrDefault();
+
+                metadata[keyValue.Key] = keyValue.Value;
+            }
+
+            return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable, metadata, copyCollections: false);
         }
 
         private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, Field[] childFields = null)

@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Ipc;
-using Apache.Arrow.Types;
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Apache.Arrow.Ipc;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -461,6 +462,37 @@ namespace Apache.Arrow.Tests
 
                 Assert.Equal(0, endOfBuffer2);
             }
+        }
+
+        [Fact]
+        public void WritesMetadataCorrectly()
+        {
+            Schema.Builder schemaBuilder = new Schema.Builder()
+                .Metadata("index", "1, 2, 3, 4, 5")
+                .Metadata("reverseIndex", "5, 4, 3, 2, 1")
+                .Field(f => f
+                    .Name("IntCol")
+                    .DataType(UInt32Type.Default)
+                    .Metadata("custom1", "false")
+                    .Metadata("custom2", "true"))
+                .Field(f => f
+                    .Name("StringCol")
+                    .DataType(StringType.Default)
+                    .Metadata("custom2", "false")
+                    .Metadata("custom3", "4"))
+                .Field(f => f
+                    .Name("StructCol")
+                    .DataType(new StructType(new[] {
+                        new Field("Inner1", FloatType.Default, nullable: false),
+                        new Field("Inner2", DoubleType.Default, nullable: true, new Dictionary<string, string>() { { "customInner", "1" }, { "customInner2", "3" } })
+                    }))
+                    .Metadata("custom4", "6.4")
+                    .Metadata("custom1", "true"));
+
+            var schema = schemaBuilder.Build();
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(schema, length: 10);
+
+            TestRoundTripRecordBatch(originalBatch);
         }
     }
 }

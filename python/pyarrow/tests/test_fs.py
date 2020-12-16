@@ -338,6 +338,9 @@ def py_fsspec_localfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_memoryfs(request, tempdir):
     fsspec = pytest.importorskip("fsspec", minversion="0.7.5")
+    if fsspec.__version__ == "0.8.5":
+        # see https://issues.apache.org/jira/browse/ARROW-10934
+        pytest.skip("Bug in fsspec 0.8.5 for in-memory filesystem")
     fs = fsspec.filesystem('memory')
     return dict(
         fs=PyFileSystem(FSSpecHandler(fs)),

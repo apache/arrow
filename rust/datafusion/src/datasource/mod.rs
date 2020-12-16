@@ -19,6 +19,7 @@
 
 pub mod csv;
 pub mod datasource;
+pub mod empty;
 pub mod memory;
 pub mod parquet;
 

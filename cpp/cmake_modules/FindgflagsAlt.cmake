@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(gflagsAlt_FIND_VERSION)
+  list(APPEND find_package_args ${gflagsAlt_FIND_VERSION})
+endif()
+if(gflagsAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(gflags ${find_package_args})
+if(gflags_FOUND)
+  set(gflagsAlt_FOUND TRUE)
+  return()
+endif()
+
 # TODO: Support version detection.
 
 if(gflags_ROOT)

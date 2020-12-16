@@ -26,7 +26,6 @@ use std::sync::Arc;
 use futures::{StreamExt, TryStreamExt};
 
 use arrow::csv;
-use arrow::datatypes::*;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -34,7 +33,7 @@ use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
-    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource, ToDFSchema,
+    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema,
 };
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -46,7 +45,7 @@ use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
     parser::{DFParser, FileType},
-    planner::{SchemaProvider, SqlToRel},
+    planner::{ContextProvider, SqlToRel},
 };
 use crate::variable::{VarProvider, VarType};
 use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
@@ -223,9 +222,8 @@ impl ExecutionContext {
     ) -> Result<Arc<dyn DataFrame>> {
         let schema = provider.schema();
         let table_scan = LogicalPlan::TableScan {
-            schema_name: "".to_string(),
-            source: TableSource::FromProvider(provider),
-            table_schema: schema.clone(),
+            table_name: "".to_string(),
+            source: provider,
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
         };
@@ -275,9 +273,8 @@ impl ExecutionContext {
             Some(provider) => {
                 let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
-                    schema_name: "".to_string(),
-                    source: TableSource::FromContext(table_name.to_string()),
-                    table_schema: schema.clone(),
+                    table_name: table_name.to_string(),
+                    source: Arc::clone(provider),
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                 };
@@ -483,9 +480,12 @@ pub struct ExecutionContextState {
     pub config: ExecutionConfig,
 }
 
-impl SchemaProvider for ExecutionContextState {
-    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources.get(name).map(|ds| ds.schema())
+impl ContextProvider for ExecutionContextState {
+    fn get_table_provider(
+        &self,
+        name: &str,
+    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+        self.datasources.get(name).map(|ds| Arc::clone(ds))
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -540,6 +540,7 @@ mod tests {
     };
     use arrow::array::{ArrayRef, Float64Array, Int32Array, StringArray};
     use arrow::compute::add;
+    use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
     use std::fs::File;
     use std::thread::{self, JoinHandle};
@@ -643,11 +644,11 @@ mod tests {
         match &optimized_plan {
             LogicalPlan::Projection { input, .. } => match &**input {
                 LogicalPlan::TableScan {
-                    table_schema,
+                    source,
                     projected_schema,
                     ..
                 } => {
-                    assert_eq!(table_schema.fields().len(), 2);
+                    assert_eq!(source.schema().fields().len(), 2);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
                 _ => panic!("input to projection should be TableScan"),
@@ -680,7 +681,7 @@ mod tests {
         let schema = ctx.state.datasources.get("test").unwrap().schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
-        let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
+        let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
             .project(vec![col("c1")])?
             .build()?;
 
@@ -721,11 +722,11 @@ mod tests {
         match &optimized_plan {
             LogicalPlan::Projection { input, .. } => match &**input {
                 LogicalPlan::TableScan {
-                    table_schema,
+                    source,
                     projected_schema,
                     ..
                 } => {
-                    assert_eq!(table_schema.fields().len(), 3);
+                    assert_eq!(source.schema().fields().len(), 3);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
                 _ => panic!("input to projection should be InMemoryScan"),
@@ -1112,7 +1113,7 @@ mod tests {
             Field::new("c2", DataType::UInt32, false),
         ]));
 
-        let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
+        let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
             .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;

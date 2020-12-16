@@ -165,11 +165,11 @@ async fn custom_source_dataframe() -> Result<()> {
     match &optimized_plan {
         LogicalPlan::Projection { input, .. } => match &**input {
             LogicalPlan::TableScan {
-                table_schema,
+                source,
                 projected_schema,
                 ..
             } => {
-                assert_eq!(table_schema.fields().len(), 2);
+                assert_eq!(source.schema().fields().len(), 2);
                 assert_eq!(projected_schema.fields().len(), 1);
             }
             _ => panic!("input to projection should be TableScan"),
