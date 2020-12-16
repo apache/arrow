@@ -116,12 +116,12 @@ Generally, `unsafe` should only be used when a `safe` counterpart is not availab
 #### cache-line aligned memory management
 
 The arrow format recommends storing buffers aligned with cache lines, and this crate adopts this behavior.
-However, Rust's global allocator does not allocates memory aligned with cache-lines. As such, many of the low-level operations related to memory management require `unsafe`.
+However, Rust's global allocator does not allocate memory aligned with cache-lines. As such, many of the low-level operations related to memory management require `unsafe`.
 
 #### Interpreting bytes
 
 The arrow format is specified in bytes (`u8`), which can be logically represented as certain types
-depending on the DataType.
+depending on the `DataType`.
 For many operations, such as access, representation, numerical computation and string manipulation,
 it is often necessary to interpret bytes as other physical types (e.g. `i32`).
 
@@ -131,7 +131,7 @@ Usage of `unsafe` for the purpose of interpreting bytes in their corresponding t
 
 The arrow format declares an ABI for zero-copy from and to libraries that implement the specification
 (foreign interfaces). In Rust, receiving and sending pointers via FFI requires usage of `unsafe` due to 
-the impossibility of the compiler to derive the invariants (such as lifetime, null pointers, and pointer alignment), from the source code alone as they are part of the FFI contract.
+the impossibility of the compiler to derive the invariants (such as lifetime, null pointers, and pointer alignment) from the source code alone as they are part of the FFI contract.
 
 #### IPC
 
@@ -150,16 +150,30 @@ This requires accessing the values buffer e.g. `array.buffers()[0]`, picking the
 `[i * size_of<i32>(), (i + 1) * size_of<i32>()]`, and then transmuting it to `i32`. In safe Rust, 
 this operation requires boundary checks that are detrimental to performance.
 
-Usage of `unsafe` for performance reasons is justified only when the performance difference of a publicly available API is estatistically significantly larger than 10%, as demonstrated by a `bench`.
+Usage of `unsafe` for performance reasons is justified only when all other alternatives have been exhausted and the performance benefits are sufficiently large (e.g. >~10%).
 
 ### Considerations when introducing `unsafe`
 
 Usage of `unsafe` in this crate *must*:
 
 * not expose a public API as `safe` when there are necessary invariants for that API to be defined behavior.
-* have code documentation for why `safe` is not used / possible (e.g. `// 30% performance degradation if the safe counterpart is used, see bench X`)
-* have code documentation about which invariant the user needs to enforce to ensure no undefined behavior (e.g. `// this buffer must be constructed according to the arrow specification`)
+* have code documentation for why `safe` is not used / possible
+* have code documentation about which invariant the user needs to enforce to ensure [soundness](https://rust-lang.github.io/unsafe-code-guidelines/glossary.html#soundness-of-code--of-a-library), or which 
+* invariant is being preserved.
 * if applicable, use `debug_assert`s to relevant invariants (e.g. bound checks)
+
+Example of code documentation:
+
+```rust
+// JUSTIFICATION
+//  Benefit
+//      Describe the benefit of using unsafe. E.g.
+//      "30% performance degradation if the safe counterpart is used, see bench X."
+//  Soundness
+//      Describe why the code remains sound (according to the definition of rust's unsafe code guidelines). E.g.
+//      "We bounded check these values at initialization and the array is immutable."
+let ... = unsafe { ... };
+```
 
 # Publishing to crates.io
 
