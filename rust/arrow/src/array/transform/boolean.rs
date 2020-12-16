@@ -26,7 +26,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
     let values = array.buffers()[0].data();
     Box::new(
         move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-            let buffer = &mut mutable.buffers[0];
+            let buffer = &mut mutable.buffer1;
             reserve_for_bits(buffer, mutable.len + len);
             set_bits(
                 &mut buffer.data_mut(),
@@ -40,6 +40,6 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
 }
 
 pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
-    let buffer = &mut mutable.buffers[0];
+    let buffer = &mut mutable.buffer1;
     reserve_for_bits(buffer, mutable.len + len);
 }
