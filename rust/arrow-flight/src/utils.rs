@@ -21,6 +21,7 @@ use std::convert::TryFrom;
 
 use crate::{FlightData, SchemaResult};
 
+use arrow::array::ArrayRef;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result};
 use arrow::ipc::{convert, reader, writer, writer::EncodedData, writer::IpcWriteOptions};
@@ -117,6 +118,7 @@ impl TryFrom<&SchemaResult> for Schema {
 pub fn flight_data_to_arrow_batch(
     data: &FlightData,
     schema: SchemaRef,
+    dictionaries_by_field: &[Option<ArrayRef>],
 ) -> Option<Result<RecordBatch>> {
     // check that the data_header is a record batch message
     let res = arrow::ipc::root_as_message(&data.data_header[..]);
@@ -130,8 +132,6 @@ pub fn flight_data_to_arrow_batch(
     }
 
     let message = res.unwrap();
-
-    let dictionaries_by_field = Vec::new();
 
     message
         .header_as_record_batch()
