@@ -1296,15 +1296,6 @@ impl Decoder {
                                 DataType::Boolean => {
                                     self.build_boolean_list_array(rows, field.name())
                                 }
-                                ref dtype @ DataType::Utf8 => {
-                                    // UInt64Type passed down below is a fake type for dictionary builder.
-                                    // It is there to make compiler happy.
-                                    self.list_array_string_array_builder::<UInt64Type>(
-                                        &dtype,
-                                        field.name(),
-                                        rows,
-                                    )
-                                }
                                 DataType::Dictionary(ref key_ty, _) => self
                                     .build_wrapped_list_array(rows, field.name(), key_ty),
                                 _ => {
