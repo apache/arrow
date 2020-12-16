@@ -855,7 +855,7 @@ impl Decoder {
         ))
     }
 
-    // TODO: we don't index into the array that calls this (col_name)
+    /// Build a nested GenericListArray from a list of unnested `Value`s
     fn build_nested_list_array<OffsetSize: OffsetSizeTrait>(
         &self,
         rows: &[Value],
@@ -912,19 +912,19 @@ impl Decoder {
                     .null_bit_buffer(bool_nulls.freeze())
                     .build()
             }
-            DataType::Int8 => read_primitive_list_values::<Int8Type>(rows),
-            DataType::Int16 => read_primitive_list_values::<Int16Type>(rows),
-            DataType::Int32 => read_primitive_list_values::<Int32Type>(rows),
-            DataType::Int64 => read_primitive_list_values::<Int64Type>(rows),
-            DataType::UInt8 => read_primitive_list_values::<UInt8Type>(rows),
-            DataType::UInt16 => read_primitive_list_values::<UInt16Type>(rows),
-            DataType::UInt32 => read_primitive_list_values::<UInt32Type>(rows),
-            DataType::UInt64 => read_primitive_list_values::<UInt64Type>(rows),
+            DataType::Int8 => self.read_primitive_list_values::<Int8Type>(rows),
+            DataType::Int16 => self.read_primitive_list_values::<Int16Type>(rows),
+            DataType::Int32 => self.read_primitive_list_values::<Int32Type>(rows),
+            DataType::Int64 => self.read_primitive_list_values::<Int64Type>(rows),
+            DataType::UInt8 => self.read_primitive_list_values::<UInt8Type>(rows),
+            DataType::UInt16 => self.read_primitive_list_values::<UInt16Type>(rows),
+            DataType::UInt32 => self.read_primitive_list_values::<UInt32Type>(rows),
+            DataType::UInt64 => self.read_primitive_list_values::<UInt64Type>(rows),
             DataType::Float16 => {
                 return Err(ArrowError::JsonError("Float16 not supported".to_string()))
             }
-            DataType::Float32 => read_primitive_list_values::<Float32Type>(rows),
-            DataType::Float64 => read_primitive_list_values::<Float64Type>(rows),
+            DataType::Float32 => self.read_primitive_list_values::<Float32Type>(rows),
+            DataType::Float64 => self.read_primitive_list_values::<Float64Type>(rows),
             DataType::Timestamp(_, _)
             | DataType::Date32(_)
             | DataType::Date64(_)
@@ -935,87 +935,21 @@ impl Decoder {
                 ))
             }
             DataType::Utf8 => {
-                // we expect a list of strings: ["_", "_", "_"]
-                let values = rows
-                    .iter()
-                    .filter_map(|row| {
-                        if let Value::Array(values) = row {
-                            // get what i8 values we can, with failures set as None
-                            Some(
-                                values
-                                    .iter()
-                                    .map(json_value_as_string)
-                                    .collect::<Vec<Option<_>>>(),
-                            )
-                        } else if let Value::Null = row {
-                            None
-                        } else {
-                            Some(vec![json_value_as_string(row)])
-                        }
-                    })
-                    .flatten()
-                    .collect::<Vec<Option<_>>>();
-                StringArray::from_iter(values.into_iter()).data()
+                StringArray::from_iter(flatten_json_string_values(rows).into_iter())
+                    .data()
             }
             DataType::LargeUtf8 => {
-                let values = rows
-                    .iter()
-                    .filter_map(|row| {
-                        if let Value::Array(values) = row {
-                            // get what i8 values we can, with failures set as None
-                            Some(
-                                values
-                                    .iter()
-                                    .map(json_value_as_string)
-                                    .collect::<Vec<Option<_>>>(),
-                            )
-                        } else if let Value::Null = row {
-                            None
-                        } else {
-                            Some(vec![json_value_as_string(row)])
-                        }
-                    })
-                    .flatten()
-                    .collect::<Vec<Option<_>>>();
-                LargeStringArray::from_iter(values.into_iter()).data()
+                LargeStringArray::from_iter(flatten_json_string_values(rows).into_iter())
+                    .data()
             }
             DataType::List(field) => {
-                // extract list values, with non-lists converted to Value::Null
-                let rows: Vec<Value> = rows
-                    .iter()
-                    .map(|row| {
-                        if let Value::Array(values) = row {
-                            values.clone()
-                        } else if let Value::Null = row {
-                            vec![Value::Null]
-                        } else {
-                            // we interpret a scalar as a single-value list to minimise data loss
-                            vec![row.clone()]
-                        }
-                    })
-                    .flatten()
-                    .collect();
-                let child = self.build_nested_list_array::<i32>(&rows[..], field)?;
+                let child = self
+                    .build_nested_list_array::<i32>(&flatten_json_values(rows), field)?;
                 child.data()
             }
             DataType::LargeList(field) => {
-                // extract list values, with non-lists converted to Value::Null
-                // TODO: DRY
-                let rows: Vec<Value> = rows
-                    .iter()
-                    .map(|row| {
-                        if let Value::Array(values) = row {
-                            values.clone()
-                        } else if let Value::Null = row {
-                            vec![Value::Null]
-                        } else {
-                            // we interpret a scalar as a single-value list to minimise data loss
-                            vec![row.clone()]
-                        }
-                    })
-                    .flatten()
-                    .collect();
-                let child = self.build_nested_list_array::<i64>(&rows[..], field)?;
+                let child = self
+                    .build_nested_list_array::<i64>(&flatten_json_values(rows), field)?;
                 child.data()
             }
             DataType::Struct(fields) => {
@@ -1071,6 +1005,14 @@ impl Decoder {
         Ok(Arc::new(GenericListArray::<OffsetSize>::from(list_data)))
     }
 
+    /// Builds the child values of a `StructArray`, falling short of constructing the StructArray.
+    /// The function does not construct the StructArray as some callers would want the child arrays.
+    ///
+    /// *Note*: The function is recursive, and will read nested structs.
+    ///
+    /// If `projection` is not empty, then all values are returned. The first level of projection
+    /// occurs at the `RecordBatch` level. No further projection currently occurs, but would be
+    /// useful if plucking values from a struct, e.g. getting `a.b.c.e` from `a.b.c.{d, e}`.
     fn build_struct_array(
         &self,
         rows: &[Value],
@@ -1297,6 +1239,41 @@ impl Decoder {
         }
         Ok(Arc::new(builder.finish()) as ArrayRef)
     }
+
+    /// Read the primitive list's values into ArrayData
+    fn read_primitive_list_values<T>(&self, rows: &[Value]) -> ArrayDataRef
+    where
+        T: ArrowPrimitiveType + ArrowNumericType,
+        T::Native: num::NumCast,
+    {
+        let values = rows
+            .iter()
+            .filter_map(|row| {
+                // read values from list
+                if let Value::Array(values) = row {
+                    Some(
+                        values
+                            .iter()
+                            .map(|value| {
+                                let v: Option<T::Native> =
+                                    value.as_f64().and_then(num::cast::cast);
+                                v
+                            })
+                            .collect::<Vec<Option<T::Native>>>(),
+                    )
+                } else if let Value::Number(value) = row {
+                    // handle the scalar number case
+                    let v: Option<T::Native> = value.as_f64().and_then(num::cast::cast);
+                    v.map(|v| vec![Some(v)])
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect::<Vec<Option<T::Native>>>();
+        let array = PrimitiveArray::<T>::from_iter(values.iter());
+        array.data()
+    }
 }
 
 /// Reads a JSON value as a string, regardless of its type.
@@ -1314,41 +1291,51 @@ fn json_value_as_string(value: &Value) -> Option<String> {
     }
 }
 
-/// Read the primitive list's values into ArrayData
-fn read_primitive_list_values<T>(rows: &[Value]) -> ArrayDataRef
-where
-    T: ArrowPrimitiveType + ArrowNumericType,
-    T::Native: num::NumCast,
-{
-    let values = rows
+/// Flattens a list of JSON values, by flattening lists, and treating all other values as
+/// single-value lists.
+/// This is used to read into nested lists (list of list, list of struct) and non-dictionary lists.
+#[inline]
+fn flatten_json_values(values: &[Value]) -> Vec<Value> {
+    values
+        .iter()
+        .map(|row| {
+            if let Value::Array(values) = row {
+                values.clone()
+            } else if let Value::Null = row {
+                vec![Value::Null]
+            } else {
+                // we interpret a scalar as a single-value list to minimise data loss
+                vec![row.clone()]
+            }
+        })
+        .flatten()
+        .collect()
+}
+
+/// Flattens a list into string values, dropping Value::Null in the process.
+/// This is useful for interpreting any JSON array as string, dropping nulls.
+/// See `json_value_as_string`.
+#[inline]
+fn flatten_json_string_values(values: &[Value]) -> Vec<Option<String>> {
+    values
         .iter()
         .filter_map(|row| {
-            // read values from list
             if let Value::Array(values) = row {
                 Some(
                     values
                         .iter()
-                        .map(|value| {
-                            let v: Option<T::Native> =
-                                value.as_f64().and_then(num::cast::cast);
-                            v
-                        })
-                        .collect::<Vec<Option<T::Native>>>(),
+                        .map(json_value_as_string)
+                        .collect::<Vec<Option<_>>>(),
                 )
-            } else if let Value::Number(value) = row {
-                // handle the scalar number case
-                let v: Option<T::Native> = value.as_f64().and_then(num::cast::cast);
-                v.map(|v| vec![Some(v)])
-            } else {
+            } else if let Value::Null = row {
                 None
+            } else {
+                Some(vec![json_value_as_string(row)])
             }
         })
         .flatten()
-        .collect::<Vec<Option<T::Native>>>();
-    let array = PrimitiveArray::<T>::from_iter(values.iter());
-    array.data()
+        .collect::<Vec<Option<_>>>()
 }
-
 /// JSON file reader
 #[derive(Debug)]
 pub struct Reader<R: Read> {
