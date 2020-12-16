@@ -41,7 +41,7 @@ fi
 
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
-if [ "$DEVTOOLSET_VERSION" > 0 ]; then
+if [[ "$DEVTOOLSET_VERSION" > 0 ]]; then
   if [ "`which dnf`" ]; then
     dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
   else
