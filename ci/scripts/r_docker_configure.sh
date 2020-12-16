@@ -42,12 +42,11 @@ fi
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
 if [[ "$R_TAG" == *centos* && "$DEVTOOLSET_VERSION" > 0 ]]; then
-  if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
-    if [ "`which dnf`" ]; then
-      dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
-    else [ "`which yum`" ]; then
-      yum install -y "devtoolset-$DEVTOOLSET_VERSION"
-    fi
+  if [ "`which dnf`" ]; then
+    dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
+  else [ "`which yum`" ]; then
+    yum install -y "devtoolset-$DEVTOOLSET_VERSION"
+  fi
 fi
 
 # Install openssl for S3 support
