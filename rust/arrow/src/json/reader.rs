@@ -42,19 +42,20 @@
 //! let batch = json.next().unwrap().unwrap();
 //! ```
 
-use indexmap::map::IndexMap as HashMap;
-use indexmap::set::IndexSet as HashSet;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::iter::FromIterator;
 use std::sync::Arc;
 
+use indexmap::map::IndexMap as HashMap;
+use indexmap::set::IndexSet as HashSet;
 use serde_json::Value;
 
-use crate::array::*;
 use crate::buffer::MutableBuffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 use crate::util::bit_util;
+use crate::{array::*, buffer::Buffer};
 
 /// Coerce data type during inference
 ///
@@ -928,6 +929,216 @@ impl Decoder {
         Ok(Arc::new(builder.finish()))
     }
 
+    // TODO: we don't index into the array that calls this (col_name)
+    fn build_nested_list_array<OffsetSize: OffsetSizeTrait>(
+        &self,
+        rows: &[Value],
+        list_field: &Field,
+    ) -> Result<ArrayRef> {
+        // build list offsets
+        let mut cur_offset = OffsetSize::zero();
+        let list_len = rows.len();
+        let num_list_bytes = bit_util::ceil(list_len, 8);
+        let mut offsets = Vec::with_capacity(list_len + 1);
+        let mut list_nulls =
+            MutableBuffer::new(num_list_bytes).with_bitset(num_list_bytes, false);
+        offsets.push(cur_offset);
+        rows.iter().enumerate().for_each(|(i, v)| {
+            if let Value::Array(a) = v {
+                cur_offset = cur_offset + OffsetSize::from_usize(a.len()).unwrap();
+                bit_util::set_bit(list_nulls.data_mut(), i);
+            } else if let Value::Null = v {
+                // value is null, not incremented
+            } else {
+                cur_offset = cur_offset + OffsetSize::one();
+            }
+            offsets.push(cur_offset);
+        });
+        let valid_len = cur_offset.to_usize().unwrap();
+        let array_data = match list_field.data_type() {
+            DataType::Null => NullArray::new(valid_len).data(),
+            DataType::Boolean => {
+                let num_bytes = bit_util::ceil(valid_len, 8);
+                let mut bool_values =
+                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut bool_nulls =
+                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut curr_index = 0;
+                rows.iter().for_each(|v| {
+                    if let Value::Array(vs) = v {
+                        vs.iter().for_each(|value| {
+                            if let Value::Bool(child) = value {
+                                // if valid boolean, append value
+                                if *child {
+                                    bit_util::set_bit(bool_values.data_mut(), curr_index);
+                                }
+                            } else {
+                                // null slot
+                                bit_util::set_bit(bool_nulls.data_mut(), curr_index);
+                            }
+                            curr_index += 1;
+                        });
+                    }
+                });
+                ArrayData::builder(list_field.data_type().clone())
+                    .len(valid_len)
+                    .add_buffer(bool_values.freeze())
+                    .null_bit_buffer(bool_nulls.freeze())
+                    .build()
+            }
+            DataType::Int8 => read_primitive_list_values::<Int8Type>(rows),
+            DataType::Int16 => read_primitive_list_values::<Int16Type>(rows),
+            DataType::Int32 => read_primitive_list_values::<Int32Type>(rows),
+            DataType::Int64 => read_primitive_list_values::<Int64Type>(rows),
+            DataType::UInt8 => read_primitive_list_values::<UInt8Type>(rows),
+            DataType::UInt16 => read_primitive_list_values::<UInt16Type>(rows),
+            DataType::UInt32 => read_primitive_list_values::<UInt32Type>(rows),
+            DataType::UInt64 => read_primitive_list_values::<UInt64Type>(rows),
+            DataType::Float16 => {
+                return Err(ArrowError::JsonError("Float16 not supported".to_string()))
+            }
+            DataType::Float32 => read_primitive_list_values::<Float32Type>(rows),
+            DataType::Float64 => read_primitive_list_values::<Float64Type>(rows),
+            // DataType::Timestamp(_, _) => {
+            //     todo!()
+            // }
+            // DataType::Date32(_) => {
+            //     todo!()
+            // }
+            // DataType::Date64(_) => {todo!()}
+            // DataType::Time32(_) => {todo!()}
+            // DataType::Time64(_) => {todo!()}
+            DataType::Utf8 => {
+                // we expect a list of strings: ["_", "_", "_"]
+                let values = rows
+                    .iter()
+                    .filter_map(|row| {
+                        if let Value::Array(values) = row {
+                            // get what i8 values we can, with failures set as None
+                            Some(
+                                values
+                                    .iter()
+                                    .map(json_value_as_string)
+                                    .collect::<Vec<Option<_>>>(),
+                            )
+                        } else if let Value::Null = row {
+                            None
+                        } else {
+                            Some(vec![json_value_as_string(row)])
+                        }
+                    })
+                    .flatten()
+                    .collect::<Vec<Option<_>>>();
+                StringArray::from_iter(values.into_iter()).data()
+            }
+            DataType::LargeUtf8 => {
+                let values = rows
+                    .iter()
+                    .filter_map(|row| {
+                        if let Value::Array(values) = row {
+                            // get what i8 values we can, with failures set as None
+                            Some(
+                                values
+                                    .iter()
+                                    .map(json_value_as_string)
+                                    .collect::<Vec<Option<_>>>(),
+                            )
+                        } else if let Value::Null = row {
+                            None
+                        } else {
+                            Some(vec![json_value_as_string(row)])
+                        }
+                    })
+                    .flatten()
+                    .collect::<Vec<Option<_>>>();
+                LargeStringArray::from_iter(values.into_iter()).data()
+            }
+            DataType::List(field) => {
+                // extract list values, with non-lists converted to Value::Null
+                let rows: Vec<Value> = rows
+                    .iter()
+                    .map(|row| {
+                        if let Value::Array(values) = row {
+                            values.clone()
+                        } else if let Value::Null = row {
+                            vec![Value::Null]
+                        } else {
+                            // we interpret a scalar as a single-value list to minimise data loss
+                            dbg!(&row);
+                            vec![row.clone()]
+                        }
+                    })
+                    .flatten()
+                    .collect();
+                let child = self.build_nested_list_array::<i32>(&rows[..], field)?;
+                child.data()
+            }
+            DataType::LargeList(field) => {
+                // extract list values, with non-lists converted to Value::Null
+                let rows: Vec<Value> = rows
+                    .iter()
+                    .map(|row| {
+                        if let Value::Array(values) = row {
+                            values.clone()
+                        } else {
+                            vec![Value::Null]
+                        }
+                    })
+                    .flatten()
+                    .collect();
+                let child = self.build_nested_list_array::<i64>(&rows[..], field)?;
+                child.data()
+            }
+            DataType::Struct(fields) => {
+                // extract list values, with non-lists converted to Value::Null
+                let len = rows.len();
+                let num_bytes = bit_util::ceil(len, 8);
+                let mut null_buffer =
+                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let rows: Vec<Value> = rows
+                    .iter()
+                    .enumerate()
+                    .map(|(i, row)| {
+                        if let Value::Array(values) = row {
+                            bit_util::set_bit(null_buffer.data_mut(), i);
+                            values.clone()
+                        } else {
+                            vec![Value::Null]
+                        }
+                    })
+                    .flatten()
+                    .collect();
+                let arrays =
+                    self.build_struct_array(rows.as_slice(), fields.as_slice(), &[])?;
+                let data_type = DataType::Struct(fields.clone());
+                let buf = null_buffer.freeze();
+                dbg!(&buf);
+                ArrayDataBuilder::new(data_type)
+                    .len(rows.len())
+                    .null_bit_buffer(buf)
+                    .child_data(arrays.into_iter().map(|a| a.data()).collect())
+                    .build()
+            }
+            DataType::Dictionary(_, _) => {
+                todo!()
+            }
+            t => {
+                return Err(ArrowError::JsonError(format!(
+                    "Nested list of {:?} not supported",
+                    t
+                )));
+            }
+        };
+        // build list
+        let list_data = ArrayData::builder(DataType::List(Box::new(list_field.clone())))
+            .len(list_len)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_child_data(array_data)
+            .null_bit_buffer(list_nulls.freeze())
+            .build();
+        Ok(Arc::new(GenericListArray::<OffsetSize>::from(list_data)))
+    }
+
     fn build_struct_array(
         &self,
         rows: &[Value],
@@ -945,7 +1156,9 @@ impl Decoder {
                 })
                 .map(|field| {
                     match field.data_type() {
-                        DataType::Null => unimplemented!(),
+                        DataType::Null => {
+                            Ok(Arc::new(NullArray::new(rows.len())) as ArrayRef)
+                        }
                         DataType::Boolean => self.build_boolean_array(rows, field.name()),
                         DataType::Float64 => {
                             self.build_primitive_array::<Float64Type>(rows, field.name())
@@ -977,6 +1190,7 @@ impl Decoder {
                         DataType::UInt8 => {
                             self.build_primitive_array::<UInt8Type>(rows, field.name())
                         }
+                        // TODO: this is incorrect
                         DataType::Timestamp(unit, _) => match unit {
                             TimeUnit::Second => self
                                 .build_primitive_array::<TimestampSecondType>(
@@ -1016,7 +1230,10 @@ impl Decoder {
                                     rows,
                                     field.name(),
                                 ),
-                            _ => unimplemented!(),
+                            t => Err(ArrowError::JsonError(format!(
+                                "TimeUnit {:?} not supported with Time64",
+                                t
+                            ))),
                         },
                         DataType::Time32(unit) => match unit {
                             TimeUnit::Second => self
@@ -1029,7 +1246,10 @@ impl Decoder {
                                     rows,
                                     field.name(),
                                 ),
-                            _ => unimplemented!(),
+                            t => Err(ArrowError::JsonError(format!(
+                                "TimeUnit {:?} not supported with Time32",
+                                t
+                            ))),
                         },
                         DataType::Utf8 => {
                             let mut builder = StringBuilder::new(rows.len());
@@ -1046,8 +1266,8 @@ impl Decoder {
                             }
                             Ok(Arc::new(builder.finish()) as ArrayRef)
                         }
-                        DataType::List(ref t) => {
-                            match t.data_type() {
+                        DataType::List(ref list_field) => {
+                            match list_field.data_type() {
                                 DataType::Int8 => {
                                     self.build_list_array::<Int8Type>(rows, field.name())
                                 }
@@ -1073,7 +1293,6 @@ impl Decoder {
                                     .build_list_array::<Float32Type>(rows, field.name()),
                                 DataType::Float64 => self
                                     .build_list_array::<Float64Type>(rows, field.name()),
-                                DataType::Null => unimplemented!(),
                                 DataType::Boolean => {
                                     self.build_boolean_list_array(rows, field.name())
                                 }
@@ -1088,10 +1307,21 @@ impl Decoder {
                                 }
                                 DataType::Dictionary(ref key_ty, _) => self
                                     .build_wrapped_list_array(rows, field.name(), key_ty),
-                                ref e => Err(ArrowError::JsonError(format!(
-                            "Data type is currently not supported in a list : {:?}",
-                            e
-                        ))),
+                                _ => {
+                                    // extract rows by name
+                                    let extracted_rows = rows
+                                        .iter()
+                                        .map(|row| {
+                                            row.get(field.name())
+                                                .cloned()
+                                                .unwrap_or(Value::Null)
+                                        })
+                                        .collect::<Vec<Value>>();
+                                    self.build_nested_list_array::<i32>(
+                                        extracted_rows.as_slice(),
+                                        list_field,
+                                    )
+                                }
                             }
                         }
                         DataType::Dictionary(ref key_ty, ref val_ty) => self
@@ -1102,7 +1332,6 @@ impl Decoder {
                                 val_ty,
                             ),
                         DataType::Struct(fields) => {
-                            // TODO: add a check limiting recursion
                             let len = rows.len();
                             let num_bytes = bit_util::ceil(len, 8);
                             let mut null_buffer = MutableBuffer::new(num_bytes)
@@ -1175,6 +1404,56 @@ impl Decoder {
         }
         Ok(Arc::new(builder.finish()) as ArrayRef)
     }
+}
+
+/// Reads a JSON value as a string, regardless of its type.
+/// This is useful if the expected datatype is a string, in which case we preserve
+/// all the values regardless of they type.
+///
+/// Applying `value.to_string()` unfortunately results in an escaped string, which
+/// is not what we want.
+#[inline(always)]
+fn json_value_as_string(value: &Value) -> Option<String> {
+    match value {
+        Value::Null => None,
+        Value::String(string) => Some(string.clone()),
+        _ => Some(value.to_string()),
+    }
+}
+
+/// Read the primitive list's values into ArrayData
+fn read_primitive_list_values<T>(rows: &[Value]) -> ArrayDataRef
+where
+    T: ArrowPrimitiveType + ArrowNumericType,
+    T::Native: num::NumCast,
+{
+    let values = rows
+        .iter()
+        .filter_map(|row| {
+            // read values from list
+            if let Value::Array(values) = row {
+                Some(
+                    values
+                        .iter()
+                        .map(|value| {
+                            let v: Option<T::Native> =
+                                value.as_f64().and_then(num::cast::cast);
+                            v
+                        })
+                        .collect::<Vec<Option<T::Native>>>(),
+                )
+            } else if let Value::Number(value) = row {
+                // handle the scalar number case
+                let v: Option<T::Native> = value.as_f64().and_then(num::cast::cast);
+                v.map(|v| vec![Some(v)])
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect::<Vec<Option<T::Native>>>();
+    let array = PrimitiveArray::<T>::from_iter(values.iter());
+    array.data()
 }
 
 /// JSON file reader
@@ -1749,20 +2028,26 @@ mod tests {
             assert_eq!(false, cc.is_valid(2));
             assert_eq!(false, cc.is_valid(4));
 
-            let dd = batch
+            let dd: &ListArray = batch
                 .column(d.0)
                 .as_any()
                 .downcast_ref::<ListArray>()
                 .unwrap();
+            // test that the list offsets are correct
+            assert_eq!(
+                dd.data().buffers()[0],
+                Buffer::from(vec![0i32, 1, 1, 2, 6].to_byte_slice())
+            );
             let dd = dd.values();
             let dd = dd.as_any().downcast_ref::<StringArray>().unwrap();
-            assert_eq!(7, dd.len());
-            assert_eq!(false, dd.is_valid(1));
-            assert_eq!("text", dd.value(2));
-            assert_eq!("1", dd.value(3));
-            assert_eq!("false", dd.value(4));
-            assert_eq!("array", dd.value(5));
-            assert_eq!("2.4", dd.value(6));
+            // values are 6 because a `d: null` is treated as a null slot
+            // and a list's null slot can be omitted from the child (i.e. same offset)
+            assert_eq!(6, dd.len());
+            assert_eq!("text", dd.value(1));
+            assert_eq!("1", dd.value(2));
+            assert_eq!("false", dd.value(3));
+            assert_eq!("array", dd.value(4));
+            assert_eq!("2.4", dd.value(5));
         }
     }
 
@@ -1808,6 +2093,93 @@ mod tests {
         // compare `a` with result from json reader
         let batch = reader.next().unwrap().unwrap();
         let read = batch.column(0);
+        assert!(
+            expected.data_ref() == read.data_ref(),
+            format!("{:?} != {:?}", expected.data(), read.data())
+        );
+    }
+
+    #[test]
+    fn test_nested_list_json_arrays() {
+        let c_field = Field::new(
+            "c",
+            DataType::Struct(vec![Field::new("d", DataType::Utf8, true)]),
+            true,
+        );
+        let a_struct_field = Field::new(
+            "a",
+            DataType::Struct(vec![
+                Field::new("b", DataType::Boolean, true),
+                c_field.clone(),
+            ]),
+            true,
+        );
+        let a_field =
+            Field::new("a", DataType::List(Box::new(a_struct_field.clone())), true);
+        let schema = Arc::new(Schema::new(vec![a_field.clone()]));
+        let builder = ReaderBuilder::new().with_schema(schema).with_batch_size(64);
+        let json_content = r#"
+        {"a": [{"b": true, "c": {"d": "a_text"}}, {"b": false, "c": {"d": "b_text"}}]}
+        {"a": [{"b": false, "c": null}]}
+        {"a": [{"b": true, "c": {"d": "c_text"}}, {"b": null, "c": {"d": "d_text"}}, {"b": true, "c": {"d": null}}]}
+        {"a": null}
+        {"a": []}
+        "#;
+        let mut reader = builder.build(Cursor::new(json_content)).unwrap();
+
+        // build expected output
+        let d = StringArray::from(vec![
+            Some("a_text"),
+            Some("b_text"),
+            None,
+            Some("c_text"),
+            Some("d_text"),
+            None,
+            None,
+        ]);
+        let c = ArrayDataBuilder::new(c_field.data_type().clone())
+            .null_count(2)
+            .len(7)
+            .add_child_data(d.data())
+            .null_bit_buffer(Buffer::from(vec![0b00111011]))
+            .build();
+        let b = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            Some(false),
+            Some(true),
+            None,
+            Some(true),
+            None,
+        ]);
+        let a = ArrayDataBuilder::new(a_struct_field.data_type().clone())
+            .null_count(2)
+            .len(7)
+            .add_child_data(b.data())
+            .add_child_data(c)
+            .null_bit_buffer(Buffer::from(vec![0b00011111]))
+            .build();
+        let a_list = ArrayDataBuilder::new(a_field.data_type().clone())
+            .null_count(1)
+            .len(5)
+            .add_buffer(Buffer::from(vec![0i32, 2, 3, 6, 6, 6].to_byte_slice()))
+            .add_child_data(a)
+            .null_bit_buffer(Buffer::from(vec![0b00010111]))
+            .build();
+        let expected = make_array(a_list);
+
+        // compare `a` with result from json reader
+        let batch = reader.next().unwrap().unwrap();
+        let read = batch.column(0);
+        assert_eq!(read.len(), 5);
+        // compare the arrays the long way around, to better detect differences
+        let read: &ListArray = read.as_any().downcast_ref::<ListArray>().unwrap();
+        let expected = expected.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(read.value_offset(0), expected.value_offset(0));
+        assert_eq!(read.value_offset(1), expected.value_offset(1));
+        assert_eq!(read.value_offset(2), expected.value_offset(2));
+        assert_eq!(read.value_offset(3), expected.value_offset(3));
+        assert_eq!(read.value_offset(4), expected.value_offset(4));
         assert!(
             expected.data_ref() == read.data_ref(),
             format!("{:?} != {:?}", expected.data(), read.data())
