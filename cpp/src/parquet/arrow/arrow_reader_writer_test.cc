@@ -60,6 +60,8 @@
 
 using arrow::Array;
 using arrow::ArrayData;
+using arrow::ArrayFromJSON;
+using arrow::ArrayVector;
 using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
@@ -2424,6 +2426,55 @@ TEST(TestArrowReadWrite, TableWithDuplicateColumns) {
 
   auto table = Table::Make(schema, {a0, a1});
   ASSERT_NO_FATAL_FAILURE(CheckSimpleRoundtrip(table, table->num_rows()));
+}
+
+TEST(ArrowReadWrite, EmptyStruct) {
+  // ARROW-10928: empty struct type not supported
+  {
+    // Empty struct as only column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{}))};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct as nested column
+    auto fields = ::arrow::FieldVector{::arrow::field(
+        "structs", ::arrow::list(::arrow::struct_(::arrow::FieldVector{})))};
+    auto schema = ::arrow::schema(fields);
+    auto columns =
+        ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, [], [null, {}]]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
+  {
+    // Empty struct along other column
+    auto fields = ::arrow::FieldVector{
+        ::arrow::field("structs", ::arrow::struct_(::arrow::FieldVector{})),
+        ::arrow::field("ints", ::arrow::int32())};
+    auto schema = ::arrow::schema(fields);
+    auto columns = ArrayVector{ArrayFromJSON(fields[0]->type(), "[null, {}]"),
+                               ArrayFromJSON(fields[1]->type(), "[1, 2]")};
+    auto table = Table::Make(schema, columns);
+
+    auto sink = CreateOutputStream();
+    ASSERT_RAISES(
+        NotImplemented,
+        WriteTable(*table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/1,
+                   default_writer_properties(), default_arrow_writer_properties()));
+  }
 }
 
 TEST(ArrowReadWrite, SimpleStructRoundTrip) {

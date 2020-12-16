@@ -65,7 +65,8 @@ namespace arrow {
 // Parquet to Arrow schema conversion
 
 namespace {
-Repetition::type RepitionFromNullable(bool is_nullable) {
+
+Repetition::type RepetitionFromNullable(bool is_nullable) {
   return is_nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 }
 
@@ -84,8 +85,8 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
                             &element));
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
-  *out =
-      GroupNode::Make(name, RepitionFromNullable(nullable), {list}, LogicalType::List());
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {list},
+                         LogicalType::List());
   return Status::OK();
 }
 
@@ -103,7 +104,7 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
 
   NodePtr key_value =
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
-  *out = GroupNode::Make(name, RepitionFromNullable(nullable), {key_value},
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map());
   return Status::OK();
 }
@@ -113,12 +114,21 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                     const WriterProperties& properties,
                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::vector<NodePtr> children(type->num_fields());
-  for (int i = 0; i < type->num_fields(); i++) {
-    RETURN_NOT_OK(FieldToNode(type->field(i)->name(), type->field(i), properties,
-                              arrow_properties, &children[i]));
+  if (type->num_fields() != 0) {
+    for (int i = 0; i < type->num_fields(); i++) {
+      RETURN_NOT_OK(FieldToNode(type->field(i)->name(), type->field(i), properties,
+                                arrow_properties, &children[i]));
+    }
+  } else {
+    // XXX (ARROW-10928) We could add a dummy primitive node but that would
+    // require special handling when writing and reading, to avoid column index
+    // mismatches.
+    return Status::NotImplemented("Cannot write struct type '", name,
+                                  "' with no child field to Parquet. "
+                                  "Consider adding a dummy child field.");
   }
 
-  *out = GroupNode::Make(name, RepitionFromNullable(nullable), children);
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children));
   return Status::OK();
 }
 
@@ -225,7 +235,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::shared_ptr<const LogicalType> logical_type = LogicalType::None();
   ParquetType::type type;
-  Repetition::type repetition = RepitionFromNullable(field->nullable());
+  Repetition::type repetition = RepetitionFromNullable(field->nullable());
 
   int length = -1;
   int precision = -1;
