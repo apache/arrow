@@ -125,19 +125,6 @@ TEST(Variant, CopyConstruction) {
   EXPECT_NO_THROW(AssertCopyConstruction(CopyAssignThrows{}));
 }
 
-TEST(Variant, Noexcept) {
-  struct CopyThrows {
-    CopyThrows() = default;
-    CopyThrows(const CopyThrows&) { throw 42; }
-    CopyThrows& operator=(const CopyThrows&) { throw 42; }
-  };
-  static_assert(!std::is_nothrow_copy_constructible<CopyThrows>::value, "");
-  static_assert(std::is_nothrow_copy_constructible<int>::value, "");
-  static_assert(std::is_nothrow_copy_constructible<Variant<int, bool>>::value, "");
-  static_assert(
-      !std::is_nothrow_copy_constructible<Variant<int, CopyThrows, bool>>::value, "");
-}
-
 TEST(Variant, Emplace) {
   using variant_type = Variant<std::string, std::vector<int>, int>;
   variant_type v;

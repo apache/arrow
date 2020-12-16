@@ -96,7 +96,7 @@ template <bool H, bool... T>
 struct all<H, T...> : conditional_t<H, all<T...>, std::false_type> {};
 
 struct delete_copy_constructor {
-  template <typename, bool>
+  template <typename>
   struct type {
     type() = default;
     type(const type& other) = delete;
@@ -105,13 +105,11 @@ struct delete_copy_constructor {
 };
 
 struct explicit_copy_constructor {
-  template <typename Copyable, bool NoexceptCopyable>
+  template <typename Copyable>
   struct type {
     type() = default;
-    type(const type& other) noexcept(NoexceptCopyable) {
-      static_cast<const Copyable&>(other).copy_to(this);
-    }
-    type& operator=(const type& other) noexcept(NoexceptCopyable) {
+    type(const type& other) { static_cast<const Copyable&>(other).copy_to(this); }
+    type& operator=(const type& other) {
       static_cast<Copyable*>(this)->destroy();
       static_cast<const Copyable&>(other).copy_to(this);
       return *this;
@@ -119,18 +117,11 @@ struct explicit_copy_constructor {
   };
 };
 
-template <typename V, typename... T>
-using CopyConstructionImpl =
-    typename conditional_t<all<(std::is_copy_constructible<T>::value &&
-                                std::is_copy_assignable<T>::value)...>::value,
-                           explicit_copy_constructor, delete_copy_constructor>::
-        template type<V, all<std::is_nothrow_copy_constructible<T>::value...>::value>;
-
 template <typename... T>
 struct VariantStorage {
   VariantStorage() = default;
-  VariantStorage(const VariantStorage&) noexcept {}
-  VariantStorage& operator=(const VariantStorage&) noexcept { return *this; }
+  VariantStorage(const VariantStorage&) {}
+  VariantStorage& operator=(const VariantStorage&) { return *this; }
   VariantStorage(VariantStorage&&) noexcept {}
   VariantStorage& operator=(VariantStorage&&) noexcept { return *this; }
   ~VariantStorage() {
@@ -201,8 +192,7 @@ struct VariantImpl<Variant<M...>, H, T...> : VariantImpl<Variant<M...>, T...> {
 
   // Templated to avoid instantiation in case H is not copy constructible
   template <typename Void>
-  void copy_to(Void* generic_target) const
-      noexcept(noexcept(H(std::declval<const H>()))) {
+  void copy_to(Void* generic_target) const {
     const auto target = static_cast<VariantType*>(generic_target);
     try {
       if (this->index_ == kIndex) {
@@ -253,7 +243,11 @@ struct VariantImpl<Variant<M...>, H, T...> : VariantImpl<Variant<M...>, T...> {
 
 template <typename... T>
 class Variant : detail::VariantImpl<Variant<T...>, T...>,
-                detail::CopyConstructionImpl<Variant<T...>, T...> {
+                detail::conditional_t<
+                    detail::all<(std::is_copy_constructible<T>::value &&
+                                 std::is_copy_assignable<T>::value)...>::value,
+                    detail::explicit_copy_constructor,
+                    detail::delete_copy_constructor>::template type<Variant<T...>> {
   template <typename U>
   static constexpr uint8_t index_of() {
     return Impl::index_of(detail::type_constant<U>{});
@@ -344,7 +338,7 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
     this->index_ = 0;
   }
 
-  template <typename V, bool>
+  template <typename V>
   friend struct detail::explicit_copy_constructor::type;
 
   template <typename V, typename...>
