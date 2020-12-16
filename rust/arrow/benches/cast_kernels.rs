@@ -18,8 +18,9 @@
 #[macro_use]
 extern crate criterion;
 use criterion::Criterion;
-use rand::distributions::{Distribution, Standard};
+use rand::distributions::{Distribution, Standard, Uniform};
 use rand::prelude::random;
+use rand::Rng;
 
 use std::sync::Arc;
 
@@ -28,6 +29,7 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::cast;
 use arrow::datatypes::*;
+use arrow::util::test_util::seedable_rng;
 
 fn build_array<FROM>(size: usize) -> ArrayRef
 where
@@ -67,6 +69,48 @@ where
     Arc::new(PrimitiveArray::<FROM>::from_opt_vec(values, None))
 }
 
+fn build_utf8_date_array(size: usize, with_nulls: bool) -> ArrayRef {
+    use chrono::NaiveDate;
+
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = StringBuilder::new(size);
+    let range = Uniform::new(0, 737776);
+
+    for _ in 0..size {
+        if with_nulls && rng.gen::<f32>() > 0.8 {
+            builder.append_null().unwrap();
+        } else {
+            let string = NaiveDate::from_num_days_from_ce(rng.sample(range))
+                .format("%Y-%m-%d")
+                .to_string();
+            builder.append_value(&string).unwrap();
+        }
+    }
+    Arc::new(builder.finish())
+}
+
+fn build_utf8_date_time_array(size: usize, with_nulls: bool) -> ArrayRef {
+    use chrono::NaiveDateTime;
+
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = seedable_rng();
+    let mut builder = StringBuilder::new(size);
+    let range = Uniform::new(0, 1608071414123);
+
+    for _ in 0..size {
+        if with_nulls && rng.gen::<f32>() > 0.8 {
+            builder.append_null().unwrap();
+        } else {
+            let string = NaiveDateTime::from_timestamp(rng.sample(range), 0)
+                .format("%Y-%m-%dT%H:%M:%S")
+                .to_string();
+            builder.append_value(&string).unwrap();
+        }
+    }
+    Arc::new(builder.finish())
+}
+
 // cast array from specified primitive array type to desired data type
 fn cast_array(array: &ArrayRef, to_type: DataType) {
     criterion::black_box(cast(array, &to_type).unwrap());
@@ -83,6 +127,8 @@ fn add_benchmark(c: &mut Criterion) {
     let time64ns_array = build_array::<Time64NanosecondType>(512);
     let time_ns_array = build_timestamp_array::<TimestampNanosecondType>(512);
     let time_ms_array = build_timestamp_array::<TimestampMillisecondType>(512);
+    let utf8_date_array = build_utf8_date_array(512, true);
+    let utf8_date_time_array = build_utf8_date_time_array(512, true);
 
     c.bench_function("cast int32 to int32 512", |b| {
         b.iter(|| cast_array(&i32_array, DataType::Int32))
@@ -144,6 +190,17 @@ fn add_benchmark(c: &mut Criterion) {
     });
     c.bench_function("cast timestamp_ms to i64 512", |b| {
         b.iter(|| cast_array(&time_ms_array, DataType::Int64))
+    });
+    c.bench_function("cast utf8 to date32 512", |b| {
+        b.iter(|| cast_array(&utf8_date_array, DataType::Date32(DateUnit::Day)))
+    });
+    c.bench_function("cast utf8 to date64 512", |b| {
+        b.iter(|| {
+            cast_array(
+                &utf8_date_time_array,
+                DataType::Date64(DateUnit::Millisecond),
+            )
+        })
     });
 }
 
