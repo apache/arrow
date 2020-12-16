@@ -30,7 +30,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
         // fast case where we can copy regions without null issues
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-                let buffer = &mut mutable.buffers[0];
+                let buffer = &mut mutable.buffer1;
                 buffer.extend_from_slice(&values[start * size..(start + len) * size]);
             },
         )
@@ -38,7 +38,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
                 // nulls present: append item by item, ignoring null entries
-                let values_buffer = &mut mutable.buffers[0];
+                let values_buffer = &mut mutable.buffer1;
 
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {
@@ -60,6 +60,6 @@ pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) {
         _ => unreachable!(),
     };
 
-    let values_buffer = &mut mutable.buffers[0];
+    let values_buffer = &mut mutable.buffer1;
     values_buffer.extend(len * size);
 }

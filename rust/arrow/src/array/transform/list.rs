@@ -20,7 +20,10 @@ use crate::{
     datatypes::ToByteSlice,
 };
 
-use super::{Extend, _MutableArrayData, utils::extend_offsets};
+use super::{
+    Extend, _MutableArrayData,
+    utils::{extend_offsets, get_last_offset},
+};
 
 pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
     let offsets = array.buffer::<T>(0);
@@ -31,11 +34,14 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                   index: usize,
                   start: usize,
                   len: usize| {
-                let mutable_offsets = mutable.buffer::<T>(0);
-                let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+                let offset_buffer = &mut mutable.buffer1;
+
+                // this is safe due to how offset is built. See details on `get_last_offset`
+                let last_offset: T = unsafe { get_last_offset(offset_buffer) };
+
                 // offsets
                 extend_offsets::<T>(
-                    &mut mutable.buffers[0],
+                    offset_buffer,
                     last_offset,
                     &offsets[start..start + len + 1],
                 );
@@ -54,12 +60,14 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                   index: usize,
                   start: usize,
                   len: usize| {
-                let mutable_offsets = mutable.buffer::<T>(0);
-                let mut last_offset = mutable_offsets[mutable_offsets.len() - 1];
+                let offset_buffer = &mut mutable.buffer1;
 
-                let buffer = &mut mutable.buffers[0];
+                // this is safe due to how offset is built. See details on `get_last_offset`
+                let mut last_offset: T = unsafe { get_last_offset(offset_buffer) };
+
                 let delta_len = array.len() - array.null_count();
-                buffer.reserve(buffer.len() + delta_len * std::mem::size_of::<T>());
+                offset_buffer
+                    .reserve(offset_buffer.len() + delta_len * std::mem::size_of::<T>());
 
                 let child = &mut mutable.child_data[0];
                 (start..start + len).for_each(|i| {
@@ -75,7 +83,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                         );
                     }
                     // append offset
-                    buffer.extend_from_slice(last_offset.to_byte_slice());
+                    offset_buffer.extend_from_slice(last_offset.to_byte_slice());
                 })
             },
         )
@@ -86,10 +94,10 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     mutable: &mut _MutableArrayData,
     len: usize,
 ) {
-    let mutable_offsets = mutable.buffer::<T>(0);
-    let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+    let offset_buffer = &mut mutable.buffer1;
 
-    let offset_buffer = &mut mutable.buffers[0];
+    // this is safe due to how offset is built. See details on `get_last_offset`
+    let last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
     let offsets = vec![last_offset; len];
     offset_buffer.extend_from_slice(offsets.to_byte_slice());
