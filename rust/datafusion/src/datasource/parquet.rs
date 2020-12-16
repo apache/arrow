@@ -22,6 +22,7 @@ use std::string::String;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
+use parquet::file::metadata::RowGroupMetaData;
 
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
@@ -43,23 +44,23 @@ impl ParquetTable {
         let schema = parquet_exec.schema();
 
         let metadata = parquet_exec.metadata();
-        let num_rows = metadata
+        let num_rows: i64 = metadata
             .row_groups()
             .iter()
-            .map(|rg| rg.num_rows() as usize)
+            .map(RowGroupMetaData::num_rows)
             .sum();
-        let total_byte_size = metadata
+        let total_byte_size: i64 = metadata
             .row_groups()
             .iter()
-            .map(|rg| rg.total_byte_size() as usize)
+            .map(RowGroupMetaData::total_byte_size)
             .sum();
 
         Ok(Self {
             path: path.to_string(),
             schema,
             statistics: Statistics {
-                num_rows: Some(num_rows),
-                total_byte_size: Some(total_byte_size),
+                num_rows: Some(num_rows as usize),
+                total_byte_size: Some(total_byte_size as usize),
             },
         })
     }
