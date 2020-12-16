@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class FieldComparer
+    public static class FieldComparer
     {
         public static void Compare(Field expected, Field actual)
         {
