@@ -19,6 +19,10 @@
 Input / output
 ==============
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+
 Interfaces
 ==========
 

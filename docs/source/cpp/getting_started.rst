@@ -32,6 +32,7 @@ User Guide
    tables
    compute
    io
+   ipc
    parquet
    csv
    json

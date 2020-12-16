@@ -59,7 +59,6 @@ struct ReadStats {
   int64_t num_replaced_dictionaries = 0;
 };
 
-/// \class RecordBatchStreamReader
 /// \brief Synchronous batch stream reader that reads from io::InputStream
 ///
 /// This class reads the schema (plus any dictionaries) as the first messages
@@ -172,7 +171,6 @@ class ARROW_EXPORT RecordBatchFileReader {
   virtual ReadStats stats() const = 0;
 };
 
-/// \class Listener
 /// \brief A general listener class to receive events.
 ///
 /// You must implement callback methods for interested events.
@@ -215,7 +213,6 @@ class ARROW_EXPORT Listener {
   virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
 };
 
-/// \class CollectListener
 /// \brief Collect schema and record batches decoded by StreamDecoder.
 ///
 /// This API is EXPERIMENTAL.
@@ -249,7 +246,6 @@ class ARROW_EXPORT CollectListener : public Listener {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-/// \class StreamDecoder
 /// \brief Push style stream decoder that receives data from user.
 ///
 /// This class decodes the Apache Arrow IPC streaming format data.
