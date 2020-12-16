@@ -970,16 +970,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-This project include code from CMake.
-
-* cpp/cmake_modules/FindGTest.cmake is based on code from CMake.
-
-Copyright: Copyright 2000-2019 Kitware, Inc. and Contributors
-Homepage: https://gitlab.kitware.com/cmake/cmake
-License: 3-clause BSD
-
---------------------------------------------------------------------------------
-
 This project include code from mingw-w64.
 
 * cpp/src/arrow/util/cpu-info.cc has a polyfill for mingw-w64 < 5
