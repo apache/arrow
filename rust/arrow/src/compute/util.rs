@@ -147,23 +147,30 @@ where
 }
 
 /// Takes/filters a fixed size list array's inner data using the offsets of the list array.
-pub(super) fn take_value_indices_from_fixed_size_list(
+pub(super) fn take_value_indices_from_fixed_size_list<IndexType>(
     list: &FixedSizeListArray,
-    indices: &PrimitiveArray<Int32Type>,
-    length: <Int32Type as ArrowPrimitiveType>::Native,
-) -> PrimitiveArray<Int32Type> {
+    indices: &PrimitiveArray<IndexType>,
+    length: <UInt32Type as ArrowPrimitiveType>::Native,
+) -> Result<PrimitiveArray<UInt32Type>>
+where
+    IndexType: ArrowNumericType,
+    IndexType::Native: ToPrimitive,
+{
     let mut values = vec![];
 
     for i in 0..indices.len() {
         if indices.is_valid(i) {
-            let index = indices.value(i) as usize;
-            let start = list.value_offset(index);
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+            let start =
+                list.value_offset(index) as <UInt32Type as ArrowPrimitiveType>::Native;
 
             values.extend(start..start + length);
         }
     }
 
-    PrimitiveArray::<Int32Type>::from(values)
+    Ok(PrimitiveArray::<UInt32Type>::from(values))
 }
 
 /// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
@@ -425,17 +432,19 @@ pub(super) mod tests {
             3,
         );
 
-        let indices = Int32Array::from(vec![2, 1, 0]);
-        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
+        let indices = UInt32Array::from(vec![2, 1, 0]);
+        let indexed =
+            take_value_indices_from_fixed_size_list(&list, &indices, 3).unwrap();
 
-        assert_eq!(indexed, Int32Array::from(vec![6, 7, 8, 3, 4, 5, 0, 1, 2]));
+        assert_eq!(indexed, UInt32Array::from(vec![6, 7, 8, 3, 4, 5, 0, 1, 2]));
 
-        let indices = Int32Array::from(vec![3, 2, 1, 2, 0]);
-        let indexed = take_value_indices_from_fixed_size_list(&list, &indices, 3);
+        let indices = UInt32Array::from(vec![3, 2, 1, 2, 0]);
+        let indexed =
+            take_value_indices_from_fixed_size_list(&list, &indices, 3).unwrap();
 
         assert_eq!(
             indexed,
-            Int32Array::from(vec![9, 10, 11, 6, 7, 8, 3, 4, 5, 6, 7, 8, 0, 1, 2])
+            UInt32Array::from(vec![9, 10, 11, 6, 7, 8, 3, 4, 5, 6, 7, 8, 0, 1, 2])
         );
     }
 

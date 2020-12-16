@@ -188,6 +188,20 @@ pub fn sort_to_indices(
                 t
             ))),
         },
+        DataType::FixedSizeList(field, _) => match field.data_type() {
+            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
         DataType::Dictionary(key_type, value_type)
             if *value_type.as_ref() == DataType::Utf8 =>
         {
@@ -504,11 +518,26 @@ where
     T: ArrowPrimitiveType,
     T::Native: std::cmp::PartialOrd,
 {
-    let values = as_list_array::<S>(values);
-    let mut valids: Vec<(u32, ArrayRef)> = value_indices
-        .into_iter()
-        .map(|index| (index, values.value(index as usize)))
-        .collect();
+    let mut valids: Vec<(u32, ArrayRef)> = values
+        .as_any()
+        .downcast_ref::<FixedSizeListArray>()
+        .map_or_else(
+            || {
+                let values = as_list_array::<S>(values);
+                value_indices
+                    .iter()
+                    .copied()
+                    .map(|index| (index, values.value(index as usize)))
+                    .collect()
+            },
+            |values| {
+                value_indices
+                    .iter()
+                    .copied()
+                    .map(|index| (index, values.value(index as usize)))
+                    .collect()
+            },
+        );
 
     if !options.descending {
         valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()))
@@ -850,14 +879,58 @@ mod tests {
         Arc::new(GenericListArray::<S>::from(list_data))
     }
 
+    fn make_fixed_sized_list_array<T>(
+        data: Vec<Option<Vec<T::Native>>>,
+    ) -> Arc<FixedSizeListArray>
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let mut values = vec![];
+        let mut item_len = 0;
+        for array in data {
+            if let Some(mut array) = array {
+                if item_len == 0 {
+                    item_len = array.len();
+                } else {
+                    assert_eq!(item_len, array.len());
+                }
+                values.append(&mut array);
+            }
+        }
+        let value_data = ArrayData::builder(T::DATA_TYPE)
+            .len(values.len())
+            .add_buffer(Buffer::from(values.as_slice().to_byte_slice()))
+            .build();
+        let list_data_type = DataType::FixedSizeList(
+            Box::new(Field::new("item", DataType::Int32, false)),
+            item_len as i32,
+        );
+        let list_data = ArrayData::builder(list_data_type)
+            .len(values.len().checked_div_euclid(item_len).unwrap())
+            .add_child_data(value_data)
+            .build();
+        Arc::new(FixedSizeListArray::from(list_data))
+    }
+
     fn test_sort_list_arrays<T>(
         data: Vec<Option<Vec<T::Native>>>,
         options: Option<SortOptions>,
         expected_data: Vec<Option<Vec<T::Native>>>,
+        is_fixed_sized: bool,
     ) where
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
+        // for FixedSizedList
+        if is_fixed_sized {
+            let input = make_fixed_sized_list_array(data.clone());
+            let sorted = sort(&(input as ArrayRef), options).unwrap();
+            let expected = make_fixed_sized_list_array(expected_data.clone()) as ArrayRef;
+
+            assert_eq!(&sorted, &expected);
+        }
+
         // for List
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
@@ -1515,6 +1588,7 @@ mod tests {
                 nulls_first: false,
             }),
             vec![Some(vec![1]), Some(vec![2]), Some(vec![3]), Some(vec![4])],
+            true,
         );
 
         test_sort_list_arrays::<Int32Type>(
@@ -1536,6 +1610,7 @@ mod tests {
                 Some(vec![3, 3, 3, 3]),
                 Some(vec![4, 3, 2, 1]),
             ],
+            false,
         );
     }
 
