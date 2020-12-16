@@ -78,7 +78,7 @@ Blocking API
 
 The IPC stream format is only optionally terminated, whereas the IPC file format
 must include a terminating footer. Thus a writer of the IPC file format must be
-explicitly finalized with :func:`arrow::RecordBatchWriter::Close()` or the resulting
+explicitly finalized with :func:`~arrow::ipc::RecordBatchWriter::Close()` or the resulting
 file will be corrupt.
 
 .. doxygengroup:: record-batch-writer-factories
@@ -87,10 +87,8 @@ file will be corrupt.
 .. doxygenclass:: arrow::ipc::RecordBatchWriter
    :members:
 
-.. TODO: enable this when implemented
+Statistics
+----------
 
-   Statistics
-   ----------
-
-   .. doxygenstruct:: arrow::ipc::WriteStats
-      :members:
+.. doxygenstruct:: arrow::ipc::WriteStats
+   :members:
