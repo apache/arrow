@@ -19,7 +19,9 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
+use crate::array::{
+    Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
+};
 use crate::datatypes::{ArrowNativeType, ArrowNumericType};
 
 /// Generic test for NaN, the optimizer should be able to remove this for integer types.
@@ -133,6 +135,40 @@ where
         }
     }
     Some(n)
+}
+
+/// Helper function to perform min/max lambda function on values from a `BooleanArray`
+fn min_max_boolean<F>(array: &BooleanArray, cmp: F) -> Option<bool>
+where
+    F: Fn(bool, bool) -> bool,
+{
+    let null_count = array.null_count();
+
+    // Includes case array.len() == 0
+    if null_count == array.len() {
+        return None;
+    }
+
+    let m0: Option<bool> = array.iter().next().unwrap();
+
+    array.iter().fold(m0, |max, item| match (max, item) {
+        (Some(max), Some(item)) => Some(if cmp(max, item) { item } else { max }),
+        (Some(max), None) => Some(max),
+        (None, Some(item)) => Some(item),
+        (None, None) => None,
+    })
+}
+
+/// Returns the minimum value in the boolean array
+fn min_boolean(array: &BooleanArray) -> Option<bool> {
+    // a > b == a & !b
+    min_max_boolean(array, |a, b| a & !b)
+}
+
+/// Returns the maximum value in the boolean array
+fn max_boolean(array: &BooleanArray) -> Option<bool> {
+    // a < b == !a & b
+    min_max_boolean(array, |a, b| !a & b)
 }
 
 /// Returns the sum of values in the array.
@@ -864,5 +900,46 @@ mod tests {
         let a = StringArray::from(vec![None, None, Some("b"), Some("a")]);
         assert_eq!(Some("a"), min_string(&a));
         assert_eq!(Some("b"), max_string(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_empty() {
+        let a = BooleanArray::from(vec![] as Vec<Option<bool>>);
+        assert_eq!(None, min_boolean(&a));
+        assert_eq!(None, max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_all_null() {
+        let a = BooleanArray::from(vec![None, None]);
+        assert_eq!(None, min_boolean(&a));
+        assert_eq!(None, max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_no_null() {
+        let a = BooleanArray::from(vec![Some(true), Some(false), Some(true)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max() {
+        // since implementation treats [0] specially, test arrays
+        // starting with each of Some(true), Some(false) and None
+
+        let a = BooleanArray::from(vec![Some(true), Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        // since implementation treats [0] specially, also test starting with Some(false) and None
+        let a =
+            BooleanArray::from(vec![Some(false), Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
     }
 }
