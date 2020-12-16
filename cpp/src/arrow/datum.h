@@ -120,8 +120,8 @@ struct ARROW_EXPORT Datum {
 
   Datum(const Datum& other) = default;
   Datum& operator=(const Datum& other) = default;
-  Datum(Datum&& other) noexcept = default;
-  Datum& operator=(Datum&& other) noexcept = default;
+  Datum(Datum&& other) = default;
+  Datum& operator=(Datum&& other) = default;
 
   Datum(std::shared_ptr<Scalar> value)  // NOLINT implicit conversion
       : value(std::move(value)) {}
