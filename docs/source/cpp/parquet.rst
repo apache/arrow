@@ -27,14 +27,231 @@ Reading and writing Parquet files
 .. seealso::
    :ref:`Parquet reader and writer API reference <cpp-api-parquet>`.
 
-The Parquet C++ library is part of the Apache Arrow project and benefits
-from tight integration with Arrow C++.
+The `Parquet format <https://parquet.apache.org/documentation/latest/>`__
+is a space-efficient columnar storage format for complex data.  The Parquet
+C++ implementation is part of the Apache Arrow project and benefits
+from tight integration with the Arrow C++ classes and facilities.
+
+Supported Parquet features
+==========================
+
+The Parquet format has many features, and Parquet C++ supports a subset of them.
+
+Page types
+----------
+
++-------------------+---------+
+| Page type         | Notes   |
++===================+=========+
+| DATA_PAGE         |         |
++-------------------+---------+
+| DATA_PAGE_V2      |         |
++-------------------+---------+
+| DICTIONARY_PAGE   |         |
++-------------------+---------+
+
+*Unsupported page type:* INDEX_PAGE. When reading a Parquet file, pages of
+this type are ignored.
+
+Compression
+-----------
+
++-------------------+---------+
+| Compression codec | Notes   |
++===================+=========+
+| SNAPPY            |         |
++-------------------+---------+
+| GZIP              |         |
++-------------------+---------+
+| BROTLI            |         |
++-------------------+---------+
+| LZ4               | \(1)    |
++-------------------+---------+
+| ZSTD              |         |
++-------------------+---------+
+
+* \(1) On the read side, Parquet C++ is able to decompress both the regular
+  LZ4 block format and the ad-hoc Hadoop LZ4 format used by the
+  `reference Parquet implementation <https://github.com/apache/parquet-mr>`__.
+  On the write side, Parquet C++ always generates the ad-hoc Hadoop LZ4 format.
+
+*Unsupported compression codec:* LZO.
+
+Encodings
+---------
+
++--------------------------+---------+
+| Encoding                 | Notes   |
++==========================+=========+
+| PLAIN                    |         |
++--------------------------+---------+
+| PLAIN_DICTIONARY         |         |
++--------------------------+---------+
+| BIT_PACKED               |         |
++--------------------------+---------+
+| RLE                      | \(1)    |
++--------------------------+---------+
+| RLE_DICTIONARY           | \(2)    |
++--------------------------+---------+
+| BYTE_STREAM_SPLIT        |         |
++--------------------------+---------+
+
+* \(1) Only supported for encoding definition and repetition levels, not values.
+
+* \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
+  2.0 (or potentially greater) is selected in :func:`WriterProperties::version`.
+
+*Unsupported encodings:* DELTA_BINARY_PACKED, DELTA_LENGTH_BYTE_ARRAY,
+DELTA_BYTE_ARRAY.
+
+Types
+-----
+
+Physical types
+~~~~~~~~~~~~~~
+
++--------------------------+-------------------------+------------+
+| Physical type            | Mapped Arrow type       | Notes      |
++==========================+=========================+============+
+| BOOLEAN                  | Boolean                 |            |
++--------------------------+-------------------------+------------+
+| INT32                    | Int32 / other           | \(1)       |
++--------------------------+-------------------------+------------+
+| INT64                    | Int64 / other           | \(1)       |
++--------------------------+-------------------------+------------+
+| INT96                    | Timestamp (nanoseconds) | \(2)       |
++--------------------------+-------------------------+------------+
+| FLOAT                    | Float32                 |            |
++--------------------------+-------------------------+------------+
+| DOUBLE                   | Float64                 |            |
++--------------------------+-------------------------+------------+
+| BYTE_ARRAY               | Binary / other          | \(1) \(3)  |
++--------------------------+-------------------------+------------+
+| FIXED_LENGTH_BYTE_ARRAY  | FixedSizeBinary / other | \(1)       |
++--------------------------+-------------------------+------------+
+
+* \(1) Can be mapped to other Arrow types, depending on the logical type
+  (see below).
+
+* \(2) On the write side, :func:`ArrowWriterProperties::support_deprecated_int96_timestamps`
+  must be enabled.
+
+* \(3) On the write side, an Arrow LargeBinary can also mapped to BYTE_ARRAY.
+
+Logical types
+~~~~~~~~~~~~~
+
+Specific logical types can override the default Arrow type mapping for a given
+physical type.
+
++-------------------+-----------------------------+----------------------------+---------+
+| Logical type      | Physical type               | Mapped Arrow type          | Notes   |
++===================+=============================+============================+=========+
+| NULL              | Any                         | Null                       | \(1)    |
++-------------------+-----------------------------+----------------------------+---------+
+| INT               | INT32                       | Int8 / UInt8 / Int16 /     |         |
+|                   |                             | UInt16 / Int32 / UInt32    |         |
++-------------------+-----------------------------+----------------------------+---------+
+| INT               | INT64                       | Int64 / UInt64             |         |
++-------------------+-----------------------------+----------------------------+---------+
+| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256    | \(2)    |
+|                   | / FIXED_LENGTH_BYTE_ARRAY   |                            |         |
++-------------------+-----------------------------+----------------------------+---------+
+| DATE              | INT32                       | Date32                     | \(3)    |
++-------------------+-----------------------------+----------------------------+---------+
+| TIME              | INT32                       | Time32 (milliseconds)      |         |
++-------------------+-----------------------------+----------------------------+---------+
+| TIME              | INT64                       | Time64 (micro- or          |         |
+|                   |                             | nanoseconds)               |         |
++-------------------+-----------------------------+----------------------------+---------+
+| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
+|                   |                             | or nanoseconds)            |         |
++-------------------+-----------------------------+----------------------------+---------+
+| STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
++-------------------+-----------------------------+----------------------------+---------+
+| LIST              | Any                         | List                       | \(5)    |
++-------------------+-----------------------------+----------------------------+---------+
+| MAP               | Any                         | Map                        | \(6)    |
++-------------------+-----------------------------+----------------------------+---------+
+
+* \(1) On the write side, the Parquet physical type INT32 is generated.
+
+* \(2) On the write side, a FIXED_LENGTH_BYTE_ARRAY is always emitted.
+
+* \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
+
+* \(4) On the write side, an Arrow LargeUtf8 is also mapped to a Parquet STRING.
+
+* \(5) On the write side, an Arrow LargeList or FixedSizedList is also mapped to
+  a Parquet LIST.
+
+* \(6) On the read side, a key with multiple values does not get deduplicated,
+  in contradiction with the
+  `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
+
+*Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
+when reading a Parquet file, the default physical type mapping is used (for
+example, a Parquet JSON column may be read as Arrow Binary or FixedSizeBinary).
+
+Converted types
+~~~~~~~~~~~~~~~
+
+While converted types are deprecated in the Parquet format (they are superceded
+by logical types), they are recognized and emitted by the Parquet C++
+implementation so as to maximize compatibility with other Parquet
+implementations.
+
+Special cases
+~~~~~~~~~~~~~
+
+An Arrow Extension type is written out as its storage type.  It can still
+be recreated at read time using Parquet metadata (see "Roundtripping Arrow
+types" below).
+
+An Arrow Dictionary type is written out as its value type.  It can still
+be recreated at read time using Parquet metadata (see "Roundtripping Arrow
+types" below).
+
+Roundtripping Arrow types
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While there is no bijection between Arrow types and Parquet types, it is
+possible to serialize the Arrow schema as part of the Parquet file metadata.
+This is enabled using :func:`ArrowWriterProperties::store_schema`.
+
+On the read path, the serialized schema will be automatically recognized
+and will recreate the original Arrow data, converting the Parquet data as
+required (for example, a LargeList will be recreated from the Parquet LIST
+type).
+
+As an exemple, when serializing an Arrow LargeList to Parquet:
+
+* The data is written out as a Parquet LIST
+
+* When read back, the Parquet LIST data is decoded as an Arrow LargeList if
+  :func:`ArrowWriterProperties::store_schema` was enabled when writing the file;
+  otherwise, it is decoded as an Arrow List.
+
+Serialization details
+"""""""""""""""""""""
+
+The Arrow schema is serialized as a :ref:`Arrow IPC <format-ipc>` schema message,
+then base64-encoded and stored under the ``ARROW:schema`` metadata key in
+the Parquet file metadata.
+
+Limitations
+~~~~~~~~~~~
+
+Writing or reading back FixedSizedList data with null entries is not supported.
+
+.. TODO: document supported encryption features
+
+
+Reading Parquet files
+=====================
 
 The :class:`arrow::FileReader` class reads data for an entire
 file or row group into an :class:`::arrow::Table`.
-
-The :func:`arrow::WriteTable` function writes an entire
-:class:`::arrow::Table` to an output file.
 
 The :class:`StreamReader` and :class:`StreamWriter` classes allow for
 data to be written using a C++ input/output streams approach to
@@ -48,7 +265,7 @@ Please note that the performance of the :class:`StreamReader` and
 checking and the fact that column values are processed one at a time.
 
 FileReader
-==========
+----------
 
 The Parquet :class:`arrow::FileReader` requires a
 :class:`::arrow::io::RandomAccessFile` instance representing the input
@@ -84,28 +301,8 @@ Finer-grained options are available through the
 
 .. TODO write section about performance and memory efficiency
 
-WriteTable
-==========
-
-The :func:`arrow::WriteTable` function writes an entire
-:class:`::arrow::Table` to an output file.
-
-.. code-block:: cpp
-
-   #include "parquet/arrow/writer.h"
-
-   {
-      std::shared_ptr<arrow::io::FileOutputStream> outfile;
-      PARQUET_ASSIGN_OR_THROW(
-         outfile,
-         arrow::io::FileOutputStream::Open("test.parquet"));
-
-      PARQUET_THROW_NOT_OK(
-         parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
-   }
-
 StreamReader
-============
+------------
 
 The :class:`StreamReader` allows for Parquet files to be read using
 standard C++ input operators which ensures type-safety.
@@ -148,8 +345,31 @@ thrown in the following circumstances:
       }
    }
 
+Writing Parquet files
+=====================
+
+WriteTable
+----------
+
+The :func:`arrow::WriteTable` function writes an entire
+:class:`::arrow::Table` to an output file.
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+
+   {
+      std::shared_ptr<arrow::io::FileOutputStream> outfile;
+      PARQUET_ASSIGN_OR_THROW(
+         outfile,
+         arrow::io::FileOutputStream::Open("test.parquet"));
+
+      PARQUET_THROW_NOT_OK(
+         parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
+   }
+
 StreamWriter
-============
+------------
 
 The :class:`StreamWriter` allows for Parquet files to be written using
 standard C++ output operators.  This type-safe approach also ensures

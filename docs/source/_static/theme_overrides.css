@@ -16,3 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
+/* Fix table text wrapping in RTD theme,
+ * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
+ */
+
+@media screen {
+    table.docutils td {
+        /* !important prevents the common CSS stylesheets from overriding
+          this as on RTD they are loaded after this stylesheet */
+        white-space: normal !important;
+    }
+}
