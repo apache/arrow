@@ -64,13 +64,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut results = vec![];
     let dictionaries_by_field = vec![None; schema.fields().len()];
     while let Some(flight_data) = stream.message().await? {
-        // the unwrap is infallible and thus safe
         let record_batch = flight_data_to_arrow_batch(
             &flight_data,
             schema.clone(),
             &dictionaries_by_field,
-        )
-        .unwrap()?;
+        )?;
         results.push(record_batch);
     }
 
