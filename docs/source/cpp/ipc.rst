@@ -28,10 +28,10 @@ Reading and writing the Arrow IPC format
 
    :doc:`API reference for IPC readers and writers <api/ipc>`.
 
-Arrow C++ provides abstracted readers and writers for the Arrow IPC format.
-Actual input/output is handled through the :doc:`IO interfaces <io>`.
-For reading, there is also an event-driven API that allows to feed arbitrary
-data into the IPC decoding layer.
+Arrow C++ provides readers and writers for the Arrow IPC format which wrap
+lower level input/output, handled through the :doc:`IO interfaces <io>`.
+For reading, there is also an event-driven API that enables feeding
+arbitrary data into the IPC decoding layer asynchronously.
 
 Reading IPC streams and files
 =============================

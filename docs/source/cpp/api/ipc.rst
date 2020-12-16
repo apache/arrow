@@ -76,6 +76,11 @@ Writing IPC streams and files
 Blocking API
 ------------
 
+The IPC stream format is only optionally terminated, whereas the IPC file format
+must include a terminating footer. Thus a writer of the IPC file format must be
+explicitly finalized with :func:`arrow::RecordBatchWriter::Close()` or the resulting
+file will be corrupt.
+
 .. doxygengroup:: record-batch-writer-factories
    :content-only:
 
