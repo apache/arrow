@@ -691,7 +691,7 @@ class BinaryMemoTable : public MemoTable {
 
     const builder_offset_type* offsets = binary_builder_.offsets_data();
     const builder_offset_type delta =
-        start < binary_builder_.value_data_length() ? offsets[start] : 0;
+        start < binary_builder_.length() ? offsets[start] : 0;
     for (int32_t i = start; i < size(); ++i) {
       const builder_offset_type adjusted_offset = offsets[i] - delta;
       Offset cast_offset = static_cast<Offset>(adjusted_offset);
