@@ -361,7 +361,7 @@ mod tests {
             .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
-            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .add_buffer(Buffer::from(b"joemark"))
             .build();
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
