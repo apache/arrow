@@ -116,111 +116,79 @@ cdef class Expression(_Weakrefable):
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
-        c_buffer = pyarrow_unwrap_buffer(buffer)
-        #c_expr = GetResultValue(CExpression.Deserialize(deref(c_buffer)))
-        return Expression.wrap(move(c_expr))
+        return Expression.wrap(GetResultValue(CDeserializeExpression(
+            deref(pyarrow_unwrap_buffer(buffer)))))
 
     def __reduce__(self):
-        buffer = pyarrow_wrap_buffer(GetResultValue(self.expr.Serialize()))
+        buffer = pyarrow_wrap_buffer(GetResultValue(
+            CSerializeExpression(self.expr)))
         return Expression._deserialize, (buffer,)
 
-    def validate(self, Schema schema not None):
-        """Validate this expression for execution against a schema.
-
-        This will check that all reference fields are present (fields not in
-        the schema will be replaced with null) and all subexpressions are
-        executable. Returns the type to which this expression will evaluate.
-
-        Parameters
-        ----------
-        schema : Schema
-            Schema to execute the expression on.
-
-        Returns
-        -------
-        type : DataType
-        """
-        cdef:
-            shared_ptr[CSchema] sp_schema
-            CResult[shared_ptr[CDataType]] result
-        sp_schema = pyarrow_unwrap_schema(schema)
-        result = self.expr.Validate(deref(sp_schema))
-        return pyarrow_wrap_data_type(GetResultValue(result))
-
-    def assume(self, Expression given):
-        """Simplify to an equivalent Expression given assumed constraints."""
-        return Expression.wrap(self.expr.Assume(given.unwrap()))
-
-    def __invert__(self):
-        return Expression.wrap(CMakeNotExpression(self.unwrap()))
+    @staticmethod
+    cdef Expression _expr_or_scalar(object expr):
+        if isinstance(expr, Expression):
+            return (<Expression> expr)
+        return (<Expression> Expression._scalar(expr))
 
     @staticmethod
-    cdef CExpression _expr_or_scalar(object expr) except *:
-        if isinstance(expr, Expression):
-            return (<Expression> expr).unwrap()
-        return (<Expression> Expression._scalar(expr)).unwrap()
+    cdef Expression _call(str function_name, list arguments,
+                          shared_ptr[CFunctionOptions] options=(
+                              <shared_ptr[CFunctionOptions]> nullptr)):
+        cdef:
+            vector[CExpression] c_arguments
+
+        for argument in arguments:
+            c_arguments.push_back((<Expression> argument).expr)
+
+        return Expression.wrap(CMakeCallExpression(tobytes(function_name),
+                                                   move(c_arguments), options))
 
     def __richcmp__(self, other, int op):
-        cdef:
-            CExpression c_expr
-            CExpression c_left
-            CExpression c_right
+        other = Expression._expr_or_scalar(other)
+        return Expression._call({
+            Py_EQ: "equal",
+            Py_NE: "not_equal",
+            Py_GT: "greater",
+            Py_GE: "greater_equal",
+            Py_LT: "less",
+            Py_LE: "less_equal",
+        }[op], [self, other])
 
-        c_left = self.unwrap()
-        c_right = Expression._expr_or_scalar(other)
-
-        if op == Py_EQ:
-            c_expr = CMakeEqualExpression(move(c_left), move(c_right))
-        elif op == Py_NE:
-            c_expr = CMakeNotEqualExpression(move(c_left), move(c_right))
-        elif op == Py_GT:
-            c_expr = CMakeGreaterExpression(move(c_left), move(c_right))
-        elif op == Py_GE:
-            c_expr = CMakeGreaterEqualExpression(move(c_left), move(c_right))
-        elif op == Py_LT:
-            c_expr = CMakeLessExpression(move(c_left), move(c_right))
-        elif op == Py_LE:
-            c_expr = CMakeLessEqualExpression(move(c_left), move(c_right))
-
-        return Expression.wrap(c_expr)
+    def __invert__(self):
+        return Expression._call("invert", [self])
 
     def __and__(Expression self, other):
-        c_other = Expression._expr_or_scalar(other)
-        return Expression.wrap(CMakeAndExpression(self.wrapped,
-                                                  move(c_other)))
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("and_kleene", [self, other])
 
     def __or__(Expression self, other):
-        c_other = Expression._expr_or_scalar(other)
-        return Expression.wrap(CMakeOrExpression(self.wrapped,
-                                                 move(c_other)))
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("or_kleene", [self, other])
 
     def is_valid(self):
         """Checks whether the expression is not-null (valid)"""
-        return Expression.wrap(self.expr.IsValid().Copy())
+        return Expression._call("is_valid", [self])
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
-        cdef CCastOptions options
-        if safe:
-            options = CCastOptions.Safe()
-        else:
-            options = CCastOptions.Unsafe()
-        c_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression.wrap(self.expr.CastTo(c_type, options).Copy())
+        cdef shared_ptr[CCastOptions] c_options
+        c_options.reset(new CCastOptions(safe))
+        c_options.get().to_type = pyarrow_unwrap_data_type(ensure_type(type))
+        return Expression._call("cast", [self],
+                                <shared_ptr[CFunctionOptions]> c_options)
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""
         cdef:
-            vector[CExpression] arguments
-        arguments.push_back(self.expr)
+            shared_ptr[CFunctionOptions] c_options
+            CDatum c_values
 
         if not isinstance(values, pa.Array):
             values = pa.array(values)
-        c_values = pyarrow_unwrap_array(values)
-        return Expression.wrap(CMakeCallExpression(
-            tobytes("is_in"),
-            move(arguments),
-            move(SetLookupOptions(values).set_lookup_options)))
+
+        c_values = CDatum(pyarrow_unwrap_array(values))
+        c_options.reset(new CSetLookupOptions(c_values, True))
+        return Expression._call("is_in", [self], c_options)
 
     @staticmethod
     def _field(str name not None):
@@ -322,10 +290,11 @@ cdef class Dataset(_Weakrefable):
             CFragmentIterator c_iterator
 
         if filter is None:
-            c_fragments = self.dataset.GetFragments()
+            c_fragments = move(GetResultValue(self.dataset.GetFragments()))
         else:
             c_filter = _bind(filter, self.schema)
-            c_fragments = self.dataset.GetFragments(c_filter)
+            c_fragments = move(GetResultValue(
+                self.dataset.GetFragments(c_filter)))
 
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
@@ -596,7 +565,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         return _true.unwrap()
 
     return GetResultValue(filter.unwrap().Bind(
-            deref(pyarrow_unwrap_schema(schema).get())))
+        deref(pyarrow_unwrap_schema(schema).get())))
 
 
 cdef class FileWriteOptions(_Weakrefable):
@@ -2264,7 +2233,8 @@ cdef class Scanner(_Weakrefable):
     def get_fragments(self):
         """Returns an iterator over the fragments in this scan.
         """
-        cdef CFragmentIterator c_fragments = self.scanner.GetFragments()
+        cdef CFragmentIterator c_fragments = move(GetResultValue(
+            self.scanner.GetFragments()))
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
@@ -2284,12 +2254,15 @@ def _get_partition_keys(Expression partition_expression):
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
-        pair[c_string, shared_ptr[CScalar]] name_val
+        pair[CFieldRef, CDatum] name_val
 
-    return {
-        frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
-        for name_val in GetResultValue(CGetPartitionKeys(expr))
-    }
+    out = {}
+    for ref_val in GetResultValue(CExtractKnownFieldValues(expr)):
+        assert ref_val.first.name() != nullptr
+        assert ref_val.second.kind() == DatumType_SCALAR
+        val = pyarrow_wrap_scalar(name_val.second.scalar()).as_py()
+        out[deref(ref_val.first.name())] = val
+    return out
 
 
 def _filesystemdataset_write(

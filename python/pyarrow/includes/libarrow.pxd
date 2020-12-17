@@ -405,6 +405,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef()
         CFieldRef(c_string name)
         CFieldRef(int index)
+        const c_string* name() const
+
+    cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
+        pass
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
