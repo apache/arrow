@@ -137,38 +137,26 @@ where
     Some(n)
 }
 
-/// Helper function to perform min/max lambda function on values from a `BooleanArray`
-fn min_max_boolean<F>(array: &BooleanArray, cmp: F) -> Option<bool>
-where
-    F: Fn(bool, bool) -> bool,
-{
-    let null_count = array.null_count();
-
-    // Includes case array.len() == 0
-    if null_count == array.len() {
+/// Returns the minimum value in the boolean array
+fn min_boolean(array: &BooleanArray) -> Option<bool> {
+    // short circuit if all nulls / zero length array
+    if array.null_count() == array.len() {
         return None;
     }
 
-    let m0: Option<bool> = array.iter().next().unwrap();
-
-    array.iter().fold(m0, |max, item| match (max, item) {
-        (Some(max), Some(item)) => Some(if cmp(max, item) { item } else { max }),
-        (Some(max), None) => Some(max),
-        (None, Some(item)) => Some(item),
-        (None, None) => None,
-    })
-}
-
-/// Returns the minimum value in the boolean array
-fn min_boolean(array: &BooleanArray) -> Option<bool> {
-    // a > b == a & !b
-    min_max_boolean(array, |a, b| a & !b)
+    // Note the min bool is false (0), so short circuit as soon as we see it
+    array.iter().find(|&b| b == Some(false)).flatten()
 }
 
 /// Returns the maximum value in the boolean array
 fn max_boolean(array: &BooleanArray) -> Option<bool> {
-    // a < b == !a & b
-    min_max_boolean(array, |a, b| !a & b)
+    // short circuit if all nulls / zero length array
+    if array.null_count() == array.len() {
+        return None;
+    }
+
+    // Note the max bool is true (1), so short circuit as soon as we see it
+    array.iter().find(|&b| b == Some(true)).flatten()
 }
 
 /// Returns the sum of values in the array.
