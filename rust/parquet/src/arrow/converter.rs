@@ -328,8 +328,11 @@ pub type FixedLenBinaryConverter = ArrayRefConverter<
     FixedSizeArrayConverter,
 >;
 
-pub type DecimalConverter =
-    ArrayRefConverter<Vec<Option<FixedLenByteArray>>, DecimalArray, DecimalArrayConverter>;
+pub type DecimalConverter = ArrayRefConverter<
+    Vec<Option<FixedLenByteArray>>,
+    DecimalArray,
+    DecimalArrayConverter,
+>;
 
 pub struct FromConverter<S, T> {
     _source: PhantomData<S>,
