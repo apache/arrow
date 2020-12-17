@@ -24,11 +24,6 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-R CMD config CC
-R CMD config CXX11
-R CMD config CXX11STD
-which g++
-
 # Install R package dependencies
 ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys'))"
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
