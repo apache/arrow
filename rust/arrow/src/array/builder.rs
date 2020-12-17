@@ -2618,7 +2618,7 @@ mod tests {
         }
 
         let arr = builder.finish();
-        assert_eq!(buf, arr.values());
+        assert_eq!(&buf, arr.values());
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(0, arr.null_count());
