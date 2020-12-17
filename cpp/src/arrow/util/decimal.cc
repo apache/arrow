@@ -493,6 +493,11 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
+  if (!ValidateScale(parsed_scale)) {
+    return Status::Invalid("The string '", s,
+                           "' is not a valid decimal number (invalid scale)");
+  }
+
   if (out != nullptr) {
     std::array<uint64_t, 2> little_endian_array = {0, 0};
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());

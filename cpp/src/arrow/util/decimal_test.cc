@@ -169,6 +169,11 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
+TEST(DecimalTest, TestOverflow) {
+  std::string invalid_value("1e100");
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+}
+
 TEST(DecimalTest, TestInvalidInputMinus) {
   std::string invalid_value("-");
   ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));

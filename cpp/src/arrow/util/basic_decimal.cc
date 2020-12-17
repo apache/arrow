@@ -949,17 +949,17 @@ DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale
 
 void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
                                           BasicDecimal128* fraction) const {
-  DCHECK_GE(scale, 0);
-  DCHECK_LE(scale, 38);
+  DCHECK_EQ(ValidateScale(scale), true);
 
   BasicDecimal128 multiplier(ScaleMultipliers[scale]);
   auto s = Divide(multiplier, whole, fraction);
   DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
 
+bool BasicDecimal128::ValidateScale(int32_t scale) { return (std::abs(scale) <= 38); }
+
 const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
-  DCHECK_GE(scale, 0);
-  DCHECK_LE(scale, 38);
+  DCHECK_EQ(ValidateScale(scale), true);
 
   return ScaleMultipliers[scale];
 }
@@ -967,15 +967,13 @@ const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
 const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
 
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
-  DCHECK_GE(increase_by, 0);
-  DCHECK_LE(increase_by, 38);
+  DCHECK_EQ(ValidateScale(increase_by), true);
 
   return (*this) * ScaleMultipliers[increase_by];
 }
 
 BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
-  DCHECK_GE(reduce_by, 0);
-  DCHECK_LE(reduce_by, 38);
+  DCHECK_EQ(ValidateScale(reduce_by), true);
 
   if (reduce_by == 0) {
     return *this;

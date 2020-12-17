@@ -124,6 +124,8 @@ class ARROW_EXPORT BasicDecimal128 {
   void GetWholeAndFraction(int32_t scale, BasicDecimal128* whole,
                            BasicDecimal128* fraction) const;
 
+  static bool ValidateScale(int32_t scale);
+
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal128& GetScaleMultiplier(int32_t scale);
 
