@@ -18,12 +18,6 @@
 # General purpose Dockerfile to take a Docker image containing R
 # and install Arrow R package dependencies
 
-# use login shell to activate arrow environment in the RUN commands
-SHELL [ "/bin/bash", "-c", "-l" ]
-
-# use login shell when running the container
-ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
-
 ARG base
 FROM ${base}
 
