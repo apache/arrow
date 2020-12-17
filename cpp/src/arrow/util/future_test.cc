@@ -82,6 +82,7 @@ struct MoveOnlyDataType {
     if (data != nullptr) {
       delete data;
       data = nullptr;
+      moves = -1;
     }
   }
 
@@ -89,6 +90,7 @@ struct MoveOnlyDataType {
     Destroy();
     data = other->data;
     other->data = nullptr;
+    moves = other->moves + 1;
   }
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
@@ -102,6 +104,7 @@ struct MoveOnlyDataType {
   }
 
   int* data = nullptr;
+  int moves = 0;
 };
 
 template <>
@@ -351,6 +354,47 @@ TEST(FutureRefTest, HeadRemoved) {
     fut.MarkFinished();
   }
   ASSERT_TRUE(ref.expired());
+}
+
+TEST(FutureTest, StressCallback) {
+  for (unsigned int n = 0; n < 1000; n++) {
+    auto fut = Future<>::Make();
+    std::atomic<unsigned int> count_finished_immediately(0);
+    std::atomic<unsigned int> count_finished_deferred(0);
+    std::atomic<unsigned int> callbacks_added(0);
+    std::atomic<bool> finished(false);
+
+    std::thread callback_adder([&] {
+      auto test_thread = std::this_thread::get_id();
+      while (!finished.load()) {
+        fut.AddCallback([&test_thread, &count_finished_immediately, &count_finished_deferred] (const Result<arrow::Future<arrow::detail::Empty>::ValueType>& result) {
+          if (std::this_thread::get_id() == test_thread) {
+            count_finished_immediately++;
+          } else {
+            count_finished_deferred++;
+          }
+        });
+        callbacks_added++;
+      }
+    });
+
+    while (callbacks_added.load() == 0) {
+      // Spin until the callback_adder has started running
+    }
+
+    fut.MarkFinished();
+
+    while (count_finished_deferred.load() == 0) {
+      // Spin until the callback_adder has added at least one post-future
+    }
+
+    finished.store(true);
+    callback_adder.join();
+    auto total_added = callbacks_added.load();
+    auto total_immediate = count_finished_immediately.load();
+    auto total_deferred = count_finished_deferred.load();
+    ASSERT_EQ(total_added, total_immediate + total_deferred);
+  }
 }
 
 TEST(FutureCompletionTest, Void) {
@@ -1366,7 +1410,7 @@ TEST(FnOnceTest, MoveOnlyDataType) {
   // ensuring this is valid guarantees we are making no unnecessary copies
   FnOnce<int(const MoveOnlyDataType&, MoveOnlyDataType, std::string)> fn =
       [](const MoveOnlyDataType& i0, MoveOnlyDataType i1, std::string copyable) {
-        return *i0.data + *i1.data;
+        return *i0.data + *i1.data + (i0.moves * 1000) + (i1.moves * 100);
       };
 
   using arg0 = call_traits::argument_type<0, decltype(fn)>;
@@ -1379,7 +1423,9 @@ TEST(FnOnceTest, MoveOnlyDataType) {
 
   MoveOnlyDataType i0{1}, i1{41};
   std::string copyable = "";
-  ASSERT_EQ(std::move(fn)(i0, std::move(i1), copyable), 42);
+  ASSERT_EQ(std::move(fn)(i0, std::move(i1), copyable), 242);
+  ASSERT_EQ(i0.moves, 0);
+  ASSERT_EQ(i1.moves, 0);
 }
 
 }  // namespace internal

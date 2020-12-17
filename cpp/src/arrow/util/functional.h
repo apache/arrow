@@ -107,19 +107,19 @@ class FnOnce<R(A...)> {
 
   R operator()(A... a) && {
     auto bye = std::move(impl_);
-    return bye->invoke(static_cast<A&&>(a)...);
+    return bye->invoke(std::forward<A&&>(a)...);
   }
 
  private:
   struct Impl {
     virtual ~Impl() = default;
-    virtual R invoke(A... a) = 0;
+    virtual R invoke(A&&... a) = 0;
   };
 
   template <typename Fn>
   struct FnImpl : Impl {
     explicit FnImpl(Fn fn) : fn_(std::move(fn)) {}
-    R invoke(A... a) override { return std::move(fn_)(static_cast<A&&>(a)...); }
+    R invoke(A&&... a) override { return std::move(fn_)(std::forward<A&&>(a)...); }
     Fn fn_;
   };
 
