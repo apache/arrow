@@ -97,6 +97,20 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
+    const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
+  // RecordBatchStreamReader inherits from RecordBatchReader
+  // but RecordBatchFileReader apparently does not
+  int num_batches = reader->num_record_batches();
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
+  for (int i = 0; i < num_batches; i++) {
+    batches[i] = ValueOrStop(reader->ReadRecordBatch(i));
+  }
+
+  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+}
+
+// [[arrow::export]]
 cpp11::list ipc___RecordBatchFileReader__batches(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   auto n = reader->num_record_batches();

@@ -1412,6 +1412,10 @@ Table__from_RecordBatchReader <- function(reader){
     .Call(`_arrow_Table__from_RecordBatchReader` , reader)
 }
 
+Table__from_RecordBatchFileReader <- function(reader){
+    .Call(`_arrow_Table__from_RecordBatchFileReader` , reader)
+}
+
 ipc___RecordBatchFileReader__batches <- function(reader){
     .Call(`_arrow_ipc___RecordBatchFileReader__batches` , reader)
 }

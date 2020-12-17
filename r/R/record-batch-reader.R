@@ -128,7 +128,8 @@ RecordBatchStreamReader$create <- function(stream) {
 #' @format NULL
 #' @export
 RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
-  # Why doesn't this inherit from RecordBatchReader?
+  # Why doesn't this inherit from RecordBatchReader in C++?
+  # Origin: https://github.com/apache/arrow/pull/679
   public = list(
     get_batch = function(i) {
       ipc___RecordBatchFileReader__ReadRecordBatch(self, i)
@@ -136,7 +137,7 @@ RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
     batches = function() {
       ipc___RecordBatchFileReader__batches(self)
     },
-    read_table = function() Table__from_RecordBatchReader(self)
+    read_table = function() Table__from_RecordBatchFileReader(self)
   ),
   active = list(
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),

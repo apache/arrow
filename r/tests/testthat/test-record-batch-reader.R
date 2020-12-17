@@ -75,6 +75,36 @@ test_that("RecordBatchFileReader / Writer", {
   expect_equal(reader$num_record_batches, 3)
 })
 
+test_that("StreamReader read_table", {
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchWriter")
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchStreamReader$create(buf)
+  out <- reader$read_table()
+  expect_identical(dim(out), c(30L, 2L))
+})
+
+test_that("FileReader read_table", {
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchFileWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchWriter")
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchFileReader$create(buf)
+  out <- reader$read_table()
+  expect_identical(dim(out), c(30L, 2L))
+})
+
 test_that("MetadataFormat", {
   expect_identical(get_ipc_metadata_version(5), 4L)
   expect_identical(get_ipc_metadata_version("V4"), 3L)
@@ -100,21 +130,13 @@ test_that("MetadataFormat", {
 
 test_that("reader with 0 batches", {
   # IPC stream containing only a schema (ARROW-10642)
-  stream <- as.raw(c(255, 255, 255, 255, 16, 1, 0, 0, 16, 0, 0, 0, 0, 0, 10, 0,
-    12, 0, 6, 0, 5, 0, 8, 0, 10, 0, 0, 0, 0, 1, 3, 0, 12, 0, 0, 0, 8, 0, 8, 0, 0,
-    0, 4, 0, 8, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 160, 0, 0, 0, 92, 0, 0, 0, 48, 0,
-    0, 0, 4, 0, 0, 0, 128, 255, 255, 255, 0, 0, 1, 5, 20, 0, 0, 0, 12, 0, 0, 0, 4,
-    0, 0, 0, 0, 0, 0, 0, 176, 255, 255, 255, 7, 0, 0, 0, 82, 69, 80, 79, 78, 83,
-    69, 0, 168, 255, 255, 255, 0, 0, 1, 5, 20, 0, 0, 0, 12, 0, 0, 0, 4, 0, 0, 0,
-    0, 0, 0, 0, 216, 255, 255, 255, 6, 0, 0, 0, 68, 69, 84, 65, 73, 76, 0, 0, 208,
-    255, 255, 255, 0, 0, 1, 5, 24, 0, 0, 0, 16, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0,
-    4, 0, 4, 0, 4, 0, 0, 0, 8, 0, 0, 0, 68, 65, 84, 65, 84, 89, 80, 69, 0, 0, 0,
-    0, 16, 0, 20, 0, 8, 0, 6, 0, 7, 0, 12, 0, 0, 0, 16, 0, 16, 0, 0, 0, 0, 0, 1,
-    7, 36, 0, 0, 0, 20, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 8, 0, 12, 0, 4, 0, 8, 0,
-    8, 0, 0, 0, 38, 0, 0, 0, 9, 0, 0, 0, 8, 0, 0, 0, 77, 65, 67, 84, 65, 95, 73,
-    68, 0, 0, 0, 0, 0, 0, 0, 0))
-  readr <- RecordBatchStreamReader$create(stream)
-  tab <- readr$read_table()
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(sink, schema(a = int32()))
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchStreamReader$create(buf)
+  tab <- reader$read_table()
   expect_is(tab, "Table")
-  expect_identical(nrow(tab), 0L)
+  expect_identical(dim(tab), c(0L, 1L))
 })
