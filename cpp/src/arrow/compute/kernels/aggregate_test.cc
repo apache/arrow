@@ -1444,6 +1444,7 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
 TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, {4.5, 2, 7, 2, 4.5});
+#ifndef __MINGW32__  // MinGW32 has precision issue
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
                          {-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY});
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.9,
@@ -1460,6 +1461,7 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
                          {4.5, 2, 7, 2, 4.5});
   this->AssertQuantilesAre({"[null, -9, 7, Inf]", "[NaN, NaN]", "[-Inf, null, 2, 11]"},
                            {0.3, 0.6}, {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+#endif
 
   this->AssertQuantilesEmpty("[]", {0.5, 0.6});
   this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
