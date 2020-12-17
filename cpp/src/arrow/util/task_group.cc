@@ -75,6 +75,7 @@ class ThreadedTaskGroup : public TaskGroup {
   }
 
   void AppendReal(std::function<Status()> task) override {
+    // DCHECK(!finished_);
     // The hot path is unlocked thanks to atomics
     // Only if an error occurs is the lock taken
     if (ok_.load(std::memory_order_acquire)) {
@@ -109,7 +110,6 @@ class ThreadedTaskGroup : public TaskGroup {
       cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
       // Current tasks may start other tasks, so only set this when done
       finished_ = true;
-      completion_future_.MarkFinished(status_);
     }
     return status_;
   }
@@ -117,7 +117,7 @@ class ThreadedTaskGroup : public TaskGroup {
   int parallelism() override { return executor_->GetCapacity(); }
 
  protected:
-  void UpdateStatus(const Status& st) {
+  void UpdateStatus(Status&& st) {
     // Must be called unlocked, only locks on error
     if (ARROW_PREDICT_FALSE(!st.ok())) {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -142,7 +142,6 @@ class ThreadedTaskGroup : public TaskGroup {
   Executor* executor_;
   std::atomic<int32_t> nremaining_;
   std::atomic<bool> ok_;
-  Future<> completion_future_ = Future<>::Make();
 
   // These members use locking
   std::mutex mutex_;

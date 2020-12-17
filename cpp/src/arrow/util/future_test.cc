@@ -125,7 +125,6 @@ void AssertFinished(const Future<T>& fut) {
 // Assert the future is successful *now*
 template <typename T>
 void AssertSuccessful(const Future<T>& fut) {
-  ASSERT_TRUE(fut.Wait(0.1));
   if (IsFutureFinished(fut.state())) {
     ASSERT_EQ(fut.state(), FutureState::SUCCESS);
     ASSERT_OK(fut.status());
@@ -135,7 +134,6 @@ void AssertSuccessful(const Future<T>& fut) {
 // Assert the future is failed *now*
 template <typename T>
 void AssertFailed(const Future<T>& fut) {
-  ASSERT_TRUE(fut.Wait(0.1));
   if (IsFutureFinished(fut.state())) {
     ASSERT_EQ(fut.state(), FutureState::FAILURE);
     ASSERT_FALSE(fut.status().ok());

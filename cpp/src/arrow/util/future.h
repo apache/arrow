@@ -64,32 +64,37 @@ constexpr struct ContinueFuture {
   template <typename Signature>
   using ForSignature = ForReturn<result_of_t<Signature>>;
 
-  template <typename F, typename... A, typename R = result_of_t<F && (A && ...)>,
-            typename N = ForReturn<R>>
-  typename std::enable_if<std::is_void<R>::value>::type operator()(N next, F&& f,
-                                                                   A&&... a) const {
-    std::forward<F>(f)(std::forward<A>(a)...);
+  template <typename ContinueFunc, typename... Args,
+            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename NextFuture = ForReturn<ContinueResult>>
+  typename std::enable_if<std::is_void<ContinueResult>::value>::type operator()(
+      NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    std::forward<ContinueFunc>(f)(std::forward<Args>(a)...);
     next.MarkFinished();
   }
 
-  template <typename F, typename... A, typename R = result_of_t<F && (A && ...)>,
-            typename N = ForReturn<R>>
-  typename std::enable_if<!std::is_void<R>::value && !is_future<R>::value>::type
-  operator()(N next, F&& f, A&&... a) const {
-    next.MarkFinished(std::forward<F>(f)(std::forward<A>(a)...));
+  template <typename ContinueFunc, typename... Args,
+            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename NextFuture = ForReturn<ContinueResult>>
+  typename std::enable_if<!std::is_void<ContinueResult>::value &&
+                          !is_future<ContinueResult>::value>::type
+  operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    next.MarkFinished(std::forward<ContinueFunc>(f)(std::forward<Args>(a)...));
   }
 
-  template <typename F, typename... A, typename R = result_of_t<F && (A && ...)>,
-            typename N = ForReturn<R>>
-  typename std::enable_if<is_future<R>::value>::type operator()(N next, F&& f,
-                                                                A&&... a) const {
-    R signal_to_complete_next = std::forward<F>(f)(std::forward<A>(a)...);
+  template <typename ContinueFunc, typename... Args,
+            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
+            typename NextFuture = ForReturn<ContinueResult>>
+  typename std::enable_if<is_future<ContinueResult>::value>::type operator()(
+      NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    ContinueResult signal_to_complete_next =
+        std::forward<ContinueFunc>(f)(std::forward<Args>(a)...);
 
     struct MarkNextFinished {
-      void operator()(const Result<typename R::ValueType>& result) && {
+      void operator()(const Result<typename ContinueResult::ValueType>& result) && {
         next.MarkFinished(result);
       }
-      N next;
+      NextFuture next;
     };
 
     signal_to_complete_next.AddCallback(MarkNextFinished{std::move(next)});
@@ -351,6 +356,15 @@ class ARROW_MUST_USE_TYPE Future {
   }
 
   /// \brief Consumer API: Register a callback to run when this future completes
+  ///
+  /// The callback should receive the result of the future (const Result<T>&)
+  /// For a void or statusy future this should be
+  /// (const Result<Future<detail::Empty>::ValueType>& result)
+  ///
+  /// There is no guarantee to the order in which callbacks will run.  In
+  /// particular, callbacks added while the future is being marked complete
+  /// may be executed immediately, ahead of, or even the same time as, other
+  /// callbacks that have been previously added.
   template <typename OnComplete>
   void AddCallback(OnComplete&& on_complete) const {
     struct Callback {
