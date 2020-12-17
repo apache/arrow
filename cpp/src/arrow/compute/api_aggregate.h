@@ -261,7 +261,7 @@ Result<Datum> Variance(const Datum& value,
 /// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] options see QuantileOptions for more information
 /// \param[in] ctx the function execution context, optional
-/// \return resulting datum as an array of double values
+/// \return resulting datum as an array
 ///
 /// \since 3.0.0
 /// \note API not yet finalized

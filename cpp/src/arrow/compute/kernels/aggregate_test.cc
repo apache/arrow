@@ -1329,9 +1329,15 @@ template <typename ArrowType>
 class TestPrimitiveQuantileKernel : public ::testing::Test {
  public:
   using Traits = TypeTraits<ArrowType>;
+  using CType = typename ArrowType::c_type;
+
+  union ValueUnion {
+    CType intype_value;
+    double double_value;
+  };
 
   void AssertQuantilesAre(const Datum& array, QuantileOptions options,
-                          const std::vector<std::vector<double>>& expected) {
+                          const std::vector<std::vector<ValueUnion>>& expected) {
     ASSERT_EQ(options.q.size(), expected.size());
 
     for (size_t i = 0; i < this->interpolations.size(); ++i) {
@@ -1343,39 +1349,47 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       ASSERT_EQ(out_array->length(), options.q.size());
       ASSERT_EQ(out_array->null_count(), 0);
 
-      const double* quantiles = out_array->data()->GetValues<double>(1);
-      for (int64_t j = 0; j < out_array->length(); ++j) {
-        ASSERT_EQ(quantiles[j], expected[j][i]);
+      if (out_array->type() == type_singleton()) {
+        const CType* quantiles = out_array->data()->GetValues<CType>(1);
+        for (int64_t j = 0; j < out_array->length(); ++j) {
+          ASSERT_EQ(quantiles[j], expected[j][i].intype_value);
+        }
+      } else {
+        ASSERT_EQ(out_array->type(), float64());
+        const double* quantiles = out_array->data()->GetValues<double>(1);
+        for (int64_t j = 0; j < out_array->length(); ++j) {
+          ASSERT_EQ(quantiles[j], expected[j][i].double_value);
+        }
       }
     }
   }
 
   void AssertQuantilesAre(const std::string& json, const std::vector<double>& q,
-                          const std::vector<std::vector<double>>& expected) {
+                          const std::vector<std::vector<ValueUnion>>& expected) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertQuantilesAre(array, QuantileOptions{q}, expected);
   }
 
   void AssertQuantilesAre(const std::vector<std::string>& json,
                           const std::vector<double>& q,
-                          const std::vector<std::vector<double>>& expected) {
+                          const std::vector<std::vector<ValueUnion>>& expected) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertQuantilesAre(chunked, QuantileOptions{q}, expected);
   }
 
   void AssertQuantileIs(const Datum& array, double q,
-                        const std::vector<double>& expected) {
+                        const std::vector<ValueUnion>& expected) {
     AssertQuantilesAre(array, QuantileOptions{q}, {expected});
   }
 
   void AssertQuantileIs(const std::string& json, double q,
-                        const std::vector<double>& expected) {
+                        const std::vector<ValueUnion>& expected) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertQuantileIs(array, q, expected);
   }
 
   void AssertQuantileIs(const std::vector<std::string>& json, double q,
-                        const std::vector<double>& expected) {
+                        const std::vector<ValueUnion>& expected) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertQuantileIs(chunked, q, expected);
   }
@@ -1413,28 +1427,48 @@ class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> 
 template <typename ArrowType>
 class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
 
+template <typename ArrowType>
+class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
+
+#define ValueUnion (typename TestPrimitiveQuantileKernel<TypeParam>::ValueUnion)
+#define INTYPE(x) \
+  ValueUnion { .intype_value = (x) }
+#define DOUBLE(x) \
+  ValueUnion { .double_value = (x) }
+// output type per interplation: linear, lower, higher, nearest, midpoint
+#define O(a, b, c, d, e) \
+  { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
+// output type same as input if only 0 and 1 quantiles are calculated
+#define I(a, b, c, d, e) \
+  { INTYPE(a), INTYPE(b), INTYPE(c), INTYPE(d), INTYPE(e) }
+
 TYPED_TEST_SUITE(TestIntegerQuantileKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   // reference values from numpy
   // ordered by interpolation method: {linear, lower, higher, nearest, midpoint}
-  this->AssertQuantileIs("[1, 2]", 0.5, {1.5, 1, 2, 1, 1.5});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.5, {3, 3, 3, 3, 3});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.33, {1.98, 1, 2, 2, 1.5});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.9, {8.4, 8, 9, 8, 8.5});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, {0, 0, 0, 0, 0});
-  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, {9, 9, 9, 9, 9});
+  this->AssertQuantileIs("[1]", 0.1, O(1, 1, 1, 1, 1));
+  this->AssertQuantileIs("[1, 2]", 0.5, O(1.5, 1, 2, 1, 1.5));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.5, O(3, 3, 3, 3, 3));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.33, O(1.98, 1, 2, 2, 1.5));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0.9, O(8.4, 8, 9, 8, 8.5));
   this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {0.5, 0.9},
-                           {{3, 3, 3, 3, 3}, {8.4, 8, 9, 8, 8.5}});
+                           {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
+  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0.5},
+                           {O(9, 9, 9, 9, 9), O(3, 3, 3, 3, 3)});
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 0, I(0, 0, 0, 0, 0));
+  this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, I(9, 9, 9, 9, 9));
+  this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0},
+                           {I(9, 9, 9, 9, 9), I(0, 0, 0, 0, 0)});
 
   this->AssertQuantileIs("[5, null, null, 3, 9, null, 8, 1, 2, 0]", 0.21,
-                         {1.26, 1, 2, 1, 1.5});
+                         O(1.26, 1, 2, 1, 1.5));
   this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.5, 0.9},
-                           {{3, 3, 3, 3, 3}, {8.4, 8, 9, 8, 8.5}});
+                           {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
 
   this->AssertQuantileIs({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"}, 0.33,
-                         {1.98, 1, 2, 2, 1.5});
+                         O(1.98, 1, 2, 2, 1.5));
   this->AssertQuantilesAre({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"},
-                           {0.21, 1}, {{1.26, 1, 2, 1, 1.5}, {9, 9, 9, 9, 9}});
+                           {0.21, 1}, {O(1.26, 1, 2, 1, 1.5), O(9, 9, 9, 9, 9)});
 
   this->AssertQuantilesEmpty("[]", {0.5});
   this->AssertQuantilesEmpty("[null, null, null]", {0.1, 0.2});
@@ -1443,30 +1477,45 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
 
 TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingQuantileKernel, Floats) {
-  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, {4.5, 2, 7, 2, 4.5});
+  this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, O(4.5, 2, 7, 2, 4.5));
 #ifndef __MINGW32__  // MinGW32 has precision issue
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
-                         {-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY});
+                         O(-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY));
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.9,
-                         {INFINITY, 11, INFINITY, 11, INFINITY});
+                         O(INFINITY, 11, INFINITY, 11, INFINITY));
   this->AssertQuantilesAre("[-9, 7, Inf, -Inf, 2, 11]", {0.3, 0.6},
-                           {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+                           {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
 
   this->AssertQuantileIs("[NaN, -9, 7, Inf, null, null, -Inf, NaN, 2, 11]", 0.5,
-                         {4.5, 2, 7, 2, 4.5});
+                         O(4.5, 2, 7, 2, 4.5));
   this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.3, 0.6},
-                           {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+                           {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
 
   this->AssertQuantileIs({"[NaN, -9, 7, Inf]", "[null, NaN]", "[-Inf, NaN, 2, 11]"}, 0.5,
-                         {4.5, 2, 7, 2, 4.5});
+                         O(4.5, 2, 7, 2, 4.5));
   this->AssertQuantilesAre({"[null, -9, 7, Inf]", "[NaN, NaN]", "[-Inf, null, 2, 11]"},
-                           {0.3, 0.6}, {{-3.5, -9, 2, 2, -3.5}, {7, 7, 7, 7, 7}});
+                           {0.3, 0.6}, {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
 #endif
 
   this->AssertQuantilesEmpty("[]", {0.5, 0.6});
   this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
   this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
 }
+
+// Test big int64 numbers cannot be precisely presented by double
+TYPED_TEST_SUITE(TestInt64QuantileKernel, Int64Type);
+TYPED_TEST(TestInt64QuantileKernel, Int64) {
+  this->AssertQuantileIs(
+      "[9223372036854775806, 9223372036854775807]", 0.5,
+      O(9.223372036854776e+18, 9223372036854775806, 9223372036854775807,
+        9223372036854775806, 9.223372036854776e+18));
+}
+
+#undef ValueUnion
+#undef INTYPE
+#undef DOUBLE
+#undef O
+#undef I
 
 }  // namespace compute
 }  // namespace arrow
