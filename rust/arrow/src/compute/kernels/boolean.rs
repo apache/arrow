@@ -262,9 +262,9 @@ where
     let right_combo_buffer = match right.data().null_bitmap() {
         Some(right_bitmap) => {
             // NOTE: right values and bitmaps are combined and stay at bit offset right.offset()
-            (&right.values() & &right_bitmap.bits).ok().map(|b| b.not())
+            (right.values() & &right_bitmap.bits).ok().map(|b| b.not())
         }
-        None => Some(!&right.values()),
+        None => Some(!right.values()),
     };
 
     // AND of original left null bitmap with right expression
