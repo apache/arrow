@@ -156,8 +156,10 @@ struct QuantileExecutor {
     // do interpolation
 
     // calculate lower data point
-    std::nth_element(in.begin(), in.begin() + index_lower, in.end());
-    const double lower_value = static_cast<double>(in[index_lower]);
+    // input is already partitioned around higher data point
+    // lower data point must be the maximal value left of higher index
+    const double lower_value =
+        static_cast<double>(*std::max_element(in.begin(), in.begin() + index_higher));
 
     // check infinity
     if (is_floating_type<InType>::value) {
