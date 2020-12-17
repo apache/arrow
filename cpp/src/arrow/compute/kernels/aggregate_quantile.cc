@@ -172,9 +172,10 @@ struct QuantileExecutor {
 
     switch (interpolation) {
       case QuantileOptions::LINEAR:
-        return lower_value + (higher_value - lower_value) * fraction;
+        // more stable than naive linear interpolation
+        return fraction * higher_value + (1 - fraction) * lower_value;
       case QuantileOptions::MIDPOINT:
-        return (lower_value + higher_value) / 2;
+        return lower_value / 2 + higher_value / 2;
       default:
         // should never reach here
         DCHECK(false);
