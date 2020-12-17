@@ -62,10 +62,6 @@ $FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
 # Now the files are wrongly named so we have to change that.
 popd
 pushd $DIR/src/ipc/gen
-for f in `ls *_generated.rs`; do
-    adj_length=$((${#f}-13))
-    mv $f "${f:0:$adj_length}.rs"
-done
 
 PREFIX=$(cat <<'HEREDOC'
 // Licensed to the Apache Software Foundation (ASF) under one
