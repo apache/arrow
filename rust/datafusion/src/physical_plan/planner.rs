@@ -264,13 +264,26 @@ impl DefaultPhysicalPlanner {
                 join_type,
                 ..
             } => {
-                let left = self.create_physical_plan(left, ctx_state)?;
-                let right = self.create_physical_plan(right, ctx_state)?;
-                let physical_join_type = match join_type {
+                let mut left = self.create_physical_plan(left, ctx_state)?;
+                let mut right = self.create_physical_plan(right, ctx_state)?;
+                let mut physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                     JoinType::Left => hash_utils::JoinType::Left,
                     JoinType::Right => hash_utils::JoinType::Right,
                 };
+
+                ctx_state.datasources
+
+                // Optimize hash join order based on expected nr. of rows
+                // if expected_rows(left, ctx_state.datasources) > expected_rows(right, ctx_state.datasources) {
+                //     std::mem::swap(&mut left, &mut right);
+                //     let physical_join_type = match physical_join_type {
+                //         hash_utils::JoinType::Inner => hash_utils::JoinType::Inner,
+                //         hash_utils::JoinType::Left => hash_utils::JoinType::Right,
+                //         hash_utils::JoinType::Right => hash_utils::JoinType::Left,
+                //     };
+                // }
+
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
                     right,
