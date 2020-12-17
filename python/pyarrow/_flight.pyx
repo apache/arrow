@@ -107,7 +107,7 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None, write_options=None):
+    def __init__(self, timeout=None, write_options=None, headers=None):
         """Create call options.
 
         Parameters
@@ -118,12 +118,20 @@ cdef class FlightCallOptions(_Weakrefable):
         write_options : pyarrow.ipc.IpcWriteOptions, optional
             IPC write options. The default options can be controlled
             by environment variables (see pyarrow.ipc).
-
+        headers : vector[pair[c_string, c_string]], optional
+            A vector of arbitrary headers as key, value pairs
         """
-        cdef IpcWriteOptions options = _get_options(write_options)
+        cdef IpcWriteOptions c_write_options
+        
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
-        self.options.write_options = options.c_options
+        if write_options is not None:
+            c_write_options = _get_options(write_options)
+            self.options.write_options = c_write_options.c_options
+        if headers is not None:
+            print("[FlightCallOptions] - headers")
+            print(headers)
+            self.options.headers = headers
 
     @staticmethod
     cdef CFlightCallOptions* unwrap(obj):
@@ -1150,7 +1158,6 @@ cdef class FlightClient(_Weakrefable):
                 self.client.get().Authenticate(deref(c_options),
                                                move(handler)))
 
-    # TODO: Add authenticateBasicToken
     def authenticateBasicToken(self, username, password, options: FlightCallOptions = None) :
         """Authenticate to the server with header token authentication.
 
@@ -1168,23 +1175,19 @@ cdef class FlightClient(_Weakrefable):
         pair : pair[string, string] 
             A pair representing the FlightCallOptions header entry of a bearer token.
         """
+        print("[authenticateBasicToken] - In method")
         cdef:
             CResult[pair[c_string, c_string]] result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
             c_string user = tobytes(username)
             c_string pw = tobytes(password)
 
-        print("[authenticateBasicToken] - In method")
-        print("[authenticateBasicToken] - print user -")
-        print(user)
-        print("[authenticateBasicToken] - print pw -")
-        print(pw)
         with nogil:
             result = self.client.get().AuthenticateBasicToken(deref(c_options),
                                                               user, pw)
-        print("[authenticateBasicToken] - Calling GetResult next")
-        # TODO: Need to convert CResult to Python    
-        return pyarrow_wrap_data_type(GetResultValue(result))
+            check_flight_status(result.status())
+        
+        return GetResultValue(result)
 
     def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
