@@ -22,6 +22,7 @@ use std::string::String;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
+use parquet::file::metadata::RowGroupMetaData;
 
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
@@ -41,10 +42,26 @@ impl ParquetTable {
     pub fn try_new(path: &str) -> Result<Self> {
         let parquet_exec = ParquetExec::try_new(path, None, 0)?;
         let schema = parquet_exec.schema();
+
+        let metadata = parquet_exec.metadata();
+        let num_rows: i64 = metadata
+            .row_groups()
+            .iter()
+            .map(RowGroupMetaData::num_rows)
+            .sum();
+        let total_byte_size: i64 = metadata
+            .row_groups()
+            .iter()
+            .map(RowGroupMetaData::total_byte_size)
+            .sum();
+
         Ok(Self {
             path: path.to_string(),
             schema,
-            statistics: Statistics::default(),
+            statistics: Statistics {
+                num_rows: Some(num_rows as usize),
+                total_byte_size: Some(total_byte_size as usize),
+            },
         })
     }
 }
@@ -107,6 +124,10 @@ mod tests {
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
+
+        // test metadata
+        assert_eq!(table.statistics().num_rows, Some(8));
+        assert_eq!(table.statistics().total_byte_size, Some(671));
 
         Ok(())
     }

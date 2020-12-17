@@ -23,6 +23,7 @@ use crate::arrow::schema::{
     parquet_to_arrow_schema_by_columns, parquet_to_arrow_schema_by_root_columns,
 };
 use crate::errors::{ParquetError, Result};
+use crate::file::metadata::ParquetMetaData;
 use crate::file::reader::FileReader;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -153,6 +154,11 @@ impl ArrowReader for ParquetFileArrowReader {
 impl ParquetFileArrowReader {
     pub fn new(file_reader: Arc<dyn FileReader>) -> Self {
         Self { file_reader }
+    }
+
+    // Expose the reader metadata
+    pub fn get_metadata(&mut self) -> ParquetMetaData {
+        self.file_reader.metadata().clone()
     }
 }
 
