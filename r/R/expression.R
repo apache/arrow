@@ -59,6 +59,20 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   } else {
     e1 <- .wrap_arrow(e1, .Generic, e2$type)
     e2 <- .wrap_arrow(e2, .Generic, e1$type)
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: cast needs to be an expression
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- e1$cast(float64())
+      e2 <- e2$cast(float64())
+    } else if (.Generic == "%/%") {
+      e1 <- e1$cast(int32())
+      e2 <- e2$cast(int32())
+    } else if (.Generic == "%%") {
+      # e1 - e1 %/% e2
+    }
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
@@ -91,8 +105,19 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "<=" = "less_equal",
   "&" = "and_kleene",
   "|" = "or_kleene",
+  "+" = "add",
+  "-" = "subtract",
+  "*" = "multiply",
+  "/" = "divide",
+  "%/%" = "divide",
   "%in%" = "is_in_meta_binary"
 )
+
+
+# ‘"^"’,
+# ‘"%%"’,
+# ‘"%/%"’
+
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
