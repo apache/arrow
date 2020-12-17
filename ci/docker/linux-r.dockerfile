@@ -39,6 +39,12 @@ COPY ci/etc/rprofile /arrow/ci/etc/
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/r_docker_configure.sh
 
+# use login shell when running the container
+ENTRYPOINT /bin/bash -l
+
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
+
+# use login shell when running the container
+ENTRYPOINT /bin/bash -l
