@@ -64,6 +64,12 @@ impl<'a> BitChunks<'a> {
         self.remainder_len
     }
 
+    /// Returns the number of chunks
+    #[inline]
+    pub const fn chunk_len(&self) -> usize {
+        self.chunk_len
+    }
+
     /// Returns the bitmask of remaining bits
     #[inline]
     pub fn remainder_bits(&self) -> u64 {

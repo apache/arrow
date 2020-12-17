@@ -17,89 +17,173 @@
 
 //! Defines miscellaneous array kernels.
 
-use crate::array::*;
 use crate::error::Result;
 use crate::record_batch::RecordBatch;
-use std::sync::Arc;
+use crate::{array::*, util::bit_chunk_iterator::BitChunkIterator};
+use std::{iter::Enumerate, sync::Arc};
 
 /// Function that can filter arbitrary arrays
 pub type Filter<'a> = Box<Fn(&ArrayData) -> ArrayData + 'a>;
 
-/// Returns a vector of slices `(start, end)` denoting the slices to be taken
-/// from an array when `filter` is applied.
-/// Note that this disregards the nullability of `filter`.
-fn compute_slices(filter: &BooleanArray) -> (Vec<(usize, usize)>, usize) {
-    let mut slices = Vec::with_capacity(filter.len());
-    let mut filter_count = 0; // the number of selected slots.
-    let mut len = 0; // the len of the current region of selection
-    let mut start = 0; // the start of the current region of selection
-    let mut on_region = false; // whether it currently is in a region of selection
-    let mut chunks = 0; // current number of chunks
-    let all_ones = !0u64;
+#[derive(Debug, PartialEq)]
+enum State {
+    Bits(u64),
+    Chunks,
+    Remainder,
+    Finish,
+}
 
-    let buffer = filter.values();
-    // iterate in chunks of 64 bits
-    let bit_chunks = buffer.bit_chunks(filter.offset(), filter.len());
-    bit_chunks.iter().enumerate().for_each(|(i, mask)| {
-        chunks += 1;
-        if mask == 0 {
-            if on_region {
-                slices.push((start, start + len));
-                filter_count += len;
-                len = 0;
-                on_region = false;
-            }
-        } else if mask == all_ones {
-            if !on_region {
-                start = i * 64;
-                on_region = true;
-            }
-            len += 64;
-        } else {
-            (0..64).for_each(|j| {
-                if (mask & (1 << j)) != 0 {
-                    if !on_region {
-                        start = i * 64 + j;
-                        on_region = true;
-                    }
-                    len += 1;
-                } else if on_region {
-                    slices.push((start, start + len));
-                    filter_count += len;
-                    len = 0;
-                    on_region = false;
+/// An iterator of `(start, end)`, where `[start,end[` is an interval of a booleanArray whose
+/// slots are true. To filter, each interval corresponds to a contiguous region of memory to be
+/// "taken" from an existing array.
+#[derive(Debug)]
+struct SlicesIterator<'a> {
+    iter: Enumerate<BitChunkIterator<'a>>,
+    state: State,
+    filter_count: usize,
+    remainder_mask: u64,
+    remainder_len: usize,
+    chunk_len: usize,
+    len: usize,
+    start: usize,
+    on_region: bool,
+    current_chunk: usize,
+    current_bit: usize,
+}
+
+impl<'a> SlicesIterator<'a> {
+    fn new(filter: &'a BooleanArray) -> Self {
+        let values = &filter.data_ref().buffers()[0];
+
+        // this operation is performed before iteration
+        // because it is fast and allows reserving all the needed memory
+        let filter_count = values.count_set_bits_offset(filter.offset(), filter.len());
+
+        let chunks = values.bit_chunks(filter.offset(), filter.len());
+
+        Self {
+            iter: chunks.iter().enumerate(),
+            state: State::Chunks,
+            filter_count,
+            remainder_len: chunks.remainder_len(),
+            chunk_len: chunks.chunk_len(),
+            remainder_mask: chunks.remainder_bits(),
+            len: 0,
+            start: 0,
+            on_region: false,
+            current_chunk: 0,
+            current_bit: 0,
+        }
+    }
+
+    #[inline]
+    fn current_start(&self) -> usize {
+        self.current_chunk * 64 + self.current_bit
+    }
+
+    #[inline]
+    fn iterate_bits(&mut self, mask: u64, max: usize) -> Option<(usize, usize)> {
+        while self.current_bit < max {
+            if (mask & (1 << self.current_bit)) != 0 {
+                if !self.on_region {
+                    self.start = self.current_start();
+                    self.on_region = true;
                 }
-            })
-        }
-    });
-    let mask = bit_chunks.remainder_bits();
-
-    (0..bit_chunks.remainder_len()).for_each(|j| {
-        if (mask & (1 << j)) != 0 {
-            if !on_region {
-                start = chunks * 64 + j;
-                on_region = true;
+                self.len += 1;
+            } else if self.on_region {
+                let result = (self.start, self.start + self.len);
+                self.len = 0;
+                self.on_region = false;
+                self.current_bit += 1;
+                return Some(result);
             }
-            len += 1;
-        } else if on_region {
-            slices.push((start, start + len));
-            filter_count += len;
-            len = 0;
-            on_region = false;
+            self.current_bit += 1;
         }
-    });
-    if on_region {
-        slices.push((start, start + len));
-        filter_count += len;
-    };
-    // invariant: filter_count is the sum of the lens of all slices
-    (slices, filter_count)
+        self.current_bit = 0;
+        None
+    }
+
+    #[inline]
+    fn iterate_chunks(&mut self) -> Option<(usize, usize)> {
+        while let Some((i, mask)) = self.iter.next() {
+            self.current_chunk = i;
+            if mask == 0 {
+                if self.on_region {
+                    let result = (self.start, self.start + self.len);
+                    self.len = 0;
+                    self.on_region = false;
+                    return Some(result);
+                }
+            } else if mask == 18446744073709551615u64 {
+                if !self.on_region {
+                    self.start = self.current_start();
+                    self.on_region = true;
+                }
+                self.len += 64;
+            } else {
+                // there is a chunk that has a non-trivial mask => iterate over bits.
+                self.state = State::Bits(mask);
+                return None;
+            }
+        }
+        // no more chunks => start iterating over the remainder
+        self.current_chunk = self.chunk_len;
+        self.state = State::Remainder;
+        None
+    }
+}
+
+impl<'a> Iterator for SlicesIterator<'a> {
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.state {
+            State::Chunks => {
+                match self.iterate_chunks() {
+                    None => {
+                        // iterating over chunks does not yield any new slice => continue to the next
+                        self.current_bit = 0;
+                        self.next()
+                    }
+                    other => other,
+                }
+            }
+            State::Bits(mask) => {
+                match self.iterate_bits(mask, 64) {
+                    None => {
+                        // iterating over bits does not yield any new slice => change back
+                        // to chunks and continue to the next
+                        self.state = State::Chunks;
+                        self.next()
+                    }
+                    other => other,
+                }
+            }
+            State::Remainder => {
+                match self.iterate_bits(self.remainder_mask, self.remainder_len) {
+                    None => {
+                        self.state = State::Finish;
+                        if self.on_region {
+                            Some((self.start, self.start + self.len))
+                        } else {
+                            None
+                        }
+                    }
+                    other => other,
+                }
+            }
+            State::Finish => None,
+        }
+    }
 }
 
 /// Returns a function with pre-computed values that can be used to filter arbitrary arrays,
 /// thereby improving performance when filtering multiple arrays
 pub fn build_filter<'a>(filter: &'a BooleanArray) -> Result<Filter<'a>> {
-    let (chunks, filter_count) = compute_slices(filter);
+    let iter = SlicesIterator::new(filter);
+    let filter_count = iter.filter_count;
+    let chunks = iter.collect::<Vec<_>>();
+
     Ok(Box::new(move |array: &ArrayData| {
         let mut mutable = MutableArrayData::new(vec![array], false, filter_count);
         chunks
@@ -111,12 +195,11 @@ pub fn build_filter<'a>(filter: &'a BooleanArray) -> Result<Filter<'a>> {
 
 /// Returns a new array, containing only the elements matching the filter.
 pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
-    let (chunks, filter_count) = compute_slices(filter);
+    let iter = SlicesIterator::new(filter);
 
-    let mut mutable = MutableArrayData::new(vec![array.data_ref()], false, filter_count);
-    chunks
-        .iter()
-        .for_each(|(start, end)| mutable.extend(0, *start, *end));
+    let mut mutable =
+        MutableArrayData::new(vec![array.data_ref()], false, iter.filter_count);
+    iter.for_each(|(start, end)| mutable.extend(0, start, end));
     let data = mutable.freeze();
     Ok(make_array(Arc::new(data)))
 }
@@ -442,5 +525,44 @@ mod tests {
             .build();
 
         assert_eq!(&make_array(expected), &result);
+    }
+
+    #[test]
+    fn test_slice_iterator_bits() {
+        let filter_values = (0..64).map(|i| i == 1).collect::<Vec<bool>>();
+        let filter = BooleanArray::from(filter_values);
+
+        let iter = SlicesIterator::new(&filter);
+        let filter_count = iter.filter_count;
+        let chunks = iter.collect::<Vec<_>>();
+
+        assert_eq!(chunks, vec![(1, 2)]);
+        assert_eq!(filter_count, 1);
+    }
+
+    #[test]
+    fn test_slice_iterator_bits1() {
+        let filter_values = (0..64).map(|i| i != 1).collect::<Vec<bool>>();
+        let filter = BooleanArray::from(filter_values);
+
+        let iter = SlicesIterator::new(&filter);
+        let filter_count = iter.filter_count;
+        let chunks = iter.collect::<Vec<_>>();
+
+        assert_eq!(chunks, vec![(0, 1), (2, 64)]);
+        assert_eq!(filter_count, 64 - 1);
+    }
+
+    #[test]
+    fn test_slice_iterator_chunk_and_bits() {
+        let filter_values = (0..127).map(|i| i % 62 != 0).collect::<Vec<bool>>();
+        let filter = BooleanArray::from(filter_values);
+
+        let iter = SlicesIterator::new(&filter);
+        let filter_count = iter.filter_count;
+        let chunks = iter.collect::<Vec<_>>();
+
+        assert_eq!(chunks, vec![(1, 62), (63, 124), (125, 127)]);
+        assert_eq!(filter_count, 61 + 61 + 2);
     }
 }
