@@ -145,7 +145,11 @@ fn min_boolean(array: &BooleanArray) -> Option<bool> {
     }
 
     // Note the min bool is false (0), so short circuit as soon as we see it
-    array.iter().find(|&b| b == Some(false)).flatten()
+    array
+        .iter()
+        .find(|&b| b == Some(false))
+        .flatten()
+        .or(Some(true))
 }
 
 /// Returns the maximum value in the boolean array
@@ -156,7 +160,11 @@ fn max_boolean(array: &BooleanArray) -> Option<bool> {
     }
 
     // Note the max bool is true (1), so short circuit as soon as we see it
-    array.iter().find(|&b| b == Some(true)).flatten()
+    array
+        .iter()
+        .find(|&b| b == Some(true))
+        .flatten()
+        .or(Some(false))
 }
 
 /// Returns the sum of values in the array.
@@ -928,6 +936,25 @@ mod tests {
         let a =
             BooleanArray::from(vec![Some(false), Some(true), None, Some(false), None]);
         assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_smaller() {
+        let a = BooleanArray::from(vec![Some(false)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(false), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(false)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(false), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(true)]);
+        assert_eq!(Some(true), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![Some(true)]);
+        assert_eq!(Some(true), min_boolean(&a));
         assert_eq!(Some(true), max_boolean(&a));
     }
 }
