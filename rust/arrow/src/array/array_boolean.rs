@@ -78,8 +78,8 @@ impl BooleanArray {
     /// Returns a `Buffer` holding all the values of this array.
     ///
     /// Note this doesn't take the offset of this array into account.
-    pub fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
+    pub fn values(&self) -> &Buffer {
+        &self.data.buffers()[0]
     }
 
     /// Returns the boolean value at index `i`.
@@ -245,7 +245,7 @@ mod tests {
     fn test_boolean_array_from_vec() {
         let buf = Buffer::from([10_u8]);
         let arr = BooleanArray::from(vec![false, true, false, true]);
-        assert_eq!(buf, arr.values());
+        assert_eq!(&buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(0, arr.null_count());
@@ -260,7 +260,7 @@ mod tests {
     fn test_boolean_array_from_vec_option() {
         let buf = Buffer::from([10_u8]);
         let arr = BooleanArray::from(vec![Some(false), Some(true), None, Some(true)]);
-        assert_eq!(buf, arr.values());
+        assert_eq!(&buf, arr.values());
         assert_eq!(4, arr.len());
         assert_eq!(0, arr.offset());
         assert_eq!(1, arr.null_count());
@@ -288,7 +288,7 @@ mod tests {
             .add_buffer(buf)
             .build();
         let arr = BooleanArray::from(data);
-        assert_eq!(buf2, arr.values());
+        assert_eq!(&buf2, arr.values());
         assert_eq!(5, arr.len());
         assert_eq!(2, arr.offset());
         assert_eq!(0, arr.null_count());
