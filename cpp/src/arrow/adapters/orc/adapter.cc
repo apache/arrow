@@ -542,7 +542,7 @@ class ORCFileWriter::Impl {
     return Status::OK();
   }
   Status Open(const std::shared_ptr<Schema>& schema,
-              std::unique_ptr<liborc::OutputStream>& outStream,
+              ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
               const std::shared_ptr<liborc::WriterOptions>& options,
               const std::shared_ptr<ArrowWriterOptions>& arrow_options) {
     outStream_ = std::move(outStream);
@@ -619,7 +619,7 @@ Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
   return Status::OK();
 }
 Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<liborc::OutputStream>& outStream,
+                           ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
                            const std::shared_ptr<liborc::WriterOptions>& options,
                            const std::shared_ptr<ArrowWriterOptions>& arrow_options,
                            std::unique_ptr<ORCFileWriter>* writer) {

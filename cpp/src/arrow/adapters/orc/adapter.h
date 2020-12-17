@@ -184,7 +184,7 @@ class ARROW_EXPORT ORCFileWriter {
                      std::unique_ptr<ORCFileWriter>* writer);
 
   static Status Open(const std::shared_ptr<Schema>& schema,
-                     std::unique_ptr<liborc::OutputStream>& outStream,
+                     ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
                      const std::shared_ptr<liborc::WriterOptions>& options,
                      const std::shared_ptr<ArrowWriterOptions>& arrow_options,
                      std::unique_ptr<ORCFileWriter>* writer);
