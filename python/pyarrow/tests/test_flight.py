@@ -546,16 +546,14 @@ class HeaderAuthServerMiddleware(ServerMiddleware):
 
 class HeaderAuthFlightServer(FlightServerBase):
     """A Flight server that tests with basic token authentication. """
-    def __init__(self, auth_handler, middleware=None):
-        print("[HeaderAuthFlightServer] - entering constructor")
-        super().__init__(None, auth_handler, None, None, None, middleware)
-        print("[HeaderAuthFlightServer] - exciting constructor")
-
     def do_action(self, context, criteria):
+        print("[HeaderAuthFlightServer] - do_action")
         middleware = context.get_middleware('auth')
         if middleware:
+            auth_header = middleware.sending_headers()
+            values = auth_header[0].split(' ')
             # TODO: Doesn't get called?
-            return [middleware.token.encode("utf-8")]
+            yield [values[1].encode("utf-8")]
         raise flight.FlightUnauthenticatedError('No token auth middleware found.')
 
 class ArbitraryHeadersServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -575,10 +573,6 @@ class ArbitraryHeadersServerMiddleware(ServerMiddleware):
 
 class ArbitraryHeadersFlightServer(FlightServerBase):
     """A Flight server that tests multiple arbitrary headers. """
-    def __init__(self, auth_handler, middleware=None):
-        print("[ArbitraryHeadersFlightServer] - in constructor")
-        super().__init__(None, auth_handler, None, None, None, middleware)
-
     def do_action(self, context, criteria):
         print("[ArbitraryHeadersFlightServer] - in do_action")
         middleware = context.get_middleware("arbitrary-headers")
