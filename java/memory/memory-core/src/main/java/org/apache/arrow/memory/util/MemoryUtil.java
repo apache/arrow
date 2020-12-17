@@ -132,7 +132,7 @@ public class MemoryUtil {
   }
 
   /**
-   * Given a {@link ByteBuf}, gets the address the underlying memory space.
+   * Given a {@link ByteBuffer}, gets the address the underlying memory space.
    *
    * @param buf the byte buffer.
    * @return address of the underlying memory.

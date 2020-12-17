@@ -53,6 +53,8 @@ public class CompressionUtil {
     switch (compressionType) {
       case NoCompressionCodec.COMPRESSION_TYPE:
         return NoCompressionCodec.INSTANCE;
+      case CompressionType.LZ4_FRAME:
+        return new Lz4CompressionCodec();
       default:
         throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }
