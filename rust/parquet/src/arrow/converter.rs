@@ -97,8 +97,8 @@ impl DecimalArrayConverter {
     }
 }
 
-impl Converter<Vec<Option<ByteArray>>, DecimalArray> for DecimalArrayConverter {
-    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<DecimalArray> {
+impl Converter<Vec<Option<FixedLenByteArray>>, DecimalArray> for DecimalArrayConverter {
+    fn convert(&self, source: Vec<Option<FixedLenByteArray>>) -> Result<DecimalArray> {
         let mut builder = DecimalBuilder::new(
             source.len(),
             self.precision as usize,
@@ -329,7 +329,7 @@ pub type FixedLenBinaryConverter = ArrayRefConverter<
 >;
 
 pub type DecimalConverter =
-    ArrayRefConverter<Vec<Option<ByteArray>>, DecimalArray, DecimalArrayConverter>;
+    ArrayRefConverter<Vec<Option<FixedLenByteArray>>, DecimalArray, DecimalArrayConverter>;
 
 pub struct FromConverter<S, T> {
     _source: PhantomData<S>,
