@@ -121,7 +121,7 @@ class CastMetaFunction : public MetaFunction {
 const FunctionDoc struct_doc{"Wrap Arrays into a StructArray",
                              ("Names of the StructArray's fields are\n"
                               "specified through StructOptions."),
-                             {},
+                             {"*args"},
                              "StructOptions"};
 
 Result<ValueDescr> StructResolve(KernelContext* ctx,
