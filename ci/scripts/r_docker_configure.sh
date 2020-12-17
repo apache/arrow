@@ -43,10 +43,13 @@ fi
 # tooling.
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
   if [ "`which dnf`" ]; then
+    dnf install -y centos-release-scl
     dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
   else
+    yum install -y centos-release-scl
     yum install -y "devtoolset-$DEVTOOLSET_VERSION"
   fi
+  scl enable devtoolset-8 bash
 fi
 
 # Install openssl for S3 support
