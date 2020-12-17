@@ -686,14 +686,15 @@ def dataframe_to_serialized_dict(frame):
 
 def serialized_dict_to_dataframe(data):
     import pandas.core.internals as _int
-    reconstructed_blocks = [_reconstruct_block(block)
+    ndim = len(data['axes'])
+    reconstructed_blocks = [_reconstruct_block(block, ndim=ndim)
                             for block in data['blocks']]
 
     block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
     return _pandas_api.data_frame(block_mgr)
 
 
-def _reconstruct_block(item, columns=None, extension_columns=None):
+def _reconstruct_block(item, ndim, columns=None, extension_columns=None):
     """
     Construct a pandas Block from the `item` dictionary coming from pyarrow's
     serialization or returned by arrow::python::ConvertTableToPandas.
@@ -709,6 +710,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         {'block': np.ndarray of values, 'placement': pandas block placement}.
         Additional keys are present for other types (dictionary, timezone,
         object).
+    ndim : int
+        Dimension of the Block under construction.
     columns :
         Column names of the table being constructed, used for extension types
     extension_columns : dict
@@ -730,15 +733,18 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
             block_arr, categories=item['dictionary'],
             ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
-                                klass=_int.CategoricalBlock)
+                                klass=_int.CategoricalBlock, ndim=ndim)
     elif 'timezone' in item:
         dtype = make_datetimetz(item['timezone'])
+        cls = dtype.construct_array_type()
+        block_arr = cls._simple_new(block_arr, dtype=dtype)
         block = _int.make_block(block_arr, placement=placement,
-                                klass=_int.DatetimeTZBlock,
-                                dtype=dtype)
+                                klass=_int.DatetimeTZBlock)
     elif 'object' in item:
-        block = _int.make_block(builtin_pickle.loads(block_arr),
-                                placement=placement, klass=_int.ObjectBlock)
+        block_arr = builtin_pickle.loads(block_arr)
+        block = _int.make_block(block_arr,
+                                placement=placement,
+                                klass=_int.ObjectBlock, ndim=ndim)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -750,9 +756,9 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
                              "to a pandas ExtensionArray")
         pd_ext_arr = pandas_dtype.__from_arrow__(arr)
         block = _int.make_block(pd_ext_arr, placement=placement,
-                                klass=_int.ExtensionBlock)
+                                klass=_int.ExtensionBlock, ndim=ndim)
     else:
-        block = _int.make_block(block_arr, placement=placement)
+        block = _int.make_block(block_arr, placement=placement, ndim=ndim)
 
     return block
 
@@ -1130,7 +1136,7 @@ def _table_to_blocks(options, block_table, categories, extension_columns):
     columns = block_table.column_names
     result = pa.lib.table_to_blocks(options, block_table, categories,
                                     list(extension_columns.keys()))
-    return [_reconstruct_block(item, columns, extension_columns)
+    return [_reconstruct_block(item, 2, columns, extension_columns)
             for item in result]
 
 
