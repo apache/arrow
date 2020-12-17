@@ -921,9 +921,6 @@ mod tests {
 
     #[test]
     fn test_boolean_min_max() {
-        // since implementation treats [0] specially, test arrays
-        // starting with each of Some(true), Some(false) and None
-
         let a = BooleanArray::from(vec![Some(true), Some(true), None, Some(false), None]);
         assert_eq!(Some(false), min_boolean(&a));
         assert_eq!(Some(true), max_boolean(&a));
@@ -932,7 +929,6 @@ mod tests {
         assert_eq!(Some(false), min_boolean(&a));
         assert_eq!(Some(true), max_boolean(&a));
 
-        // since implementation treats [0] specially, also test starting with Some(false) and None
         let a =
             BooleanArray::from(vec![Some(false), Some(true), None, Some(false), None]);
         assert_eq!(Some(false), min_boolean(&a));
