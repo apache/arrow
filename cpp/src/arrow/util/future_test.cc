@@ -367,13 +367,15 @@ TEST(FutureTest, StressCallback) {
     std::thread callback_adder([&] {
       auto test_thread = std::this_thread::get_id();
       while (!finished.load()) {
-        fut.AddCallback([&test_thread, &count_finished_immediately, &count_finished_deferred] (const Result<arrow::Future<arrow::detail::Empty>::ValueType>& result) {
-          if (std::this_thread::get_id() == test_thread) {
-            count_finished_immediately++;
-          } else {
-            count_finished_deferred++;
-          }
-        });
+        fut.AddCallback(
+            [&test_thread, &count_finished_immediately, &count_finished_deferred](
+                const Result<arrow::Future<arrow::detail::Empty>::ValueType>& result) {
+              if (std::this_thread::get_id() == test_thread) {
+                count_finished_immediately++;
+              } else {
+                count_finished_deferred++;
+              }
+            });
         callbacks_added++;
       }
     });
