@@ -35,7 +35,7 @@ use crate::file::{metadata::KeyValue, properties::WriterProperties};
 use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 
 /// Convert Parquet schema to Arrow schema including optional metadata.
-/// Attempts to decode any existing Arrow shcema metadata, falling back
+/// Attempts to decode any existing Arrow schema metadata, falling back
 /// to converting the Parquet schema column-wise
 pub fn parquet_to_arrow_schema(
     parquet_schema: &SchemaDescriptor,
@@ -184,12 +184,20 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
             } else {
                 bytes.as_slice()
             };
-            if let Ok(message) = arrow::ipc::root_as_message(slice) {
-                message
+            match arrow::ipc::root_as_message(slice) {
+                Ok(message) => message
                     .header_as_schema()
-                    .map(arrow::ipc::convert::fb_to_schema)
-            } else {
-                None
+                    .map(arrow::ipc::convert::fb_to_schema),
+                Err(err) => {
+                    // The flatbuffers implementation returns an error on verification error.
+                    // TODO: return error to caller?
+                    eprintln!(
+                        "Unable to get root as message stored in {}: {:?}",
+                        super::ARROW_SCHEMA_META_KEY,
+                        err
+                    );
+                    None
+                }
             }
         }
         Err(err) => {

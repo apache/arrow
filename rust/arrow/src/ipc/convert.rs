@@ -18,6 +18,7 @@
 //! Utilities for converting between IPC types and native Arrow types
 
 use crate::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
+use crate::error::{ArrowError, Result};
 use crate::ipc;
 
 use flatbuffers::{
@@ -123,11 +124,19 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
 }
 
 /// Deserialize an IPC message into a schema
-pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
+pub fn schema_from_bytes(bytes: &[u8]) -> Result<Schema> {
     if let Ok(ipc) = ipc::root_as_message(bytes) {
-        ipc.header_as_schema().map(fb_to_schema)
+        if let Some(schema) = ipc.header_as_schema().map(fb_to_schema) {
+            Ok(schema)
+        } else {
+            Err(ArrowError::IoError(
+                "Unable to get head as schema".to_string(),
+            ))
+        }
     } else {
-        None
+        Err(ArrowError::IoError(
+            "Unable to get root as message".to_string(),
+        ))
     }
 }
 

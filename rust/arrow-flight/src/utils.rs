@@ -85,10 +85,11 @@ pub fn flight_data_from_arrow_schema(
 impl TryFrom<&FlightData> for Schema {
     type Error = ArrowError;
     fn try_from(data: &FlightData) -> Result<Self> {
-        convert::schema_from_bytes(&data.data_header[..]).ok_or_else(|| {
-            ArrowError::ParseError(
-                "Unable to convert flight data to Arrow schema".to_string(),
-            )
+        convert::schema_from_bytes(&data.data_header[..]).map_err(|err| {
+            ArrowError::ParseError(format!(
+                "Unable to convert flight data to Arrow schema: {}",
+                err
+            ))
         })
     }
 }
@@ -99,10 +100,11 @@ impl TryFrom<&FlightData> for Schema {
 impl TryFrom<&SchemaResult> for Schema {
     type Error = ArrowError;
     fn try_from(data: &SchemaResult) -> Result<Self> {
-        convert::schema_from_bytes(&data.schema[..]).ok_or_else(|| {
-            ArrowError::ParseError(
-                "Unable to convert schema result to Arrow schema".to_string(),
-            )
+        convert::schema_from_bytes(&data.schema[..]).map_err(|err| {
+            ArrowError::ParseError(format!(
+                "Unable to convert schema result to Arrow schema: {}",
+                err
+            ))
         })
     }
 }
@@ -114,8 +116,13 @@ pub fn flight_data_to_arrow_batch(
 ) -> Option<Result<RecordBatch>> {
     // check that the data_header is a record batch message
     let res = arrow::ipc::root_as_message(&data.data_header[..]);
-    if res.is_err() {
-        return None;
+
+    // Catch error.
+    if let Err(err) = res {
+        return Some(Err(ArrowError::ParseError(format!(
+            "Unable to get root as message: {:?}",
+            err
+        ))));
     }
 
     let message = res.unwrap();
