@@ -29,13 +29,13 @@ fn hash_(data: &[u8], seed: u32) -> u32 {
         if is_x86_feature_detected!("sse4.2") {
             crc32_hash(data, seed)
         } else {
-            murmur_hash2_64a(data, seed as u64) as u32
+            wyhash::wyhash(data, seed.into()) as u32
         }
     }
 
     #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
     unsafe {
-        murmur_hash2_64a(data, seed as u64) as u32
+        wyhash::wyhash(data, seed.into()) as u32
     }
 }
 

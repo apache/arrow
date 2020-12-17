@@ -41,6 +41,7 @@ chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", optional = true }
 base64 = { version = "*", optional = true }
+wyhash = "0.4"
 
 [dev-dependencies]
 rand = "0.7"
