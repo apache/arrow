@@ -110,6 +110,9 @@ PR be sure to run the following and check for lint issues:
 cargo +stable fmt --all -- --check
 ```
 
+We can use "git pre-commit hook" to automate this process: copy or soft link [pre-commit.sh](pre-commit.sh)
+as file `.git/hooks/pre-commit`.
+
 ## Clippy Lints
 
 We recommend using `clippy` for checking lints during development. While we do not yet enforce `clippy` checks, we recommend not introducing new `clippy` errors or warnings.
