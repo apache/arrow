@@ -78,6 +78,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -91,6 +92,7 @@ using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
 
 using internal::ConnectRetryStrategy;
+using internal::DetectS3Backend;
 using internal::ErrorToStatus;
 using internal::FromAwsDatetime;
 using internal::FromAwsString;
@@ -98,6 +100,7 @@ using internal::IsAlreadyExists;
 using internal::IsNotFound;
 using internal::OutcomeToResult;
 using internal::OutcomeToStatus;
+using internal::S3Backend;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
@@ -1224,6 +1227,7 @@ class S3FileSystem::Impl {
  public:
   ClientBuilder builder_;
   std::unique_ptr<Aws::S3::S3Client> client_;
+  util::optional<S3Backend> backend_;
 
   const int32_t kListObjectsMaxKeys = 1000;
   // At most 1000 keys per multiple-delete request
@@ -1239,6 +1243,13 @@ class S3FileSystem::Impl {
 
   std::string region() const {
     return std::string(FromAwsString(builder_.config().region));
+  }
+
+  template <typename Error>
+  void SaveBackend(const Aws::Client::AWSError<Error>& error) {
+    if (!backend_ || *backend_ == S3Backend::Other) {
+      backend_ = DetectS3Backend(error);
+    }
   }
 
   // Create a bucket.  Successful if bucket already exists.
@@ -1303,12 +1314,25 @@ class S3FileSystem::Impl {
   Status IsEmptyDirectory(const std::string& bucket, const std::string& key, bool* out) {
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
-    req.SetKey(ToAwsString(key) + kSep);
+    if (backend_ && *backend_ == S3Backend::Minio) {
+      // Minio wants a slash at the end, Amazon doesn't
+      req.SetKey(ToAwsString(key) + kSep);
+    } else {
+      req.SetKey(ToAwsString(key));
+    }
 
     auto outcome = client_->HeadObject(req);
     if (outcome.IsSuccess()) {
       *out = true;
       return Status::OK();
+    }
+    if (!backend_) {
+      SaveBackend(outcome.GetError());
+      DCHECK(backend_);
+      if (*backend_ == S3Backend::Minio) {
+        // Try again with separator-terminated key (see above)
+        return IsEmptyDirectory(bucket, key, out);
+      }
     }
     if (IsNotFound(outcome.GetError())) {
       *out = false;
