@@ -110,7 +110,7 @@ RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
 RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader,
   public = list(
     batches = function() ipc___RecordBatchStreamReader__batches(self),
-    read_table = function() Table__from_RecordBatchStreamReader(self)
+    read_table = function() Table__from_RecordBatchReader(self)
   )
 )
 RecordBatchStreamReader$create <- function(stream) {
@@ -136,7 +136,7 @@ RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
     batches = function() {
       ipc___RecordBatchFileReader__batches(self)
     },
-    read_table = function() Table__from_RecordBatchFileReader(self)
+    read_table = function() Table__from_RecordBatchReader(self)
   ),
   active = list(
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
