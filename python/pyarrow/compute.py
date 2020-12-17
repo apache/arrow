@@ -62,7 +62,7 @@ def _get_arg_names(func):
             arg_names = ["left", "right"]
         else:
             raise NotImplementedError(
-                "unsupported arity: {}".format(func.arity))
+                f"unsupported arity: {func.arity} (function: {func.name})")
 
     return arg_names
 
