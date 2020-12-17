@@ -322,27 +322,96 @@ pub(super) mod tests {
         );
     }
 
-    fn build_list<P, S>(
-        list_data_type: DataType,
-        values: PrimitiveArray<P>,
-        offsets: Vec<S>,
+    pub(crate) fn build_generic_list<S, T>(
+        data: Vec<Option<Vec<T::Native>>>,
+        list_data_type: &DataType,
     ) -> GenericListArray<S>
     where
-        P: ArrowPrimitiveType,
-        S: OffsetSizeTrait,
+        S: OffsetSizeTrait + 'static,
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
-        let value_data = values.data();
-        let value_offsets = Buffer::from(&offsets[..].to_byte_slice());
-        let list_data = ArrayData::builder(list_data_type)
-            .len(offsets.len() - 1)
+        let data = data
+            .into_iter()
+            .map(|subarray| {
+                subarray.map(|item| {
+                    item.into_iter()
+                        .map(Some)
+                        .collect::<Vec<Option<T::Native>>>()
+                })
+            })
+            .collect();
+        build_generic_list_nullable(data, list_data_type)
+    }
+
+    pub(crate) fn build_generic_list_nullable<S, T>(
+        data: Vec<Option<Vec<Option<T::Native>>>>,
+        list_data_type: &DataType,
+    ) -> GenericListArray<S>
+    where
+        S: OffsetSizeTrait + 'static,
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        use std::any::TypeId;
+
+        let mut offset = vec![0];
+        let mut values = vec![];
+
+        for array in data {
+            if let Some(mut array) = array {
+                values.append(&mut array);
+            }
+            offset.push(values.len() as i64);
+        }
+        let num_item = offset.len() - 1;
+
+        let value_data = PrimitiveArray::<T>::from(values).data();
+        let value_offsets = if TypeId::of::<S>() == TypeId::of::<i32>() {
+            Buffer::from(
+                offset
+                    .into_iter()
+                    .map(|x| x as i32)
+                    .collect::<Vec<i32>>()
+                    .as_slice()
+                    .to_byte_slice(),
+            )
+        } else if TypeId::of::<S>() == TypeId::of::<i64>() {
+            Buffer::from(offset.as_slice().to_byte_slice())
+        } else {
+            unreachable!()
+        };
+
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(num_item)
             .add_buffer(value_offsets)
             .add_child_data(value_data)
             .build();
-
         GenericListArray::<S>::from(list_data)
     }
 
     pub(crate) fn build_fixed_size_list<T>(
+        data: Vec<Option<Vec<T::Native>>>,
+        length: <Int32Type as ArrowPrimitiveType>::Native,
+    ) -> FixedSizeListArray
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let data = data
+            .into_iter()
+            .map(|subarray| {
+                subarray.map(|item| {
+                    item.into_iter()
+                        .map(Some)
+                        .collect::<Vec<Option<T::Native>>>()
+                })
+            })
+            .collect();
+        build_fixed_size_list_nullable(data, length)
+    }
+
+    pub(crate) fn build_fixed_size_list_nullable<T>(
         list_values: Vec<Option<Vec<Option<T::Native>>>>,
         length: <Int32Type as ArrowPrimitiveType>::Native,
     ) -> FixedSizeListArray
@@ -391,10 +460,13 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_list() {
-        let list = build_list(
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i32, 2i32, 5i32, 10i32],
+        let list = build_generic_list::<i32, Int32Type>(
+            vec![
+                Some(vec![0, 1]),
+                Some(vec![2, 3, 4]),
+                Some(vec![5, 6, 7, 8, 9]),
+            ],
+            &DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
         );
         let indices = UInt32Array::from(vec![2, 0]);
 
@@ -406,10 +478,13 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_large_list() {
-        let list = build_list(
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i64, 2i64, 5i64, 10i64],
+        let list = build_generic_list::<i64, Int32Type>(
+            vec![
+                Some(vec![0, 1]),
+                Some(vec![2, 3, 4]),
+                Some(vec![5, 6, 7, 8, 9]),
+            ],
+            &DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
         );
         let indices = UInt32Array::from(vec![2, 0]);
 
@@ -422,7 +497,7 @@ pub(super) mod tests {
 
     #[test]
     fn test_take_value_index_from_fixed_list() {
-        let list = build_fixed_size_list::<Int32Type>(
+        let list = build_fixed_size_list_nullable::<Int32Type>(
             vec![
                 Some(vec![Some(1), Some(2), None]),
                 Some(vec![Some(4), None, Some(6)]),

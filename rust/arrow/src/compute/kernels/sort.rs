@@ -720,7 +720,9 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::buffer::Buffer;
+    use crate::compute::util::tests::{
+        build_fixed_size_list_nullable, build_generic_list_nullable,
+    };
     use std::convert::TryFrom;
     use std::iter::FromIterator;
     use std::sync::Arc;
@@ -830,103 +832,23 @@ mod tests {
         assert_eq!(sorted_strings, expected)
     }
 
-    fn make_var_sized_list_array<S, T>(
-        data: Vec<Option<Vec<T::Native>>>,
-        list_data_type: &DataType,
-    ) -> Arc<GenericListArray<S>>
-    where
-        S: OffsetSizeTrait + 'static,
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
-    {
-        use std::any::TypeId;
-
-        let mut offset = vec![0];
-        let mut values = vec![];
-
-        for array in data {
-            if let Some(mut array) = array {
-                values.append(&mut array);
-            }
-            offset.push(values.len() as i64);
-        }
-        let num_item = offset.len() - 1;
-
-        let value_data = ArrayData::builder(T::DATA_TYPE)
-            .len(values.len())
-            .add_buffer(Buffer::from(values.as_slice().to_byte_slice()))
-            .build();
-        let value_offsets = if TypeId::of::<S>() == TypeId::of::<i32>() {
-            Buffer::from(
-                offset
-                    .into_iter()
-                    .map(|x| x as i32)
-                    .collect::<Vec<i32>>()
-                    .as_slice()
-                    .to_byte_slice(),
-            )
-        } else if TypeId::of::<S>() == TypeId::of::<i64>() {
-            Buffer::from(offset.as_slice().to_byte_slice())
-        } else {
-            unreachable!()
-        };
-
-        let list_data = ArrayData::builder(list_data_type.clone())
-            .len(num_item)
-            .add_buffer(value_offsets)
-            .add_child_data(value_data)
-            .build();
-        Arc::new(GenericListArray::<S>::from(list_data))
-    }
-
-    fn make_fixed_sized_list_array<T>(
-        data: Vec<Option<Vec<T::Native>>>,
-    ) -> Arc<FixedSizeListArray>
-    where
-        T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
-    {
-        let mut values = vec![];
-        let mut item_len = 0;
-        for array in data {
-            if let Some(mut array) = array {
-                if item_len == 0 {
-                    item_len = array.len();
-                } else {
-                    assert_eq!(item_len, array.len());
-                }
-                values.append(&mut array);
-            }
-        }
-        let value_data = ArrayData::builder(T::DATA_TYPE)
-            .len(values.len())
-            .add_buffer(Buffer::from(values.as_slice().to_byte_slice()))
-            .build();
-        let list_data_type = DataType::FixedSizeList(
-            Box::new(Field::new("item", DataType::Int32, false)),
-            item_len as i32,
-        );
-        let list_data = ArrayData::builder(list_data_type)
-            .len(values.len().checked_div_euclid(item_len).unwrap())
-            .add_child_data(value_data)
-            .build();
-        Arc::new(FixedSizeListArray::from(list_data))
-    }
-
     fn test_sort_list_arrays<T>(
-        data: Vec<Option<Vec<T::Native>>>,
+        data: Vec<Option<Vec<Option<T::Native>>>>,
         options: Option<SortOptions>,
-        expected_data: Vec<Option<Vec<T::Native>>>,
-        is_fixed_sized: bool,
+        expected_data: Vec<Option<Vec<Option<T::Native>>>>,
+        fixed_length: Option<i32>,
     ) where
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         // for FixedSizedList
-        if is_fixed_sized {
-            let input = make_fixed_sized_list_array(data.clone());
+        if let Some(length) = fixed_length {
+            let input = Arc::new(build_fixed_size_list_nullable(data.clone(), length));
             let sorted = sort(&(input as ArrayRef), options).unwrap();
-            let expected = make_fixed_sized_list_array(expected_data.clone()) as ArrayRef;
+            let expected = Arc::new(build_fixed_size_list_nullable(
+                expected_data.clone(),
+                length,
+            )) as ArrayRef;
 
             assert_eq!(&sorted, &expected);
         }
@@ -934,21 +856,28 @@ mod tests {
         // for List
         let list_data_type =
             DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
-        let input = make_var_sized_list_array::<i32, T>(data.clone(), &list_data_type);
+        let input = Arc::new(build_generic_list_nullable::<i32, T>(
+            data.clone(),
+            &list_data_type,
+        ));
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected =
-            make_var_sized_list_array::<i32, T>(expected_data.clone(), &list_data_type)
-                as ArrayRef;
+        let expected = Arc::new(build_generic_list_nullable::<i32, T>(
+            expected_data.clone(),
+            &list_data_type,
+        )) as ArrayRef;
 
         assert_eq!(&sorted, &expected);
 
         // for LargeList
         let list_data_type =
             DataType::LargeList(Box::new(Field::new("item", DataType::Int64, false)));
-        let input = make_var_sized_list_array::<i64, T>(data, &list_data_type);
+        let input =
+            Arc::new(build_generic_list_nullable::<i64, T>(data, &list_data_type));
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected = make_var_sized_list_array::<i64, T>(expected_data, &list_data_type)
-            as ArrayRef;
+        let expected = Arc::new(build_generic_list_nullable::<i64, T>(
+            expected_data,
+            &list_data_type,
+        )) as ArrayRef;
 
         assert_eq!(&sorted, &expected);
     }
@@ -1582,35 +1511,45 @@ mod tests {
     #[test]
     fn test_sort_list() {
         test_sort_list_arrays::<Int8Type>(
-            vec![Some(vec![1]), Some(vec![4]), Some(vec![2]), Some(vec![3])],
+            vec![
+                Some(vec![Some(1)]),
+                Some(vec![Some(4)]),
+                Some(vec![Some(2)]),
+                Some(vec![Some(3)]),
+            ],
             Some(SortOptions {
                 descending: false,
                 nulls_first: false,
             }),
-            vec![Some(vec![1]), Some(vec![2]), Some(vec![3]), Some(vec![4])],
-            true,
+            vec![
+                Some(vec![Some(1)]),
+                Some(vec![Some(2)]),
+                Some(vec![Some(3)]),
+                Some(vec![Some(4)]),
+            ],
+            Some(1),
         );
 
         test_sort_list_arrays::<Int32Type>(
             vec![
-                Some(vec![1, 0]),
-                Some(vec![4, 3, 2, 1]),
-                Some(vec![2, 3, 4]),
-                Some(vec![3, 3, 3, 3]),
-                Some(vec![1, 1]),
+                Some(vec![Some(1), Some(0)]),
+                Some(vec![Some(4), Some(3), Some(2), Some(1)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), Some(3), Some(3)]),
+                Some(vec![Some(1), Some(1)]),
             ],
             Some(SortOptions {
                 descending: false,
                 nulls_first: false,
             }),
             vec![
-                Some(vec![1, 0]),
-                Some(vec![1, 1]),
-                Some(vec![2, 3, 4]),
-                Some(vec![3, 3, 3, 3]),
-                Some(vec![4, 3, 2, 1]),
+                Some(vec![Some(1), Some(0)]),
+                Some(vec![Some(1), Some(1)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), Some(3), Some(3)]),
+                Some(vec![Some(4), Some(3), Some(2), Some(1)]),
             ],
-            false,
+            None,
         );
     }
 

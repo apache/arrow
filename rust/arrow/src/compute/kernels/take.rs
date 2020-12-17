@@ -617,7 +617,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compute::util::tests::build_fixed_size_list;
+    use crate::compute::util::tests::build_fixed_size_list_nullable;
 
     fn test_take_boolean_arrays(
         data: Vec<Option<bool>>,
@@ -1158,12 +1158,12 @@ mod tests {
         let indices = UInt32Array::from(indices);
 
         let input_array: ArrayRef =
-            Arc::new(build_fixed_size_list::<T>(input_data, length));
+            Arc::new(build_fixed_size_list_nullable::<T>(input_data, length));
 
         let output = take_fixed_size_list(&input_array, &indices, length as u32).unwrap();
 
         let expected: ArrayRef =
-            Arc::new(build_fixed_size_list::<T>(expected_data, length));
+            Arc::new(build_fixed_size_list_nullable::<T>(expected_data, length));
 
         assert_eq!(&output, &expected)
     }
