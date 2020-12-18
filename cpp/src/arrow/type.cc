@@ -30,12 +30,10 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/chunked_array.h"
 #include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -900,8 +898,6 @@ std::string FieldPath::ToString() const {
 struct FieldPathGetImpl {
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
 
-  static const DataType& GetType(const ChunkedArray& array) { return *array.type(); }
-
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
     *ss << "{ ";
     for (const auto& field : fields) {
@@ -996,32 +992,6 @@ struct FieldPathGetImpl {
         path, &child_data,
         [](const std::shared_ptr<ArrayData>& data) { return &data->child_data; });
   }
-
-  static Result<std::shared_ptr<ChunkedArray>> Get(
-      const FieldPath* path, const ChunkedArrayVector& columns_arg) {
-    ChunkedArrayVector columns = columns_arg;
-
-    return FieldPathGetImpl::Get(
-        path, &columns, [&](const std::shared_ptr<ChunkedArray>& a) {
-          columns.clear();
-
-          for (int i = 0; i < a->type()->num_fields(); ++i) {
-            ArrayVector child_chunks;
-
-            for (const auto& chunk : a->chunks()) {
-              auto child_chunk = MakeArray(chunk->data()->child_data[i]);
-              child_chunks.push_back(std::move(child_chunk));
-            }
-
-            auto child_column = std::make_shared<ChunkedArray>(
-                std::move(child_chunks), a->type()->field(i)->type());
-
-            columns.emplace_back(std::move(child_column));
-          }
-
-          return &columns;
-        });
-  }
 };
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
@@ -1045,10 +1015,6 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   return MakeArray(std::move(data));
 }
 
-Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
-  return FieldPathGetImpl::Get(this, table.columns());
-}
-
 Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
   ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
   return MakeArray(std::move(data));
@@ -1056,15 +1022,6 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   return FieldPathGetImpl::Get(this, data.child_data);
-}
-
-Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const ChunkedArray& array) const {
-  FieldPath prefixed_with_0 = *this;
-  prefixed_with_0.indices_.insert(prefixed_with_0.indices_.begin(), 0);
-
-  ChunkedArrayVector vec;
-  vec.emplace_back(const_cast<ChunkedArray*>(&array), [](...) {});
-  return FieldPathGetImpl::Get(&prefixed_with_0, vec);
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
@@ -1320,16 +1277,8 @@ std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
 
-std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& array) const {
-  return FindAll(*array.type());
-}
-
 std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
-}
-
-std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
-  return FindAll(*table.schema());
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }

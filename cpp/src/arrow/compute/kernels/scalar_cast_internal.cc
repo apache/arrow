@@ -149,16 +149,10 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Dat
 // ----------------------------------------------------------------------
 
 void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  auto Finish = [&](Result<Datum> result) {
-    if (!result.ok()) {
-      ctx->SetStatus(result.status());
-      return;
-    }
-    *out = *result;
-  };
-
   if (out->is_scalar()) {
-    return Finish(batch[0].scalar_as<DictionaryScalar>().GetEncodedValue());
+    KERNEL_ASSIGN_OR_RAISE(*out, ctx,
+                           batch[0].scalar_as<DictionaryScalar>().GetEncodedValue());
+    return;
   }
 
   DictionaryArray dict_arr(batch[0].array());
@@ -172,8 +166,9 @@ void UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return;
   }
 
-  return Finish(Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
-                     /*options=*/TakeOptions::Defaults(), ctx->exec_context()));
+  KERNEL_ASSIGN_OR_RAISE(*out, ctx,
+                         Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
+                              TakeOptions::Defaults(), ctx->exec_context()));
 }
 
 void OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {

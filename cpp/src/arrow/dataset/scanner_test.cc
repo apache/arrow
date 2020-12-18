@@ -184,25 +184,17 @@ TEST_F(TestScannerBuilder, TestFilter) {
   ScannerBuilder builder(dataset_, ctx_);
 
   ASSERT_OK(builder.Filter(literal(true)));
-  ASSERT_OK(builder.Filter(call("equal", {field_ref("i64"), literal<int64_t>(10)})));
-  ASSERT_OK(builder.Filter(
-      call("or_kleene", {
-                            call("equal", {field_ref("i64"), literal<int64_t>(10)}),
-                            call("equal", {field_ref("b"), literal(true)}),
-                        })));
+  ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<int64_t>(10))));
+  ASSERT_OK(builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
+                               equal(field_ref("b"), literal(true)))));
 
-  ASSERT_OK(builder.Filter(call("equal", {field_ref("i64"), literal<double>(10)})));
+  ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<double>(10))));
 
-  ASSERT_RAISES(
-      Invalid, builder.Filter(call("equal", {field_ref("not_a_column"), literal(true)})));
+  ASSERT_RAISES(Invalid, builder.Filter(equal(field_ref("not_a_column"), literal(true))));
 
-  ASSERT_RAISES(
-      Invalid,
-      builder.Filter(
-          call("or_kleene", {
-                                call("equal", {field_ref("i64"), literal<int64_t>(10)}),
-                                call("equal", {field_ref("not_a_column"), literal(true)}),
-                            })));
+  ASSERT_RAISES(Invalid,
+                builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
+                                   equal(field_ref("not_a_column"), literal(true)))));
 }
 
 using testing::ElementsAre;
@@ -215,7 +207,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   auto opts = ScanOptions::Make(schema({}));
   EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
 
-  opts->filter2 = call("equal", {field_ref("i32"), literal(10)});
+  opts->filter2 = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
   opts = ScanOptions::Make(schema({i32, i64}));
@@ -224,10 +216,10 @@ TEST(ScanOptions, TestMaterializedFields) {
   opts = opts->ReplaceSchema(schema({i32}));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
 
-  opts->filter2 = call("equal", {field_ref("i32"), literal(10)});
+  opts->filter2 = equal(field_ref("i32"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
 
-  opts->filter2 = call("equal", {field_ref("i64"), literal(10)});
+  opts->filter2 = equal(field_ref("i64"), literal(10));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
 }
 
