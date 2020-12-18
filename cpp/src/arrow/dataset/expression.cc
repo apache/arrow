@@ -389,9 +389,10 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   if (!call.kernel->init) return nullptr;
 
   compute::KernelContext kernel_context(exec_context);
-  auto kernel_state = call.kernel->init(
-      &kernel_context, {call.kernel, GetDescriptors(call.arguments), call.options.get()});
+  compute::KernelInitArgs kernel_init_args{call.kernel, GetDescriptors(call.arguments),
+                                           call.options.get()};
 
+  auto kernel_state = call.kernel->init(&kernel_context, kernel_init_args);
   RETURN_NOT_OK(kernel_context.status());
   return std::move(kernel_state);
 }
