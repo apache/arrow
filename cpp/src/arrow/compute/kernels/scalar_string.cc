@@ -1302,14 +1302,14 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
   using Base = StringTransform<Type, Derived>;
   using offset_type = typename Base::offset_type;
   using State = OptionsWrapper<TrimOptions>;
-  TrimOptions options;
-  std::vector<bool> codepoints;
+  TrimOptions options_;
+  std::vector<bool> codepoints_;
 
-  explicit UTF8TrimBase(TrimOptions options) : options(options) {
+  explicit UTF8TrimBase(TrimOptions options) : options_(options) {
     // TODO: check return / can we raise an exception here?
-    arrow::util::UTF8ForEach(options.characters, [&](uint32_t c) {
-      codepoints.resize(std::max(c + 1, static_cast<uint32_t>(codepoints.size())));
-      codepoints.at(c) = true;
+    arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
+      codepoints_.resize(std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
+      codepoints_.at(c) = true;
     });
   }
 
@@ -1331,7 +1331,7 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
     const uint8_t* begin_trimmed = begin;
 
     auto predicate = [&](uint32_t c) {
-      bool contains = codepoints[c];
+      bool contains = codepoints_[c];
       return !contains;
     };
     if (left && !ARROW_PREDICT_TRUE(
@@ -1408,12 +1408,12 @@ struct AsciiTrimBase : StringTransform<Type, Derived> {
   using Base = StringTransform<Type, Derived>;
   using offset_type = typename Base::offset_type;
   using State = OptionsWrapper<TrimOptions>;
-  TrimOptions options;
-  std::vector<bool> characters;
+  TrimOptions options_;
+  std::vector<bool> characters_;
 
-  explicit AsciiTrimBase(TrimOptions options) : options(options), characters(256) {
-    std::for_each(options.characters.begin(), options.characters.end(),
-                  [&](char c) { characters[static_cast<unsigned char>(c)] = true; });
+  explicit AsciiTrimBase(TrimOptions options) : options_(options), characters_(256) {
+    std::for_each(options_.characters.begin(), options_.characters.end(),
+                  [&](char c) { characters_[static_cast<unsigned char>(c)] = true; });
   }
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1429,7 +1429,7 @@ struct AsciiTrimBase : StringTransform<Type, Derived> {
     const uint8_t* begin_trimmed;
 
     auto predicate = [&](unsigned char c) {
-      bool contains = characters[c];
+      bool contains = characters_[c];
       return !contains;
     };
 
