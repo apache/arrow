@@ -554,10 +554,11 @@ class HeaderAuthFlightServer(FlightServerBase):
     """A Flight server that tests with basic token authentication. """
 
     def do_action(self, context, action):
-        middleware = context.get_middleware('auth')
+        middleware = context.get_middleware("auth")
         if middleware:
-            auth_header = middleware.sending_headers()
-            values = auth_header[0].split(' ')
+            headers = middleware.sending_headers()
+            auth_header = headers.get('authorization')
+            values = auth_header.split(' ')
             return [values[1].encode("utf-8")]
         raise flight.FlightUnauthenticatedError(
             'No token auth middleware found.')
@@ -587,8 +588,8 @@ class ArbitraryHeadersFlightServer(FlightServerBase):
         middleware = context.get_middleware("arbitrary-headers")
         if middleware:
             headers = middleware.sending_headers()
-            value1 = headers['test-header-1'].encode("utf-8")
-            value2 = headers['test-header-2'].encode("utf-8")
+            value1 = headers.get('test-header-1')[0].encode("utf-8")
+            value2 = headers.get('test-header-2')[0].encode("utf-8")
             return [value1, value2]
         raise flight.FlightServerError("No headers middleware found")
 
@@ -1109,10 +1110,9 @@ def test_authenticate_basic_token_invalid_password():
             client.authenticateBasicToken(b'test', b'badpassword')
 
 
-# TODO: Issue with AuthHandler - "TypeError: expected bytes, NoneType found"
 def test_authenticate_basic_token_and_action():
     """Test autheticateBasicToken and doAction after authentication."""
-    with HeaderAuthFlightServer(middleware={
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
     }) as server:
         client = FlightClient(('localhost', server.port))
@@ -1121,17 +1121,18 @@ def test_authenticate_basic_token_and_action():
         assert token_pair[1] == b'Bearer ' + b'token1234'
         options = flight.FlightCallOptions(headers=[token_pair])
         result = list(client.do_action(
-            action=flight.Action('who-am-i', b''), options=options))
-        assert result == 'token1234'
+            action=flight.Action('test-action', b''), options=options))
+        assert result[0].body.to_pybytes() == b'token1234'
 
 
-# TODO: Issue with AuthHandler - "TypeError: expected bytes, NoneType found"
 def test_arbitrary_headers_in_flight_call_options():
     """Test passing multiple arbitrary headers to the middleware."""
-    with ArbitraryHeadersFlightServer(middleware={
-        "auth": HeaderAuthServerMiddlewareFactory(),
-        "arbitrary-headers": ArbitraryHeadersServerMiddlewareFactory()
-    }) as server:
+    with ArbitraryHeadersFlightServer(
+            auth_handler=no_op_auth_handler,
+            middleware={
+                "auth": HeaderAuthServerMiddlewareFactory(),
+                "arbitrary-headers": ArbitraryHeadersServerMiddlewareFactory()
+            }) as server:
         client = FlightClient(('localhost', server.port))
         token_pair = client.authenticateBasicToken(b'test', b'password')
         assert token_pair[0] == b'authorization'
@@ -1143,8 +1144,8 @@ def test_arbitrary_headers_in_flight_call_options():
         ])
         result = list(client.do_action(flight.Action(
             "test-action", b""), options=options))
-        assert result[0] == 'value1'
-        assert result[1] == 'value2'
+        assert result[0].body.to_pybytes() == b'value1'
+        assert result[1].body.to_pybytes() == b'value2'
 
 
 def test_location_invalid():
