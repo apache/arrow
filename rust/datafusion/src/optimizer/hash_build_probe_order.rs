@@ -61,8 +61,6 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
 fn should_swap_join_order(left: &LogicalPlan, right: &LogicalPlan) -> bool {
     let left_rows = get_num_rows(left);
     let right_rows = get_num_rows(right);
-    println!("LEFT-rows: {:?}", left_rows);
-    println!("RIGHT-rows: {:?}", right_rows);
 
     match (left_rows, right_rows) {
         (Some(l), Some(r)) => l > r,
