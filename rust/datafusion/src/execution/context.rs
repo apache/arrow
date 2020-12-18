@@ -318,7 +318,7 @@ impl ExecutionContext {
 
         // NOTE: not enabled for now, as the current hash join
         // implementation is not finished and decreases in speed.
-        plan = HashBuildProbeOrder::new().optimize(&plan)?;
+        // plan = HashBuildProbeOrder::new().optimize(&plan)?;
 
         self.state
             .lock()
