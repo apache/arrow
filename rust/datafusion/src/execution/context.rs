@@ -317,7 +317,8 @@ impl ExecutionContext {
         plan = FilterPushDown::new().optimize(&plan)?;
 
         // NOTE: not enabled for now, as the current hash join
-        // implementation is not finished and decreases in speed.
+        // implementation is not finished and the optimization
+        // currently has a negative effect on performance
         // plan = HashBuildProbeOrder::new().optimize(&plan)?;
 
         self.state
