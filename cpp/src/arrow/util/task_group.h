@@ -29,8 +29,6 @@
 namespace arrow {
 namespace internal {
 
-// TODO Simplify this.  Subgroups don't seem necessary.
-
 /// \brief A group of related tasks
 ///
 /// A TaskGroup executes tasks with the signature `Status()`.
@@ -38,6 +36,18 @@ namespace internal {
 /// implementation.  When Finish() returns, it is guaranteed that all
 /// tasks have finished, or at least one has errored.
 ///
+/// Once an error has occurred any tasks that are submitted to the task group
+/// will not run.  The call to Append will simply return without scheduling the
+/// task.
+///
+/// If the task group is parallel it is possible that multiple tasks could be
+/// running at the same time and one of those tasks fails.  This will put the
+/// task group in a failure state (so additional tasks cannot be run) however
+/// it will not interrupt running tasks.  Finish will not complete
+/// until all running tasks have finished, even if one task fails.
+///
+/// Once a task group has finished new tasks may not be added to it.  If you need to start
+/// a new batch of work then you should create a new task group.
 class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
  public:
   /// Add a Status-returning function to execute.  Execution order is
@@ -56,20 +66,12 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   /// The current aggregate error Status.  Non-blocking, useful for stopping early.
   virtual Status current_status() = 0;
 
-  /// Whether some tasks have already failed.  Non-blocking , useful for stopping early.
+  /// Whether some tasks have already failed.  Non-blocking, useful for stopping early.
   virtual bool ok() = 0;
 
   /// How many tasks can typically be executed in parallel.
   /// This is only a hint, useful for testing or debugging.
   virtual int parallelism() = 0;
-
-  /// Create a subgroup of this group.  This group can only finish
-  /// when all subgroups have finished (this means you must be
-  /// be careful to call Finish() on subgroups before calling it
-  /// on the main group).
-  // XXX if a subgroup errors out, should it propagate immediately to the parent
-  // and to children?
-  virtual std::shared_ptr<TaskGroup> MakeSubGroup() = 0;
 
   static std::shared_ptr<TaskGroup> MakeSerial();
   static std::shared_ptr<TaskGroup> MakeThreaded(internal::Executor*);

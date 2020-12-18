@@ -22,6 +22,7 @@
 #include <memory>
 #include <random>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -76,20 +77,27 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
 
   std::atomic<int> count(0);
 
-  for (int i = 0; i < NSUCCESSES; ++i) {
-    task_group->Append([&]() {
-      count++;
-      return Status::OK();
-    });
-  }
-  ASSERT_TRUE(task_group->ok());
-  for (int i = 0; i < NERRORS; ++i) {
-    task_group->Append([&]() {
-      SleepFor(1e-2);
-      count++;
-      return Status::Invalid("some message");
-    });
-  }
+  auto task_group_was_ok = true;
+  task_group->Append([&]() -> Status {
+    for (int i = 0; i < NSUCCESSES; ++i) {
+      task_group->Append([&]() {
+        count++;
+        return Status::OK();
+      });
+    }
+    task_group_was_ok = task_group->ok();
+    for (int i = 0; i < NERRORS; ++i) {
+      task_group->Append([&]() {
+        SleepFor(1e-2);
+        count++;
+        return Status::Invalid("some message");
+      });
+    }
+
+    return Status::OK();
+  });
+
+  ASSERT_TRUE(task_group_was_ok);
 
   // Task error is propagated
   ASSERT_RAISES(Invalid, task_group->Finish());
@@ -106,80 +114,32 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_RAISES(Invalid, task_group->Finish());
 }
 
-// Check TaskGroup behaviour with a bunch of all-successful tasks and task groups
-void TestTaskSubGroupsSuccess(std::shared_ptr<TaskGroup> task_group) {
-  const int NTASKS = 50;
-  const int NGROUPS = 7;
+class CopyCountingTask {
+ public:
+  explicit CopyCountingTask(std::shared_ptr<uint8_t> target)
+      : counter(0), target(std::move(target)) {}
 
-  auto sleeps = RandomSleepDurations(NTASKS, 1e-4, 1e-3);
-  std::vector<std::shared_ptr<TaskGroup>> groups = {task_group};
+  CopyCountingTask(const CopyCountingTask& other)
+      : counter(other.counter + 1), target(other.target) {}
 
-  // Create some subgroups
-  for (int i = 0; i < NGROUPS - 1; ++i) {
-    groups.push_back(task_group->MakeSubGroup());
+  CopyCountingTask& operator=(const CopyCountingTask& other) {
+    counter = other.counter + 1;
+    target = other.target;
+    return *this;
   }
 
-  // Add NTASKS sleeps amongst all groups
-  std::atomic<int> count(0);
-  for (int i = 0; i < NTASKS; ++i) {
-    groups[i % NGROUPS]->Append([&, i]() {
-      SleepFor(sleeps[i]);
-      count += i;
-      return Status::OK();
-    });
-  }
-  ASSERT_TRUE(task_group->ok());
+  CopyCountingTask(CopyCountingTask&& other) = default;
+  CopyCountingTask& operator=(CopyCountingTask&& other) = default;
 
-  // Finish all subgroups first, then main group
-  for (int i = NGROUPS - 1; i >= 0; --i) {
-    ASSERT_OK(groups[i]->Finish());
-  }
-  ASSERT_TRUE(task_group->ok());
-  ASSERT_EQ(count.load(), NTASKS * (NTASKS - 1) / 2);
-  // Finish() is idempotent
-  ASSERT_OK(task_group->Finish());
-}
-
-// Check TaskGroup behaviour with both successful and failing tasks and task groups
-void TestTaskSubGroupsErrors(std::shared_ptr<TaskGroup> task_group) {
-  const int NTASKS = 50;
-  const int NGROUPS = 7;
-  const int FAIL_EVERY = 17;
-  std::vector<std::shared_ptr<TaskGroup>> groups = {task_group};
-
-  // Create some subgroups
-  for (int i = 0; i < NGROUPS - 1; ++i) {
-    groups.push_back(task_group->MakeSubGroup());
+  Status operator()() {
+    *target = counter;
+    return Status::OK();
   }
 
-  // Add NTASKS sleeps amongst all groups
-  for (int i = 0; i < NTASKS; ++i) {
-    groups[i % NGROUPS]->Append([&, i]() {
-      SleepFor(1e-3);
-      // As NGROUPS > NTASKS / FAIL_EVERY, some subgroups are successful
-      if (i % FAIL_EVERY == 0) {
-        return Status::Invalid("some message");
-      } else {
-        return Status::OK();
-      }
-    });
-  }
-
-  // Finish all subgroups first, then main group
-  int nsuccessful = 0;
-  for (int i = NGROUPS - 1; i > 0; --i) {
-    Status st = groups[i]->Finish();
-    if (st.ok()) {
-      ++nsuccessful;
-    } else {
-      ASSERT_RAISES(Invalid, st);
-    }
-  }
-  ASSERT_RAISES(Invalid, task_group->Finish());
-  ASSERT_FALSE(task_group->ok());
-  // Finish() is idempotent
-  ASSERT_RAISES(Invalid, task_group->Finish());
-}
+ private:
+  uint8_t counter;
+  std::shared_ptr<uint8_t> target;
+};
 
 // Check TaskGroup behaviour with tasks spawning other tasks
 void TestTasksSpawnTasks(std::shared_ptr<TaskGroup> task_group) {
@@ -276,19 +236,21 @@ void StressFailingTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> 
   }
 }
 
+void TestNoCopyTask(std::shared_ptr<TaskGroup> task_group) {
+  auto counter = std::make_shared<uint8_t>(0);
+  CopyCountingTask task(counter);
+  task_group->Append(std::move(task));
+  ASSERT_OK(task_group->Finish());
+  ASSERT_EQ(0, *counter);
+}
+
 TEST(SerialTaskGroup, Success) { TestTaskGroupSuccess(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, TasksSpawnTasks) { TestTasksSpawnTasks(TaskGroup::MakeSerial()); }
 
-TEST(SerialTaskGroup, SubGroupsSuccess) {
-  TestTaskSubGroupsSuccess(TaskGroup::MakeSerial());
-}
-
-TEST(SerialTaskGroup, SubGroupsErrors) {
-  TestTaskSubGroupsErrors(TaskGroup::MakeSerial());
-}
+TEST(SerialTaskGroup, NoCopyTask) { TestNoCopyTask(TaskGroup::MakeSerial()); }
 
 TEST(ThreadedTaskGroup, Success) {
   auto task_group = TaskGroup::MakeThreaded(GetCpuThreadPool());
@@ -309,18 +271,10 @@ TEST(ThreadedTaskGroup, TasksSpawnTasks) {
   TestTasksSpawnTasks(task_group);
 }
 
-TEST(ThreadedTaskGroup, SubGroupsSuccess) {
+TEST(ThreadedTaskGroup, NoCopyTask) {
   std::shared_ptr<ThreadPool> thread_pool;
   ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
-
-  TestTaskSubGroupsSuccess(TaskGroup::MakeThreaded(thread_pool.get()));
-}
-
-TEST(ThreadedTaskGroup, SubGroupsErrors) {
-  std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
-
-  TestTaskSubGroupsErrors(TaskGroup::MakeThreaded(thread_pool.get()));
+  TestNoCopyTask(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, StressTaskGroupLifetime) {
