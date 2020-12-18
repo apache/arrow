@@ -1305,7 +1305,7 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
   TrimOptions options_;
   std::vector<bool> codepoints_;
 
-  explicit UTF8TrimBase(TrimOptions options) : options_(options) {
+  explicit UTF8TrimBase(TrimOptions options) : options_(std::move(options)) {
     // TODO: check return / can we raise an exception here?
     arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
       codepoints_.resize(std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
@@ -1411,7 +1411,8 @@ struct AsciiTrimBase : StringTransform<Type, Derived> {
   TrimOptions options_;
   std::vector<bool> characters_;
 
-  explicit AsciiTrimBase(TrimOptions options) : options_(options), characters_(256) {
+  explicit AsciiTrimBase(TrimOptions options)
+      : options_(std::move(options)), characters_(256) {
     std::for_each(options_.characters.begin(), options_.characters.end(),
                   [&](char c) { characters_[static_cast<unsigned char>(c)] = true; });
   }
