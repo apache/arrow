@@ -20,6 +20,8 @@
 //! rows of both sources is known, the order can be switched
 //! for a faster hash join.
 
+use std::sync::Arc;
+
 use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::{error::Result, prelude::JoinType};
@@ -84,11 +86,13 @@ impl OptimizerRule for HashBuildProbeOrder {
                 join_type,
                 schema,
             } => {
-                if should_swap_join_order(left, right) {
+                let left = self.optimize(left)?;
+                let right = self.optimize(right)?;
+                if should_swap_join_order(&left, &right) {
                     // Swap left and right, change join type and (equi-)join key order
                     Ok(LogicalPlan::Join {
-                        left: right.clone(),
-                        right: left.clone(),
+                        left: Arc::new(right),
+                        right: Arc::new(left),
                         on: on
                             .iter()
                             .map(|(l, r)| (r.to_string(), l.to_string()))
@@ -99,8 +103,8 @@ impl OptimizerRule for HashBuildProbeOrder {
                 } else {
                     // Keep join as is
                     Ok(LogicalPlan::Join {
-                        left: left.clone(),
-                        right: right.clone(),
+                        left: Arc::new(left),
+                        right: Arc::new(right),
                         on: on.clone(),
                         join_type: *join_type,
                         schema: schema.clone(),
