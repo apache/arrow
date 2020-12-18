@@ -29,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -557,6 +558,32 @@ inline bool WaitForAll(const std::vector<Future<T>*>& futures,
   return waiter->Wait(seconds);
 }
 
+template <typename T>
+Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
+  struct State {
+    explicit State(std::vector<Future<T>> f)
+        : futures(std::move(f)), n_remaining(futures.size()) {}
+
+    std::vector<Future<T>> futures;
+    std::atomic<size_t> n_remaining;
+  };
+
+  auto state = std::make_shared<State>(std::move(futures));
+
+  auto out = Future<std::vector<T>>::Make();
+  for (const Future<T>& future : state->futures) {
+    future.AddCallback([state](const Result<T>&) {
+      if (state->n_remaining.fetch_sub(1) != 1) return;
+
+      std::vector<Result<T>> results(state->futures.size());
+      for (size_t i = 0; i < results.size(); ++i) {
+        results[i] = state->futures[i].result();
+      }
+    });
+  }
+  return out;
+}
+
 /// \brief Wait for one of the futures to end, or for the given timeout to expire.
 ///
 /// The indices of all completed futures are returned.  Note that some futures
@@ -579,6 +606,63 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   auto waiter = FutureWaiter::Make(FutureWaiter::ANY, futures);
   waiter->Wait(seconds);
   return waiter->MoveFinishedFutures();
+}
+
+template <typename T = detail::Empty>
+struct ControlFlow {
+  using BreakValueType = T;
+
+  bool IsBreak() const { return break_value_.has_value(); }
+
+  static Result<BreakValueType> MoveBreakValue(const ControlFlow& cf) {
+    return std::move(*cf.break_value_);
+  }
+
+  mutable util::optional<BreakValueType> break_value_;
+};
+
+struct Continue {
+  template <typename T>
+  operator ControlFlow<T>() && {  // NOLINT explicit
+    return {};
+  }
+};
+
+template <typename T = detail::Empty>
+ControlFlow<T> Break(T break_value = {}) {
+  return ControlFlow<T>{std::move(break_value)};
+}
+
+template <typename Iterate,
+          typename Control = typename detail::result_of_t<Iterate()>::ValueType,
+          typename BreakValueType = typename Control::BreakValueType>
+Future<BreakValueType> Loop(Iterate iterate) {
+  auto break_fut = Future<BreakValueType>::Make();
+
+  struct Callback {
+    void operator()(const Result<Control>& maybe_control) && {
+      auto break_fut = weak_break_fut.get();
+      if (!break_fut.is_valid()) return;
+
+      if (!maybe_control.ok() || maybe_control->IsBreak()) {
+        Result<BreakValueType> maybe_break = maybe_control.Map(Control::MoveBreakValue);
+        return break_fut.MarkFinished(std::move(maybe_break));
+      }
+
+      // Potentially add a while loop here to help relieve stack depth
+      auto control_fut = iterate();
+      control_fut.AddCallback(std::move(*this));
+    }
+
+    Iterate iterate;
+    WeakFuture<BreakValueType> weak_break_fut;
+  };
+
+  auto control_fut = iterate();
+  control_fut.AddCallback(
+      Callback{std::move(iterate), WeakFuture<BreakValueType>(break_fut)});
+
+  return break_fut;
 }
 
 }  // namespace arrow

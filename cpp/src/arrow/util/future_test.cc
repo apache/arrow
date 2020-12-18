@@ -832,6 +832,64 @@ TEST(FutureCompletionTest, FutureVoid) {
   }
 }
 
+TEST(FutureLoopTest, Sync) {
+  struct {
+    int i = 0;
+    Future<int> Get() { return Future<int>::MakeFinished(i++); }
+  } IntSource;
+
+  bool do_fail = false;
+  std::vector<int> ints;
+  auto loop_body = [&] {
+    return IntSource.Get().Then([&](int i) -> Result<ControlFlow<int>> {
+      if (do_fail && i == 3) {
+        return Status::IOError("xxx");
+      }
+
+      if (i == 5) {
+        int sum = 0;
+        for (int i : ints) sum += i;
+        return Break(sum);
+      }
+
+      ints.push_back(i);
+      return Continue();
+    });
+  };
+
+  {
+    auto sum_fut = Loop(loop_body);
+    AssertSuccessful(sum_fut);
+
+    ASSERT_OK_AND_ASSIGN(auto sum, sum_fut.result());
+    ASSERT_EQ(sum, 0 + 1 + 2 + 3 + 4);
+  }
+
+  {
+    do_fail = true;
+    IntSource.i = 0;
+    auto sum_fut = Loop(loop_body);
+    AssertFailed(sum_fut);
+    ASSERT_RAISES(IOError, sum_fut.result());
+  }
+}
+
+TEST(FutureLoopTest, EmptyBreakValue) {
+  Future<> none_fut =
+      Loop([&] { return Future<>::MakeFinished().Then([&](...) { return Break(); }); });
+  AssertSuccessful(none_fut);
+}
+
+TEST(FutureLoopTest, MoveOnlyBreakValue) {
+  Future<MoveOnlyDataType> one_fut = Loop([&] {
+    return Future<int>::MakeFinished(1).Then(
+        [&](int i) { return Break(MoveOnlyDataType(i)); });
+  });
+  AssertSuccessful(one_fut);
+  ASSERT_OK_AND_ASSIGN(auto one, std::move(one_fut).result());
+  ASSERT_EQ(one, 1);
+}
+
 TEST(FutureSyncTest, Foo) {
   {
     // MarkFinished(Foo)
