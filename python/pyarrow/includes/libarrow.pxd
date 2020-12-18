@@ -1830,13 +1830,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CDatum(const shared_ptr[CRecordBatch]& value)
         CDatum(const shared_ptr[CTable]& value)
 
-        DatumType kind()
+        DatumType kind() const
+        c_string ToString() const
 
-        shared_ptr[CArrayData] array()
-        shared_ptr[CChunkedArray] chunked_array()
-        shared_ptr[CRecordBatch] record_batch()
-        shared_ptr[CTable] table()
-        shared_ptr[CScalar] scalar()
+        const shared_ptr[CArrayData]& array() const
+        const shared_ptr[CChunkedArray]& chunked_array() const
+        const shared_ptr[CRecordBatch]& record_batch() const
+        const shared_ptr[CTable]& table() const
+        const shared_ptr[CScalar]& scalar() const
 
     cdef cppclass CSetLookupOptions \
             "arrow::compute::SetLookupOptions"(CFunctionOptions):
