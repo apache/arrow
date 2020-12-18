@@ -38,65 +38,67 @@ G_BEGIN_DECLS
  * #GArrowDataType is a base class for all data type classes such as
  * #GArrowBooleanDataType.
  *
- * #GArrowNullDataType is a class for null data type.
+ * #GArrowNullDataType is a class for the null data type.
  *
- * #GArrowBooleanDataType is a class for boolean data type.
+ * #GArrowBooleanDataType is a class for the boolean data type.
  *
- * #GArrowInt8DataType is a class for 8-bit integer data type.
+ * #GArrowInt8DataType is a class for the 8-bit integer data type.
  *
- * #GArrowUInt8DataType is a class for 8-bit unsigned integer data type.
+ * #GArrowUInt8DataType is a class for the 8-bit unsigned integer data type.
  *
- * #GArrowInt16DataType is a class for 16-bit integer data type.
+ * #GArrowInt16DataType is a class for the 16-bit integer data type.
  *
- * #GArrowUInt16DataType is a class for 16-bit unsigned integer data type.
+ * #GArrowUInt16DataType is a class for the 16-bit unsigned integer data type.
  *
- * #GArrowInt32DataType is a class for 32-bit integer data type.
+ * #GArrowInt32DataType is a class for the 32-bit integer data type.
  *
- * #GArrowUInt32DataType is a class for 32-bit unsigned integer data type.
+ * #GArrowUInt32DataType is a class for the 32-bit unsigned integer data type.
  *
- * #GArrowInt64DataType is a class for 64-bit integer data type.
+ * #GArrowInt64DataType is a class for the 64-bit integer data type.
  *
- * #GArrowUInt64DataType is a class for 64-bit unsigned integer data type.
+ * #GArrowUInt64DataType is a class for the 64-bit unsigned integer data type.
  *
- * #GArrowFloatDataType is a class for 32-bit floating point data
+ * #GArrowFloatDataType is a class for the 32-bit floating point data
  * type.
  *
- * #GArrowDoubleDataType is a class for 64-bit floating point data
+ * #GArrowDoubleDataType is a class for the 64-bit floating point data
  * type.
  *
- * #GArrowBinaryDataType is a class for binary data type.
+ * #GArrowBinaryDataType is a class for the binary data type.
  *
- * #GArrowLargeBinaryDataType is a class for 64-bit offsets binary data type.
- *
- * #GArrowFixedSizeBinaryDataType is a class for fixed-size binary data type.
- *
- * #GArrowStringDataType is a class for UTF-8 encoded string data
- * type.
- *
- * #GArrowLargeStringDataType is a class for 64-bit offsets UTF-8 encoded string
+ * #GArrowLargeBinaryDataType is a class for the 64-bit offsets binary
  * data type.
  *
+ * #GArrowFixedSizeBinaryDataType is a class for the fixed-size binary
+ * data type.
+ *
+ * #GArrowStringDataType is a class for the UTF-8 encoded string data
+ * type.
+ *
+ * #GArrowLargeStringDataType is a class for the 64-bit offsets UTF-8
+ * encoded string data type.
+ *
  * #GArrowDate32DataType is a class for the number of days since UNIX
- * epoch in 32-bit signed integer data type.
+ * epoch in the 32-bit signed integer data type.
  *
  * #GArrowDate64DataType is a class for the number of milliseconds
- * since UNIX epoch in 64-bit signed integer data type.
+ * since UNIX epoch in the 64-bit signed integer data type.
  *
  * #GArrowTimestampDataType is a class for the number of
  * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
- * 64-bit signed integer data type.
+ * the 64-bit signed integer data type.
  *
  * #GArrowTime32DataType is a class for the number of seconds or
- * milliseconds since midnight in 32-bit signed integer data type.
+ * milliseconds since midnight in the 32-bit signed integer data type.
  *
  * #GArrowTime64DataType is a class for the number of microseconds or
- * nanoseconds since midnight in 64-bit signed integer data type.
+ * nanoseconds since midnight in the 64-bit signed integer data type.
  *
- * #GArrowDecimalDataType is a base class for decimal data types.
+ * #GArrowDecimalDataType is a base class for the decimal data types.
  *
- * #GArrowDecimal128DataType is a class for 128-bit decimal data type.
+ * #GArrowDecimal128DataType is a class for the 128-bit decimal data type.
  *
- * #GArrowDecimal256DataType is a class for 256-bit decimal data type.
+ * #GArrowDecimal256DataType is a class for the 256-bit decimal data type.
  */
 
 typedef struct GArrowDataTypePrivate_ {
