@@ -122,15 +122,13 @@ cdef class FlightCallOptions(_Weakrefable):
             A vector of arbitrary headers as key, value pairs
         """
         cdef IpcWriteOptions c_write_options
-        
+
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
         if write_options is not None:
             c_write_options = _get_options(write_options)
             self.options.write_options = c_write_options.c_options
         if headers is not None:
-            print("[FlightCallOptions] - headers")
-            print(headers)
             self.options.headers = headers
 
     @staticmethod
@@ -1158,24 +1156,25 @@ cdef class FlightClient(_Weakrefable):
                 self.client.get().Authenticate(deref(c_options),
                                                move(handler)))
 
-    def authenticateBasicToken(self, username, password, options: FlightCallOptions = None) :
+    def authenticateBasicToken(self, username, password,
+                               options: FlightCallOptions = None):
         """Authenticate to the server with header token authentication.
 
         Parameters
         ----------
-        username : string 
+        username : string
             Username to authenticate with
-        password : string 
+        password : string
             Password to authenticate with
         options  : FlightCallOptions
             Options for this call
 
         Returns
         -------
-        pair : pair[string, string] 
-            A pair representing the FlightCallOptions header entry of a bearer token.
+        pair : pair[string, string]
+            A pair representing the FlightCallOptions header
+            entry of a bearer token.
         """
-        print("[authenticateBasicToken] - In method")
         cdef:
             CResult[pair[c_string, c_string]] result
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
@@ -1186,7 +1185,7 @@ cdef class FlightClient(_Weakrefable):
             result = self.client.get().AuthenticateBasicToken(deref(c_options),
                                                               user, pw)
             check_flight_status(result.status())
-        
+
         return GetResultValue(result)
 
     def list_actions(self, options: FlightCallOptions = None):
