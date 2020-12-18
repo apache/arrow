@@ -187,7 +187,7 @@ impl ExecutionPlan for HashJoinExec {
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
             on_right,
-            join_type: self.join_type.clone(),
+            join_type: self.join_type,
             left_data: (left_data.0, left_data.1),
             right: stream,
         }))
