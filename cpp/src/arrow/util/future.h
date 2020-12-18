@@ -133,9 +133,6 @@ enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
 
-constexpr struct {
-} StatusOnly;
-
 // Untyped private implementation
 class ARROW_EXPORT FutureImpl {
  public:
@@ -359,7 +356,7 @@ class ARROW_MUST_USE_TYPE Future {
   ///
   /// The callback should receive the result of the future (const Result<T>&)
   /// For a void or statusy future this should be
-  /// (const Result<Future<detail::Empty>::ValueType>& result)
+  /// (const Result<detail::Empty>& result)
   ///
   /// There is no guarantee to the order in which callbacks will run.  In
   /// particular, callbacks added while the future is being marked complete
@@ -455,26 +452,6 @@ class ARROW_MUST_USE_TYPE Future {
     return Then(std::forward<OnSuccess>(on_success), [](const Status& s) {
       return Result<typename ContinuedFuture::ValueType>(s);
     });
-  }
-
-  template <typename OnComplete,
-            typename ContinuedFuture = typename detail::ContinueFuture::ForSignature<
-                OnComplete && (const Status&)>>
-  ContinuedFuture Then(decltype(StatusOnly), OnComplete&& on_complete) const {
-    auto next = ContinuedFuture::Make();
-
-    struct Callback {
-      void operator()(const Result<T>& result) && {
-        detail::Continue(std::move(next), std::move(on_complete), result.status());
-      }
-
-      OnComplete on_complete;
-      ContinuedFuture next;
-    };
-
-    AddCallback(Callback{std::forward<OnComplete>(on_complete), next});
-
-    return next;
   }
 
  protected:

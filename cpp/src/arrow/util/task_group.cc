@@ -75,7 +75,7 @@ class ThreadedTaskGroup : public TaskGroup {
   }
 
   void AppendReal(std::function<Status()> task) override {
-    // This check below could/should be enabled but it wasn't 
+    // This check below could/should be enabled but it wasn't
     // and I am worried existing code may be relying on it
     // being disabled.
     // DCHECK(!finished_);

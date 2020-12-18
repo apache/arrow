@@ -254,7 +254,12 @@ class ConcreteFutureImpl : public FutureImpl {
     }
     cv_.notify_all();
 
-    // run callbacks
+    // run callbacks, lock not needed since the future is finsihed by this
+    // point so nothing else can modify the callbacks list and it is safe
+    // to iterate.
+    //
+    // In fact, it is important not to hold the locks because the callback
+    // may be slow or do its own locking on other resources
     for (auto&& callback : callbacks_) {
       std::move(callback)();
     }
