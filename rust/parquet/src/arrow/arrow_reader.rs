@@ -387,6 +387,33 @@ mod tests {
         >(2, message_type, &converter);
     }
 
+    #[test]
+    fn test_read_decimal_file() {
+        use arrow::array::DecimalArray;
+        let testdata =
+            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        let path = format!("{}/fixed_length_decimal.parquet", testdata);
+        let parquet_reader =
+            SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_reader));
+
+        let mut record_reader = arrow_reader.get_record_reader(32).unwrap();
+
+        let batch = record_reader.next().unwrap().unwrap();
+        assert_eq!(batch.num_rows(), 24);
+        let col = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<DecimalArray>()
+            .unwrap();
+
+        let expected = 1..25;
+
+        for (i, v) in expected.enumerate() {
+            assert_eq!(col.value(i), v * 100_i128);
+        }
+    }
+
     /// Parameters for single_column_reader_test
     #[derive(Debug)]
     struct TestOptions {
