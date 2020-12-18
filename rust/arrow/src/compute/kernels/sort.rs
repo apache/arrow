@@ -854,30 +854,19 @@ mod tests {
         }
 
         // for List
-        let list_data_type =
-            DataType::List(Box::new(Field::new("item", DataType::Int32, false)));
-        let input = Arc::new(build_generic_list_nullable::<i32, T>(
-            data.clone(),
-            &list_data_type,
-        ));
+        let input = Arc::new(build_generic_list_nullable::<i32, T>(data.clone()));
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected = Arc::new(build_generic_list_nullable::<i32, T>(
-            expected_data.clone(),
-            &list_data_type,
-        )) as ArrayRef;
+        let expected =
+            Arc::new(build_generic_list_nullable::<i32, T>(expected_data.clone()))
+                as ArrayRef;
 
         assert_eq!(&sorted, &expected);
 
         // for LargeList
-        let list_data_type =
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int64, false)));
-        let input =
-            Arc::new(build_generic_list_nullable::<i64, T>(data, &list_data_type));
+        let input = Arc::new(build_generic_list_nullable::<i64, T>(data));
         let sorted = sort(&(input as ArrayRef), options).unwrap();
-        let expected = Arc::new(build_generic_list_nullable::<i64, T>(
-            expected_data,
-            &list_data_type,
-        )) as ArrayRef;
+        let expected =
+            Arc::new(build_generic_list_nullable::<i64, T>(expected_data)) as ArrayRef;
 
         assert_eq!(&sorted, &expected);
     }
@@ -1550,6 +1539,28 @@ mod tests {
                 Some(vec![Some(4), Some(3), Some(2), Some(1)]),
             ],
             None,
+        );
+
+        test_sort_list_arrays::<Int32Type>(
+            vec![
+                None,
+                Some(vec![Some(4), None, Some(2)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                None,
+                Some(vec![Some(3), Some(3), None]),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), None]),
+                Some(vec![Some(4), None, Some(2)]),
+                None,
+                None,
+            ],
+            Some(3),
         );
     }
 
