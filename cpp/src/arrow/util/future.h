@@ -439,6 +439,7 @@ class ARROW_MUST_USE_TYPE Future {
     struct Callback {
       void operator()(const Result<T>& result) && {
         if (ARROW_PREDICT_TRUE(result.ok())) {
+          // move on_failure to a(n immediately destroyed) temporary to free its resources
           ARROW_UNUSED(OnFailure(std::move(on_failure)));
           detail::Continue(std::move(next), std::move(on_success), result.ValueOrDie());
         } else {
