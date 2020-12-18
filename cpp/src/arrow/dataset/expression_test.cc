@@ -558,7 +558,7 @@ TEST(Expression, FoldConstantsBoolean) {
   // test and_kleene/or_kleene-specific optimizations
   auto one = literal(1);
   auto two = literal(2);
-  auto whatever = call("equal", {call("add", {one, field_ref("i32")}), two});
+  auto whatever = equal(call("add", {one, field_ref("i32")}), two);
 
   auto true_ = literal(true);
   auto false_ = literal(false);
@@ -696,7 +696,7 @@ TEST(Expression, CanonicalizeAnd) {
   auto null_ = literal(std::make_shared<BooleanScalar>());
 
   auto b = field_ref("bool");
-  auto c = call("equal", {literal(1), literal(2)});
+  auto c = equal(literal(1), literal(2));
 
   // no change possible:
   ExpectCanonicalizesTo(and_(b, c), and_(b, c));

@@ -284,9 +284,11 @@ struct CastFunctor<TimestampType, Date64Type> {
     DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     const auto& out_type = checked_cast<const TimestampType&>(*out->type());
+
+    // date64 is ms since epoch
     auto conversion = util::GetTimestampConversion(TimeUnit::MILLI, out_type.unit());
-    ShiftTime<int64_t, int64_t>(ctx, util::MULTIPLY, conversion.second, *batch[0].array(),
-                                out->mutable_array());
+    ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second,
+                                *batch[0].array(), out->mutable_array());
   }
 };
 

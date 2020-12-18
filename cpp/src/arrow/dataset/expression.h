@@ -19,21 +19,17 @@
 
 #pragma once
 
-#include <functional>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "arrow/chunked_array.h"
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/cast.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/datum.h"
-#include "arrow/result.h"
-#include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/variant.h"
 
@@ -51,6 +47,7 @@ class ARROW_DS_EXPORT Expression {
     std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<compute::FunctionOptions> options;
+    std::shared_ptr<std::atomic<size_t>> hash;
 
     // post-Bind properties:
     const compute::Kernel* kernel = NULLPTR;

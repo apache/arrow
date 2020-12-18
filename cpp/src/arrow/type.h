@@ -1424,15 +1424,10 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
   /// \brief Retrieve the referenced child from an Array, ArrayData, or ChunkedArray
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
-  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
-
-  /// \brief Retrieve the reference child from a Datum
-  Result<Datum> Get(const Datum& datum) const;
 
  private:
   std::vector<int> indices_;
