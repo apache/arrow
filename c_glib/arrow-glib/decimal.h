@@ -39,6 +39,8 @@ struct _GArrowDecimal128Class
 
 GArrowDecimal128 *garrow_decimal128_new_string(const gchar *data);
 GArrowDecimal128 *garrow_decimal128_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal128 *garrow_decimal128_copy(GArrowDecimal128 *decimal);
 GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_equal(GArrowDecimal128 *decimal,
                                  GArrowDecimal128 *other_decimal);
@@ -98,6 +100,8 @@ GARROW_AVAILABLE_IN_3_0
 GArrowDecimal256 *garrow_decimal256_new_string(const gchar *data);
 GARROW_AVAILABLE_IN_3_0
 GArrowDecimal256 *garrow_decimal256_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_copy(GArrowDecimal256 *decimal);
 GARROW_AVAILABLE_IN_3_0
 gboolean garrow_decimal256_equal(GArrowDecimal256 *decimal,
                                  GArrowDecimal256 *other_decimal);

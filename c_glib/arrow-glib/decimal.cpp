@@ -81,6 +81,16 @@ garrow_decimal_new_integer(const gint64 data)
 }
 
 template <typename Decimal>
+typename DecimalConverter<Decimal>::GArrowType *
+garrow_decimal_copy(typename DecimalConverter<Decimal>::GArrowType *decimal)
+{
+  DecimalConverter<Decimal> converter;
+  const auto arrow_decimal = converter.get_raw(decimal);
+  auto arrow_copied_decimal = std::make_shared<Decimal>(*arrow_decimal);
+  return converter.new_raw(&arrow_copied_decimal);
+}
+
+template <typename Decimal>
 gboolean
 garrow_decimal_equal(typename DecimalConverter<Decimal>::GArrowType *decimal,
                      typename DecimalConverter<Decimal>::GArrowType *other_decimal)
@@ -381,6 +391,20 @@ GArrowDecimal128 *
 garrow_decimal128_new_integer(const gint64 data)
 {
   return garrow_decimal_new_integer<arrow::Decimal128>(data);
+}
+
+/**
+ * garrow_decimal128_copy:
+ * @decimal: The decimal to be copied.
+ *
+ * Returns: (transfer full): A copied #GArrowDecimal128.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal128 *
+garrow_decimal128_copy(GArrowDecimal128 *decimal)
+{
+  return garrow_decimal_copy<arrow::Decimal128>(decimal);
 }
 
 /**
@@ -758,6 +782,20 @@ GArrowDecimal256 *
 garrow_decimal256_new_integer(const gint64 data)
 {
   return garrow_decimal_new_integer<arrow::Decimal256>(data);
+}
+
+/**
+ * garrow_decimal256_copy:
+ * @decimal: The decimal to be copied.
+ *
+ * Returns: (transfer full): A copied #GArrowDecimal256.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256 *
+garrow_decimal256_copy(GArrowDecimal256 *decimal)
+{
+  return garrow_decimal_copy<arrow::Decimal256>(decimal);
 }
 
 /**

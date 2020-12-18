@@ -154,6 +154,12 @@ module Arrow
           method_name = "get_raw_value"
         end
         super(info, klass, method_name)
+      when "Arrow::Decimal128", "Arrow::Decimal256"
+        case method_name
+        when "copy"
+          method_name = "dup"
+        end
+        super(info, klass, method_name)
       else
         super
       end
