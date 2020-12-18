@@ -1006,6 +1006,9 @@ TEST(Expression, SerializationRoundTrips) {
 
   ExpectRoundTrips(not_(field_ref("alpha")));
 
+  ExpectRoundTrips(call("is_in", {literal(1)},
+                        compute::SetLookupOptions{ArrayFromJSON(int32(), "[1, 2, 3]")}));
+
   ExpectRoundTrips(
       call("is_in",
            {call("cast", {field_ref("version")}, compute::CastOptions::Safe(float64()))},

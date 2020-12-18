@@ -193,6 +193,7 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 
 /// Execute a scalar expression against the provided state and input Datum. This
 /// expression must be bound.
+ARROW_DS_EXPORT
 Result<Datum> ExecuteScalarExpression(const Expression&, const Datum& input,
                                       compute::ExecContext* = NULLPTR);
 
