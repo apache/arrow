@@ -267,6 +267,8 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
+bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
+
 size_t Expression::hash() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
