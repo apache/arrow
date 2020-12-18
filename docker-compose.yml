@@ -878,7 +878,7 @@ services:
     volumes:
       - .:/arrow:delegated
     command: >
-      /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
+      /bin/bash -l -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported

@@ -49,7 +49,7 @@ if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
     yum install -y centos-release-scl
     yum install -y "devtoolset-$DEVTOOLSET_VERSION"
   fi
-  echo "source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable" >> /etc/profile
+  echo "source scl_source enable devtoolset-$DEVTOOLSET_VERSION" >> /etc/bashrc
 fi
 
 # Install openssl for S3 support
