@@ -52,6 +52,11 @@ export TEXMFVAR=/tmp/texmf-var
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
+if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+  # enable the devtoolset version to use it
+  source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
+fi
+
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 

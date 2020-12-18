@@ -875,10 +875,11 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
+      devtoolset_version: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >
-      /bin/bash -l -c "/arrow/ci/scripts/r_test.sh /arrow"
+      /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported
