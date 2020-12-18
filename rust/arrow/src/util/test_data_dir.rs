@@ -41,8 +41,8 @@ pub fn PARQUET_TEST_DATA() -> Result<String, Box<dyn Error>> {
 }
 
 /// Gets full path dir defined by `env_key` or `relative_dir` relative to git workspace.
-/// The `from_dir` is start point to search ".git" from it's ancestors, the default value
-/// "" means "current dir" of current process, that should be in the git workspace.
+/// The `from_dir` is start point to search ".git" from it's ancestors, MUST be set as
+/// current dir unless called by tests.
 fn find_dir(
     env_key: &'static str,
     from_dir: PathBuf,
@@ -50,7 +50,8 @@ fn find_dir(
 ) -> Result<String, Box<dyn std::error::Error>> {
     const TIP: &str = "run: `git submodule update --init`";
 
-    if let Ok(v) = env::var(env_key) {
+    if let Ok(mut v) = env::var(env_key) {
+        v = v.trim().to_string();
         if !v.is_empty() {
             let pb = PathBuf::from(&v);
             if pb.exists() {
@@ -96,9 +97,9 @@ mod tests {
         const KEY: &str = "ARROW-MOCK-KEY-1";
         const NON_EXISTING: &str = "arrow:this-dir-should-not-exist";
 
-        // Unset env value for current process if not empty.
+        // Remove env if exists.
         if env::var_os(KEY).is_some() {
-            env::set_var(KEY, "");
+            env::remove_var(KEY);
         }
 
         let tmp_dir = TempDir::new().unwrap();
@@ -109,7 +110,13 @@ mod tests {
         let res = super::find_dir(KEY, sub_dir.to_owned(), NON_EXISTING);
         debug_assert!(res.is_err());
 
+        // Set the env value as a non existing dir.
         env::set_var(KEY, NON_EXISTING);
+        let res = super::find_dir(KEY, sub_dir.to_owned(), NON_EXISTING);
+        debug_assert!(res.is_err());
+
+        // Set the env value as a white spaces.
+        env::set_var(KEY, " ");
         let res = super::find_dir(KEY, sub_dir.to_owned(), NON_EXISTING);
         debug_assert!(res.is_err());
 
@@ -123,13 +130,13 @@ mod tests {
         let res = super::find_dir(KEY, sub_dir.to_owned(), "");
         debug_assert!(res.is_ok());
 
-        // Clear env var.
+        // Empty env value: KEY=""
         env::set_var(KEY, "");
 
         let res = super::find_dir(KEY, sub_dir.to_owned(), NON_EXISTING);
         debug_assert!(res.is_err());
 
-        // Remove env var.
+        // Remove env.
         env::remove_var(KEY);
 
         let res = super::find_dir(KEY, sub_dir.to_owned(), NON_EXISTING);
