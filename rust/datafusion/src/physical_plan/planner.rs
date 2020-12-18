@@ -264,79 +264,17 @@ impl DefaultPhysicalPlanner {
                 join_type,
                 ..
             } => {
-                let mut left_fp = self.create_physical_plan(left, ctx_state)?;
-                let mut right_fp = self.create_physical_plan(right, ctx_state)?;
-                let mut physical_join_type = match join_type {
+                let left = self.create_physical_plan(left, ctx_state)?;
+                let right = self.create_physical_plan(right, ctx_state)?;
+                let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                     JoinType::Left => hash_utils::JoinType::Left,
                     JoinType::Right => hash_utils::JoinType::Right,
                 };
 
-                let mut keys = keys.clone();
-
-                // Gets exact number of rows, if known
-                fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
-                    match logical_plan {
-                        LogicalPlan::Projection {
-                            expr,
-                            input,
-                            schema,
-                        } => get_num_rows(input),
-                        LogicalPlan::Sort { expr, input } => get_num_rows(input),
-                        LogicalPlan::TableScan { source, .. } => {
-                            source.statistics().num_rows
-                        }
-                        LogicalPlan::EmptyRelation {
-                            produce_one_row,
-                            schema,
-                        } => {
-                            if *produce_one_row {
-                                Some(1)
-                            } else {
-                                Some(0)
-                            }
-                        }
-                        LogicalPlan::Limit { n, input } => {
-                            let num_rows_input = get_num_rows(input);
-                            num_rows_input.map(|x| std::cmp::max(*n, x))
-                        }
-                        _ => None,
-                    }
-                }
-
-                //
-                fn should_swap_join_order(
-                    left: &LogicalPlan,
-                    right: &LogicalPlan,
-                ) -> bool {
-                    let left_rows = get_num_rows(left);
-                    let right_rows = get_num_rows(right);
-                    println!("LEFT: {:?}", left_rows);
-                    println!("RIGHT: {:?}", right_rows);
-
-                    match (left_rows, right_rows) {
-                        (Some(l), Some(r)) => l > r,
-                        _ => false,
-                    }
-                }
-
-                // Optimize hash join order based on expected nr. of rows
-                if should_swap_join_order(&left, &right) {
-                    std::mem::swap(&mut left_fp, &mut right_fp);
-                    physical_join_type = match physical_join_type {
-                        hash_utils::JoinType::Inner => hash_utils::JoinType::Inner,
-                        hash_utils::JoinType::Left => hash_utils::JoinType::Right,
-                        hash_utils::JoinType::Right => hash_utils::JoinType::Left,
-                    };
-                    keys = keys
-                        .iter()
-                        .map(|(x, y)| (y.to_string(), x.to_string()))
-                        .collect();
-                }
-
                 Ok(Arc::new(HashJoinExec::try_new(
-                    left_fp,
-                    right_fp,
+                    left,
+                    right,
                     &keys,
                     &physical_join_type,
                 )?))
