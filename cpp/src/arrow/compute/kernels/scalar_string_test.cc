@@ -454,6 +454,11 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
   this->CheckUnary("utf8_rtrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
                    this->type(), "[\"ȺȺfoo\", null, \"bar\", \"ȺAȺfooȺAȺbar\"]",
                    &options);
+
+  TrimOptions options_invalid{"ɑa\xFFɑ"};
+  auto input = ArrayFromJSON(this->type(), "[\"foo\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8"),
+                                  CallFunction("utf8_trim", {input}, &options_invalid));
 }
 #endif
 

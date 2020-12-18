@@ -1297,25 +1297,34 @@ template <typename Type>
 struct UTF8RTrimWhitespace
     : UTF8TrimWhitespaceBase<Type, false, true, UTF8RTrimWhitespace<Type>> {};
 
+struct TrimStateUTF8 {
+  TrimOptions options_;
+  std::vector<bool> codepoints_;
+  explicit TrimStateUTF8(KernelContext* ctx, TrimOptions options)
+      : options_(std::move(options)) {
+    if (!ARROW_PREDICT_TRUE(
+            arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
+              codepoints_.resize(
+                  std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
+              codepoints_.at(c) = true;
+            }))) {
+      ctx->SetStatus(Status::Invalid("Invalid UTF8 sequence in input"));
+    }
+  }
+};
+
 template <typename Type, bool left, bool right, typename Derived>
 struct UTF8TrimBase : StringTransform<Type, Derived> {
   using Base = StringTransform<Type, Derived>;
   using offset_type = typename Base::offset_type;
-  using State = OptionsWrapper<TrimOptions>;
-  TrimOptions options_;
-  std::vector<bool> codepoints_;
+  using State = KernelStateFromFunctionOptions<TrimStateUTF8, TrimOptions>;
+  TrimStateUTF8 state_;
 
-  explicit UTF8TrimBase(TrimOptions options) : options_(std::move(options)) {
-    // TODO: check return / can we raise an exception here?
-    arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
-      codepoints_.resize(std::max(c + 1, static_cast<uint32_t>(codepoints_.size())));
-      codepoints_.at(c) = true;
-    });
-  }
+  explicit UTF8TrimBase(TrimStateUTF8 state) : state_(std::move(state)) {}
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    TrimOptions options = State::Get(ctx);
-    Derived(options).Execute(ctx, batch, out);
+    TrimStateUTF8 state = State::Get(ctx);
+    Derived(state).Execute(ctx, batch, out);
   }
 
   void Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1331,7 +1340,7 @@ struct UTF8TrimBase : StringTransform<Type, Derived> {
     const uint8_t* begin_trimmed = begin;
 
     auto predicate = [&](uint32_t c) {
-      bool contains = codepoints_[c];
+      bool contains = state_.codepoints_[c];
       return !contains;
     };
     if (left && !ARROW_PREDICT_TRUE(
