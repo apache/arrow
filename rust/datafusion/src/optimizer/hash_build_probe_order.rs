@@ -85,7 +85,7 @@ impl OptimizerRule for HashBuildProbeOrder {
                 schema,
             } => {
                 if should_swap_join_order(left, right) {
-                    // swap
+                    // Swap left and right, change join type and (equi-)join key order
                     Ok(LogicalPlan::Join {
                         left: right.clone(),
                         right: left.clone(),
@@ -97,6 +97,7 @@ impl OptimizerRule for HashBuildProbeOrder {
                         schema: schema.clone(),
                     })
                 } else {
+                    // Keep join as is
                     Ok(LogicalPlan::Join {
                         left: left.clone(),
                         right: right.clone(),
@@ -149,14 +150,11 @@ fn swap_join_type(join_type: JoinType) -> JoinType {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
 
-    use arrow::datatypes::Schema;
-
-    use super::*;
     use crate::{
         datasource::{datasource::Statistics, TableProvider},
-        logical_plan::{DFSchema, LogicalPlanBuilder},
+        logical_plan::DFSchema,
         test::*,
     };
 
@@ -174,8 +172,8 @@ mod tests {
 
         fn scan(
             &self,
-            projection: &Option<Vec<usize>>,
-            batch_size: usize,
+            _projection: &Option<Vec<usize>>,
+            _batch_size: usize,
         ) -> Result<std::sync::Arc<dyn crate::physical_plan::ExecutionPlan>> {
             unimplemented!()
         }
@@ -198,8 +196,6 @@ mod tests {
 
     #[test]
     fn test_swap_order() -> Result<()> {
-        let mut table_scan = test_table_scan()?;
-
         let lp_left = LogicalPlan::TableScan {
             table_name: "left".to_string(),
             projection: None,
@@ -212,14 +208,6 @@ mod tests {
             projection: None,
             source: Arc::new(TestTableProvider { num_rows: 1000 }),
             projected_schema: Arc::new(DFSchema::empty()),
-        };
-
-        let lp = LogicalPlan::Join {
-            left: Arc::new(lp_left),
-            right: Arc::new(lp_right),
-            on: vec![],
-            join_type: JoinType::Left,
-            schema: Arc::new(DFSchema::empty()),
         };
 
         assert!(should_swap_join_order(&lp_left, &lp_right));
