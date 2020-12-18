@@ -433,13 +433,14 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
 TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
   // \xe2\x80\x88 is punctuation space
   this->CheckUnary("utf8_trim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
                    this->type(), "[\"foo\", null, \"bar\", \"foo bar\"]");
   this->CheckUnary("utf8_rtrim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
-                   this->type(), "[\" foo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(),
+                   "[\" \\tfoo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
   this->CheckUnary("utf8_ltrim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
                    this->type(), "[\"foo\", null, \"bar  \", \"foo bar \"]");
 }
 
@@ -459,13 +460,14 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
 TYPED_TEST(TestStringKernels, TrimWhitespaceAscii) {
   // \xe2\x80\x88 is punctuation space
   this->CheckUnary("ascii_trim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
                    this->type(), "[\"foo\", null, \"bar\", \"\xe2\x80\x88 foo bar\"]");
   this->CheckUnary("ascii_rtrim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
-                   this->type(), "[\" foo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   this->type(),
+                   "[\" \\tfoo\", null, \"bar\", \" \xe2\x80\x88 foo bar\"]");
   this->CheckUnary("ascii_ltrim_whitespace",
-                   "[\" foo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
+                   "[\" \\tfoo\", null, \"bar  \", \" \xe2\x80\x88 foo bar \"]",
                    this->type(), "[\"foo\", null, \"bar  \", \"\xe2\x80\x88 foo bar \"]");
 }
 
