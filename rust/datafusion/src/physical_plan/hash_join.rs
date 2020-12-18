@@ -432,11 +432,12 @@ fn build_join_indexes(
 
     match join_type {
         JoinType::Inner => {
-            // inner => key intersection
             let mut indexes = Vec::new(); // unknown a prior size
+
+            // Visit all of the right rows
             for row in 0..right.num_rows() {
+                // Get the key and find it in the build index
                 create_key(&keys_values, row, &mut key)?;
-                // the unwrap never happens by construction of the key
                 let left_indexes = left.get(&key);
 
                 // for every item on the left and right with this key, add the respective pair
@@ -448,13 +449,13 @@ fn build_join_indexes(
             Ok(indexes)
         }
         JoinType::Left => {
-            // left => left keys
             let mut indexes = Vec::new(); // unknown a prior size
 
             // Keep track of which item is visited in the build input
             // TODO: this can be stored more efficiently with a marker
             let mut is_visited = HashSet::new();
 
+            // First visit all of the rows
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
                 // the unwrap never happens by construction of the key
@@ -471,6 +472,7 @@ fn build_join_indexes(
                     None => {}
                 };
             }
+            // Add the remaining left rows to the result set with None on the right side
             for (key, indices) in left {
                 if !is_visited.contains(key) {
                     indices.iter().for_each(|x| {
@@ -482,8 +484,6 @@ fn build_join_indexes(
             Ok(indexes)
         }
         JoinType::Right => {
-            // right => right keys
-
             let mut indexes = Vec::new(); // unknown a prior size
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
@@ -497,6 +497,7 @@ fn build_join_indexes(
                         });
                     }
                     None => {
+                        // when no match, add the row with None for the left side
                         indexes.push((None, Some((0, row))));
                     }
                 }
