@@ -117,9 +117,9 @@ class ARROW_DS_EXPORT Expression {
   using Impl = util::Variant<Datum, Parameter, Call>;
   std::shared_ptr<Impl> impl_;
 
-  ARROW_EXPORT friend bool Identical(const Expression& l, const Expression& r);
+  ARROW_DS_EXPORT friend bool Identical(const Expression& l, const Expression& r);
 
-  ARROW_EXPORT friend void PrintTo(const Expression&, std::ostream*);
+  ARROW_DS_EXPORT friend void PrintTo(const Expression&, std::ostream*);
 };
 
 inline bool operator==(const Expression& l, const Expression& r) { return l.Equals(r); }
