@@ -204,6 +204,20 @@ pub fn build_filter(filter: &BooleanArray) -> Result<Filter> {
 /// Filters an [Array], returning elements matching the filter (i.e. where the values are true).
 /// WARNING: the nulls of `filter` are ignored and the value on its slot is considered.
 /// Therefore, it is considered undefined behavior to pass `filter` with null values.
+/// # Example
+/// ```rust
+/// # use arrow::array::{Int32Array, BooleanArray};
+/// # use arrow::error::Result;
+/// # use arrow::compute::kernels::filter::filter;
+/// # fn main() -> Result<()> {
+/// let array = Int32Array::from(vec![5, 6, 7, 8, 9]);
+/// let filter_array = BooleanArray::from(vec![true, false, false, true, false]);
+/// let c = filter(&array, &filter_array)?;
+/// let c = c.as_any().downcast_ref::<Int32Array>().unwrap();
+/// assert_eq!(c, &Int32Array::from(vec![5, 8]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
     let iter = SlicesIterator::new(filter);
 
@@ -324,17 +338,6 @@ mod tests {
         TimestampNanosecondArray,
         TimestampNanosecondArray::from_vec(vec![1, 2, 3, 4], None)
     );
-
-    #[test]
-    fn test_filter_array() {
-        let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
-        let b = BooleanArray::from(vec![true, false, false, true, false]);
-        let c = filter(&a, &b).unwrap();
-        let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
-        assert_eq!(2, d.len());
-        assert_eq!(5, d.value(0));
-        assert_eq!(8, d.value(1));
-    }
 
     #[test]
     fn test_filter_array_slice() {
