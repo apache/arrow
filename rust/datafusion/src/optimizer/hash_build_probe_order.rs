@@ -200,14 +200,14 @@ mod tests {
         let lp_left = LogicalPlan::TableScan {
             table_name: "left".to_string(),
             projection: None,
-            source: Arc::new(TestTableProvider { num_rows: 100 }),
+            source: Arc::new(TestTableProvider { num_rows: 1000 }),
             projected_schema: Arc::new(DFSchema::empty()),
         };
 
         let lp_right = LogicalPlan::TableScan {
             table_name: "right".to_string(),
             projection: None,
-            source: Arc::new(TestTableProvider { num_rows: 1000 }),
+            source: Arc::new(TestTableProvider { num_rows: 100 }),
             projected_schema: Arc::new(DFSchema::empty()),
         };
 
