@@ -54,6 +54,16 @@ class TestDecimal256 < Test::Unit::TestCase
     assert_equal(positive_value, decimal.to_s)
   end
 
+  def test_plus
+    integer_data1 = 23423445
+    integer_data2 = 5443
+    decimal1 = Arrow::Decimal256.new(integer_data1)
+    decimal2 = Arrow::Decimal256.new(integer_data2)
+    decimal3 = decimal1.plus(decimal2)
+    assert_equal((integer_data1 + integer_data2).to_s,
+                 decimal3.to_s)
+  end
+
   def test_multiply
     integer_data1 = 23423445
     integer_data2 = 5443

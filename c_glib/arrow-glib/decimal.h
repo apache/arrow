@@ -130,6 +130,9 @@ void garrow_decimal256_abs(GArrowDecimal256 *decimal);
 GARROW_AVAILABLE_IN_3_0
 void garrow_decimal256_negate(GArrowDecimal256 *decimal);
 GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_plus(GArrowDecimal256 *left,
+                                         GArrowDecimal256 *right);
+GARROW_AVAILABLE_IN_3_0
 GArrowDecimal256 *garrow_decimal256_multiply(GArrowDecimal256 *left,
                                              GArrowDecimal256 *right);
 GARROW_AVAILABLE_IN_3_0

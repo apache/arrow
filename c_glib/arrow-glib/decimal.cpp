@@ -962,6 +962,38 @@ garrow_decimal256_negate(GArrowDecimal256 *decimal)
 }
 
 /**
+ * garrow_decimal256_plus:
+ * @left: A #GArrowDecimal256.
+ * @right: A #GArrowDecimal256.
+ *
+ * Returns: (transfer full): The added value of these decimals.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256 *
+garrow_decimal256_plus(GArrowDecimal256 *left,
+                       GArrowDecimal256 *right)
+{
+  return garrow_decimal_plus<arrow::Decimal256>(left, right);
+}
+
+/**
+ * garrow_decimal256_minus:
+ * @left: A #GArrowDecimal256.
+ * @right: A #GArrowDecimal256.
+ *
+ * Returns: (transfer full): The subtracted value of these decimals.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256 *
+garrow_decimal256_minus(GArrowDecimal256 *left,
+                        GArrowDecimal256 *right)
+{
+  return garrow_decimal_minus<arrow::Decimal256>(left, right);
+}
+
+/**
  * garrow_decimal256_multiply:
  * @left: A #GArrowDecimal256.
  * @right: A #GArrowDecimal256.
