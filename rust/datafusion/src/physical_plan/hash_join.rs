@@ -385,10 +385,6 @@ fn build_batch(
     join_type: &JoinType,
     schema: &Schema,
 ) -> ArrowResult<RecordBatch> {
-    // let mut right_hash =
-    //     JoinHashMap::with_capacity_and_hasher(batch.num_rows(), RandomState::new());
-    //update_hash(on_right, batch, &mut right_hash, 0).unwrap();
-
     let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
     build_batch_from_indices(schema, &left_data.1, &batch, join_type, &indices)
