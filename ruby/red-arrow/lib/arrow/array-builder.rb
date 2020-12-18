@@ -116,14 +116,14 @@ module Arrow
             detected: true,
           }
         when BigDecimal
-          if value.precs[0] > Arrow::Decimal128DataType::MAX_PRECISION
+          if value.to_arrow.is_a?(Decimal128)
             {
-              builder: Decimal256ArrayBuilder.new,
-              detected: true,
+              builder: Decimal128ArrayBuilder.new,
             }
           else
             {
-              builder: Decimal128ArrayBuilder.new,
+              builder: Decimal256ArrayBuilder.new,
+              detected: true,
             }
           end
         when ::Array
