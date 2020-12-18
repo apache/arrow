@@ -22,7 +22,6 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/adapters/orc/adapter_util.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
