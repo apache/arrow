@@ -34,8 +34,6 @@ using internal::checked_cast;
 
 namespace dataset {
 
-bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
-
 const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
   DCHECK_NE(call, nullptr);
