@@ -20,9 +20,9 @@
 //! rows of both sources is known, the order can be switched
 //! for a faster hash join.
 
+use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::{error::Result, prelude::JoinType};
-use crate::{logical_plan::LogicalPlan, test::test_table_scan};
 
 use super::utils;
 
@@ -147,11 +147,17 @@ fn swap_join_type(join_type: JoinType) -> JoinType {
     }
 }
 
-#[test]
-fn test_num_rows() -> Result<()> {
-    let table_scan = test_table_scan()?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test::*;
 
-    assert_eq!(get_num_rows(&table_scan), Some(0));
+    #[test]
+    fn test_num_rows() -> Result<()> {
+        let table_scan = test_table_scan()?;
 
-    Ok(())
+        assert_eq!(get_num_rows(&table_scan), Some(0));
+
+        Ok(())
+    }
 }
