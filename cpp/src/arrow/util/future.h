@@ -362,6 +362,18 @@ class ARROW_MUST_USE_TYPE Future {
   /// particular, callbacks added while the future is being marked complete
   /// may be executed immediately, ahead of, or even the same time as, other
   /// callbacks that have been previously added.
+  ///
+  /// WARNING: callbacks may hold arbitrary references, including cyclic references.
+  /// Since callbacks will only be destroyed after they are invoked, this can lead to
+  /// memory leaks if a Future is never marked finished (abandoned):
+  ///
+  /// {
+  ///     auto fut = Future<>::Make();
+  ///     fut.AddCallback([fut](...) {});
+  /// }
+  ///
+  /// In this example `fut` falls out of scope but is not destroyed because it holds a
+  /// cyclic reference to itself through the callback.
   template <typename OnComplete>
   void AddCallback(OnComplete&& on_complete) const {
     struct Callback {
@@ -394,13 +406,13 @@ class ARROW_MUST_USE_TYPE Future {
   ///
   /// Then() returns a Future whose ValueType is derived from the return type of the
   /// callbacks. If a callback returns:
-  /// - void, a Future<> will be produced which will completes successully as soon
+  /// - void, a Future<> will be returned which will completes successully as soon
   ///   as the callback runs.
-  /// - Status, a Future<> will be produced which will complete with the returned Status
+  /// - Status, a Future<> will be returned which will complete with the returned Status
   ///   as soon as the callback runs.
-  /// - V or Result<V>, a Future<V> will be produced which will complete with the result
+  /// - V or Result<V>, a Future<V> will be returned which will complete with the result
   ///   of invoking the callback as soon as the callback runs.
-  /// - Future<V>, a Future<V> will be produced which will be marked complete when the
+  /// - Future<V>, a Future<V> will be returned which will be marked complete when the
   ///   future returned by the callback completes (and will complete with the same
   ///   result).
   ///
@@ -410,9 +422,9 @@ class ARROW_MUST_USE_TYPE Future {
   /// complete even if this Future fails.
   ///
   /// If this future is already completed then the callback will be run immediately
-  /// (before this method returns) and the returned future may already be marked complete
-  /// (it will definitely be marked complete if the callback returns a non-future or a
-  /// completed future).
+  /// and the returned future may already be marked complete.
+  ///
+  /// See AddCallback for general considerations when writing callbacks.
   template <typename OnSuccess, typename OnFailure,
             typename ContinuedFuture =
                 detail::ContinueFuture::ForSignature<OnSuccess && (const T&)>>
@@ -427,8 +439,10 @@ class ARROW_MUST_USE_TYPE Future {
     struct Callback {
       void operator()(const Result<T>& result) && {
         if (ARROW_PREDICT_TRUE(result.ok())) {
+          ARROW_UNUSED(OnFailure(std::move(on_failure)));
           detail::Continue(std::move(next), std::move(on_success), result.ValueOrDie());
         } else {
+          ARROW_UNUSED(OnSuccess(std::move(on_success)));
           detail::Continue(std::move(next), std::move(on_failure), result.status());
         }
       }
