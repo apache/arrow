@@ -25,17 +25,22 @@ use std::{iter::Enumerate, sync::Arc};
 /// Function that can filter arbitrary arrays
 pub type Filter<'a> = Box<Fn(&ArrayData) -> ArrayData + 'a>;
 
+/// Internal state of [SlicesIterator]
 #[derive(Debug, PartialEq)]
 enum State {
+    // it is iterating over bits of a mask (`u64`, steps of size of 1 slot)
     Bits(u64),
+    // it is iterating over chunks (steps of size of 64 slots)
     Chunks,
+    // it is iterating over the remainding bits (steps of size of 1 slot)
     Remainder,
+    // nothing more to iterate.
     Finish,
 }
 
-/// An iterator of `(start, end)`, where `[start,end[` is an interval of a booleanArray whose
-/// slots are true. To filter, each interval corresponds to a contiguous region of memory to be
-/// "taken" from an existing array.
+/// An iterator of `(usize, usize)` each representing an interval `[start,end[` whose
+/// slots of a [BooleanArray] are true. Each interval corresponds to a contiguous region of memory to be
+/// "taken" from an array to be filtered.
 #[derive(Debug)]
 struct SlicesIterator<'a> {
     iter: Enumerate<BitChunkIterator<'a>>,
@@ -103,6 +108,7 @@ impl<'a> SlicesIterator<'a> {
         None
     }
 
+    /// iterates over chunks.
     #[inline]
     fn iterate_chunks(&mut self) -> Option<(usize, usize)> {
         while let Some((i, mask)) = self.iter.next() {
@@ -115,6 +121,7 @@ impl<'a> SlicesIterator<'a> {
                     return Some(result);
                 }
             } else if mask == 18446744073709551615u64 {
+                // = !0u64
                 if !self.on_region {
                     self.start = self.current_start();
                     self.on_region = true;
@@ -177,9 +184,10 @@ impl<'a> Iterator for SlicesIterator<'a> {
     }
 }
 
-/// Returns a function with pre-computed values that can be used to filter arbitrary arrays,
-/// thereby improving performance when filtering multiple arrays
-pub fn build_filter<'a>(filter: &'a BooleanArray) -> Result<Filter<'a>> {
+/// Returns a function used to filter arbitrary arrays.
+/// This is faster (2x for primitive types) than using [filter] on multiple arrays, but slower
+/// than [filter] when filtering a single array.
+pub fn build_filter(filter: &BooleanArray) -> Result<Filter> {
     let iter = SlicesIterator::new(filter);
     let filter_count = iter.filter_count;
     let chunks = iter.collect::<Vec<_>>();
@@ -193,7 +201,9 @@ pub fn build_filter<'a>(filter: &'a BooleanArray) -> Result<Filter<'a>> {
     }))
 }
 
-/// Returns a new array, containing only the elements matching the filter.
+/// Filters an [Array], returning elements matching the filter (i.e. where the values are true).
+/// WARNING: the nulls of `filter` are ignored and the value on its slot is considered.
+/// Therefore, it is considered undefined behavior to pass `filter` with null values.
 pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
     let iter = SlicesIterator::new(filter);
 
@@ -204,7 +214,9 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
     Ok(make_array(Arc::new(data)))
 }
 
-/// Returns a new RecordBatch with arrays containing only values matching the filter.
+/// Returns a new [RecordBatch] with arrays containing only values matching the filter.
+/// WARNING: the nulls of `filter` are ignored and the value on its slot is considered.
+/// Therefore, it is considered undefined behavior to pass `filter` with null values.
 pub fn filter_record_batch(
     record_batch: &RecordBatch,
     filter_array: &BooleanArray,
