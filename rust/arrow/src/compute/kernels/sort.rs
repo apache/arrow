@@ -556,6 +556,7 @@ where
     Ok(UInt32Array::from(valid_indices))
 }
 
+/// Compare two `Array`s based on the ordering defined in [ord](crate::array::ord).
 fn cmp_array(a: &Array, b: &Array) -> Ordering {
     let cmp_op = build_compare(a, b).unwrap();
     let length = a.len().max(b.len());
