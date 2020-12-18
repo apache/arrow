@@ -105,7 +105,7 @@ impl HashJoinExec {
             left,
             right,
             on,
-            join_type: join_type.clone(),
+            join_type: *join_type,
             schema,
         })
     }

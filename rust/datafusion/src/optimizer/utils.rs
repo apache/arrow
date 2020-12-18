@@ -217,7 +217,7 @@ pub fn from_plan(
         } => Ok(LogicalPlan::Join {
             left: Arc::new(inputs[0].clone()),
             right: Arc::new(inputs[1].clone()),
-            join_type: join_type.clone(),
+            join_type: *join_type,
             on: on.clone(),
             schema: schema.clone(),
         }),
