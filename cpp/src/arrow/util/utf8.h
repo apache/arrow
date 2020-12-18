@@ -511,7 +511,7 @@ static inline bool UTF8ForEach(const uint8_t* first, const uint8_t* last,
 }
 
 template <class UnaryFunction>
-static inline bool UTF8ForEach(std::string s, UnaryFunction&& f) {
+static inline bool UTF8ForEach(const std::string& s, UnaryFunction&& f) {
   return UTF8ForEach(reinterpret_cast<const uint8_t*>(s.data()),
                      reinterpret_cast<const uint8_t*>(s.data() + s.length()),
                      std::forward<UnaryFunction>(f));
