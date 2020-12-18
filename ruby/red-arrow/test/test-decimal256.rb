@@ -60,5 +60,43 @@ class Decimal256Test < Test::Unit::TestCase
                      @decimal256.to_s(1))
       end
     end
+
+    test("#abs") do
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      assert_equal([
+                     Arrow::Decimal256.new("-10.1"),
+                     Arrow::Decimal256.new("10.1"),
+                   ],
+                   [
+                     decimal256,
+                     decimal256.abs,
+                   ])
+    end
+
+    test("#abs!") do
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      decimal256.abs!
+      assert_equal(Arrow::Decimal256.new("10.1"),
+                   decimal256)
+    end
+
+    test("#negate") do
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      assert_equal([
+                     Arrow::Decimal256.new("-10.1"),
+                     Arrow::Decimal256.new("10.1"),
+                   ],
+                   [
+                     decimal256,
+                     decimal256.negate,
+                   ])
+    end
+
+    test("#negate!") do
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      decimal256.negate!
+      assert_equal(Arrow::Decimal256.new("10.1"),
+                   decimal256)
+    end
   end
 end
