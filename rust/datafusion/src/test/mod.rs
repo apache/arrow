@@ -23,7 +23,7 @@ use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use arrow::array::{self, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
-use std::env;
+use arrow::util::test_data_dir::ARROW_TEST_DATA;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
@@ -47,14 +47,9 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
     Box::new(provider)
 }
 
-/// Get the value of the ARROW_TEST_DATA environment variable
-pub fn arrow_testdata_path() -> String {
-    env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined")
-}
-
 /// Generated partitioned copy of a CSV file
 pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<String> {
-    let testdata = arrow_testdata_path();
+    let testdata = ARROW_TEST_DATA().unwrap();
     let path = format!("{}/csv/{}", testdata, filename);
 
     let tmp_dir = TempDir::new()?;

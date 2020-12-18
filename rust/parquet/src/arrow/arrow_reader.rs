@@ -258,7 +258,6 @@ mod tests {
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
     use std::cmp::min;
     use std::convert::TryFrom;
-    use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -563,8 +562,10 @@ mod tests {
     }
 
     fn get_test_file(file_name: &str) -> File {
+        use arrow::util::test_data_dir::ARROW_TEST_DATA;
+
         let mut path = PathBuf::new();
-        path.push(env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined!"));
+        path.push(ARROW_TEST_DATA().unwrap());
         path.push(file_name);
 
         File::open(path.as_path()).expect("File not found!")

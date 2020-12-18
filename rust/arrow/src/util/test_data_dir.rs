@@ -29,7 +29,7 @@ pub fn ARROW_TEST_DATA() -> Result<String, Box<dyn Error>> {
 }
 
 /// Gets parquet test data dir.
-/// The env `ARROW_TEST_DATA` has higher prior to the default git submodule dir.
+/// The env `PARQUET_TEST_DATA` has higher prior to the default git submodule dir.
 #[inline]
 #[allow(non_snake_case)]
 pub fn PARQUET_TEST_DATA() -> Result<String, Box<dyn Error>> {

@@ -103,8 +103,8 @@ mod tests {
         TimestampNanosecondArray,
     };
     use arrow::record_batch::RecordBatch;
+    use arrow::util::test_data_dir::PARQUET_TEST_DATA;
     use futures::StreamExt;
-    use std::env;
 
     #[tokio::test]
     async fn read_small_batches() -> Result<()> {
@@ -324,8 +324,7 @@ mod tests {
     }
 
     fn load_table(name: &str) -> Result<Box<dyn TableProvider>> {
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        let testdata = PARQUET_TEST_DATA().unwrap();
         let filename = format!("{}/{}", testdata, name);
         let table = ParquetTable::try_new(&filename)?;
         Ok(Box::new(table))

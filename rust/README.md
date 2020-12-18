@@ -92,7 +92,14 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-The following Env vars are required to run `cargo test`, examples, etc.
+The following environment variables are **optional** to run `cargo test`, benchmarks, examples, etc.
+
+They are required to be set **only if**:
+
+- either apache arrow is not a git repository,
+- or the data dirs are not default.
+
+Assuming that you are in this crates' current directory, and have to set the environment variables:
 
 ```bash
 export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)

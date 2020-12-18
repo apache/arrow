@@ -16,6 +16,7 @@
 // under the License.
 
 use arrow::util::pretty;
+use arrow::util::test_data_dir::ARROW_TEST_DATA;
 
 use datafusion::error::Result;
 use datafusion::prelude::*;
@@ -27,7 +28,7 @@ async fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
-    let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = ARROW_TEST_DATA().unwrap();
 
     // register csv file with the execution context
     ctx.register_csv(

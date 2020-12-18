@@ -29,8 +29,13 @@ Refer to [lib.rs](src/lib.rs) for an introduction to this crate and current func
 
 ### How to run the tests
 
-The tests of this crate depend on two environment variables to be defined.
-Assuming that you are in this crates' current directory:
+The tests of this crate **optionally** depend on two environment variables to be defined.
+
+They are required to set **only if**:
+- either apache arrow is not a git repository,
+- or the data dirs are not default.
+
+Assuming that you are in this crates' current directory, and have to set the environment variables:
 
 ```bash
 export PARQUET_TEST_DATA=$(cd ../../cpp/submodules/parquet-testing/data; pwd)

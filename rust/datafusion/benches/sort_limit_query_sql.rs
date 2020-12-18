@@ -19,13 +19,13 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::env;
 use std::sync::{Arc, Mutex};
 
 extern crate arrow;
 extern crate datafusion;
 
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::util::test_data_dir::ARROW_TEST_DATA;
 
 use datafusion::datasource::{CsvFile, CsvReadOptions, MemTable};
 use datafusion::execution::context::ExecutionContext;
@@ -58,7 +58,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    let testdata = ARROW_TEST_DATA().unwrap();
 
     // create CSV data source
     let csv = CsvFile::try_new(

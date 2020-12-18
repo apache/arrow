@@ -151,6 +151,7 @@ mod tests {
     use crate::execution::context::ExecutionContext;
     use crate::logical_plan::*;
     use crate::{physical_plan::functions::ScalarFunctionImplementation, test};
+    use arrow::util::test_data_dir::ARROW_TEST_DATA;
     use arrow::{array::ArrayRef, datatypes::DataType};
 
     #[test]
@@ -323,7 +324,7 @@ mod tests {
 
     fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
         let schema = test::aggr_test_schema();
-        let testdata = test::arrow_testdata_path();
+        let testdata = ARROW_TEST_DATA().unwrap();
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),

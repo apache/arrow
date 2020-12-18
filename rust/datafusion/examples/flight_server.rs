@@ -25,6 +25,7 @@ use datafusion::datasource::TableProvider;
 use datafusion::prelude::*;
 use datafusion::{datasource::parquet::ParquetTable, physical_plan::collect};
 
+use arrow::util::test_data_dir::PARQUET_TEST_DATA;
 use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
     Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
@@ -87,8 +88,7 @@ impl FlightService for FlightServiceImpl {
                 // create local execution context
                 let mut ctx = ExecutionContext::new();
 
-                let testdata = std::env::var("PARQUET_TEST_DATA")
-                    .expect("PARQUET_TEST_DATA not defined");
+                let testdata = PARQUET_TEST_DATA().unwrap();
 
                 // register parquet file with the execution context
                 ctx.register_parquet(
