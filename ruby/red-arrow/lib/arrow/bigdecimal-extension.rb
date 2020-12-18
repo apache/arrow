@@ -19,7 +19,8 @@ require "bigdecimal"
 
 class BigDecimal
   def to_arrow
-    if precs[0] <= Arrow::Decimal128DataType::MAX_PRECISION
+    precision = to_s("+F").split(".", 2)[0].bytesize - 1
+    if precision <= Arrow::Decimal128DataType::MAX_PRECISION
       Arrow::Decimal128.new(to_s)
     else
       Arrow::Decimal256.new(to_s)

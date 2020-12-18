@@ -16,8 +16,25 @@
 # under the License.
 
 class BigDecimalTest < Test::Unit::TestCase
-  test("#to_arrow") do
-    assert_equal(Arrow::Decimal128.new("3.14"),
-                 BigDecimal("3.14").to_arrow)
+  sub_test_case("#to_arrow") do
+    def test_128_positive
+      assert_equal(Arrow::Decimal128.new("0.1e38"),
+                   BigDecimal("0.1e38").to_arrow)
+    end
+
+    def test_128_negative
+      assert_equal(Arrow::Decimal128.new("-0.1e38"),
+                   BigDecimal("-0.1e38").to_arrow)
+    end
+
+    def test_256_positive
+      assert_equal(Arrow::Decimal256.new("0.1e39"),
+                   BigDecimal("0.1e39").to_arrow)
+    end
+
+    def test_256_negative
+      assert_equal(Arrow::Decimal256.new("-0.1e39"),
+                   BigDecimal("-0.1e39").to_arrow)
+    end
   end
 end
