@@ -1270,8 +1270,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
       IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
       ARROW_ASSIGN_OR_RAISE(
           auto batch,
-          ReadRecordBatchInternal(*message->metadata(), schema_,
-                                  field_inclusion_mask_, context, reader.get()));
+          ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                  context, reader.get()));
       ++stats_.num_record_batches;
       return listener_->OnRecordBatchDecoded(std::move(batch));
     }
