@@ -34,47 +34,6 @@
 namespace arrow {
 namespace dataset {
 
-class ARROW_DS_EXPORT RadosDatasetFactoryOptions {
- public:
-  std::vector<std::string> objects_;
-  std::string pool_name_;
-  std::string user_name_;
-  std::string cluster_name_;
-  std::string ceph_config_path_;
-  uint64_t flags_;
-  std::string cls_name_;
-};
-
-/// \brief An abstraction to encapsulate information about a
-/// RADOS object. Currently, it holds only the object ID.
-class ARROW_DS_EXPORT RadosObject {
- public:
-  /// \brief Constructs a RadosObject.
-  /// \param[in] id the object ID.
-  explicit RadosObject(std::string id) : id_(id) {}
-
-  /// \brief Return the object ID.
-  std::string id() const { return id_; }
-
- protected:
-  std::string id_;
-};
-
-/// \brief A vector of RadosObjects.
-using RadosObjectVector = std::vector<std::shared_ptr<RadosObject>>;
-/// \brief An iterator over the RadosObjectVector.
-using RadosObjectIterator = Iterator<std::shared_ptr<RadosObject>>;
-
-/// \brief Store configuration for connecting to a RADOS cluster and
-/// the CLS library and functions to invoke. Also, holds pointers to
-/// a RadosInterface and IoCtxInterface instance.
-///
-/// auto cluster = new RadosCluster("test-pool");
-/// cluster->Connect();
-/// cluster->Disconnect();
-///
-/// After the cluster handle is initialized pass it around.
-///
 class ARROW_DS_EXPORT RadosCluster {
  public:
   RadosCluster(std::string pool_name, std::string ceph_config_path) {
@@ -103,18 +62,34 @@ class ARROW_DS_EXPORT RadosCluster {
   IoCtxInterface* io_ctx_interface_;
 };
 
-/// \brief A Fragment that maps to an object stored in the Ceph object store.
+class ARROW_DS_EXPORT RadosDatasetFactoryOptions : public FileSystemFactoryOptions {
+ public:
+  std::string pool_name_;
+  std::string user_name_;
+  std::string cluster_name_;
+  std::string ceph_config_path_;
+  uint64_t flags_;
+  std::string cls_name_;
+};
+
+class ARROW_DS_EXPORT RadosObject {
+ public:
+
+  explicit RadosObject(std::string id) : id_(id) {}
+
+  std::string id() const { return id_; }
+
+ protected:
+  std::string id_;
+};
+
 class ARROW_DS_EXPORT RadosFragment : public Fragment {
  public:
-  /// \brief Construct a RadosFragment instance.
-  ///
-  /// \param[in] schema the schema of the Table stored in an object.
-  /// to which this Fragment maps to.
-  /// \param[in] object the RadosObject that this Fragment wraps.
-  /// \param[in] cluster the connection information to the RADOS interface.
-  RadosFragment(std::shared_ptr<Schema> schema, std::shared_ptr<RadosObject> object,
-                std::shared_ptr<RadosCluster> cluster)
-      : Fragment(scalar(true), std::move(schema)),
+  RadosFragment(std::shared_ptr<Schema> schema, 
+                std::shared_ptr<RadosObject> object,
+                std::shared_ptr<RadosCluster> cluster,
+                std::shared_ptr<Expression> partition_expression = scalar(true))
+      : Fragment(std::move(partition_expression), std::move(schema)),
         object_(std::move(object)),
         cluster_(std::move(cluster)) {}
 
@@ -125,84 +100,29 @@ class ARROW_DS_EXPORT RadosFragment : public Fragment {
 
   bool splittable() const override { return false; }
 
-  /// \brief Write data to a Fragment.
-  ///
-  /// \param[in] batches the vector of RecordBatches to write.
-  /// \param[in] cluster the connection information to the RADOS cluster.
-  /// \param[in] object a RadosObject instance containing information about the object to
-  /// write.
-  static Status WriteFragment(RecordBatchVector& batches,
-                              std::shared_ptr<RadosCluster> cluster,
-                              std::shared_ptr<RadosObject> object);
-
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
   std::shared_ptr<RadosObject> object_;
   std::shared_ptr<RadosCluster> cluster_;
 };
 
-/// \brief A Dataset to wrap a vector of RadosObjects and generate
-/// RadosFragments out of them.
+using RadosObjectVector = std::vector<std::shared_ptr<RadosObject>>;
+using RadosObjectIterator = Iterator<std::shared_ptr<RadosObject>>;
+using RadosFragmentVector = std::vector<std::shared_ptr<RadosFragment>>;
+
 class ARROW_DS_EXPORT RadosDataset : public Dataset {
  public:
-  class RadosObjectGenerator {
-   public:
-    virtual ~RadosObjectGenerator() = default;
-    virtual RadosObjectIterator Get() const = 0;
-  };
+  static Result<std::shared_ptr<Dataset>> Make(std::shared_ptr<Schema> schema, 
+                                               RadosFragmentVector fragments,
+                                               std::shared_ptr<RadosCluster> cluster);
 
-  struct VectorObjectGenerator : RadosObjectGenerator {
-    explicit VectorObjectGenerator(RadosObjectVector objects)
-        : objects_(std::move(objects)) {}
-
-    RadosObjectIterator Get() const final { return MakeVectorIterator(objects_); }
-
-    RadosObjectVector objects_;
-  };
-
-  /// \brief Construct a RadosDataset.
-  ///
-  /// A RadosDataset is a logical view of a set of objects stored in
-  /// a RADOS cluster which contains partitions of a Table in the
-  /// form of a vector of RecordBatches. Upon calling Scan on a RadosDataset,
-  /// the filter Expression and projection Schema is pushed down to the CLS
-  /// where they are applied on an InMemoryFragment wrapping an object containing
-  /// a table partition.
-  ///
-  /// \param[in] schema the schema of the tables referred to by the dataset.
-  /// \param[in] get_objects a generator to yield RadosObjects from a RadosObjectVector.
-  /// \param[in] cluster the connection information to the RADOS interface.
-  RadosDataset(std::shared_ptr<Schema> schema,
-               std::shared_ptr<RadosObjectGenerator> get_objects,
-               std::shared_ptr<RadosCluster> cluster)
-      : Dataset(std::move(schema)),
-        get_objects_(std::move(get_objects)),
-        cluster_(std::move(cluster)) {}
-
-  /// \brief Constructs a RadosDataset wrapping RadosObjects and
-  /// connects to a RADOS cluster.
-  ///
-  /// \param[in] schema the schema of the tables referred to by the dataset.
-  /// \param[in] objects a vector of RadosObjects that comprise a RadosDataset.
-  /// \param[in] cluster the connection information to the RADOS interface.
-  RadosDataset(std::shared_ptr<Schema> schema, RadosObjectVector objects,
-               std::shared_ptr<RadosCluster> cluster)
-      : Dataset(std::move(schema)),
-        get_objects_(new VectorObjectGenerator(std::move(objects))),
-        cluster_(std::move(cluster)) {}
-
-  /// \brief Create a RadosDataset
-  ///
-  static Result<std::shared_ptr<Dataset>> Make(RadosDatasetFactoryOptions factory_option);
-
-  /// \brief Write to a RadosDataset
-  ///
+  /// TODO: Needs refactoring
   static Status Write(RecordBatchVector& batches,
-                      RadosDatasetFactoryOptions factory_option, std::string object_id);
+                      RadosDatasetFactoryOptions options, 
+                      std::string object_id);
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
-  /// \brief Returns the cluster handle for this Dataset.
   const std::shared_ptr<RadosCluster>& cluster() const { return cluster_; }
 
   std::string type_name() const override { return "rados"; }
@@ -211,23 +131,22 @@ class ARROW_DS_EXPORT RadosDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  /// \brief Generates RadosFragments from the Dataset.
+  RadosDataset(std::shared_ptr<Schema> schema, 
+                RadosFragmentVector fragments,
+                std::shared_ptr<RadosCluster> cluster)
+        : Dataset(std::move(schema)),
+          fragments_(fragments),
+          cluster_(std::move(cluster)) {}
+
   FragmentIterator GetFragmentsImpl(
       std::shared_ptr<Expression> predicate = scalar(true)) override;
-  std::shared_ptr<RadosObjectGenerator> get_objects_;
+  
+  RadosFragmentVector fragments_;
   std::shared_ptr<RadosCluster> cluster_;
 };
 
-/// \brief A ScanTask to push down operations to the CLS for
-/// performing an InMemory Scan of a RadosObject.
 class ARROW_DS_EXPORT RadosScanTask : public ScanTask {
  public:
-  /// \brief Construct a RadosScanTask object.
-  ///
-  /// \param[in] options the ScanOptions.
-  /// \param[in] context the ScanContext.
-  /// \param[in] object the RadosObject to apply the operations.
-  /// \param[in] cluster the connection information to the RADOS interface.
   RadosScanTask(std::shared_ptr<ScanOptions> options,
                 std::shared_ptr<ScanContext> context, std::shared_ptr<RadosObject> object,
                 std::shared_ptr<RadosCluster> cluster)
@@ -242,28 +161,25 @@ class ARROW_DS_EXPORT RadosScanTask : public ScanTask {
   std::shared_ptr<RadosCluster> cluster_;
 };
 
-/// \brief A factory to create a RadosDataset from a vector of RadosObjects.
-///
-/// The factory takes a vector of RadosObjects and infers the schema of the Table
-/// stored in the objects by scanning the first object in the list.
 class ARROW_DS_EXPORT RadosDatasetFactory : public DatasetFactory {
  public:
-  /// \brief Build a RadosDataset from a vector of RadosObjects.
-  ///
-  /// \param[in] objects a vector of RadosObjects.
-  /// \param[in] cluster the connection information to the RADOS cluster.
   static Result<std::shared_ptr<DatasetFactory>> Make(
-      RadosObjectVector objects, std::shared_ptr<RadosCluster> cluster);
+      RadosDatasetFactoryOptions options);
+
+  static Result<std::shared_ptr<DatasetFactory>> Make(
+      RadosObjectVector objects, RadosDatasetFactoryOptions options);
 
   Result<std::vector<std::shared_ptr<Schema>>> InspectSchemas(InspectOptions options);
 
   Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override;
 
  protected:
-  RadosDatasetFactory(RadosObjectVector objects, std::shared_ptr<RadosCluster> cluster)
-      : objects_(objects), cluster_(std::move(cluster)) {}
+  RadosDatasetFactory(RadosObjectVector objects, std::shared_ptr<RadosCluster> cluster, RadosDatasetFactoryOptions options)
+      : objects_(std::move(objects)), cluster_(std::move(cluster)), options_(std::move(options)) {}
+  
   RadosObjectVector objects_;
   std::shared_ptr<RadosCluster> cluster_;
+  RadosDatasetFactoryOptions options_;
 };
 
 }  // namespace dataset
