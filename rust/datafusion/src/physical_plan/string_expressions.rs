@@ -18,7 +18,12 @@
 //! String expressions
 
 use crate::error::{DataFusionError, Result};
-use arrow::array::{Array, ArrayRef, StringArray, StringBuilder};
+use arrow::{
+    array::{Array, ArrayData, ArrayRef, Int32Array, StringArray, StringBuilder},
+    buffer::Buffer,
+    datatypes::{DataType, ToByteSlice},
+};
+use std::sync::Arc;
 
 macro_rules! downcast_vec {
     ($ARGS:expr, $ARRAY_TYPE:ident) => {{
@@ -66,3 +71,73 @@ pub fn concatenate(args: &[ArrayRef]) -> Result<StringArray> {
     }
     Ok(builder.finish())
 }
+
+/// character_length returns number of characters in the string
+/// character_length('josé') = 4
+pub fn character_length(args: &[ArrayRef]) -> Result<Int32Array> {
+    let num_rows = args[0].len();
+    let string_args =
+        &args[0]
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                DataFusionError::Internal(
+                    "could not cast input to StringArray".to_string(),
+                )
+            })?;
+
+    let result = (0..num_rows)
+        .map(|i| {
+            if string_args.is_null(i) {
+                // NB: Since we use the same null bitset as the input,
+                // the output for this value will be ignored, but we
+                // need some value in the array we are building.
+                Ok(0)
+            } else {
+                Ok(string_args.value(i).chars().count() as i32)
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let data = ArrayData::new(
+        DataType::Int32,
+        num_rows,
+        Some(string_args.null_count()),
+        string_args.data().null_buffer().cloned(),
+        0,
+        vec![Buffer::from(result.to_byte_slice())],
+        vec![],
+    );
+
+    Ok(Int32Array::from(Arc::new(data)))
+}
+
+macro_rules! string_unary_function {
+    ($NAME:ident, $FUNC:ident) => {
+        /// string function that accepts utf8 and returns utf8
+        pub fn $NAME(args: &[ArrayRef]) -> Result<StringArray> {
+            let string_args = &args[0]
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast input to StringArray".to_string(),
+                    )
+                })?;
+
+            let mut builder = StringBuilder::new(args.len());
+            for index in 0..args[0].len() {
+                if string_args.is_null(index) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(&string_args.value(index).$FUNC())?;
+                }
+            }
+            Ok(builder.finish())
+        }
+    };
+}
+
+string_unary_function!(lower, to_ascii_lowercase);
+string_unary_function!(upper, to_ascii_uppercase);
+string_unary_function!(trim, trim);

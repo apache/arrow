@@ -61,7 +61,7 @@ pub enum Signature {
     VariadicEqual,
     /// fixed number of arguments of an arbitrary but equal type out of a list of valid types
     // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
-    // A function of two arguments of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
+    // A function of one argument of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
     Uniform(usize, Vec<DataType>),
     /// exact number of arguments of an exact type
     Exact(Vec<DataType>),
@@ -118,6 +118,14 @@ pub enum BuiltinScalarFunction {
     Length,
     /// concat
     Concat,
+    /// character_length
+    CharacterLength,
+    /// lower
+    Lower,
+    /// upper
+    Upper,
+    /// ltrim
+    Trim,
     /// to_timestamp
     ToTimestamp,
     /// construct an array from columns
@@ -156,6 +164,11 @@ impl FromStr for BuiltinScalarFunction {
             "signum" => BuiltinScalarFunction::Signum,
             "length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
+            "char_length" => BuiltinScalarFunction::CharacterLength,
+            "character_length" => BuiltinScalarFunction::CharacterLength,
+            "lower" => BuiltinScalarFunction::Lower,
+            "upper" => BuiltinScalarFunction::Upper,
+            "trim" => BuiltinScalarFunction::Trim,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
@@ -203,6 +216,10 @@ pub fn return_type(
             }
         }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::CharacterLength => Ok(DataType::Int32),
+        BuiltinScalarFunction::Lower => Ok(DataType::Utf8),
+        BuiltinScalarFunction::Upper => Ok(DataType::Utf8),
+        BuiltinScalarFunction::Trim => Ok(DataType::Utf8),
         BuiltinScalarFunction::ToTimestamp => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
@@ -249,6 +266,18 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
+        BuiltinScalarFunction::CharacterLength => {
+            |args| Ok(Arc::new(string_expressions::character_length(args)?))
+        }
+        BuiltinScalarFunction::Lower => {
+            |args| Ok(Arc::new(string_expressions::lower(args)?))
+        }
+        BuiltinScalarFunction::Upper => {
+            |args| Ok(Arc::new(string_expressions::upper(args)?))
+        }
+        BuiltinScalarFunction::Trim => {
+            |args| Ok(Arc::new(string_expressions::trim(args)?))
+        }
         BuiltinScalarFunction::ToTimestamp => {
             |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
         }
@@ -280,6 +309,18 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::CharacterLength => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Lower => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Upper => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
+        BuiltinScalarFunction::Trim => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Array => {
             Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
