@@ -27,7 +27,7 @@ use datafusion::{
 };
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{col, LogicalPlan, LogicalPlanBuilder};
+use datafusion::logical_plan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use datafusion::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
 };
@@ -143,6 +143,7 @@ impl TableProvider for CustomTableProvider {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CustomExecutionPlan {
             projection: projection.clone(),

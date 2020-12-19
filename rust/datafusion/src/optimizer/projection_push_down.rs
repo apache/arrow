@@ -243,6 +243,7 @@ fn optimize_plan(
             table_name,
             source,
             projection,
+            filters,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
@@ -258,6 +259,7 @@ fn optimize_plan(
                 source: source.clone(),
                 projection: Some(projection),
                 projected_schema,
+                filters: filters.clone(),
             })
         }
         LogicalPlan::Explain {
