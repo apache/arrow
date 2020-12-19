@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{Array, BinaryArray, StructArray};
+use super::{Array, BinaryArray, StructArray, StructBuilder};
 use crate::error::ArrowError;
 use crate::json::reader::{infer_json_schema_from_iterator, Decoder};
 use serde_json::Value;
@@ -42,28 +42,32 @@ impl std::convert::TryFrom<JSONArray> for StructArray {
     type Error = ArrowError;
 
     fn try_from(json: JSONArray) -> Result<StructArray, Self::Error> {
-        // Parse Records
         let mut records: Vec<Value> = Vec::with_capacity(json.len());
+
+        // Parse values. Return error on null. Could alternatively interpret as empty object.
         for i in 0..json.len() {
-            let buf = json.0.value(i);
-            // TODO: Handle nulls?
-            let value = serde_json::from_slice(buf)
-                .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
-            records.push(value);
+            if json.0.is_valid(i) {
+                let buf = json.0.value(i);
+                let value = serde_json::from_slice(buf)
+                    .map_err(|e| ArrowError::JsonError(format!("{:?}", e)))?;
+                records.push(value);
+            } else {
+                return Err(ArrowError::JsonError("Encountered null value.".to_string()));
+            }
         }
 
-        // Infer Schema
-        // TODO: This should not require a `clone()`.
-        let schema_records = records.clone().into_iter().map(|record| Ok(record));
+        // Infer schema from records.
+        let schema_records = records.iter().map(|value| Ok(value.clone()));
         let inferred_schema = infer_json_schema_from_iterator(schema_records)?;
+        let fields = inferred_schema.fields().to_vec();
 
-        // Construct StructArray
+        // Decode as `StructArray`.
         let decoder = Decoder::new(inferred_schema, json.len(), None);
-        // TODO: Why does this return an Option?
-        // TODO: Can this handle nulls?
-        let mut batch_records = records.into_iter().map(|record| Ok(record));
-        let batch = decoder.next_batch(&mut batch_records)?.unwrap();
-        Ok(batch.into())
+        let mut batch_records = records.into_iter().map(Ok);
+        Ok(decoder
+            .next_batch(&mut batch_records)?
+            .map(|batch| batch.into())
+            .unwrap_or_else(|| StructBuilder::from_fields(fields, 0).finish()))
     }
 }
 
