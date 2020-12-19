@@ -1,7 +1,7 @@
 use arrow_kafka::{ClientConfig, KafkaBatchReader, KafkaReaderConfig};
 use uuid::Uuid;
 
-fn main() {
+fn main() -> arrow::error::Result<()> {
     let mut args = std::env::args();
 
     let _ = args.next().unwrap();
@@ -18,12 +18,15 @@ fn main() {
 
     let mut config = KafkaReaderConfig::new(client_config);
     config.max_batch_size(2);
+    config.poll_timeout(Some(std::time::Duration::new(5,0)));
 
-    let reader = KafkaBatchReader::new(config, &[&topic]);
+    let reader = KafkaBatchReader::new(config);
+    reader.subscribe(&[&topic])?;
 
     println!("Reading batches...");
     for batch in reader {
         println!("{:?}", batch);
     }
     println!("Done.");
+    Ok(())
 }
