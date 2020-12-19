@@ -75,8 +75,7 @@ endif()
 
 find_package_handle_standard_args(re2Alt REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 
-# CMake 3.2 does uppercase the FOUND variable
-if(re2Alt_FOUND OR RE2ALT_FOUND)
+if(re2Alt_FOUND)
   if(NOT TARGET re2::re2)
     add_library(re2::re2 UNKNOWN IMPORTED)
     set_target_properties(re2::re2
