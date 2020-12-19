@@ -1267,11 +1267,11 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
       ARROW_ASSIGN_OR_RAISE(
           auto batch,
-          ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                  &dictionary_memo_, options_, reader.get(),
-                                  swap_endian_));
+          ReadRecordBatchInternal(*message->metadata(), schema_,
+                                  field_inclusion_mask_, context, reader.get()));
       ++stats_.num_record_batches;
       return listener_->OnRecordBatchDecoded(std::move(batch));
     }
@@ -1280,8 +1280,8 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   // Read dictionary from dictionary batch
   Status ReadDictionary(const Message& message) {
     DictionaryKind kind;
-    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_,
-					       &kind));
+    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
     ++stats_.num_dictionary_batches;
     switch (kind) {
       case DictionaryKind::New:
