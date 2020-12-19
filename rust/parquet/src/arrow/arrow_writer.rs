@@ -218,7 +218,7 @@ fn write_leaf(
     let written = match writer {
         ColumnWriter::Int32ColumnWriter(ref mut typed) => {
             // If the column is a Date64, we cast it to a Date32, and then interpret that as Int32
-            let array = if let &ArrowDataType::Date64(_) = column.data_type() {
+            let array = if let ArrowDataType::Date64(_) = column.data_type() {
                 let array =
                     arrow::compute::cast(column, &ArrowDataType::Date32(DateUnit::Day))?;
                 Arc::new(arrow_array::Int32Array::from(array.data()))
