@@ -16,10 +16,10 @@
 # under the License.
 
 [package]
-name = "kafka"
+name = "arrow-kafka"
 version = "0.1.0-SNAPSHOT"
 license = "Apache-2.0"
-description = "Apache Kafka implementation in Rust"
+description = "Apache Kafka reader for Arrow in Rust"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]

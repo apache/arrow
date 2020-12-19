@@ -1,4 +1,4 @@
-use kafka::{ClientConfig, KafkaBatchReader, KafkaReaderConfig};
+use arrow_kafka::{ClientConfig, KafkaBatchReader, KafkaReaderConfig};
 use uuid::Uuid;
 
 fn main() {
