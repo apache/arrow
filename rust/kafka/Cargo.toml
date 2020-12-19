@@ -33,7 +33,6 @@ rdkafka = { version = "0.24", default-features = false }
 
 [dev-dependencies]
 uuid = { version = "0.8", features = ["v4"] }
-env_logger = "*"
 
 [features]
 default = ["arrow"]
