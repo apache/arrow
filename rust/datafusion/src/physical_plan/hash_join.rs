@@ -424,9 +424,9 @@ fn build_join_indexes(
     left: &JoinHashMap,
     right: &RecordBatch,
     join_type: &JoinType,
-    on: &HashSet<String>,
+    right_on: &HashSet<String>,
 ) -> Result<Vec<(JoinIndex, RightIndex)>> {
-    let keys_values = on
+    let keys_values = right_on
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
         .collect::<Result<Vec<_>>>()?;
