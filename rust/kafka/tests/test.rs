@@ -16,34 +16,24 @@
 // under the License.
 
 use arrow_kafka::{ClientConfig, KafkaBatchReader, KafkaReaderConfig};
-use uuid::Uuid;
 
-fn main() -> arrow::error::Result<()> {
-    let mut args = std::env::args();
+#[test]
+fn test_create_reader() {
+    let client_config = ClientConfig::new();
+    let config = KafkaReaderConfig::new(client_config);
+    let _reader = KafkaBatchReader::new(config);
+}
 
-    let _ = args.next().unwrap();
-    let broker = args.next().expect("Please specify broker.");
-    let topic = args.next().expect("Please specify topic.");
-
-    let uuid = Uuid::new_v4();
-    let group = format!("{}", uuid);
-
+#[test]
+fn test_iterate_reader() {
     let mut client_config = ClientConfig::new();
-    client_config.set("group.id", &group);
-    client_config.set("bootstrap.servers", &broker);
-    client_config.set("auto.offset.reset", "earliest");
+    client_config.set("group.id", "test");
 
     let mut config = KafkaReaderConfig::new(client_config);
-    config.max_batch_size(2);
-    config.poll_timeout(Some(std::time::Duration::new(5, 0)));
+    config.poll_timeout(Some(std::time::Duration::new(0, 0)));
 
-    let reader = KafkaBatchReader::new(config);
-    reader.subscribe(&[&topic])?;
+    let mut reader = KafkaBatchReader::new(config);
 
-    println!("Reading batches...");
-    for batch in reader {
-        println!("{:?}", batch);
-    }
-    println!("Done.");
-    Ok(())
+    let batch = reader.next();
+    assert!(batch.is_none());
 }

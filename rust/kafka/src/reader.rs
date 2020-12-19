@@ -1,14 +1,31 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 use std::time::Duration;
 
-use rdkafka::consumer::base_consumer::BaseConsumer;
 use rdkafka::config::ClientConfig;
-use rdkafka::consumer::Consumer;
+use rdkafka::consumer::base_consumer::BaseConsumer;
 use rdkafka::consumer::CommitMode;
+use rdkafka::consumer::Consumer;
 use rdkafka::error::KafkaError;
 
+use arrow::array::StructArray;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
-use arrow::array::StructArray;
 
 use crate::batch::KafkaBatch;
 
@@ -42,7 +59,6 @@ impl KafkaReaderConfig {
     }
 }
 
-
 pub struct KafkaBatchReader {
     config: KafkaReaderConfig,
     consumer: BaseConsumer,
@@ -58,13 +74,11 @@ impl KafkaBatchReader {
 
     /// Subscribe to a list of topics.
     pub fn subscribe(&self, topics: &[&str]) -> ArrowResult<()> {
-        self.consumer.subscribe(topics).map_err(|e| {
-            arrow::error::ArrowError::from_external_error(
-                Box::new(e),
-            )
-        })
+        self.consumer
+            .subscribe(topics)
+            .map_err(|e| arrow::error::ArrowError::from_external_error(Box::new(e)))
     }
-    
+
     fn read_batch(&mut self) -> ArrowResult<RecordBatch> {
         let max_batch_size = self.config.max_batch_size;
         let mut batch = KafkaBatch::new(max_batch_size);
