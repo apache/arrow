@@ -29,7 +29,7 @@ edition = "2018"
 
 [dependencies]
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", optional = true }
-rdkafka = { version = "0.24", default-features = false }
+rdkafka = { version = "0.24", default-features = false, features = ["cmake_build"] }
 
 [dev-dependencies]
 uuid = { version = "0.8", features = ["v4"] }
