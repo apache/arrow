@@ -49,7 +49,7 @@ use std::collections::HashSet;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An expression with a specific name.
     Alias(Box<Expr>, String),
