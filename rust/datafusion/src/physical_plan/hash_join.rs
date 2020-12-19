@@ -53,6 +53,9 @@ type Index = (usize, usize);
 // Note that while this is currently equal to `Index`, the `JoinIndex` is semantically different
 // as a left join may issue None indices, in which case
 type JoinIndex = Option<(usize, usize)>;
+// An index of row uniquely identifying a row in a batch
+type RightIndex = Option<usize>;
+
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
@@ -252,7 +255,7 @@ fn build_batch_from_indices(
     left: &Vec<RecordBatch>,
     right: &RecordBatch,
     join_type: &JoinType,
-    indices: &[(JoinIndex, JoinIndex)],
+    indices: &[(JoinIndex, RightIndex)],
 ) -> ArrowResult<RecordBatch> {
     if left.is_empty() {
         todo!("Create empty record batch");
@@ -306,7 +309,7 @@ fn build_batch_from_indices(
             // use the right indices
             for (_, join_index) in indices {
                 match join_index {
-                    Some((batch, row)) => mutable.extend(*batch, *row, *row + 1),
+                    Some(row) => mutable.extend(0, *row, *row + 1),
                     None => mutable.extend_nulls(1),
                 }
             }
@@ -422,7 +425,7 @@ fn build_join_indexes(
     right: &RecordBatch,
     join_type: &JoinType,
     on: &HashSet<String>,
-) -> Result<Vec<(JoinIndex, JoinIndex)>> {
+) -> Result<Vec<(JoinIndex, RightIndex)>> {
     let keys_values = on
         .iter()
         .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
@@ -443,7 +446,7 @@ fn build_join_indexes(
                 // for every item on the left and right with this key, add the respective pair
                 left_indexes.unwrap_or(&vec![]).iter().for_each(|x| {
                     // on an inner join, left and right indices are present
-                    indexes.push((Some(*x), Some((0, row))));
+                    indexes.push((Some(*x), Some(row)));
                 })
             }
             Ok(indexes)
@@ -461,15 +464,12 @@ fn build_join_indexes(
                 // the unwrap never happens by construction of the key
                 let left_indexes = left.get(&key);
 
-                match left_indexes {
-                    Some(indices) => {
-                        is_visited.insert(key.clone());
+                if let Some(indices) = left_indexes {
+                    is_visited.insert(key.clone());
 
-                        indices.iter().for_each(|x| {
-                            indexes.push((Some(*x), Some((0, row))));
-                        })
-                    }
-                    None => {}
+                    indices.iter().for_each(|x| {
+                        indexes.push((Some(*x), Some(row)));
+                    })
                 };
             }
             // Add the remaining left rows to the result set with None on the right side
@@ -493,12 +493,12 @@ fn build_join_indexes(
                 match left_indices {
                     Some(indices) => {
                         indices.iter().for_each(|x| {
-                            indexes.push((Some(*x), Some((0, row))));
+                            indexes.push((Some(*x), Some(row)));
                         });
                     }
                     None => {
                         // when no match, add the row with None for the left side
-                        indexes.push((None, Some((0, row))));
+                        indexes.push((None, Some(row)));
                     }
                 }
             }
