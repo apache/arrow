@@ -461,7 +461,6 @@ fn build_join_indexes(
             // First visit all of the rows
             for row in 0..right.num_rows() {
                 create_key(&keys_values, row, &mut key)?;
-                // the unwrap never happens by construction of the key
                 let left_indexes = left.get(&key);
 
                 if let Some(indices) = left_indexes {
