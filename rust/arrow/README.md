@@ -176,6 +176,14 @@ Example of code documentation:
 let ... = unsafe { ... };
 ```
 
+When adding this documentation to existing code that is not sound and cannot trivially be fixed, we should file
+specific JIRA issues and reference them in these code comments. For example:
+
+```rust
+//  Soundness
+//      This is not sound because .... see https://issues.apache.org/jira/browse/ARROW-nnnnn
+```
+
 # Publishing to crates.io
 
 An Arrow committer can publish this crate after an official project release has
