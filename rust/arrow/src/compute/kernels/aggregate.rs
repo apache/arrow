@@ -137,8 +137,18 @@ where
     Some(n)
 }
 
-/// Returns the minimum value in the boolean array
-fn min_boolean(array: &BooleanArray) -> Option<bool> {
+/// Returns the minimum value in the boolean array.
+///
+/// ```
+/// use arrow::{
+///   array::BooleanArray,
+///   compute::min_boolean,
+/// };
+///
+/// let a = BooleanArray::from(vec![Some(true), None, Some(false)]);
+/// assert_eq!(min_boolean(&a), Some(false))
+/// ```
+pub fn min_boolean(array: &BooleanArray) -> Option<bool> {
     // short circuit if all nulls / zero length array
     if array.null_count() == array.len() {
         return None;
@@ -153,7 +163,17 @@ fn min_boolean(array: &BooleanArray) -> Option<bool> {
 }
 
 /// Returns the maximum value in the boolean array
-fn max_boolean(array: &BooleanArray) -> Option<bool> {
+///
+/// ```
+/// use arrow::{
+///   array::BooleanArray,
+///   compute::max_boolean,
+/// };
+///
+/// let a = BooleanArray::from(vec![Some(true), None, Some(false)]);
+/// assert_eq!(max_boolean(&a), Some(true))
+/// ```
+pub fn max_boolean(array: &BooleanArray) -> Option<bool> {
     // short circuit if all nulls / zero length array
     if array.null_count() == array.len() {
         return None;
