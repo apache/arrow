@@ -51,14 +51,14 @@ macro_rules! compare_op {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.data_mut();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right.value(i)) {
                 // SAFETY: this is safe as `data` has at least $left.len() elements.
                 // and `i` is bound by $left.len()
                 unsafe {
-                    bit_util::set_bit_raw(data, i);
+                    bit_util::set_bit_raw(data.as_mut_ptr(), i);
                 }
             }
         }
@@ -84,14 +84,14 @@ macro_rules! compare_op_scalar {
         let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
         let mut buffer = MutableBuffer::new(actual_capacity);
         buffer.resize(byte_capacity);
-        let data = buffer.raw_data_mut();
+        let data = buffer.data_mut();
 
         for i in 0..$left.len() {
             if $op($left.value(i), $right) {
                 // SAFETY: this is safe as `data` has at least $left.len() elements
                 // and `i` is bound by $left.len()
                 unsafe {
-                    bit_util::set_bit_raw(data, i);
+                    bit_util::set_bit_raw(data.as_mut_ptr(), i);
                 }
             }
         }
