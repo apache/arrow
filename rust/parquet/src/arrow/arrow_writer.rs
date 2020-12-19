@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use arrow::array as arrow_array;
-use arrow::datatypes::{DataType as ArrowDataType, IntervalUnit, SchemaRef};
+use arrow::datatypes::{DataType as ArrowDataType, DateUnit, IntervalUnit, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
@@ -217,15 +217,20 @@ fn write_leaf(
     let indices = filter_array_indices(&levels);
     let written = match writer {
         ColumnWriter::Int32ColumnWriter(ref mut typed) => {
-            let array = arrow::compute::cast(column, &ArrowDataType::Int32)?;
+            // If the column is a Date64, we cast it to a Date32, and then interpret that as Int32
+            let array = if let &ArrowDataType::Date64(_) = column.data_type() {
+                let array =
+                    arrow::compute::cast(column, &ArrowDataType::Date32(DateUnit::Day))?;
+                Arc::new(arrow_array::Int32Array::from(array.data()))
+            } else {
+                arrow::compute::cast(column, &ArrowDataType::Int32)?
+            };
             let array = array
                 .as_any()
                 .downcast_ref::<arrow_array::Int32Array>()
                 .expect("Unable to get int32 array");
-            // assigning values to make it easier to debug
-            let slice = get_numeric_array_slice::<Int32Type, _>(&array, &indices);
             typed.write_batch(
-                slice.as_slice(),
+                get_numeric_array_slice::<Int32Type, _>(&array, &indices).as_slice(),
                 Some(levels.definition.as_slice()),
                 levels.repetition.as_deref(),
             )?
@@ -1036,8 +1041,9 @@ mod tests {
 
     #[test]
     fn date64_single_column() {
+        // Date64 must be a multiple of 86400000, see ARROW-10925
         required_and_optional::<Date64Array, _>(
-            0..SMALL_SIZE as i64,
+            (0..(SMALL_SIZE as i64 * 86400000)).step_by(86400000),
             "date64_single_column",
         );
     }

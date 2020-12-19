@@ -33,7 +33,7 @@ use arrow::array::{
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     ArrowPrimitiveType, BooleanType as ArrowBooleanType, DataType as ArrowType,
-    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
+    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type, DateUnit,
     DurationMicrosecondType as ArrowDurationMicrosecondType,
     DurationMillisecondType as ArrowDurationMillisecondType,
     DurationNanosecondType as ArrowDurationNanosecondType,
@@ -335,11 +335,23 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         };
 
         // cast to Arrow type
-        // TODO: we need to check if it's fine for this to be fallible.
-        // My assumption is that we can't get to an illegal cast as we can only
-        // generate types that are supported, because we'd have gotten them from
-        // the metadata which was written to the Parquet sink
-        let array = arrow::compute::cast(&array, self.get_data_type())?;
+        // We make a strong assumption here that the casts should be infallible.
+        // If the cast fails because of incompatible datatypes, then there might
+        // be a bigger problem with how Arrow schemas are converted to Parquet.
+        //
+        // As there is not always a 1:1 mapping between Arrow and Parquet, there
+        // are datatypes which we must convert explicitly.
+        // These are:
+        // - date64: we should cast int32 to date32, then date32 to date64.
+        let target_type = self.get_data_type();
+        let array = match target_type {
+            ArrowType::Date64(_) => {
+                // this is cheap as it internally reinterprets the data
+                let a = arrow::compute::cast(&array, &ArrowType::Date32(DateUnit::Day))?;
+                arrow::compute::cast(&a, target_type)?
+            }
+            _ => arrow::compute::cast(&array, target_type)?,
+        };
 
         // save definition and repetition buffers
         self.def_levels_buffer = self.record_reader.consume_def_levels()?;
