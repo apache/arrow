@@ -51,8 +51,10 @@ where
     T::Native: Neg<Output = T::Native>,
     F: Fn(T::Native) -> T::Native,
 {
-    let values = (0..array.len())
-        .map(|i| op(array.value(i)))
+    let values = array
+        .raw_values_slice()
+        .iter()
+        .map(|v| op(*v))
         .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(
@@ -141,8 +143,11 @@ where
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let values = (0..left.len())
-        .map(|i| op(left.value(i), right.value(i)))
+    let values = left
+        .raw_values_slice()
+        .iter()
+        .zip(right.raw_values_slice().iter())
+        .map(|(l, r)| op(*l, *r))
         .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(

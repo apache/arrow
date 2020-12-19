@@ -68,6 +68,12 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         unsafe { self.raw_values.get().add(self.data.offset()) }
     }
 
+    /// Returns a slice of the values of this array
+    pub fn raw_values_slice(&self) -> &[T::Native] {
+        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len()) };
+        &raw[..]
+    }
+
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
