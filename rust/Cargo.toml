@@ -19,6 +19,7 @@
 members = [
         "arrow",
         "parquet",
+        "kafka",
         "parquet_derive",
         "parquet_derive_test",
         "datafusion",

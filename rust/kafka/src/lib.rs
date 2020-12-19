@@ -41,7 +41,6 @@ impl Iterator for KafkaBatchReader {
         let mut payloads = BinaryBuilder::new(self.max_batch_size);
 
         loop {
-            println!("Loop...");
             match self.consumer.poll(None) {
                 Some(Ok(message)) => {
                     nread += 1;
@@ -71,7 +70,6 @@ impl Iterator for KafkaBatchReader {
             }
         }
 
-        println!("Read {} messages.", nread);
         if nread == 0 {
             None
         } else {
