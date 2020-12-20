@@ -348,29 +348,29 @@ impl ExecutionContext {
     ) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
         let fs_path = Path::new(&path);
-        if fs_path.exists() {
-            return Err(DataFusionError::Execution(format!(
-                "Path already exists: {}",
-                path
-            )));
-        }
-        fs::create_dir(fs_path)?;
+        match fs::create_dir(fs_path) {
+            Ok(()) => {
+                for i in 0..plan.output_partitioning().partition_count() {
+                    let plan = plan.clone();
+                    let filename = format!("part-{}.csv", i);
+                    let path = fs_path.join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = csv::Writer::new(file);
+                    let stream = plan.execute(i).await?;
 
-        for i in 0..plan.output_partitioning().partition_count() {
-            let plan = plan.clone();
-            let filename = format!("part-{}.csv", i);
-            let path = fs_path.join(&filename);
-            let file = fs::File::create(path)?;
-            let mut writer = csv::Writer::new(file);
-            let stream = plan.execute(i).await?;
-
-            stream
-                .map(|batch| writer.write(&batch?))
-                .try_collect()
-                .await
-                .map_err(DataFusionError::from)?;
+                    stream
+                        .map(|batch| writer.write(&batch?))
+                        .try_collect()
+                        .await
+                        .map_err(DataFusionError::from)?;
+                }
+                Ok(())
+            }
+            Err(e) => Err(DataFusionError::Execution(format!(
+                "Could not create directory {}: {:?}",
+                path, e
+            ))),
         }
-        Ok(())
     }
 
     /// Execute a query and write the results to a partitioned Parquet file
@@ -382,35 +382,35 @@ impl ExecutionContext {
     ) -> Result<()> {
         // create directory to contain the Parquet files (one per partition)
         let fs_path = Path::new(&path);
-        if fs_path.exists() {
-            return Err(DataFusionError::Execution(format!(
-                "Path already exists: {}",
-                path
-            )));
+        match fs::create_dir(fs_path) {
+            Ok(()) => {
+                for i in 0..plan.output_partitioning().partition_count() {
+                    let plan = plan.clone();
+                    let filename = format!("part-{}.parquet", i);
+                    let path = fs_path.join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = ArrowWriter::try_new(
+                        file.try_clone().unwrap(),
+                        plan.schema(),
+                        writer_properties.clone(),
+                    )?;
+                    let stream = plan.execute(i).await?;
+
+                    stream
+                        .map(|batch| writer.write(&batch?))
+                        .try_collect()
+                        .await
+                        .map_err(DataFusionError::from)?;
+
+                    writer.close()?;
+                }
+                Ok(())
+            }
+            Err(e) => Err(DataFusionError::Execution(format!(
+                "Could not create directory {}: {:?}",
+                path, e
+            ))),
         }
-        fs::create_dir(fs_path)?;
-
-        for i in 0..plan.output_partitioning().partition_count() {
-            let plan = plan.clone();
-            let filename = format!("part-{}.parquet", i);
-            let path = fs_path.join(&filename);
-            let file = fs::File::create(path)?;
-            let mut writer = ArrowWriter::try_new(
-                file.try_clone().unwrap(),
-                plan.schema(),
-                writer_properties.clone(),
-            )?;
-            let stream = plan.execute(i).await?;
-
-            stream
-                .map(|batch| writer.write(&batch?))
-                .try_collect()
-                .await
-                .map_err(DataFusionError::from)?;
-
-            writer.close()?;
-        }
-        Ok(())
     }
 }
 

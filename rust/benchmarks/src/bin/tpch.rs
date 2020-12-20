@@ -1022,7 +1022,7 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
 
         println!(
             "Converting '{}' to {} files in directory '{}'",
-            &input_path, &opt.format, &output_path
+            &input_path, &opt.file_format, &output_path
         );
         match opt.file_format.as_str() {
             "csv" => ctx.write_csv(csv, output_path).await?,
