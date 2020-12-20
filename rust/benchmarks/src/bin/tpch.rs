@@ -1020,7 +1020,10 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
         let output_path = output_root_path.join(table);
         let output_path = output_path.to_str().unwrap().to_owned();
 
-        print!("Converting '{}' to {} ...", input_path, output_path);
+        println!(
+            "Converting '{}' to {} files in directory '{}'",
+            &input_path, &opt.format, &output_path
+        );
         match opt.file_format.as_str() {
             "csv" => ctx.write_csv(csv, output_path).await?,
             "parquet" => {
@@ -1051,7 +1054,7 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
                 )))
             }
         }
-        println!(" completed in {} ms", start.elapsed().as_millis());
+        println!("Conversion completed in {} ms", start.elapsed().as_millis());
     }
 
     Ok(())
