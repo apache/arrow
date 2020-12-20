@@ -129,7 +129,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
-      CMAKE_ARGS: "-DPYTHON_EXECUTABLE=/usr/local/bin/python3"
+      CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -141,9 +141,10 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
-          brew install coreutils python
+          brew install coreutils
           python3 -mpip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
