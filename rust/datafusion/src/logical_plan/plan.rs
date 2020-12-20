@@ -120,6 +120,8 @@ pub enum LogicalPlan {
         projection: Option<Vec<usize>>,
         /// The schema description of the output
         projected_schema: DFSchemaRef,
+        /// Optional expressions to be used as filters by the table provider
+        filters: Vec<Expr>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
@@ -467,6 +469,7 @@ impl LogicalPlan {
                     LogicalPlan::TableScan {
                         ref table_name,
                         ref projection,
+                        ref filters,
                         ..
                     } => {
                         let sep = " ".repeat(min(1, table_name.len()));
@@ -474,7 +477,13 @@ impl LogicalPlan {
                             f,
                             "TableScan: {}{}projection={:?}",
                             table_name, sep, projection
-                        )
+                        )?;
+
+                        if !filters.is_empty() {
+                            write!(f, ", filters={:?}", filters)?;
+                        }
+
+                        Ok(())
                     }
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;

@@ -232,6 +232,7 @@ impl ExecutionContext {
             source: provider,
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
+            filters: vec![],
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -285,6 +286,7 @@ impl ExecutionContext {
                     source: Arc::clone(provider),
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
+                    filters: vec![],
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),

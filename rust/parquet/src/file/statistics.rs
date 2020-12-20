@@ -232,7 +232,7 @@ pub fn to_thrift(stats: Option<&Statistics>) -> Option<TStatistics> {
 }
 
 /// Statistics for a column chunk and data page.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statistics {
     Boolean(TypedStatistics<BoolType>),
     Int32(TypedStatistics<Int32Type>),
@@ -341,6 +341,7 @@ impl fmt::Display for Statistics {
 }
 
 /// Typed implementation for [`Statistics`].
+#[derive(Clone)]
 pub struct TypedStatistics<T: DataType> {
     min: Option<T::T>,
     max: Option<T::T>,

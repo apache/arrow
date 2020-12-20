@@ -867,6 +867,7 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
+        devtoolset_version: ${DEVTOOLSET_VERSION}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -874,6 +875,7 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
+      DEVTOOLSET_VERSION: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >

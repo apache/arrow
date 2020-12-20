@@ -39,6 +39,18 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
 
+# Special hacking to try to reproduce quirks on centos using non-default build
+# tooling.
+if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+  if [ "`which dnf`" ]; then
+    dnf install -y centos-release-scl
+    dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
+  else
+    yum install -y centos-release-scl
+    yum install -y "devtoolset-$DEVTOOLSET_VERSION"
+  fi
+fi
+
 # Install openssl for S3 support
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`" ]; then

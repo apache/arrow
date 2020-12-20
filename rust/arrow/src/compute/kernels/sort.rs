@@ -160,6 +160,48 @@ pub fn sort_to_indices(
             sort_primitive::<DurationNanosecondType>(values, v, n, vec![], &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
+        DataType::List(field) => match field.data_type() {
+            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
+        DataType::LargeList(field) => match field.data_type() {
+            DataType::Int8 => sort_list::<i64, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i64, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i64, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i64, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i64, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i64, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i64, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i64, UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
+        DataType::FixedSizeList(field, _) => match field.data_type() {
+            DataType::Int8 => sort_list::<i32, Int8Type>(values, v, n, &options),
+            DataType::Int16 => sort_list::<i32, Int16Type>(values, v, n, &options),
+            DataType::Int32 => sort_list::<i32, Int32Type>(values, v, n, &options),
+            DataType::Int64 => sort_list::<i32, Int64Type>(values, v, n, &options),
+            DataType::UInt8 => sort_list::<i32, UInt8Type>(values, v, n, &options),
+            DataType::UInt16 => sort_list::<i32, UInt16Type>(values, v, n, &options),
+            DataType::UInt32 => sort_list::<i32, UInt32Type>(values, v, n, &options),
+            DataType::UInt64 => sort_list::<i32, UInt64Type>(values, v, n, &options),
+            t => Err(ArrowError::ComputeError(format!(
+                "Sort not supported for list type {:?}",
+                t
+            ))),
+        },
         DataType::Dictionary(key_type, value_type)
             if *value_type.as_ref() == DataType::Utf8 =>
         {
@@ -465,6 +507,69 @@ where
     Ok(UInt32Array::from(valid_indices))
 }
 
+fn sort_list<S, T>(
+    values: &ArrayRef,
+    value_indices: Vec<u32>,
+    mut null_indices: Vec<u32>,
+    options: &SortOptions,
+) -> Result<UInt32Array>
+where
+    S: OffsetSizeTrait,
+    T: ArrowPrimitiveType,
+    T::Native: std::cmp::PartialOrd,
+{
+    let mut valids: Vec<(u32, ArrayRef)> = values
+        .as_any()
+        .downcast_ref::<FixedSizeListArray>()
+        .map_or_else(
+            || {
+                let values = as_list_array::<S>(values);
+                value_indices
+                    .iter()
+                    .copied()
+                    .map(|index| (index, values.value(index as usize)))
+                    .collect()
+            },
+            |values| {
+                value_indices
+                    .iter()
+                    .copied()
+                    .map(|index| (index, values.value(index as usize)))
+                    .collect()
+            },
+        );
+
+    if !options.descending {
+        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()))
+    } else {
+        valids.sort_by(|a, b| cmp_array(a.1.as_ref(), b.1.as_ref()).reverse())
+    }
+
+    let mut valid_indices: Vec<u32> = valids.iter().map(|tuple| tuple.0).collect();
+
+    if options.nulls_first {
+        null_indices.append(&mut valid_indices);
+        return Ok(UInt32Array::from(null_indices));
+    }
+
+    valid_indices.append(&mut null_indices);
+    Ok(UInt32Array::from(valid_indices))
+}
+
+/// Compare two `Array`s based on the ordering defined in [ord](crate::array::ord).
+fn cmp_array(a: &Array, b: &Array) -> Ordering {
+    let cmp_op = build_compare(a, b).unwrap();
+    let length = a.len().max(b.len());
+
+    for i in 0..length {
+        let result = cmp_op(i, i);
+        if result != Ordering::Equal {
+            return result;
+        }
+    }
+    Ordering::Equal
+}
+
 /// One column to be used in lexicographical sort
 #[derive(Clone, Debug)]
 pub struct SortColumn {
@@ -616,6 +721,9 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compute::util::tests::{
+        build_fixed_size_list_nullable, build_generic_list_nullable,
+    };
     use std::convert::TryFrom;
     use std::iter::FromIterator;
     use std::sync::Arc;
@@ -723,6 +831,45 @@ mod tests {
             StringArray::try_from(expected_data).expect("Unable to create string array");
 
         assert_eq!(sorted_strings, expected)
+    }
+
+    fn test_sort_list_arrays<T>(
+        data: Vec<Option<Vec<Option<T::Native>>>>,
+        options: Option<SortOptions>,
+        expected_data: Vec<Option<Vec<Option<T::Native>>>>,
+        fixed_length: Option<i32>,
+    ) where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        // for FixedSizedList
+        if let Some(length) = fixed_length {
+            let input = Arc::new(build_fixed_size_list_nullable(data.clone(), length));
+            let sorted = sort(&(input as ArrayRef), options).unwrap();
+            let expected = Arc::new(build_fixed_size_list_nullable(
+                expected_data.clone(),
+                length,
+            )) as ArrayRef;
+
+            assert_eq!(&sorted, &expected);
+        }
+
+        // for List
+        let input = Arc::new(build_generic_list_nullable::<i32, T>(data.clone()));
+        let sorted = sort(&(input as ArrayRef), options).unwrap();
+        let expected =
+            Arc::new(build_generic_list_nullable::<i32, T>(expected_data.clone()))
+                as ArrayRef;
+
+        assert_eq!(&sorted, &expected);
+
+        // for LargeList
+        let input = Arc::new(build_generic_list_nullable::<i64, T>(data));
+        let sorted = sort(&(input as ArrayRef), options).unwrap();
+        let expected =
+            Arc::new(build_generic_list_nullable::<i64, T>(expected_data)) as ArrayRef;
+
+        assert_eq!(&sorted, &expected);
     }
 
     fn test_lex_sort_arrays(input: Vec<SortColumn>, expected_output: Vec<ArrayRef>) {
@@ -1348,6 +1495,73 @@ mod tests {
                 Some("bad"),
                 Some("-ad"),
             ],
+        );
+    }
+
+    #[test]
+    fn test_sort_list() {
+        test_sort_list_arrays::<Int8Type>(
+            vec![
+                Some(vec![Some(1)]),
+                Some(vec![Some(4)]),
+                Some(vec![Some(2)]),
+                Some(vec![Some(3)]),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![
+                Some(vec![Some(1)]),
+                Some(vec![Some(2)]),
+                Some(vec![Some(3)]),
+                Some(vec![Some(4)]),
+            ],
+            Some(1),
+        );
+
+        test_sort_list_arrays::<Int32Type>(
+            vec![
+                Some(vec![Some(1), Some(0)]),
+                Some(vec![Some(4), Some(3), Some(2), Some(1)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), Some(3), Some(3)]),
+                Some(vec![Some(1), Some(1)]),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![
+                Some(vec![Some(1), Some(0)]),
+                Some(vec![Some(1), Some(1)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), Some(3), Some(3)]),
+                Some(vec![Some(4), Some(3), Some(2), Some(1)]),
+            ],
+            None,
+        );
+
+        test_sort_list_arrays::<Int32Type>(
+            vec![
+                None,
+                Some(vec![Some(4), None, Some(2)]),
+                Some(vec![Some(2), Some(3), Some(4)]),
+                None,
+                Some(vec![Some(3), Some(3), None]),
+            ],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: false,
+            }),
+            vec![
+                Some(vec![Some(2), Some(3), Some(4)]),
+                Some(vec![Some(3), Some(3), None]),
+                Some(vec![Some(4), None, Some(2)]),
+                None,
+                None,
+            ],
+            Some(3),
         );
     }
 

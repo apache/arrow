@@ -191,8 +191,8 @@ macro(provide_find_module PACKAGE_NAME)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  set(options HAVE_ALT)
-  set(one_value_args REQUIRED_VERSION IS_RUNTIME_DEPENDENCY)
+  set(options)
+  set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -210,13 +210,18 @@ macro(resolve_dependency DEPENDENCY_NAME)
   else()
     set(PACKAGE_NAME ${DEPENDENCY_NAME})
   endif()
+  set(FIND_PACKAGE_ARGUMENTS ${PACKAGE_NAME})
+  if(ARG_REQUIRED_VERSION)
+    list(APPEND FIND_PACKAGE_ARGUMENTS ${ARG_REQUIRED_VERSION})
+  endif()
+  if(ARG_USE_CONFIG)
+    list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
+  endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    if(ARG_REQUIRED_VERSION)
-      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION})
-    else()
-      find_package(${PACKAGE_NAME})
-    endif()
-    if(${${PACKAGE_NAME}_FOUND})
+    find_package(${FIND_PACKAGE_ARGUMENTS})
+    # CMake 3.2 does uppercase the FOUND variable
+    string(TOUPPER "${PACKAGE_NAME}_FOUND" UPPERCASE_FOUND_VARIABLE)
+    if(${${PACKAGE_NAME}_FOUND} OR "${${UPPERCASE_FOUND_VARIABLE}}")
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
       build_dependency(${DEPENDENCY_NAME})
@@ -225,11 +230,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    if(ARG_REQUIRED_VERSION)
-      find_package(${PACKAGE_NAME} ${ARG_REQUIRED_VERSION} REQUIRED)
-    else()
-      find_package(${PACKAGE_NAME} REQUIRED)
-    endif()
+    find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
     provide_find_module(${PACKAGE_NAME})
@@ -895,6 +896,7 @@ endif()
 if(ARROW_BOOST_REQUIRED)
   resolve_dependency(Boost
                      HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
@@ -1232,7 +1234,11 @@ endmacro()
 
 if(ARROW_NEED_GFLAGS)
   set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
-  resolve_dependency(gflags HAVE_ALT REQUIRED_VERSION ${ARROW_GFLAGS_REQUIRED_VERSION})
+  resolve_dependency(gflags
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GFLAGS_REQUIRED_VERSION})
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
@@ -1754,7 +1760,11 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(GTest REQUIRED_VERSION 1.10.0)
+  resolve_dependency(GTest
+                     REQUIRED_VERSION
+                     1.10.0
+                     USE_CONFIG
+                     TRUE)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
@@ -1905,7 +1915,10 @@ endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
-  resolve_dependency(RapidJSON HAVE_ALT REQUIRED_VERSION
+  resolve_dependency(RapidJSON
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
                      ${ARROW_RAPIDJSON_REQUIRED_VERSION})
 
   if(RapidJSON_INCLUDE_DIR)
@@ -2136,7 +2149,7 @@ macro(build_re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  resolve_dependency(re2 HAVE_ALT)
+  resolve_dependency(re2 HAVE_ALT TRUE)
   add_definitions(-DARROW_WITH_RE2)
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -2557,7 +2570,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
-  resolve_dependency(gRPC HAVE_ALT REQUIRED_VERSION ${ARROW_GRPC_REQUIRED_VERSION})
+  resolve_dependency(gRPC
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(TARGET gRPC::address_sorting)
     set(GRPC_HAS_ADDRESS_SORTING TRUE)

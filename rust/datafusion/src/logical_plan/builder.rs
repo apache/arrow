@@ -115,6 +115,7 @@ impl LogicalPlanBuilder {
             source: provider,
             projected_schema,
             projection,
+            filters: vec![],
         };
 
         Ok(Self::from(&table_scan))

@@ -50,6 +50,11 @@ use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
 
+use super::utils::{
+    can_columns_satisfy_exprs, expand_wildcard, expr_as_column_expr,
+    find_aggregate_exprs, find_column_exprs, rebase_expr,
+};
+
 /// The ContextProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
 pub trait ContextProvider {
@@ -406,80 +411,112 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         };
         let plan = plan?;
 
-        let projection_expr: Vec<Expr> = select
-            .projection
-            .iter()
-            .map(|e| self.sql_select_to_rex(&e, &plan.schema()))
-            .collect::<Result<Vec<Expr>>>()?;
+        // The SELECT expressions, with wildcards expanded.
+        let select_exprs = self.prepare_select_exprs(&plan, &select.projection)?;
 
-        let aggr_expr: Vec<Expr> = projection_expr
-            .iter()
-            .filter(|e| is_aggregate_expr(e))
-            .cloned()
-            .collect();
+        // All of the aggregate expressions (deduplicated).
+        let aggr_exprs = find_aggregate_exprs(&select_exprs);
 
-        // apply projection or aggregate
-        let plan = if !select.group_by.is_empty() | !aggr_expr.is_empty() {
-            self.aggregate(&plan, projection_expr, &select.group_by, aggr_expr)?
-        } else {
-            self.project(&plan, projection_expr)?
-        };
-        Ok(plan)
+        let (plan, select_exprs_post_aggr) =
+            if !select.group_by.is_empty() || !aggr_exprs.is_empty() {
+                self.aggregate(&plan, &select_exprs, &select.group_by, &aggr_exprs)?
+            } else {
+                (plan, select_exprs)
+            };
+
+        self.project(&plan, select_exprs_post_aggr, false)
+    }
+
+    /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
+    ///
+    /// Wildcards are expanded into the concrete list of columns.
+    fn prepare_select_exprs(
+        &self,
+        plan: &LogicalPlan,
+        projection: &Vec<SelectItem>,
+    ) -> Result<Vec<Expr>> {
+        let input_schema = plan.schema();
+
+        Ok(projection
+            .iter()
+            .map(|expr| self.sql_select_to_rex(&expr, &input_schema))
+            .collect::<Result<Vec<Expr>>>()?
+            .iter()
+            .flat_map(|expr| expand_wildcard(&expr, &input_schema))
+            .collect::<Vec<Expr>>())
     }
 
     /// Wrap a plan in a projection
-    fn project(&self, input: &LogicalPlan, expr: Vec<Expr>) -> Result<LogicalPlan> {
-        LogicalPlanBuilder::from(input).project(expr)?.build()
+    ///
+    /// If the `force` argument is `false`, the projection is applied only when
+    /// necessary, i.e., when the input fields are different than the
+    /// projection. Note that if the input fields are the same, but out of
+    /// order, the projection will be applied.
+    fn project(
+        &self,
+        input: &LogicalPlan,
+        expr: Vec<Expr>,
+        force: bool,
+    ) -> Result<LogicalPlan> {
+        self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
+        let plan = LogicalPlanBuilder::from(input).project(expr)?.build()?;
+
+        let project = force
+            || match input {
+                LogicalPlan::TableScan { .. } => true,
+                _ => plan.schema().fields() != input.schema().fields(),
+            };
+
+        if project {
+            Ok(plan)
+        } else {
+            Ok(input.clone())
+        }
     }
 
-    /// Wrap a plan in an aggregate
     fn aggregate(
         &self,
         input: &LogicalPlan,
-        projection_expr: Vec<Expr>,
+        select_exprs: &Vec<Expr>,
         group_by: &Vec<SQLExpr>,
-        aggr_expr: Vec<Expr>,
-    ) -> Result<LogicalPlan> {
-        let group_expr: Vec<Expr> = group_by
+        aggr_exprs: &Vec<Expr>,
+    ) -> Result<(LogicalPlan, Vec<Expr>)> {
+        let group_by_exprs = group_by
             .iter()
-            .map(|e| self.sql_to_rex(&e, &input.schema()))
+            .map(|e| self.sql_to_rex(e, &input.schema()))
             .collect::<Result<Vec<Expr>>>()?;
 
-        let group_by_count = group_expr.len();
-        let aggr_count = aggr_expr.len();
+        let aggr_projection_exprs = group_by_exprs
+            .iter()
+            .chain(aggr_exprs.iter())
+            .cloned()
+            .collect::<Vec<Expr>>();
 
-        if group_by_count + aggr_count != projection_expr.len() {
+        let plan = LogicalPlanBuilder::from(&input)
+            .aggregate(group_by_exprs, aggr_exprs.clone())?
+            .build()?;
+
+        // After aggregation, these are all of the columns that will be
+        // available to next phases of planning.
+        let column_exprs_post_aggr = aggr_projection_exprs
+            .iter()
+            .map(|expr| expr_as_column_expr(expr, input))
+            .collect::<Result<Vec<Expr>>>()?;
+
+        // Rewrite the SELECT expression to use the columns produced by the
+        // aggregation.
+        let select_exprs_post_aggr = select_exprs
+            .iter()
+            .map(|expr| rebase_expr(expr, &aggr_projection_exprs, input))
+            .collect::<Result<Vec<Expr>>>()?;
+
+        if !can_columns_satisfy_exprs(&column_exprs_post_aggr, &select_exprs_post_aggr)? {
             return Err(DataFusionError::Plan(
                 "Projection references non-aggregate values".to_owned(),
             ));
         }
 
-        let plan = LogicalPlanBuilder::from(&input)
-            .aggregate(group_expr, aggr_expr)?
-            .build()?;
-
-        // optionally wrap in projection to preserve final order of fields
-        let expected_columns: Vec<String> = projection_expr
-            .iter()
-            .map(|e| e.name(input.schema()))
-            .collect::<Result<Vec<_>>>()?;
-        let columns: Vec<String> = plan
-            .schema()
-            .fields()
-            .iter()
-            .map(|f| f.name().clone())
-            .collect::<Vec<_>>();
-        if expected_columns != columns {
-            self.project(
-                &plan,
-                expected_columns
-                    .iter()
-                    .map(|c| Expr::Column(c.clone()))
-                    .collect(),
-            )
-        } else {
-            Ok(plan)
-        }
+        Ok((plan, select_exprs_post_aggr))
     }
 
     /// Wrap a plan in a limit
@@ -526,6 +563,29 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         LogicalPlanBuilder::from(&plan).sort(order_by_rex?)?.build()
     }
 
+    /// Validate the schema provides all of the columns referenced in the expressions.
+    fn validate_schema_satisfies_exprs(
+        &self,
+        schema: &DFSchema,
+        exprs: &Vec<Expr>,
+    ) -> Result<()> {
+        find_column_exprs(exprs)
+            .iter()
+            .try_for_each(|col| match col {
+                Expr::Column(name) => {
+                    schema.field_with_unqualified_name(&name).map_err(|_| {
+                        DataFusionError::Plan(format!(
+                            "Invalid identifier '{}' for schema {}",
+                            name,
+                            schema.to_string()
+                        ))
+                    })?;
+                    Ok(())
+                }
+                _ => Err(DataFusionError::Internal("Not a column".to_string())),
+            })
+    }
+
     /// Generate a relational expression from a select SQL expression
     fn sql_select_to_rex(&self, sql: &SelectItem, schema: &DFSchema) -> Result<Expr> {
         match sql {
@@ -543,6 +603,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     /// Generate a relational expression from a SQL expression
     pub fn sql_to_rex(&self, sql: &SQLExpr, schema: &DFSchema) -> Result<Expr> {
+        let expr = self.sql_expr_to_logical_expr(sql)?;
+        self.validate_schema_satisfies_exprs(schema, &vec![expr.clone()])?;
+        Ok(expr)
+    }
+
+    fn sql_expr_to_logical_expr(&self, sql: &SQLExpr) -> Result<Expr> {
         match sql {
             SQLExpr::Value(Value::Number(n)) => match n.parse::<i64>() {
                 Ok(n) => Ok(lit(n)),
@@ -555,14 +621,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     let var_names = vec![id.value.clone()];
                     Ok(Expr::ScalarVariable(var_names))
                 } else {
-                    match schema.field_with_unqualified_name(&id.value) {
-                        Ok(field) => Ok(Expr::Column(field.name().clone())),
-                        Err(_) => Err(DataFusionError::Plan(format!(
-                            "Invalid identifier '{}' for schema {}",
-                            id,
-                            schema.to_string()
-                        ))),
-                    }
+                    Ok(Expr::Column(id.value.to_string()))
                 }
             }
 
@@ -575,10 +634,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 if &var_names[0][0..1] == "@" {
                     Ok(Expr::ScalarVariable(var_names))
                 } else {
-                    Err(DataFusionError::Plan(format!(
-                        "Invalid compound identifier '{:?}' for schema {}",
+                    Err(DataFusionError::NotImplemented(format!(
+                        "Unsupported compound identifier '{:?}'",
                         var_names,
-                        schema.to_string()
                     )))
                 }
             }
@@ -592,20 +650,20 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 else_result,
             } => {
                 let expr = if let Some(e) = operand {
-                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                    Some(Box::new(self.sql_expr_to_logical_expr(e)?))
                 } else {
                     None
                 };
                 let when_expr = conditions
                     .iter()
-                    .map(|e| self.sql_to_rex(e, schema))
+                    .map(|e| self.sql_expr_to_logical_expr(e))
                     .collect::<Result<Vec<_>>>()?;
                 let then_expr = results
                     .iter()
-                    .map(|e| self.sql_to_rex(e, schema))
+                    .map(|e| self.sql_expr_to_logical_expr(e))
                     .collect::<Result<Vec<_>>>()?;
                 let else_expr = if let Some(e) = else_result {
-                    Some(Box::new(self.sql_to_rex(e, schema)?))
+                    Some(Box::new(self.sql_expr_to_logical_expr(e)?))
                 } else {
                     None
                 };
@@ -625,7 +683,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 ref expr,
                 ref data_type,
             } => Ok(Expr::Cast {
-                expr: Box::new(self.sql_to_rex(&expr, schema)?),
+                expr: Box::new(self.sql_expr_to_logical_expr(&expr)?),
                 data_type: convert_data_type(data_type)?,
             }),
 
@@ -638,18 +696,18 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }),
 
             SQLExpr::IsNull(ref expr) => {
-                Ok(Expr::IsNull(Box::new(self.sql_to_rex(expr, schema)?)))
+                Ok(Expr::IsNull(Box::new(self.sql_expr_to_logical_expr(expr)?)))
             }
 
-            SQLExpr::IsNotNull(ref expr) => {
-                Ok(Expr::IsNotNull(Box::new(self.sql_to_rex(expr, schema)?)))
-            }
+            SQLExpr::IsNotNull(ref expr) => Ok(Expr::IsNotNull(Box::new(
+                self.sql_expr_to_logical_expr(expr)?,
+            ))),
 
             SQLExpr::UnaryOp { ref op, ref expr } => match op {
                 UnaryOperator::Not => {
-                    Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
+                    Ok(Expr::Not(Box::new(self.sql_expr_to_logical_expr(expr)?)))
                 }
-                UnaryOperator::Plus => Ok(self.sql_to_rex(expr, schema)?),
+                UnaryOperator::Plus => Ok(self.sql_expr_to_logical_expr(expr)?),
                 UnaryOperator::Minus => {
                     match expr.as_ref() {
                         // optimization: if it's a number literal, we applly the negative operator
@@ -665,7 +723,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                                 })?)),
                         },
                         // not a literal, apply negative operator on expression
-                        _ => Ok(Expr::Negative(Box::new(self.sql_to_rex(expr, schema)?))),
+                        _ => Ok(Expr::Negative(Box::new(self.sql_expr_to_logical_expr(expr)?))),
                     }
                 }
             },
@@ -676,10 +734,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 ref low,
                 ref high,
             } => Ok(Expr::Between {
-                expr: Box::new(self.sql_to_rex(&expr, &schema)?),
+                expr: Box::new(self.sql_expr_to_logical_expr(&expr)?),
                 negated: *negated,
-                low: Box::new(self.sql_to_rex(&low, &schema)?),
-                high: Box::new(self.sql_to_rex(&high, &schema)?),
+                low: Box::new(self.sql_expr_to_logical_expr(&low)?),
+                high: Box::new(self.sql_expr_to_logical_expr(&high)?),
             }),
 
             SQLExpr::BinaryOp {
@@ -710,9 +768,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 }?;
 
                 Ok(Expr::BinaryExpr {
-                    left: Box::new(self.sql_to_rex(&left, &schema)?),
+                    left: Box::new(self.sql_expr_to_logical_expr(&left)?),
                     op: operator,
-                    right: Box::new(self.sql_to_rex(&right, &schema)?),
+                    right: Box::new(self.sql_expr_to_logical_expr(&right)?),
                 })
             }
 
@@ -724,7 +782,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     let args = function
                         .args
                         .iter()
-                        .map(|a| self.sql_to_rex(a, schema))
+                        .map(|a| self.sql_expr_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
 
                     return Ok(Expr::ScalarFunction { fun, args });
@@ -739,14 +797,14 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .map(|a| match a {
                                 SQLExpr::Value(Value::Number(_)) => Ok(lit(1_u8)),
                                 SQLExpr::Wildcard => Ok(lit(1_u8)),
-                                _ => self.sql_to_rex(a, schema),
+                                _ => self.sql_expr_to_logical_expr(a),
                             })
                             .collect::<Result<Vec<Expr>>>()?
                     } else {
                         function
                             .args
                             .iter()
-                            .map(|a| self.sql_to_rex(a, schema))
+                            .map(|a| self.sql_expr_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?
                     };
 
@@ -763,7 +821,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         let args = function
                             .args
                             .iter()
-                            .map(|a| self.sql_to_rex(a, schema))
+                            .map(|a| self.sql_expr_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?;
 
                         Ok(Expr::ScalarUDF { fun: fm, args })
@@ -773,7 +831,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             let args = function
                                 .args
                                 .iter()
-                                .map(|a| self.sql_to_rex(a, schema))
+                                .map(|a| self.sql_expr_to_logical_expr(a))
                                 .collect::<Result<Vec<Expr>>>()?;
 
                             Ok(Expr::AggregateUDF { fun: fm, args })
@@ -786,7 +844,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 }
             }
 
-            SQLExpr::Nested(e) => self.sql_to_rex(&e, &schema),
+            SQLExpr::Nested(e) => self.sql_expr_to_logical_expr(&e),
 
             _ => Err(DataFusionError::NotImplemented(format!(
                 "Unsupported ast node {:?} in sqltorel",
@@ -889,15 +947,6 @@ fn extract_possible_join_keys(
     }
 }
 
-/// Determine if an expression is an aggregate expression or not
-fn is_aggregate_expr(e: &Expr) -> bool {
-    match e {
-        Expr::AggregateFunction { .. } | Expr::AggregateUDF { .. } => true,
-        Expr::Alias(expr, _) => is_aggregate_expr(expr),
-        _ => false,
-    }
-}
-
 /// Convert SQL data type to relational representation of data type
 pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
     match sql {
@@ -924,12 +973,57 @@ mod tests {
     use crate::{logical_plan::create_udf, sql::parser::DFParser};
     use functions::ScalarFunctionImplementation;
 
+    const PERSON_COLUMN_NAMES: &str =
+        "id, first_name, last_name, age, state, salary, birth_date";
+
     #[test]
     fn select_no_relation() {
         quick_test(
             "SELECT 1",
             "Projection: Int64(1)\
              \n  EmptyRelation",
+        );
+    }
+
+    #[test]
+    fn select_column_does_not_exist() {
+        let sql = "SELECT doesnotexist FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'doesnotexist\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_repeated_column() {
+        let sql = "SELECT age, age FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#age\\\" at position 0 and \\\"#age\\\" at position 1 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_wildcard_with_repeated_column() {
+        let sql = "SELECT *, age FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#age\\\" at position 3 and \\\"#age\\\" at position 7 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_wildcard_with_repeated_column_but_is_aliased() {
+        quick_test(
+            "SELECT *, first_name AS fn from person",
+            "Projection: #id, #first_name, #last_name, #age, #state, #salary, #birth_date, #first_name AS fn\
+            \n  TableScan: person projection=None",
         );
     }
 
@@ -950,6 +1044,32 @@ mod tests {
                         \n  Filter: #state Eq Utf8(\"CO\")\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_filter_column_does_not_exist() {
+        let sql = "SELECT first_name FROM person WHERE doesnotexist = 'A'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'doesnotexist\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_filter_cannot_use_alias() {
+        let sql = "SELECT first_name AS x FROM person WHERE x = 'A'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'x\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
     }
 
     #[test]
@@ -1062,11 +1182,12 @@ mod tests {
                      WHERE age > 20
                    )
                    WHERE fn1 = 'X' AND age < 30";
-        let expected = "Projection: #fn1, #age\
-                        \n  Filter: #fn1 Eq Utf8(\"X\") And #age Lt Int64(30)\
-                        \n    Projection: #first_name AS fn1, #age\
-                        \n      Filter: #age Gt Int64(20)\
-                        \n        TableScan: person projection=None";
+
+        let expected = "Filter: #fn1 Eq Utf8(\"X\") And #age Lt Int64(30)\
+                        \n  Projection: #first_name AS fn1, #age\
+                        \n    Filter: #age Gt Int64(20)\
+                        \n      TableScan: person projection=None";
+
         quick_test(sql, expected);
     }
 
@@ -1084,6 +1205,21 @@ mod tests {
         let expected = "Projection: #age Plus #salary Divide Int64(2)\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_wildcard_with_groupby() {
+        quick_test(
+            "SELECT * FROM person GROUP BY id, first_name, last_name, age, state, salary, birth_date",
+            "Aggregate: groupBy=[[#id, #first_name, #last_name, #age, #state, #salary, #birth_date]], aggr=[[]]\
+             \n  TableScan: person projection=None",
+        );
+        quick_test(
+            "SELECT * FROM (SELECT first_name, last_name FROM person) GROUP BY first_name, last_name",
+            "Aggregate: groupBy=[[#first_name, #last_name]], aggr=[[]]\
+             \n  Projection: #first_name, #last_name\
+             \n    TableScan: person projection=None",
+        );
     }
 
     #[test]
@@ -1105,10 +1241,260 @@ mod tests {
     }
 
     #[test]
+    fn select_simple_aggregate_column_does_not_exist() {
+        let sql = "SELECT MIN(doesnotexist) FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'doesnotexist\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_repeated_aggregate() {
+        let sql = "SELECT MIN(age), MIN(age) FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#MIN(age)\\\" at position 0 and \\\"#MIN(age)\\\" at position 1 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_repeated_aggregate_with_single_alias() {
+        quick_test(
+            "SELECT MIN(age), MIN(age) AS a FROM person",
+            "Projection: #MIN(age), #MIN(age) AS a\
+             \n  Aggregate: groupBy=[[]], aggr=[[MIN(#age)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_repeated_aggregate_with_unique_aliases() {
+        quick_test(
+            "SELECT MIN(age) AS a, MIN(age) AS b FROM person",
+            "Projection: #MIN(age) AS a, #MIN(age) AS b\
+             \n  Aggregate: groupBy=[[]], aggr=[[MIN(#age)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_repeated_aggregate_with_repeated_aliases() {
+        let sql = "SELECT MIN(age) AS a, MIN(age) AS a FROM person";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#MIN(age) AS a\\\" at position 0 and \\\"#MIN(age) AS a\\\" at position 1 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
     fn select_simple_aggregate_with_groupby() {
         quick_test(
             "SELECT state, MIN(age), MAX(age) FROM person GROUP BY state",
             "Aggregate: groupBy=[[#state]], aggr=[[MIN(#age), MAX(#age)]]\
+             \n  TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_with_aliases() {
+        quick_test(
+            "SELECT state AS a, MIN(age) AS b FROM person GROUP BY state",
+            "Projection: #state AS a, #MIN(age) AS b\
+             \n  Aggregate: groupBy=[[#state]], aggr=[[MIN(#age)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_with_aliases_repeated() {
+        let sql = "SELECT state AS a, MIN(age) AS a FROM person GROUP BY state";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#state AS a\\\" at position 0 and \\\"#MIN(age) AS a\\\" at position 1 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_column_unselected() {
+        quick_test(
+            "SELECT MIN(age), MAX(age) FROM person GROUP BY state",
+            "Projection: #MIN(age), #MAX(age)\
+             \n  Aggregate: groupBy=[[#state]], aggr=[[MIN(#age), MAX(#age)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_and_column_in_group_by_does_not_exist() {
+        let sql = "SELECT SUM(age) FROM person GROUP BY doesnotexist";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'doesnotexist\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_and_column_in_aggregate_does_not_exist() {
+        let sql = "SELECT SUM(doesnotexist) FROM person GROUP BY first_name";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'doesnotexist\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_and_column_is_in_aggregate_and_groupby() {
+        quick_test(
+            "SELECT MAX(first_name) FROM person GROUP BY first_name",
+            "Projection: #MAX(first_name)\
+             \n  Aggregate: groupBy=[[#first_name]], aggr=[[MAX(#first_name)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_cannot_use_alias() {
+        let sql = "SELECT state AS x, MAX(age) FROM person GROUP BY x";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            format!(
+                "Plan(\"Invalid identifier \\\'x\\\' for schema {}\")",
+                PERSON_COLUMN_NAMES
+            ),
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_aggregate_repeated() {
+        let sql = "SELECT state, MIN(age), MIN(age) FROM person GROUP BY state";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projections require unique expression names but the expression \\\"#MIN(age)\\\" at position 1 and \\\"#MIN(age)\\\" at position 2 have the same name. Consider aliasing (\\\"AS\\\") one of them.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_aggregate_repeated_and_one_has_alias() {
+        quick_test(
+            "SELECT state, MIN(age), MIN(age) AS ma FROM person GROUP BY state",
+            "Projection: #state, #MIN(age), #MIN(age) AS ma\
+             \n  Aggregate: groupBy=[[#state]], aggr=[[MIN(#age)]]\
+             \n    TableScan: person projection=None",
+        )
+    }
+    #[test]
+    fn select_simple_aggregate_with_groupby_non_column_expression_unselected() {
+        quick_test(
+            "SELECT MIN(first_name) FROM person GROUP BY age + 1",
+            "Projection: #MIN(first_name)\
+             \n  Aggregate: groupBy=[[#age Plus Int64(1)]], aggr=[[MIN(#first_name)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_non_column_expression_selected_and_resolvable(
+    ) {
+        quick_test(
+            "SELECT age + 1, MIN(first_name) FROM person GROUP BY age + 1",
+            "Aggregate: groupBy=[[#age Plus Int64(1)]], aggr=[[MIN(#first_name)]]\
+             \n  TableScan: person projection=None",
+        );
+        quick_test(
+            "SELECT MIN(first_name), age + 1 FROM person GROUP BY age + 1",
+            "Projection: #MIN(first_name), #age Plus Int64(1)\
+             \n  Aggregate: groupBy=[[#age Plus Int64(1)]], aggr=[[MIN(#first_name)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_non_column_expression_nested_and_resolvable()
+    {
+        quick_test(
+            "SELECT ((age + 1) / 2) * (age + 1), MIN(first_name) FROM person GROUP BY age + 1",
+            "Projection: #age Plus Int64(1) Divide Int64(2) Multiply #age Plus Int64(1), #MIN(first_name)\
+             \n  Aggregate: groupBy=[[#age Plus Int64(1)]], aggr=[[MIN(#first_name)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_non_column_expression_nested_and_not_resolvable(
+    ) {
+        // The query should fail, because age + 9 is not in the group by.
+        let sql = "SELECT ((age + 1) / 2) * (age + 9), MIN(first_name) FROM person GROUP BY age + 1";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_with_groupby_non_column_expression_and_its_column_selected(
+    ) {
+        let sql = "SELECT age, MIN(first_name) FROM person GROUP BY age + 1";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Projection references non-aggregate values\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_nested_in_binary_expr_with_groupby() {
+        quick_test(
+            "SELECT state, MIN(age) < 10 FROM person GROUP BY state",
+            "Projection: #state, #MIN(age) Lt Int64(10)\
+             \n  Aggregate: groupBy=[[#state]], aggr=[[MIN(#age)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_simple_aggregate_and_nested_groupby_column() {
+        quick_test(
+            "SELECT age + 1, MAX(first_name) FROM person GROUP BY age",
+            "Projection: #age Plus Int64(1), #MAX(first_name)\
+             \n  Aggregate: groupBy=[[#age]], aggr=[[MAX(#first_name)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_aggregate_compounded_with_groupby_column() {
+        quick_test(
+            "SELECT age + MIN(salary) FROM person GROUP BY age",
+            "Projection: #age Plus #MIN(salary)\
+             \n  Aggregate: groupBy=[[#age]], aggr=[[MIN(#salary)]]\
+             \n    TableScan: person projection=None",
+        );
+    }
+
+    #[test]
+    fn select_aggregate_with_non_column_inner_expression_with_groupby() {
+        quick_test(
+            "SELECT state, MIN(age + 1) FROM person GROUP BY state",
+            "Aggregate: groupBy=[[#state]], aggr=[[MIN(#age Plus Int64(1))]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -1227,6 +1613,25 @@ mod tests {
     }
 
     #[test]
+    fn select_group_by_columns_not_in_select() {
+        let sql = "SELECT MAX(age) FROM person GROUP BY state";
+        let expected = "Projection: #MAX(age)\
+                        \n  Aggregate: groupBy=[[#state]], aggr=[[MAX(#age)]]\
+                        \n    TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_group_by_count_star() {
+        let sql = "SELECT state, COUNT(*) FROM person GROUP BY state";
+        let expected = "Aggregate: groupBy=[[#state]], aggr=[[COUNT(UInt8(1))]]\
+                        \n  TableScan: person projection=None";
+
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_group_by_needs_projection() {
         let sql = "SELECT COUNT(state), state FROM person GROUP BY state";
         let expected = "\
@@ -1240,11 +1645,10 @@ mod tests {
     #[test]
     fn select_7480_1() {
         let sql = "SELECT c1, MIN(c12) FROM aggregate_test_100 GROUP BY c1, c13";
-        let err = logical_plan(sql).expect_err("query should have failed");
-        assert_eq!(
-            "Plan(\"Projection references non-aggregate values\")",
-            format!("{:?}", err)
-        );
+        let expected = "Projection: #c1, #MIN(c12)\
+                       \n  Aggregate: groupBy=[[#c1, #c13]], aggr=[[MIN(#c12)]]\
+                       \n    TableScan: aggregate_test_100 projection=None";
+        quick_test(sql, expected);
     }
 
     #[test]

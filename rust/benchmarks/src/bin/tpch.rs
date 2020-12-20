@@ -130,18 +130,19 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
         }
     }
 
+    let mut millis = vec![];
     // run benchmark
     for i in 0..opt.iterations {
         let start = Instant::now();
         let plan = create_logical_plan(&mut ctx, opt.query)?;
         execute_query(&mut ctx, &plan, opt.debug).await?;
-        println!(
-            "Query {} iteration {} took {} ms",
-            opt.query,
-            i,
-            start.elapsed().as_millis()
-        );
+        let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+        millis.push(elapsed as f64);
+        println!("Query {} iteration {} took {:.1} ms", opt.query, i, elapsed);
     }
+
+    let avg = millis.iter().sum::<f64>() / millis.len() as f64;
+    println!("Query {} avg time: {:.2} ms", opt.query, avg);
 
     Ok(())
 }

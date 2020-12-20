@@ -1766,6 +1766,16 @@ tasks:
       r_tag: 3.6-centos8
       not_cran: "TRUE"
 
+  test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rstudio
+      r_image: r-base
+      r_tag: 3.6-centos7
+      not_cran: "TRUE"
+      devtoolset_version: 8
+
   test-r-rstudio-r-base-3.6-opensuse15:
     ci: azure
     template: r/azure.linux.yml

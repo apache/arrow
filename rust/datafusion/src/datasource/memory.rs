@@ -28,6 +28,7 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::Expr;
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
@@ -69,7 +70,7 @@ impl MemTable {
     /// Create a mem table by reading from another data source
     pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
-        let exec = t.scan(&None, batch_size)?;
+        let exec = t.scan(&None, batch_size, &[])?;
         let partition_count = exec.output_partitioning().partition_count();
 
         let tasks = (0..partition_count)
@@ -108,6 +109,7 @@ impl TableProvider for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
@@ -177,7 +179,7 @@ mod tests {
         assert_eq!(provider.statistics().num_rows, Some(3));
 
         // scan with projection
-        let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
+        let exec = provider.scan(&Some(vec![2, 1]), 1024, &[])?;
         let mut it = exec.execute(0).await?;
         let batch2 = it.next().await.unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
@@ -207,7 +209,7 @@ mod tests {
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
-        let exec = provider.scan(&None, 1024)?;
+        let exec = provider.scan(&None, 1024, &[])?;
         let mut it = exec.execute(0).await?;
         let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
@@ -237,7 +239,7 @@ mod tests {
 
         let projection: Vec<usize> = vec![0, 4];
 
-        match provider.scan(&Some(projection), 1024) {
+        match provider.scan(&Some(projection), 1024, &[]) {
             Err(DataFusionError::Internal(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }

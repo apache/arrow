@@ -19,7 +19,9 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
+use crate::array::{
+    Array, BooleanArray, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait,
+};
 use crate::datatypes::{ArrowNativeType, ArrowNumericType};
 
 /// Generic test for NaN, the optimizer should be able to remove this for integer types.
@@ -133,6 +135,56 @@ where
         }
     }
     Some(n)
+}
+
+/// Returns the minimum value in the boolean array.
+///
+/// ```
+/// use arrow::{
+///   array::BooleanArray,
+///   compute::min_boolean,
+/// };
+///
+/// let a = BooleanArray::from(vec![Some(true), None, Some(false)]);
+/// assert_eq!(min_boolean(&a), Some(false))
+/// ```
+pub fn min_boolean(array: &BooleanArray) -> Option<bool> {
+    // short circuit if all nulls / zero length array
+    if array.null_count() == array.len() {
+        return None;
+    }
+
+    // Note the min bool is false (0), so short circuit as soon as we see it
+    array
+        .iter()
+        .find(|&b| b == Some(false))
+        .flatten()
+        .or(Some(true))
+}
+
+/// Returns the maximum value in the boolean array
+///
+/// ```
+/// use arrow::{
+///   array::BooleanArray,
+///   compute::max_boolean,
+/// };
+///
+/// let a = BooleanArray::from(vec![Some(true), None, Some(false)]);
+/// assert_eq!(max_boolean(&a), Some(true))
+/// ```
+pub fn max_boolean(array: &BooleanArray) -> Option<bool> {
+    // short circuit if all nulls / zero length array
+    if array.null_count() == array.len() {
+        return None;
+    }
+
+    // Note the max bool is true (1), so short circuit as soon as we see it
+    array
+        .iter()
+        .find(|&b| b == Some(true))
+        .flatten()
+        .or(Some(false))
 }
 
 /// Returns the sum of values in the array.
@@ -864,5 +916,61 @@ mod tests {
         let a = StringArray::from(vec![None, None, Some("b"), Some("a")]);
         assert_eq!(Some("a"), min_string(&a));
         assert_eq!(Some("b"), max_string(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_empty() {
+        let a = BooleanArray::from(vec![] as Vec<Option<bool>>);
+        assert_eq!(None, min_boolean(&a));
+        assert_eq!(None, max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_all_null() {
+        let a = BooleanArray::from(vec![None, None]);
+        assert_eq!(None, min_boolean(&a));
+        assert_eq!(None, max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_no_null() {
+        let a = BooleanArray::from(vec![Some(true), Some(false), Some(true)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max() {
+        let a = BooleanArray::from(vec![Some(true), Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        let a =
+            BooleanArray::from(vec![Some(false), Some(true), None, Some(false), None]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+    }
+
+    #[test]
+    fn test_boolean_min_max_smaller() {
+        let a = BooleanArray::from(vec![Some(false)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(false), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(false)]);
+        assert_eq!(Some(false), min_boolean(&a));
+        assert_eq!(Some(false), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![None, Some(true)]);
+        assert_eq!(Some(true), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
+
+        let a = BooleanArray::from(vec![Some(true)]);
+        assert_eq!(Some(true), min_boolean(&a));
+        assert_eq!(Some(true), max_boolean(&a));
     }
 }

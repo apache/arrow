@@ -148,7 +148,7 @@ where
         DataType::List(_) => take_list::<_, Int32Type>(values, indices),
         DataType::LargeList(_) => take_list::<_, Int64Type>(values, indices),
         DataType::FixedSizeList(_, length) => {
-            take_fixed_size_list(values, indices, *length)
+            take_fixed_size_list(values, indices, *length as u32)
         }
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -541,23 +541,19 @@ where
 fn take_fixed_size_list<IndexType>(
     values: &ArrayRef,
     indices: &PrimitiveArray<IndexType>,
-    length: <Int32Type as ArrowPrimitiveType>::Native,
+    length: <UInt32Type as ArrowPrimitiveType>::Native,
 ) -> Result<ArrayRef>
 where
     IndexType: ArrowNumericType,
     IndexType::Native: ToPrimitive,
 {
-    let indices = indices
-        .as_any()
-        .downcast_ref::<PrimitiveArray<Int32Type>>()
-        .expect("FixedSizeListArray's indices type should be 32-bit signed integer");
     let list = values
         .as_any()
         .downcast_ref::<FixedSizeListArray>()
         .unwrap();
 
-    let list_indices = take_value_indices_from_fixed_size_list(list, indices, length);
-    let taken = take_impl::<Int32Type>(&list.values(), &list_indices, None)?;
+    let list_indices = take_value_indices_from_fixed_size_list(list, indices, length)?;
+    let taken = take_impl::<UInt32Type>(&list.values(), &list_indices, None)?;
 
     // determine null count and null buffer, which are a function of `values` and `indices`
     let mut null_count = 0;
@@ -566,7 +562,10 @@ where
     let null_slice = null_buf.data_mut();
 
     for i in 0..indices.len() {
-        if !indices.is_valid(i) || list.is_null(indices.value(i) as usize) {
+        let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+            ArrowError::ComputeError("Cast to usize failed".to_string())
+        })?;
+        if !indices.is_valid(i) || list.is_null(index) {
             bit_util::unset_bit(null_slice, i);
             null_count += 1;
         }
@@ -618,7 +617,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compute::util::tests::build_fixed_size_list;
+    use crate::compute::util::tests::build_fixed_size_list_nullable;
 
     fn test_take_boolean_arrays(
         data: Vec<Option<bool>>,
@@ -1150,21 +1149,21 @@ mod tests {
     fn do_take_fixed_size_list_test<T>(
         length: <Int32Type as ArrowPrimitiveType>::Native,
         input_data: Vec<Option<Vec<Option<T::Native>>>>,
-        indices: Vec<<Int32Type as ArrowPrimitiveType>::Native>,
+        indices: Vec<<UInt32Type as ArrowPrimitiveType>::Native>,
         expected_data: Vec<Option<Vec<Option<T::Native>>>>,
     ) where
         T: ArrowPrimitiveType,
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
-        let indices = Int32Array::from(indices);
+        let indices = UInt32Array::from(indices);
 
         let input_array: ArrayRef =
-            Arc::new(build_fixed_size_list::<T>(input_data, length));
+            Arc::new(build_fixed_size_list_nullable::<T>(input_data, length));
 
-        let output = take_fixed_size_list(&input_array, &indices, length).unwrap();
+        let output = take_fixed_size_list(&input_array, &indices, length as u32).unwrap();
 
         let expected: ArrayRef =
-            Arc::new(build_fixed_size_list::<T>(expected_data, length));
+            Arc::new(build_fixed_size_list_nullable::<T>(expected_data, length));
 
         assert_eq!(&output, &expected)
     }
