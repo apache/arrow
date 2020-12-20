@@ -53,6 +53,9 @@ type Index = (usize, usize);
 // Note that while this is currently equal to `Index`, the `JoinIndex` is semantically different
 // as a left join may issue None indices, in which case
 type JoinIndex = Option<(usize, usize)>;
+// An index of row uniquely identifying a row in a batch
+type RightIndex = Option<usize>;
+
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
@@ -252,7 +255,7 @@ fn build_batch_from_indices(
     left: &Vec<RecordBatch>,
     right: &RecordBatch,
     join_type: &JoinType,
-    indices: &[(JoinIndex, JoinIndex)],
+    indices: &[(JoinIndex, RightIndex)],
 ) -> ArrowResult<RecordBatch> {
     if left.is_empty() {
         todo!("Create empty record batch");
@@ -306,7 +309,7 @@ fn build_batch_from_indices(
             // use the right indices
             for (_, join_index) in indices {
                 match join_index {
-                    Some((batch, row)) => mutable.extend(*batch, *row, *row + 1),
+                    Some(row) => mutable.extend(0, *row, *row + 1),
                     None => mutable.extend_nulls(1),
                 }
             }
@@ -385,11 +388,7 @@ fn build_batch(
     join_type: &JoinType,
     schema: &Schema,
 ) -> ArrowResult<RecordBatch> {
-    let mut right_hash =
-        JoinHashMap::with_capacity_and_hasher(batch.num_rows(), RandomState::new());
-    update_hash(on_right, batch, &mut right_hash, 0).unwrap();
-
-    let indices = build_join_indexes(&left_data.0, &right_hash, join_type).unwrap();
+    let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
     build_batch_from_indices(schema, &left_data.1, &batch, join_type, &indices)
 }
@@ -423,71 +422,83 @@ fn build_batch(
 // (1, 0)     (1, 2)
 fn build_join_indexes(
     left: &JoinHashMap,
-    right: &JoinHashMap,
+    right: &RecordBatch,
     join_type: &JoinType,
-) -> Result<Vec<(JoinIndex, JoinIndex)>> {
+    right_on: &HashSet<String>,
+) -> Result<Vec<(JoinIndex, RightIndex)>> {
+    let keys_values = right_on
+        .iter()
+        .map(|name| Ok(col(name).evaluate(right)?.into_array(right.num_rows())))
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut key = Vec::with_capacity(keys_values.len());
+
     match join_type {
         JoinType::Inner => {
-            // inner => key intersection
-            // unfortunately rust does not support intersection of map keys :(
-            let left_set: HashSet<Vec<u8>> = left.keys().cloned().collect();
-            let left_right: HashSet<Vec<u8>> = right.keys().cloned().collect();
-            let inner = left_set.intersection(&left_right);
-
             let mut indexes = Vec::new(); // unknown a prior size
-            for key in inner {
-                // the unwrap never happens by construction of the key
-                let left_indexes = left.get(key).unwrap();
-                let right_indexes = right.get(key).unwrap();
+
+            // Visit all of the right rows
+            for row in 0..right.num_rows() {
+                // Get the key and find it in the build index
+                create_key(&keys_values, row, &mut key)?;
+                let left_indexes = left.get(&key);
 
                 // for every item on the left and right with this key, add the respective pair
-                left_indexes.iter().for_each(|x| {
-                    right_indexes.iter().for_each(|y| {
-                        // on an inner join, left and right indices are present
-                        indexes.push((Some(*x), Some(*y)));
-                    })
+                left_indexes.unwrap_or(&vec![]).iter().for_each(|x| {
+                    // on an inner join, left and right indices are present
+                    indexes.push((Some(*x), Some(row)));
                 })
             }
             Ok(indexes)
         }
         JoinType::Left => {
-            // left => left keys
             let mut indexes = Vec::new(); // unknown a prior size
-            for (key, left_indexes) in left {
-                // for every item on the left and right with this key, add the respective pair
-                if let Some(right_indexes) = right.get(key) {
-                    left_indexes.iter().for_each(|x| {
-                        right_indexes.iter().for_each(|y| {
-                            // on an inner join, left and right indices are present
-                            indexes.push((Some(*x), Some(*y)));
-                        })
+
+            // Keep track of which item is visited in the build input
+            // TODO: this can be stored more efficiently with a marker
+            let mut is_visited = HashSet::new();
+
+            // First visit all of the rows
+            for row in 0..right.num_rows() {
+                create_key(&keys_values, row, &mut key)?;
+                let left_indexes = left.get(&key);
+
+                if let Some(indices) = left_indexes {
+                    is_visited.insert(key.clone());
+
+                    indices.iter().for_each(|x| {
+                        indexes.push((Some(*x), Some(row)));
                     })
-                } else {
-                    // key not on the right => push Nones
-                    left_indexes.iter().for_each(|x| {
+                };
+            }
+            // Add the remaining left rows to the result set with None on the right side
+            for (key, indices) in left {
+                if !is_visited.contains(key) {
+                    indices.iter().for_each(|x| {
                         indexes.push((Some(*x), None));
-                    })
+                    });
                 }
             }
+
             Ok(indexes)
         }
         JoinType::Right => {
-            // right => right keys
             let mut indexes = Vec::new(); // unknown a prior size
-            for (key, right_indexes) in right {
-                // for every item on the left and right with this key, add the respective pair
-                if let Some(left_indexes) = left.get(key) {
-                    left_indexes.iter().for_each(|x| {
-                        right_indexes.iter().for_each(|y| {
-                            // on an inner join, left and right indices are present
-                            indexes.push((Some(*x), Some(*y)));
-                        })
-                    })
-                } else {
-                    // key not on the left => push Nones
-                    right_indexes.iter().for_each(|x| {
-                        indexes.push((None, Some(*x)));
-                    })
+            for row in 0..right.num_rows() {
+                create_key(&keys_values, row, &mut key)?;
+
+                let left_indices = left.get(&key);
+
+                match left_indices {
+                    Some(indices) => {
+                        indices.iter().for_each(|x| {
+                            indexes.push((Some(*x), Some(row)));
+                        });
+                    }
+                    None => {
+                        // when no match, add the row with None for the left side
+                        indexes.push((None, Some(row)));
+                    }
                 }
             }
             Ok(indexes)
