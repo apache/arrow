@@ -371,16 +371,18 @@ pub fn gt_eq_utf8_scalar(left: &StringArray, right: &str) -> Result<BooleanArray
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
 #[cfg(simd_x86)]
-fn simd_compare_op<T, F>(
+fn simd_compare_op<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
-    op: F,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
-    F: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
 {
-    use std::mem;
+    use std::borrow::BorrowMut;
 
     let len = left.len();
     if len != right.len() {
@@ -393,34 +395,55 @@ where
     let null_bit_buffer = combine_option_bitmap(left.data_ref(), right.data_ref(), len)?;
 
     let lanes = T::lanes();
-    let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
+    let buffer_size = bit_util::ceil(len, 8);
+    let mut result = MutableBuffer::new(buffer_size);
 
-    let rem = len % lanes;
+    // this is currently the case for all our datatypes and allows us to always append full bytes
+    assert!(
+        lanes % 8 == 0,
+        "Number of vector lanes must be multiple of 8"
+    );
+    let mut left_chunks = left.values().chunks_exact(lanes);
+    let mut right_chunks = right.values().chunks_exact(lanes);
 
-    for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(unsafe { left.value_slice(i, lanes) });
-        let simd_right = T::load(unsafe { right.value_slice(i, lanes) });
-        let simd_result = op(simd_left, simd_right);
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(b);
+    left_chunks
+        .borrow_mut()
+        .zip(right_chunks.borrow_mut())
+        .for_each(|(left_slice, right_slice)| {
+            let simd_left = T::load(left_slice);
+            let simd_right = T::load(right_slice);
+            let simd_result = simd_op(simd_left, simd_right);
+
+            T::bitmask(&simd_result, |b| {
+                result.extend_from_slice(b);
+            });
         });
-    }
 
-    if rem > 0 {
-        //Soundness
-        //	This is not sound because it can read past the end of PrimitiveArray buffer (lanes is always greater than rem), see ARROW-10990
-        let simd_left = T::load(unsafe { left.value_slice(len - rem, lanes) });
-        let simd_right = T::load(unsafe { right.value_slice(len - rem, lanes) });
-        let simd_result = op(simd_left, simd_right);
-        let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(&b[0..rem_buffer_size]);
+    let left_remainder = left_chunks.remainder();
+    let right_remainder = right_chunks.remainder();
+
+    assert_eq!(left_remainder.len(), right_remainder.len());
+
+    let remainder_bitmask = left_remainder
+        .iter()
+        .zip(right_remainder.iter())
+        .enumerate()
+        .fold(0_u64, |mut mask, (i, (scalar_left, scalar_right))| {
+            let bit = if scalar_op(*scalar_left, *scalar_right) {
+                1_u64
+            } else {
+                0_u64
+            };
+            mask |= bit << i;
+            mask
         });
-    }
+    let remainder_mask_as_bytes =
+        &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
+    result.extend_from_slice(&remainder_mask_as_bytes);
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
+        len,
         None,
         null_bit_buffer,
         0,
@@ -433,47 +456,69 @@ where
 /// Helper function to perform boolean lambda function on values from an array and a scalar value using
 /// SIMD.
 #[cfg(simd_x86)]
-fn simd_compare_op_scalar<T, F>(
+fn simd_compare_op_scalar<T, SIMD_OP, SCALAR_OP>(
     left: &PrimitiveArray<T>,
     right: T::Native,
-    op: F,
+    simd_op: SIMD_OP,
+    scalar_op: SCALAR_OP,
 ) -> Result<BooleanArray>
 where
     T: ArrowNumericType,
-    F: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SIMD_OP: Fn(T::Simd, T::Simd) -> T::SimdMask,
+    SCALAR_OP: Fn(T::Native, T::Native) -> bool,
 {
-    use std::mem;
+    use std::borrow::BorrowMut;
 
     let len = left.len();
-    let null_bit_buffer = left.data().null_buffer().cloned();
+
+    let null_bit_buffer = left
+        .data_ref()
+        .null_buffer()
+        .map(|b| b.bit_slice(left.offset(), left.len()));
+
     let lanes = T::lanes();
-    let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());
+    let buffer_size = bit_util::ceil(len, 8);
+    let mut result = MutableBuffer::new(buffer_size);
+
+    // this is currently the case for all our datatypes and allows us to always append full bytes
+    assert!(
+        lanes % 8 == 0,
+        "Number of vector lanes must be multiple of 8"
+    );
+    let mut left_chunks = left.values().chunks_exact(lanes);
     let simd_right = T::init(right);
 
-    let rem = len % lanes;
+    left_chunks.borrow_mut().for_each(|left_slice| {
+        let simd_left = T::load(left_slice);
+        let simd_result = simd_op(simd_left, simd_right);
 
-    for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(unsafe { left.value_slice(i, lanes) });
-        let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
             result.extend_from_slice(b);
         });
-    }
+    });
 
-    if rem > 0 {
-        //Soundness
-        //	This is not sound because it can read past the end of PrimitiveArray buffer (lanes is always greater than rem), see ARROW-10990
-        let simd_left = T::load(unsafe { left.value_slice(len - rem, lanes) });
-        let simd_result = op(simd_left, simd_right);
-        let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(&b[0..rem_buffer_size]);
-        });
-    }
+    let left_remainder = left_chunks.remainder();
+
+    let remainder_bitmask =
+        left_remainder
+            .iter()
+            .enumerate()
+            .fold(0_u64, |mut mask, (i, scalar_left)| {
+                let bit = if scalar_op(*scalar_left, right) {
+                    1_u64
+                } else {
+                    0_u64
+                };
+                mask |= bit << i;
+                mask
+            });
+    let remainder_mask_as_bytes =
+        &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
+    result.extend_from_slice(&remainder_mask_as_bytes);
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
+        len,
         None,
         null_bit_buffer,
         0,
@@ -489,7 +534,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::eq);
+    return simd_compare_op(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a == b);
 }
@@ -500,7 +545,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::eq);
+    return simd_compare_op_scalar(left, right, T::eq, |a, b| a == b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a == b);
 }
@@ -511,7 +556,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::ne);
+    return simd_compare_op(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a != b);
 }
@@ -522,7 +567,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::ne);
+    return simd_compare_op_scalar(left, right, T::ne, |a, b| a != b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a != b);
 }
@@ -534,7 +579,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::lt);
+    return simd_compare_op(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a < b);
 }
@@ -546,7 +591,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::lt);
+    return simd_compare_op_scalar(left, right, T::lt, |a, b| a < b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a < b);
 }
@@ -561,7 +606,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::le);
+    return simd_compare_op(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a <= b);
 }
@@ -573,7 +618,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::le);
+    return simd_compare_op_scalar(left, right, T::le, |a, b| a <= b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a <= b);
 }
@@ -585,7 +630,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::gt);
+    return simd_compare_op(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a > b);
 }
@@ -597,7 +642,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::gt);
+    return simd_compare_op_scalar(left, right, T::gt, |a, b| a > b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a > b);
 }
@@ -612,7 +657,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op(left, right, T::ge);
+    return simd_compare_op(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd_x86))]
     return compare_op!(left, right, |a, b| a >= b);
 }
@@ -624,7 +669,7 @@ where
     T: ArrowNumericType,
 {
     #[cfg(simd_x86)]
-    return simd_compare_op_scalar(left, right, T::ge);
+    return simd_compare_op_scalar(left, right, T::ge, |a, b| a >= b);
     #[cfg(not(simd_x86))]
     return compare_op_scalar!(left, right, |a, b| a >= b);
 }
@@ -756,18 +801,23 @@ fn new_all_set_buffer(len: usize) -> Buffer {
 mod tests {
     use super::*;
     use crate::datatypes::{Int8Type, ToByteSlice};
-    use crate::{array::Int32Array, datatypes::Field};
+    use crate::{array::Int32Array, array::Int64Array, datatypes::Field};
 
     #[test]
     fn test_primitive_array_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
+        let a = Int64Array::from(vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8]);
+        let b = Int64Array::from(vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10]);
         let c = eq(&a, &b).unwrap();
         assert_eq!(false, c.value(0));
         assert_eq!(false, c.value(1));
         assert_eq!(true, c.value(2));
         assert_eq!(false, c.value(3));
         assert_eq!(false, c.value(4));
+        assert_eq!(false, c.value(5));
+        assert_eq!(false, c.value(6));
+        assert_eq!(true, c.value(7));
+        assert_eq!(false, c.value(8));
+        assert_eq!(false, c.value(9));
     }
 
     #[test]
@@ -984,6 +1034,29 @@ mod tests {
         assert_eq!(false, c.value(0));
         assert_eq!(true, c.value(1));
         assert_eq!(true, c.value(2));
+    }
+
+    #[test]
+    fn test_primitive_array_compare_slice() {
+        let a: Int32Array = (0..100).map(Some).collect();
+        let a = a.slice(50, 50);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b: Int32Array = (100..200).map(Some).collect();
+        let b = b.slice(50, 50);
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+        let actual = lt(&a, &b).unwrap();
+        let expected: BooleanArray = (0..50).map(|_| Some(true)).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_primitive_array_compare_scalar_slice() {
+        let a: Int32Array = (0..100).map(Some).collect();
+        let a = a.slice(50, 50);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let actual = lt_scalar(&a, 200).unwrap();
+        let expected: BooleanArray = (0..50).map(|_| Some(true)).collect();
+        assert_eq!(expected, actual);
     }
 
     #[test]
