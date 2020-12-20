@@ -317,10 +317,6 @@ impl ExecutionContext {
         // Apply standard rewrites and optimizations
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
-
-        // NOTE: not enabled for now, as the current hash join
-        // implementation is not finished and the optimization
-        // currently has a negative effect on performance
         plan = HashBuildProbeOrder::new().optimize(&plan)?;
 
         self.state
