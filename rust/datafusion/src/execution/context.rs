@@ -17,6 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
+use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -316,6 +317,7 @@ impl ExecutionContext {
         // Apply standard rewrites and optimizations
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
+        plan = HashBuildProbeOrder::new().optimize(&plan)?;
 
         self.state
             .lock()

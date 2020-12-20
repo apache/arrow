@@ -34,7 +34,7 @@ macro_rules! parser_err {
 }
 
 /// Types of files to parse as DataFrames
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileType {
     /// Newline-delimited JSON
     NdJson,

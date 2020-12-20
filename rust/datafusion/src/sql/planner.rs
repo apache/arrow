@@ -153,7 +153,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             schema: schema.to_dfschema_ref()?,
             name: name.clone(),
             location: location.clone(),
-            file_type: file_type.clone(),
+            file_type: *file_type,
             has_header: *has_header,
         })
     }

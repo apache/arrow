@@ -182,7 +182,7 @@ fn optimize_plan(
                     true,
                 )?),
 
-                join_type: join_type.clone(),
+                join_type: *join_type,
                 on: on.clone(),
                 schema: schema.clone(),
             })

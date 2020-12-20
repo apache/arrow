@@ -34,7 +34,7 @@ use super::extension::UserDefinedLogicalNode;
 use crate::logical_plan::dfschema::DFSchemaRef;
 
 /// Join type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum JoinType {
     /// Inner join
     Inner,

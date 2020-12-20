@@ -274,6 +274,7 @@ impl DefaultPhysicalPlanner {
                     JoinType::Left => hash_utils::JoinType::Left,
                     JoinType::Right => hash_utils::JoinType::Right,
                 };
+
                 Ok(Arc::new(HashJoinExec::try_new(
                     left,
                     right,
