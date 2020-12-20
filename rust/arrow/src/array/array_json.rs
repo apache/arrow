@@ -15,18 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
+use serde_json::Value;
+
 use super::{Array, BinaryArray, StructArray, StructBuilder};
+use crate::datatypes::SchemaRef;
 use crate::error::ArrowError;
 use crate::json::reader::{infer_json_schema_from_iterator, Decoder};
-use serde_json::Value;
 
 #[derive(Debug)]
 /// Interpret `BinaryArray` values as serialized JSON.
-pub struct JSONArray(BinaryArray);
+pub struct JSONArray {
+    inner: Arc<BinaryArray>,
+    schema: Option<SchemaRef>,
+}
+
+impl From<Arc<BinaryArray>> for JSONArray {
+    fn from(inner: Arc<BinaryArray>) -> JSONArray {
+        JSONArray {
+            inner,
+            schema: None,
+        }
+    }
+}
 
 impl From<BinaryArray> for JSONArray {
-    fn from(bin: BinaryArray) -> JSONArray {
-        JSONArray(bin)
+    fn from(inner: BinaryArray) -> JSONArray {
+        Arc::new(inner).into()
+    }
+}
+
+impl JSONArray {
+    pub fn with_schema(self, schema: SchemaRef) -> Self {
+        JSONArray {
+            inner: self.inner,
+            schema: Some(schema),
+        }
+    }
+
+    pub fn schema(&self) -> Option<SchemaRef> {
+        self.schema.as_ref().map(|schema| Arc::clone(schema))
     }
 }
 
@@ -34,7 +63,7 @@ impl core::ops::Deref for JSONArray {
     type Target = BinaryArray;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
@@ -46,8 +75,8 @@ impl std::convert::TryFrom<JSONArray> for StructArray {
 
         // Parse values. Return error on null. Could alternatively interpret as empty object.
         for i in 0..json.len() {
-            if json.0.is_valid(i) {
-                let buf = json.0.value(i);
+            if json.is_valid(i) {
+                let buf = json.value(i);
                 let value = serde_json::from_slice(buf)
                     .map_err(|e| ArrowError::JsonError(format!("{:?}", e)))?;
                 records.push(value);
@@ -56,13 +85,18 @@ impl std::convert::TryFrom<JSONArray> for StructArray {
             }
         }
 
-        // Infer schema from records.
-        let schema_records = records.iter().map(|value| Ok(value.clone()));
-        let inferred_schema = infer_json_schema_from_iterator(schema_records)?;
-        let fields = inferred_schema.fields().to_vec();
+        let schema = match json.schema() {
+            Some(schema) => schema,
+            None => {
+                // Infer schema from records.
+                let schema_records = records.iter().map(|value| Ok(value.clone()));
+                infer_json_schema_from_iterator(schema_records)?
+            }
+        };
+        let fields = schema.fields().to_vec();
 
         // Decode as `StructArray`.
-        let decoder = Decoder::new(inferred_schema, json.len(), None);
+        let decoder = Decoder::new(schema, json.len(), None);
         let mut batch_records = records.into_iter().map(Ok);
         Ok(decoder
             .next_batch(&mut batch_records)?
@@ -74,16 +108,14 @@ impl std::convert::TryFrom<JSONArray> for StructArray {
 #[cfg(test)]
 mod tests {
     use crate::array::{
-        Array, BinaryBuilder, Float64Builder, Int64Builder, JSONArray, StringBuilder,
-        StructArray,
+        Array, BinaryArray, BinaryBuilder, Float64Builder, Int64Builder, JSONArray,
+        StringBuilder, StructArray,
     };
-    use crate::datatypes::{DataType, Field};
+    use crate::datatypes::{DataType, Field, Schema};
     use std::convert::TryInto;
     use std::sync::Arc;
 
-    #[test]
-    fn test_basic_json() {
-        // Create test input
+    fn test_input_binary() -> BinaryArray {
         let mut builder = BinaryBuilder::new(3);
         builder
             .append_value(br#"{"string":"foo","int":0,"float":0.0}"#)
@@ -94,9 +126,10 @@ mod tests {
         builder
             .append_value(br#"{"string":"baz","int":2,"float":2.0}"#)
             .unwrap();
-        let binary_array = builder.finish();
+        builder.finish()
+    }
 
-        // Create validation array
+    fn validation_data() -> StructArray {
         let mut test_string_builder = StringBuilder::new(3);
         test_string_builder.append_value("foo").unwrap();
         test_string_builder.append_value("bar").unwrap();
@@ -129,13 +162,37 @@ mod tests {
                 Arc::new(test_float_array),
             ),
         ];
-        let test_struct_array: StructArray = fields.into();
+        fields.into()
+    }
+
+    #[test]
+    fn test_binary() {
+        let binary_array = test_input_binary();
+        let test_struct_array = validation_data();
 
         // Parsing
         let json_array: JSONArray = binary_array.into();
         let struct_array: StructArray = json_array.try_into().unwrap();
 
-        // Validate parsing
+        assert_eq!(struct_array, test_struct_array);
+    }
+
+    #[test]
+    fn test_with_schema() {
+        let binary_array = test_input_binary();
+        let test_struct_array = validation_data();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("string", DataType::Utf8, true),
+            Field::new("int", DataType::Int64, true),
+            Field::new("float", DataType::Float64, true),
+        ]));
+
+        // Parsing with schema
+        let inferred_json_array: JSONArray = Arc::new(binary_array).into();
+        let json_array = inferred_json_array.with_schema(schema);
+        let struct_array: StructArray = json_array.try_into().unwrap();
+
         assert_eq!(struct_array, test_struct_array);
     }
 }
