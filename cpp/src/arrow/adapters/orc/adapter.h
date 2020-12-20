@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 #include "orc/OrcFile.hh"
+
 namespace liborc = orc;
 
 namespace arrow {
@@ -148,10 +149,10 @@ class ARROW_EXPORT ORCFileReader {
   ORCFileReader();
 };
 
-class ARROW_EXPORT ArrowWriterOptions {
+class ARROW_EXPORT ORCWriterOptions {
  public:
   uint64_t batch_size_;
-  explicit ArrowWriterOptions(uint64_t batch_size) : batch_size_(batch_size) {}
+  explicit ORCWriterOptions(uint64_t batch_size) : batch_size_(batch_size) {}
   Status set_batch_size(uint64_t batch_size) {
     batch_size_ = batch_size;
     return Status::OK();
@@ -164,28 +165,21 @@ class ARROW_EXPORT ArrowWriterOptions {
 class ARROW_EXPORT ORCFileWriter {
  public:
   ~ORCFileWriter();
-  static Status Open(const std::shared_ptr<Schema>& schema, const std::string file_name,
-                     const std::shared_ptr<liborc::WriterOptions>& options,
-                     const std::shared_ptr<ArrowWriterOptions>& arrow_options,
-                     std::unique_ptr<ORCFileWriter>* writer);
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] schema of the Arrow table
   /// \param[in] file the file to write into
   /// \param[in] options ORC writer options
-  /// \param[in] arrow_options ORC writer options
   /// \param[out] writer the returned writer object
   /// \return Status
   static Status Open(const std::shared_ptr<Schema>& schema,
                      const std::shared_ptr<io::FileOutputStream>& file,
-                     const std::shared_ptr<liborc::WriterOptions>& options,
-                     const std::shared_ptr<ArrowWriterOptions>& arrow_options,
+                     const std::shared_ptr<ORCWriterOptions>& options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
   static Status Open(const std::shared_ptr<Schema>& schema,
                      ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
-                     const std::shared_ptr<liborc::WriterOptions>& options,
-                     const std::shared_ptr<ArrowWriterOptions>& arrow_options,
+                     const std::shared_ptr<ORCWriterOptions>& options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
   /// \brief Write a table
