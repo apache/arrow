@@ -17,6 +17,7 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
+use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
 use std::fs;
 use std::path::Path;
 use std::string::String;
@@ -320,8 +321,7 @@ impl ExecutionContext {
         // NOTE: not enabled for now, as the current hash join
         // implementation is not finished and the optimization
         // currently has a negative effect on performance
-        // use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
-        // plan = HashBuildProbeOrder::new().optimize(&plan)?;
+        plan = HashBuildProbeOrder::new().optimize(&plan)?;
 
         self.state
             .lock()

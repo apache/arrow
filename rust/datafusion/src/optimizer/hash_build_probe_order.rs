@@ -159,7 +159,7 @@ mod tests {
 
     use crate::{
         datasource::{datasource::Statistics, TableProvider},
-        logical_plan::DFSchema,
+        logical_plan::{DFSchema, Expr},
         test::*,
     };
 
@@ -179,6 +179,7 @@ mod tests {
             &self,
             _projection: &Option<Vec<usize>>,
             _batch_size: usize,
+            _filters: &[Expr],
         ) -> Result<std::sync::Arc<dyn crate::physical_plan::ExecutionPlan>> {
             unimplemented!()
         }
@@ -206,6 +207,7 @@ mod tests {
             projection: None,
             source: Arc::new(TestTableProvider { num_rows: 1000 }),
             projected_schema: Arc::new(DFSchema::empty()),
+            filters: vec![],
         };
 
         let lp_right = LogicalPlan::TableScan {
@@ -213,6 +215,7 @@ mod tests {
             projection: None,
             source: Arc::new(TestTableProvider { num_rows: 100 }),
             projected_schema: Arc::new(DFSchema::empty()),
+            filters: vec![],
         };
 
         assert!(should_swap_join_order(&lp_left, &lp_right));
