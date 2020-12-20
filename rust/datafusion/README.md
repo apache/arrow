@@ -155,6 +155,10 @@ Below is a checklist of what you need to do to add a new scalar function to Data
   * a new line in `create_physical_expr` mapping the built-in to the implementation
   * tests to the function.
 * In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+* In [src/logical_plan/expr](src/logical_plan/expr.rs), add:
+  * a new entry of the `unary_scalar_expr!` macro for the new function.
+* In [src/logical_plan/mod](src/logical_plan/mod.rs), add:
+  * a new entry in the `pub use expr::{}` set.
 
 ## How to add a new aggregate function
 
