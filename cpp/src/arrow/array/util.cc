@@ -201,6 +201,9 @@ class ArrayDataEndianSwapper {
   }
 
   Status CopyDataBuffer() {
+    if (data_->buffers[1]->data() == nullptr) {
+      return Status::OK();
+    }
     ARROW_ASSIGN_OR_RAISE((*out_)->buffers[1],
                           data_->buffers[1]->CopySlice(0, data_->buffers[1]->size()));
     return Status::OK();
