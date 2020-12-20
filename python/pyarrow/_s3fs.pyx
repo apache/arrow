@@ -82,6 +82,8 @@ cdef class S3FileSystem(FileSystem):
     external_id: str, default None
         An optional unique identifier that might be required when you assume
         a role in another account.
+    use_web_identity: bool, default False
+        ...
     load_frequency: int, default 900
         The frequency (in seconds) with which temporary credentials from an
         assumed role session will be refreshed.
@@ -103,6 +105,7 @@ cdef class S3FileSystem(FileSystem):
                  anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  role_arn=None, session_name=None, external_id=None,
+                 use_web_identity=False,
                  load_frequency=900):
         cdef:
             CS3Options options
@@ -139,6 +142,11 @@ cdef class S3FileSystem(FileSystem):
                 raise ValueError(
                     'Cannot provide role_arn with access_key and secret_key')
 
+            if use_web_identity:
+                raise ValueError(
+                    'Cannot pass use_web_identity=True together with '
+                    'access_key and secret_key.')
+
             if session_token is None:
                 session_token = ""
 
@@ -149,6 +157,8 @@ cdef class S3FileSystem(FileSystem):
             )
         elif anonymous:
             options = CS3Options.Anonymous()
+        elif use_web_identity:
+            options = CS3Options.FromAssumeRoleWithWebIdentity()
         elif role_arn is not None:
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
@@ -185,10 +195,11 @@ cdef class S3FileSystem(FileSystem):
         cdef CS3Options opts = self.s3fs.options()
 
         role_arn = frombytes(opts.role_arn)
+        use_web_identity = opts.use_web_identity
 
-        # if role_arn is set, we should not re-use temporary credentials
-        # but instead recreate a new assume role session
-        if role_arn:
+        # if role_arn is set or use web identity, we should not re-use
+        # temporary credentials but instead recreate a new assume role session
+        if role_arn or use_web_identity:
             access_key = None
             secret_key = None
             session_token = None
@@ -208,6 +219,7 @@ cdef class S3FileSystem(FileSystem):
                 role_arn=role_arn,
                 session_name=frombytes(opts.session_name),
                 external_id=frombytes(opts.external_id),
+                use_web_identity=opts.use_web_identity,
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes
             ),)

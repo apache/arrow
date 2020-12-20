@@ -133,6 +133,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string role_arn
         c_string session_name
         c_string external_id
+        c_bool use_web_identity
         int load_frequency
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
@@ -159,6 +160,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
                                   const c_string& session_name,
                                   const c_string& external_id,
                                   const int load_frequency)
+
+        @staticmethod
+        CS3Options FromAssumeRoleWithWebIdentity()
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod

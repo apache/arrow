@@ -61,10 +61,12 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency;
+  /// Optional: use STS web identity, obtained from environment variables.
+  bool use_web_identity = false;
 
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
@@ -87,6 +89,9 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// Configure with credentials from an assumed role with web identity.
+  void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
   std::string GetSecretKey() const;
@@ -118,6 +123,9 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// \brief Initialize from an assumed role with web identity.
+  static S3Options FromAssumeRoleWithWebIdentity();
 
   static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
                                    std::string* out_path = NULLPTR);
