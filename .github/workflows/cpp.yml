@@ -218,6 +218,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
       - name: Build
