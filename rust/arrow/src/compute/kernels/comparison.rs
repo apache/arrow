@@ -396,7 +396,7 @@ where
 
     let lanes = T::lanes();
     let buffer_size = bit_util::ceil(len, 8);
-    let mut result = MutableBuffer::new(buffer_size);
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     // this is currently the case for all our datatypes and allows us to always append full bytes
     assert!(
@@ -406,18 +406,23 @@ where
     let mut left_chunks = left.values().chunks_exact(lanes);
     let mut right_chunks = right.values().chunks_exact(lanes);
 
-    left_chunks
+    let result_remainder = left_chunks
         .borrow_mut()
         .zip(right_chunks.borrow_mut())
-        .for_each(|(left_slice, right_slice)| {
-            let simd_left = T::load(left_slice);
-            let simd_right = T::load(right_slice);
-            let simd_result = simd_op(simd_left, simd_right);
+        .fold(
+            result.typed_data_mut(),
+            |result_slice, (left_slice, right_slice)| {
+                let simd_left = T::load(left_slice);
+                let simd_right = T::load(right_slice);
+                let simd_result = simd_op(simd_left, simd_right);
 
-            T::bitmask(&simd_result, |b| {
-                result.extend_from_slice(b);
-            });
-        });
+                let bitmask = T::mask_to_u64(&simd_result);
+                let bytes = bitmask.to_le_bytes();
+                &result_slice[0..lanes / 8].copy_from_slice(&bytes[0..lanes / 8]);
+
+                &mut result_slice[lanes / 8..]
+            },
+        );
 
     let left_remainder = left_chunks.remainder();
     let right_remainder = right_chunks.remainder();
@@ -439,7 +444,7 @@ where
         });
     let remainder_mask_as_bytes =
         &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
-    result.extend_from_slice(&remainder_mask_as_bytes);
+    result_remainder.copy_from_slice(remainder_mask_as_bytes);
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -478,7 +483,7 @@ where
 
     let lanes = T::lanes();
     let buffer_size = bit_util::ceil(len, 8);
-    let mut result = MutableBuffer::new(buffer_size);
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     // this is currently the case for all our datatypes and allows us to always append full bytes
     assert!(
@@ -488,14 +493,19 @@ where
     let mut left_chunks = left.values().chunks_exact(lanes);
     let simd_right = T::init(right);
 
-    left_chunks.borrow_mut().for_each(|left_slice| {
-        let simd_left = T::load(left_slice);
-        let simd_result = simd_op(simd_left, simd_right);
+    let result_remainder = left_chunks.borrow_mut().fold(
+        result.typed_data_mut(),
+        |result_slice, left_slice| {
+            let simd_left = T::load(left_slice);
+            let simd_result = simd_op(simd_left, simd_right);
 
-        T::bitmask(&simd_result, |b| {
-            result.extend_from_slice(b);
-        });
-    });
+            let bitmask = T::mask_to_u64(&simd_result);
+            let bytes = bitmask.to_le_bytes();
+            &result_slice[0..lanes / 8].copy_from_slice(&bytes[0..lanes / 8]);
+
+            &mut result_slice[lanes / 8..]
+        },
+    );
 
     let left_remainder = left_chunks.remainder();
 
@@ -514,7 +524,7 @@ where
             });
     let remainder_mask_as_bytes =
         &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
-    result.extend_from_slice(&remainder_mask_as_bytes);
+    result_remainder.copy_from_slice(remainder_mask_as_bytes);
 
     let data = ArrayData::new(
         DataType::Boolean,
