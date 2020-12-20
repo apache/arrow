@@ -1830,7 +1830,6 @@ async fn csv_between_expr_negated() -> Result<()> {
 #[tokio::test]
 async fn string_expressions() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT
         char_length('josé') AS char_length
         ,character_length('josé') AS character_length

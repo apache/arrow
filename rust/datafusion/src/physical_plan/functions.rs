@@ -124,7 +124,7 @@ pub enum BuiltinScalarFunction {
     Lower,
     /// upper
     Upper,
-    /// ltrim
+    /// trim
     Trim,
     /// to_timestamp
     ToTimestamp,
@@ -167,8 +167,8 @@ impl FromStr for BuiltinScalarFunction {
             "char_length" => BuiltinScalarFunction::CharacterLength,
             "character_length" => BuiltinScalarFunction::CharacterLength,
             "lower" => BuiltinScalarFunction::Lower,
-            "upper" => BuiltinScalarFunction::Upper,
             "trim" => BuiltinScalarFunction::Trim,
+            "upper" => BuiltinScalarFunction::Upper,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "array" => BuiltinScalarFunction::Array,
             "nullif" => BuiltinScalarFunction::NullIf,
@@ -216,10 +216,37 @@ pub fn return_type(
             }
         }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
-        BuiltinScalarFunction::CharacterLength => Ok(DataType::Int32),
-        BuiltinScalarFunction::Lower => Ok(DataType::Utf8),
-        BuiltinScalarFunction::Upper => Ok(DataType::Utf8),
-        BuiltinScalarFunction::Trim => Ok(DataType::Utf8),
+        BuiltinScalarFunction::CharacterLength => Ok(DataType::UInt32),
+        BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Trim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The trim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Upper => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::ToTimestamp => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
@@ -269,15 +296,9 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::CharacterLength => {
             |args| Ok(Arc::new(string_expressions::character_length(args)?))
         }
-        BuiltinScalarFunction::Lower => {
-            |args| Ok(Arc::new(string_expressions::lower(args)?))
-        }
-        BuiltinScalarFunction::Upper => {
-            |args| Ok(Arc::new(string_expressions::upper(args)?))
-        }
-        BuiltinScalarFunction::Trim => {
-            |args| Ok(Arc::new(string_expressions::trim(args)?))
-        }
+        BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Trim => string_expressions::trim,
+        BuiltinScalarFunction::Upper => string_expressions::upper,
         BuiltinScalarFunction::ToTimestamp => {
             |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
         }
