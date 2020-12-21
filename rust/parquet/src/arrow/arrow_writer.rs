@@ -443,9 +443,23 @@ fn get_fsb_array_slice(
     values
 }
 
-/// Given a level's information, calculate the offsets required to index an array
-/// correctly.
+/// Given a level's information, calculate the offsets required to index an array correctly.
 fn filter_array_indices(level: &LevelInfo) -> Vec<usize> {
+    // happy path if not dealing with lists
+    if !level.is_list {
+        return level
+            .definition
+            .iter()
+            .enumerate()
+            .filter_map(|(i, def)| {
+                if *def == level.max_definition {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect();
+    }
     let mut filtered = vec![];
     // remove slots that are false from definition_mask
     let mut index = 0;
@@ -799,6 +813,9 @@ mod tests {
 
     #[test]
     fn arrow_writer_2_level_struct_mixed_null() {
+        // TODO: 21-12-2020 - we are calculating 1 extra max_def_level when we shouldn't.
+        // This is now making this test to fail
+        //
         // tests writing <struct<struct<primitive>>
         let field_c = Field::new("c", DataType::Int32, false);
         let field_b = Field::new("b", DataType::Struct(vec![field_c]), true);
