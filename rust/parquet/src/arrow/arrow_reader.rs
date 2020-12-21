@@ -235,7 +235,8 @@ impl ParquetRecordBatchReader {
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
     use crate::arrow::converter::{
-        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
+        Converter, FixedSizeArrayConverter, FromConverter, IntervalDayTimeArrayConverter,
+        Utf8ArrayConverter,
     };
     use crate::column::writer::get_typed_column_writer_mut;
     use crate::data_type::{
@@ -249,9 +250,7 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
     use crate::util::test_common::{get_temp_filename, RandGen};
-    use arrow::array::{
-        Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
-    };
+    use arrow::array::*;
     use arrow::record_batch::RecordBatchReader;
     use rand::RngCore;
     use serde_json::json;
@@ -360,6 +359,23 @@ mod tests {
             FixedSizeArrayConverter,
             RandFixedLenGen,
         >(20, message_type, &converter);
+    }
+
+    #[test]
+    fn test_interval_day_time_column_reader() {
+        let message_type = "
+        message test_schema {
+          REQUIRED FIXED_LEN_BYTE_ARRAY (12) leaf (INTERVAL);
+        }
+        ";
+
+        let converter = IntervalDayTimeArrayConverter {};
+        run_single_column_reader_tests::<
+            FixedLenByteArrayType,
+            IntervalDayTimeArray,
+            IntervalDayTimeArrayConverter,
+            RandFixedLenGen,
+        >(12, message_type, &converter);
     }
 
     struct RandUtf8Gen {}

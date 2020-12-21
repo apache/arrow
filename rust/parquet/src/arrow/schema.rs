@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
 use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
@@ -368,6 +368,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
+        // date64 is cast to date32
         DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
@@ -606,33 +607,43 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
-        if self.schema.get_basic_info().logical_type() == LogicalType::DECIMAL {
-            let (precision, scale) = match self.schema {
-                Type::PrimitiveType {
-                    ref precision,
-                    ref scale,
-                    ..
-                } => (*precision, *scale),
-                _ => {
-                    return Err(ArrowError(
-                        "Expected a physical type, not a group type".to_string(),
-                    ))
-                }
-            };
-            return Ok(DataType::Decimal(precision as usize, scale as usize));
-        }
-        let byte_width = match self.schema {
-            Type::PrimitiveType {
-                ref type_length, ..
-            } => *type_length,
-            _ => {
-                return Err(ArrowError(
-                    "Expected a physical type, not a group type".to_string(),
-                ))
+        match self.schema.get_basic_info().logical_type() {
+            LogicalType::DECIMAL => {
+                let (precision, scale) = match self.schema {
+                    Type::PrimitiveType {
+                        ref precision,
+                        ref scale,
+                        ..
+                    } => (*precision, *scale),
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
+                Ok(DataType::Decimal(precision as usize, scale as usize))
             }
-        };
+            LogicalType::INTERVAL => {
+                // There is currently no reliable way of determining which IntervalUnit
+                // to return. Thus without the original Arrow schema, the results
+                // would be incorrect if all 12 bytes of the interval are populated
+                Ok(DataType::Interval(IntervalUnit::DayTime))
+            }
+            _ => {
+                let byte_width = match self.schema {
+                    Type::PrimitiveType {
+                        ref type_length, ..
+                    } => *type_length,
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
 
-        Ok(DataType::FixedSizeBinary(byte_width))
+                Ok(DataType::FixedSizeBinary(byte_width))
+            }
+        }
     }
 
     fn from_byte_array(&self) -> Result<DataType> {

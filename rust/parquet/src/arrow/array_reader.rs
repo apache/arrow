@@ -33,14 +33,14 @@ use arrow::array::{
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     ArrowPrimitiveType, BooleanType as ArrowBooleanType, DataType as ArrowType,
-    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
+    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type, DateUnit,
     DurationMicrosecondType as ArrowDurationMicrosecondType,
     DurationMillisecondType as ArrowDurationMillisecondType,
     DurationNanosecondType as ArrowDurationNanosecondType,
     DurationSecondType as ArrowDurationSecondType, Field,
     Float32Type as ArrowFloat32Type, Float64Type as ArrowFloat64Type,
     Int16Type as ArrowInt16Type, Int32Type as ArrowInt32Type,
-    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, Schema,
+    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, IntervalUnit, Schema,
     Time32MillisecondType as ArrowTime32MillisecondType,
     Time32SecondType as ArrowTime32SecondType,
     Time64MicrosecondType as ArrowTime64MicrosecondType,
@@ -57,7 +57,9 @@ use arrow::util::bit_util;
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, Converter, DecimalArrayConverter,
     DecimalConverter, FixedLenBinaryConverter, FixedSizeArrayConverter,
-    Int96ArrayConverter, Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    Int96ArrayConverter, Int96Converter, IntervalDayTimeArrayConverter,
+    IntervalDayTimeConverter, IntervalYearMonthArrayConverter,
+    IntervalYearMonthConverter, LargeBinaryArrayConverter, LargeBinaryConverter,
     LargeUtf8ArrayConverter, LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
@@ -333,11 +335,23 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         };
 
         // cast to Arrow type
-        // TODO: we need to check if it's fine for this to be fallible.
-        // My assumption is that we can't get to an illegal cast as we can only
-        // generate types that are supported, because we'd have gotten them from
-        // the metadata which was written to the Parquet sink
-        let array = arrow::compute::cast(&array, self.get_data_type())?;
+        // We make a strong assumption here that the casts should be infallible.
+        // If the cast fails because of incompatible datatypes, then there might
+        // be a bigger problem with how Arrow schemas are converted to Parquet.
+        //
+        // As there is not always a 1:1 mapping between Arrow and Parquet, there
+        // are datatypes which we must convert explicitly.
+        // These are:
+        // - date64: we should cast int32 to date32, then date32 to date64.
+        let target_type = self.get_data_type();
+        let array = match target_type {
+            ArrowType::Date64(_) => {
+                // this is cheap as it internally reinterprets the data
+                let a = arrow::compute::cast(&array, &ArrowType::Date32(DateUnit::Day))?;
+                arrow::compute::cast(&a, target_type)?
+            }
+            _ => arrow::compute::cast(&array, target_type)?,
+        };
 
         // save definition and repetition buffers
         self.def_levels_buffer = self.record_reader.consume_def_levels()?;
@@ -1570,28 +1584,92 @@ impl<'a> ArrayReaderBuilder {
                 )?))
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                let byte_width = match *cur_type {
-                    Type::PrimitiveType {
-                        ref type_length, ..
-                    } => *type_length,
-                    _ => {
-                        return Err(ArrowError(
-                            "Expected a physical type, not a group type".to_string(),
-                        ))
+                if cur_type.get_basic_info().logical_type() == LogicalType::INTERVAL {
+                    let byte_width = match *cur_type {
+                        Type::PrimitiveType {
+                            ref type_length, ..
+                        } => *type_length,
+                        _ => {
+                            return Err(ArrowError(
+                                "Expected a physical type, not a group type".to_string(),
+                            ))
+                        }
+                    };
+                    if byte_width != 12 {
+                        return Err(ArrowError(format!(
+                            "Parquet interval type should have length of 12, found {}",
+                            byte_width
+                        )));
                     }
-                };
-                let converter = FixedLenBinaryConverter::new(
-                    FixedSizeArrayConverter::new(byte_width),
-                );
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    FixedLenByteArrayType,
-                    FixedLenBinaryConverter,
-                >::new(
-                    page_iterator,
-                    column_desc,
-                    converter,
-                    arrow_type,
-                )?))
+                    match arrow_type {
+                        Some(ArrowType::Interval(IntervalUnit::DayTime)) => {
+                            let converter = IntervalDayTimeConverter::new(
+                                IntervalDayTimeArrayConverter {},
+                            );
+                            Ok(Box::new(ComplexObjectArrayReader::<
+                                FixedLenByteArrayType,
+                                IntervalDayTimeConverter,
+                            >::new(
+                                page_iterator,
+                                column_desc,
+                                converter,
+                                arrow_type,
+                            )?))
+                        }
+                        Some(ArrowType::Interval(IntervalUnit::YearMonth)) => {
+                            let converter = IntervalYearMonthConverter::new(
+                                IntervalYearMonthArrayConverter {},
+                            );
+                            Ok(Box::new(ComplexObjectArrayReader::<
+                                FixedLenByteArrayType,
+                                IntervalYearMonthConverter,
+                            >::new(
+                                page_iterator,
+                                column_desc,
+                                converter,
+                                arrow_type,
+                            )?))
+                        }
+                        Some(t) => Err(ArrowError(format!(
+                            "Cannot write a Parquet interval to {:?}",
+                            t
+                        ))),
+                        None => {
+                            // we do not support an interval not matched to an Arrow type,
+                            // because we risk data loss as we won't know which of the 12 bytes
+                            // are or should be populated
+                            Err(ArrowError(
+                                "Cannot write a Parquet interval with no Arrow type specified.
+                                There is a risk of data loss as Arrow either supports YearMonth or
+                                DayTime precision. Without the Arrow type, we cannot infer the type.
+                                ".to_string()
+                            ))
+                        }
+                    }
+                } else {
+                    let byte_width = match *cur_type {
+                        Type::PrimitiveType {
+                            ref type_length, ..
+                        } => *type_length,
+                        _ => {
+                            return Err(ArrowError(
+                                "Expected a physical type, not a group type".to_string(),
+                            ))
+                        }
+                    };
+                    let converter = FixedLenBinaryConverter::new(
+                        FixedSizeArrayConverter::new(byte_width),
+                    );
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        FixedLenByteArrayType,
+                        FixedLenBinaryConverter,
+                    >::new(
+                        page_iterator,
+                        column_desc,
+                        converter,
+                        arrow_type,
+                    )?))
+                }
             }
         }
     }
