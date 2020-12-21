@@ -76,7 +76,8 @@ impl<'a> flatbuffers::Follow<'a> for CompressionType {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i8>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
+        Self(b)
     }
 }
 
@@ -91,14 +92,28 @@ impl flatbuffers::Push for CompressionType {
 impl flatbuffers::EndianScalar for CompressionType {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i8::to_le(self.0))
+        let b = i8::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i8::from_le(self.0))
+        let b = i8::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for CompressionType {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i8::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for CompressionType {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -158,7 +173,8 @@ impl<'a> flatbuffers::Follow<'a> for BodyCompressionMethod {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i8>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i8>(buf, loc);
+        Self(b)
     }
 }
 
@@ -173,14 +189,28 @@ impl flatbuffers::Push for BodyCompressionMethod {
 impl flatbuffers::EndianScalar for BodyCompressionMethod {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i8::to_le(self.0))
+        let b = i8::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i8::from_le(self.0))
+        let b = i8::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for BodyCompressionMethod {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i8::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for BodyCompressionMethod {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -257,11 +287,13 @@ impl std::fmt::Debug for MessageHeader {
         }
     }
 }
+pub struct MessageHeaderUnionTableOffset {}
 impl<'a> flatbuffers::Follow<'a> for MessageHeader {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<u8>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<u8>(buf, loc);
+        Self(b)
     }
 }
 
@@ -276,15 +308,28 @@ impl flatbuffers::Push for MessageHeader {
 impl flatbuffers::EndianScalar for MessageHeader {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(u8::to_le(self.0))
+        let b = u8::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(u8::from_le(self.0))
+        let b = u8::from_le(self.0);
+        Self(b)
     }
 }
 
-pub struct MessageHeaderUnionTableOffset {}
+impl<'a> flatbuffers::Verifiable for MessageHeader {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        u8::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for MessageHeader {}
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
 /// equal-length Arrow arrays)
@@ -310,6 +355,7 @@ impl std::fmt::Debug for FieldNode {
     }
 }
 
+impl flatbuffers::SimpleToVerifyInSlice for FieldNode {}
 impl flatbuffers::SafeSliceAccess for FieldNode {}
 impl<'a> flatbuffers::Follow<'a> for FieldNode {
     type Inner = &'a FieldNode;
@@ -353,6 +399,16 @@ impl<'b> flatbuffers::Push for &'b FieldNode {
     }
 }
 
+impl<'a> flatbuffers::Verifiable for FieldNode {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.in_buffer::<Self>(pos)
+    }
+}
 impl FieldNode {
     pub fn new(_length: i64, _null_count: i64) -> Self {
         FieldNode {
@@ -434,6 +490,20 @@ impl<'a> BodyCompression<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for BodyCompression<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<CompressionType>(&"codec", Self::VT_CODEC, false)?
+            .visit_field::<BodyCompressionMethod>(&"method", Self::VT_METHOD, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct BodyCompressionArgs {
     pub codec: CompressionType,
     pub method: BodyCompressionMethod,
@@ -554,7 +624,7 @@ impl<'a> RecordBatch<'a> {
     #[inline]
     pub fn nodes(&self) -> Option<&'a [FieldNode]> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<FieldNode>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, FieldNode>>>(
                 RecordBatch::VT_NODES,
                 None,
             )
@@ -569,7 +639,7 @@ impl<'a> RecordBatch<'a> {
     #[inline]
     pub fn buffers(&self) -> Option<&'a [Buffer]> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Buffer>>>(
                 RecordBatch::VT_BUFFERS,
                 None,
             )
@@ -579,13 +649,29 @@ impl<'a> RecordBatch<'a> {
     #[inline]
     pub fn compression(&self) -> Option<BodyCompression<'a>> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<BodyCompression<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<BodyCompression>>(
                 RecordBatch::VT_COMPRESSION,
                 None,
             )
     }
 }
 
+impl flatbuffers::Verifiable for RecordBatch<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_field::<i64>(&"length", Self::VT_LENGTH, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, FieldNode>>>(&"nodes", Self::VT_NODES, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Buffer>>>(&"buffers", Self::VT_BUFFERS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<BodyCompression>>(&"compression", Self::VT_COMPRESSION, false)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct RecordBatchArgs<'a> {
     pub length: i64,
     pub nodes: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, FieldNode>>>,
@@ -723,11 +809,10 @@ impl<'a> DictionaryBatch<'a> {
     }
     #[inline]
     pub fn data(&self) -> Option<RecordBatch<'a>> {
-        self._tab
-            .get::<flatbuffers::ForwardsUOffset<RecordBatch<'a>>>(
-                DictionaryBatch::VT_DATA,
-                None,
-            )
+        self._tab.get::<flatbuffers::ForwardsUOffset<RecordBatch>>(
+            DictionaryBatch::VT_DATA,
+            None,
+        )
     }
     /// If isDelta is true the values in the dictionary are to be appended to a
     /// dictionary with the indicated id. If isDelta is false this dictionary
@@ -740,6 +825,25 @@ impl<'a> DictionaryBatch<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for DictionaryBatch<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<i64>(&"id", Self::VT_ID, false)?
+            .visit_field::<flatbuffers::ForwardsUOffset<RecordBatch>>(
+                &"data",
+                Self::VT_DATA,
+                false,
+            )?
+            .visit_field::<bool>(&"isDelta", Self::VT_ISDELTA, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct DictionaryBatchArgs<'a> {
     pub id: i64,
     pub data: Option<flatbuffers::WIPOffset<RecordBatch<'a>>>,
@@ -880,7 +984,7 @@ impl<'a> Message<'a> {
         &self,
     ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
+            flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue>>,
         >>(Message::VT_CUSTOM_METADATA, None)
     }
     #[inline]
@@ -934,6 +1038,31 @@ impl<'a> Message<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for Message<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_field::<MetadataVersion>(&"version", Self::VT_VERSION, false)?
+     .visit_union::<MessageHeader, _>(&"header_type", Self::VT_HEADER_TYPE, &"header", Self::VT_HEADER, false, |key, v, pos| {
+        match key {
+          MessageHeader::Schema => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Schema>>("MessageHeader::Schema", pos),
+          MessageHeader::DictionaryBatch => v.verify_union_variant::<flatbuffers::ForwardsUOffset<DictionaryBatch>>("MessageHeader::DictionaryBatch", pos),
+          MessageHeader::RecordBatch => v.verify_union_variant::<flatbuffers::ForwardsUOffset<RecordBatch>>("MessageHeader::RecordBatch", pos),
+          MessageHeader::Tensor => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Tensor>>("MessageHeader::Tensor", pos),
+          MessageHeader::SparseTensor => v.verify_union_variant::<flatbuffers::ForwardsUOffset<SparseTensor>>("MessageHeader::SparseTensor", pos),
+          _ => Ok(()),
+        }
+     })?
+     .visit_field::<i64>(&"bodyLength", Self::VT_BODYLENGTH, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<KeyValue>>>>(&"custom_metadata", Self::VT_CUSTOM_METADATA, false)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct MessageArgs<'a> {
     pub version: MetadataVersion,
     pub header_type: MessageHeader,
@@ -1087,15 +1216,79 @@ impl std::fmt::Debug for Message<'_> {
     }
 }
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_message<'a>(buf: &'a [u8]) -> Message<'a> {
-    flatbuffers::get_root::<Message<'a>>(buf)
+    unsafe { flatbuffers::root_unchecked::<Message<'a>>(buf) }
 }
 
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_message<'a>(buf: &'a [u8]) -> Message<'a> {
-    flatbuffers::get_size_prefixed_root::<Message<'a>>(buf)
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<Message<'a>>(buf) }
 }
 
+#[inline]
+/// Verifies that a buffer of bytes contains a `Message`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_message_unchecked`.
+pub fn root_as_message(buf: &[u8]) -> Result<Message, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<Message>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `Message` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_message_unchecked`.
+pub fn size_prefixed_root_as_message(
+    buf: &[u8],
+) -> Result<Message, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<Message>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `Message` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_message_unchecked`.
+pub fn root_as_message_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Message<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<Message<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `Message` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_message_unchecked`.
+pub fn size_prefixed_root_as_message_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<Message<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<Message<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a Message and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `Message`.
+pub unsafe fn root_as_message_unchecked(buf: &[u8]) -> Message {
+    flatbuffers::root_unchecked::<Message>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed Message and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `Message`.
+pub unsafe fn size_prefixed_root_as_message_unchecked(buf: &[u8]) -> Message {
+    flatbuffers::size_prefixed_root_unchecked::<Message>(buf)
+}
 #[inline]
 pub fn finish_message_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,

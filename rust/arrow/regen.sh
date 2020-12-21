@@ -24,48 +24,42 @@ pushd $DIR/../../
 # As of 2020-12-06, the snapshot flatc version is not changed since "1.12.0",
 # so let's build flatc from source.
 
+echo "Build flatc from source ..."
+
 FB_URL="https://github.com/google/flatbuffers"
-FB_COMMIT="2046bffa40400904c926c2a5bedab67a8d6b7e08"
+FB_COMMIT="05192553f434d10c5f585aeb6a07a55a6ac702a5"
 FB_DIR="rust/arrow/.flatbuffers"
 FLATC="$FB_DIR/bazel-bin/flatc"
 
-if [ ! -e "$FLATC" ]; then
-    echo "$FLATC: not found, let's build it ..."
-
-    if [ -z $(which bazel) ]; then
-        echo "bazel is required to build flatc"
-        exit 1
-    fi
-
-    echo "Bazel version: $(bazel version | head -1 | awk -F':' '{print $2}')"
-
-    if [ ! -e $FB_DIR ]; then
-        echo "git clone $FB_URL ..."
-        git clone -b master --no-tag --depth 1 $FB_URL $FB_DIR
-    else
-        echo "git pull $FB_URL ..."
-        git -C $FB_DIR pull
-    fi
-
-    echo "hard reset to $FB_COMMIT"
-    git -C $FB_DIR reset --hard $FB_COMMIT
-
-    pushd $FB_DIR  
-    echo "run: bazel build :flatc ..."
-    bazel build :flatc
-    popd
+if [ -z $(which bazel) ]; then
+    echo "bazel is required to build flatc"
+    exit 1
 fi
 
+echo "Bazel version: $(bazel version | head -1 | awk -F':' '{print $2}')"
+
+if [ ! -e $FB_DIR ]; then
+    echo "git clone $FB_URL ..."
+    git clone -b master --no-tag --depth 1 $FB_URL $FB_DIR
+else
+    echo "git pull $FB_URL ..."
+    git -C $FB_DIR pull
+fi
+
+echo "hard reset to $FB_COMMIT"
+git -C $FB_DIR reset --hard $FB_COMMIT
+
+pushd $FB_DIR
+echo "run: bazel build :flatc ..."
+bazel build :flatc
+popd
+
 # Execute the code generation:
-$FLATC --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
+$FLATC --filename-suffix "" --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
 
 # Now the files are wrongly named so we have to change that.
 popd
 pushd $DIR/src/ipc/gen
-for f in `ls *_generated.rs`; do
-    adj_length=$((${#f}-13))
-    mv $f "${f:0:$adj_length}.rs"
-done
 
 PREFIX=$(cat <<'HEREDOC'
 // Licensed to the Apache Software Foundation (ASF) under one
@@ -98,7 +92,7 @@ SCHEMA_IMPORT="\nuse crate::ipc::gen::Schema::*;"
 SPARSE_TENSOR_IMPORT="\nuse crate::ipc::gen::SparseTensor::*;"
 TENSOR_IMPORT="\nuse crate::ipc::gen::Tensor::*;"
 
-# For flatbuffer(1.12.0+), remove: use crate::${name}_generated::\*;
+# For flatbuffer(1.12.0+), remove: use crate::${name}::\*;
 names=("File" "Message" "Schema" "SparseTensor" "Tensor")
 
 # Remove all generated lines we don't need
@@ -126,11 +120,13 @@ for f in `ls *.rs`; do
     # required by flatc 1.12.0+
     sed -i '' "/\#\!\[allow(unused_imports, dead_code)\]/d" $f
     for name in ${names[@]}; do
-        sed -i '' "/use crate::${name}_generated::\*;/d" $f
+        sed -i '' "/use crate::${name}::\*;/d" $f
+        sed -i '' "s/use self::flatbuffers::Verifiable;/use flatbuffers::Verifiable;/g" $f
     done
 
-    # Replace all occurrences of type__ with type_
+    # Replace all occurrences of "type__" with "type_", "TYPE__" with "TYPE_".
     sed -i '' 's/type__/type_/g' $f
+    sed -i '' 's/TYPE__/TYPE_/g' $f
 
     # Some files need prefixes
     if [[ $f == "File.rs" ]]; then 

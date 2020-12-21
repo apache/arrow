@@ -77,7 +77,8 @@ impl<'a> flatbuffers::Follow<'a> for SparseMatrixCompressedAxis {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<i16>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<i16>(buf, loc);
+        Self(b)
     }
 }
 
@@ -92,14 +93,28 @@ impl flatbuffers::Push for SparseMatrixCompressedAxis {
 impl flatbuffers::EndianScalar for SparseMatrixCompressedAxis {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(i16::to_le(self.0))
+        let b = i16::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(i16::from_le(self.0))
+        let b = i16::from_le(self.0);
+        Self(b)
     }
 }
 
+impl<'a> flatbuffers::Verifiable for SparseMatrixCompressedAxis {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        i16::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for SparseMatrixCompressedAxis {}
 #[deprecated(
     since = "1.13",
     note = "Use associated constants instead. This will no longer be generated in 2021."
@@ -160,11 +175,13 @@ impl std::fmt::Debug for SparseTensorIndex {
         }
     }
 }
+pub struct SparseTensorIndexUnionTableOffset {}
 impl<'a> flatbuffers::Follow<'a> for SparseTensorIndex {
     type Inner = Self;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-        Self(flatbuffers::read_scalar_at::<u8>(buf, loc))
+        let b = flatbuffers::read_scalar_at::<u8>(buf, loc);
+        Self(b)
     }
 }
 
@@ -179,15 +196,28 @@ impl flatbuffers::Push for SparseTensorIndex {
 impl flatbuffers::EndianScalar for SparseTensorIndex {
     #[inline]
     fn to_little_endian(self) -> Self {
-        Self(u8::to_le(self.0))
+        let b = u8::to_le(self.0);
+        Self(b)
     }
     #[inline]
     fn from_little_endian(self) -> Self {
-        Self(u8::from_le(self.0))
+        let b = u8::from_le(self.0);
+        Self(b)
     }
 }
 
-pub struct SparseTensorIndexUnionTableOffset {}
+impl<'a> flatbuffers::Verifiable for SparseTensorIndex {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        u8::run_verifier(v, pos)
+    }
+}
+
+impl flatbuffers::SimpleToVerifyInSlice for SparseTensorIndex {}
 pub enum SparseTensorIndexCOOOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -270,7 +300,7 @@ impl<'a> SparseTensorIndexCOO<'a> {
     #[inline]
     pub fn indicesType(&self) -> Int<'a> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<Int>>(
                 SparseTensorIndexCOO::VT_INDICESTYPE,
                 None,
             )
@@ -306,6 +336,30 @@ impl<'a> SparseTensorIndexCOO<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for SparseTensorIndexCOO<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indicesType",
+                Self::VT_INDICESTYPE,
+                true,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i64>>>(
+                &"indicesStrides",
+                Self::VT_INDICESSTRIDES,
+                false,
+            )?
+            .visit_field::<Buffer>(&"indicesBuffer", Self::VT_INDICESBUFFER, true)?
+            .visit_field::<bool>(&"isCanonical", Self::VT_ISCANONICAL, false)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct SparseTensorIndexCOOArgs<'a> {
     pub indicesType: Option<flatbuffers::WIPOffset<Int<'a>>>,
     pub indicesStrides: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i64>>>,
@@ -456,7 +510,7 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     #[inline]
     pub fn indptrType(&self) -> Int<'a> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<Int>>(
                 SparseMatrixIndexCSX::VT_INDPTRTYPE,
                 None,
             )
@@ -494,7 +548,7 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     #[inline]
     pub fn indicesType(&self) -> Int<'a> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<Int>>(
                 SparseMatrixIndexCSX::VT_INDICESTYPE,
                 None,
             )
@@ -517,6 +571,35 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for SparseMatrixIndexCSX<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<SparseMatrixCompressedAxis>(
+                &"compressedAxis",
+                Self::VT_COMPRESSEDAXIS,
+                false,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indptrType",
+                Self::VT_INDPTRTYPE,
+                true,
+            )?
+            .visit_field::<Buffer>(&"indptrBuffer", Self::VT_INDPTRBUFFER, true)?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indicesType",
+                Self::VT_INDICESTYPE,
+                true,
+            )?
+            .visit_field::<Buffer>(&"indicesBuffer", Self::VT_INDICESBUFFER, true)?
+            .finish();
+        Ok(())
+    }
+}
 pub struct SparseMatrixIndexCSXArgs<'a> {
     pub compressedAxis: SparseMatrixCompressedAxis,
     pub indptrType: Option<flatbuffers::WIPOffset<Int<'a>>>,
@@ -701,7 +784,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     #[inline]
     pub fn indptrType(&self) -> Int<'a> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<Int>>(
                 SparseTensorIndexCSF::VT_INDPTRTYPE,
                 None,
             )
@@ -724,7 +807,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     #[inline]
     pub fn indptrBuffers(&self) -> &'a [Buffer] {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Buffer>>>(
                 SparseTensorIndexCSF::VT_INDPTRBUFFERS,
                 None,
             )
@@ -735,7 +818,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     #[inline]
     pub fn indicesType(&self) -> Int<'a> {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+            .get::<flatbuffers::ForwardsUOffset<Int>>(
                 SparseTensorIndexCSF::VT_INDICESTYPE,
                 None,
             )
@@ -755,7 +838,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     #[inline]
     pub fn indicesBuffers(&self) -> &'a [Buffer] {
         self._tab
-            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Buffer>>>(
                 SparseTensorIndexCSF::VT_INDICESBUFFERS,
                 None,
             )
@@ -779,6 +862,43 @@ impl<'a> SparseTensorIndexCSF<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for SparseTensorIndexCSF<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indptrType",
+                Self::VT_INDPTRTYPE,
+                true,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Buffer>>>(
+                &"indptrBuffers",
+                Self::VT_INDPTRBUFFERS,
+                true,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<Int>>(
+                &"indicesType",
+                Self::VT_INDICESTYPE,
+                true,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, Buffer>>>(
+                &"indicesBuffers",
+                Self::VT_INDICESBUFFERS,
+                true,
+            )?
+            .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>(
+                &"axisOrder",
+                Self::VT_AXISORDER,
+                true,
+            )?
+            .finish();
+        Ok(())
+    }
+}
 pub struct SparseTensorIndexCSFArgs<'a> {
     pub indptrType: Option<flatbuffers::WIPOffset<Int<'a>>>,
     pub indptrBuffers: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Buffer>>>,
@@ -964,7 +1084,7 @@ impl<'a> SparseTensor<'a> {
     ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<
-                flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim>>,
             >>(SparseTensor::VT_SHAPE, None)
             .unwrap()
     }
@@ -1272,6 +1392,55 @@ impl<'a> SparseTensor<'a> {
     }
 }
 
+impl flatbuffers::Verifiable for SparseTensor<'_> {
+    #[inline]
+    fn run_verifier<'o, 'b>(
+        v: &mut flatbuffers::Verifier<'o, 'b>,
+        pos: usize,
+    ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+        use flatbuffers::Verifiable;
+        v.visit_table(pos)?
+     .visit_union::<Type, _>(&"type_type", Self::VT_TYPE_TYPE, &"type_", Self::VT_TYPE_, true, |key, v, pos| {
+        match key {
+          Type::Null => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Null>>("Type::Null", pos),
+          Type::Int => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Int>>("Type::Int", pos),
+          Type::FloatingPoint => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FloatingPoint>>("Type::FloatingPoint", pos),
+          Type::Binary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Binary>>("Type::Binary", pos),
+          Type::Utf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Utf8>>("Type::Utf8", pos),
+          Type::Bool => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Bool>>("Type::Bool", pos),
+          Type::Decimal => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Decimal>>("Type::Decimal", pos),
+          Type::Date => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Date>>("Type::Date", pos),
+          Type::Time => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Time>>("Type::Time", pos),
+          Type::Timestamp => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Timestamp>>("Type::Timestamp", pos),
+          Type::Interval => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Interval>>("Type::Interval", pos),
+          Type::List => v.verify_union_variant::<flatbuffers::ForwardsUOffset<List>>("Type::List", pos),
+          Type::Struct_ => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Struct_>>("Type::Struct_", pos),
+          Type::Union => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Union>>("Type::Union", pos),
+          Type::FixedSizeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeBinary>>("Type::FixedSizeBinary", pos),
+          Type::FixedSizeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<FixedSizeList>>("Type::FixedSizeList", pos),
+          Type::Map => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Map>>("Type::Map", pos),
+          Type::Duration => v.verify_union_variant::<flatbuffers::ForwardsUOffset<Duration>>("Type::Duration", pos),
+          Type::LargeBinary => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeBinary>>("Type::LargeBinary", pos),
+          Type::LargeUtf8 => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeUtf8>>("Type::LargeUtf8", pos),
+          Type::LargeList => v.verify_union_variant::<flatbuffers::ForwardsUOffset<LargeList>>("Type::LargeList", pos),
+          _ => Ok(()),
+        }
+     })?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TensorDim>>>>(&"shape", Self::VT_SHAPE, true)?
+     .visit_field::<i64>(&"non_zero_length", Self::VT_NON_ZERO_LENGTH, false)?
+     .visit_union::<SparseTensorIndex, _>(&"sparseIndex_type", Self::VT_SPARSEINDEX_TYPE, &"sparseIndex", Self::VT_SPARSEINDEX, true, |key, v, pos| {
+        match key {
+          SparseTensorIndex::SparseTensorIndexCOO => v.verify_union_variant::<flatbuffers::ForwardsUOffset<SparseTensorIndexCOO>>("SparseTensorIndex::SparseTensorIndexCOO", pos),
+          SparseTensorIndex::SparseMatrixIndexCSX => v.verify_union_variant::<flatbuffers::ForwardsUOffset<SparseMatrixIndexCSX>>("SparseTensorIndex::SparseMatrixIndexCSX", pos),
+          SparseTensorIndex::SparseTensorIndexCSF => v.verify_union_variant::<flatbuffers::ForwardsUOffset<SparseTensorIndexCSF>>("SparseTensorIndex::SparseTensorIndexCSF", pos),
+          _ => Ok(()),
+        }
+     })?
+     .visit_field::<Buffer>(&"data", Self::VT_DATA, true)?
+     .finish();
+        Ok(())
+    }
+}
 pub struct SparseTensorArgs<'a> {
     pub type_type: Type,
     pub type_: Option<flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>>,
@@ -1641,15 +1810,81 @@ impl std::fmt::Debug for SparseTensor<'_> {
     }
 }
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_root_as_sparse_tensor<'a>(buf: &'a [u8]) -> SparseTensor<'a> {
-    flatbuffers::get_root::<SparseTensor<'a>>(buf)
+    unsafe { flatbuffers::root_unchecked::<SparseTensor<'a>>(buf) }
 }
 
 #[inline]
+#[deprecated(since = "1.13", note = "Deprecated in favor of `root_as...` methods.")]
 pub fn get_size_prefixed_root_as_sparse_tensor<'a>(buf: &'a [u8]) -> SparseTensor<'a> {
-    flatbuffers::get_size_prefixed_root::<SparseTensor<'a>>(buf)
+    unsafe { flatbuffers::size_prefixed_root_unchecked::<SparseTensor<'a>>(buf) }
 }
 
+#[inline]
+/// Verifies that a buffer of bytes contains a `SparseTensor`
+/// and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_sparse_tensor_unchecked`.
+pub fn root_as_sparse_tensor(
+    buf: &[u8],
+) -> Result<SparseTensor, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root::<SparseTensor>(buf)
+}
+#[inline]
+/// Verifies that a buffer of bytes contains a size prefixed
+/// `SparseTensor` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `size_prefixed_root_as_sparse_tensor_unchecked`.
+pub fn size_prefixed_root_as_sparse_tensor(
+    buf: &[u8],
+) -> Result<SparseTensor, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root::<SparseTensor>(buf)
+}
+#[inline]
+/// Verifies, with the given options, that a buffer of bytes
+/// contains a `SparseTensor` and returns it.
+/// Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_sparse_tensor_unchecked`.
+pub fn root_as_sparse_tensor_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<SparseTensor<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::root_with_opts::<SparseTensor<'b>>(opts, buf)
+}
+#[inline]
+/// Verifies, with the given verifier options, that a buffer of
+/// bytes contains a size prefixed `SparseTensor` and returns
+/// it. Note that verification is still experimental and may not
+/// catch every error, or be maximally performant. For the
+/// previous, unchecked, behavior use
+/// `root_as_sparse_tensor_unchecked`.
+pub fn size_prefixed_root_as_sparse_tensor_with_opts<'b, 'o>(
+    opts: &'o flatbuffers::VerifierOptions,
+    buf: &'b [u8],
+) -> Result<SparseTensor<'b>, flatbuffers::InvalidFlatbuffer> {
+    flatbuffers::size_prefixed_root_with_opts::<SparseTensor<'b>>(opts, buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a SparseTensor and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid `SparseTensor`.
+pub unsafe fn root_as_sparse_tensor_unchecked(buf: &[u8]) -> SparseTensor {
+    flatbuffers::root_unchecked::<SparseTensor>(buf)
+}
+#[inline]
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed SparseTensor and returns it.
+/// # Safety
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `SparseTensor`.
+pub unsafe fn size_prefixed_root_as_sparse_tensor_unchecked(buf: &[u8]) -> SparseTensor {
+    flatbuffers::size_prefixed_root_unchecked::<SparseTensor>(buf)
+}
 #[inline]
 pub fn finish_sparse_tensor_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
