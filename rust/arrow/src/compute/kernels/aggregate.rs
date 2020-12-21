@@ -114,7 +114,7 @@ where
     }
 
     let data = array.data();
-    let m = array.value_slice(0, data.len());
+    let m = array.values();
     let mut n;
 
     if null_count == 0 {
@@ -150,7 +150,7 @@ where
         return None;
     }
 
-    let data: &[T::Native] = array.value_slice(0, array.len());
+    let data: &[T::Native] = array.values();
 
     match array.data().null_buffer() {
         None => {

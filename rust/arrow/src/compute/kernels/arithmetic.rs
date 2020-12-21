@@ -52,7 +52,7 @@ where
     F: Fn(T::Native) -> T::Native,
 {
     let values = array
-        .raw_values_slice()
+        .values()
         .iter()
         .map(|v| op(*v))
         .collect::<Vec<T::Native>>();
@@ -144,9 +144,9 @@ where
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let values = left
-        .raw_values_slice()
+        .values()
         .iter()
-        .zip(right.raw_values_slice().iter())
+        .zip(right.values().iter())
         .map(|(l, r)| op(*l, *r))
         .collect::<Vec<T::Native>>();
 
