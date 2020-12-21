@@ -123,6 +123,10 @@ name = "csv_writer"
 harness = false
 
 [[bench]]
+name = "json_reader"
+harness = false
+
+[[bench]]
 name = "equal"
 harness = false
 
