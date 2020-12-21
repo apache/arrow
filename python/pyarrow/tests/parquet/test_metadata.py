@@ -16,7 +16,6 @@
 # under the License.
 
 import datetime
-import io
 from collections import OrderedDict
 
 import numpy as np
@@ -288,26 +287,6 @@ def test_parquet_write_disable_statistics(tempdir):
     assert cc_b.is_stats_set is False
     assert cc_a.statistics is not None
     assert cc_b.statistics is None
-
-
-@pytest.mark.pandas
-def test_pass_separate_metadata():
-    # ARROW-471
-    df = alltypes_sample(size=10000)
-
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, compression='snappy', version='2.0')
-
-    buf.seek(0)
-    metadata = pq.read_metadata(buf)
-
-    buf.seek(0)
-
-    fileh = pq.ParquetFile(buf, metadata=metadata)
-
-    tm.assert_frame_equal(df, fileh.read().to_pandas())
 
 
 def test_field_id_metadata():

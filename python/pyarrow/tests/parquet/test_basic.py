@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import decimal
 import io
-import os
 
 import numpy as np
 import pytest
@@ -202,6 +202,39 @@ def test_file_with_over_int16_max_row_groups():
     _check_roundtrip(t, row_group_size=1)
 
 
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_empty_table_roundtrip(use_legacy_dataset):
+    df = alltypes_sample(size=10)
+
+    # Create a non-empty table to infer the types correctly, then slice to 0
+    table = pa.Table.from_pandas(df)
+    table = pa.Table.from_arrays(
+        [col.chunk(0)[:0] for col in table.itercolumns()],
+        names=table.schema.names)
+
+    assert table.schema.field('null').type == pa.null()
+    assert table.schema.field('null_list').type == pa.list_(pa.null())
+    _check_roundtrip(
+        table, version='2.0', use_legacy_dataset=use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_empty_table_no_columns(use_legacy_dataset):
+    df = pd.DataFrame()
+    empty = pa.Table.from_pandas(df, preserve_index=False)
+    _check_roundtrip(empty, use_legacy_dataset=use_legacy_dataset)
+
+
+@parametrize_legacy_dataset
+def test_empty_lists_table_roundtrip(use_legacy_dataset):
+    # ARROW-2744: Shouldn't crash when writing an array of empty lists
+    arr = pa.array([[], []], type=pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr], ["A"])
+    _check_roundtrip(table, use_legacy_dataset=use_legacy_dataset)
+
+
 @parametrize_legacy_dataset
 def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
     # Reproduce failure in ARROW-5630
@@ -213,6 +246,42 @@ def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
     ], ['a'])
     _check_roundtrip(
         t, data_page_size=4096, use_legacy_dataset=use_legacy_dataset)
+
+
+def test_writing_empty_lists():
+    # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
+    arr1 = pa.array([[], []], pa.list_(pa.int32()))
+    table = pa.Table.from_arrays([arr1], ['list(int32)'])
+    _check_roundtrip(table)
+
+
+@parametrize_legacy_dataset
+def test_write_nested_zero_length_array_chunk_failure(use_legacy_dataset):
+    # Bug report in ARROW-3792
+    cols = OrderedDict(
+        int32=pa.int32(),
+        list_string=pa.list_(pa.string())
+    )
+    data = [[], [OrderedDict(int32=1, list_string=('G',)), ]]
+
+    # This produces a table with a column like
+    # <Column name='list_string' type=ListType(list<item: string>)>
+    # [
+    #   [],
+    #   [
+    #     [
+    #       "G"
+    #     ]
+    #   ]
+    # ]
+    #
+    # Each column is a ChunkedArray with 2 elements
+    my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
+                 for batch in data]
+    my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
+                  for batch in my_arrays]
+    tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
+    _check_roundtrip(tbl, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -464,115 +533,6 @@ def test_min_chunksize(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-def test_read_single_row_group():
-    # ARROW-471
-    N, K = 10000, 4
-    df = alltypes_sample(size=N)
-
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
-
-    buf.seek(0)
-
-    pf = pq.ParquetFile(buf)
-
-    assert pf.num_row_groups == K
-
-    row_groups = [pf.read_row_group(i) for i in range(K)]
-    result = pa.concat_tables(row_groups)
-    tm.assert_frame_equal(df, result.to_pandas())
-
-
-@pytest.mark.pandas
-def test_read_single_row_group_with_column_subset():
-    N, K = 10000, 4
-    df = alltypes_sample(size=N)
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
-
-    buf.seek(0)
-    pf = pq.ParquetFile(buf)
-
-    cols = list(df.columns[:2])
-    row_groups = [pf.read_row_group(i, columns=cols) for i in range(K)]
-    result = pa.concat_tables(row_groups)
-    tm.assert_frame_equal(df[cols], result.to_pandas())
-
-    # ARROW-4267: Selection of duplicate columns still leads to these columns
-    # being read uniquely.
-    row_groups = [pf.read_row_group(i, columns=cols + cols) for i in range(K)]
-    result = pa.concat_tables(row_groups)
-    tm.assert_frame_equal(df[cols], result.to_pandas())
-
-
-@pytest.mark.pandas
-def test_read_multiple_row_groups():
-    N, K = 10000, 4
-    df = alltypes_sample(size=N)
-
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
-
-    buf.seek(0)
-
-    pf = pq.ParquetFile(buf)
-
-    assert pf.num_row_groups == K
-
-    result = pf.read_row_groups(range(K))
-    tm.assert_frame_equal(df, result.to_pandas())
-
-
-@pytest.mark.pandas
-def test_read_multiple_row_groups_with_column_subset():
-    N, K = 10000, 4
-    df = alltypes_sample(size=N)
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
-
-    buf.seek(0)
-    pf = pq.ParquetFile(buf)
-
-    cols = list(df.columns[:2])
-    result = pf.read_row_groups(range(K), columns=cols)
-    tm.assert_frame_equal(df[cols], result.to_pandas())
-
-    # ARROW-4267: Selection of duplicate columns still leads to these columns
-    # being read uniquely.
-    result = pf.read_row_groups(range(K), columns=cols + cols)
-    tm.assert_frame_equal(df[cols], result.to_pandas())
-
-
-@pytest.mark.pandas
-def test_scan_contents():
-    N, K = 10000, 4
-    df = alltypes_sample(size=N)
-    a_table = pa.Table.from_pandas(df)
-
-    buf = io.BytesIO()
-    _write_table(a_table, buf, row_group_size=N / K,
-                 compression='snappy', version='2.0')
-
-    buf.seek(0)
-    pf = pq.ParquetFile(buf)
-
-    assert pf.scan_contents() == 10000
-    assert pf.scan_contents(df.columns[:4]) == 10000
-
-
-@pytest.mark.pandas
 def test_write_error_deletes_incomplete_file(tempdir):
     # ARROW-1285
     df = pd.DataFrame({'a': list('abc'),
@@ -780,28 +740,6 @@ def test_zlib_compression_bug(use_legacy_dataset):
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
-def test_parquet_file_pass_directory_instead_of_file(tempdir):
-    # ARROW-7208
-    path = tempdir / 'directory'
-    os.mkdir(str(path))
-
-    with pytest.raises(IOError, match="Expected file path"):
-        pq.ParquetFile(path)
-
-
-def test_read_column_invalid_index():
-    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
-                     names=['ints', 'strs'])
-    bio = pa.BufferOutputStream()
-    pq.write_table(table, bio)
-    f = pq.ParquetFile(bio.getvalue())
-    assert f.reader.read_column(0).to_pylist() == [4, 5]
-    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
-    for index in (-1, 2):
-        with pytest.raises((ValueError, IndexError)):
-            f.reader.read_column(index)
-
-
 @parametrize_legacy_dataset
 def test_parquet_file_too_small(tempdir, use_legacy_dataset):
     path = str(tempdir / "test.parquet")
@@ -899,3 +837,21 @@ def test_parquet_compression_roundtrip(tempdir):
     pq.write_table(table, path, compression="GZIP")
     result = pq.read_table(path)
     assert result.equals(table)
+
+
+def test_empty_row_groups(tempdir):
+    # ARROW-3020
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+
+    path = tempdir / 'empty_row_groups.parquet'
+
+    num_groups = 3
+    with pq.ParquetWriter(path, table.schema) as writer:
+        for i in range(num_groups):
+            writer.write_table(table)
+
+    reader = pq.ParquetFile(path)
+    assert reader.metadata.num_row_groups == num_groups
+
+    for i in range(num_groups):
+        assert reader.read_row_group(i).equals(table)
