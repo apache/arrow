@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
     steps:
@@ -77,7 +77,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
       env:
@@ -114,11 +114,17 @@ jobs:
           cd datafusion
           cargo run --example csv_sql
           cargo run --example parquet_sql
+          cd ..
+          cd arrow
+          cargo test
+          cargo run --example builders
+          cargo run --example dynamic_types
+          cargo run --example read_csv
+          cargo run --example read_csv_infer_schema
 
-  # test the --features "simd" of the arrow crate
+  # test the --features "simd" of the arrow crate. This requires nightly.
   linux-test-simd:
     name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow simd
-    needs: [linux-build-lib]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -156,57 +162,13 @@ jobs:
           cd rust/arrow
           cargo test --features "simd"
 
-  # test the arrow crate with stable rust
-  linux-test-stable:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64]
-        rust: [stable]
-    container:
-      image: ${{ matrix.arch }}/rust
-      env:
-        ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Cache Cargo
-        uses: actions/cache@v2
-        with:
-          path: /github/home/.cargo
-          # this key equals the ones on `linux-build-lib` for re-use
-          key: cargo-cache-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v2
-        with:
-          path: /github/home/target
-          # this key equals the ones on `linux-build-lib` for re-use
-          key: ${{ runner.os }}-${{ matrix.arch }}-target-cache-${{ matrix.rust }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
-      - name: Run tests
-        run: |
-          export CARGO_HOME="/github/home/.cargo"
-          export CARGO_TARGET_DIR="/github/home/target"
-          cd rust/arrow
-          cargo test
-          cargo run --example builders
-          cargo run --example dynamic_types
-          cargo run --example read_csv
-          cargo run --example read_csv_infer_schema
-
   windows-and-macos:
     name: ${{ matrix.os }} Rust ${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -234,7 +196,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
     steps:
@@ -271,7 +233,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -311,7 +273,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     steps:
       - uses: actions/checkout@v2
         with:

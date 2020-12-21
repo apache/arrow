@@ -269,6 +269,7 @@ impl<T: Clone> Drop for Buffer<T> {
 /// An representation of a slice on a reference-counting and read-only byte array.
 /// Sub-slices can be further created from this. The byte array will be released
 /// when all slices are dropped.
+#[allow(clippy::rc_buffer)]
 #[derive(Clone, Debug)]
 pub struct BufferPtr<T> {
     data: Arc<Vec<T>>,

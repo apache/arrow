@@ -570,6 +570,7 @@ impl From<&PlanType> for String {
 
 /// Represents some sort of execution plan, in String form
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::rc_buffer)]
 pub struct StringifiedPlan {
     /// An identifier of what type of plan this string represents
     pub plan_type: PlanType,
