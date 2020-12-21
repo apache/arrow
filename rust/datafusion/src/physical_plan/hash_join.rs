@@ -550,6 +550,19 @@ mod tests {
         Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None).unwrap())
     }
 
+    fn build_table_two_batches(
+        a: (&str, &Vec<i32>),
+        b: (&str, &Vec<i32>),
+        c: (&str, &Vec<i32>),
+    ) -> Arc<dyn ExecutionPlan> {
+        let batch = build_table_i32(a, b, c);
+        let schema = batch.schema();
+        Arc::new(
+            MemoryExec::try_new(&vec![vec![batch.clone(), batch.clone()]], schema, None)
+                .unwrap(),
+        )
+    }
+
     fn join(
         left: Arc<dyn ExecutionPlan>,
         right: Arc<dyn ExecutionPlan>,
@@ -781,6 +794,41 @@ mod tests {
         let expected = vec!["1,4,7,10,70", "2,5,8,20,80", "3,7,9,NULL,NULL"];
 
         assert_same_rows(&result, &expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_left_multi_batch() -> Result<()> {
+        let left = build_table(
+            ("a1", &vec![1, 2, 3]),
+            ("b1", &vec![4, 5, 7]), // 7 does not exist on the right
+            ("c1", &vec![7, 8, 9]),
+        );
+        let right = build_table_two_batches(
+            ("a2", &vec![10, 20, 30]),
+            ("b1", &vec![4, 5, 6]),
+            ("c2", &vec![70, 80, 90]),
+        );
+        let on = &[("b1", "b1")];
+
+        let join = join(left, right, on, &JoinType::Left)?;
+
+        let columns = columns(&join.schema());
+        assert_eq!(columns, vec!["a1", "b1", "c1", "a2", "c2"]);
+
+        let stream = join.execute(0).await?;
+        let batches = common::collect(stream).await?;
+
+        let result = vec![format_batch(&batches[0]), format_batch(&batches[1])];
+        let expected = vec![
+            vec!["1,4,7,10,70", "2,5,8,20,80"],
+            vec!["1,4,7,10,70", "2,5,8,20,80", "3,7,9,NULL,NULL"],
+        ];
+
+        result.iter().zip(expected.iter()).for_each(|(l, r)| {
+            assert_same_rows(l, r);
+        });
 
         Ok(())
     }
