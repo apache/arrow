@@ -1158,7 +1158,7 @@ cdef class FlightClient(_Weakrefable):
 
     def authenticateBasicToken(self, username, password,
                                options: FlightCallOptions = None):
-        """Authenticate to the server with header token authentication.
+        """Authenticate to the server with HTTP basic authentication.
 
         Parameters
         ----------

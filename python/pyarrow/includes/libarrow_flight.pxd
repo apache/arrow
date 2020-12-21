@@ -308,7 +308,6 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus Authenticate(CFlightCallOptions& options,
                              unique_ptr[CClientAuthHandler] auth_handler)
 
-        # TODO: Add AuthenticateBasicToken
         CResult[pair[c_string, c_string]] AuthenticateBasicToken(
             CFlightCallOptions& options,
             const c_string& username,

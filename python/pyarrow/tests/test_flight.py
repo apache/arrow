@@ -512,15 +512,33 @@ class NoopAuthHandler(ServerAuthHandler):
         """Do nothing."""
 
     def is_valid(self, token):
-        """Do nothing."""
+        """
+        Returning an empty string.
+        Returning None causes Type error.
+        """
         return ""
+
+
+def CaseInsensitiveHeaderLookup(headers, lookup_key):
+    """Lookup the value of given key in the given headers.
+       The key lookup is case insensitive.
+    """
+    for key in headers:
+        if key.lower() == lookup_key.lower():
+            return headers.get(key)
+
+    raise flight.FlightUnauthenticatedError(
+        'No authorization header found.')
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
     """Validates incoming username and password."""
 
     def start_call(self, info, headers):
-        auth_header = headers.get('authorization')
+        auth_header = CaseInsensitiveHeaderLookup(
+            headers,
+            'Authorization'
+        )
         values = auth_header[0].split(' ')
         token = ''
 
@@ -556,8 +574,10 @@ class HeaderAuthFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("auth")
         if middleware:
-            headers = middleware.sending_headers()
-            auth_header = headers.get('authorization')
+            auth_header = CaseInsensitiveHeaderLookup(
+                middleware.sending_headers(),
+                'Authorization'
+            )
             values = auth_header.split(' ')
             return [values[1].encode("utf-8")]
         raise flight.FlightUnauthenticatedError(
@@ -588,8 +608,16 @@ class ArbitraryHeadersFlightServer(FlightServerBase):
         middleware = context.get_middleware("arbitrary-headers")
         if middleware:
             headers = middleware.sending_headers()
-            value1 = headers.get('test-header-1')[0].encode("utf-8")
-            value2 = headers.get('test-header-2')[0].encode("utf-8")
+            header_1 = CaseInsensitiveHeaderLookup(
+                headers,
+                'test-header-1'
+            )
+            header_2 = CaseInsensitiveHeaderLookup(
+                headers,
+                'test-header-2'
+            )
+            value1 = header_1[0].encode("utf-8")
+            value2 = header_2[0].encode("utf-8")
             return [value1, value2]
         raise flight.FlightServerError("No headers middleware found")
 
