@@ -22,4 +22,5 @@ pub mod integration_util;
 #[cfg(feature = "prettyprint")]
 pub mod pretty;
 pub mod string_writer;
+pub mod test_data_dir;
 pub mod test_util;
