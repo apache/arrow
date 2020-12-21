@@ -28,10 +28,11 @@ import pytest
 import pyarrow as pa
 from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import (
-    _test_dataframe, _test_write_to_dataset_no_partitions,
-    _test_write_to_dataset_with_partitions)
-from pyarrow.tests.parquet.test_dataset import _test_read_common_metadata_files
+from pyarrow.tests.parquet.common import _test_dataframe
+from pyarrow.tests.parquet.test_dataset import (
+    _test_read_common_metadata_files, _test_write_to_dataset_with_partitions,
+    _test_write_to_dataset_no_partitions
+)
 from pyarrow.util import guid
 
 # ----------------------------------------------------------------------

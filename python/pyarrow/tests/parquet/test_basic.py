@@ -31,8 +31,7 @@ from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _write_table)
+    from pyarrow.tests.parquet.common import _read_table, _write_table
 except ImportError:
     pq = None
 
@@ -282,35 +281,6 @@ def test_parquet_read_from_buffer(tempdir, use_legacy_dataset):
     assert result.equals(table)
 
 
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
-    df = _test_dataframe(100)
-    df['unique_id'] = 0
-
-    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-    out = pa.BufferOutputStream()
-
-    writer = pq.ParquetWriter(out, arrow_table.schema, version='2.0')
-
-    frames = []
-    for i in range(10):
-        df['unique_id'] = i
-        arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-        writer.write_table(arrow_table)
-
-        frames.append(df.copy())
-
-    writer.close()
-
-    buf = out.getvalue()
-    result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
-
-    expected = pd.concat(frames, ignore_index=True)
-    tm.assert_frame_equal(result.to_pandas(), expected)
-
-
 @parametrize_legacy_dataset
 def test_byte_stream_split(use_legacy_dataset):
     # This is only a smoke test.
@@ -390,28 +360,6 @@ def test_compression_level(use_legacy_dataset):
         with pytest.raises((ValueError, OSError)):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
-
-
-def test_validate_schema_write_table(tempdir):
-    # ARROW-2926
-    simple_fields = [
-        pa.field('POS', pa.uint32()),
-        pa.field('desc', pa.string())
-    ]
-
-    simple_schema = pa.schema(simple_fields)
-
-    # simple_table schema does not match simple_schema
-    simple_from_array = [pa.array([1]), pa.array(['bla'])]
-    simple_table = pa.Table.from_arrays(simple_from_array, ['POS', 'desc'])
-
-    path = tempdir / 'simple_validate_schema.parquet'
-
-    with pq.ParquetWriter(path, simple_schema,
-                          version='2.0',
-                          compression='snappy', flavor='spark') as w:
-        with pytest.raises(ValueError):
-            w.write_table(simple_table)
 
 
 @pytest.mark.pandas
@@ -817,69 +765,6 @@ def test_decimal_roundtrip_negative_scale(tempdir):
     result_table = _read_table(string_filename)
     result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
-    df = _test_dataframe(100)
-    df['unique_id'] = 0
-
-    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-    out = pa.BufferOutputStream()
-
-    with pq.ParquetWriter(out, arrow_table.schema, version='2.0') as writer:
-
-        frames = []
-        for i in range(10):
-            df['unique_id'] = i
-            arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-            writer.write_table(arrow_table)
-
-            frames.append(df.copy())
-
-    buf = out.getvalue()
-    result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
-
-    expected = pd.concat(frames, ignore_index=True)
-    tm.assert_frame_equal(result.to_pandas(), expected)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_writer_context_obj_with_exception(
-    tempdir, use_legacy_dataset
-):
-    df = _test_dataframe(100)
-    df['unique_id'] = 0
-
-    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-    out = pa.BufferOutputStream()
-    error_text = 'Artificial Error'
-
-    try:
-        with pq.ParquetWriter(out,
-                              arrow_table.schema,
-                              version='2.0') as writer:
-
-            frames = []
-            for i in range(10):
-                df['unique_id'] = i
-                arrow_table = pa.Table.from_pandas(df, preserve_index=False)
-                writer.write_table(arrow_table)
-                frames.append(df.copy())
-                if i == 5:
-                    raise ValueError(error_text)
-    except Exception as e:
-        assert str(e) == error_text
-
-    buf = out.getvalue()
-    result = _read_table(
-        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
-
-    expected = pd.concat(frames, ignore_index=True)
-    tm.assert_frame_equal(result.to_pandas(), expected)
 
 
 @pytest.mark.pandas

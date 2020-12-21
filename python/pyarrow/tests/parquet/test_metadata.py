@@ -211,6 +211,15 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     assert stat.physical_type == physical_type
 
 
+def _close(type, left, right):
+    if type == pa.float32():
+        return abs(left - right) < 1E-7
+    elif type == pa.float64():
+        return abs(left - right) < 1E-13
+    else:
+        return left == right
+
+
 # ARROW-6339
 @pytest.mark.pandas
 def test_parquet_raise_on_unset_statistics():
@@ -219,15 +228,6 @@ def test_parquet_raise_on_unset_statistics():
 
     assert not meta.row_group(0).column(0).statistics.has_min_max
     assert meta.row_group(0).column(0).statistics.max is None
-
-
-def _close(type, left, right):
-    if type == pa.float32():
-        return abs(left - right) < 1E-7
-    elif type == pa.float64():
-        return abs(left - right) < 1E-13
-    else:
-        return left == right
 
 
 def test_statistics_convert_logical_types(tempdir):
@@ -438,18 +438,6 @@ def test_table_large_metadata():
     _check_roundtrip(table)
 
 
-def test_parquet_metadata_empty_to_dict(tempdir):
-    # https://issues.apache.org/jira/browse/ARROW-10146
-    table = pa.table({"a": pa.array([], type="int64")})
-    pq.write_table(table, tempdir / "data.parquet")
-    metadata = pq.read_metadata(tempdir / "data.parquet")
-    # ensure this doesn't error / statistics set to None
-    metadata_dict = metadata.to_dict()
-    assert len(metadata_dict["row_groups"]) == 1
-    assert len(metadata_dict["row_groups"][0]["columns"]) == 1
-    assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
-
-
 @pytest.mark.pandas
 def test_compare_schemas():
     df = alltypes_sample(size=10000)
@@ -475,3 +463,36 @@ def test_compare_schemas():
     assert not fileh.schema[0].equals(fileh.schema[1])
     assert fileh.schema[0] != fileh.schema[1]
     assert fileh.schema[0] != 'arbitrary object'
+
+
+@pytest.mark.pandas
+def test_read_schema(tempdir):
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    data_path = tempdir / 'test.parquet'
+
+    table = pa.Table.from_pandas(df)
+    _write_table(table, data_path)
+
+    read1 = pq.read_schema(data_path)
+    read2 = pq.read_schema(data_path, memory_map=True)
+    assert table.schema.equals(read1)
+    assert table.schema.equals(read2)
+
+    assert table.schema.metadata[b'pandas'] == read1.metadata[b'pandas']
+
+
+def test_parquet_metadata_empty_to_dict(tempdir):
+    # https://issues.apache.org/jira/browse/ARROW-10146
+    table = pa.table({"a": pa.array([], type="int64")})
+    pq.write_table(table, tempdir / "data.parquet")
+    metadata = pq.read_metadata(tempdir / "data.parquet")
+    # ensure this doesn't error / statistics set to None
+    metadata_dict = metadata.to_dict()
+    assert len(metadata_dict["row_groups"]) == 1
+    assert len(metadata_dict["row_groups"][0]["columns"]) == 1
+    assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None

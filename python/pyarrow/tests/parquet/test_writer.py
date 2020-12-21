@@ -38,6 +38,120 @@ except ImportError:
 
 
 @pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+
+    writer = pq.ParquetWriter(out, arrow_table.schema, version='2.0')
+
+    frames = []
+    for i in range(10):
+        df['unique_id'] = i
+        arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+        writer.write_table(arrow_table)
+
+        frames.append(df.copy())
+
+    writer.close()
+
+    buf = out.getvalue()
+    result = _read_table(
+        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+def test_validate_schema_write_table(tempdir):
+    # ARROW-2926
+    simple_fields = [
+        pa.field('POS', pa.uint32()),
+        pa.field('desc', pa.string())
+    ]
+
+    simple_schema = pa.schema(simple_fields)
+
+    # simple_table schema does not match simple_schema
+    simple_from_array = [pa.array([1]), pa.array(['bla'])]
+    simple_table = pa.Table.from_arrays(simple_from_array, ['POS', 'desc'])
+
+    path = tempdir / 'simple_validate_schema.parquet'
+
+    with pq.ParquetWriter(path, simple_schema,
+                          version='2.0',
+                          compression='snappy', flavor='spark') as w:
+        with pytest.raises(ValueError):
+            w.write_table(simple_table)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_parquet_writer_context_obj(tempdir, use_legacy_dataset):
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+
+    with pq.ParquetWriter(out, arrow_table.schema, version='2.0') as writer:
+
+        frames = []
+        for i in range(10):
+            df['unique_id'] = i
+            arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+            writer.write_table(arrow_table)
+
+            frames.append(df.copy())
+
+    buf = out.getvalue()
+    result = _read_table(
+        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_parquet_writer_context_obj_with_exception(
+    tempdir, use_legacy_dataset
+):
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+    error_text = 'Artificial Error'
+
+    try:
+        with pq.ParquetWriter(out,
+                              arrow_table.schema,
+                              version='2.0') as writer:
+
+            frames = []
+            for i in range(10):
+                df['unique_id'] = i
+                arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+                writer.write_table(arrow_table)
+                frames.append(df.copy())
+                if i == 5:
+                    raise ValueError(error_text)
+    except Exception as e:
+        assert str(e) == error_text
+
+    buf = out.getvalue()
+    result = _read_table(
+        pa.BufferReader(buf), use_legacy_dataset=use_legacy_dataset)
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+@pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
     LocalFileSystem._get_instance(),
@@ -55,22 +169,6 @@ def test_parquet_writer_filesystem_local(tempdir, filesystem):
 
     result = _read_table(path).to_pandas()
     tm.assert_frame_equal(result, df)
-
-
-@pytest.fixture
-def s3_example_fs(s3_connection, s3_server):
-    from pyarrow.fs import FileSystem
-
-    host, port, access_key, secret_key = s3_connection
-    uri = (
-        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
-        .format(access_key, secret_key, host, port)
-    )
-    fs, path = FileSystem.from_uri(uri)
-
-    fs.create_dir("mybucket")
-
-    yield fs, uri, path
 
 
 @pytest.mark.pandas

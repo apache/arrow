@@ -69,3 +69,19 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
         fs.rm(test_path, recursive=True)
     except FileNotFoundError:
         pass
+
+
+@pytest.fixture
+def s3_example_fs(s3_connection, s3_server):
+    from pyarrow.fs import FileSystem
+
+    host, port, access_key, secret_key = s3_connection
+    uri = (
+        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        .format(access_key, secret_key, host, port)
+    )
+    fs, path = FileSystem.from_uri(uri)
+
+    fs.create_dir("mybucket")
+
+    yield fs, uri, path

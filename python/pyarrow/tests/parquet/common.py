@@ -16,13 +16,11 @@
 # under the License.
 
 import io
-import os
 
 import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 
 parametrize_legacy_dataset = pytest.mark.parametrize(
@@ -130,109 +128,6 @@ def _test_dataframe(size=10000, seed=0):
     # TODO(PARQUET-1015)
     # df['all_none_category'] = df['all_none_category'].astype('category')
     return df
-
-
-def _test_write_to_dataset_with_partitions(base_path,
-                                           use_legacy_dataset=True,
-                                           filesystem=None,
-                                           schema=None,
-                                           index_name=None):
-    import pandas as pd
-    import pandas.testing as tm
-
-    import pyarrow.parquet as pq
-
-    # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'nan': [np.nan] * 10,
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
-    cols = output_df.columns.tolist()
-    partition_by = ['group1', 'group2']
-    output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
-                                        preserve_index=False)
-    pq.write_to_dataset(output_table, base_path, partition_by,
-                        filesystem=filesystem,
-                        use_legacy_dataset=use_legacy_dataset)
-
-    metadata_path = os.path.join(str(base_path), '_common_metadata')
-
-    if filesystem is not None:
-        with filesystem.open(metadata_path, 'wb') as f:
-            pq.write_metadata(output_table.schema, f)
-    else:
-        pq.write_metadata(output_table.schema, metadata_path)
-
-    # ARROW-2891: Ensure the output_schema is preserved when writing a
-    # partitioned dataset
-    dataset = pq.ParquetDataset(base_path,
-                                filesystem=filesystem,
-                                validate_schema=True,
-                                use_legacy_dataset=use_legacy_dataset)
-    # ARROW-2209: Ensure the dataset schema also includes the partition columns
-    if use_legacy_dataset:
-        dataset_cols = set(dataset.schema.to_arrow_schema().names)
-    else:
-        # NB schema property is an arrow and not parquet schema
-        dataset_cols = set(dataset.schema.names)
-
-    assert dataset_cols == set(output_table.schema.names)
-
-    input_table = dataset.read()
-    input_df = input_table.to_pandas()
-
-    # Read data back in and compare with original DataFrame
-    # Partitioned columns added to the end of the DataFrame when read
-    input_df_cols = input_df.columns.tolist()
-    assert partition_by == input_df_cols[-1 * len(partition_by):]
-
-    input_df = input_df[cols]
-    # Partitioned columns become 'categorical' dtypes
-    for col in partition_by:
-        output_df[col] = output_df[col].astype('category')
-    tm.assert_frame_equal(output_df, input_df)
-
-
-def _test_write_to_dataset_no_partitions(base_path,
-                                         use_legacy_dataset=True,
-                                         filesystem=None):
-    import pandas as pd
-
-    import pyarrow.parquet as pq
-
-    # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
-    cols = output_df.columns.tolist()
-    output_table = pa.Table.from_pandas(output_df)
-
-    if filesystem is None:
-        filesystem = LocalFileSystem._get_instance()
-
-    # Without partitions, append files to root_path
-    n = 5
-    for i in range(n):
-        pq.write_to_dataset(output_table, base_path,
-                            filesystem=filesystem)
-    output_files = [file for file in filesystem.ls(str(base_path))
-                    if file.endswith(".parquet")]
-    assert len(output_files) == n
-
-    # Deduplicated incoming DataFrame should match
-    # original outgoing Dataframe
-    input_table = pq.ParquetDataset(
-        base_path, filesystem=filesystem,
-        use_legacy_dataset=use_legacy_dataset
-    ).read()
-    input_df = input_table.to_pandas()
-    input_df = input_df.drop_duplicates()
-    input_df = input_df[cols]
-    assert output_df.equals(input_df)
 
 
 def make_sample_file(table_or_df):
