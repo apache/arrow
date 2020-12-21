@@ -1459,11 +1459,16 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   this->AssertQuantileIs("[3, 5, 2, 9, 0, 1, 8]", 1, I(9, 9, 9, 9, 9));
   this->AssertQuantilesAre("[3, 5, 2, 9, 0, 1, 8]", {1, 0},
                            {I(9, 9, 9, 9, 9), I(0, 0, 0, 0, 0)});
+  this->AssertQuantilesAre(
+      "[3, 5, 2, 9, 0, 1, 8]", {1, 0, 0, 1},
+      {I(9, 9, 9, 9, 9), I(0, 0, 0, 0, 0), I(0, 0, 0, 0, 0), I(9, 9, 9, 9, 9)});
 
   this->AssertQuantileIs("[5, null, null, 3, 9, null, 8, 1, 2, 0]", 0.21,
                          O(1.26, 1, 2, 1, 1.5));
   this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.5, 0.9},
                            {O(3, 3, 3, 3, 3), O(8.4, 8, 9, 8, 8.5)});
+  this->AssertQuantilesAre("[5, null, null, 3, 9, null, 8, 1, 2, 0]", {0.9, 0.5},
+                           {O(8.4, 8, 9, 8, 8.5), O(3, 3, 3, 3, 3)});
 
   this->AssertQuantileIs({"[5]", "[null, null]", "[3, 9, null]", "[8, 1, 2, 0]"}, 0.33,
                          O(1.98, 1, 2, 2, 1.5));
@@ -1475,10 +1480,10 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
 }
 
+#ifndef __MINGW32__
 TYPED_TEST_SUITE(TestFloatingQuantileKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.5, O(4.5, 2, 7, 2, 4.5));
-#ifndef __MINGW32__  // MinGW32 has precision issue
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.1,
                          O(-INFINITY, -INFINITY, -9, -INFINITY, -INFINITY));
   this->AssertQuantileIs("[-9, 7, Inf, -Inf, 2, 11]", 0.9,
@@ -1490,17 +1495,19 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
                          O(4.5, 2, 7, 2, 4.5));
   this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.3, 0.6},
                            {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
+  this->AssertQuantilesAre("[null, -9, 7, Inf, NaN, NaN, -Inf, null, 2, 11]", {0.6, 0.3},
+                           {O(7, 7, 7, 7, 7), O(-3.5, -9, 2, 2, -3.5)});
 
   this->AssertQuantileIs({"[NaN, -9, 7, Inf]", "[null, NaN]", "[-Inf, NaN, 2, 11]"}, 0.5,
                          O(4.5, 2, 7, 2, 4.5));
   this->AssertQuantilesAre({"[null, -9, 7, Inf]", "[NaN, NaN]", "[-Inf, null, 2, 11]"},
                            {0.3, 0.6}, {O(-3.5, -9, 2, 2, -3.5), O(7, 7, 7, 7, 7)});
-#endif
 
   this->AssertQuantilesEmpty("[]", {0.5, 0.6});
   this->AssertQuantilesEmpty("[null, NaN, null]", {0.1});
   this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
 }
+#endif
 
 // Test big int64 numbers cannot be precisely presented by double
 TYPED_TEST_SUITE(TestInt64QuantileKernel, Int64Type);
@@ -1516,6 +1523,91 @@ TYPED_TEST(TestInt64QuantileKernel, Int64) {
 #undef DOUBLE
 #undef O
 #undef I
+
+#ifndef __MINGW32__
+class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
+ public:
+  void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    // set a small value range to exercise input array with equal values
+    const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
+    std::vector<double> quantiles;
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
+
+    this->AssertQuantilesAre(array, QuantileOptions{quantiles},
+                             NaiveQuantile(*array, quantiles));
+  }
+
+ private:
+  std::vector<std::vector<ValueUnion>> NaiveQuantile(
+      const Array& array, const std::vector<double>& quantiles) {
+    // copy and sort input array
+    std::vector<int32_t> input(array.length() - array.null_count());
+    const int32_t* values = array.data()->GetValues<int32_t>(1);
+    const auto bitmap = array.null_bitmap_data();
+    int64_t index = 0;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (BitUtil::GetBit(bitmap, i)) {
+        input[index++] = values[i];
+      }
+    }
+    std::sort(input.begin(), input.end());
+
+    std::vector<std::vector<ValueUnion>> output(
+        quantiles.size(), std::vector<ValueUnion>(interpolations.size()));
+    for (uint64_t i = 0; i < interpolations.size(); ++i) {
+      const auto interp = interpolations[i];
+      for (uint64_t j = 0; j < quantiles.size(); ++j) {
+        output[j][i] = GetQuantile(input, quantiles[j], interp);
+      }
+    }
+    return output;
+  }
+
+  ValueUnion GetQuantile(const std::vector<int32_t>& input, double q,
+                         enum QuantileOptions::Interpolation interp) {
+    const double index = (input.size() - 1) * q;
+    const uint64_t lower_index = static_cast<uint64_t>(index);
+    const double fraction = index - lower_index;
+
+    switch (interp) {
+      case QuantileOptions::LOWER:
+        return ValueUnion{.intype_value = input[lower_index]};
+      case QuantileOptions::HIGHER:
+        return ValueUnion{.intype_value = input[lower_index + (fraction != 0)]};
+      case QuantileOptions::NEAREST:
+        if (fraction < 0.5) {
+          return ValueUnion{.intype_value = input[lower_index]};
+        } else if (fraction > 0.5) {
+          return ValueUnion{.intype_value = input[lower_index + 1]};
+        } else {
+          return ValueUnion{.intype_value = input[lower_index + (lower_index & 1)]};
+        }
+      case QuantileOptions::LINEAR:
+        return ValueUnion{.double_value = fraction * input[lower_index + 1] +
+                                          (1 - fraction) * input[lower_index]};
+      case QuantileOptions::MIDPOINT:
+        if (fraction == 0) {
+          return ValueUnion{.double_value = static_cast<double>(input[lower_index])};
+        } else {
+          return ValueUnion{.double_value =
+                                input[lower_index] / 2.0 + input[lower_index + 1] / 2.0};
+        }
+      default:
+        return ValueUnion{.double_value = NAN};
+    }
+  }
+};
+
+TEST_F(TestRandomQuantileKernel, Normal) {
+  this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomQuantileKernel, Overlapped) {
+  // much more quantiles than array size => many overlaps
+  this->CheckQuantiles(/*array_size=*/999, /*num_quantiles=*/9999);
+}
+#endif
 
 }  // namespace compute
 }  // namespace arrow

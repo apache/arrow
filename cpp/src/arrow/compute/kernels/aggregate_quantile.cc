@@ -32,31 +32,21 @@ using arrow::internal::VisitSetBitRunsVoid;
 
 using QuantileState = internal::OptionsWrapper<QuantileOptions>;
 
-// output is at some exact input data point, not interpolated
-bool IsExactDataPoint(const QuantileOptions& options) {
-  // some interpolation methods return exact input data point
+// output is at some input data point, not interpolated
+bool IsDataPoint(const QuantileOptions& options) {
+  // some interpolation methods return exact data point
   if (options.interpolation == QuantileOptions::LOWER ||
       options.interpolation == QuantileOptions::HIGHER ||
       options.interpolation == QuantileOptions::NEAREST) {
     return true;
   }
-  // return exact value if quantiles only contain 0 or 1 (follow numpy behaviour)
+  // return exact data point if quantiles only contain 0 or 1 (follow numpy behaviour)
   for (auto q : options.q) {
     if (q != 0 && q != 1) {
       return false;
     }
   }
   return true;
-}
-
-Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
-                                            const std::vector<ValueDescr>& args) {
-  const QuantileOptions& options = QuantileState::Get(ctx);
-  if (IsExactDataPoint(options)) {
-    return ValueDescr::Array(args[0].type);
-  } else {
-    return ValueDescr::Array(float64());
-  }
 }
 
 template <typename Dummy, typename InType>
@@ -109,10 +99,10 @@ struct QuantileExecutor {
     if (in_buffer.empty()) {
       out_length = 0;  // input is empty or only contains null and nan, return empty array
     }
-    // out type depends on interpolation method
-    const bool is_exact = IsExactDataPoint(options);
+    // out type depends on options
+    const bool is_datapoint = IsDataPoint(options);
     std::shared_ptr<DataType> out_type;
-    if (is_exact) {
+    if (is_datapoint) {
       out_type = TypeTraits<InType>::type_singleton();
     } else {
       out_type = float64();
@@ -126,17 +116,30 @@ struct QuantileExecutor {
       KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
                              ctx->Allocate(out_length * out_bit_width / 8));
 
-      if (is_exact) {
+      // find quantiles in descending order
+      std::vector<int64_t> q_indices(out_length);
+      std::iota(q_indices.begin(), q_indices.end(), 0);
+      std::sort(q_indices.begin(), q_indices.end(),
+                [&options](int64_t left_index, int64_t right_index) {
+                  return options.q[right_index] < options.q[left_index];
+                });
+
+      // input array is partitioned around data point at `last_index` (pivot)
+      // for next quatile which is smaller, we only consider inputs left of the pivot
+      uint64_t last_index = in_buffer.size();
+      if (is_datapoint) {
         CType* out_buffer = out_data->template GetMutableValues<CType>(1);
         for (int64_t i = 0; i < out_length; ++i) {
-          out_buffer[i] =
-              GetQuantileExact(in_buffer, options.q[i], options.interpolation);
+          const int64_t q_index = q_indices[i];
+          out_buffer[q_index] = GetQuantileAtDataPoint(
+              in_buffer, &last_index, options.q[q_index], options.interpolation);
         }
       } else {
         double* out_buffer = out_data->template GetMutableValues<double>(1);
         for (int64_t i = 0; i < out_length; ++i) {
-          out_buffer[i] =
-              GetQuantileInterp(in_buffer, options.q[i], options.interpolation);
+          const int64_t q_index = q_indices[i];
+          out_buffer[q_index] = GetQuantileByInterp(
+              in_buffer, &last_index, options.q[q_index], options.interpolation);
         }
       }
     }
@@ -160,25 +163,18 @@ struct QuantileExecutor {
     return n;
   }
 
-  // partition input array and return sorted index-th element
-  static CType PartitionArray(std::vector<CType>& in, uint64_t index) {
-    DCHECK_LT(index, in.size());
-    std::nth_element(in.begin(), in.begin() + index, in.end());
-    return in[index];
-  }
-
   // return quantile located exactly at some input data point
-  static CType GetQuantileExact(std::vector<CType>& in, double q,
-                                enum QuantileOptions::Interpolation interpolation) {
-    if (q == 0) {
-      return *std::min_element(in.cbegin(), in.cend());
-    } else if (q == 1) {
-      return *std::max_element(in.cbegin(), in.cend());
-    }
-
+  static CType GetQuantileAtDataPoint(std::vector<CType>& in, uint64_t* last_index,
+                                      double q,
+                                      enum QuantileOptions::Interpolation interpolation) {
     const double index = (in.size() - 1) * q;
-    const uint64_t index_lower = static_cast<uint64_t>(index);
-    const double fraction = index - index_lower;
+    uint64_t datapoint_index = static_cast<uint64_t>(index);
+    const double fraction = index - datapoint_index;
+
+    if (interpolation == QuantileOptions::LINEAR ||
+        interpolation == QuantileOptions::MIDPOINT) {
+      DCHECK_EQ(fraction, 0);
+    }
 
     // convert NEAREST interpolation method to LOWER or HIGHER
     if (interpolation == QuantileOptions::NEAREST) {
@@ -189,36 +185,54 @@ struct QuantileExecutor {
       } else {
         // round 0.5 to nearest even number, similar to numpy.around
         interpolation =
-            (index_lower & 1) ? QuantileOptions::HIGHER : QuantileOptions::LOWER;
+            (datapoint_index & 1) ? QuantileOptions::HIGHER : QuantileOptions::LOWER;
       }
     }
 
-    if (interpolation == QuantileOptions::LOWER || fraction == 0) {
-      return PartitionArray(in, index_lower);
-    } else if (interpolation == QuantileOptions::HIGHER) {
-      return PartitionArray(in, index_lower + 1);
-    } else {
-      DCHECK(false);
-      return 0;
+    if (interpolation == QuantileOptions::HIGHER && fraction != 0) {
+      ++datapoint_index;
     }
+
+    if (datapoint_index != *last_index) {
+      DCHECK_LT(datapoint_index, *last_index);
+      std::nth_element(in.begin(), in.begin() + datapoint_index,
+                       in.begin() + *last_index);
+      *last_index = datapoint_index;
+    }
+
+    return in[datapoint_index];
   }
 
   // return quantile interpolated from adjacent input data points
-  static double GetQuantileInterp(std::vector<CType>& in, double q,
-                                  enum QuantileOptions::Interpolation interpolation) {
+  static double GetQuantileByInterp(std::vector<CType>& in, uint64_t* last_index,
+                                    double q,
+                                    enum QuantileOptions::Interpolation interpolation) {
     const double index = (in.size() - 1) * q;
-    const uint64_t index_lower = static_cast<uint64_t>(index);
-    const double fraction = index - index_lower;
+    const uint64_t lower_index = static_cast<uint64_t>(index);
+    const double fraction = index - lower_index;
 
-    const double lower_value = static_cast<double>(PartitionArray(in, index_lower));
+    if (lower_index != *last_index) {
+      DCHECK_LT(lower_index, *last_index);
+      std::nth_element(in.begin(), in.begin() + lower_index, in.begin() + *last_index);
+    }
+
+    const double lower_value = static_cast<double>(in[lower_index]);
     if (fraction == 0 || lower_value == -INFINITY) {
+      *last_index = lower_index;
       return lower_value;
     }
 
-    // input is already partitioned around lower value
-    // higher value must be the minimal of values after lower value index
-    const double higher_value =
-        static_cast<double>(*std::min_element(in.cbegin() + index_lower + 1, in.cend()));
+    const uint64_t higher_index = lower_index + 1;
+    DCHECK_LT(higher_index, in.size());
+    if (lower_index != *last_index && higher_index != *last_index) {
+      DCHECK_LT(higher_index, *last_index);
+      // higher value must be the minimal value after lower_index
+      auto min = std::min_element(in.begin() + higher_index, in.begin() + *last_index);
+      std::iter_swap(in.begin() + higher_index, min);
+    }
+    *last_index = lower_index;
+
+    const double higher_value = static_cast<double>(in[higher_index]);
     if (higher_value == INFINITY) {
       return INFINITY;
     }
@@ -235,6 +249,16 @@ struct QuantileExecutor {
   }
 };
 
+Result<ValueDescr> ResolveOutput(KernelContext* ctx,
+                                 const std::vector<ValueDescr>& args) {
+  const QuantileOptions& options = QuantileState::Get(ctx);
+  if (IsDataPoint(options)) {
+    return ValueDescr::Array(args[0].type);
+  } else {
+    return ValueDescr::Array(float64());
+  }
+}
+
 void AddQuantileKernels(VectorFunction* func) {
   VectorKernel base;
   base.init = QuantileState::Init;
@@ -242,8 +266,8 @@ void AddQuantileKernels(VectorFunction* func) {
   base.output_chunked = false;
 
   for (const auto& ty : NumericTypes()) {
-    base.signature = KernelSignature::Make({InputType::Array(ty)},
-                                           OutputType(ResolveOutputFromOptions));
+    base.signature =
+        KernelSignature::Make({InputType::Array(ty)}, OutputType(ResolveOutput));
     // output type is determined at runtime, set template argument to nulltype
     base.exec = GenerateNumeric<QuantileExecutor, NullType>(*ty);
     DCHECK_OK(func->AddKernel(base));
