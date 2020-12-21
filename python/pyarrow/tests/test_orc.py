@@ -34,8 +34,8 @@ except ImportError:
 
 
 @pytest.fixture(scope='module')
-def datadir(datadir):
-    return datadir / 'orc'
+def datadir(base_datadir):
+    return base_datadir / 'orc'
 
 
 def fix_example_values(actual_cols, expected_cols):

@@ -21,8 +21,8 @@ from pyarrow.util import guid
 
 
 @pytest.fixture(scope='module')
-def datadir(datadir):
-    return datadir / 'parquet'
+def datadir(base_datadir):
+    return base_datadir / 'parquet'
 
 
 @pytest.fixture
