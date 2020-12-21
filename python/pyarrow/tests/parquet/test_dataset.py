@@ -414,8 +414,20 @@ def test_filters_inclusive_set(tempdir, use_legacy_dataset):
 
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
-        filters=[('integer', 'in', {1}), ('string', 'in', {'a', 'b'}),
-                 ('boolean', 'in', {True})],
+        filters=[('string', 'in', 'ab')],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    table = dataset.read()
+    result_df = (table.to_pandas().reset_index(drop=True))
+
+    assert 'a' in result_df['string'].values
+    assert 'b' in result_df['string'].values
+    assert 'c' not in result_df['string'].values
+
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=fs,
+        filters=[('integer', 'in', [1]), ('string', 'in', ('a', 'b')),
+                 ('boolean', 'not in', {False})],
         use_legacy_dataset=use_legacy_dataset
     )
     table = dataset.read()
@@ -444,6 +456,12 @@ def test_filters_invalid_pred_op(tempdir, use_legacy_dataset):
     }, columns=['index', 'integers'])
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    with pytest.raises(TypeError):
+        pq.ParquetDataset(base_path,
+                          filesystem=fs,
+                          filters=[('integers', 'in', 3), ],
+                          use_legacy_dataset=use_legacy_dataset)
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,

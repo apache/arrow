@@ -21,6 +21,7 @@ from concurrent import futures
 from functools import partial, reduce
 
 import json
+from collections.abc import Collection
 import numpy as np
 import os
 import re
@@ -114,7 +115,24 @@ _DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), 
 
     Predicates may also be passed as List[Tuple]. This form is interpreted
     as a single conjunction. To express OR in predicates, one must
-    use the (preferred) List[List[Tuple]] notation."""
+    use the (preferred) List[List[Tuple]] notation.
+
+    Each tuple has format: (``key``, ``op``, ``value``) and compares the
+    ``key`` with the ``value``.
+    The supported ``op`` are:  ``=`` or ``==``, ``!=``, ``<``, ``>``, ``<=``,
+    ``>=``, ``in`` and ``not in``. If the ``op`` is ``in`` or ``not in``, the
+    ``value`` must be a collection such as a ``list``, a ``set`` or a
+    ``tuple``.
+
+    Examples:
+
+    .. code-block:: python
+
+        ('x', '=', 0)
+        ('y', 'in', ['a', 'b', 'c'])
+        ('z', 'not in', {'a','b'})
+
+    """
 
 
 def _filters_to_expression(filters):
@@ -877,16 +895,20 @@ class ParquetPartitions:
 
         f_type = type(f_value)
 
-        if isinstance(f_value, set):
+        if op in {'in', 'not in'}:
+            if not isinstance(f_value, Collection):
+                raise TypeError(
+                    "'%s' object is not a collection", f_type.__name__)
             if not f_value:
-                raise ValueError("Cannot use empty set as filter value")
-            if op not in {'in', 'not in'}:
-                raise ValueError("Op '%s' not supported with set value",
-                                 op)
+                raise ValueError("Cannot use empty collection as filter value")
             if len({type(item) for item in f_value}) != 1:
-                raise ValueError("All elements of set '%s' must be of"
-                                 " same type", f_value)
+                raise ValueError("All elements of the collection '%s' must be"
+                                 " of same type", f_value)
             f_type = type(next(iter(f_value)))
+
+        elif not isinstance(f_value, str) and isinstance(f_value, Collection):
+            raise ValueError(
+                "Op '%s' not supported with a collection value", op)
 
         p_value = f_type(self.levels[level]
                          .dictionary[p_value_index].as_py())
