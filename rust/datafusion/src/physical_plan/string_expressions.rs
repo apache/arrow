@@ -18,15 +18,10 @@
 //! String expressions
 
 use crate::error::{DataFusionError, Result};
-use arrow::{
-    array::{
-        Array, ArrayData, ArrayRef, LargeStringArray, LargeStringBuilder, StringArray,
-        StringBuilder, UInt32Array,
-    },
-    buffer::Buffer,
-    datatypes::{DataType, ToByteSlice},
+use arrow::array::{
+    Array, ArrayRef, GenericStringArray, StringArray, StringBuilder,
+    StringOffsetSizeTrait,
 };
-use std::sync::Arc;
 
 macro_rules! downcast_vec {
     ($ARGS:expr, $ARRAY_TYPE:ident) => {{
@@ -75,105 +70,22 @@ pub fn concatenate(args: &[ArrayRef]) -> Result<StringArray> {
     Ok(builder.finish())
 }
 
-/// character_length returns number of characters in the string
-/// character_length('josé') = 4
-pub fn character_length(args: &[ArrayRef]) -> Result<UInt32Array> {
-    let num_rows = args[0].len();
-    let string_args =
-        &args[0]
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or_else(|| {
-                DataFusionError::Internal(
-                    "could not cast input to StringArray".to_string(),
-                )
-            })?;
-
-    let result = (0..num_rows)
-        .map(|i| {
-            if string_args.is_null(i) {
-                // NB: Since we use the same null bitset as the input,
-                // the output for this value will be ignored, but we
-                // need some value in the array we are building.
-                Ok(0)
-            } else {
-                Ok(string_args.value(i).chars().count() as u32)
-            }
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    let data = ArrayData::new(
-        DataType::UInt32,
-        num_rows,
-        Some(string_args.null_count()),
-        string_args.data().null_buffer().cloned(),
-        0,
-        vec![Buffer::from(result.to_byte_slice())],
-        vec![],
-    );
-
-    Ok(UInt32Array::from(Arc::new(data)))
-}
-
-macro_rules! compute_op {
-    ($ARRAY:expr, $FUNC:ident, $TYPE:ident, $BUILDER:ident) => {{
-        let mut builder = $BUILDER::new($ARRAY.len());
-        for index in 0..$ARRAY.len() {
-            if $ARRAY.is_null(index) {
-                builder.append_null()?;
-            } else {
-                builder.append_value(&$ARRAY.value(index).$FUNC())?;
-            }
-        }
-        Ok(Arc::new(builder.finish()))
-    }};
-}
-
-macro_rules! downcast_compute_op {
-    ($ARRAY:expr, $NAME:expr, $FUNC:ident, $TYPE:ident, $BUILDER:ident) => {{
-        let n = $ARRAY.as_any().downcast_ref::<$TYPE>();
-        match n {
-            Some(array) => compute_op!(array, $FUNC, $TYPE, $BUILDER),
-            _ => Err(DataFusionError::Internal(format!(
-                "Invalid data type for {}",
-                $NAME
-            ))),
-        }
-    }};
-}
-
-macro_rules! unary_primitive_array_op {
-    ($ARRAY:expr, $NAME:expr, $FUNC:ident) => {{
-        match ($ARRAY).data_type() {
-            DataType::Utf8 => {
-                downcast_compute_op!($ARRAY, $NAME, $FUNC, StringArray, StringBuilder)
-            }
-            DataType::LargeUtf8 => {
-                downcast_compute_op!(
-                    $ARRAY,
-                    $NAME,
-                    $FUNC,
-                    LargeStringArray,
-                    LargeStringBuilder
-                )
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function {}",
-                other, $NAME,
-            ))),
-        }
-    }};
-}
-
 macro_rules! string_unary_function {
-    ($NAME:expr, $FUNC:ident, $STRINGFUNC:ident) => {
-        /// string function that accepts Utf8 or LargeUtf8 and returns StringArray or LargeStringArray
-        pub fn $FUNC(args: &[ArrayRef]) -> Result<ArrayRef> {
-            unary_primitive_array_op!(args[0], $NAME, $STRINGFUNC)
+    ($NAME:ident, $FUNC:ident) => {
+        /// string function that accepts Utf8 or LargeUtf8 and returns Utf8 or LargeUtf8
+        pub fn $NAME<T: StringOffsetSizeTrait>(
+            args: &[ArrayRef],
+        ) -> Result<GenericStringArray<T>> {
+            let array = args[0]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .unwrap();
+            // first map is the iterator, second is for the `Option<_>`
+            Ok(array.iter().map(|x| x.map(|x| x.$FUNC())).collect())
         }
     };
 }
 
-string_unary_function!("lower", lower, to_ascii_lowercase);
-string_unary_function!("upper", upper, to_ascii_uppercase);
-string_unary_function!("trim", trim, trim);
+string_unary_function!(lower, to_ascii_lowercase);
+string_unary_function!(upper, to_ascii_uppercase);
+string_unary_function!(trim, trim);

@@ -34,10 +34,10 @@ pub use builder::LogicalPlanBuilder;
 pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;
 pub use expr::{
-    abs, acos, and, array, asin, atan, avg, binary_expr, case, ceil, character_length,
-    col, concat, cos, count, create_udaf, create_udf, exp, exprlist_to_fields, floor,
-    length, lit, ln, log10, log2, lower, max, min, or, round, signum, sin, sqrt, sum,
-    tan, trim, trunc, upper, when, Expr, Literal,
+    abs, acos, and, array, asin, atan, avg, binary_expr, case, ceil, col, concat, cos,
+    count, create_udaf, create_udf, exp, exprlist_to_fields, floor, length, lit, ln,
+    log10, log2, lower, max, min, or, round, signum, sin, sqrt, sum, tan, trim, trunc,
+    upper, when, Expr, Literal,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;

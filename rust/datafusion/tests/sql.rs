@@ -1831,9 +1831,9 @@ async fn csv_between_expr_negated() -> Result<()> {
 async fn string_expressions() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     let sql = "SELECT
-        char_length('josé') AS char_length
+        char_length('tom') AS char_length
         ,char_length(NULL) AS char_length_null
-        ,character_length('josé') AS character_length
+        ,character_length('tom') AS character_length
         ,character_length(NULL) AS character_length_null
         ,lower('TOM') AS lower
         ,lower(NULL) AS lower_null
@@ -1845,7 +1845,7 @@ async fn string_expressions() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
 
     let expected = vec![vec![
-        "4", "NULL", "4", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL",
+        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL",
     ]];
     assert_eq!(expected, actual);
     Ok(())

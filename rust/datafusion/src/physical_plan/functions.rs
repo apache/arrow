@@ -118,8 +118,6 @@ pub enum BuiltinScalarFunction {
     Length,
     /// concat
     Concat,
-    /// character_length
-    CharacterLength,
     /// lower
     Lower,
     /// upper
@@ -163,9 +161,9 @@ impl FromStr for BuiltinScalarFunction {
             "abs" => BuiltinScalarFunction::Abs,
             "signum" => BuiltinScalarFunction::Signum,
             "length" => BuiltinScalarFunction::Length,
+            "char_length" => BuiltinScalarFunction::Length,
+            "character_length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
-            "char_length" => BuiltinScalarFunction::CharacterLength,
-            "character_length" => BuiltinScalarFunction::CharacterLength,
             "lower" => BuiltinScalarFunction::Lower,
             "trim" => BuiltinScalarFunction::Trim,
             "upper" => BuiltinScalarFunction::Upper,
@@ -216,7 +214,6 @@ pub fn return_type(
             }
         }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
-        BuiltinScalarFunction::CharacterLength => Ok(DataType::UInt32),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -293,12 +290,30 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
-        BuiltinScalarFunction::CharacterLength => {
-            |args| Ok(Arc::new(string_expressions::character_length(args)?))
-        }
-        BuiltinScalarFunction::Lower => string_expressions::lower,
-        BuiltinScalarFunction::Trim => string_expressions::trim,
-        BuiltinScalarFunction::Upper => string_expressions::upper,
+        BuiltinScalarFunction::Lower => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::lower::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::lower::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lower",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::trim::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::trim::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function trim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Upper => |args| match args[0].data_type() {
+            DataType::Utf8 => Ok(Arc::new(string_expressions::upper::<i32>(args)?)),
+            DataType::LargeUtf8 => Ok(Arc::new(string_expressions::upper::<i64>(args)?)),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function upper",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::ToTimestamp => {
             |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
         }
@@ -330,9 +345,6 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
-        BuiltinScalarFunction::CharacterLength => {
-            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
-        }
         BuiltinScalarFunction::Lower => {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
