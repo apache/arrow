@@ -509,15 +509,17 @@ impl Parser for Int16Type {}
 
 impl Parser for Int8Type {}
 
+/// Number of days between 0001-01-01 and 1970-01-01
+const EPOCH_DAYS_FROM_CE: i32 = 719_163;
+
 impl Parser for Date32Type {
     fn parse(string: &str) -> Option<i32> {
-        let from_ymd = chrono::NaiveDate::from_ymd;
-        let since = chrono::NaiveDate::signed_duration_since;
+        use chrono::Datelike;
 
         match Self::DATA_TYPE {
             DataType::Date32(DateUnit::Day) => {
-                let days = string.parse::<chrono::NaiveDate>().ok()?;
-                Self::Native::from_i32(since(days, from_ymd(1970, 1, 1)).num_days() as i32)
+                let date = string.parse::<chrono::NaiveDate>().ok()?;
+                Self::Native::from_i32(date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
             }
             _ => None,
         }
