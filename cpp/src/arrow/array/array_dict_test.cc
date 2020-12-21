@@ -109,7 +109,6 @@ TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
   using c_type = typename TypeParam::c_type;
 
   auto value_type = std::make_shared<TypeParam>();
-  auto dict_array = ArrayFromJSON(value_type, "[1, 2]");
   auto dict_type = dictionary(int8(), value_type);
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
@@ -128,6 +127,7 @@ TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
+  auto dict_array = ArrayFromJSON(value_type, "[1, 2]");
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
   DictionaryArray expected(dict_type, int_array, dict_array);
 

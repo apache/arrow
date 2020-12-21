@@ -163,6 +163,46 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
   return Status::OK();
 }
 
+struct DictionaryConcatenate {
+  DictionaryConcatenate(BufferVector& index_buffers,
+                        std::vector<std::shared_ptr<Buffer>>& index_lookup,
+                        MemoryPool* pool)
+      : out_(nullptr),
+        index_buffers_(index_buffers),
+        index_lookup_(index_lookup),
+        pool_(pool) {}
+
+  template <typename T>
+  enable_if_t<!is_integer_type<T>::value, Status> Visit(const T& t) {
+    return Status::Invalid("Dictionary indices must be integral types");
+  }
+
+  template <typename T, typename CType = typename T::c_type>
+  enable_if_integer<T, Status> Visit(const T& index_type) {
+    int64_t out_length = 0;
+    for (const auto& buffer : index_buffers_) {
+      out_length += buffer->size();
+    }
+    ARROW_ASSIGN_OR_RAISE(out_, AllocateBuffer(out_length, pool_));
+    auto out_data = out_->mutable_data();
+    for (size_t i = 0; i < index_buffers_.size(); i++) {
+      auto buffer = index_buffers_[i];
+      auto old_indices = reinterpret_cast<const CType*>(buffer->data());
+      auto indices_map = reinterpret_cast<int32_t*>(index_lookup_[i]->mutable_data());
+      for (int64_t j = 0; j < buffer->size(); j++) {
+        out_data[j] = indices_map[old_indices[j]];
+      }
+      out_data += buffer->size();
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> out_;
+  BufferVector& index_buffers_;
+  std::vector<std::shared_ptr<Buffer>>& index_lookup_;
+  MemoryPool* pool_;
+};
+
 class ConcatenateImpl {
  public:
   ConcatenateImpl(const std::vector<std::shared_ptr<const ArrayData>>& in,
@@ -255,6 +295,21 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
+  Result<BufferVector> UnifyDictionaries(const DictionaryType& d) {
+    BufferVector new_index_lookup;
+    ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(d.value_type()));
+    new_index_lookup.resize(in_.size());
+    for (size_t i = 0; i < in_.size(); i++) {
+      auto item = in_[i];
+      auto dictionary_array = MakeArray(item->dictionary);
+      RETURN_NOT_OK(unifier->Unify(*dictionary_array, &new_index_lookup[i]));
+    }
+    std::shared_ptr<Array> out_dictionary;
+    RETURN_NOT_OK(unifier->GetResultWithIndexType(d.index_type(), &out_dictionary));
+    out_->dictionary = out_dictionary->data();
+    return new_index_lookup;
+  }
+
   Status Visit(const DictionaryType& d) {
     auto fixed = internal::checked_cast<const FixedWidthType*>(d.index_type().get());
 
@@ -274,7 +329,12 @@ class ConcatenateImpl {
       ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
       return ConcatenateBuffers(index_buffers, pool_).Value(&out_->buffers[1]);
     } else {
-      return Status::NotImplemented("Concat with dictionary unification NYI");
+      ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, *fixed));
+      ARROW_ASSIGN_OR_RAISE(auto index_lookup, UnifyDictionaries(d));
+      DictionaryConcatenate concatenate(index_buffers, index_lookup, pool_);
+      RETURN_NOT_OK(VisitTypeInline(*d.index_type(), &concatenate));
+      out_->buffers[1] = std::move(concatenate.out_);
+      return Status::OK();
     }
   }
 

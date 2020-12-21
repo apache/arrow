@@ -44,6 +44,29 @@ namespace arrow {
 using internal::checked_cast;
 using internal::CopyBitmap;
 
+struct MaxIndexAccessor {
+  MaxIndexAccessor() {}
+
+  template <typename T>
+  enable_if_t<!is_integer_type<T>::value, Status> Visit(const T&) {
+    return Status::Invalid("Dictionary index types must be integer types");
+  }
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    max_index_value_ = std::numeric_limits<typename T::c_type>::max();
+    return Status::OK();
+  }
+
+  int64_t max_index_value_ = 0;
+};
+
+Result<int64_t> DictionaryIndexMaxValue(std::shared_ptr<DataType> index_type) {
+  MaxIndexAccessor index_accessor;
+  RETURN_NOT_OK(VisitTypeInline(*index_type, &index_accessor));
+  return index_accessor.max_index_value_;
+}
+
 // ----------------------------------------------------------------------
 // DictionaryArray
 
@@ -196,6 +219,24 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
     // Build unified dictionary type with the right index type
     *out_type = arrow::dictionary(index_type, value_type_);
+
+    // Build unified dictionary array
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                     0 /* start_offset */, &data));
+    *out_dict = MakeArray(data);
+    return Status::OK();
+  }
+
+  Status GetResultWithIndexType(std::shared_ptr<DataType> index_type,
+                                std::shared_ptr<Array>* out_dict) override {
+    int64_t dict_length = memo_table_.size();
+    ARROW_ASSIGN_OR_RAISE(auto max_value, DictionaryIndexMaxValue(index_type));
+    if (dict_length > max_value) {
+      return Status::Invalid(
+          "These dictionaries cannot be combined.  The unified dictionary requires a "
+          "larger index type.");
+    }
 
     // Build unified dictionary array
     std::shared_ptr<ArrayData> data;
