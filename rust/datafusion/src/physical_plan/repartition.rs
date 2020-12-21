@@ -33,7 +33,9 @@ use async_trait::async_trait;
 
 use futures::channel::mpsc::{self, Receiver, Sender};
 use futures::stream::Stream;
+use futures::StreamExt;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 /// partition. No guarantees are made about the order of the resulting partition.
 #[derive(Debug)]
@@ -43,8 +45,14 @@ pub struct RepartitionExec {
     /// Partitioning scheme to use
     partitioning: Partitioning,
     /// Channels for output batches
-    channels:
-        Arc<Mutex<Vec<(Sender<Result<RecordBatch>>, Receiver<Result<RecordBatch>>)>>>,
+    channels: Arc<
+        Mutex<
+            Vec<(
+                Sender<ArrowResult<RecordBatch>>,
+                Receiver<ArrowResult<RecordBatch>>,
+            )>,
+        >,
+    >,
 }
 
 #[async_trait]
@@ -85,16 +93,22 @@ impl ExecutionPlan for RepartitionExec {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         let mut channels = self.channels.lock().await;
         if channels.is_empty() {
-            // allocate output channels once
+            // create one channel per *output* partition
+            let buffer_size = 64; // TODO: configurable?
             for _ in 0..self.partitioning.partition_count() {
-                let buffer_size = 64; // TODO: configurable?
-                let (sender, receiver) =
-                    mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size);
-
-                //TODO
-                //channels.push((sender, receiver));
+                channels.push(mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size));
             }
-            //TODO launch one async task per *input* partition
+            // launch one async task per *input* partition
+            for i in 0..self.input.output_partitioning().partition_count() {
+                let input = self.input.clone();
+                let handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+                    let mut stream = input.execute(i).await?;
+                    while let Some(batch) = stream.next().await {
+                        //TODO
+                    }
+                    Ok(())
+                });
+            }
         }
 
         // now return stream for the specified *output* partition which will
