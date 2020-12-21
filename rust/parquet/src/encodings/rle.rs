@@ -237,7 +237,6 @@ impl RleEncoder {
         Ok(())
     }
 
-    #[inline]
     fn flush_rle_run(&mut self) -> Result<()> {
         assert!(self.repeat_count > 0);
         let indicator_value = self.repeat_count << 1;
@@ -254,7 +253,6 @@ impl RleEncoder {
         Ok(())
     }
 
-    #[inline]
     fn flush_bit_packed_run(&mut self, update_indicator_byte: bool) -> Result<()> {
         if self.indicator_byte_pos < 0 {
             self.indicator_byte_pos = self.bit_writer.skip(1)? as i64;
@@ -284,7 +282,7 @@ impl RleEncoder {
         Ok(())
     }
 
-    #[inline]
+    #[inline(never)]
     fn flush_buffered_values(&mut self) -> Result<()> {
         if self.repeat_count >= 8 {
             self.num_buffered_values = 0;
@@ -321,7 +319,7 @@ pub struct RleDecoder {
     bit_reader: Option<BitReader>,
 
     // Buffer used when `bit_reader` is not `None`, for batch reading.
-    index_buf: Option<[i32; 1024]>,
+    index_buf: [i32; 1024],
 
     // The remaining number of values in RLE for this run
     rle_left: u32,
@@ -340,23 +338,25 @@ impl RleDecoder {
             rle_left: 0,
             bit_packed_left: 0,
             bit_reader: None,
-            index_buf: None,
+            index_buf: [0; 1024],
             current_value: None,
         }
     }
 
+    #[inline]
     pub fn set_data(&mut self, data: ByteBufferPtr) {
         if let Some(ref mut bit_reader) = self.bit_reader {
             bit_reader.reset(data);
         } else {
             self.bit_reader = Some(BitReader::new(data));
-            self.index_buf = Some([0; 1024]);
         }
 
         let _ = self.reload();
     }
 
-    #[inline]
+    // These functions inline badly, they tend to inline and then create very large loop unrolls
+    // that damage L1d-cache occupancy. This results in a ~18% performance drop
+    #[inline(never)]
     pub fn get<T: FromBytes>(&mut self) -> Result<Option<T>> {
         assert!(size_of::<T>() <= 8);
 
@@ -389,15 +389,13 @@ impl RleDecoder {
         Ok(Some(value))
     }
 
-    #[inline]
+    #[inline(never)]
     pub fn get_batch<T: FromBytes>(&mut self, buffer: &mut [T]) -> Result<usize> {
-        assert!(self.bit_reader.is_some());
         assert!(size_of::<T>() <= 8);
 
         let mut values_read = 0;
         while values_read < buffer.len() {
             if self.rle_left > 0 {
-                assert!(self.current_value.is_some());
                 let num_values =
                     cmp::min(buffer.len() - values_read, self.rle_left as usize);
                 for i in 0..num_values {
@@ -409,17 +407,17 @@ impl RleDecoder {
                 self.rle_left -= num_values as u32;
                 values_read += num_values;
             } else if self.bit_packed_left > 0 {
-                assert!(self.bit_reader.is_some());
                 let mut num_values =
                     cmp::min(buffer.len() - values_read, self.bit_packed_left as usize);
-                if let Some(ref mut bit_reader) = self.bit_reader {
-                    num_values = bit_reader.get_batch::<T>(
-                        &mut buffer[values_read..values_read + num_values],
-                        self.bit_width as usize,
-                    );
-                    self.bit_packed_left -= num_values as u32;
-                    values_read += num_values;
-                }
+                let bit_reader =
+                    self.bit_reader.as_mut().expect("bit_reader should be set");
+
+                num_values = bit_reader.get_batch::<T>(
+                    &mut buffer[values_read..values_read + num_values],
+                    self.bit_width as usize,
+                );
+                self.bit_packed_left -= num_values as u32;
+                values_read += num_values;
             } else if !self.reload() {
                 break;
             }
@@ -428,7 +426,7 @@ impl RleDecoder {
         Ok(values_read)
     }
 
-    #[inline]
+    #[inline(never)]
     pub fn get_batch_with_dict<T>(
         &mut self,
         dict: &[T],
@@ -443,7 +441,6 @@ impl RleDecoder {
         let mut values_read = 0;
         while values_read < max_values {
             if self.rle_left > 0 {
-                assert!(self.current_value.is_some());
                 let num_values =
                     cmp::min(max_values - values_read, self.rle_left as usize);
                 let dict_idx = self.current_value.unwrap() as usize;
@@ -453,25 +450,26 @@ impl RleDecoder {
                 self.rle_left -= num_values as u32;
                 values_read += num_values;
             } else if self.bit_packed_left > 0 {
-                assert!(self.bit_reader.is_some());
+                let bit_reader =
+                    self.bit_reader.as_mut().expect("bit_reader should be set");
+
                 let mut num_values =
                     cmp::min(max_values - values_read, self.bit_packed_left as usize);
-                if let Some(ref mut bit_reader) = self.bit_reader {
-                    let mut index_buf = self.index_buf.unwrap();
-                    num_values = cmp::min(num_values, index_buf.len());
-                    loop {
-                        num_values = bit_reader.get_batch::<i32>(
-                            &mut index_buf[..num_values],
-                            self.bit_width as usize,
-                        );
-                        for i in 0..num_values {
-                            buffer[values_read + i] = dict[index_buf[i] as usize].clone();
-                        }
-                        self.bit_packed_left -= num_values as u32;
-                        values_read += num_values;
-                        if num_values < index_buf.len() {
-                            break;
-                        }
+
+                num_values = cmp::min(num_values, self.index_buf.len());
+                loop {
+                    num_values = bit_reader.get_batch::<i32>(
+                        &mut self.index_buf[..num_values],
+                        self.bit_width as usize,
+                    );
+                    for i in 0..num_values {
+                        buffer[values_read + i] =
+                            dict[self.index_buf[i] as usize].clone();
+                    }
+                    self.bit_packed_left -= num_values as u32;
+                    values_read += num_values;
+                    if num_values < self.index_buf.len() {
+                        break;
                     }
                 }
             } else if !self.reload() {
@@ -484,24 +482,21 @@ impl RleDecoder {
 
     #[inline]
     fn reload(&mut self) -> bool {
-        assert!(self.bit_reader.is_some());
-        if let Some(ref mut bit_reader) = self.bit_reader {
-            if let Some(indicator_value) = bit_reader.get_vlq_int() {
-                if indicator_value & 1 == 1 {
-                    self.bit_packed_left = ((indicator_value >> 1) * 8) as u32;
-                } else {
-                    self.rle_left = (indicator_value >> 1) as u32;
-                    let value_width = bit_util::ceil(self.bit_width as i64, 8);
-                    self.current_value =
-                        bit_reader.get_aligned::<u64>(value_width as usize);
-                    assert!(self.current_value.is_some());
-                }
-                return true;
+        let bit_reader = self.bit_reader.as_mut().expect("bit_reader should be set");
+
+        if let Some(indicator_value) = bit_reader.get_vlq_int() {
+            if indicator_value & 1 == 1 {
+                self.bit_packed_left = ((indicator_value >> 1) * 8) as u32;
             } else {
-                return false;
+                self.rle_left = (indicator_value >> 1) as u32;
+                let value_width = bit_util::ceil(self.bit_width as i64, 8);
+                self.current_value = bit_reader.get_aligned::<u64>(value_width as usize);
+                assert!(self.current_value.is_some());
             }
+            true
+        } else {
+            false
         }
-        false
     }
 }
 

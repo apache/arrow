@@ -204,7 +204,7 @@ class MockPageReader : public PageReader {
 template <typename Type>
 class DataPageBuilder {
  public:
-  typedef typename Type::c_type T;
+  using c_type = typename Type::c_type;
 
   // This class writes data and metadata to the passed inputs
   explicit DataPageBuilder(ArrowOutputStream* sink)
@@ -235,7 +235,7 @@ class DataPageBuilder {
     have_rep_levels_ = true;
   }
 
-  void AppendValues(const ColumnDescriptor* d, const std::vector<T>& values,
+  void AppendValues(const ColumnDescriptor* d, const std::vector<c_type>& values,
                     Encoding::type encoding = Encoding::PLAIN) {
     std::shared_ptr<Buffer> values_sink = EncodeValues<Type>(
         encoding, false, values.data(), static_cast<int>(values.size()), d);
@@ -610,7 +610,7 @@ inline std::string TestColumnName(int i) {
 template <typename TestType>
 class PrimitiveTypedTest : public ::testing::Test {
  public:
-  typedef typename TestType::c_type T;
+  using c_type = typename TestType::c_type;
 
   void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
     std::vector<schema::NodePtr> fields;
@@ -633,19 +633,19 @@ class PrimitiveTypedTest : public ::testing::Test {
   SchemaDescriptor schema_;
 
   // Input buffers
-  std::vector<T> values_;
+  std::vector<c_type> values_;
 
   std::vector<int16_t> def_levels_;
 
   std::vector<uint8_t> buffer_;
   // Pointer to the values, needed as we cannot use std::vector<bool>::data()
-  T* values_ptr_;
+  c_type* values_ptr_;
   std::vector<uint8_t> bool_buffer_;
 
   // Output buffers
-  std::vector<T> values_out_;
+  std::vector<c_type> values_out_;
   std::vector<uint8_t> bool_buffer_out_;
-  T* values_out_ptr_;
+  c_type* values_out_ptr_;
 };
 
 template <typename TestType>
@@ -654,7 +654,7 @@ inline void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
 template <>
 inline void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
   std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
-  std::vector<T>::iterator destination_iterator = values_out_.begin();
+  std::vector<c_type>::iterator destination_iterator = values_out_.begin();
   while (source_iterator != bool_buffer_out_.end()) {
     *destination_iterator++ = *source_iterator++ != 0;
   }
@@ -685,7 +685,7 @@ inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
+  InitValues<c_type>(static_cast<int>(num_values), values_, buffer_);
   values_ptr_ = values_.data();
 
   std::fill(def_levels_.begin(), def_levels_.end(), 1);
@@ -696,7 +696,7 @@ inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
+  InitValues<c_type>(static_cast<int>(num_values), values_, buffer_);
   bool_buffer_.resize(num_values);
   std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());

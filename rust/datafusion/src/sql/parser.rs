@@ -34,7 +34,7 @@ macro_rules! parser_err {
 }
 
 /// Types of files to parse as DataFrames
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileType {
     /// Newline-delimited JSON
     NdJson,
@@ -337,8 +337,7 @@ mod tests {
     fn expect_parse_error(sql: &str, expected_error: &str) -> Result<(), ParserError> {
         match DFParser::parse_sql(sql) {
             Ok(statements) => {
-                assert!(
-                    false,
+                panic!(
                     "Expected parse error for '{}', but was successful: {:?}",
                     sql, statements
                 );

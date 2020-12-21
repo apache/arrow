@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/decimal128.h>
+#include <arrow-glib/decimal.h>
 #include <arrow-glib/type.h>
 #include <arrow-glib/version.h>
 
@@ -463,8 +463,32 @@ struct _GArrowDecimal128DataTypeClass
   GArrowDecimalDataTypeClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_3_0
+gint32
+garrow_decimal128_data_type_max_precision();
+
 GARROW_AVAILABLE_IN_0_12
 GArrowDecimal128DataType *
 garrow_decimal128_data_type_new(gint32 precision, gint32 scale);
+
+
+#define GARROW_TYPE_DECIMAL256_DATA_TYPE (garrow_decimal256_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256DataType,
+                         garrow_decimal256_data_type,
+                         GARROW,
+                         DECIMAL256_DATA_TYPE,
+                         GArrowDecimalDataType)
+struct _GArrowDecimal256DataTypeClass
+{
+  GArrowDecimalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+gint32
+garrow_decimal256_data_type_max_precision();
+
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256DataType *
+garrow_decimal256_data_type_new(gint32 precision, gint32 scale);
 
 G_END_DECLS

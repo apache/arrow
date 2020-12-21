@@ -15,6 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(RapidJSONAlt_FIND_VERSION)
+  list(APPEND find_package_args ${RapidJSONAlt_FIND_VERSION})
+endif()
+if(RapidJSONAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(RapidJSON ${find_package_args})
+if(RapidJSON_FOUND)
+  set(RapidJSONAlt_FOUND TRUE)
+  set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+  return()
+endif()
+
 if(RapidJSON_ROOT)
   find_path(RAPIDJSON_INCLUDE_DIR
             NAMES rapidjson/rapidjson.h

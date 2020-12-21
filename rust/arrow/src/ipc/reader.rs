@@ -337,6 +337,19 @@ fn create_primitive_array(
             }
             builder.build()
         }
+        Decimal(_, _) => {
+            // read 3 buffers
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..2].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
+        }
         t => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
@@ -577,7 +590,10 @@ impl<R: Read + Seek> FileReader<R> {
         let mut footer_data = vec![0; footer_len as usize];
         reader.seek(SeekFrom::End(-10 - footer_len as i64))?;
         reader.read_exact(&mut footer_data)?;
-        let footer = ipc::get_root_as_footer(&footer_data[..]);
+
+        let footer = ipc::root_as_footer(&footer_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         let blocks = footer.recordBatches().ok_or_else(|| {
             ArrowError::IoError(
@@ -608,7 +624,9 @@ impl<R: Read + Seek> FileReader<R> {
 
             reader.read_exact(&mut block_data)?;
 
-            let message = ipc::get_root_as_message(&block_data[..]);
+            let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+                ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+            })?;
 
             match message.header_type() {
                 ipc::MessageHeader::DictionaryBatch => {
@@ -685,7 +703,9 @@ impl<R: Read + Seek> FileReader<R> {
         let mut block_data = vec![0; meta_len as usize];
         self.reader.read_exact(&mut block_data)?;
 
-        let message = ipc::get_root_as_message(&block_data[..]);
+        let message = ipc::root_as_message(&block_data[..]).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as footer: {:?}", err))
+        })?;
 
         // some old test data's footer metadata is not set, so we account for that
         if self.metadata_version != ipc::MetadataVersion::V1
@@ -791,7 +811,9 @@ impl<R: Read> StreamReader<R> {
         let mut meta_buffer = vec![0; meta_len as usize];
         reader.read_exact(&mut meta_buffer)?;
 
-        let message = ipc::get_root_as_message(meta_buffer.as_slice());
+        let message = ipc::root_as_message(meta_buffer.as_slice()).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
         // message header is a Schema, so read it
         let ipc_schema: ipc::Schema = message.header_as_schema().ok_or_else(|| {
             ArrowError::IoError("Unable to read IPC message as schema".to_string())
@@ -860,7 +882,9 @@ impl<R: Read> StreamReader<R> {
         self.reader.read_exact(&mut meta_buffer)?;
 
         let vecs = &meta_buffer.to_vec();
-        let message = ipc::get_root_as_message(vecs);
+        let message = ipc::root_as_message(vecs).map_err(|err| {
+            ArrowError::IoError(format!("Unable to get root as message: {:?}", err))
+        })?;
 
         match message.header_type() {
             ipc::MessageHeader::Schema => Err(ArrowError::IoError(
@@ -941,6 +965,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
@@ -958,6 +983,42 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Big Endian is not supported for Decimal!")]
+    fn read_decimal_be_file_should_panic() {
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/generated_decimal.arrow_file",
+                testdata
+            ))
+            .unwrap();
+        FileReader::try_new(file).unwrap();
+    }
+
+    #[test]
+    fn read_generated_be_files_should_work() {
+        // complementary to the previous test
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let paths = vec![
+            "generated_interval",
+            "generated_datetime",
+            "generated_dictionary",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/arrow-ipc-stream/integration/1.0.0-bigendian/{}.arrow_file",
+                testdata, path
+            ))
+            .unwrap();
+
+            FileReader::try_new(file).unwrap();
+        });
+    }
+
+    #[test]
     fn read_generated_streams() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
@@ -969,6 +1030,7 @@ mod tests {
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",
             "generated_primitive",
+            "generated_decimal",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(

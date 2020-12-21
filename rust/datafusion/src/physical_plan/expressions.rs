@@ -29,7 +29,7 @@ use crate::scalar::ScalarValue;
 use arrow::array::{self, Array, BooleanBuilder, LargeStringArray};
 use arrow::compute;
 use arrow::compute::kernels;
-use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
+use arrow::compute::kernels::arithmetic::{add, divide, multiply, negate, subtract};
 use arrow::compute::kernels::boolean::{and, nullif, or};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
@@ -48,9 +48,9 @@ use arrow::datatypes::{DataType, DateUnit, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{
-        ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int16Array,
-        Int32Array, Int64Array, Int8Array, StringArray, TimestampNanosecondArray,
-        UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        ArrayRef, BooleanArray, Date32Array, Date64Array, Float32Array, Float64Array,
+        Int16Array, Int32Array, Int64Array, Int8Array, StringArray,
+        TimestampNanosecondArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     datatypes::Field,
 };
@@ -892,8 +892,8 @@ impl CountAccumulator {
     fn update_from_option(&mut self, delta: &Option<u64>) -> Result<()> {
         self.count = ScalarValue::UInt64(match (&self.count, delta) {
             (ScalarValue::UInt64(None), None) => None,
-            (ScalarValue::UInt64(None), Some(rhs)) => Some(rhs.clone()),
-            (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
+            (ScalarValue::UInt64(None), Some(rhs)) => Some(*rhs),
+            (ScalarValue::UInt64(Some(lhs)), None) => Some(*lhs),
             (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
             _ => {
                 return Err(DataFusionError::Internal(
@@ -1009,8 +1009,9 @@ macro_rules! compute_op_scalar {
     }};
 }
 
-/// Invoke a compute kernel on a pair of arrays
+/// Invoke a compute kernel on array(s)
 macro_rules! compute_op {
+    // invoke binary operator
     ($LEFT:expr, $RIGHT:expr, $OP:ident, $DT:ident) => {{
         let ll = $LEFT
             .as_any()
@@ -1021,6 +1022,14 @@ macro_rules! compute_op {
             .downcast_ref::<$DT>()
             .expect("compute_op failed to downcast array");
         Ok(Arc::new($OP(&ll, &rr)?))
+    }};
+    // invoke unary operator
+    ($OPERAND:expr, $OP:ident, $DT:ident) => {{
+        let operand = $OPERAND
+            .as_any()
+            .downcast_ref::<$DT>()
+            .expect("compute_op failed to downcast array");
+        Ok(Arc::new($OP(&operand)?))
     }};
 }
 
@@ -1126,6 +1135,9 @@ macro_rules! binary_array_op {
             DataType::Date32(DateUnit::Day) => {
                 compute_op!($LEFT, $RIGHT, $OP, Date32Array)
             }
+            DataType::Date64(DateUnit::Millisecond) => {
+                compute_op!($LEFT, $RIGHT, $OP, Date64Array)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
@@ -1218,6 +1230,19 @@ fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType>
     }
 }
 
+/// Coercion rules for Temporal columns: the type that both lhs and rhs can be
+/// casted to for the purpose of a date computation
+fn temporal_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
+    use arrow::datatypes::DataType::*;
+    match (lhs_type, rhs_type) {
+        (Utf8, Date32(DateUnit::Day)) => Some(Date32(DateUnit::Day)),
+        (Date32(DateUnit::Day), Utf8) => Some(Date32(DateUnit::Day)),
+        (Utf8, Date64(DateUnit::Millisecond)) => Some(Date64(DateUnit::Millisecond)),
+        (Date64(DateUnit::Millisecond), Utf8) => Some(Date64(DateUnit::Millisecond)),
+        _ => None,
+    }
+}
+
 /// Coercion rule for numerical types: The type that both lhs and rhs
 /// can be casted to for numerical calculation, while maintaining
 /// maximum precision
@@ -1279,6 +1304,7 @@ fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     }
     numerical_coercion(lhs_type, rhs_type)
         .or_else(|| dictionary_coercion(lhs_type, rhs_type))
+        .or_else(|| temporal_coercion(lhs_type, rhs_type))
 }
 
 // coercion rules that assume an ordered set, such as "less than".
@@ -1292,6 +1318,7 @@ fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> 
     numerical_coercion(lhs_type, rhs_type)
         .or_else(|| string_coercion(lhs_type, rhs_type))
         .or_else(|| dictionary_coercion(lhs_type, rhs_type))
+        .or_else(|| temporal_coercion(lhs_type, rhs_type))
 }
 
 /// Coercion rules for all binary operators. Returns the output type
@@ -1594,7 +1621,7 @@ pub fn nullif_func(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Currently supported types by the nullif function.
 /// The order of these types correspond to the order on which coercion applies
 /// This should thus be from least informative to most informative
-pub static SUPPORTED_NULLIF_TYPES: &'static [DataType] = &[
+pub static SUPPORTED_NULLIF_TYPES: &[DataType] = &[
     DataType::Boolean,
     DataType::UInt8,
     DataType::UInt16,
@@ -1629,7 +1656,7 @@ impl fmt::Display for NotExpr {
 
 impl PhysicalExpr for NotExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
@@ -1640,11 +1667,15 @@ impl PhysicalExpr for NotExpr {
         let arg = self.arg.evaluate(batch)?;
         match arg {
             ColumnarValue::Array(array) => {
-                let array = array.as_any().downcast_ref::<BooleanArray>().ok_or(
-                    DataFusionError::Internal(
-                        "boolean_op failed to downcast array".to_owned(),
-                    ),
-                )?;
+                let array =
+                    array
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .ok_or_else(|| {
+                            DataFusionError::Internal(
+                                "boolean_op failed to downcast array".to_owned(),
+                            )
+                        })?;
                 Ok(ColumnarValue::Array(Arc::new(
                     arrow::compute::kernels::boolean::not(array)?,
                 )))
@@ -1682,6 +1713,82 @@ pub fn not(
     }
 }
 
+/// Negative expression
+#[derive(Debug)]
+pub struct NegativeExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl NegativeExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for NegativeExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(- {})", self.arg)
+    }
+}
+
+impl PhysicalExpr for NegativeExpr {
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.arg.data_type(input_schema)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.arg.nullable(input_schema)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ColumnarValue> {
+        let arg = self.arg.evaluate(batch)?;
+        match arg {
+            ColumnarValue::Array(array) => {
+                let result: Result<ArrayRef> = match array.data_type() {
+                    DataType::Int8 => compute_op!(array, negate, Int8Array),
+                    DataType::Int16 => compute_op!(array, negate, Int16Array),
+                    DataType::Int32 => compute_op!(array, negate, Int32Array),
+                    DataType::Int64 => compute_op!(array, negate, Int64Array),
+                    DataType::Float32 => compute_op!(array, negate, Float32Array),
+                    DataType::Float64 => compute_op!(array, negate, Float64Array),
+                    _ => Err(DataFusionError::Internal(format!(
+                        "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                        self,
+                        array.data_type(),
+                    ))),
+                };
+                result.map(|a| ColumnarValue::Array(a))
+            }
+            ColumnarValue::Scalar(scalar) => {
+                Ok(ColumnarValue::Scalar(scalar.arithmetic_negate()))
+            }
+        }
+    }
+}
+
+/// Creates a unary expression NEGATIVE
+///
+/// # Errors
+///
+/// This function errors when the argument's type is not signed numeric
+pub fn negative(
+    arg: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let data_type = arg.data_type(input_schema)?;
+    if !is_signed_numeric(&data_type) {
+        Err(DataFusionError::Internal(
+            format!(
+                "(- '{:?}') can't be evaluated because the expression's type is {:?}, not signed numeric",
+                arg, data_type,
+            ),
+        ))
+    } else {
+        Ok(Arc::new(NegativeExpr::new(arg)))
+    }
+}
+
 /// IS NULL expression
 #[derive(Debug)]
 pub struct IsNullExpr {
@@ -1702,7 +1809,7 @@ impl fmt::Display for IsNullExpr {
 }
 impl PhysicalExpr for IsNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1747,7 +1854,7 @@ impl fmt::Display for IsNotNullExpr {
 }
 impl PhysicalExpr for IsNotNullExpr {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        return Ok(DataType::Boolean);
+        Ok(DataType::Boolean)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1822,7 +1929,7 @@ impl CaseExpr {
         when_then_expr: &[(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)],
         else_expr: Option<Arc<dyn PhysicalExpr>>,
     ) -> Result<Self> {
-        if when_then_expr.len() == 0 {
+        if when_then_expr.is_empty() {
             Err(DataFusionError::Execution(
                 "There must be at least one WHEN clause".to_string(),
             ))
@@ -2189,14 +2296,29 @@ pub struct CastExpr {
     cast_type: DataType,
 }
 
+/// Determine if a DataType is signed numeric or not
+pub fn is_signed_numeric(dt: &DataType) -> bool {
+    matches!(
+        dt,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float16
+            | DataType::Float32
+            | DataType::Float64
+    )
+}
+
 /// Determine if a DataType is numeric or not
 pub fn is_numeric(dt: &DataType) -> bool {
-    match dt {
-        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
-        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => true,
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => true,
-        _ => false,
-    }
+    is_signed_numeric(dt)
+        || match dt {
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                true
+            }
+            _ => false,
+        }
 }
 
 impl fmt::Display for CastExpr {
@@ -2530,6 +2652,54 @@ mod tests {
             DataType::Utf8,
             vec!["%hello%", "%hello%"],
             Operator::Like,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, false]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13", "1995-01-26"],
+            Date32Array,
+            DataType::Date32(DateUnit::Day),
+            vec![9112, 9156],
+            Operator::Eq,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, true]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13", "1995-01-26"],
+            Date32Array,
+            DataType::Date32(DateUnit::Day),
+            vec![9113, 9154],
+            Operator::Lt,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, false]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
+            Date64Array,
+            DataType::Date64(DateUnit::Millisecond),
+            vec![787322096000, 791083425000],
+            Operator::Eq,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, true]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["1994-12-13T12:34:56", "1995-01-26T01:23:45"],
+            Date64Array,
+            DataType::Date64(DateUnit::Millisecond),
+            vec![787322096001, 791083424999],
+            Operator::Lt,
             BooleanArray,
             DataType::Boolean,
             vec![true, false]

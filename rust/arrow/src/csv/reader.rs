@@ -51,7 +51,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
+use crate::array::{ArrayRef, BooleanArray, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -65,6 +65,9 @@ lazy_static! {
         .case_insensitive(true)
         .build()
         .unwrap();
+    static ref DATE_RE: Regex = Regex::new(r"^\d{4}-\d\d-\d\d$").unwrap();
+    static ref DATETIME_RE: Regex =
+        Regex::new(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$").unwrap();
 }
 
 /// Infer the data type of a record
@@ -81,6 +84,10 @@ fn infer_field_schema(string: &str) -> DataType {
         DataType::Float64
     } else if INTEGER_RE.is_match(string) {
         DataType::Int64
+    } else if DATETIME_RE.is_match(string) {
+        DataType::Date64(DateUnit::Millisecond)
+    } else if DATE_RE.is_match(string) {
+        DataType::Date32(DateUnit::Day)
     } else {
         DataType::Utf8
     }
@@ -405,9 +412,7 @@ fn parse(
             let i = *i;
             let field = &fields[i];
             match field.data_type() {
-                &DataType::Boolean => {
-                    build_primitive_array::<BooleanType>(line_number, rows, i)
-                }
+                &DataType::Boolean => build_boolean_array(line_number, rows, i),
                 &DataType::Int8 => {
                     build_primitive_array::<Int8Type>(line_number, rows, i)
                 }
@@ -437,6 +442,12 @@ fn parse(
                 }
                 &DataType::Float64 => {
                     build_primitive_array::<Float64Type>(line_number, rows, i)
+                }
+                &DataType::Date32(_) => {
+                    build_primitive_array::<Date32Type>(line_number, rows, i)
+                }
+                &DataType::Date64(_) => {
+                    build_primitive_array::<Date64Type>(line_number, rows, i)
                 }
                 &DataType::Utf8 => {
                     let mut builder = StringBuilder::new(rows.len());
@@ -471,18 +482,6 @@ trait Parser: ArrowPrimitiveType {
     }
 }
 
-impl Parser for BooleanType {
-    fn parse(string: &str) -> Option<bool> {
-        if string.eq_ignore_ascii_case("false") {
-            Some(false)
-        } else if string.eq_ignore_ascii_case("true") {
-            Some(true)
-        } else {
-            None
-        }
-    }
-}
-
 impl Parser for Float32Type {
     fn parse(string: &str) -> Option<f32> {
         lexical_core::parse(string.as_bytes()).ok()
@@ -510,8 +509,47 @@ impl Parser for Int16Type {}
 
 impl Parser for Int8Type {}
 
+/// Number of days between 0001-01-01 and 1970-01-01
+const EPOCH_DAYS_FROM_CE: i32 = 719_163;
+
+impl Parser for Date32Type {
+    fn parse(string: &str) -> Option<i32> {
+        use chrono::Datelike;
+
+        match Self::DATA_TYPE {
+            DataType::Date32(DateUnit::Day) => {
+                let date = string.parse::<chrono::NaiveDate>().ok()?;
+                Self::Native::from_i32(date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Parser for Date64Type {
+    fn parse(string: &str) -> Option<i64> {
+        match Self::DATA_TYPE {
+            DataType::Date64(DateUnit::Millisecond) => {
+                let date_time = string.parse::<chrono::NaiveDateTime>().ok()?;
+                Self::Native::from_i64(date_time.timestamp_millis())
+            }
+            _ => None,
+        }
+    }
+}
+
 fn parse_item<T: Parser>(string: &str) -> Option<T::Native> {
     T::parse(string)
+}
+
+fn parse_bool(string: &str) -> Option<bool> {
+    if string.eq_ignore_ascii_case("false") {
+        Some(false)
+    } else if string.eq_ignore_ascii_case("true") {
+        Some(true)
+    } else {
+        None
+    }
 }
 
 // parses a specific column (col_idx) into an Arrow Array.
@@ -545,6 +583,40 @@ fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
             }
         })
         .collect::<Result<PrimitiveArray<T>>>()
+        .map(|e| Arc::new(e) as ArrayRef)
+}
+
+// parses a specific column (col_idx) into an Arrow Array.
+fn build_boolean_array(
+    line_number: usize,
+    rows: &[StringRecord],
+    col_idx: usize,
+) -> Result<ArrayRef> {
+    rows.iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            match row.get(col_idx) {
+                Some(s) => {
+                    if s.is_empty() {
+                        return Ok(None);
+                    }
+
+                    let parsed = parse_bool(s);
+                    match parsed {
+                        Some(e) => Ok(Some(e)),
+                        None => Err(ArrowError::ParseError(format!(
+                            // TODO: we should surface the underlying error here.
+                            "Error while parsing value {} for column {} at line {}",
+                            s,
+                            col_idx,
+                            line_number + row_index
+                        ))),
+                    }
+                }
+                None => Ok(None),
+            }
+        })
+        .collect::<Result<BooleanArray>>()
         .map(|e| Arc::new(e) as ArrayRef)
 }
 
@@ -899,13 +971,13 @@ mod tests {
             .has_header(true)
             .with_delimiter(b'|')
             .with_batch_size(512)
-            .with_projection(vec![0, 1, 2, 3]);
+            .with_projection(vec![0, 1, 2, 3, 4, 5]);
 
         let mut csv = builder.build(file).unwrap();
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(5, batch.num_rows());
-        assert_eq!(4, batch.num_columns());
+        assert_eq!(6, batch.num_columns());
 
         let schema = batch.schema();
 
@@ -913,11 +985,35 @@ mod tests {
         assert_eq!(&DataType::Float64, schema.field(1).data_type());
         assert_eq!(&DataType::Float64, schema.field(2).data_type());
         assert_eq!(&DataType::Boolean, schema.field(3).data_type());
+        assert_eq!(
+            &DataType::Date32(DateUnit::Day),
+            schema.field(4).data_type()
+        );
+        assert_eq!(
+            &DataType::Date64(DateUnit::Millisecond),
+            schema.field(5).data_type()
+        );
+
+        let names: Vec<&str> =
+            schema.fields().iter().map(|x| x.name().as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                "c_int",
+                "c_float",
+                "c_string",
+                "c_bool",
+                "c_date",
+                "c_datetime"
+            ]
+        );
 
         assert_eq!(false, schema.field(0).is_nullable());
         assert_eq!(true, schema.field(1).is_nullable());
         assert_eq!(true, schema.field(2).is_nullable());
         assert_eq!(false, schema.field(3).is_nullable());
+        assert_eq!(true, schema.field(4).is_nullable());
+        assert_eq!(true, schema.field(5).is_nullable());
 
         assert_eq!(false, batch.column(1).is_null(0));
         assert_eq!(false, batch.column(1).is_null(1));
@@ -965,6 +1061,38 @@ mod tests {
         assert_eq!(infer_field_schema("10.2"), DataType::Float64);
         assert_eq!(infer_field_schema("true"), DataType::Boolean);
         assert_eq!(infer_field_schema("false"), DataType::Boolean);
+        assert_eq!(
+            infer_field_schema("2020-11-08"),
+            DataType::Date32(DateUnit::Day)
+        );
+        assert_eq!(
+            infer_field_schema("2020-11-08T14:20:01"),
+            DataType::Date64(DateUnit::Millisecond)
+        );
+    }
+
+    #[test]
+    fn parse_date32() {
+        assert_eq!(parse_item::<Date32Type>("1970-01-01").unwrap(), 0);
+        assert_eq!(parse_item::<Date32Type>("2020-03-15").unwrap(), 18336);
+        assert_eq!(parse_item::<Date32Type>("1945-05-08").unwrap(), -9004);
+    }
+
+    #[test]
+    fn parse_date64() {
+        assert_eq!(parse_item::<Date64Type>("1970-01-01T00:00:00").unwrap(), 0);
+        assert_eq!(
+            parse_item::<Date64Type>("2018-11-13T17:11:10").unwrap(),
+            1542129070000
+        );
+        assert_eq!(
+            parse_item::<Date64Type>("2018-11-13T17:11:10.011").unwrap(),
+            1542129070011
+        );
+        assert_eq!(
+            parse_item::<Date64Type>("1900-02-28T12:34:56").unwrap(),
+            -2203932304000
+        );
     }
 
     #[test]
@@ -1059,21 +1187,21 @@ mod tests {
     #[test]
     fn test_parsing_bool() {
         // Encode the expected behavior of boolean parsing
-        assert_eq!(Some(true), parse_item::<BooleanType>("true"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("tRUe"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("True"));
-        assert_eq!(Some(true), parse_item::<BooleanType>("TRUE"));
-        assert_eq!(None, parse_item::<BooleanType>("t"));
-        assert_eq!(None, parse_item::<BooleanType>("T"));
-        assert_eq!(None, parse_item::<BooleanType>(""));
+        assert_eq!(Some(true), parse_bool("true"));
+        assert_eq!(Some(true), parse_bool("tRUe"));
+        assert_eq!(Some(true), parse_bool("True"));
+        assert_eq!(Some(true), parse_bool("TRUE"));
+        assert_eq!(None, parse_bool("t"));
+        assert_eq!(None, parse_bool("T"));
+        assert_eq!(None, parse_bool(""));
 
-        assert_eq!(Some(false), parse_item::<BooleanType>("false"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("fALse"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("False"));
-        assert_eq!(Some(false), parse_item::<BooleanType>("FALSE"));
-        assert_eq!(None, parse_item::<BooleanType>("f"));
-        assert_eq!(None, parse_item::<BooleanType>("F"));
-        assert_eq!(None, parse_item::<BooleanType>(""));
+        assert_eq!(Some(false), parse_bool("false"));
+        assert_eq!(Some(false), parse_bool("fALse"));
+        assert_eq!(Some(false), parse_bool("False"));
+        assert_eq!(Some(false), parse_bool("FALSE"));
+        assert_eq!(None, parse_bool("f"));
+        assert_eq!(None, parse_bool("F"));
+        assert_eq!(None, parse_bool(""));
     }
 
     #[test]

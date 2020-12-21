@@ -19,9 +19,7 @@
 
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
-use crate::execution::context::ExecutionContext;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
-use crate::physical_plan::ExecutionPlan;
 use arrow::array::{self, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -45,19 +43,13 @@ pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
         ],
     )
     .unwrap();
-    let provider = MemTable::new(dual_schema, vec![vec![batch]]).unwrap();
+    let provider = MemTable::try_new(dual_schema, vec![vec![batch]]).unwrap();
     Box::new(provider)
 }
 
 /// Get the value of the ARROW_TEST_DATA environment variable
 pub fn arrow_testdata_path() -> String {
     env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined")
-}
-
-/// Execute a physical plan and collect the results
-pub async fn execute(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
-    let ctx = ExecutionContext::new();
-    ctx.collect(plan).await
 }
 
 /// Generated partitioned copy of a CSV file
@@ -78,8 +70,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
 
     let f = File::open(&path)?;
     let f = BufReader::new(f);
-    let mut i = 0;
-    for line in f.lines() {
+    for (i, line) in f.lines().enumerate() {
         let line = line.unwrap();
 
         if i == 0 {
@@ -94,8 +85,6 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
             writers[partition].write_all(line.as_bytes()).unwrap();
             writers[partition].write_all(b"\n").unwrap();
         }
-
-        i += 1;
     }
     for w in writers.iter_mut() {
         w.flush().unwrap();
@@ -242,7 +231,7 @@ pub fn test_table_scan() -> Result<LogicalPlan> {
         Field::new("b", DataType::UInt32, false),
         Field::new("c", DataType::UInt32, false),
     ]);
-    LogicalPlanBuilder::scan("default", "test", &schema, None)?.build()
+    LogicalPlanBuilder::scan_empty("test", &schema, None)?.build()
 }
 
 pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {

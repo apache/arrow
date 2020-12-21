@@ -155,7 +155,7 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
 
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   static DataTypeVector example_parametric_types = {
-      decimal(12, 2),
+      decimal128(12, 2),
       duration(TimeUnit::SECOND),
       timestamp(TimeUnit::SECOND),
       time32(TimeUnit::SECOND),

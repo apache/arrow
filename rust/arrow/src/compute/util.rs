@@ -18,14 +18,10 @@
 //! Common utilities for computation kernels.
 
 use crate::array::*;
-#[cfg(feature = "simd")]
-use crate::bitmap::Bitmap;
 use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use num::{One, ToPrimitive, Zero};
-#[cfg(feature = "simd")]
-use std::cmp::min;
 use std::ops::Add;
 
 /// Combines the null bitmaps of two arrays using a bitwise `and` operation.
@@ -100,7 +96,7 @@ pub(super) fn compare_option_bitmap(
 /// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
 /// elements)
 pub(super) fn take_value_indices_from_list<IndexType, OffsetType>(
-    values: &ArrayRef,
+    list: &GenericListArray<OffsetType::Native>,
     indices: &PrimitiveArray<IndexType>,
 ) -> Result<(PrimitiveArray<OffsetType>, Vec<OffsetType::Native>)>
 where
@@ -112,10 +108,6 @@ where
 {
     // TODO: benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
-    let list = values
-        .as_any()
-        .downcast_ref::<GenericListArray<OffsetType::Native>>()
-        .unwrap();
     let offsets: Vec<OffsetType::Native> =
         (0..=list.len()).map(|i| list.value_offset(i)).collect();
 
@@ -150,78 +142,42 @@ where
     Ok((PrimitiveArray::<OffsetType>::from(values), new_offsets))
 }
 
-/// Creates a new SIMD mask, i.e. `packed_simd::m32x16` or similar. that indicates if the
-/// corresponding array slots represented by the mask are 'valid'.  
-///
-/// Lanes of the SIMD mask can be set to 'valid' (`true`) if the corresponding array slot is not
-/// `NULL`, as indicated by it's `Bitmap`, and is within the length of the array.  Lanes outside the
-/// length represent padding and are set to 'invalid' (`false`).
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-unsafe fn is_valid<T>(
-    bitmap: &Option<Bitmap>,
-    i: usize,
-    simd_width: usize,
-    array_len: usize,
-) -> T::SimdMask
+/// Takes/filters a fixed size list array's inner data using the offsets of the list array.
+pub(super) fn take_value_indices_from_fixed_size_list<IndexType>(
+    list: &FixedSizeListArray,
+    indices: &PrimitiveArray<IndexType>,
+    length: <UInt32Type as ArrowPrimitiveType>::Native,
+) -> Result<PrimitiveArray<UInt32Type>>
 where
-    T: ArrowNumericType,
+    IndexType: ArrowNumericType,
+    IndexType::Native: ToPrimitive,
 {
-    let simd_upper_bound = i + simd_width;
-    let mut validity = T::mask_init(true);
+    let mut values = vec![];
 
-    // Validity based on `Bitmap`
-    if let Some(b) = bitmap {
-        for j in i..min(array_len, simd_upper_bound) {
-            if !b.is_set(j) {
-                validity = T::mask_set(validity, j - i, false);
-            }
+    for i in 0..indices.len() {
+        if indices.is_valid(i) {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+            let start =
+                list.value_offset(index) as <UInt32Type as ArrowPrimitiveType>::Native;
+
+            values.extend(start..start + length);
         }
     }
 
-    // Validity based on the length of the Array
-    for j in array_len..simd_upper_bound {
-        validity = T::mask_set(validity, j - i, false);
-    }
-
-    validity
-}
-
-/// Performs a SIMD load but sets all 'invalid' lanes to a constant value.
-///
-/// 'invalid' lanes are lanes where the corresponding array slots are either `NULL` or between the
-/// length and capacity of the array, i.e. in the padded region.
-///
-/// Note that `array` below has it's own `Bitmap` separate from the `bitmap` argument.  This
-/// function is used to prepare `array`'s for binary operations.  The `bitmap` argument is the
-/// `Bitmap` after the binary operation.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-pub(super) unsafe fn simd_load_set_invalid<T>(
-    array: &PrimitiveArray<T>,
-    bitmap: &Option<Bitmap>,
-    i: usize,
-    simd_width: usize,
-    fill_value: T::Native,
-) -> T::Simd
-where
-    T: ArrowNumericType,
-    T::Native: One,
-{
-    let simd_with_zeros = T::load(array.value_slice(i, simd_width));
-    T::mask_select(
-        is_valid::<T>(bitmap, i, simd_width, array.len()),
-        simd_with_zeros,
-        T::init(fill_value),
-    )
+    Ok(PrimitiveArray::<UInt32Type>::from(values))
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
 
     use std::sync::Arc;
 
-    use crate::array::ArrayData;
     use crate::datatypes::{DataType, ToByteSlice};
+    use crate::util::bit_util;
+    use crate::{array::ArrayData, buffer::MutableBuffer};
 
     fn make_data_with_null_bit_buffer(
         len: usize,
@@ -298,37 +254,171 @@ mod tests {
         );
     }
 
-    fn build_list<P, S>(
-        list_data_type: DataType,
-        values: PrimitiveArray<P>,
-        offsets: Vec<S>,
-    ) -> ArrayRef
+    pub(crate) fn build_generic_list<S, T>(
+        data: Vec<Option<Vec<T::Native>>>,
+    ) -> GenericListArray<S>
     where
-        P: ArrowPrimitiveType,
-        S: OffsetSizeTrait,
+        S: OffsetSizeTrait + 'static,
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
-        let value_data = values.data();
-        let value_offsets = Buffer::from(&offsets[..].to_byte_slice());
+        let data = data
+            .into_iter()
+            .map(|subarray| {
+                subarray.map(|item| {
+                    item.into_iter()
+                        .map(Some)
+                        .collect::<Vec<Option<T::Native>>>()
+                })
+            })
+            .collect();
+        build_generic_list_nullable(data)
+    }
+
+    pub(crate) fn build_generic_list_nullable<S, T>(
+        data: Vec<Option<Vec<Option<T::Native>>>>,
+    ) -> GenericListArray<S>
+    where
+        S: OffsetSizeTrait + 'static,
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        use std::any::TypeId;
+
+        let mut offset = vec![0];
+        let mut values = vec![];
+
+        let list_len = data.len();
+        let num_bytes = bit_util::ceil(list_len, 8);
+        let mut list_null_count = 0;
+        let mut list_bitmap = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+        for (idx, array) in data.into_iter().enumerate() {
+            if let Some(mut array) = array {
+                values.append(&mut array);
+            } else {
+                list_null_count += 1;
+                bit_util::unset_bit(&mut list_bitmap.data_mut(), idx);
+            }
+            offset.push(values.len() as i64);
+        }
+
+        let value_data = PrimitiveArray::<T>::from(values).data();
+        let (list_data_type, value_offsets) = if TypeId::of::<S>() == TypeId::of::<i32>()
+        {
+            (
+                DataType::List(Box::new(Field::new(
+                    "item",
+                    T::DATA_TYPE,
+                    list_null_count == 0,
+                ))),
+                Buffer::from(
+                    offset
+                        .into_iter()
+                        .map(|x| x as i32)
+                        .collect::<Vec<i32>>()
+                        .as_slice()
+                        .to_byte_slice(),
+                ),
+            )
+        } else if TypeId::of::<S>() == TypeId::of::<i64>() {
+            (
+                DataType::LargeList(Box::new(Field::new(
+                    "item",
+                    T::DATA_TYPE,
+                    list_null_count == 0,
+                ))),
+                Buffer::from(offset.as_slice().to_byte_slice()),
+            )
+        } else {
+            unreachable!()
+        };
+
         let list_data = ArrayData::builder(list_data_type)
-            .len(offsets.len() - 1)
+            .len(list_len)
+            .null_count(list_null_count)
+            .null_bit_buffer(list_bitmap.freeze())
             .add_buffer(value_offsets)
             .add_child_data(value_data)
             .build();
 
-        Arc::new(GenericListArray::<S>::from(list_data))
+        GenericListArray::<S>::from(list_data)
+    }
+
+    pub(crate) fn build_fixed_size_list<T>(
+        data: Vec<Option<Vec<T::Native>>>,
+        length: <Int32Type as ArrowPrimitiveType>::Native,
+    ) -> FixedSizeListArray
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let data = data
+            .into_iter()
+            .map(|subarray| {
+                subarray.map(|item| {
+                    item.into_iter()
+                        .map(Some)
+                        .collect::<Vec<Option<T::Native>>>()
+                })
+            })
+            .collect();
+        build_fixed_size_list_nullable(data, length)
+    }
+
+    pub(crate) fn build_fixed_size_list_nullable<T>(
+        list_values: Vec<Option<Vec<Option<T::Native>>>>,
+        length: <Int32Type as ArrowPrimitiveType>::Native,
+    ) -> FixedSizeListArray
+    where
+        T: ArrowPrimitiveType,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
+    {
+        let mut values = vec![];
+        let mut list_null_count = 0;
+        let list_len = list_values.len();
+
+        let num_bytes = bit_util::ceil(list_len, 8);
+        let mut list_bitmap = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+        for (idx, list_element) in list_values.into_iter().enumerate() {
+            if let Some(items) = list_element {
+                // every sub-array should have the same length
+                debug_assert_eq!(length as usize, items.len());
+
+                values.extend(items.into_iter());
+            } else {
+                list_null_count += 1;
+                bit_util::unset_bit(&mut list_bitmap.data_mut(), idx);
+                values.extend(vec![None; length as usize].into_iter());
+            }
+        }
+
+        let list_data_type = DataType::FixedSizeList(
+            Box::new(Field::new("item", T::DATA_TYPE, list_null_count == 0)),
+            length,
+        );
+
+        let child_data = PrimitiveArray::<T>::from(values).data();
+
+        let list_data = ArrayData::builder(list_data_type)
+            .len(list_len)
+            .null_count(list_null_count)
+            .null_bit_buffer(list_bitmap.freeze())
+            .add_child_data(child_data)
+            .build();
+
+        FixedSizeListArray::from(list_data)
     }
 
     #[test]
     fn test_take_value_index_from_list() {
-        let list = build_list(
-            DataType::List(Box::new(Field::new("item", DataType::Int32, true))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i32, 2i32, 5i32, 10i32],
-        );
+        let list = build_generic_list::<i32, Int32Type>(vec![
+            Some(vec![0, 1]),
+            Some(vec![2, 3, 4]),
+            Some(vec![5, 6, 7, 8, 9]),
+        ]);
         let indices = UInt32Array::from(vec![2, 0]);
 
-        let (indexed, offsets) =
-            take_value_indices_from_list::<_, Int32Type>(&list, &indices).unwrap();
+        let (indexed, offsets) = take_value_indices_from_list(&list, &indices).unwrap();
 
         assert_eq!(indexed, Int32Array::from(vec![5, 6, 7, 8, 9, 0, 1]));
         assert_eq!(offsets, vec![0, 5, 7]);
@@ -336,11 +426,11 @@ mod tests {
 
     #[test]
     fn test_take_value_index_from_large_list() {
-        let list = build_list(
-            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false))),
-            Int32Array::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            vec![0i64, 2i64, 5i64, 10i64],
-        );
+        let list = build_generic_list::<i64, Int32Type>(vec![
+            Some(vec![0, 1]),
+            Some(vec![2, 3, 4]),
+            Some(vec![5, 6, 7, 8, 9]),
+        ]);
         let indices = UInt32Array::from(vec![2, 0]);
 
         let (indexed, offsets) =
@@ -351,50 +441,30 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    fn test_is_valid() {
-        let a = Int32Array::from(vec![
-            Some(15),
-            None,
-            None,
-            Some(1),
-            None,
-            None,
-            Some(5),
-            None,
-            None,
-            Some(4),
-        ]);
-        let simd_lanes = 16;
-        let data = a.data();
-        let bitmap = data.null_bitmap();
-        let result = unsafe { is_valid::<Int32Type>(&bitmap, 0, simd_lanes, a.len()) };
-        for i in 0..simd_lanes {
-            if i % 3 != 0 || i > 9 {
-                assert_eq!(false, result.extract(i));
-            } else {
-                assert_eq!(true, result.extract(i));
-            }
-        }
-    }
+    fn test_take_value_index_from_fixed_list() {
+        let list = build_fixed_size_list_nullable::<Int32Type>(
+            vec![
+                Some(vec![Some(1), Some(2), None]),
+                Some(vec![Some(4), None, Some(6)]),
+                None,
+                Some(vec![None, Some(8), Some(9)]),
+            ],
+            3,
+        );
 
-    #[test]
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    fn test_simd_load_set_invalid() {
-        let a = Int64Array::from(vec![None, Some(15), Some(5), Some(0)]);
-        let new_bitmap = &Some(Bitmap::from(Buffer::from([0b00001010])));
-        let simd_lanes = 8;
-        let result = unsafe {
-            simd_load_set_invalid::<Int64Type>(&a, &new_bitmap, 0, simd_lanes, 1)
-        };
-        for i in 0..simd_lanes {
-            if i == 1 {
-                assert_eq!(15_i64, result.extract(i));
-            } else if i == 3 {
-                assert_eq!(0_i64, result.extract(i));
-            } else {
-                assert_eq!(1_i64, result.extract(i));
-            }
-        }
+        let indices = UInt32Array::from(vec![2, 1, 0]);
+        let indexed =
+            take_value_indices_from_fixed_size_list(&list, &indices, 3).unwrap();
+
+        assert_eq!(indexed, UInt32Array::from(vec![6, 7, 8, 3, 4, 5, 0, 1, 2]));
+
+        let indices = UInt32Array::from(vec![3, 2, 1, 2, 0]);
+        let indexed =
+            take_value_indices_from_fixed_size_list(&list, &indices, 3).unwrap();
+
+        assert_eq!(
+            indexed,
+            UInt32Array::from(vec![9, 10, 11, 6, 7, 8, 3, 4, 5, 6, 7, 8, 0, 1, 2])
+        );
     }
 }

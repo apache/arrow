@@ -163,7 +163,7 @@ impl TripletIter {
             TripletIter::FixedLenByteArrayTripletIter(ref typed) => {
                 Field::convert_byte_array(
                     typed.column_descr(),
-                    typed.current_value().clone(),
+                    typed.current_value().clone().into(),
                 )
             }
         }

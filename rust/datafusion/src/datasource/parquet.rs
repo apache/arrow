@@ -22,9 +22,12 @@ use std::string::String;
 use std::sync::Arc;
 
 use arrow::datatypes::*;
+use parquet::file::metadata::RowGroupMetaData;
 
+use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::Result;
+use crate::logical_plan::Expr;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::ExecutionPlan;
 
@@ -32,6 +35,7 @@ use crate::physical_plan::ExecutionPlan;
 pub struct ParquetTable {
     path: String,
     schema: SchemaRef,
+    statistics: Statistics,
 }
 
 impl ParquetTable {
@@ -39,9 +43,26 @@ impl ParquetTable {
     pub fn try_new(path: &str) -> Result<Self> {
         let parquet_exec = ParquetExec::try_new(path, None, 0)?;
         let schema = parquet_exec.schema();
+
+        let metadata = parquet_exec.metadata();
+        let num_rows: i64 = metadata
+            .row_groups()
+            .iter()
+            .map(RowGroupMetaData::num_rows)
+            .sum();
+        let total_byte_size: i64 = metadata
+            .row_groups()
+            .iter()
+            .map(RowGroupMetaData::total_byte_size)
+            .sum();
+
         Ok(Self {
             path: path.to_string(),
             schema,
+            statistics: Statistics {
+                num_rows: Some(num_rows as usize),
+                total_byte_size: Some(total_byte_size as usize),
+            },
         })
     }
 }
@@ -62,12 +83,17 @@ impl TableProvider for ParquetTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(ParquetExec::try_new(
             &self.path,
             projection.clone(),
             batch_size,
         )?))
+    }
+
+    fn statistics(&self) -> Statistics {
+        self.statistics.clone()
     }
 }
 
@@ -86,7 +112,7 @@ mod tests {
     async fn read_small_batches() -> Result<()> {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
-        let exec = table.scan(&projection, 2)?;
+        let exec = table.scan(&projection, 2, &[])?;
         let stream = exec.execute(0).await?;
 
         let count = stream
@@ -100,6 +126,10 @@ mod tests {
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
+
+        // test metadata
+        assert_eq!(table.statistics().num_rows, Some(8));
+        assert_eq!(table.statistics().total_byte_size, Some(671));
 
         Ok(())
     }
@@ -307,7 +337,7 @@ mod tests {
         table: Box<dyn TableProvider>,
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
-        let exec = table.scan(projection, 1024)?;
+        let exec = table.scan(projection, 1024, &[])?;
         let mut it = exec.execute(0).await?;
         it.next()
             .await

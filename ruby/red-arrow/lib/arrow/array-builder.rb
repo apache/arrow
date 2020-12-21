@@ -115,6 +115,17 @@ module Arrow
             builder: Date32ArrayBuilder.new,
             detected: true,
           }
+        when BigDecimal
+          if value.to_arrow.is_a?(Decimal128)
+            {
+              builder: Decimal128ArrayBuilder.new,
+            }
+          else
+            {
+              builder: Decimal256ArrayBuilder.new,
+              detected: true,
+            }
+          end
         when ::Array
           sub_builder_info = nil
           value.each do |sub_value|

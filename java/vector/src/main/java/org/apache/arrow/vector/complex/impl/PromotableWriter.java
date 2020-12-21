@@ -225,6 +225,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   @Override
   public void writeNull() {
+    FieldWriter w = getWriter();
+    if (w != null) {
+      w.writeNull();
+    }
     setPosition(idx() + 1);
   }
 

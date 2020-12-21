@@ -18,12 +18,12 @@
 //! via a logical query plan.
 
 use std::{
+    cmp::min,
     fmt::{self, Display},
     sync::Arc,
 };
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
 use crate::sql::parser::FileType;
@@ -31,18 +31,10 @@ use crate::sql::parser::FileType;
 use super::display::{GraphvizVisitor, IndentVisitor};
 use super::expr::Expr;
 use super::extension::UserDefinedLogicalNode;
-
-/// Describes the source of the table, either registered on the context or by reference
-#[derive(Clone)]
-pub enum TableSource {
-    /// The source provider is registered in the context with the corresponding name
-    FromContext(String),
-    /// The source provider is passed directly by reference
-    FromProvider(Arc<dyn TableProvider + Send + Sync>),
-}
+use crate::logical_plan::dfschema::DFSchemaRef;
 
 /// Join type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum JoinType {
     /// Inner join
     Inner,
@@ -70,7 +62,7 @@ pub enum LogicalPlan {
         /// The incoming logical plan
         input: Arc<LogicalPlan>,
         /// The schema description of the output
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     },
     /// Filters rows from its input that do not match an
     /// expression (essentially a WHERE clause with a predicate
@@ -96,7 +88,7 @@ pub enum LogicalPlan {
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
         /// The schema description of the aggregate output
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     },
     /// Sorts its input according to a list of sort expressions.
     Sort {
@@ -116,64 +108,27 @@ pub enum LogicalPlan {
         /// Join type
         join_type: JoinType,
         /// The output schema, containing fields from the left and right inputs
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
-        /// The name of the schema
-        schema_name: String,
+        /// The name of the table
+        table_name: String,
         /// The source of the table
-        source: TableSource,
-        /// The schema of the source data
-        table_schema: SchemaRef,
+        source: Arc<dyn TableProvider + Send + Sync>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
-        projected_schema: SchemaRef,
-    },
-    /// Produces rows that come from a `Vec` of in memory `RecordBatch`es
-    InMemoryScan {
-        /// Record batch partitions
-        data: Vec<Vec<RecordBatch>>,
-        /// The schema of the record batches
-        schema: SchemaRef,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: SchemaRef,
-    },
-    /// Produces rows by scanning Parquet file(s)
-    ParquetScan {
-        /// The path to the files
-        path: String,
-        /// The schema of the Parquet file(s)
-        schema: SchemaRef,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: SchemaRef,
-    },
-    /// Produces rows by scanning a CSV file(s)
-    CsvScan {
-        /// The path to the files
-        path: String,
-        /// The underlying table schema
-        schema: SchemaRef,
-        /// Whether the CSV file(s) have a header containing column names
-        has_header: bool,
-        /// An optional column delimiter. Defaults to `b','`
-        delimiter: Option<u8>,
-        /// Optional column indices to use as a projection
-        projection: Option<Vec<usize>>,
-        /// The schema description of the output
-        projected_schema: SchemaRef,
+        projected_schema: DFSchemaRef,
+        /// Optional expressions to be used as filters by the table provider
+        filters: Vec<Expr>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
         /// Whether to produce a placeholder row
         produce_one_row: bool,
         /// The schema description of the output
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     },
     /// Produces the first `n` tuples from its input and discards the rest.
     Limit {
@@ -185,7 +140,7 @@ pub enum LogicalPlan {
     /// Creates an external table.
     CreateExternalTable {
         /// The table schema
-        schema: SchemaRef,
+        schema: DFSchemaRef,
         /// The table name
         name: String,
         /// The physical location
@@ -205,7 +160,7 @@ pub enum LogicalPlan {
         /// Represent the various stages plans have gone through
         stringified_plans: Vec<StringifiedPlan>,
         /// The output schema of the explain (2 columns of text)
-        schema: SchemaRef,
+        schema: DFSchemaRef,
     },
     /// Extension operator defined outside of DataFusion
     Extension {
@@ -216,18 +171,9 @@ pub enum LogicalPlan {
 
 impl LogicalPlan {
     /// Get a reference to the logical plan's schema
-    pub fn schema(&self) -> &SchemaRef {
+    pub fn schema(&self) -> &DFSchemaRef {
         match self {
             LogicalPlan::EmptyRelation { schema, .. } => &schema,
-            LogicalPlan::InMemoryScan {
-                projected_schema, ..
-            } => &projected_schema,
-            LogicalPlan::CsvScan {
-                projected_schema, ..
-            } => &projected_schema,
-            LogicalPlan::ParquetScan {
-                projected_schema, ..
-            } => &projected_schema,
             LogicalPlan::TableScan {
                 projected_schema, ..
             } => &projected_schema,
@@ -331,9 +277,6 @@ impl LogicalPlan {
             }
             // plans without inputs
             LogicalPlan::TableScan { .. }
-            | LogicalPlan::InMemoryScan { .. }
-            | LogicalPlan::ParquetScan { .. }
-            | LogicalPlan::CsvScan { .. }
             | LogicalPlan::EmptyRelation { .. }
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. } => true,
@@ -367,7 +310,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -408,7 +351,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -448,7 +391,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .filter(col("id").eq(lit(5))).unwrap()
     ///     .build().unwrap();
     ///
@@ -507,7 +450,7 @@ impl LogicalPlan {
     /// let schema = Schema::new(vec![
     ///     Field::new("id", DataType::Int32, false),
     /// ]);
-    /// let plan = LogicalPlanBuilder::scan("default", "foo.csv", &schema, None).unwrap()
+    /// let plan = LogicalPlanBuilder::scan_empty("foo.csv", &schema, None).unwrap()
     ///     .build().unwrap();
     ///
     /// // Format using display
@@ -524,32 +467,24 @@ impl LogicalPlan {
                 match *self.0 {
                     LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
                     LogicalPlan::TableScan {
-                        ref source,
+                        ref table_name,
                         ref projection,
+                        ref filters,
                         ..
-                    } => match source {
-                        TableSource::FromContext(table_name) => write!(
+                    } => {
+                        let sep = " ".repeat(min(1, table_name.len()));
+                        write!(
                             f,
-                            "TableScan: {} projection={:?}",
-                            table_name, projection
-                        ),
-                        TableSource::FromProvider(_) => {
-                            write!(f, "TableScan: projection={:?}", projection)
+                            "TableScan: {}{}projection={:?}",
+                            table_name, sep, projection
+                        )?;
+
+                        if !filters.is_empty() {
+                            write!(f, ", filters={:?}", filters)?;
                         }
-                    },
-                    LogicalPlan::InMemoryScan { ref projection, .. } => {
-                        write!(f, "InMemoryScan: projection={:?}", projection)
+
+                        Ok(())
                     }
-                    LogicalPlan::CsvScan {
-                        ref path,
-                        ref projection,
-                        ..
-                    } => write!(f, "CsvScan: {} projection={:?}", path, projection),
-                    LogicalPlan::ParquetScan {
-                        ref path,
-                        ref projection,
-                        ..
-                    } => write!(f, "ParquetScan: {} projection={:?}", path, projection),
                     LogicalPlan::Projection { ref expr, .. } => {
                         write!(f, "Projection: ")?;
                         for i in 0..expr.len() {
@@ -635,6 +570,7 @@ impl From<&PlanType> for String {
 
 /// Represents some sort of execution plan, in String form
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::rc_buffer)]
 pub struct StringifiedPlan {
     /// An identifier of what type of plan this string represents
     pub plan_type: PlanType,
@@ -675,8 +611,7 @@ mod tests {
     }
 
     fn display_plan() -> LogicalPlan {
-        LogicalPlanBuilder::scan(
-            "default",
+        LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),
@@ -973,7 +908,7 @@ mod tests {
     fn test_plan() -> LogicalPlan {
         let schema = Schema::new(vec![Field::new("id", DataType::Int32, false)]);
 
-        LogicalPlanBuilder::scan("default", "employee.csv", &schema, Some(vec![0]))
+        LogicalPlanBuilder::scan_empty("", &schema, Some(vec![0]))
             .unwrap()
             .filter(col("state").eq(lit("CO")))
             .unwrap()

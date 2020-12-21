@@ -34,7 +34,7 @@ module Arrow
       when Float
         value = Decimal128.new(value.to_s)
       when BigDecimal
-        value = value.to_arrow
+        value = Decimal128.new(value.to_s)
       end
       append_value_raw(value)
     end

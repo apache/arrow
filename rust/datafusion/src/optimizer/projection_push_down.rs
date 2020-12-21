@@ -19,10 +19,10 @@
 //! loaded into memory
 
 use crate::error::{DataFusionError, Result};
-use crate::logical_plan::LogicalPlan;
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan, ToDFSchema};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use arrow::datatypes::{Field, Schema, SchemaRef};
+use arrow::datatypes::Schema;
 use arrow::error::Result as ArrowResult;
 use std::{collections::HashSet, sync::Arc};
 use utils::optimize_explain;
@@ -40,11 +40,11 @@ impl OptimizerRule for ProjectionPushDown {
             .iter()
             .map(|f| f.name().clone())
             .collect::<HashSet<String>>();
-        return optimize_plan(self, plan, &required_columns, false);
+        optimize_plan(self, plan, &required_columns, false)
     }
 
     fn name(&self) -> &str {
-        return "projection_push_down";
+        "projection_push_down"
     }
 }
 
@@ -60,7 +60,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
-) -> Result<(Vec<usize>, SchemaRef)> {
+) -> Result<(Vec<usize>, DFSchemaRef)> {
     if projection.is_some() {
         return Err(DataFusionError::Internal(
             "Cannot run projection push-down rule more than once".to_string(),
@@ -95,15 +95,15 @@ fn get_projected_schema(
     }
 
     // sort the projection otherwise we get non-deterministic behavior
-    projection.sort();
+    projection.sort_unstable();
 
     // create the projected schema
-    let mut projected_fields: Vec<Field> = Vec::with_capacity(projection.len());
+    let mut projected_fields: Vec<DFField> = Vec::with_capacity(projection.len());
     for i in &projection {
-        projected_fields.push(schema.fields()[*i].clone());
+        projected_fields.push(DFField::from(schema.fields()[*i].clone()));
     }
 
-    Ok((projection, SchemaRef::new(Schema::new(projected_fields))))
+    Ok((projection, projected_fields.to_dfschema_ref()?))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -132,7 +132,7 @@ fn optimize_plan(
                 .fields()
                 .iter()
                 .enumerate()
-                .map(|(i, field)| {
+                .try_for_each(|(i, field)| {
                     if required_columns.contains(field.name()) {
                         new_expr.push(expr[i].clone());
                         new_fields.push(field.clone());
@@ -142,19 +142,18 @@ fn optimize_plan(
                     } else {
                         Ok(())
                     }
-                })
-                .collect::<Result<()>>()?;
+                })?;
 
             let new_input =
                 optimize_plan(optimizer, &input, &new_required_columns, true)?;
-            if new_fields.len() == 0 {
+            if new_fields.is_empty() {
                 // no need for an expression at all
                 Ok(new_input)
             } else {
                 Ok(LogicalPlan::Projection {
                     expr: new_expr,
                     input: Arc::new(new_input),
-                    schema: SchemaRef::new(Schema::new(new_fields)),
+                    schema: DFSchemaRef::new(DFSchema::new(new_fields)?),
                 })
             }
         }
@@ -183,7 +182,7 @@ fn optimize_plan(
                     true,
                 )?),
 
-                join_type: join_type.clone(),
+                join_type: *join_type,
                 on: on.clone(),
                 schema: schema.clone(),
             })
@@ -203,31 +202,28 @@ fn optimize_plan(
 
             // Gather all columns needed for expressions in this Aggregate
             let mut new_aggr_expr = Vec::new();
-            aggr_expr
-                .iter()
-                .map(|expr| {
-                    let name = &expr.name(&schema)?;
+            aggr_expr.iter().try_for_each(|expr| {
+                let name = &expr.name(&schema)?;
 
-                    if required_columns.contains(name) {
-                        new_aggr_expr.push(expr.clone());
-                        new_required_columns.insert(name.clone());
+                if required_columns.contains(name) {
+                    new_aggr_expr.push(expr.clone());
+                    new_required_columns.insert(name.clone());
 
-                        // add to the new set of required columns
-                        utils::expr_to_column_names(expr, &mut new_required_columns)
-                    } else {
-                        Ok(())
-                    }
-                })
-                .collect::<Result<()>>()?;
+                    // add to the new set of required columns
+                    utils::expr_to_column_names(expr, &mut new_required_columns)
+                } else {
+                    Ok(())
+                }
+            })?;
 
-            let new_schema = Schema::new(
+            let new_schema = DFSchema::new(
                 schema
                     .fields()
                     .iter()
                     .filter(|x| new_required_columns.contains(x.name()))
                     .cloned()
                     .collect(),
-            );
+            )?;
 
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
@@ -238,20 +234,20 @@ fn optimize_plan(
                     &new_required_columns,
                     true,
                 )?),
-                schema: SchemaRef::new(new_schema),
+                schema: DFSchemaRef::new(new_schema),
             })
         }
         // scans:
         // * remove un-used columns from the scan projection
         LogicalPlan::TableScan {
-            schema_name,
+            table_name,
             source,
-            table_schema,
             projection,
+            filters,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
-                &table_schema,
+                &source.schema(),
                 projection,
                 required_columns,
                 has_projection,
@@ -259,74 +255,11 @@ fn optimize_plan(
 
             // return the table scan with projection
             Ok(LogicalPlan::TableScan {
-                schema_name: schema_name.to_string(),
+                table_name: table_name.to_string(),
                 source: source.clone(),
-                table_schema: table_schema.clone(),
                 projection: Some(projection),
-                projected_schema: projected_schema,
-            })
-        }
-        LogicalPlan::InMemoryScan {
-            data,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-            Ok(LogicalPlan::InMemoryScan {
-                data: data.clone(),
-                schema: schema.clone(),
-                projection: Some(projection),
-                projected_schema: projected_schema,
-            })
-        }
-        LogicalPlan::CsvScan {
-            path,
-            has_header,
-            delimiter,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-
-            Ok(LogicalPlan::CsvScan {
-                path: path.to_owned(),
-                has_header: *has_header,
-                schema: schema.clone(),
-                delimiter: *delimiter,
-                projection: Some(projection),
-                projected_schema: projected_schema,
-            })
-        }
-        LogicalPlan::ParquetScan {
-            path,
-            schema,
-            projection,
-            ..
-        } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &schema,
-                projection,
-                required_columns,
-                has_projection,
-            )?;
-
-            Ok(LogicalPlan::ParquetScan {
-                path: path.to_owned(),
-                schema: schema.clone(),
-                projection: Some(projection),
-                projected_schema: projected_schema,
+                projected_schema,
+                filters: filters.clone(),
             })
         }
         LogicalPlan::Explain {
@@ -334,7 +267,10 @@ fn optimize_plan(
             plan,
             stringified_plans,
             schema,
-        } => optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &*schema),
+        } => {
+            let schema = schema.as_ref().to_owned().into();
+            optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &schema)
+        }
         // all other nodes: Add any additional columns used by
         // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }

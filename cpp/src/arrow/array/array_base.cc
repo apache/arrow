@@ -222,29 +222,31 @@ bool Array::ApproxEquals(const std::shared_ptr<Array>& arr,
 }
 
 bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
-                        int64_t other_start_idx) const {
-  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
+                        int64_t other_start_idx, const EqualOptions& opts) const {
+  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx, opts);
 }
 
 bool Array::RangeEquals(const std::shared_ptr<Array>& other, int64_t start_idx,
-                        int64_t end_idx, int64_t other_start_idx) const {
+                        int64_t end_idx, int64_t other_start_idx,
+                        const EqualOptions& opts) const {
   if (!other) {
     return false;
   }
-  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx);
+  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx, opts);
 }
 
 bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
-                        const Array& other) const {
-  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
+                        const Array& other, const EqualOptions& opts) const {
+  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx, opts);
 }
 
 bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
-                        const std::shared_ptr<Array>& other) const {
+                        const std::shared_ptr<Array>& other,
+                        const EqualOptions& opts) const {
   if (!other) {
     return false;
   }
-  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx);
+  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx, opts);
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {

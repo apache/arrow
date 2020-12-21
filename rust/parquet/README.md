@@ -68,10 +68,6 @@ version is available. Then simply update version of `parquet-format` crate in Ca
 - [ ] Parquet format 2.5 support
 
 ## Requirements
-- Rust nightly
-
-See [Working with nightly Rust](https://github.com/rust-lang-nursery/rustup.rs/blob/master/README.md#working-with-nightly-rust)
-to install nightly toolchain and set it as default.
 
 Parquet requires LLVM.  Our windows CI image includes LLVM but to build the libraries locally windows
 users will have to install LLVM. Follow [this](https://github.com/appveyor/ci/issues/2651) link for info.

@@ -52,6 +52,7 @@ set_source_files_properties(${GANDIVA_PRECOMPILED_CC_PATH} PROPERTIES GENERATED 
 set(SRC_FILES
     annotator.cc
     bitmap_accumulator.cc
+    cache.cc
     cast_time.cc
     configuration.cc
     context_helper.cc
@@ -88,9 +89,9 @@ set(SRC_FILES
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE RE2::re2)
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE)
 
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE RE2::re2)
+set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE)
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP
    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
@@ -154,9 +155,9 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
 arrow_install_all_headers("gandiva")
 
-set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static RE2::re2 ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS})
 
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared RE2::re2 ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS})
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)

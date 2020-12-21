@@ -26,8 +26,9 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::mem::size_of;
+use std::ops::Neg;
 #[cfg(feature = "simd")]
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Not, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -40,7 +41,6 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -96,7 +96,7 @@ pub enum DataType {
     /// * As used in the Olson time zone database (the "tz database" or
     ///   "tzdata"), such as "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
-    Timestamp(TimeUnit, Option<Arc<String>>),
+    Timestamp(TimeUnit, Option<String>),
     /// A 32-bit date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
     Date32(DateUnit),
@@ -209,6 +209,16 @@ pub trait ArrowNativeType:
     fn to_usize(&self) -> Option<usize> {
         None
     }
+
+    /// Convert native type from i32.
+    fn from_i32(_: i32) -> Option<Self> {
+        None
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(_: i64) -> Option<Self> {
+        None
+    }
 }
 
 /// Trait indicating a primitive fixed-width type (bool, ints and floats).
@@ -219,9 +229,9 @@ pub trait ArrowPrimitiveType: 'static {
     /// the corresponding Arrow data type of this primitive type.
     const DATA_TYPE: DataType;
 
-    /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize {
-        size_of::<Self::Native>() * 8
+    /// Returns the byte width of this primitive type.
+    fn get_byte_width() -> usize {
+        size_of::<Self::Native>()
     }
 
     /// Returns a default value of this primitive type.
@@ -229,15 +239,6 @@ pub trait ArrowPrimitiveType: 'static {
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
     fn default_value() -> Self::Native {
         Default::default()
-    }
-
-    /// Returns a value offset from the given pointer by the given index. The default
-    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
-    /// # Safety
-    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
-    /// must be less than the size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        *(raw_ptr.add(i))
     }
 }
 
@@ -287,6 +288,11 @@ impl ArrowNativeType for i32 {
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
     }
+
+    /// Convert native type from i32.
+    fn from_i32(val: i32) -> Option<Self> {
+        Some(val)
+    }
 }
 
 impl ArrowNativeType for i64 {
@@ -300,6 +306,11 @@ impl ArrowNativeType for i64 {
 
     fn to_usize(&self) -> Option<usize> {
         num::ToPrimitive::to_usize(self)
+    }
+
+    /// Convert native type from i64.
+    fn from_i64(val: i64) -> Option<Self> {
+        Some(val)
     }
 }
 
@@ -376,20 +387,8 @@ impl ArrowNativeType for f64 {
 #[derive(Debug)]
 pub struct BooleanType {}
 
-impl ArrowPrimitiveType for BooleanType {
-    type Native = bool;
-    const DATA_TYPE: DataType = DataType::Boolean;
-
-    fn get_bit_width() -> usize {
-        1
-    }
-
-    /// # Safety
-    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
-    /// size of the array.
-    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        bit_util::get_bit_raw(raw_ptr as *const u8, i)
-    }
+impl BooleanType {
+    pub const DATA_TYPE: DataType = DataType::Boolean;
 }
 
 macro_rules! make_type {
@@ -506,13 +505,19 @@ impl ArrowDictionaryKeyType for UInt64Type {}
 /// A subtype of primitive type that represents numeric values.
 ///
 /// SIMD operations are defined in this trait if available on the target system.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub trait ArrowNumericType: ArrowPrimitiveType
 where
     Self::Simd: Add<Output = Self::Simd>
         + Sub<Output = Self::Simd>
         + Mul<Output = Self::Simd>
         + Div<Output = Self::Simd>
+        + Copy,
+    Self::SimdMask: BitAnd<Output = Self::SimdMask>
+        + BitOr<Output = Self::SimdMask>
+        + BitAndAssign
+        + BitOrAssign
+        + Not<Output = Self::SimdMask>
         + Copy,
 {
     /// Defines the SIMD type that should be used for this numeric type
@@ -533,7 +538,8 @@ where
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
 
-    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`
+    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`.
+    /// The number of bits used corresponds to the number of lanes of this type
     fn mask_from_u64(mask: u64) -> Self::SimdMask;
 
     /// Gets the value of a single lane in a SIMD mask
@@ -582,15 +588,12 @@ where
     fn write(simd_result: Self::Simd, slice: &mut [Self::Native]);
 }
 
-#[cfg(any(
-    not(any(target_arch = "x86", target_arch = "x86_64")),
-    not(feature = "simd")
-))]
+#[cfg(not(simd_x86))]
 pub trait ArrowNumericType: ArrowPrimitiveType {}
 
 macro_rules! make_numeric_type {
     ($impl_ty:ty, $native_ty:ty, $simd_ty:ident, $simd_mask_ty:ident) => {
-        #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+        #[cfg(simd_x86)]
         impl ArrowNumericType for $impl_ty {
             type Simd = $simd_ty;
 
@@ -618,19 +621,28 @@ macro_rules! make_numeric_type {
 
             #[inline]
             fn mask_from_u64(mask: u64) -> Self::SimdMask {
+                // this match will get removed by the compiler since the number of lanes is known at
+                // compile-time for each concrete numeric type
                 match Self::lanes() {
                     8 => {
-                        let vecidx = i64x8::new(128, 64, 32, 16, 8, 4, 2, 1);
+                        // the bit position in each lane indicates the index of that lane
+                        let vecidx = i64x8::new(1, 2, 4, 8, 16, 32, 64, 128);
 
+                        // broadcast the lowermost 8 bits of mask to each lane
                         let vecmask = i64x8::splat((mask & 0xFF) as i64);
+                        // compute whether the bit corresponding to each lanes index is set
                         let vecmask = (vecidx & vecmask).eq(vecidx);
 
+                        // transmute is necessary because the different match arms return different
+                        // mask types, at runtime only one of those expressions will exist per type,
+                        // with the type being equal to `SimdMask`.
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     16 => {
+                        // same general logic as for 8 lanes, extended to 16 bits
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -639,11 +651,13 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(vecmask) }
                     }
                     32 => {
+                        // compute two separate m32x16 vector masks from  from the lower-most 32 bits of `mask`
+                        // and then combine them into one m16x32 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i16; 32];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -661,11 +675,13 @@ macro_rules! make_numeric_type {
                         unsafe { std::mem::transmute(i16x32::from_slice_unaligned(tmp)) }
                     }
                     64 => {
+                        // compute four m32x16 vector masks from  from all 64 bits of `mask`
+                        // and convert them into one m8x64 vector mask by writing and reading a temporary
                         let tmp = &mut [0_i8; 64];
 
                         let vecidx = i32x16::new(
-                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
-                            16, 8, 4, 2, 1,
+                            1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096,
+                            8192, 16384, 32768,
                         );
 
                         let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
@@ -774,10 +790,8 @@ macro_rules! make_numeric_type {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
         }
-        #[cfg(any(
-            not(any(target_arch = "x86", target_arch = "x86_64")),
-            not(feature = "simd")
-        ))]
+
+        #[cfg(not(simd_x86))]
         impl ArrowNumericType for $impl_ty {}
     };
 }
@@ -809,6 +823,74 @@ make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
 make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
+
+/// A subtype of primitive type that represents signed numeric values.
+///
+/// SIMD operations are defined in this trait if available on the target system.
+#[cfg(simd_x86)]
+pub trait ArrowSignedNumericType: ArrowNumericType
+where
+    Self::SignedSimd: Neg<Output = Self::SignedSimd>,
+{
+    /// Defines the SIMD type that should be used for this numeric type
+    type SignedSimd;
+
+    /// Loads a slice of signed numeric type into a SIMD register
+    fn load_signed(slice: &[Self::Native]) -> Self::SignedSimd;
+
+    /// Performs a SIMD unary operation on signed numeric type
+    fn signed_unary_op<F: Fn(Self::SignedSimd) -> Self::SignedSimd>(
+        a: Self::SignedSimd,
+        op: F,
+    ) -> Self::SignedSimd;
+
+    /// Writes a signed SIMD result back to a slice
+    fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]);
+}
+
+#[cfg(not(simd_x86))]
+pub trait ArrowSignedNumericType: ArrowNumericType
+where
+    Self::Native: Neg<Output = Self::Native>,
+{
+}
+
+macro_rules! make_signed_numeric_type {
+    ($impl_ty:ty, $simd_ty:ident) => {
+        #[cfg(simd_x86)]
+        impl ArrowSignedNumericType for $impl_ty {
+            type SignedSimd = $simd_ty;
+
+            #[inline]
+            fn load_signed(slice: &[Self::Native]) -> Self::SignedSimd {
+                unsafe { Self::SignedSimd::from_slice_unaligned_unchecked(slice) }
+            }
+
+            #[inline]
+            fn signed_unary_op<F: Fn(Self::SignedSimd) -> Self::SignedSimd>(
+                a: Self::SignedSimd,
+                op: F,
+            ) -> Self::SignedSimd {
+                op(a)
+            }
+
+            #[inline]
+            fn write_signed(simd_result: Self::SignedSimd, slice: &mut [Self::Native]) {
+                unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
+            }
+        }
+
+        #[cfg(not(simd_x86))]
+        impl ArrowSignedNumericType for $impl_ty {}
+    };
+}
+
+make_signed_numeric_type!(Int8Type, i8x64);
+make_signed_numeric_type!(Int16Type, i16x32);
+make_signed_numeric_type!(Int32Type, i32x16);
+make_signed_numeric_type!(Int64Type, i64x8);
+make_signed_numeric_type!(Float32Type, f32x16);
+make_signed_numeric_type!(Float64Type, f64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
@@ -895,6 +977,23 @@ impl DataType {
                         ))
                     }
                 }
+                Some(s) if s == "decimal" => {
+                    // return a list with any type as its child isn't defined in the map
+                    let precision = match map.get("precision") {
+                        Some(p) => Ok(p.as_u64().unwrap() as usize),
+                        None => Err(ArrowError::ParseError(
+                            "Expecting a precision for decimal".to_string(),
+                        )),
+                    };
+                    let scale = match map.get("scale") {
+                        Some(s) => Ok(s.as_u64().unwrap() as usize),
+                        _ => Err(ArrowError::ParseError(
+                            "Expecting a scale for decimal".to_string(),
+                        )),
+                    };
+
+                    Ok(DataType::Decimal(precision?, scale?))
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
@@ -915,7 +1014,7 @@ impl DataType {
                     };
                     let tz = match map.get("timezone") {
                         None => Ok(None),
-                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
+                        Some(VString(tz)) => Ok(Some(tz.clone())),
                         _ => Err(ArrowError::ParseError(
                             "timezone must be a string".to_string(),
                         )),
@@ -1254,18 +1353,16 @@ impl Field {
                                 ));
                             }
                             match data_type {
-                                    DataType::List(_) => DataType::List(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::LargeList(_) => DataType::LargeList(Box::new(
-                                        Self::from(&values[0])?,
-                                    )),
-                                    DataType::FixedSizeList(_, int) => {
-                                        DataType::FixedSizeList(
-                                            Box::new(Self::from(&values[0])?),
-                                            int,
-                                        )
+                                    DataType::List(_) => {
+                                        DataType::List(Box::new(Self::from(&values[0])?))
                                     }
+                                    DataType::LargeList(_) => {
+                                        DataType::LargeList(Box::new(Self::from(&values[0])?))
+                                    }
+                                    DataType::FixedSizeList(_, int) => DataType::FixedSizeList(
+                                        Box::new(Self::from(&values[0])?),
+                                        int,
+                                    ),
                                     _ => unreachable!(
                                         "Data type should be a list, largelist or fixedsizelist"
                                     ),
@@ -1611,7 +1708,7 @@ impl Schema {
                     }
                 }
             }
-            // merge fileds
+            // merge fields
             for field in &schema.fields {
                 let mut new_field = true;
                 for merged_field in &mut merged.fields {
@@ -1989,17 +2086,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),
@@ -2796,11 +2890,7 @@ mod tests {
     }
 }
 
-#[cfg(all(
-    test,
-    any(target_arch = "x86", target_arch = "x86_64"),
-    feature = "simd"
-))]
+#[cfg(all(test, simd_x86))]
 mod arrow_numeric_type_tests {
     use crate::datatypes::{
         ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,
@@ -2809,72 +2899,81 @@ mod arrow_numeric_type_tests {
     use packed_simd::*;
     use FromCast;
 
+    /// calculate the expected mask by iterating over all bits
+    macro_rules! expected_mask {
+        ($T:ty, $MASK:expr) => {{
+            let mask = $MASK;
+            // simd width of all types is currently 64 bytes -> 512 bits
+            let lanes = 64 / std::mem::size_of::<$T>();
+            // translate each set bit into a value of all ones (-1) of the correct type
+            (0..lanes)
+                .map(|i| (if (mask & (1 << i)) != 0 { -1 } else { 0 }))
+                .collect::<Vec<$T>>()
+        }};
+    }
+
     #[test]
     fn test_mask_f64() {
-        let mask = Float64Type::mask_from_u64(0b10101010);
+        let mask = 0b10101010;
+        let actual = Float64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[-1, 0, -1, 0, -1, 0, -1, 0]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u64() {
-        let mask = Int64Type::mask_from_u64(0b01010101);
+        let mask = 0b01010101;
+        let actual = Int64Type::mask_from_u64(mask);
+        let expected = expected_mask!(i64, mask);
+        let expected = m64x8::from_cast(i64x8::from_slice_unaligned(expected.as_slice()));
 
-        let expected =
-            m64x8::from_cast(i64x8::from_slice_unaligned(&[0, -1, 0, -1, 0, -1, 0, -1]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_f32() {
-        let mask = Float32Type::mask_from_u64(0b10101010_10101010);
+        let mask = 0b10101010_10101010;
+        let actual = Float32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i32() {
-        let mask = Int32Type::mask_from_u64(0b01010101_01010101);
+        let mask = 0b01010101_01010101;
+        let actual = Int32Type::mask_from_u64(mask);
+        let expected = expected_mask!(i32, mask);
+        let expected =
+            m32x16::from_cast(i32x16::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_u16() {
-        let mask = UInt16Type::mask_from_u64(0b01010101_01010101_10101010_10101010);
+        let mask = 0b01010101_01010101_10101010_10101010;
+        let actual = UInt16Type::mask_from_u64(mask);
+        let expected = expected_mask!(i16, mask);
+        dbg!(&expected);
+        let expected =
+            m16x32::from_cast(i16x32::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m16x32::from_cast(i16x32::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 
     #[test]
     fn test_mask_i8() {
-        let mask = Int8Type::mask_from_u64(
-            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010,
-        );
+        let mask =
+            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010;
+        let actual = Int8Type::mask_from_u64(mask);
+        let expected = expected_mask!(i8, mask);
+        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(expected.as_slice()));
 
-        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(&[
-            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
-            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
-            -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
-        ]));
-
-        assert_eq!(expected, mask);
+        assert_eq!(expected, actual);
     }
 }

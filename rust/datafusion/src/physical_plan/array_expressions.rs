@@ -61,7 +61,7 @@ macro_rules! array {
 /// put values in an array.
 pub fn array(args: &[ArrayRef]) -> Result<ArrayRef> {
     // do not accept 0 arguments.
-    if args.len() == 0 {
+    if args.is_empty() {
         return Err(DataFusionError::Internal(
             "array requires at least one argument".to_string(),
         ));
@@ -91,7 +91,7 @@ pub fn array(args: &[ArrayRef]) -> Result<ArrayRef> {
 /// Currently supported types by the array function.
 /// The order of these types correspond to the order on which coercion applies
 /// This should thus be from least informative to most informative
-pub static SUPPORTED_ARRAY_TYPES: &'static [DataType] = &[
+pub static SUPPORTED_ARRAY_TYPES: &[DataType] = &[
     DataType::Boolean,
     DataType::UInt8,
     DataType::UInt16,

@@ -23,6 +23,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/validate.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -31,7 +32,7 @@ namespace arrow {
 using internal::checked_cast;
 
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::BINARY);
+  ARROW_CHECK(is_binary_like(data->type->id()));
   SetData(data);
 }
 
@@ -44,7 +45,7 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 }
 
 LargeBinaryArray::LargeBinaryArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_BINARY);
+  ARROW_CHECK(is_large_binary_like(data->type->id()));
   SetData(data);
 }
 

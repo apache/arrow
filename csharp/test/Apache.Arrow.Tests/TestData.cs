@@ -58,6 +58,11 @@ namespace Apache.Arrow.Tests
 
             Schema schema = builder.Build();
 
+            return CreateSampleRecordBatch(schema, length);
+        }
+
+        public static RecordBatch CreateSampleRecordBatch(Schema schema, int length)
+        {
             IEnumerable<IArrowArray> arrays = CreateArrays(schema, length);
 
             return new RecordBatch(schema, arrays, length);
@@ -200,27 +205,15 @@ namespace Apache.Arrow.Tests
                 valueBuilder.Append(0);
 
                 Array = builder.Build();
-
             }
 
             public void Visit(StructType type)
             {
-                StringArray.Builder stringBuilder = new StringArray.Builder();
-                for (int i = 0; i < Length; i++)
+                IArrowArray[] childArrays = new IArrowArray[type.Fields.Count];
+                for (int i = 0; i < childArrays.Length; i++)
                 {
-                    stringBuilder.Append(i.ToString());
+                    childArrays[i] = CreateArray(type.Fields[i], Length);
                 }
-                StringArray stringArray = stringBuilder.Build();
-                Int32Array.Builder intBuilder = new Int32Array.Builder();
-                for (int i = 0; i < Length; i++)
-                {
-                    intBuilder.Append(i);
-                }
-                Int32Array intArray = intBuilder.Build();
-
-                List<Array> arrays = new List<Array>();
-                arrays.Add(stringArray);
-                arrays.Add(intArray);
 
                 ArrowBuffer.BitmapBuilder nullBitmap = new ArrowBuffer.BitmapBuilder();
                 for (int i = 0; i < Length; i++)
@@ -228,7 +221,7 @@ namespace Apache.Arrow.Tests
                     nullBitmap.Append(true);
                 }
                 
-                Array = new StructArray(type, Length, arrays, nullBitmap.Build());
+                Array = new StructArray(type, Length, childArrays, nullBitmap.Build());
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

@@ -24,9 +24,9 @@ c-ares
 cmake
 gflags
 glog
-gmock>=1.8.1
+gmock>=1.10.0
 grpc-cpp>=1.27.3
-gtest=1.8.1
+gtest=1.10.0
 libprotobuf
 libutf8proc
 lz4-c

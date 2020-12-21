@@ -1028,7 +1028,7 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,
-    'floating': np.float,
+    'floating': np.float64,
     'empty': np.object_,
 }
 

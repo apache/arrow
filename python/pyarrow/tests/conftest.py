@@ -227,7 +227,7 @@ def tempdir(tmpdir):
 
 
 @pytest.fixture(scope='session')
-def datadir():
+def base_datadir():
     return pathlib.Path(__file__).parent / 'data'
 
 

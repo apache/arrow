@@ -17,28 +17,27 @@
 
 //! Implementation of DataFrame API
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{
-    col, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
+    col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
 };
-use arrow::datatypes::Schema;
+use crate::{arrow::record_batch::RecordBatch, physical_plan::collect};
 
 use async_trait::async_trait;
 
 /// Implementation of DataFrame API
 pub struct DataFrameImpl {
-    ctx_state: ExecutionContextState,
+    ctx_state: Arc<Mutex<ExecutionContextState>>,
     plan: LogicalPlan,
 }
 
 impl DataFrameImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(ctx_state: ExecutionContextState, plan: &LogicalPlan) -> Self {
+    pub fn new(ctx_state: Arc<Mutex<ExecutionContextState>>, plan: &LogicalPlan) -> Self {
         Self {
             ctx_state,
             plan: plan.clone(),
@@ -50,18 +49,12 @@ impl DataFrameImpl {
 impl DataFrame for DataFrameImpl {
     /// Apply a projection based on a list of column names
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>> {
-        let exprs = columns
+        let fields = columns
             .iter()
-            .map(|name| {
-                self.plan
-                    .schema()
-                    // take the index to ensure that the column exists in the schema
-                    .index_of(name.to_owned())
-                    .and_then(|_| Ok(col(name)))
-                    .map_err(|e| e.into())
-            })
+            .map(|name| self.plan.schema().field_with_unqualified_name(name))
             .collect::<Result<Vec<_>>>()?;
-        self.select(exprs)
+        let expr = fields.iter().map(|f| col(f.name())).collect();
+        self.select(expr)
     }
 
     /// Create a projection based on arbitrary expressions
@@ -126,14 +119,15 @@ impl DataFrame for DataFrameImpl {
     // Convert the logical plan represented by this DataFrame into a physical plan and
     // execute it
     async fn collect(&self) -> Result<Vec<RecordBatch>> {
-        let ctx = ExecutionContext::from(self.ctx_state.clone());
+        let state = self.ctx_state.lock().unwrap().clone();
+        let ctx = ExecutionContext::from(Arc::new(Mutex::new(state)));
         let plan = ctx.optimize(&self.plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        Ok(ctx.collect(plan).await?)
+        Ok(collect(plan).await?)
     }
 
     /// Returns the schema from the logical plan
-    fn schema(&self) -> &Schema {
+    fn schema(&self) -> &DFSchema {
         self.plan.schema()
     }
 
@@ -144,8 +138,9 @@ impl DataFrame for DataFrameImpl {
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
-    fn registry(&self) -> &dyn FunctionRegistry {
-        &self.ctx_state
+    fn registry(&self) -> Arc<dyn FunctionRegistry> {
+        let registry = self.ctx_state.lock().unwrap().clone();
+        Arc::new(registry)
     }
 }
 
@@ -332,7 +327,7 @@ mod tests {
         ctx.register_csv(
             "aggregate_test_100",
             &format!("{}/csv/aggregate_test_100.csv", testdata),
-            CsvReadOptions::new().schema(&schema),
+            CsvReadOptions::new().schema(&schema.as_ref()),
         )?;
         Ok(())
     }

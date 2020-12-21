@@ -238,6 +238,15 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 mask = None if values.mask is np.ma.nomask else values.mask
                 values = values.data
 
+        if mask is not None:
+            if mask.dtype != np.bool_:
+                raise TypeError("Mask must be boolean dtype")
+            if mask.ndim != 1:
+                raise ValueError("Mask must be 1D array")
+            if len(values) != len(mask):
+                raise ValueError(
+                    "Mask is a different length from sequence being converted")
+
         if hasattr(values, '__arrow_array__'):
             return _handle_arrow_array_protocol(values, type, mask, size)
         elif pandas_api.is_categorical(values):
@@ -2234,10 +2243,19 @@ cdef class ExtensionArray(Array):
         return result
 
     def _to_pandas(self, options, **kwargs):
-        result = Array._to_pandas(self, options, **kwargs)
-        # TODO(wesm): is passing through these parameters to the storage array
-        # correct?
-        return result.to_pandas(options, **kwargs)
+        pandas_dtype = None
+        try:
+            pandas_dtype = self.type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+        # pandas ExtensionDtype that implements conversion from pyarrow
+        if hasattr(pandas_dtype, '__from_arrow__'):
+            arr = pandas_dtype.__from_arrow__(self)
+            return pandas_api.series(arr)
+
+        # otherwise convert the storage array with the base implementation
+        return Array._to_pandas(self.storage, options, **kwargs)
 
     def to_numpy(self, **kwargs):
         """

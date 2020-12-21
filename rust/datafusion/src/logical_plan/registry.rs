@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::error::Result;
 use crate::physical_plan::udaf::AggregateUDF;
@@ -27,8 +27,8 @@ pub trait FunctionRegistry {
     fn udfs(&self) -> HashSet<String>;
 
     /// Returns a reference to the udf named `name`.
-    fn udf(&self, name: &str) -> Result<&ScalarUDF>;
+    fn udf(&self, name: &str) -> Result<Arc<ScalarUDF>>;
 
     /// Returns a reference to the udaf named `name`.
-    fn udaf(&self, name: &str) -> Result<&AggregateUDF>;
+    fn udaf(&self, name: &str) -> Result<Arc<AggregateUDF>>;
 }

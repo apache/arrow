@@ -224,6 +224,9 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Absolute value
   static BasicDecimal256 Abs(const BasicDecimal256& left);
 
+  /// \brief Add a number to this one. The result is truncated to 256 bits.
+  BasicDecimal256& operator+=(const BasicDecimal256& right);
+
   /// \brief Get the bits of the two's complement representation of the number. The 4
   /// elements are in little endian order. The bits within each uint64_t element are in
   /// native endian order. For example,
@@ -244,6 +247,11 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Convert BasicDecimal128 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;
+
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to `precision`.
+  bool FitsInPrecision(int32_t precision) const;
 
   inline int64_t Sign() const {
     return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63);
@@ -269,6 +277,9 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \param[out] remainder the remainder after the division
   DecimalStatus Divide(const BasicDecimal256& divisor, BasicDecimal256* result,
                        BasicDecimal256* remainder) const;
+  /// \brief Shift left by the given number of bits.
+  BasicDecimal256& operator<<=(uint32_t bits);
+
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
 
@@ -303,6 +314,10 @@ ARROW_EXPORT inline bool operator>=(const BasicDecimal256& left,
   return !operator<(left, right);
 }
 
+ARROW_EXPORT BasicDecimal256 operator-(const BasicDecimal256& operand);
+ARROW_EXPORT BasicDecimal256 operator~(const BasicDecimal256& operand);
+ARROW_EXPORT BasicDecimal256 operator+(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,

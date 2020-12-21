@@ -38,8 +38,10 @@ use std::any::Any;
 use std::string::String;
 use std::sync::Arc;
 
+use crate::datasource::datasource::Statistics;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::Expr;
 use crate::physical_plan::csv::CsvExec;
 pub use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::{common, ExecutionPlan};
@@ -52,6 +54,7 @@ pub struct CsvFile {
     has_header: bool,
     delimiter: u8,
     file_extension: String,
+    statistics: Statistics,
 }
 
 impl CsvFile {
@@ -75,6 +78,7 @@ impl CsvFile {
             has_header: options.has_header,
             delimiter: options.delimiter,
             file_extension: String::from(options.file_extension),
+            statistics: Statistics::default(),
         })
     }
 }
@@ -92,6 +96,7 @@ impl TableProvider for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        _filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CsvExec::try_new(
             &self.path,
@@ -103,5 +108,9 @@ impl TableProvider for CsvFile {
             projection.clone(),
             batch_size,
         )?))
+    }
+
+    fn statistics(&self) -> Statistics {
+        self.statistics.clone()
     }
 }

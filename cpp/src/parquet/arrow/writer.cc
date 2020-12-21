@@ -80,7 +80,8 @@ int CalculateLeafCount(const DataType* type) {
   if (type->id() == ::arrow::Type::EXTENSION) {
     type = checked_cast<const ExtensionType&>(*type).storage_type().get();
   }
-  if (type->num_fields() == 0) {
+  // Note num_fields() can be 0 for an empty struct type
+  if (!::arrow::is_nested(type->id())) {
     // Primitive type.
     return 1;
   }

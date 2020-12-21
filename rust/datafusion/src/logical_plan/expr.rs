@@ -23,12 +23,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
-use arrow::{
-    compute::can_cast_types,
-    datatypes::{DataType, Field, Schema},
-};
+use arrow::{compute::can_cast_types, datatypes::DataType};
 
 use crate::error::{DataFusionError, Result};
+use crate::logical_plan::{DFField, DFSchema};
 use crate::physical_plan::{
     aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
 };
@@ -51,7 +49,7 @@ use std::collections::HashSet;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Expr {
     /// An expression with a specific name.
     Alias(Box<Expr>, String),
@@ -76,6 +74,19 @@ pub enum Expr {
     IsNotNull(Box<Expr>),
     /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
+    /// arithmetic negation of an expression, the operand must be of a signed numeric data type
+    Negative(Box<Expr>),
+    /// Whether an expression is between a given range.
+    Between {
+        /// The value to compare
+        expr: Box<Expr>,
+        /// Whether the expression is negated
+        negated: bool,
+        /// The low end of the range
+        low: Box<Expr>,
+        /// The high end of the range
+        high: Box<Expr>,
+    },
     /// The CASE expression is similar to a series of nested if/else and there are two forms that
     /// can be used. The first form consists of a series of boolean "when" expressions with
     /// corresponding "then" expressions, and an optional "else" expression.
@@ -159,10 +170,13 @@ impl Expr {
     /// This function errors when it is not possible to compute its [arrow::datatypes::DataType].
     /// This happens when e.g. the expression refers to a column that does not exist in the schema, or when
     /// the expression is incorrectly typed (e.g. `[utf8] + [bool]`).
-    pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
+    pub fn get_type(&self, schema: &DFSchema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
-            Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
+            Expr::Column(name) => Ok(schema
+                .field_with_unqualified_name(name)?
+                .data_type()
+                .clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
@@ -196,6 +210,7 @@ impl Expr {
                 Ok((fun.return_type)(&data_types)?.as_ref().clone())
             }
             Expr::Not(_) => Ok(DataType::Boolean),
+            Expr::Negative(expr) => expr.get_type(schema),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
             Expr::BinaryExpr {
@@ -208,6 +223,7 @@ impl Expr {
                 &right.get_type(schema)?,
             ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
+            Expr::Between { .. } => Ok(DataType::Boolean),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -220,10 +236,12 @@ impl Expr {
     ///
     /// This function errors when it is not possible to compute its nullability.
     /// This happens when the expression refers to a column that does not exist in the schema.
-    pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+    pub fn nullable(&self, input_schema: &DFSchema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
-            Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
+            Expr::Column(name) => Ok(input_schema
+                .field_with_unqualified_name(name)?
+                .is_nullable()),
             Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Case {
@@ -250,6 +268,7 @@ impl Expr {
             Expr::AggregateFunction { .. } => Ok(true),
             Expr::AggregateUDF { .. } => Ok(true),
             Expr::Not(expr) => expr.nullable(input_schema),
+            Expr::Negative(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
             Expr::IsNotNull(_) => Ok(false),
             Expr::BinaryExpr {
@@ -258,6 +277,7 @@ impl Expr {
                 ..
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
+            Expr::Between { ref expr, .. } => expr.nullable(input_schema),
             Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
@@ -267,13 +287,14 @@ impl Expr {
     /// Returns the name of this expression based on [arrow::datatypes::Schema].
     ///
     /// This represents how a column with this expression is named when no alias is chosen
-    pub fn name(&self, input_schema: &Schema) -> Result<String> {
+    pub fn name(&self, input_schema: &DFSchema) -> Result<String> {
         create_name(self, input_schema)
     }
 
     /// Returns a [arrow::datatypes::Field] compatible with this expression.
-    pub fn to_field(&self, input_schema: &Schema) -> Result<Field> {
-        Ok(Field::new(
+    pub fn to_field(&self, input_schema: &DFSchema) -> Result<DFField> {
+        Ok(DFField::new(
+            None, //TODO  qualifier
             &self.name(input_schema)?,
             self.get_type(input_schema)?,
             self.nullable(input_schema)?,
@@ -286,7 +307,7 @@ impl Expr {
     ///
     /// This function errors when it is impossible to cast the
     /// expression to the target [arrow::datatypes::DataType].
-    pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
+    pub fn cast_to(&self, cast_to_type: &DataType, schema: &DFSchema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
@@ -422,7 +443,7 @@ impl CaseBuilder {
         let then_types: Vec<DataType> = then_expr
             .iter()
             .map(|e| match e {
-                Expr::Literal(_) => e.get_type(&Schema::empty()),
+                Expr::Literal(_) => e.get_type(&DFSchema::empty()),
                 _ => Ok(DataType::Null),
             })
             .collect::<Result<Vec<_>>>()?;
@@ -668,6 +689,7 @@ pub fn create_udf(
 
 /// Creates a new UDAF with a specific signature, state type and return type.
 /// The signature and state type must match the `Acumulator's implementation`.
+#[allow(clippy::rc_buffer)]
 pub fn create_udaf(
     name: &str,
     input_type: DataType,
@@ -729,6 +751,7 @@ impl fmt::Debug for Expr {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
             }
             Expr::Not(expr) => write!(f, "NOT {:?}", expr),
+            Expr::Negative(expr) => write!(f, "(- {:?})", expr),
             Expr::IsNull(expr) => write!(f, "{:?} IS NULL", expr),
             Expr::IsNotNull(expr) => write!(f, "{:?} IS NOT NULL", expr),
             Expr::BinaryExpr { left, op, right } => {
@@ -765,6 +788,18 @@ impl fmt::Debug for Expr {
             Expr::AggregateUDF { fun, ref args, .. } => {
                 fmt_function(f, &fun.name, false, args)
             }
+            Expr::Between {
+                expr,
+                negated,
+                low,
+                high,
+            } => {
+                if *negated {
+                    write!(f, "{:?} NOT BETWEEN {:?} AND {:?}", expr, low, high)
+                } else {
+                    write!(f, "{:?} BETWEEN {:?} AND {:?}", expr, low, high)
+                }
+            }
             Expr::Wildcard => write!(f, "*"),
         }
     }
@@ -774,7 +809,7 @@ fn create_function_name(
     fun: &String,
     distinct: bool,
     args: &[Expr],
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<String> {
     let names: Vec<String> = args
         .iter()
@@ -789,7 +824,7 @@ fn create_function_name(
 
 /// Returns a readable name of an expression based on the input schema.
 /// This function recursively transverses the expression for names such as "CAST(a > 2)".
-fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
+fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
     match e {
         Expr::Alias(_, name) => Ok(name.clone()),
         Expr::Column(name) => Ok(name.clone()),
@@ -826,6 +861,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("NOT {}", expr))
         }
+        Expr::Negative(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("(- {})", expr))
+        }
         Expr::IsNull(expr) => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("{} IS NULL", expr))
@@ -861,7 +900,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
+pub fn exprlist_to_fields(
+    expr: &[Expr],
+    input_schema: &DFSchema,
+) -> Result<Vec<DFField>> {
     expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 

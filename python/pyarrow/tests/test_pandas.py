@@ -416,7 +416,7 @@ class TestConvertMetadata:
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(str)
+            expected.columns = df.columns.values.astype(str)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
@@ -1467,6 +1467,8 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
+    @pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
+                        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -2521,10 +2523,10 @@ class TestConvertMisc:
         (np.float64, pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        (np.object, pa.string()),
-        (np.object, pa.binary()),
-        (np.object, pa.binary(10)),
-        (np.object, pa.list_(pa.int64())),
+        (np.object_, pa.string()),
+        (np.object_, pa.binary()),
+        (np.object_, pa.binary(10)),
+        (np.object_, pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
@@ -2830,7 +2832,7 @@ def _check_serialize_components_roundtrip(pd_obj):
         tm.assert_series_equal(pd_obj, deserialized)
 
 
-@pytest.mark.skipif(LooseVersion(np.__version__) >= '0.16',
+@pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
                     reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
@@ -3915,7 +3917,12 @@ def test_convert_to_extension_array(monkeypatch):
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    if LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    else:
+        monkeypatch.delattr(
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(result._data.blocks) == 1
@@ -3953,6 +3960,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
+    result = arr.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4], dtype='Int64')
+    tm.assert_series_equal(result, expected)
+
     result = table.to_pandas()
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
@@ -3962,10 +3974,17 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # (remove the version added above and the actual version for recent pandas)
     if LooseVersion(pd.__version__) < "0.26.0.dev":
         monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    elif LooseVersion(pd.__version__) < "1.3.0.dev":
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
         monkeypatch.delattr(
-            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
-            raising=False)
+            pd.core.arrays.integer.NumericDtype, "__from_arrow__")
+
+    result = arr.to_pandas()
+    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.Series([1, 2, 3, 4])
+    tm.assert_series_equal(result, expected)
 
     with pytest.raises(ValueError):
         table.to_pandas()
@@ -3997,6 +4016,22 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(
         types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
+
+def test_array_to_pandas():
+    if LooseVersion(pd.__version__) < "1.1":
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                pd.interval_range(1, 4).array]:
+        result = pa.array(arr).to_pandas()
+        expected = pd.Series(arr)
+        tm.assert_series_equal(result, expected)
+
+        # TODO implement proper conversion for chunked array
+        # result = pa.table({"col": arr})["col"].to_pandas()
+        # expected = pd.Series(arr, name="col")
+        # tm.assert_series_equal(result, expected)
 
 
 # ----------------------------------------------------------------------

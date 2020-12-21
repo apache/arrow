@@ -64,6 +64,12 @@ impl Debug for AggregateUDF {
     }
 }
 
+impl PartialEq for AggregateUDF {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.signature == other.signature
+    }
+}
+
 impl AggregateUDF {
     /// Create a new AggregateUDF
     pub fn new(

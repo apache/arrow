@@ -77,6 +77,9 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
            ${ARROW_GANDIVA_PC_CXX_FLAGS}
            -I${CMAKE_SOURCE_DIR}/src
            -I${ARROW_BINARY_DIR}/src)
+  if(NOT ARROW_USE_NATIVE_INT128)
+    list(APPEND PRECOMPILE_COMMAND -I${Boost_INCLUDE_DIR})
+  endif()
   add_custom_command(OUTPUT ${BC_FILE} COMMAND ${PRECOMPILE_COMMAND} DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
@@ -125,7 +128,7 @@ if(ARROW_BUILD_TESTS)
                  ../decimal_type_util.cc
                  ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
+  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS})
   target_compile_definitions(gandiva-precompiled-test
                              PRIVATE
                              GANDIVA_UNIT_TEST=1

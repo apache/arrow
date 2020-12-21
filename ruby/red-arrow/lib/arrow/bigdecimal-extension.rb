@@ -19,6 +19,10 @@ require "bigdecimal"
 
 class BigDecimal
   def to_arrow
-    Arrow::Decimal128.new(to_s)
+    if precision <= Arrow::Decimal128DataType::MAX_PRECISION
+      Arrow::Decimal128.new(to_s)
+    else
+      Arrow::Decimal256.new(to_s)
+    end
   end
 end

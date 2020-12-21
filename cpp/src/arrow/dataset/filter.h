@@ -414,7 +414,7 @@ class ARROW_DS_EXPORT CastExpression final
   const std::shared_ptr<Expression>& like_expr() const;
 
  private:
-  util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
+  util::Variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
   CastOptions options_;
 };
 

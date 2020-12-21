@@ -18,6 +18,11 @@
 class TestDecimal128 < Test::Unit::TestCase
   include Helper::Omittable
 
+  def test_copy
+    decimal = Arrow::Decimal128.new("234.23445")
+    assert_equal(decimal, decimal.copy)
+  end
+
   def test_to_string_scale
     integer_data = 23423445
     string_data = "234.23445"

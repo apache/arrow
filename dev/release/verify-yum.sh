@@ -46,7 +46,7 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
-install_command="dnf install -y --enablerepo=PowerTools"
+install_command="dnf install -y --enablerepo=powertools"
 case "${distribution}-${distribution_version}" in
   centos-7)
     cmake_pakcage=cmake3

@@ -32,6 +32,8 @@ use arrow::{array::ArrayRef, datatypes::Field};
 use async_trait::async_trait;
 use futures::stream::Stream;
 
+use self::merge::MergeExec;
+
 /// Trait for types that stream [arrow::record_batch::RecordBatch]
 pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
     /// Returns the schema of this `RecordBatchStream`.
@@ -82,6 +84,24 @@ pub trait ExecutionPlan: Debug + Send + Sync {
 
     /// creates an iterator
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
+}
+
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            common::collect(it).await
+        }
+        _ => {
+            // merge into a single partition
+            let plan = MergeExec::new(plan.clone());
+            // MergeExec must produce a single partition
+            assert_eq!(1, plan.output_partitioning().partition_count());
+            common::collect(plan.execute(0).await?).await
+        }
+    }
 }
 
 /// Partitioning schemes supported by operators.
@@ -185,18 +205,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of arrays.
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
-        if values.len() == 0 {
+        if values.is_empty() {
             return Ok(());
         };
-        (0..values[0].len())
-            .map(|index| {
-                let v = values
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.update(&v)
-            })
-            .collect::<Result<_>>()
+        (0..values[0].len()).try_for_each(|index| {
+            let v = values
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.update(&v)
+        })
     }
 
     /// updates the accumulator's state from a vector of scalars.
@@ -204,18 +222,16 @@ pub trait Accumulator: Send + Sync + Debug {
 
     /// updates the accumulator's state from a vector of states.
     fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        if states.len() == 0 {
+        if states.is_empty() {
             return Ok(());
         };
-        (0..states[0].len())
-            .map(|index| {
-                let v = states
-                    .iter()
-                    .map(|array| ScalarValue::try_from_array(array, index))
-                    .collect::<Result<Vec<_>>>()?;
-                self.merge(&v)
-            })
-            .collect::<Result<_>>()
+        (0..states[0].len()).try_for_each(|index| {
+            let v = states
+                .iter()
+                .map(|array| ScalarValue::try_from_array(array, index))
+                .collect::<Result<Vec<_>>>()?;
+            self.merge(&v)
+        })
     }
 
     /// returns its value based on its current state.

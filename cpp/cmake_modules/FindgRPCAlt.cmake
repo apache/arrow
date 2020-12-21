@@ -11,6 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set(find_package_args)
+if(gRPCAlt_FIND_VERSION)
+  list(APPEND find_package_args ${gRPCAlt_FIND_VERSION})
+endif()
+if(gRPCAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(gRPC ${find_package_args})
+if(gRPC_FOUND)
+  set(gRPCAlt_FOUND TRUE)
+  return()
+endif()
+
 unset(GRPC_ALT_VERSION)
 
 if(ARROW_GRPC_USE_SHARED)

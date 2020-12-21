@@ -19,18 +19,24 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::{
+    datatypes::{Schema, SchemaRef},
+    record_batch::RecordBatch,
+};
 
-use crate::datasource::csv::{CsvFile, CsvReadOptions};
-use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use crate::{
+    datasource::{empty::EmptyTable, parquet::ParquetTable, CsvFile, MemTable},
+    prelude::CsvReadOptions,
+};
 
+use super::dfschema::ToDFSchema;
 use super::{
     col, exprlist_to_fields, Expr, JoinType, LogicalPlan, PlanType, StringifiedPlan,
-    TableSource,
 };
-use crate::physical_plan::hash_utils;
+use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
+use std::collections::HashSet;
 
 /// Builder for logical plans
 pub struct LogicalPlanBuilder {
@@ -49,8 +55,18 @@ impl LogicalPlanBuilder {
     pub fn empty(produce_one_row: bool) -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
             produce_one_row,
-            schema: SchemaRef::new(Schema::empty()),
+            schema: DFSchemaRef::new(DFSchema::empty()),
         })
+    }
+
+    /// Scan a memory data source
+    pub fn scan_memory(
+        partitions: Vec<Vec<RecordBatch>>,
+        schema: SchemaRef,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        let provider = Arc::new(MemTable::try_new(schema, partitions)?);
+        Self::scan("", provider, projection)
     }
 
     /// Scan a CSV data source
@@ -59,76 +75,50 @@ impl LogicalPlanBuilder {
         options: CsvReadOptions,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let has_header = options.has_header;
-        let delimiter = options.delimiter;
-        let schema: Schema = match options.schema {
-            Some(s) => s.to_owned(),
-            None => CsvFile::try_new(path, options)?
-                .schema()
-                .as_ref()
-                .to_owned(),
-        };
-
-        let projected_schema = SchemaRef::new(
-            projection
-                .clone()
-                .map(|p| {
-                    Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect())
-                })
-                .or(Some(schema.clone()))
-                .unwrap(),
-        );
-
-        Ok(Self::from(&LogicalPlan::CsvScan {
-            path: path.to_owned(),
-            schema: SchemaRef::new(schema),
-            has_header,
-            delimiter: Some(delimiter),
-            projection,
-            projected_schema,
-        }))
+        let provider = Arc::new(CsvFile::try_new(path, options)?);
+        Self::scan("", provider, projection)
     }
 
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        let p = ParquetTable::try_new(path)?;
-        let schema = p.schema();
-
-        let projected_schema = projection
-            .clone()
-            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
-        let projected_schema =
-            projected_schema.map_or(schema.clone(), |s| SchemaRef::new(s));
-
-        Ok(Self::from(&LogicalPlan::ParquetScan {
-            path: path.to_owned(),
-            schema,
-            projection,
-            projected_schema,
-        }))
+        let provider = Arc::new(ParquetTable::try_new(path)?);
+        Self::scan("", provider, projection)
     }
 
-    /// Scan a data source
-    pub fn scan(
-        schema_name: &str,
-        table_name: &str,
+    /// Scan an empty data source, mainly used in tests
+    pub fn scan_empty(
+        name: &str,
         table_schema: &Schema,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
-        let table_schema = SchemaRef::new(table_schema.clone());
-        let projected_schema = projection.clone().map(|p| {
-            Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
-        });
-        let projected_schema =
-            projected_schema.map_or(table_schema.clone(), |s| SchemaRef::new(s));
+        let table_schema = Arc::new(table_schema.clone());
+        let provider = Arc::new(EmptyTable::new(table_schema));
+        Self::scan(name, provider, projection)
+    }
 
-        Ok(Self::from(&LogicalPlan::TableScan {
-            schema_name: schema_name.to_owned(),
-            source: TableSource::FromContext(table_name.to_owned()),
-            table_schema,
+    /// Convert a table provider into a builder with a TableScan
+    pub fn scan(
+        name: &str,
+        provider: Arc<dyn TableProvider + Send + Sync>,
+        projection: Option<Vec<usize>>,
+    ) -> Result<Self> {
+        let schema = provider.schema();
+
+        let projected_schema = projection
+            .as_ref()
+            .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()))
+            .map_or(schema, SchemaRef::new)
+            .to_dfschema_ref()?;
+
+        let table_scan = LogicalPlan::TableScan {
+            table_name: name.to_string(),
+            source: provider,
             projected_schema,
             projection,
-        }))
+            filters: vec![],
+        };
+
+        Ok(Self::from(&table_scan))
     }
 
     /// Apply a projection.
@@ -150,12 +140,12 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Projections", &projected_expr, input_schema)?;
 
-        let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
+        let schema = DFSchema::new(exprlist_to_fields(&projected_expr, input_schema)?)?;
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
             input: Arc::new(self.plan.clone()),
-            schema: SchemaRef::new(schema),
+            schema: DFSchemaRef::new(schema),
         }))
     }
 
@@ -201,17 +191,8 @@ impl LogicalPlanBuilder {
                 .zip(right_keys.iter())
                 .map(|(x, y)| (x.to_string(), y.to_string()))
                 .collect::<Vec<_>>();
-            let physical_join_type = match join_type {
-                JoinType::Inner => hash_utils::JoinType::Inner,
-                JoinType::Left => hash_utils::JoinType::Left,
-                JoinType::Right => hash_utils::JoinType::Right,
-            };
-            let physical_schema = hash_utils::build_join_schema(
-                self.plan.schema(),
-                right.schema(),
-                &on,
-                &physical_join_type,
-            );
+            let join_schema =
+                build_join_schema(self.plan.schema(), right.schema(), &on, &join_type)?;
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right: Arc::new(right.clone()),
@@ -221,7 +202,7 @@ impl LogicalPlanBuilder {
                     .map(|(l, r)| (l.to_string(), r.to_string()))
                     .collect(),
                 join_type,
-                schema: Arc::new(physical_schema),
+                schema: DFSchemaRef::new(join_schema),
             }))
         }
     }
@@ -233,13 +214,14 @@ impl LogicalPlanBuilder {
 
         validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
 
-        let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
+        let aggr_schema =
+            DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: SchemaRef::new(aggr_schema),
+            schema: DFSchemaRef::new(aggr_schema),
         }))
     }
 
@@ -256,7 +238,7 @@ impl LogicalPlanBuilder {
             verbose,
             plan: Arc::new(self.plan.clone()),
             stringified_plans,
-            schema,
+            schema: schema.to_dfschema_ref()?,
         }))
     }
 
@@ -266,14 +248,63 @@ impl LogicalPlanBuilder {
     }
 }
 
+/// Creates a schema for a join operation.
+/// The fields from the left side are first
+fn build_join_schema(
+    left: &DFSchema,
+    right: &DFSchema,
+    on: &[(String, String)],
+    join_type: &JoinType,
+) -> Result<DFSchema> {
+    let fields: Vec<DFField> = match join_type {
+        JoinType::Inner | JoinType::Left => {
+            // remove right-side join keys if they have the same names as the left-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
+
+            let left_fields = left.fields().iter();
+
+            let right_fields = right
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()));
+
+            // left then right
+            left_fields.chain(right_fields).cloned().collect()
+        }
+        JoinType::Right => {
+            // remove left-side join keys if they have the same names as the right-side
+            let duplicate_keys = &on
+                .iter()
+                .filter(|(l, r)| l == r)
+                .map(|on| on.1.to_string())
+                .collect::<HashSet<_>>();
+
+            let left_fields = left
+                .fields()
+                .iter()
+                .filter(|f| !duplicate_keys.contains(f.name()));
+
+            let right_fields = right.fields().iter();
+
+            // left then right
+            left_fields.chain(right_fields).cloned().collect()
+        }
+    };
+    DFSchema::new(fields)
+}
+
 /// Errors if one or more expressions have equal names.
 fn validate_unique_names(
     node_name: &str,
     expressions: &[Expr],
-    input_schema: &Schema,
+    input_schema: &DFSchema,
 ) -> Result<()> {
     let mut unique_names = HashMap::new();
-    expressions.iter().enumerate().map(|(position, expr)| {
+    expressions.iter().enumerate().try_for_each(|(position, expr)| {
         let name = expr.name(input_schema)?;
         match unique_names.get(&name) {
             None => {
@@ -290,7 +321,7 @@ fn validate_unique_names(
                 ))
             }
         }
-    }).collect::<Result<()>>()
+    })
 }
 
 #[cfg(test)]
@@ -302,8 +333,7 @@ mod tests {
 
     #[test]
     fn plan_builder_simple() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
+        let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),
@@ -322,29 +352,8 @@ mod tests {
     }
 
     #[test]
-    fn plan_builder_csv() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan_csv(
-            "employee.csv",
-            CsvReadOptions::new().schema(&employee_schema()),
-            Some(vec![0, 3]),
-        )?
-        .filter(col("state").eq(lit("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
-
-        let expected = "Projection: #id\
-        \n  Filter: #state Eq Utf8(\"CO\")\
-        \n    CsvScan: employee.csv projection=Some([0, 3])";
-
-        assert_eq!(expected, format!("{:?}", plan));
-
-        Ok(())
-    }
-
-    #[test]
     fn plan_builder_aggregate() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
+        let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![3, 4]),
@@ -367,8 +376,7 @@ mod tests {
 
     #[test]
     fn plan_builder_sort() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
+        let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![3, 4]),
@@ -397,8 +405,7 @@ mod tests {
 
     #[test]
     fn projection_non_unique_names() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
+        let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),
@@ -421,8 +428,7 @@ mod tests {
 
     #[test]
     fn aggregate_non_unique_names() -> Result<()> {
-        let plan = LogicalPlanBuilder::scan(
-            "default",
+        let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
             &employee_schema(),
             Some(vec![0, 3]),

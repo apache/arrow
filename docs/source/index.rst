@@ -59,6 +59,7 @@ such topics as:
    Go <https://godoc.org/github.com/apache/arrow/go/arrow>
    Java <java/index>
    JavaScript <https://arrow.apache.org/docs/js/>
+   Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    Python <python/index>
    R <https://arrow.apache.org/docs/r/>

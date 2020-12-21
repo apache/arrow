@@ -736,7 +736,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       }
       PyArray_Descr* sub_dtype =
           reinterpret_cast<PyArray_Descr*>(PyTuple_GET_ITEM(tup, 0));
-      DCHECK(PyArray_DescrCheck(sub_dtype));
+      DCHECK(PyObject_TypeCheck(sub_dtype, &PyArrayDescr_Type));
       int offset = static_cast<int>(PyLong_AsLong(PyTuple_GET_ITEM(tup, 1)));
       RETURN_IF_PYERROR();
       Py_INCREF(sub_dtype); /* PyArray_GetField() steals ref */

@@ -94,7 +94,7 @@ class TestCast : public TestBase {
     AssertArraysEqual(expected, *result, /*verbose=*/true);
 
     if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
-      // ARROW-9194
+      // ARROW-10835
       check_scalar = false;
     }
 
@@ -111,7 +111,7 @@ class TestCast : public TestBase {
     ASSERT_RAISES(Invalid, Cast(input, out_type, options));
 
     if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
-      // ARROW-9194
+      // ARROW-10835
       check_scalar = false;
     }
 

@@ -62,7 +62,11 @@ impl<'a, 'b> PlanVisitor for IndentVisitor<'a, 'b> {
 
         write!(self.f, "{}", plan.display())?;
         if self.with_schema {
-            write!(self.f, " {}", display_schema(plan.schema()))?;
+            write!(
+                self.f,
+                " {}",
+                display_schema(&plan.schema().as_ref().to_owned().into())
+            )?;
         }
 
         self.indent += 1;
@@ -202,7 +206,7 @@ impl<'a, 'b> PlanVisitor for GraphvizVisitor<'a, 'b> {
             format!(
                 "{}\\nSchema: {}",
                 plan.display(),
-                display_schema(plan.schema())
+                display_schema(&plan.schema().as_ref().to_owned().into())
             )
         } else {
             format!("{}", plan.display())

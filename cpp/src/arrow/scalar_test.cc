@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -96,6 +98,12 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_FALSE(one->Equals(ScalarType(2)));
   ASSERT_TRUE(two->Equals(ScalarType(2)));
   ASSERT_FALSE(two->Equals(ScalarType(3)));
+
+  ASSERT_TRUE(null->ApproxEquals(*null_value));
+  ASSERT_TRUE(one->ApproxEquals(ScalarType(1)));
+  ASSERT_FALSE(one->ApproxEquals(ScalarType(2)));
+  ASSERT_TRUE(two->ApproxEquals(ScalarType(2)));
+  ASSERT_FALSE(two->ApproxEquals(ScalarType(3)));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
@@ -126,6 +134,199 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
   ASSERT_OK_AND_ASSIGN(three, Scalar::Parse(type, "3"));
   ASSERT_EQ(ScalarType(3), *three);
 }
+
+template <typename T>
+class TestRealScalar : public ::testing::Test {
+ public:
+  using CType = typename T::c_type;
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  void SetUp() {
+    type_ = TypeTraits<T>::type_singleton();
+
+    scalar_val_ = std::make_shared<ScalarType>(static_cast<CType>(1));
+    ASSERT_TRUE(scalar_val_->is_valid);
+
+    scalar_other_ = std::make_shared<ScalarType>(static_cast<CType>(1.1));
+    ASSERT_TRUE(scalar_other_->is_valid);
+
+    const CType nan_value = std::numeric_limits<CType>::quiet_NaN();
+    scalar_nan_ = std::make_shared<ScalarType>(nan_value);
+    ASSERT_TRUE(scalar_nan_->is_valid);
+
+    const CType other_nan_value = std::numeric_limits<CType>::quiet_NaN();
+    scalar_other_nan_ = std::make_shared<ScalarType>(other_nan_value);
+    ASSERT_TRUE(scalar_other_nan_->is_valid);
+  }
+
+  void TestNanEquals() {
+    EqualOptions options = EqualOptions::Defaults();
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_nan_, options));
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_other_nan_, options));
+
+    options = options.nans_equal(true);
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_nan_->Equals(*scalar_nan_, options));
+    ASSERT_TRUE(scalar_nan_->Equals(*scalar_other_nan_, options));
+  }
+
+  void TestApproxEquals() {
+    // The scalars are unequal with the small delta
+    EqualOptions options = EqualOptions::Defaults().atol(0.05);
+    ASSERT_FALSE(scalar_val_->ApproxEquals(*scalar_other_, options));
+    ASSERT_FALSE(scalar_other_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_other_nan_, options));
+
+    // After enlarging the delta, they become equal
+    options = options.atol(0.15);
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_other_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_other_nan_, options));
+
+    options = options.nans_equal(true);
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_other_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_nan_->ApproxEquals(*scalar_other_nan_, options));
+
+    options = options.atol(0.05);
+    ASSERT_FALSE(scalar_val_->ApproxEquals(*scalar_other_, options));
+    ASSERT_FALSE(scalar_other_->ApproxEquals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_nan_->ApproxEquals(*scalar_other_nan_, options));
+  }
+
+  void TestStructOf() {
+    auto ty = struct_({field("float", type_)});
+
+    StructScalar struct_val({scalar_val_}, ty);
+    StructScalar struct_other_val({scalar_other_}, ty);
+    StructScalar struct_nan({scalar_nan_}, ty);
+    StructScalar struct_other_nan({scalar_other_nan_}, ty);
+
+    EqualOptions options = EqualOptions::Defaults().atol(0.05);
+    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_nan, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_other_nan, options));
+    ASSERT_FALSE(struct_val.ApproxEquals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_nan, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_other_nan, options));
+
+    options = options.atol(0.15);
+    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_nan, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_other_nan, options));
+    ASSERT_TRUE(struct_val.ApproxEquals(struct_other_val, options));
+    ASSERT_TRUE(struct_other_val.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_nan, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_other_nan, options));
+
+    options = options.nans_equal(true);
+    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_val, options));
+    ASSERT_TRUE(struct_nan.Equals(struct_nan, options));
+    ASSERT_TRUE(struct_nan.Equals(struct_other_nan, options));
+    ASSERT_TRUE(struct_val.ApproxEquals(struct_other_val, options));
+    ASSERT_TRUE(struct_other_val.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_val, options));
+    ASSERT_TRUE(struct_nan.ApproxEquals(struct_nan, options));
+    ASSERT_TRUE(struct_nan.ApproxEquals(struct_other_nan, options));
+
+    options = options.atol(0.05);
+    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_FALSE(struct_nan.Equals(struct_val, options));
+    ASSERT_TRUE(struct_nan.Equals(struct_nan, options));
+    ASSERT_TRUE(struct_nan.Equals(struct_other_nan, options));
+    ASSERT_FALSE(struct_val.ApproxEquals(struct_other_val, options));
+    ASSERT_FALSE(struct_other_val.ApproxEquals(struct_val, options));
+    ASSERT_FALSE(struct_nan.ApproxEquals(struct_val, options));
+    ASSERT_TRUE(struct_nan.ApproxEquals(struct_nan, options));
+    ASSERT_TRUE(struct_nan.ApproxEquals(struct_other_nan, options));
+  }
+
+  void TestListOf() {
+    auto ty = list(type_);
+
+    ListScalar list_val(ArrayFromJSON(type_, "[0, null, 1.0]"), ty);
+    ListScalar list_other_val(ArrayFromJSON(type_, "[0, null, 1.1]"), ty);
+    ListScalar list_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
+    ListScalar list_other_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
+
+    EqualOptions options = EqualOptions::Defaults().atol(0.05);
+    ASSERT_TRUE(list_val.Equals(list_val, options));
+    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_nan, options));
+    ASSERT_FALSE(list_nan.Equals(list_other_nan, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_val, options));
+    ASSERT_FALSE(list_val.ApproxEquals(list_other_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_nan, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_other_nan, options));
+
+    options = options.atol(0.15);
+    ASSERT_TRUE(list_val.Equals(list_val, options));
+    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_nan, options));
+    ASSERT_FALSE(list_nan.Equals(list_other_nan, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_val, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_other_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_nan, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_other_nan, options));
+
+    options = options.nans_equal(true);
+    ASSERT_TRUE(list_val.Equals(list_val, options));
+    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_val, options));
+    ASSERT_TRUE(list_nan.Equals(list_nan, options));
+    ASSERT_TRUE(list_nan.Equals(list_other_nan, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_val, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_other_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_val, options));
+    ASSERT_TRUE(list_nan.ApproxEquals(list_nan, options));
+    ASSERT_TRUE(list_nan.ApproxEquals(list_other_nan, options));
+
+    options = options.atol(0.05);
+    ASSERT_TRUE(list_val.Equals(list_val, options));
+    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_FALSE(list_nan.Equals(list_val, options));
+    ASSERT_TRUE(list_nan.Equals(list_nan, options));
+    ASSERT_TRUE(list_nan.Equals(list_other_nan, options));
+    ASSERT_TRUE(list_val.ApproxEquals(list_val, options));
+    ASSERT_FALSE(list_val.ApproxEquals(list_other_val, options));
+    ASSERT_FALSE(list_nan.ApproxEquals(list_val, options));
+    ASSERT_TRUE(list_nan.ApproxEquals(list_nan, options));
+    ASSERT_TRUE(list_nan.ApproxEquals(list_other_nan, options));
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_;
+};
+
+TYPED_TEST_SUITE(TestRealScalar, RealArrowTypes);
+
+TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
+
+TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
+
+TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
+
+TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
 
 TEST(TestDecimal128Scalar, Basics) {
   auto ty = decimal128(3, 2);

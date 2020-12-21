@@ -19,8 +19,7 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use rand::seq::SliceRandom;
-use rand::Rng;
+use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
@@ -40,6 +39,10 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
+pub fn seedable_rng() -> StdRng {
+    StdRng::seed_from_u64(42)
+}
+
 fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     let mut rt = Runtime::new().unwrap();
 
@@ -50,7 +53,7 @@ fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
 
 fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
 
     (0..size)
         .map(|_| {
@@ -65,7 +68,7 @@ fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
 
 fn create_integer_data(size: usize, value_density: f64) -> Vec<Option<u64>> {
     // use random numbers to avoid spurious compiler optimizations wrt to branching
-    let mut rng = rand::thread_rng();
+    let mut rng = seedable_rng();
 
     (0..size)
         .map(|_| {
@@ -98,6 +101,8 @@ fn create_context(
         Field::new("u64_narrow", DataType::UInt64, false),
     ]));
 
+    let mut rng = seedable_rng();
+
     // define data.
     let partitions = (0..partitions_len)
         .map(|_| {
@@ -109,7 +114,7 @@ fn create_context(
                     let keys: Vec<String> = (0..batch_size)
                         .map(
                             // use random numbers to avoid spurious compiler optimizations wrt to branching
-                            |_| format!("hi{:?}", vs.choose(&mut rand::thread_rng())),
+                            |_| format!("hi{:?}", vs.choose(&mut rng)),
                         )
                         .collect();
                     let keys: Vec<&str> = keys.iter().map(|e| &**e).collect();
@@ -122,11 +127,7 @@ fn create_context(
                     // Integer values between [0, 9].
                     let integer_values_narrow_choices = (0..10).collect::<Vec<u64>>();
                     let integer_values_narrow = (0..batch_size)
-                        .map(|_| {
-                            *integer_values_narrow_choices
-                                .choose(&mut rand::thread_rng())
-                                .unwrap()
-                        })
+                        .map(|_| *integer_values_narrow_choices.choose(&mut rng).unwrap())
                         .collect::<Vec<u64>>();
 
                     RecordBatch::try_new(
@@ -148,7 +149,7 @@ fn create_context(
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, partitions)?;
+    let provider = MemTable::try_new(schema, partitions)?;
     ctx.register_table("t", Box::new(provider));
 
     Ok(Arc::new(Mutex::new(ctx)))
@@ -170,33 +171,37 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function(
-        "aggregate_query_no_group_by_count_distinct_wide 15 12",
-        |b| {
-            b.iter(|| {
-                query(
-                    ctx.clone(),
-                    "SELECT COUNT(DISTINCT u64_wide) \
+    c.bench_function("aggregate_query_no_group_by_min_max_f64", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT MIN(f64), MAX(f64) \
                  FROM t",
-                )
-            })
-        },
-    );
+            )
+        })
+    });
 
-    c.bench_function(
-        "aggregate_query_no_group_by_count_distinct_narrow 15 12",
-        |b| {
-            b.iter(|| {
-                query(
-                    ctx.clone(),
-                    "SELECT COUNT(DISTINCT u64_narrow) \
+    c.bench_function("aggregate_query_no_group_by_count_distinct_wide", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT COUNT(DISTINCT u64_wide) \
                  FROM t",
-                )
-            })
-        },
-    );
+            )
+        })
+    });
 
-    c.bench_function("aggregate_query_group_by 15 12", |b| {
+    c.bench_function("aggregate_query_no_group_by_count_distinct_narrow", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT COUNT(DISTINCT u64_narrow) \
+                 FROM t",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by", |b| {
         b.iter(|| {
             query(
                 ctx.clone(),
@@ -206,13 +211,34 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("aggregate_query_group_by_with_filter 15 12", |b| {
+    c.bench_function("aggregate_query_group_by_with_filter", |b| {
         b.iter(|| {
             query(
                 ctx.clone(),
                 "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t \
                  WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by_u64 15 12", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t GROUP BY u64_narrow",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by_with_filter_u64 15 12", |b| {
+        b.iter(|| {
+            query(
+                ctx.clone(),
+                "SELECT u64_narrow, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t \
+                 WHERE f32 > 10 AND f32 < 20 GROUP BY u64_narrow",
             )
         })
     });

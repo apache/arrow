@@ -20,9 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, DecimalArray, FixedSizeBinaryArray,
-    GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
-    PrimitiveArray, StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray,
+    FixedSizeBinaryArray, GenericBinaryArray, GenericListArray, GenericStringArray,
+    NullArray, OffsetSizeTrait, PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::{
@@ -68,8 +68,20 @@ impl<T: Array> PartialEq<T> for dyn Array {
     }
 }
 
+impl PartialEq for NullArray {
+    fn eq(&self, other: &NullArray) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
 impl<T: ArrowPrimitiveType> PartialEq for PrimitiveArray<T> {
     fn eq(&self, other: &PrimitiveArray<T>) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for BooleanArray {
+    fn eq(&self, other: &BooleanArray) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }
 }
@@ -116,7 +128,7 @@ impl PartialEq for StructArray {
 /// If an array is a child of a struct or list, the array's nulls have to be merged with the parent.
 /// This then affects the null count of the array, thus the merged nulls are passed separately
 /// as `lhs_nulls` and `rhs_nulls` variables to functions.
-/// The nulls are merged with a bitwise AND, and null counts are recomputed wheer necessary.
+/// The nulls are merged with a bitwise AND, and null counts are recomputed where necessary.
 #[inline]
 fn equal_values(
     lhs: &ArrayData,
@@ -262,7 +274,7 @@ fn equal_range(
 /// Logically compares two [ArrayData].
 /// Two arrays are logically equal if and only if:
 /// * their data types are equal
-/// * their lenghts are equal
+/// * their lengths are equal
 /// * their null counts are equal
 /// * their null bitmaps are equal
 /// * each of their items are equal
@@ -432,7 +444,7 @@ mod tests {
     }
 
     fn test_equal(lhs: &ArrayData, rhs: &ArrayData, expected: bool) {
-        // equality is symetric
+        // equality is symmetric
         assert_eq!(equal(lhs, lhs), true, "\n{:?}\n{:?}", lhs, lhs);
         assert_eq!(equal(rhs, rhs), true, "\n{:?}\n{:?}", rhs, rhs);
 

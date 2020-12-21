@@ -181,6 +181,18 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
 
+/// \brief Return the compatible physical data type
+///
+/// Some types may have distinct logical meanings but the exact same physical
+/// representation.  For example, TimestampType has Int64Type as a physical
+/// type (defined as TimestampType::PhysicalType).
+///
+/// The return value is as follows:
+/// - if a `PhysicalType` alias exists in the concrete type class, return
+///   an instance of `PhysicalType`.
+/// - otherwise, return the input type itself.
+std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
+
 /// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
@@ -868,6 +880,11 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
+  /// \brief Returns the number of bytes needed for precision.
+  ///
+  /// precision must be >= 1
+  static int32_t DecimalSize(int32_t precision);
+
  protected:
   std::string ComputeFingerprint() const override;
 
@@ -893,6 +910,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
+  static constexpr int32_t kByteWidth = 16;
 };
 
 /// \brief Concrete type class for 256-bit decimal data
@@ -913,6 +931,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 76;
+  static constexpr int32_t kByteWidth = 32;
 };
 
 /// \brief Concrete type class for union data
@@ -1596,7 +1615,7 @@ class ARROW_EXPORT FieldRef {
  private:
   void Flatten(std::vector<FieldRef> children);
 
-  util::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
+  util::Variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 
   ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };

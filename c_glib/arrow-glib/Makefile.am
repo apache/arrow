@@ -59,7 +59,7 @@ libarrow_glib_la_headers =			\
 	composite-data-type.h			\
 	data-type.h				\
 	datum.h					\
-	decimal128.h				\
+	decimal.h				\
 	error.h					\
 	field.h					\
 	gobject-type.h				\
@@ -115,7 +115,7 @@ libarrow_glib_la_sources =			\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
 	datum.cpp				\
-	decimal128.cpp				\
+	decimal.cpp				\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
@@ -165,7 +165,7 @@ libarrow_glib_la_cpp_headers =			\
 	codec.hpp				\
 	data-type.hpp				\
 	datum.hpp				\
-	decimal128.hpp				\
+	decimal.hpp				\
 	error.hpp				\
 	field.hpp				\
 	record-batch.hpp			\

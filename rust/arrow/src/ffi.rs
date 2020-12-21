@@ -209,11 +209,11 @@ fn from_datatype(datatype: &DataType) -> Result<String> {
         DataType::LargeBinary => "Z",
         DataType::Utf8 => "u",
         DataType::LargeUtf8 => "U",
-        _ => {
-            return Err(ArrowError::CDataInterface(
-                "The datatype \"{:?}\" is still not supported in Rust implementation"
-                    .to_string(),
-            ))
+        z => {
+            return Err(ArrowError::CDataInterface(format!(
+                "The datatype \"{:?}\" is still not supported in Rust implementation",
+                z
+            )))
         }
     }
     .to_string())
@@ -637,7 +637,7 @@ mod tests {
         let array = make_array(data);
 
         // perform some operation
-        let array = kernels::concat::concat(&[array.clone(), array]).unwrap();
+        let array = kernels::concat::concat(&[array.as_ref(), array.as_ref()]).unwrap();
         let array = array.as_any().downcast_ref::<StringArray>().unwrap();
 
         // verify

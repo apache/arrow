@@ -30,6 +30,7 @@ use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
+use parquet::file::metadata::ParquetMetaData;
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
@@ -50,6 +51,8 @@ pub struct ParquetExec {
     projection: Vec<usize>,
     /// Batch size
     batch_size: usize,
+    /// Parquet metadata
+    metadata: ParquetMetaData,
 }
 
 impl ParquetExec {
@@ -68,8 +71,11 @@ impl ParquetExec {
             let file_reader = Arc::new(SerializedFileReader::new(file)?);
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
             let schema = arrow_reader.get_schema()?;
+            let metadata = arrow_reader.get_metadata();
 
-            Ok(Self::new(filenames, schema, projection, batch_size))
+            Ok(Self::new(
+                filenames, schema, projection, batch_size, metadata,
+            ))
         }
     }
 
@@ -79,6 +85,7 @@ impl ParquetExec {
         schema: Schema,
         projection: Option<Vec<usize>>,
         batch_size: usize,
+        metadata: ParquetMetaData,
     ) -> Self {
         let projection = match projection {
             Some(p) => p,
@@ -97,7 +104,13 @@ impl ParquetExec {
             schema: Arc::new(projected_schema),
             projection,
             batch_size,
+            metadata,
         }
+    }
+
+    /// Expose the Parquet specific metadata
+    pub fn metadata(&self) -> ParquetMetaData {
+        self.metadata.clone()
     }
 }
 

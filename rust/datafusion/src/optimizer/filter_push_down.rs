@@ -14,13 +14,12 @@
 
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
-use arrow::datatypes::Schema;
-
-use crate::error::Result;
-use crate::logical_plan::Expr;
+use crate::datasource::datasource::TableProviderFilterPushDown;
 use crate::logical_plan::{and, LogicalPlan};
+use crate::logical_plan::{DFSchema, Expr};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use crate::{error::Result, logical_plan::Operator};
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -70,11 +69,10 @@ fn get_predicates<'a>(
         .filters
         .iter()
         .filter(|(_, columns)| {
-            columns
+            !columns
                 .intersection(used_columns)
                 .collect::<HashSet<_>>()
-                .len()
-                > 0
+                .is_empty()
         })
         .map(|&(ref a, ref b)| (a, b))
         .unzip()
@@ -87,8 +85,8 @@ fn get_predicates<'a>(
 // Note that a predicate can be both pushed to the left and to the right.
 fn get_join_predicates<'a>(
     state: &'a State,
-    left: &Schema,
-    right: &Schema,
+    left: &DFSchema,
+    right: &DFSchema,
 ) -> (
     Vec<&'a HashSet<String>>,
     Vec<&'a HashSet<String>>,
@@ -217,13 +215,37 @@ fn issue_filters(
     push_down(&state, &plan)
 }
 
+/// converts "A AND B AND C" => [A, B, C]
+fn split_members<'a>(predicate: &'a Expr, predicates: &mut Vec<&'a Expr>) {
+    match predicate {
+        Expr::BinaryExpr {
+            right,
+            op: Operator::And,
+            left,
+        } => {
+            split_members(&left, predicates);
+            split_members(&right, predicates);
+        }
+        other => predicates.push(other),
+    }
+}
+
 fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
     match plan {
         LogicalPlan::Filter { input, predicate } => {
-            let mut columns: HashSet<String> = HashSet::new();
-            utils::expr_to_column_names(predicate, &mut columns)?;
-            // collect the predicate
-            state.filters.push((predicate.clone(), columns));
+            let mut predicates = vec![];
+            split_members(predicate, &mut predicates);
+
+            predicates
+                .into_iter()
+                .try_for_each::<_, Result<()>>(|predicate| {
+                    let mut columns: HashSet<String> = HashSet::new();
+                    utils::expr_to_column_names(predicate, &mut columns)?;
+                    // collect the predicate
+                    state.filters.push((predicate.clone(), columns));
+                    Ok(())
+                })?;
+
             optimize(input, state)
         }
         LogicalPlan::Projection {
@@ -317,6 +339,45 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
                 Ok(plan)
             }
         }
+        LogicalPlan::TableScan {
+            source,
+            projected_schema,
+            filters,
+            projection,
+            table_name,
+        } => {
+            let mut used_columns = HashSet::new();
+            let mut new_filters = filters.clone();
+
+            for (filter_expr, cols) in &state.filters {
+                let (preserve_filter_node, add_to_provider) =
+                    match source.supports_filter_pushdown(filter_expr)? {
+                        TableProviderFilterPushDown::Unsupported => (true, false),
+                        TableProviderFilterPushDown::Inexact => (true, true),
+                        TableProviderFilterPushDown::Exact => (false, true),
+                    };
+
+                if preserve_filter_node {
+                    used_columns.extend(cols.clone());
+                }
+
+                if add_to_provider {
+                    new_filters.push(filter_expr.clone());
+                }
+            }
+
+            issue_filters(
+                state,
+                used_columns,
+                &LogicalPlan::TableScan {
+                    source: source.clone(),
+                    projection: projection.clone(),
+                    projected_schema: projected_schema.clone(),
+                    table_name: table_name.clone(),
+                    filters: new_filters,
+                },
+            )
+        }
         _ => {
             // all other plans are _not_ filter-commutable
             let used_columns = plan
@@ -332,7 +393,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
 
 impl OptimizerRule for FilterPushDown {
     fn name(&self) -> &str {
-        return "filter_push_down";
+        "filter_push_down"
     }
 
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
@@ -356,13 +417,10 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
         .map(|e| rewrite(e, &projection))
         .collect::<Result<Vec<_>>>()?;
 
-    match expr {
-        Expr::Column(name) => {
-            if let Some(expr) = projection.get(name) {
-                return Ok(expr.clone());
-            }
+    if let Expr::Column(name) = expr {
+        if let Some(expr) = projection.get(name) {
+            return Ok(expr.clone());
         }
-        _ => {}
     }
 
     utils::rewrite_expression(&expr, &expressions)
@@ -371,9 +429,13 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{lit, sum, Expr, LogicalPlanBuilder, Operator};
+    use crate::datasource::datasource::Statistics;
+    use crate::datasource::TableProvider;
+    use crate::logical_plan::{lit, sum, DFSchema, Expr, LogicalPlanBuilder, Operator};
+    use crate::physical_plan::ExecutionPlan;
     use crate::test::*;
     use crate::{logical_plan::col, prelude::JoinType};
+    use arrow::datatypes::SchemaRef;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
         let mut rule = FilterPushDown::new();
@@ -590,6 +652,43 @@ mod tests {
         // filter is before the projections
         let expected = "\
         Filter: #SUM(c) Gt Int64(10)\
+        \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+        \n    Projection: #a AS b, #c\
+        \n      Filter: #a Gt Int64(10)\
+        \n        TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    /// verifies that when a filter with two predicates is applied after an aggregation that only allows one to be pushed, one is pushed
+    /// and the other not.
+    #[test]
+    fn split_filter() -> Result<()> {
+        // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a").alias("b"), col("c")])?
+            .aggregate(vec![col("b")], vec![sum(col("c"))])?
+            .filter(and(
+                col("SUM(c)").gt(lit(10i64)),
+                and(col("b").gt(lit(10i64)), col("SUM(c)").lt(lit(20i64))),
+            ))?
+            .build()?;
+
+        // not part of the test, just good to know:
+        assert_eq!(
+            format!("{:?}", plan),
+            "\
+            Filter: #SUM(c) Gt Int64(10) And #b Gt Int64(10) And #SUM(c) Lt Int64(20)\
+            \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
+            \n    Projection: #a AS b, #c\
+            \n      TableScan: test projection=None"
+        );
+
+        // filter is before the projections
+        let expected = "\
+        Filter: #SUM(c) Gt Int64(10) And #SUM(c) Lt Int64(20)\
         \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
         \n    Projection: #a AS b, #c\
         \n      Filter: #a Gt Int64(10)\
@@ -816,7 +915,101 @@ mod tests {
         \n      TableScan: test projection=None\
         \n  Projection: #a, #c\
         \n    TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
 
+    struct PushDownProvider {
+        pub filter_support: TableProviderFilterPushDown,
+    }
+
+    impl TableProvider for PushDownProvider {
+        fn schema(&self) -> SchemaRef {
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new(
+                    "a",
+                    arrow::datatypes::DataType::Int32,
+                    true,
+                ),
+            ]))
+        }
+
+        fn scan(
+            &self,
+            _: &Option<Vec<usize>>,
+            _: usize,
+            _: &[Expr],
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            unimplemented!()
+        }
+
+        fn supports_filter_pushdown(
+            &self,
+            _: &Expr,
+        ) -> Result<TableProviderFilterPushDown> {
+            Ok(self.filter_support.clone())
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn statistics(&self) -> Statistics {
+            Statistics::default()
+        }
+    }
+
+    fn table_scan_with_pushdown_provider(
+        filter_support: TableProviderFilterPushDown,
+    ) -> Result<LogicalPlan> {
+        let test_provider = PushDownProvider { filter_support };
+
+        let table_scan = LogicalPlan::TableScan {
+            table_name: "".into(),
+            filters: vec![],
+            projected_schema: Arc::new(DFSchema::try_from_qualified(
+                "",
+                &*test_provider.schema(),
+            )?),
+            projection: None,
+            source: Arc::new(test_provider),
+        };
+
+        LogicalPlanBuilder::from(&table_scan)
+            .filter(col("a").eq(lit(1i64)))?
+            .build()
+    }
+
+    #[test]
+    fn filter_with_table_provider_exact() -> Result<()> {
+        let plan = table_scan_with_pushdown_provider(TableProviderFilterPushDown::Exact)?;
+
+        let expected = "\
+        TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_inexact() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Inexact)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None, filters=[#a Eq Int64(1)]";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_with_table_provider_unsupported() -> Result<()> {
+        let plan =
+            table_scan_with_pushdown_provider(TableProviderFilterPushDown::Unsupported)?;
+
+        let expected = "\
+        Filter: #a Eq Int64(1)\
+        \n  TableScan: projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }

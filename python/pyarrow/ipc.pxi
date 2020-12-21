@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import namedtuple
 import warnings
 
 
@@ -45,6 +46,44 @@ cdef CMetadataVersion _unwrap_metadata_version(
     raise ValueError("Not a metadata version: " + repr(version))
 
 
+_WriteStats = namedtuple(
+    'WriteStats',
+    ('num_messages', 'num_record_batches', 'num_dictionary_batches',
+     'num_dictionary_deltas', 'num_replaced_dictionaries'))
+
+
+class WriteStats(_WriteStats):
+    """IPC write statistics
+    """
+    __slots__ = ()
+
+
+@staticmethod
+cdef _wrap_write_stats(CIpcWriteStats c):
+    return WriteStats(c.num_messages, c.num_record_batches,
+                      c.num_dictionary_batches, c.num_dictionary_deltas,
+                      c.num_replaced_dictionaries)
+
+
+_ReadStats = namedtuple(
+    'ReadStats',
+    ('num_messages', 'num_record_batches', 'num_dictionary_batches',
+     'num_dictionary_deltas', 'num_replaced_dictionaries'))
+
+
+class ReadStats(_ReadStats):
+    """IPC write statistics
+    """
+    __slots__ = ()
+
+
+@staticmethod
+cdef _wrap_read_stats(CIpcReadStats c):
+    return ReadStats(c.num_messages, c.num_record_batches,
+                     c.num_dictionary_batches, c.num_dictionary_deltas,
+                     c.num_replaced_dictionaries)
+
+
 cdef class IpcWriteOptions(_Weakrefable):
     """Serialization options for the IPC format.
 
@@ -61,6 +100,9 @@ cdef class IpcWriteOptions(_Weakrefable):
     use_threads: bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
+    emit_dictionary_deltas: bool
+        Whether to emit dictionary deltas.  Default is false for maximum
+        stream compatibility.
     """
     __slots__ = ()
 
@@ -68,13 +110,14 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  use_legacy_format=False, compression=None,
-                 bint use_threads=True):
+                 bint use_threads=True, bint emit_dictionary_deltas=False):
         self.c_options = CIpcWriteOptions.Defaults()
         self.use_legacy_format = use_legacy_format
         self.metadata_version = metadata_version
         if compression is not None:
             self.compression = compression
         self.use_threads = use_threads
+        self.emit_dictionary_deltas = emit_dictionary_deltas
 
     @property
     def use_legacy_format(self):
@@ -114,6 +157,14 @@ cdef class IpcWriteOptions(_Weakrefable):
     @use_threads.setter
     def use_threads(self, bint value):
         self.c_options.use_threads = value
+
+    @property
+    def emit_dictionary_deltas(self):
+        return self.c_options.emit_dictionary_deltas
+
+    @emit_dictionary_deltas.setter
+    def emit_dictionary_deltas(self, bint value):
+        self.c_options.emit_dictionary_deltas = value
 
 
 cdef class Message(_Weakrefable):
@@ -356,6 +407,15 @@ cdef class _CRecordBatchWriter(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    @property
+    def stats(self):
+        """
+        Current IPC write statistics.
+        """
+        if not self.writer:
+            raise ValueError("Operation on closed writer")
+        return _wrap_write_stats(self.writer.get().stats())
+
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
@@ -433,7 +493,10 @@ cdef class RecordBatchReader(_Weakrefable):
 
     def __iter__(self):
         while True:
-            yield self.read_next_batch()
+            try:
+                yield self.read_next_batch()
+            except StopIteration:
+                return
 
     @property
     def schema(self):
@@ -565,6 +628,7 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
     cdef:
         shared_ptr[CInputStream] in_stream
         CIpcReadOptions options
+        CRecordBatchStreamReader* stream_reader
 
     def __cinit__(self):
         pass
@@ -574,6 +638,16 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
                 self.in_stream, self.options))
+            self.stream_reader = <CRecordBatchStreamReader*> self.reader.get()
+
+    @property
+    def stats(self):
+        """
+        Current IPC read statistics.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return _wrap_read_stats(self.stream_reader.stats())
 
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
@@ -674,6 +748,15 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def __exit__(self, exc_type, exc_value, traceback):
         pass
+
+    @property
+    def stats(self):
+        """
+        Current IPC read statistics.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return _wrap_read_stats(self.reader.get().stats())
 
 
 def get_tensor_size(Tensor tensor):

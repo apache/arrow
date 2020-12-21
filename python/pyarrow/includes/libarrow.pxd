@@ -1359,6 +1359,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CMetadataVersion metadata_version
         shared_ptr[CCodec] codec
         c_bool use_threads
+        c_bool emit_dictionary_deltas
 
         @staticmethod
         CIpcWriteOptions Defaults()
@@ -1370,6 +1371,20 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         @staticmethod
         CIpcReadOptions Defaults()
+
+    cdef cppclass CIpcWriteStats" arrow::ipc::WriteStats":
+        int64_t num_messages
+        int64_t num_record_batches
+        int64_t num_dictionary_batches
+        int64_t num_dictionary_deltas
+        int64_t num_replaced_dictionaries
+
+    cdef cppclass CIpcReadStats" arrow::ipc::ReadStats":
+        int64_t num_messages
+        int64_t num_record_batches
+        int64_t num_dictionary_batches
+        int64_t num_dictionary_deltas
+        int64_t num_replaced_dictionaries
 
     cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
         pass
@@ -1409,6 +1424,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus WriteRecordBatch(const CRecordBatch& batch)
         CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
+        CIpcWriteStats stats()
+
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
@@ -1420,13 +1437,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             unique_ptr[CMessageReader] message_reader,
             const CIpcReadOptions& options)
 
-    CResult[shared_ptr[CRecordBatchWriter]] MakeStreamWriter(
-        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
-        CIpcWriteOptions& options)
-
-    CResult[shared_ptr[CRecordBatchWriter]] MakeFileWriter(
-        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
-        CIpcWriteOptions& options)
+        CIpcReadStats stats()
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
@@ -1445,6 +1456,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int num_record_batches()
 
         CResult[shared_ptr[CRecordBatch]] ReadRecordBatch(int i)
+
+        CIpcReadStats stats()
+
+    CResult[shared_ptr[CRecordBatchWriter]] MakeStreamWriter(
+        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
+
+    CResult[shared_ptr[CRecordBatchWriter]] MakeFileWriter(
+        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
+        CIpcWriteOptions& options)
 
     CResult[unique_ptr[CMessage]] ReadMessage(CInputStream* stream,
                                               CMemoryPool* pool)

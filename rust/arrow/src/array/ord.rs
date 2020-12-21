@@ -51,6 +51,12 @@ where
     Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
 }
 
+fn compare_boolean<'a>(left: &'a Array, right: &'a Array) -> DynComparator<'a> {
+    let left = left.as_any().downcast_ref::<BooleanArray>().unwrap();
+    let right = right.as_any().downcast_ref::<BooleanArray>().unwrap();
+    Box::new(move |i, j| left.value(i).cmp(&right.value(j)))
+}
+
 fn compare_float<'a, T: ArrowPrimitiveType>(
     left: &'a Array,
     right: &'a Array,
@@ -129,7 +135,7 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
                 "Can't compare arrays of different types".to_string(),
             ));
         }
-        (Boolean, Boolean) => compare_primitives::<BooleanType>(left, right),
+        (Boolean, Boolean) => compare_boolean(left, right),
         (UInt8, UInt8) => compare_primitives::<UInt8Type>(left, right),
         (UInt16, UInt16) => compare_primitives::<UInt16Type>(left, right),
         (UInt32, UInt32) => compare_primitives::<UInt32Type>(left, right),

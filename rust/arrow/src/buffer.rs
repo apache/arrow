@@ -225,7 +225,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
 /// and the `scalar_op` gets applied to remaining bytes.
 /// Contrary to the non-simd version `bitwise_bin_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
@@ -274,7 +274,7 @@ where
 /// and the `scalar_op` gets applied to remaining bytes.
 /// Contrary to the non-simd version `bitwise_unary_op_helper`, the offset and length is specified in bytes
 /// and this version does not support operations starting at arbitrary bit offsets.
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
     left_offset: usize,
@@ -437,7 +437,7 @@ pub(super) fn buffer_bin_and(
     }
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub(super) fn buffer_bin_and(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -546,7 +546,7 @@ pub(super) fn buffer_bin_or(
     }
 }
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+#[cfg(simd_x86)]
 pub(super) fn buffer_bin_or(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -603,7 +603,7 @@ pub(super) fn buffer_unary_not(
     len_in_bits: usize,
 ) -> Buffer {
     // SIMD implementation if available and byte-aligned
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    #[cfg(simd_x86)]
     if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
         return bitwise_unary_op_simd_helper(
             &left,
@@ -824,7 +824,7 @@ impl MutableBuffer {
     }
 
     /// View buffer as typed slice.
-    pub fn typed_data_mut<T: ArrowNativeType + num::Num>(&mut self) -> &mut [T] {
+    pub fn typed_data_mut<T: ArrowNativeType>(&mut self) -> &mut [T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
         assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
         unsafe {
@@ -836,15 +836,16 @@ impl MutableBuffer {
     }
 
     /// Extends the buffer from a byte slice, incrementing its capacity if needed.
+    #[inline]
     pub fn extend_from_slice(&mut self, bytes: &[u8]) {
-        let remaining_capacity = self.capacity - self.len;
-        if bytes.len() > remaining_capacity {
-            self.reserve(self.len + bytes.len());
+        let new_len = self.len + bytes.len();
+        if new_len > self.capacity {
+            self.reserve(new_len);
         }
         unsafe {
             memory::memcpy(self.data.add(self.len), bytes.as_ptr(), bytes.len());
         }
-        self.len += bytes.len();
+        self.len = new_len;
     }
 
     /// Extends the buffer by `len` with all bytes equal to `0u8`, incrementing its capacity if needed.

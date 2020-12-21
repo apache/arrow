@@ -14,41 +14,16 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #![warn(missing_docs)]
 // Clippy lints, some should be disabled incrementally
 #![allow(
-    clippy::assertions_on_constants,
-    clippy::bind_instead_of_map,
-    clippy::blocks_in_if_conditions,
-    clippy::clone_on_copy,
-    clippy::collapsible_if,
-    clippy::explicit_counter_loop,
-    clippy::field_reassign_with_default,
     clippy::float_cmp,
-    clippy::into_iter_on_ref,
-    clippy::len_zero,
-    clippy::let_and_return,
-    clippy::map_clone,
-    clippy::map_collect_result_unit,
-    clippy::match_like_matches_macro,
-    clippy::match_ref_pats,
     clippy::module_inception,
     clippy::needless_lifetimes,
     clippy::needless_range_loop,
-    clippy::needless_return,
     clippy::new_without_default,
-    clippy::or_fun_call,
     clippy::ptr_arg,
-    clippy::redundant_field_names,
-    clippy::redundant_static_lifetimes,
-    clippy::redundant_pattern_matching,
-    clippy::redundant_closure,
-    clippy::single_match,
-    clippy::stable_sort_primitive,
-    clippy::type_complexity,
-    clippy::unit_arg,
-    clippy::zero_prefixed_literal
+    clippy::type_complexity
 )]
 
 //! DataFusion is an extensible query execution framework that uses

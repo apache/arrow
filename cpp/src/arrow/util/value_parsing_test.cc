@@ -357,9 +357,17 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56", -2203932304000LL);
     AssertConversion(type, "2018-11-13T17:11:10.777Z", 1542129070777LL);
 
+    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000LL + 100LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12", -2203932304000LL + 120LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123", -2203932304000LL + 123LL);
+
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1");
+    AssertConversionFails(type, "1900-02-28 12:34:56.1234");
+    AssertConversionFails(type, "1900-02-28 12:34:56.12345");
     AssertConversionFails(type, "1900-02-28 12:34:56.123456");
+    AssertConversionFails(type, "1900-02-28 12:34:56.1234567");
+    AssertConversionFails(type, "1900-02-28 12:34:56.12345678");
+    AssertConversionFails(type, "1900-02-28 12:34:56.123456789");
   }
   {
     TimestampType type{TimeUnit::MICRO};
@@ -371,9 +379,16 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "2018-11-13T17:11:10.777000", 1542129070777000LL);
     AssertConversion(type, "3989-07-14T11:22:33.000777Z", 63730322553000777LL);
 
+    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000000LL + 100000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12", -2203932304000000LL + 120000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123", -2203932304000000LL + 123000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.1234", -2203932304000000LL + 123400LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12345", -2203932304000000LL + 123450LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456", -2203932304000000LL + 123456LL);
+
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1");
-    AssertConversionFails(type, "2018-11-13T17:11:10.777");
+    AssertConversionFails(type, "1900-02-28 12:34:56.1234567");
+    AssertConversionFails(type, "1900-02-28 12:34:56.12345678");
     AssertConversionFails(type, "1900-02-28 12:34:56.123456789");
   }
   {
@@ -386,10 +401,25 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "2018-11-13T17:11:10.000777000Z", 1542129070000777000LL);
     AssertConversion(type, "1969-12-31 23:59:59.999999999", -1);
 
+    AssertConversion(type, "1900-02-28 12:34:56.1", -2203932304000000000LL + 100000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12",
+                     -2203932304000000000LL + 120000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123",
+                     -2203932304000000000LL + 123000000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.1234",
+                     -2203932304000000000LL + 123400000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12345",
+                     -2203932304000000000LL + 123450000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456",
+                     -2203932304000000000LL + 123456000LL);
+    AssertConversion(type, "1900-02-28 12:34:56.1234567",
+                     -2203932304000000000LL + 123456700LL);
+    AssertConversion(type, "1900-02-28 12:34:56.12345678",
+                     -2203932304000000000LL + 123456780LL);
+    AssertConversion(type, "1900-02-28 12:34:56.123456789",
+                     -2203932304000000000LL + 123456789LL);
+
     // Invalid subseconds
-    AssertConversionFails(type, "1900-02-28 12:34:56.1");
-    AssertConversionFails(type, "1900-02-28 12:34:56.123");
-    AssertConversionFails(type, "1900-02-28 12:34:56.123456");
   }
 }
 

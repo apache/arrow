@@ -149,50 +149,33 @@ fn maybe_data_types(
 pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
     match type_into {
-        Int8 => match type_from {
-            Int8 => true,
-            _ => false,
-        },
-        Int16 => match type_from {
-            Int8 | Int16 | UInt8 => true,
-            _ => false,
-        },
-        Int32 => match type_from {
-            Int8 | Int16 | Int32 | UInt8 | UInt16 => true,
-            _ => false,
-        },
-        Int64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt8 => match type_from {
-            UInt8 => true,
-            _ => false,
-        },
-        UInt16 => match type_from {
-            UInt8 | UInt16 => true,
-            _ => false,
-        },
-        UInt32 => match type_from {
-            UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt64 => match type_from {
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            _ => false,
-        },
-        Float32 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 => true,
-            _ => false,
-        },
-        Float64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 | Float64 => true,
-            _ => false,
-        },
+        Int8 => matches!(type_from, Int8),
+        Int16 => matches!(type_from, Int8 | Int16 | UInt8),
+        Int32 => matches!(type_from, Int8 | Int16 | Int32 | UInt8 | UInt16),
+        Int64 => matches!(
+            type_from,
+            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32
+        ),
+        UInt8 => matches!(type_from, UInt8),
+        UInt16 => matches!(type_from, UInt8 | UInt16),
+        UInt32 => matches!(type_from, UInt8 | UInt16 | UInt32),
+        UInt64 => matches!(type_from, UInt8 | UInt16 | UInt32 | UInt64),
+        Float32 => matches!(
+            type_from,
+            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
+        ),
+        Float64 => matches!(
+            type_from,
+            Int8 | Int16
+                | Int32
+                | Int64
+                | UInt8
+                | UInt16
+                | UInt32
+                | UInt64
+                | Float32
+                | Float64
+        ),
         Utf8 => true,
         _ => false,
     }
@@ -346,7 +329,7 @@ mod tests {
         ];
 
         for case in cases {
-            if let Ok(_) = coerce(&case.0, &case.1, &case.2) {
+            if coerce(&case.0, &case.1, &case.2).is_ok() {
                 return Err(DataFusionError::Plan(format!(
                     "Error was expected in {:?}",
                     case

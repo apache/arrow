@@ -18,13 +18,13 @@
 //! Utilities for converting between IPC types and native Arrow types
 
 use crate::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
+use crate::error::{ArrowError, Result};
 use crate::ipc;
 
 use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use DataType::*;
 
@@ -97,6 +97,12 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let len = c_fields.len();
     for i in 0..len {
         let c_field: ipc::Field = c_fields.get(i);
+        match c_field.type_type() {
+            ipc::Type::Decimal if fb.endianness() == ipc::Endianness::Big => {
+                unimplemented!("Big Endian is not supported for Decimal!")
+            }
+            _ => (),
+        };
         fields.push(c_field.into());
     }
 
@@ -118,9 +124,20 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
 }
 
 /// Deserialize an IPC message into a schema
-pub fn schema_from_bytes(bytes: &[u8]) -> Option<Schema> {
-    let ipc = ipc::get_root_as_message(bytes);
-    ipc.header_as_schema().map(fb_to_schema)
+pub fn schema_from_bytes(bytes: &[u8]) -> Result<Schema> {
+    if let Ok(ipc) = ipc::root_as_message(bytes) {
+        if let Some(schema) = ipc.header_as_schema().map(fb_to_schema) {
+            Ok(schema)
+        } else {
+            Err(ArrowError::IoError(
+                "Unable to get head as schema".to_string(),
+            ))
+        }
+    } else {
+        Err(ArrowError::IoError(
+            "Unable to get root as message".to_string(),
+        ))
+    }
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
@@ -160,7 +177,10 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 (32, false) => DataType::UInt32,
                 (64, true) => DataType::Int64,
                 (64, false) => DataType::UInt64,
-                _ => panic!("Unexpected bitwidth and signed"),
+                z => panic!(
+                    "Int type with bit width of {} and signed of {} not supported",
+                    z.0, z.1
+                ),
             }
         }
         ipc::Type::Binary => DataType::Binary,
@@ -177,6 +197,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::Precision::HALF => DataType::Float16,
                 ipc::Precision::SINGLE => DataType::Float32,
                 ipc::Precision::DOUBLE => DataType::Float64,
+                z => panic!("FloatingPoint type with precision of {:?} not supported", z),
             }
         }
         ipc::Type::Date => {
@@ -184,6 +205,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             match date.unit() {
                 ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
                 ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
+                z => panic!("Date type with unit of {:?} not supported", z),
             }
         }
         ipc::Type::Time => {
@@ -205,8 +227,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
         }
         ipc::Type::Timestamp => {
             let timestamp = field.type_as_timestamp().unwrap();
-            let timezone: Option<Arc<String>> =
-                timestamp.timezone().map(|tz| Arc::new(tz.to_string()));
+            let timezone: Option<String> = timestamp.timezone().map(|tz| tz.to_string());
             match timestamp.unit() {
                 ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second, timezone),
                 ipc::TimeUnit::MILLISECOND => {
@@ -218,6 +239,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::TimeUnit::NANOSECOND => {
                     DataType::Timestamp(TimeUnit::Nanosecond, timezone)
                 }
+                z => panic!("Timestamp type with unit of {:?} not supported", z),
             }
         }
         ipc::Type::Interval => {
@@ -227,6 +249,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                     DataType::Interval(IntervalUnit::YearMonth)
                 }
                 ipc::IntervalUnit::DAY_TIME => DataType::Interval(IntervalUnit::DayTime),
+                z => panic!("Interval type with unit of {:?} unsupported", z),
             }
         }
         ipc::Type::Duration => {
@@ -236,6 +259,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
                 ipc::TimeUnit::MILLISECOND => DataType::Duration(TimeUnit::Millisecond),
                 ipc::TimeUnit::MICROSECOND => DataType::Duration(TimeUnit::Microsecond),
                 ipc::TimeUnit::NANOSECOND => DataType::Duration(TimeUnit::Nanosecond),
+                z => panic!("Duration type with unit of {:?} unsupported", z),
             }
         }
         ipc::Type::List => {
@@ -269,6 +293,10 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
             };
 
             DataType::Struct(fields)
+        }
+        ipc::Type::Decimal => {
+            let fsb = field.type_as_decimal().unwrap();
+            DataType::Decimal(fsb.precision() as usize, fsb.scale() as usize)
         }
         t => unimplemented!("Type {:?} not supported", t),
     }
@@ -461,7 +489,7 @@ pub(crate) fn get_fb_field_type<'a>(
             }
         }
         Timestamp(unit, tz) => {
-            let tz = tz.clone().unwrap_or_else(|| Arc::new(String::new()));
+            let tz = tz.clone().unwrap_or_else(String::new);
             let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(fbb);
             let time_unit = match unit {
@@ -566,6 +594,17 @@ pub(crate) fn get_fb_field_type<'a>(
             // type in the DictionaryEncoding metadata in the parent field
             get_fb_field_type(value_type, is_nullable, fbb)
         }
+        Decimal(precision, scale) => {
+            let mut builder = ipc::DecimalBuilder::new(fbb);
+            builder.add_precision(*precision as i32);
+            builder.add_scale(*scale as i32);
+            builder.add_bitWidth(128);
+            FBFieldType {
+                type_type: ipc::Type::Decimal,
+                type_: builder.finish().as_union_value(),
+                children: Some(fbb.create_vector(&empty_fields[..])),
+            }
+        }
         t => unimplemented!("Type {:?} not supported", t),
     }
 }
@@ -651,7 +690,7 @@ mod tests {
                     "timestamp[us]",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),
@@ -742,6 +781,7 @@ mod tests {
                     123,
                     true,
                 ),
+                Field::new("decimal<usize, usize>", DataType::Decimal(10, 6), false),
             ],
             md,
         );
@@ -749,7 +789,7 @@ mod tests {
         let fb = schema_to_fb(&schema);
 
         // read back fields
-        let ipc = ipc::get_root_as_schema(fb.finished_data());
+        let ipc = ipc::root_as_schema(fb.finished_data()).unwrap();
         let schema2 = fb_to_schema(ipc);
         assert_eq!(schema, schema2);
     }
@@ -766,7 +806,7 @@ mod tests {
             4, 0, 6, 0, 0, 0, 32, 0, 0, 0, 6, 0, 0, 0, 102, 105, 101, 108, 100, 49, 0, 0,
             0, 0, 0, 0,
         ];
-        let ipc = ipc::get_root_as_message(&bytes[..]);
+        let ipc = ipc::root_as_message(&bytes[..]).unwrap();
         let schema = ipc.header_as_schema().unwrap();
 
         // a message generated from Rust, same as the Python one
@@ -778,7 +818,7 @@ mod tests {
             8, 0, 4, 0, 6, 0, 0, 0, 32, 0, 0, 0, 6, 0, 0, 0, 102, 105, 101, 108, 100, 49,
             0, 0,
         ];
-        let ipc2 = ipc::get_root_as_message(&bytes[..]);
+        let ipc2 = ipc::root_as_message(&bytes[..]).unwrap();
         let schema2 = ipc.header_as_schema().unwrap();
 
         assert_eq!(schema, schema2);

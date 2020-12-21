@@ -135,9 +135,7 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:stretch" \
-                "arm64v8/debian:stretch" \
-                "debian:buster" \
+  for target in "debian:buster" \
                 "arm64v8/debian:buster" \
                 "ubuntu:xenial" \
                 "arm64v8/ubuntu:xenial" \
@@ -154,7 +152,7 @@ test_apt() {
         fi
         ;;
     esac
-    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -180,7 +178,7 @@ test_yum() {
         fi
         ;;
     esac
-    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
@@ -633,7 +631,7 @@ IMPORT_TESTS
 }
 
 test_linux_wheels() {
-  local py_arches="3.5m 3.6m 3.7m 3.8"
+  local py_arches="3.5m 3.6m 3.7m 3.8 3.9"
   local manylinuxes="1 2010 2014"
 
   for py_arch in ${py_arches}; do

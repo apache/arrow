@@ -34,7 +34,7 @@ ADD scripts/install_cmake.sh /
 RUN /install_cmake.sh
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 8882150df6529658700b66bec124dfb77eefca26
 
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh

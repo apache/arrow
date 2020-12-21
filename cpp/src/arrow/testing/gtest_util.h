@@ -137,15 +137,16 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
-    NumericArrowTypes;
+using NumericArrowTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType>;
 
-typedef ::testing::Types<FloatType, DoubleType> RealArrowTypes;
+using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
-typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
-                         Int16Type, Int32Type, Int64Type>
-    IntegralArrowTypes;
+using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                            Int8Type, Int16Type, Int32Type, Int64Type>;
+using TemporalArrowTypes =
+    ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 class Array;
 class ChunkedArray;
@@ -169,6 +170,9 @@ ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
     const EqualOptions& option = EqualOptions::Defaults());
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
+    const Scalar& expected, const Scalar& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
+ARROW_TESTING_EXPORT void AssertScalarsApproxEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
     const EqualOptions& options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
@@ -220,6 +224,9 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const Schema& lhs, const Schema& 
 ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lhs,
                                                const std::shared_ptr<Schema>& rhs,
                                                bool check_metadata = false);
+
+ARROW_TESTING_EXPORT Result<util::optional<std::string>> PrintArrayDiff(
+    const ChunkedArray& expected, const ChunkedArray& actual);
 
 ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                             bool same_chunk_layout = true,
@@ -475,4 +482,21 @@ void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
 }
 
 }  // namespace sv_lite
+
+namespace optional_lite {
+
+template <typename T>
+void PrintTo(const optional<T>& opt, std::ostream* os) {
+  if (opt.has_value()) {
+    *os << "{";
+    ::testing::internal::UniversalPrint(*opt, os);
+    *os << "}";
+  } else {
+    *os << "nullopt";
+  }
+}
+
+inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
+
+}  // namespace optional_lite
 }  // namespace nonstd

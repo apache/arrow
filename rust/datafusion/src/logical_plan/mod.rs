@@ -22,6 +22,7 @@
 //! physical query plans and executed.
 
 mod builder;
+mod dfschema;
 mod display;
 mod expr;
 mod extension;
@@ -30,6 +31,7 @@ mod plan;
 mod registry;
 
 pub use builder::LogicalPlanBuilder;
+pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;
 pub use expr::{
     abs, acos, and, array, asin, atan, avg, binary_expr, case, ceil, col, concat, cos,
@@ -39,7 +41,5 @@ pub use expr::{
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;
-pub use plan::{
-    JoinType, LogicalPlan, PlanType, PlanVisitor, StringifiedPlan, TableSource,
-};
+pub use plan::{JoinType, LogicalPlan, PlanType, PlanVisitor, StringifiedPlan};
 pub use registry::FunctionRegistry;

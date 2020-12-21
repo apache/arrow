@@ -27,6 +27,7 @@ use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
+use datafusion::physical_plan::collect;
 use datafusion::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
 
@@ -116,7 +117,7 @@ async fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Resu
         println!("Optimized logical plan:\n{:?}", plan);
     }
     let physical_plan = ctx.create_physical_plan(&plan)?;
-    let result = ctx.collect(physical_plan).await?;
+    let result = collect(physical_plan).await?;
     if debug {
         pretty::print_batches(&result)?;
     }

@@ -50,7 +50,7 @@ use fmt::{Debug, Formatter};
 use std::{fmt, str::FromStr, sync::Arc};
 
 /// A function's signature, which defines the function's supported argument types.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Signature {
     /// arbitrary number of arguments of an common type out of a list of valid types
     // A function such as `concat` is `Variadic(vec![DataType::Utf8, DataType::LargeUtf8])`
@@ -180,7 +180,7 @@ pub fn return_type(
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
 
-    if arg_types.len() == 0 {
+    if arg_types.is_empty() {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
         return Err(DataFusionError::Plan(format!(
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_concat_error() -> Result<()> {
         let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
-        if let Ok(_) = result {
+        if result.is_ok() {
             Err(DataFusionError::Plan(
                 "Function 'concat' cannot accept zero arguments".to_string(),
             ))

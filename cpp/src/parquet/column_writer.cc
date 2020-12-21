@@ -1011,13 +1011,6 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   const ::arrow::DictionaryType& dict_type =
       static_cast<const ::arrow::DictionaryType&>(*array.type());
 
-  // TODO(ARROW-1648): Remove this special handling once we require an Arrow
-  // version that has this fixed.
-  if (dict_type.value_type()->id() == ::arrow::Type::NA) {
-    *out = std::make_shared<::arrow::NullArray>(array.length());
-    return Status::OK();
-  }
-
   ::arrow::compute::ExecContext ctx(pool);
   ARROW_ASSIGN_OR_RAISE(Datum cast_output,
                         ::arrow::compute::Cast(array.data(), dict_type.value_type(),
@@ -1946,23 +1939,23 @@ struct SerializeFunctor<
 // ----------------------------------------------------------------------
 // Write Arrow to Decimal128
 
-// Requires a custom serializer because decimal128 in parquet are in big-endian
+// Requires a custom serializer because decimal in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType,
-                        ::arrow::enable_if_decimal128<ArrowType>> {
-  Status Serialize(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx,
-                   FLBA* out) {
+struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<ArrowType>> {
+  Status Serialize(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
+                   ArrowWriteContext* ctx, FLBA* out) {
     AllocateScratch(array, ctx);
     auto offset = Offset(array);
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianess(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianess<ArrowType::kByteWidth>(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianess(array.GetValue(i), offset)
+        out[i] = array.IsValid(i) ? FixDecimalEndianess<ArrowType::kByteWidth>(
+                                        array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
     }
@@ -1971,40 +1964,43 @@ struct SerializeFunctor<ParquetType, ArrowType,
   }
 
   // Parquet's Decimal are stored with FixedLength values where the length is
-  // proportional to the precision. Arrow's Decimal are always stored with 16
+  // proportional to the precision. Arrow's Decimal are always stored with 16/32
   // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
   // here.
-  int32_t Offset(const ::arrow::Decimal128Array& array) {
-    auto decimal_type = checked_pointer_cast<::arrow::Decimal128Type>(array.type());
-    return decimal_type->byte_width() - internal::DecimalSize(decimal_type->precision());
+  int32_t Offset(const Array& array) {
+    auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(array.type());
+    return decimal_type->byte_width() -
+           ::arrow::DecimalType::DecimalSize(decimal_type->precision());
   }
 
-  void AllocateScratch(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx) {
+  void AllocateScratch(const typename ::arrow::TypeTraits<ArrowType>::ArrayType& array,
+                       ArrowWriteContext* ctx) {
     int64_t non_null_count = array.length() - array.null_count();
-    int64_t size = non_null_count * 16;
+    int64_t size = non_null_count * ArrowType::kByteWidth;
     scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
     scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
   }
 
+  template <int byte_width>
   FixedLenByteArray FixDecimalEndianess(const uint8_t* in, int64_t offset) {
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
-    *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    static_assert(byte_width == 16 || byte_width == 32,
+                  "only 16 and 32 byte Decimals supported");
+    if (byte_width == 32) {
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[3]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[2]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    } else {
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[1]);
+      *scratch++ = ::arrow::BitUtil::ToBigEndian(u64_in[0]);
+    }
     return FixedLenByteArray(out);
   }
 
   std::shared_ptr<ResizableBuffer> scratch_buffer;
   int64_t* scratch;
-};
-
-template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType,
-                        ::arrow::enable_if_decimal256<ArrowType>> {
-  Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
-                   FLBA* out) {
-    return Status::NotImplemented("Decimal256 serialization isn't implemented");
-  }
 };
 
 template <>

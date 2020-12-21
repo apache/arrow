@@ -20,54 +20,42 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Calendar;
 
-import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 
 /**
  * Consumer which consume timestamp type values from {@link ResultSet}.
- * Write the data to {@link TimeStampMilliTZVector}.
+ * Write the data to {@link TimeStampMilliVector}.
  */
 public abstract class TimestampConsumer {
 
   /**
-   * Creates a consumer for {@link TimeStampMilliTZVector}.
+   * Creates a consumer for {@link TimeStampMilliVector}.
    */
-  public static JdbcConsumer<TimeStampMilliTZVector> createConsumer(
-          TimeStampMilliTZVector vector, int index, boolean nullable, Calendar calendar) {
+  public static JdbcConsumer<TimeStampMilliVector> createConsumer(
+          TimeStampMilliVector vector, int index, boolean nullable) {
     if (nullable) {
-      return new NullableTimestampConsumer(vector, index, calendar);
+      return new NullableTimestampConsumer(vector, index);
     } else {
-      return new NonNullableTimestampConsumer(vector, index, calendar);
+      return new NonNullableTimestampConsumer(vector, index);
     }
   }
 
   /**
    * Nullable consumer for timestamp.
    */
-  static class NullableTimestampConsumer extends BaseConsumer<TimeStampMilliTZVector> {
-
-    protected final Calendar calendar;
+  static class NullableTimestampConsumer extends BaseConsumer<TimeStampMilliVector> {
 
     /**
      * Instantiate a TimestampConsumer.
      */
-    public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, /* calendar */null);
-    }
-
-    /**
-     * Instantiate a TimestampConsumer.
-     */
-    public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
+    public NullableTimestampConsumer(TimeStampMilliVector vector, int index) {
       super(vector, index);
-      this.calendar = calendar;
     }
 
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
-      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
-          resultSet.getTimestamp(columnIndexInResultSet, calendar);
+      Timestamp timestamp = resultSet.getTimestamp(columnIndexInResultSet);
       if (!resultSet.wasNull()) {
         // for fixed width vectors, we have allocated enough memory proactively,
         // so there is no need to call the setSafe method here.
@@ -80,29 +68,18 @@ public abstract class TimestampConsumer {
   /**
    * Non-nullable consumer for timestamp.
    */
-  static class NonNullableTimestampConsumer extends BaseConsumer<TimeStampMilliTZVector> {
-
-    protected final Calendar calendar;
+  static class NonNullableTimestampConsumer extends BaseConsumer<TimeStampMilliVector> {
 
     /**
      * Instantiate a TimestampConsumer.
      */
-    public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, /* calendar */null);
-    }
-
-    /**
-     * Instantiate a TimestampConsumer.
-     */
-    public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
+    public NonNullableTimestampConsumer(TimeStampMilliVector vector, int index) {
       super(vector, index);
-      this.calendar = calendar;
     }
 
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
-      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
-          resultSet.getTimestamp(columnIndexInResultSet, calendar);
+      Timestamp timestamp = resultSet.getTimestamp(columnIndexInResultSet);
       // for fixed width vectors, we have allocated enough memory proactively,
       // so there is no need to call the setSafe method here.
       vector.set(currentIndex, timestamp.getTime());

@@ -26,7 +26,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
 use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
@@ -35,7 +35,7 @@ use crate::file::{metadata::KeyValue, properties::WriterProperties};
 use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 
 /// Convert Parquet schema to Arrow schema including optional metadata.
-/// Attempts to decode any existing Arrow shcema metadata, falling back
+/// Attempts to decode any existing Arrow schema metadata, falling back
 /// to converting the Parquet schema column-wise
 pub fn parquet_to_arrow_schema(
     parquet_schema: &SchemaDescriptor,
@@ -184,10 +184,21 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
             } else {
                 bytes.as_slice()
             };
-            let message = arrow::ipc::get_root_as_message(slice);
-            message
-                .header_as_schema()
-                .map(arrow::ipc::convert::fb_to_schema)
+            match arrow::ipc::root_as_message(slice) {
+                Ok(message) => message
+                    .header_as_schema()
+                    .map(arrow::ipc::convert::fb_to_schema),
+                Err(err) => {
+                    // The flatbuffers implementation returns an error on verification error.
+                    // TODO: return error to caller?
+                    eprintln!(
+                        "Unable to get root as message stored in {}: {:?}",
+                        super::ARROW_SCHEMA_META_KEY,
+                        err
+                    );
+                    None
+                }
+            }
         }
         Err(err) => {
             // The C++ implementation returns an error if the schema can't be parsed.
@@ -205,7 +216,8 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
 /// Encodes the Arrow schema into the IPC format, and base64 encodes it
 fn encode_arrow_schema(schema: &Schema) -> String {
     let options = writer::IpcWriteOptions::default();
-    let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&schema, &options);
+    let data_gen = arrow::ipc::writer::IpcDataGenerator::default();
+    let mut serialized_schema = data_gen.schema_to_bytes(&schema, &options);
 
     // manually prepending the length to the schema as arrow uses the legacy IPC format
     // TODO: change after addressing ARROW-9777
@@ -367,6 +379,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
             .build(),
+        // date64 is cast to date32
         DataType::Date64(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(LogicalType::DATE)
             .with_repetition(repetition)
@@ -400,12 +413,13 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
-        DataType::Decimal(_, _) => {
-            Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                .with_repetition(repetition)
-                .with_length(10)
-                .build()
-        }
+        DataType::Decimal(precision, _) => Type::primitive_type_builder(
+            name,
+            PhysicalType::FIXED_LEN_BYTE_ARRAY,
+        )
+        .with_repetition(repetition)
+        .with_length((10.0_f64.powi(*precision as i32).log2() / 8.0).ceil() as i32)
+        .build(),
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(LogicalType::UTF8)
@@ -604,18 +618,43 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
-        let byte_width = match self.schema {
-            Type::PrimitiveType {
-                ref type_length, ..
-            } => *type_length,
-            _ => {
-                return Err(ArrowError(
-                    "Expected a physical type, not a group type".to_string(),
-                ))
+        match self.schema.get_basic_info().logical_type() {
+            LogicalType::DECIMAL => {
+                let (precision, scale) = match self.schema {
+                    Type::PrimitiveType {
+                        ref precision,
+                        ref scale,
+                        ..
+                    } => (*precision, *scale),
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
+                Ok(DataType::Decimal(precision as usize, scale as usize))
             }
-        };
+            LogicalType::INTERVAL => {
+                // There is currently no reliable way of determining which IntervalUnit
+                // to return. Thus without the original Arrow schema, the results
+                // would be incorrect if all 12 bytes of the interval are populated
+                Ok(DataType::Interval(IntervalUnit::DayTime))
+            }
+            _ => {
+                let byte_width = match self.schema {
+                    Type::PrimitiveType {
+                        ref type_length, ..
+                    } => *type_length,
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
+                    }
+                };
 
-        Ok(DataType::FixedSizeBinary(byte_width))
+                Ok(DataType::FixedSizeBinary(byte_width))
+            }
+        }
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
@@ -1473,17 +1512,14 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(
-                        TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                        Some("Africa/Johannesburg".to_string()),
                     ),
                     false,
                 ),

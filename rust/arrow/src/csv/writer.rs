@@ -48,7 +48,7 @@
 //!     Some(-556132.25),
 //! ]);
 //! let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-//! let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+//! let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
 //!
 //! let batch = RecordBatch::try_new(
 //!     Arc::new(schema),
@@ -415,7 +415,7 @@ mod tests {
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],
             None,
@@ -482,7 +482,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
@@ -543,7 +543,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Some(-556132.25),
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
-        let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
+        let c4 = BooleanArray::from(vec![Some(true), Some(false), None]);
         let c5 = TimestampMillisecondArray::from_opt_vec(
             vec![None, Some(1555584887378), Some(1555555555555)],
             None,
