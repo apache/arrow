@@ -17,7 +17,7 @@
 
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -31,6 +31,8 @@ use datafusion::physical_plan::collect;
 use datafusion::physical_plan::csv::CsvExec;
 use datafusion::prelude::*;
 
+use parquet::basic::Compression;
+use parquet::file::properties::WriterProperties;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -81,6 +83,10 @@ struct ConvertOpt {
     /// Output file format: `csv` or `parquet`
     #[structopt(short = "f", long = "format")]
     file_format: String,
+
+    /// Compression to use when writing Parquet files
+    #[structopt(short = "c", long = "compression", default_value = "snappy")]
+    compression: String,
 }
 
 #[derive(Debug, StructOpt)]
@@ -997,22 +1003,50 @@ async fn execute_query(
 }
 
 async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
+    let output_root_path = Path::new(&opt.output_path);
+
     for table in TABLES {
+        let start = Instant::now();
         let schema = get_schema(table);
 
-        let path = format!("{}/{}.tbl", opt.input_path.to_str().unwrap(), table);
+        let input_path = format!("{}/{}.tbl", opt.input_path.to_str().unwrap(), table);
         let options = CsvReadOptions::new()
             .schema(&schema)
             .delimiter(b'|')
             .file_extension(".tbl");
 
         let ctx = ExecutionContext::new();
-        let csv = Arc::new(CsvExec::try_new(&path, options, None, 4096)?);
-        let output_path = opt.output_path.to_str().unwrap().to_owned();
+        let csv = Arc::new(CsvExec::try_new(&input_path, options, None, 4096)?);
+        let output_path = output_root_path.join(table);
+        let output_path = output_path.to_str().unwrap().to_owned();
 
+        println!(
+            "Converting '{}' to {} files in directory '{}'",
+            &input_path, &opt.file_format, &output_path
+        );
         match opt.file_format.as_str() {
             "csv" => ctx.write_csv(csv, output_path).await?,
-            "parquet" => ctx.write_parquet(csv, output_path).await?,
+            "parquet" => {
+                let compression = match opt.compression.as_str() {
+                    "none" => Compression::UNCOMPRESSED,
+                    "snappy" => Compression::SNAPPY,
+                    "brotli" => Compression::BROTLI,
+                    "gzip" => Compression::GZIP,
+                    "lz4" => Compression::LZ4,
+                    "lz0" => Compression::LZO,
+                    "zstd" => Compression::ZSTD,
+                    other => {
+                        return Err(DataFusionError::NotImplemented(format!(
+                            "Invalid compression format: {}",
+                            other
+                        )))
+                    }
+                };
+                let props = WriterProperties::builder()
+                    .set_compression(compression)
+                    .build();
+                ctx.write_parquet(csv, output_path, Some(props)).await?
+            }
             other => {
                 return Err(DataFusionError::NotImplemented(format!(
                     "Invalid output format: {}",
@@ -1020,6 +1054,7 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
                 )))
             }
         }
+        println!("Conversion completed in {} ms", start.elapsed().as_millis());
     }
 
     Ok(())
