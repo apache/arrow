@@ -109,6 +109,8 @@ async fn main() -> Result<()> {
 }
 
 async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
+    env_logger::init();
+
     println!("Running benchmarks with the following options: {:?}", opt);
     let config = ExecutionConfig::new()
         .with_concurrency(opt.concurrency)

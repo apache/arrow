@@ -16,7 +16,7 @@
 // under the License.
 
 //! ExecutionContext contains methods for registering data sources and executing queries
-
+use log::debug;
 use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
 use std::fs;
 use std::path::Path;
@@ -316,9 +316,11 @@ impl ExecutionContext {
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         // Apply standard rewrites and optimizations
+        debug!("Logical plan:\n {:?}", plan);
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
         plan = HashBuildProbeOrder::new().optimize(&plan)?;
+        debug!("Optimized logical plan:\n {:?}", plan);
 
         self.state
             .lock()
