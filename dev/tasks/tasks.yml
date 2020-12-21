@@ -43,7 +43,8 @@ groups:
     - centos-*-aarch64
 
   gandiva:
-    - gandiva-*
+    - gandiva-jar-ubuntu
+    - gandiva-jar-osx
 
   homebrew:
     - homebrew-*
@@ -1328,15 +1329,15 @@ tasks:
 
   ############################## Gandiva Tasks ################################
 
-  gandiva-jar-xenial:
-    ci: travis
-    template: gandiva-jars/travis.linux.yml
+  gandiva-jar-ubuntu:
+    ci: github
+    template: gandiva-jars/github.linux.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
   gandiva-jar-osx:
-    ci: travis
-    template: gandiva-jars/travis.osx.yml
+    ci: github
+    template: gandiva-jars/github.osx.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
