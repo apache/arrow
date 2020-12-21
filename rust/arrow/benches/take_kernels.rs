@@ -22,8 +22,6 @@ use criterion::Criterion;
 use rand::distributions::{Alphanumeric, Distribution, Standard};
 use rand::Rng;
 
-use std::sync::Arc;
-
 extern crate arrow;
 
 use arrow::array::*;
@@ -32,36 +30,32 @@ use arrow::datatypes::*;
 use arrow::util::test_util::seedable_rng;
 
 // cast array from specified primitive array type to desired data type
-fn create_primitive<T>(size: usize) -> ArrayRef
+fn create_primitive<T>(size: usize) -> PrimitiveArray<T>
 where
     T: ArrowPrimitiveType,
     Standard: Distribution<T::Native>,
     PrimitiveArray<T>: std::convert::From<Vec<T::Native>>,
 {
-    let array: PrimitiveArray<T> = seedable_rng()
+    seedable_rng()
         .sample_iter(&Standard)
         .take(size)
         .map(Some)
-        .collect();
-
-    Arc::new(array) as ArrayRef
+        .collect()
 }
 
 // cast array from specified primitive array type to desired data type
-fn create_boolean(size: usize) -> ArrayRef
+fn create_boolean(size: usize) -> BooleanArray
 where
     Standard: Distribution<bool>,
 {
-    let array: BooleanArray = seedable_rng()
+    seedable_rng()
         .sample_iter(&Standard)
         .take(size)
         .map(Some)
-        .collect();
-
-    Arc::new(array) as ArrayRef
+        .collect()
 }
 
-fn create_strings(size: usize, null_density: f32) -> ArrayRef {
+fn create_strings(size: usize, null_density: f32) -> StringArray {
     let rng = &mut seedable_rng();
 
     let mut builder = StringBuilder::new(size);
@@ -74,7 +68,7 @@ fn create_strings(size: usize, null_density: f32) -> ArrayRef {
             builder.append_null().unwrap()
         }
     }
-    Arc::new(builder.finish())
+    builder.finish()
 }
 
 fn create_random_index(size: usize, null_density: f32) -> UInt32Array {
@@ -91,8 +85,8 @@ fn create_random_index(size: usize, null_density: f32) -> UInt32Array {
     builder.finish()
 }
 
-fn bench_take(values: &ArrayRef, indices: &UInt32Array) {
-    criterion::black_box(take(&values, &indices, None).unwrap());
+fn bench_take(values: &dyn Array, indices: &UInt32Array) {
+    criterion::black_box(take(values, &indices, None).unwrap());
 }
 
 fn add_benchmark(c: &mut Criterion) {
