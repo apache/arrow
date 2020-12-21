@@ -44,15 +44,10 @@ pub struct RepartitionExec {
     input: Arc<dyn ExecutionPlan>,
     /// Partitioning scheme to use
     partitioning: Partitioning,
-    /// Channels for output batches
-    channels: Arc<
-        Mutex<
-            Vec<(
-                Sender<ArrowResult<RecordBatch>>,
-                Receiver<ArrowResult<RecordBatch>>,
-            )>,
-        >,
-    >,
+    /// Receivers for output batches
+    rx: Arc<Mutex<Vec<Receiver<ArrowResult<RecordBatch>>>>>,
+    /// Senders for output batches
+    tx: Arc<Mutex<Vec<Sender<ArrowResult<RecordBatch>>>>>,
 }
 
 #[async_trait]
@@ -91,20 +86,36 @@ impl ExecutionPlan for RepartitionExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        let mut channels = self.channels.lock().await;
-        if channels.is_empty() {
+        let mut tx = self.tx.lock().await;
+        let mut rx = self.rx.lock().await;
+        if tx.is_empty() {
             // create one channel per *output* partition
             let buffer_size = 64; // TODO: configurable?
             for _ in 0..self.partitioning.partition_count() {
-                channels.push(mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size));
+                let (sender, receiver) =
+                    mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size);
+                tx.push(sender);
+                rx.push(receiver);
             }
             // launch one async task per *input* partition
             for i in 0..self.input.output_partitioning().partition_count() {
                 let input = self.input.clone();
-                let handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+                let mut tx = tx.clone();
+                let partitioning = self.partitioning.clone();
+                let _handle: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
                     while let Some(batch) = stream.next().await {
-                        //TODO
+                        //TODO error handling
+                        let batch = batch?;
+                        match partitioning {
+                            Partitioning::RoundRobinBatch(n) => {
+                                //TODO pick a channel based on round-robin
+                                let output_partition = 0;
+                                let mut tx = &mut tx[output_partition];
+                                tx.try_send(Ok(batch)).unwrap();
+                            }
+                            _ => unimplemented!(),
+                        }
                     }
                     Ok(())
                 });
@@ -133,7 +144,8 @@ impl RepartitionExec {
             Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
                 partitioning,
-                channels: Arc::new(Mutex::new(vec![])),
+                tx: Arc::new(Mutex::new(vec![])),
+                rx: Arc::new(Mutex::new(vec![])),
             }),
             other => Err(DataFusionError::NotImplemented(format!(
                 "Partitioning scheme not supported yet: {:?}",
