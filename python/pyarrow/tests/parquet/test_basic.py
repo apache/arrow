@@ -16,7 +16,6 @@
 # under the License.
 
 from collections import OrderedDict
-import decimal
 import io
 
 import numpy as np
@@ -40,66 +39,13 @@ try:
     import pandas as pd
     import pandas.testing as tm
 
-    from pyarrow.tests.pandas_examples import (dataframe_with_arrays,
-                                               dataframe_with_lists)
+    from pyarrow.tests.pandas_examples import dataframe_with_lists
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
     pd = tm = None
 
 
 pytestmark = pytest.mark.parquet
-
-
-def test_large_binary():
-    data = [b'foo', b'bar'] * 50
-    for type in [pa.large_binary(), pa.large_string()]:
-        arr = pa.array(data, type=type)
-        table = pa.Table.from_arrays([arr], names=['strs'])
-        for use_dictionary in [False, True]:
-            _check_roundtrip(table, use_dictionary=use_dictionary)
-
-
-@pytest.mark.large_memory
-def test_large_binary_huge():
-    s = b'xy' * 997
-    data = [s] * ((1 << 33) // len(s))
-    for type in [pa.large_binary(), pa.large_string()]:
-        arr = pa.array(data, type=type)
-        table = pa.Table.from_arrays([arr], names=['strs'])
-        for use_dictionary in [False, True]:
-            _check_roundtrip(table, use_dictionary=use_dictionary)
-        del arr, table
-
-
-@pytest.mark.large_memory
-def test_large_binary_overflow():
-    s = b'x' * (1 << 31)
-    arr = pa.array([s], type=pa.large_binary())
-    table = pa.Table.from_arrays([arr], names=['strs'])
-    for use_dictionary in [False, True]:
-        writer = pa.BufferOutputStream()
-        with pytest.raises(
-                pa.ArrowInvalid,
-                match="Parquet cannot store strings with size 2GB or more"):
-            _write_table(table, writer, use_dictionary=use_dictionary)
-
-
-@parametrize_legacy_dataset
-@pytest.mark.parametrize('dtype', [int, float])
-def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
-    filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
-    data = [pa.array(list(map(dtype, range(5))))]
-    table = pa.Table.from_arrays(data, names=['a'])
-    _write_table(table, filename)
-    table_read = _read_table(filename, use_legacy_dataset=use_legacy_dataset)
-    for i in range(table.num_columns):
-        col_written = table[i]
-        col_read = table_read[i]
-        assert table.field(i).name == table_read.field(i).name
-        assert col_read.num_chunks == 1
-        data_written = col_written.chunk(0)
-        data_read = col_read.chunk(0)
-        assert data_written.equals(data_read)
 
 
 def test_parquet_invalid_version(tempdir):
@@ -225,34 +171,6 @@ def test_empty_table_no_columns(use_legacy_dataset):
     df = pd.DataFrame()
     empty = pa.Table.from_pandas(df, preserve_index=False)
     _check_roundtrip(empty, use_legacy_dataset=use_legacy_dataset)
-
-
-@parametrize_legacy_dataset
-def test_empty_lists_table_roundtrip(use_legacy_dataset):
-    # ARROW-2744: Shouldn't crash when writing an array of empty lists
-    arr = pa.array([[], []], type=pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr], ["A"])
-    _check_roundtrip(table, use_legacy_dataset=use_legacy_dataset)
-
-
-@parametrize_legacy_dataset
-def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
-    # Reproduce failure in ARROW-5630
-    typ = pa.list_(pa.field("item", pa.float32(), False))
-    num_rows = 10000
-    t = pa.table([
-        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)] *
-                  (num_rows // 10)), type=typ)
-    ], ['a'])
-    _check_roundtrip(
-        t, data_page_size=4096, use_legacy_dataset=use_legacy_dataset)
-
-
-def test_writing_empty_lists():
-    # ARROW-2591: [Python] Segmentation fault issue in pq.write_table
-    arr1 = pa.array([[], []], pa.list_(pa.int32()))
-    table = pa.Table.from_arrays([arr1], ['list(int32)'])
-    _check_roundtrip(table)
 
 
 @parametrize_legacy_dataset
@@ -431,47 +349,6 @@ def test_compression_level(use_legacy_dataset):
                          compression_level=level)
 
 
-@pytest.mark.pandas
-def test_column_of_arrays(tempdir):
-    df, schema = dataframe_with_arrays()
-
-    filename = tempdir / 'pandas_roundtrip.parquet'
-    arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version="2.0", coerce_timestamps='ms')
-    table_read = _read_table(filename)
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
-
-
-@pytest.mark.pandas
-def test_column_of_lists(tempdir):
-    df, schema = dataframe_with_lists(parquet_compatible=True)
-
-    filename = tempdir / 'pandas_roundtrip.parquet'
-    arrow_table = pa.Table.from_pandas(df, schema=schema)
-    _write_table(arrow_table, filename, version='2.0')
-    table_read = _read_table(filename)
-    df_read = table_read.to_pandas()
-
-    tm.assert_frame_equal(df, df_read)
-
-
-def test_large_list_records():
-    # This was fixed in PARQUET-1100
-
-    list_lengths = np.random.randint(0, 500, size=50)
-    list_lengths[::10] = 0
-
-    list_values = [list(map(int, np.random.randint(0, 100, size=x)))
-                   if i % 8 else None
-                   for i, x in enumerate(list_lengths)]
-
-    a1 = pa.array(list_values)
-
-    table = pa.Table.from_arrays([a1], ['int_lists'])
-    _check_roundtrip(table)
-
-
 def test_sanitized_spark_field_names():
     a0 = pa.array([0, 1, 2, 3, 4])
     name = 'prohib; ,\t{}'
@@ -481,16 +358,6 @@ def test_sanitized_spark_field_names():
 
     expected_name = 'prohib______'
     assert result.schema[0].name == expected_name
-
-
-def test_fixed_size_binary():
-    t0 = pa.binary(10)
-    data = [b'fooooooooo', None, b'barooooooo', b'quxooooooo']
-    a0 = pa.array(data, type=t0)
-
-    table = pa.Table.from_arrays([a0],
-                                 ['binary[10]'])
-    _check_roundtrip(table)
 
 
 @pytest.mark.pandas
@@ -573,158 +440,6 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
                       use_legacy_dataset=use_legacy_dataset)
 
     assert len(record) == 0
-
-
-@pytest.mark.large_memory
-def test_large_table_int32_overflow():
-    size = np.iinfo('int32').max + 1
-
-    arr = np.ones(size, dtype='uint8')
-
-    parr = pa.array(arr, type=pa.uint8())
-
-    table = pa.Table.from_arrays([parr], names=['one'])
-    f = io.BytesIO()
-    _write_table(table, f)
-
-
-def _simple_table_roundtrip(table, use_legacy_dataset=False, **write_kwargs):
-    stream = pa.BufferOutputStream()
-    _write_table(table, stream, **write_kwargs)
-    buf = stream.getvalue()
-    return _read_table(buf, use_legacy_dataset=use_legacy_dataset)
-
-
-@pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_byte_array_exactly_2gb(use_legacy_dataset):
-    # Test edge case reported in ARROW-3762
-    val = b'x' * (1 << 10)
-
-    base = pa.array([val] * ((1 << 21) - 1))
-    cases = [
-        [b'x' * 1023],  # 2^31 - 1
-        [b'x' * 1024],  # 2^31
-        [b'x' * 1025]   # 2^31 + 1
-    ]
-    for case in cases:
-        values = pa.chunked_array([base, pa.array(case)])
-        t = pa.table([values], names=['f0'])
-        result = _simple_table_roundtrip(
-            t, use_legacy_dataset=use_legacy_dataset, use_dictionary=False)
-        assert t.equals(result)
-
-
-@pytest.mark.pandas
-@pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_binary_array_overflow_to_chunked(use_legacy_dataset):
-    # ARROW-3762
-
-    # 2^31 + 1 bytes
-    values = [b'x'] + [
-        b'x' * (1 << 20)
-    ] * 2 * (1 << 10)
-    df = pd.DataFrame({'byte_col': values})
-
-    tbl = pa.Table.from_pandas(df, preserve_index=False)
-    read_tbl = _simple_table_roundtrip(
-        tbl, use_legacy_dataset=use_legacy_dataset)
-
-    col0_data = read_tbl[0]
-    assert isinstance(col0_data, pa.ChunkedArray)
-
-    # Split up into 2GB chunks
-    assert col0_data.num_chunks == 2
-
-    assert tbl.equals(read_tbl)
-
-
-@pytest.mark.pandas
-@pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_list_of_binary_large_cell(use_legacy_dataset):
-    # ARROW-4688
-    data = []
-
-    # TODO(wesm): handle chunked children
-    # 2^31 - 1 bytes in a single cell
-    # data.append([b'x' * (1 << 20)] * 2047 + [b'x' * ((1 << 20) - 1)])
-
-    # A little under 2GB in cell each containing approximately 10MB each
-    data.extend([[b'x' * 1000000] * 10] * 214)
-
-    arr = pa.array(data)
-    table = pa.Table.from_arrays([arr], ['chunky_cells'])
-    read_table = _simple_table_roundtrip(
-        table, use_legacy_dataset=use_legacy_dataset)
-    assert table.equals(read_table)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_nested_convenience(tempdir, use_legacy_dataset):
-    # ARROW-1684
-    df = pd.DataFrame({
-        'a': [[1, 2, 3], None, [4, 5], []],
-        'b': [[1.], None, None, [6., 7.]],
-    })
-
-    path = str(tempdir / 'nested_convenience.parquet')
-
-    table = pa.Table.from_pandas(df, preserve_index=False)
-    _write_table(table, path)
-
-    read = pq.read_table(
-        path, columns=['a'], use_legacy_dataset=use_legacy_dataset)
-    tm.assert_frame_equal(read.to_pandas(), df[['a']])
-
-    read = pq.read_table(
-        path, columns=['a', 'b'], use_legacy_dataset=use_legacy_dataset)
-    tm.assert_frame_equal(read.to_pandas(), df)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_decimal_roundtrip(tempdir, use_legacy_dataset):
-    num_values = 10
-
-    columns = {}
-    for precision in range(1, 39):
-        for scale in range(0, precision + 1):
-            with util.random_seed(0):
-                random_decimal_values = [
-                    util.randdecimal(precision, scale)
-                    for _ in range(num_values)
-                ]
-            column_name = ('dec_precision_{:d}_scale_{:d}'
-                           .format(precision, scale))
-            columns[column_name] = random_decimal_values
-
-    expected = pd.DataFrame(columns)
-    filename = tempdir / 'decimals.parquet'
-    string_filename = str(filename)
-    table = pa.Table.from_pandas(expected)
-    _write_table(table, string_filename)
-    result_table = _read_table(
-        string_filename, use_legacy_dataset=use_legacy_dataset)
-    result = result_table.to_pandas()
-    tm.assert_frame_equal(result, expected)
-
-
-@pytest.mark.pandas
-@pytest.mark.xfail(
-    raises=pa.ArrowException, reason='Parquet does not support negative scale'
-)
-def test_decimal_roundtrip_negative_scale(tempdir):
-    expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
-    filename = tempdir / 'decimals.parquet'
-    string_filename = str(filename)
-    t = pa.Table.from_pandas(expected)
-    _write_table(t, string_filename)
-    result_table = _read_table(string_filename)
-    result = result_table.to_pandas()
-    tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas

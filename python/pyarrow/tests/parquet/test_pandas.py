@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime
 import io
 import json
 from distutils.version import LooseVersion
@@ -47,66 +46,6 @@ except ImportError:
 
 
 pytestmark = pytest.mark.parquet
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-@pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_pandas_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
-    df = alltypes_sample(size=10000, categorical=True)
-
-    filename = tempdir / 'pandas_roundtrip.parquet'
-    arrow_table = pa.Table.from_pandas(df)
-    assert arrow_table.schema.pandas_metadata is not None
-
-    _write_table(arrow_table, filename, version="2.0",
-                 coerce_timestamps='ms', chunk_size=chunk_size)
-    table_read = pq.read_pandas(
-        filename, use_legacy_dataset=use_legacy_dataset)
-    assert table_read.schema.pandas_metadata is not None
-
-    read_metadata = table_read.schema.metadata
-    assert arrow_table.schema.metadata == read_metadata
-
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_datetime_tz(use_legacy_dataset):
-    s = pd.Series([datetime.datetime(2017, 9, 6)])
-    s = s.dt.tz_localize('utc')
-
-    s.index = s
-
-    # Both a column and an index to hit both use cases
-    df = pd.DataFrame({'tz_aware': s,
-                       'tz_eastern': s.dt.tz_convert('US/Eastern')},
-                      index=s)
-
-    f = io.BytesIO()
-
-    arrow_table = pa.Table.from_pandas(df)
-
-    _write_table(arrow_table, f, coerce_timestamps='ms')
-    f.seek(0)
-
-    table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
-
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_datetime_timezone_tzinfo(use_legacy_dataset):
-    value = datetime.datetime(2018, 1, 1, 1, 23, 45,
-                              tzinfo=datetime.timezone.utc)
-    df = pd.DataFrame({'foo': [value]})
-
-    _roundtrip_pandas_dataframe(
-        df, write_kwargs={}, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -205,39 +144,6 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     assert arrow_table.schema.metadata == read_metadata
 
     df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df, df_read)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_1_0_roundtrip(tempdir, use_legacy_dataset):
-    size = 10000
-    np.random.seed(0)
-    df = pd.DataFrame({
-        'uint8': np.arange(size, dtype=np.uint8),
-        'uint16': np.arange(size, dtype=np.uint16),
-        'uint32': np.arange(size, dtype=np.uint32),
-        'uint64': np.arange(size, dtype=np.uint64),
-        'int8': np.arange(size, dtype=np.int16),
-        'int16': np.arange(size, dtype=np.int16),
-        'int32': np.arange(size, dtype=np.int32),
-        'int64': np.arange(size, dtype=np.int64),
-        'float32': np.arange(size, dtype=np.float32),
-        'float64': np.arange(size, dtype=np.float64),
-        'bool': np.random.randn(size) > 0,
-        'str': [str(x) for x in range(size)],
-        'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
-        'empty_str': [''] * size
-    })
-    filename = tempdir / 'pandas_roundtrip.parquet'
-    arrow_table = pa.Table.from_pandas(df)
-    _write_table(arrow_table, filename, version='1.0')
-    table_read = _read_table(filename, use_legacy_dataset=use_legacy_dataset)
-    df_read = table_read.to_pandas()
-
-    # We pass uint32_t as int64_t if we write Parquet version 1.0
-    df['uint32'] = df['uint32'].values.astype(np.int64)
-
     tm.assert_frame_equal(df, df_read)
 
 

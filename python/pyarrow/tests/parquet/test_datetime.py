@@ -16,12 +16,14 @@
 # under the License.
 
 import datetime
+import io
 
 import numpy as np
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import _check_roundtrip
+from pyarrow.tests.parquet.common import (
+    _check_roundtrip, parametrize_legacy_dataset)
 
 try:
     import pyarrow.parquet as pq
@@ -40,6 +42,43 @@ except ImportError:
 
 
 pytestmark = pytest.mark.parquet
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_pandas_parquet_datetime_tz(use_legacy_dataset):
+    s = pd.Series([datetime.datetime(2017, 9, 6)])
+    s = s.dt.tz_localize('utc')
+
+    s.index = s
+
+    # Both a column and an index to hit both use cases
+    df = pd.DataFrame({'tz_aware': s,
+                       'tz_eastern': s.dt.tz_convert('US/Eastern')},
+                      index=s)
+
+    f = io.BytesIO()
+
+    arrow_table = pa.Table.from_pandas(df)
+
+    _write_table(arrow_table, f, coerce_timestamps='ms')
+    f.seek(0)
+
+    table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
+
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df, df_read)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_datetime_timezone_tzinfo(use_legacy_dataset):
+    value = datetime.datetime(2018, 1, 1, 1, 23, 45,
+                              tzinfo=datetime.timezone.utc)
+    df = pd.DataFrame({'foo': [value]})
+
+    _roundtrip_pandas_dataframe(
+        df, write_kwargs={}, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
