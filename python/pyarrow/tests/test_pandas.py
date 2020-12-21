@@ -416,7 +416,7 @@ class TestConvertMetadata:
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(str)
+            expected.columns = df.columns.values.astype(str)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
