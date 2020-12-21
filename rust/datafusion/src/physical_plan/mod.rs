@@ -107,6 +107,13 @@ pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
 /// Partitioning schemes supported by operators.
 #[derive(Debug, Clone)]
 pub enum Partitioning {
+    /// Allocate batches using a round-robin algorithm
+    RoundRobinBatch(usize),
+    /// Allocate rows using a round-robin algorithm. This provides finer-grained partitioning
+    /// than `RoundRobinBatch` but also has much more overhead.
+    RoundRobinRow(usize),
+    /// Allocate rows based on a hash of one of more expressions
+    Hash(Vec<Arc<dyn PhysicalExpr>>, usize),
     /// Unknown partitioning scheme
     UnknownPartitioning(usize),
 }
@@ -116,6 +123,9 @@ impl Partitioning {
     pub fn partition_count(&self) -> usize {
         use Partitioning::*;
         match self {
+            RoundRobinBatch(n) => *n,
+            RoundRobinRow(n) => *n,
+            Hash(_, n) => *n,
             UnknownPartitioning(n) => *n,
         }
     }

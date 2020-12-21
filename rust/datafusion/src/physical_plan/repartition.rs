@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::error::{DataFusionError, Result};
-use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
+use crate::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -33,27 +33,13 @@ use async_trait::async_trait;
 
 use futures::stream::Stream;
 
-/// Partitioning schemes
-#[derive(Debug, Clone)]
-pub enum PartitioningScheme {
-    /// Allocate batches using a round-robin algorithm
-    RoundRobinBatch,
-    /// Allocate rows using a round-robin algorithm. This provides finer-grained partitioning
-    /// than `RoundRobinBatch` but also has much more overhead.
-    RoundRobinRow,
-    /// Allocate rows based on a hash of one of more expressions
-    Hash(Vec<Arc<dyn PhysicalExpr>>),
-}
-
 /// partition. No guarantees are made about the order of the resulting partition.
 #[derive(Debug)]
 pub struct RepartitionExec {
     /// Input execution plan
     input: Arc<dyn ExecutionPlan>,
     /// Partitioning scheme to use
-    partitioning_scheme: PartitioningScheme,
-    /// Number of output partitions
-    num_partitions: usize,
+    partitioning: Partitioning,
 }
 
 #[async_trait]
@@ -79,8 +65,7 @@ impl ExecutionPlan for RepartitionExec {
         match children.len() {
             1 => Ok(Arc::new(RepartitionExec::try_new(
                 children[0].clone(),
-                self.partitioning_scheme.clone(),
-                self.num_partitions,
+                self.partitioning.clone(),
             )?)),
             _ => Err(DataFusionError::Internal(
                 "RepartitionExec wrong number of children".to_string(),
@@ -89,8 +74,7 @@ impl ExecutionPlan for RepartitionExec {
     }
 
     fn output_partitioning(&self) -> Partitioning {
-        //TODO needs more work
-        Partitioning::UnknownPartitioning(self.num_partitions)
+        self.partitioning.clone()
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
@@ -111,17 +95,15 @@ impl ExecutionPlan for RepartitionExec {
 }
 
 impl RepartitionExec {
-    /// Create a new MergeExec
+    /// Create a new RepartitionExec
     pub fn try_new(
         input: Arc<dyn ExecutionPlan>,
-        partioning_scheme: PartitioningScheme,
-        num_partitions: usize,
+        partitioning: Partitioning,
     ) -> Result<Self> {
-        match &partioning_scheme {
-            PartitioningScheme::RoundRobinBatch => Ok(RepartitionExec {
+        match &partitioning {
+            Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
-                partitioning_scheme: partioning_scheme,
-                num_partitions,
+                partitioning,
             }),
             other => Err(DataFusionError::NotImplemented(format!(
                 "Partitioning scheme not supported yet: {:?}",
