@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestDecimal256DataType < Test::Unit::TestCase
+  def test_type
+    data_type = Arrow::Decimal256DataType.new(2, 0)
+    assert_equal(Arrow::Type::DECIMAL256, data_type.id)
+  end
 
-source_dir=${1}/ruby
-build_dir=${2}/ruby
+  def test_to_s
+    data_type = Arrow::Decimal256DataType.new(2, 0)
+    assert_equal("decimal256(2, 0)", data_type.to_s)
+  end
 
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
+  def test_precision
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    assert_equal(8, data_type.precision)
+  end
 
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+  def test_scale
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    assert_equal(2, data_type.scale)
+  end
+end

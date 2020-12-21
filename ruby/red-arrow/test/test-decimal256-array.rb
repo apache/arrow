@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
-
-source_dir=${1}/ruby
-build_dir=${2}/ruby
-
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
-
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+class Decimal256ArrayTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("build") do
+      data_type = Arrow::Decimal256DataType.new(3, 1)
+      values = [
+        10.1,
+        nil,
+        "10.1",
+        BigDecimal("10.1"),
+      ]
+      array = Arrow::Decimal256Array.new(data_type, values)
+      assert_equal([
+                     BigDecimal("10.1"),
+                     nil,
+                     BigDecimal("10.1"),
+                     BigDecimal("10.1"),
+                   ],
+                   array.to_a)
+    end
+  end
+end

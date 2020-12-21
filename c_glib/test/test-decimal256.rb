@@ -15,31 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDecimal128 < Test::Unit::TestCase
+class TestDecimal256 < Test::Unit::TestCase
   include Helper::Omittable
 
   def test_copy
-    decimal = Arrow::Decimal128.new("234.23445")
+    decimal = Arrow::Decimal256.new("234.23445")
     assert_equal(decimal, decimal.copy)
   end
 
   def test_to_string_scale
     integer_data = 23423445
     string_data = "234.23445"
-    decimal = Arrow::Decimal128.new(integer_data)
+    decimal = Arrow::Decimal256.new(integer_data)
     assert_equal(string_data, decimal.to_string_scale(5))
   end
 
   def test_to_string
     string_data = "99999999999999999999999999999999999999"
-    decimal = Arrow::Decimal128.new(string_data)
+    decimal = Arrow::Decimal256.new(string_data)
     assert_equal(string_data, decimal.to_s)
   end
 
   def test_abs
     absolute_value = "23049223942343532412"
     negative_value = "-23049223942343532412"
-    decimal = Arrow::Decimal128.new(negative_value)
+    decimal = Arrow::Decimal256.new(negative_value)
     decimal.abs
     assert_equal(absolute_value, decimal.to_s)
   end
@@ -47,75 +47,62 @@ class TestDecimal128 < Test::Unit::TestCase
   def test_negate
     positive_value = "23049223942343532412"
     negative_value = "-23049223942343532412"
-    decimal = Arrow::Decimal128.new(positive_value)
+    decimal = Arrow::Decimal256.new(positive_value)
     decimal.negate
     assert_equal(negative_value, decimal.to_s)
     decimal.negate
     assert_equal(positive_value, decimal.to_s)
   end
 
-  def test_to_integer
-    integer_data = 999999999999999999
-    decimal = Arrow::Decimal128.new(integer_data)
-    assert_equal(integer_data, decimal.to_i)
-  end
-
   def test_plus
     integer_data1 = 23423445
     integer_data2 = 5443
-    decimal1 = Arrow::Decimal128.new(integer_data1)
-    decimal2 = Arrow::Decimal128.new(integer_data2)
+    decimal1 = Arrow::Decimal256.new(integer_data1)
+    decimal2 = Arrow::Decimal256.new(integer_data2)
     decimal3 = decimal1.plus(decimal2)
-    assert_equal(integer_data1 + integer_data2, decimal3.to_i)
-  end
-
-  def test_minus
-    integer_data1 = 23423445
-    integer_data2 = 5443
-    decimal1 = Arrow::Decimal128.new(integer_data1)
-    decimal2 = Arrow::Decimal128.new(integer_data2)
-    decimal3 = decimal1.minus(decimal2)
-    assert_equal(integer_data1 - integer_data2, decimal3.to_i)
+    assert_equal((integer_data1 + integer_data2).to_s,
+                 decimal3.to_s)
   end
 
   def test_multiply
     integer_data1 = 23423445
     integer_data2 = 5443
-    decimal1 = Arrow::Decimal128.new(integer_data1)
-    decimal2 = Arrow::Decimal128.new(integer_data2)
+    decimal1 = Arrow::Decimal256.new(integer_data1)
+    decimal2 = Arrow::Decimal256.new(integer_data2)
     decimal3 = decimal1.multiply(decimal2)
-    assert_equal(integer_data1 * integer_data2, decimal3.to_i)
+    assert_equal((integer_data1 * integer_data2).to_s,
+                 decimal3.to_s)
   end
 
   def test_divide
     require_gi_bindings(3, 3, 0)
     integer_data1 = 23423445
     integer_data2 = -5443
-    decimal1 = Arrow::Decimal128.new(integer_data1)
-    decimal2 = Arrow::Decimal128.new(integer_data2)
+    decimal1 = Arrow::Decimal256.new(integer_data1)
+    decimal2 = Arrow::Decimal256.new(integer_data2)
     result, remainder = decimal1.divide(decimal2)
     assert_equal([
-                   integer_data1.quo(integer_data2).truncate,
-                   integer_data1.remainder(integer_data2),
+                   integer_data1.quo(integer_data2).truncate.to_s,
+                   integer_data1.remainder(integer_data2).to_s,
                  ],
-                 [result.to_i, remainder.to_i])
+                 [result.to_s, remainder.to_s])
   end
 
   def test_divide_zero
     require_gi_bindings(3, 3, 0)
-    decimal1 = Arrow::Decimal128.new(23423445)
-    decimal2 = Arrow::Decimal128.new(0)
+    decimal1 = Arrow::Decimal256.new(23423445)
+    decimal2 = Arrow::Decimal256.new(0)
     message =
-      "[decimal128][divide]: Invalid: Division by 0 in Decimal128"
+      "[decimal256][divide]: Invalid: Division by 0 in Decimal256"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal1.divide(decimal2)
     end
   end
 
   def test_equal
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(10)
-    other_decimal2 = Arrow::Decimal128.new(11)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(10)
+    other_decimal2 = Arrow::Decimal256.new(11)
     assert_equal([
                    true,
                    false,
@@ -128,9 +115,9 @@ class TestDecimal128 < Test::Unit::TestCase
 
   def test_not_equal
     require_gi_bindings(3, 3, 1)
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(10)
-    other_decimal2 = Arrow::Decimal128.new(11)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(10)
+    other_decimal2 = Arrow::Decimal256.new(11)
     assert_equal([
                    false,
                    true,
@@ -143,9 +130,9 @@ class TestDecimal128 < Test::Unit::TestCase
 
   def test_less_than
     require_gi_bindings(3, 3, 1)
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(11)
-    other_decimal2 = Arrow::Decimal128.new(9)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(11)
+    other_decimal2 = Arrow::Decimal256.new(9)
     assert_equal([
                    true,
                    false,
@@ -160,9 +147,9 @@ class TestDecimal128 < Test::Unit::TestCase
 
   def test_less_than_or_equal
     require_gi_bindings(3, 3, 1)
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(11)
-    other_decimal2 = Arrow::Decimal128.new(9)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(11)
+    other_decimal2 = Arrow::Decimal256.new(9)
     assert_equal([
                    true,
                    false,
@@ -177,9 +164,9 @@ class TestDecimal128 < Test::Unit::TestCase
 
   def test_greater_than
     require_gi_bindings(3, 3, 1)
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(11)
-    other_decimal2 = Arrow::Decimal128.new(9)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(11)
+    other_decimal2 = Arrow::Decimal256.new(9)
     assert_equal([
                    false,
                    true,
@@ -194,9 +181,9 @@ class TestDecimal128 < Test::Unit::TestCase
 
   def test_greater_than_or_equal
     require_gi_bindings(3, 3, 1)
-    decimal = Arrow::Decimal128.new(10)
-    other_decimal1 = Arrow::Decimal128.new(11)
-    other_decimal2 = Arrow::Decimal128.new(9)
+    decimal = Arrow::Decimal256.new(10)
+    other_decimal1 = Arrow::Decimal256.new(11)
+    other_decimal2 = Arrow::Decimal256.new(9)
     assert_equal([
                    false,
                    true,
@@ -210,16 +197,16 @@ class TestDecimal128 < Test::Unit::TestCase
   end
 
   def test_rescale
-    decimal = Arrow::Decimal128.new(10)
-    assert_equal(Arrow::Decimal128.new(1000),
+    decimal = Arrow::Decimal256.new(10)
+    assert_equal(Arrow::Decimal256.new(1000),
                  decimal.rescale(1, 3))
   end
 
   def test_rescale_fail
-    decimal = Arrow::Decimal128.new(10)
+    decimal = Arrow::Decimal256.new(10)
     message =
-      "[decimal128][rescale]: Invalid: " +
-      "Rescaling Decimal128 value would cause data loss"
+      "[decimal256][rescale]: Invalid: " +
+      "Rescaling Decimal256 value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

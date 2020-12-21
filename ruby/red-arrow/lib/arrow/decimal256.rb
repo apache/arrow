@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,46 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+module Arrow
+  class Decimal256
+    alias_method :to_s_raw, :to_s
 
-source_dir=${1}/ruby
-build_dir=${2}/ruby
+    # @overload to_s
+    #
+    #   @return [String]
+    #     The string representation of the decimal.
+    #
+    # @overload to_s(scale)
+    #
+    #   @param scale [Integer] The scale of the decimal.
+    #   @return [String]
+    #      The string representation of the decimal including the scale.
+    #
+    # @since 3.0.0
+    def to_s(scale=nil)
+      if scale
+        to_string_scale(scale)
+      else
+        to_s_raw
+      end
+    end
 
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
+    alias_method :abs!, :abs
 
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+    # @since 3.0.0
+    def abs
+      copied = dup
+      copied.abs!
+      copied
+    end
+
+    alias_method :negate!, :negate
+
+    # @since 3.0.0
+    def negate
+      copied = dup
+      copied.negate!
+      copied
+    end
+  end
+end

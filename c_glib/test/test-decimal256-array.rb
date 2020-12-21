@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestDecimal256Array < Test::Unit::TestCase
+  def test_format_value
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    builder = Arrow::Decimal256ArrayBuilder.new(data_type)
+    decimal = Arrow::Decimal256.new("23423445")
+    builder.append_value(decimal)
+    array = builder.finish
+    assert_equal("234234.45", array.format_value(0))
+  end
 
-source_dir=${1}/ruby
-build_dir=${2}/ruby
-
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
-
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+  def test_value
+    data_type = Arrow::Decimal256DataType.new(8, 2)
+    builder = Arrow::Decimal256ArrayBuilder.new(data_type)
+    decimal = Arrow::Decimal256.new("23423445")
+    builder.append_value(decimal)
+    array = builder.finish
+    assert_equal("234234.45",
+                 array.get_value(0).to_string_scale(array.value_data_type.scale))
+  end
+end

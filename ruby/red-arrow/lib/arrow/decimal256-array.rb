@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,13 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
-
-source_dir=${1}/ruby
-build_dir=${2}/ruby
-
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
-
-rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes
+module Arrow
+  class Decimal256Array
+    # @since 3.0.0
+    def get_value(i)
+      BigDecimal(format_value(i))
+    end
+  end
+end

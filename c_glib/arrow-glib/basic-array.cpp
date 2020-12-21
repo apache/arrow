@@ -24,7 +24,7 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/buffer.hpp>
-#include <arrow-glib/decimal128.hpp>
+#include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
@@ -152,9 +152,15 @@ G_BEGIN_DECLS
  * store zero or more time data. If you don't have Arrow format data,
  * you need to use #GArrowTime64ArrayBuilder to create a new array.
  *
- * #GArrowDecimal128Array is a class for 128-bit decimal array. It can store zero
- * or more 128-bit decimal data. If you don't have Arrow format data, you need
- * to use #GArrowDecimal128ArrayBuilder to create a new array.
+ * #GArrowDecimal128Array is a class for 128-bit decimal array. It can
+ * store zero or more 128-bit decimal data. If you don't have Arrow
+ * format data, you need to use #GArrowDecimal128ArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowDecimal256Array is a class for 256-bit decimal array. It can
+ * store zero or more 256-bit decimal data. If you don't have Arrow
+ * format data, you need to use #GArrowDecimal256ArrayBuilder to
+ * create a new array.
  */
 
 typedef struct GArrowArrayPrivate_ {
@@ -2535,10 +2541,68 @@ garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal128_array =
     std::static_pointer_cast<arrow::Decimal128Array>(arrow_array);
-  auto arrow_decimal =
+  auto arrow_decimal128 =
     std::make_shared<arrow::Decimal128>(arrow_decimal128_array->GetValue(i));
-  return garrow_decimal128_new_raw(&arrow_decimal);
+  return garrow_decimal128_new_raw(&arrow_decimal128);
 }
+
+
+G_DEFINE_TYPE(GArrowDecimal256Array,
+              garrow_decimal256_array,
+              GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
+static void
+garrow_decimal256_array_init(GArrowDecimal256Array *object)
+{
+}
+
+static void
+garrow_decimal256_array_class_init(GArrowDecimal256ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_decimal256_array_format_value:
+ * @array: A #GArrowDecimal256Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The formatted @i-th value.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 3.0.0
+ */
+gchar *
+garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
+                                     gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal256_array =
+    std::static_pointer_cast<arrow::Decimal256Array>(arrow_array);
+  auto value = arrow_decimal256_array->FormatValue(i);
+  return g_strndup(value.data(), value.size());
+}
+
+/**
+ * garrow_decimal256_array_get_value:
+ * @array: A #GArrowDecimal256Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 3.0.0
+ */
+GArrowDecimal256 *
+garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
+                                  gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal256_array =
+    std::static_pointer_cast<arrow::Decimal256Array>(arrow_array);
+  auto arrow_decimal256 =
+    std::make_shared<arrow::Decimal256>(arrow_decimal256_array->GetValue(i));
+  return garrow_decimal256_new_raw(&arrow_decimal256);
+}
+
 
 G_END_DECLS
 
@@ -2656,8 +2720,11 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_ARRAY;
     break;
-  case arrow::Type::type::DECIMAL:
+  case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_ARRAY;
+    break;
+  case arrow::Type::type::DECIMAL256:
+    type = GARROW_TYPE_DECIMAL256_ARRAY;
     break;
   default:
     type = GARROW_TYPE_ARRAY;

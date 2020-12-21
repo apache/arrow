@@ -15,36 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class Decimal128Test < Test::Unit::TestCase
+class Decimal256Test < Test::Unit::TestCase
   sub_test_case("instance methods") do
     def setup
-      @decimal128 = Arrow::Decimal128.new("10.1")
+      @decimal256 = Arrow::Decimal256.new("10.1")
     end
 
     sub_test_case("#==") do
-      test("Arrow::Decimal128") do
+      test("Arrow::Decimal256") do
         assert do
-          @decimal128 == @decimal128
+          @decimal256 == @decimal256
         end
       end
 
-      test("not Arrow::Decimal128") do
+      test("not Arrow::Decimal256") do
         assert do
-          not (@decimal128 == 10.1)
+          not (@decimal256 == 10.1)
         end
       end
     end
 
     sub_test_case("#!=") do
-      test("Arrow::Decimal128") do
+      test("Arrow::Decimal256") do
         assert do
-          not (@decimal128 != @decimal128)
+          not (@decimal256 != @decimal256)
         end
       end
 
-      test("not Arrow::Decimal128") do
+      test("not Arrow::Decimal256") do
         assert do
-          @decimal128 != 10.1
+          @decimal256 != 10.1
         end
       end
     end
@@ -52,51 +52,51 @@ class Decimal128Test < Test::Unit::TestCase
     sub_test_case("#to_s") do
       test("default") do
         assert_equal("101",
-                     @decimal128.to_s)
+                     @decimal256.to_s)
       end
 
       test("scale") do
         assert_equal("10.1",
-                     @decimal128.to_s(1))
+                     @decimal256.to_s(1))
       end
     end
 
     test("#abs") do
-      decimal128 = Arrow::Decimal128.new("-10.1")
+      decimal256 = Arrow::Decimal256.new("-10.1")
       assert_equal([
-                     Arrow::Decimal128.new("-10.1"),
-                     Arrow::Decimal128.new("10.1"),
+                     Arrow::Decimal256.new("-10.1"),
+                     Arrow::Decimal256.new("10.1"),
                    ],
                    [
-                     decimal128,
-                     decimal128.abs,
+                     decimal256,
+                     decimal256.abs,
                    ])
     end
 
     test("#abs!") do
-      decimal128 = Arrow::Decimal128.new("-10.1")
-      decimal128.abs!
-      assert_equal(Arrow::Decimal128.new("10.1"),
-                   decimal128)
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      decimal256.abs!
+      assert_equal(Arrow::Decimal256.new("10.1"),
+                   decimal256)
     end
 
     test("#negate") do
-      decimal128 = Arrow::Decimal128.new("-10.1")
+      decimal256 = Arrow::Decimal256.new("-10.1")
       assert_equal([
-                     Arrow::Decimal128.new("-10.1"),
-                     Arrow::Decimal128.new("10.1"),
+                     Arrow::Decimal256.new("-10.1"),
+                     Arrow::Decimal256.new("10.1"),
                    ],
                    [
-                     decimal128,
-                     decimal128.negate,
+                     decimal256,
+                     decimal256.negate,
                    ])
     end
 
     test("#negate!") do
-      decimal128 = Arrow::Decimal128.new("-10.1")
-      decimal128.negate!
-      assert_equal(Arrow::Decimal128.new("10.1"),
-                   decimal128)
+      decimal256 = Arrow::Decimal256.new("-10.1")
+      decimal256.negate!
+      assert_equal(Arrow::Decimal256.new("10.1"),
+                   decimal256)
     end
   end
 end

@@ -24,7 +24,8 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_DECIMAL128 (garrow_decimal128_get_type())
+/* Disabled because it conflicts with GARROW_TYPE_DECIMAL128 in GArrowType. */
+/* #define GARROW_TYPE_DECIMAL128 (garrow_decimal128_get_type()) */
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128,
                          garrow_decimal128,
                          GARROW,
@@ -38,6 +39,8 @@ struct _GArrowDecimal128Class
 
 GArrowDecimal128 *garrow_decimal128_new_string(const gchar *data);
 GArrowDecimal128 *garrow_decimal128_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal128 *garrow_decimal128_copy(GArrowDecimal128 *decimal);
 GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_equal(GArrowDecimal128 *decimal,
                                  GArrowDecimal128 *other_decimal);
@@ -75,6 +78,71 @@ GArrowDecimal128 *garrow_decimal128_divide(GArrowDecimal128 *left,
 GARROW_AVAILABLE_IN_0_15
 GArrowDecimal128 *
 garrow_decimal128_rescale(GArrowDecimal128 *decimal,
+                          gint32 original_scale,
+                          gint32 new_scale,
+                          GError **error);
+
+
+/* Disabled because it conflicts with GARROW_TYPE_DECIMAL256 in GArrowType. */
+/* #define GARROW_TYPE_DECIMAL256 (garrow_decimal256_get_type()) */
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256,
+                         garrow_decimal256,
+                         GARROW,
+                         DECIMAL256,
+                         GObject)
+
+struct _GArrowDecimal256Class
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_new_string(const gchar *data);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_copy(GArrowDecimal256 *decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_equal(GArrowDecimal256 *decimal,
+                                 GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_not_equal(GArrowDecimal256 *decimal,
+                                     GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_less_than(GArrowDecimal256 *decimal,
+                                     GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_less_than_or_equal(GArrowDecimal256 *decimal,
+                                              GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_greater_than(GArrowDecimal256 *decimal,
+                                        GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_greater_than_or_equal(GArrowDecimal256 *decimal,
+                                                 GArrowDecimal256 *other_decimal);
+GARROW_AVAILABLE_IN_3_0
+gchar *garrow_decimal256_to_string_scale(GArrowDecimal256 *decimal,
+                                         gint32 scale);
+GARROW_AVAILABLE_IN_3_0
+gchar *garrow_decimal256_to_string(GArrowDecimal256 *decimal);
+GARROW_AVAILABLE_IN_3_0
+void garrow_decimal256_abs(GArrowDecimal256 *decimal);
+GARROW_AVAILABLE_IN_3_0
+void garrow_decimal256_negate(GArrowDecimal256 *decimal);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_plus(GArrowDecimal256 *left,
+                                         GArrowDecimal256 *right);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_multiply(GArrowDecimal256 *left,
+                                             GArrowDecimal256 *right);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *garrow_decimal256_divide(GArrowDecimal256 *left,
+                                           GArrowDecimal256 *right,
+                                           GArrowDecimal256 **remainder,
+                                           GError **error);
+GARROW_AVAILABLE_IN_3_0
+GArrowDecimal256 *
+garrow_decimal256_rescale(GArrowDecimal256 *decimal,
                           gint32 original_scale,
                           gint32 new_scale,
                           GError **error);

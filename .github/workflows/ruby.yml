@@ -59,7 +59,6 @@ jobs:
       fail-fast: false
       matrix:
         ubuntu:
-          - 16.04
           - 18.04
           - 20.04
     env:

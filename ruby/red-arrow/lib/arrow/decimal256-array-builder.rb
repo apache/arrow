@@ -16,8 +16,9 @@
 # under the License.
 
 module Arrow
-  class Decimal128ArrayBuilder
+  class Decimal256ArrayBuilder
     class << self
+      # @since 3.0.0
       def build(data_type, values)
         builder = new(data_type)
         builder.build(values)
@@ -25,20 +26,22 @@ module Arrow
     end
 
     alias_method :append_value_raw, :append_value
+    # @since 3.0.0
     def append_value(value)
       case value
       when nil
         return append_null
       when String
-        value = Decimal128.new(value)
+        value = Decimal256.new(value)
       when Float
-        value = Decimal128.new(value.to_s)
+        value = Decimal256.new(value.to_s)
       when BigDecimal
-        value = Decimal128.new(value.to_s)
+        value = Decimal256.new(value.to_s)
       end
       append_value_raw(value)
     end
 
+    # @since 3.0.0
     def append_values(values, is_valids=nil)
       if is_valids
         is_valids.each_with_index do |is_valid, i|

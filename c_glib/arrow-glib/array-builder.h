@@ -20,7 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
-#include <arrow-glib/decimal128.h>
+#include <arrow-glib/decimal.h>
 
 G_BEGIN_DECLS
 
@@ -1186,6 +1186,28 @@ gboolean garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuild
                                                       GError **error);
 GARROW_AVAILABLE_IN_0_12
 gboolean garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builder,
+                                                     GError **error);
+
+
+#define GARROW_TYPE_DECIMAL256_ARRAY_BUILDER (garrow_decimal256_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256ArrayBuilder,
+                         garrow_decimal256_array_builder,
+                         GARROW,
+                         DECIMAL256_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowDecimal256ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GArrowDecimal256ArrayBuilder *garrow_decimal256_array_builder_new(GArrowDecimal256DataType *data_type);
+
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *builder,
+                                                      GArrowDecimal256 *value,
+                                                      GError **error);
+GARROW_AVAILABLE_IN_3_0
+gboolean garrow_decimal256_array_builder_append_null(GArrowDecimal256ArrayBuilder *builder,
                                                      GError **error);
 
 G_END_DECLS
