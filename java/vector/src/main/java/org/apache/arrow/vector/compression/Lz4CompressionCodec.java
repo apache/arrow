@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.compression;
 
+import static org.apache.arrow.memory.util.MemoryUtil.LITTLE_ENDIAN;
+
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.flatbuf.CompressionType;
@@ -61,7 +63,11 @@ public class Lz4CompressionCodec implements CompressionCodec {
     // first 8 bytes reserved for uncompressed length, to be consistent with the
     // C++ implementation.
     ArrowBuf compressedBuffer = allocator.buffer(maxCompressedLength + SIZE_OF_MESSAGE_LENGTH);
-    compressedBuffer.setLong(0, unCompressedBuffer.writerIndex());
+    long uncompressedLength = unCompressedBuffer.writerIndex();
+    if (!LITTLE_ENDIAN) {
+      uncompressedLength = Long.reverseBytes(uncompressedLength);
+    }
+    compressedBuffer.setLong(0, uncompressedLength);
 
     ByteBuffer uncompressed =
         MemoryUtil.directBuffer(unCompressedBuffer.memoryAddress(), (int) unCompressedBuffer.writerIndex());
@@ -90,6 +96,9 @@ public class Lz4CompressionCodec implements CompressionCodec {
     }
 
     long decompressedLength = compressedBuffer.getLong(0);
+    if (!LITTLE_ENDIAN) {
+      decompressedLength = Long.reverseBytes(decompressedLength);
+    }
     ByteBuffer compressed = MemoryUtil.directBuffer(
         compressedBuffer.memoryAddress() + SIZE_OF_MESSAGE_LENGTH, (int) compressedBuffer.writerIndex());
 
