@@ -5525,6 +5525,21 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call Table__from_RecordBatchReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
 BEGIN_CPP11
@@ -5535,21 +5550,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
 	Rf_error("Cannot call Table__from_RecordBatchFileReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
-extern "C" SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(Table__from_RecordBatchStreamReader(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchStreamReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6758,8 +6758,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
+		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
-		{ "_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC) &_arrow_Table__from_RecordBatchStreamReader, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteTable, 2}, 
