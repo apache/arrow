@@ -31,7 +31,9 @@ use arrow::record_batch::RecordBatch;
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
+use futures::channel::mpsc::{self, Receiver, Sender};
 use futures::stream::Stream;
+use tokio::sync::Mutex;
 
 /// partition. No guarantees are made about the order of the resulting partition.
 #[derive(Debug)]
@@ -40,6 +42,9 @@ pub struct RepartitionExec {
     input: Arc<dyn ExecutionPlan>,
     /// Partitioning scheme to use
     partitioning: Partitioning,
+    /// Channels for output batches
+    channels:
+        Arc<Mutex<Vec<(Sender<Result<RecordBatch>>, Receiver<Result<RecordBatch>>)>>>,
 }
 
 #[async_trait]
@@ -78,19 +83,29 @@ impl ExecutionPlan for RepartitionExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // lock mutex
-        // if first call to this method {
-        //   create one channel per *output* partition
-        //   launch one async task per *input* partition
-        // }
+        let mut channels = self.channels.lock().await;
+        if channels.is_empty() {
+            // allocate output channels once
+            for _ in 0..self.partitioning.partition_count() {
+                let buffer_size = 64; // TODO: configurable?
+                let (sender, receiver) =
+                    mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size);
+
+                //TODO
+                //channels.push((sender, receiver));
+            }
+            //TODO launch one async task per *input* partition
+        }
 
         // now return stream for the specified *output* partition which will
         // read from the channel
 
-        Ok(Box::pin(RepartitionStream {
-            schema: self.input.schema(),
-            //input: the *output* channel to read from
-        }))
+        // Ok(Box::pin(RepartitionStream {
+        //     schema: self.input.schema(),
+        //     input: channels[partition].1.clone()
+        // }))
+
+        unimplemented!()
     }
 }
 
@@ -104,6 +119,7 @@ impl RepartitionExec {
             Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
                 partitioning,
+                channels: Arc::new(Mutex::new(vec![])),
             }),
             other => Err(DataFusionError::NotImplemented(format!(
                 "Partitioning scheme not supported yet: {:?}",
@@ -125,8 +141,10 @@ impl RepartitionExec {
 }
 
 struct RepartitionStream {
+    /// Schema
     schema: SchemaRef,
-    //input: Channel to read
+    /// channel containing the repartitioned batches
+    input: Receiver<ArrowResult<RecordBatch>>,
 }
 
 impl Stream for RepartitionStream {
