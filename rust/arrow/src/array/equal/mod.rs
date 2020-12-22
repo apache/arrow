@@ -21,8 +21,9 @@
 
 use super::{
     Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray,
-    FixedSizeBinaryArray, GenericBinaryArray, GenericListArray, GenericStringArray,
-    NullArray, OffsetSizeTrait, PrimitiveArray, StringOffsetSizeTrait, StructArray,
+    FixedSizeBinaryArray, FixedSizeListArray, GenericBinaryArray, GenericListArray,
+    GenericStringArray, NullArray, OffsetSizeTrait, PrimitiveArray,
+    StringOffsetSizeTrait, StructArray,
 };
 
 use crate::{
@@ -111,6 +112,12 @@ impl PartialEq for DecimalArray {
 }
 
 impl<OffsetSize: OffsetSizeTrait> PartialEq for GenericListArray<OffsetSize> {
+    fn eq(&self, other: &Self) -> bool {
+        equal(self.data().as_ref(), other.data().as_ref())
+    }
+}
+
+impl PartialEq for FixedSizeListArray {
     fn eq(&self, other: &Self) -> bool {
         equal(self.data().as_ref(), other.data().as_ref())
     }

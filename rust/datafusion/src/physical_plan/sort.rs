@@ -167,7 +167,7 @@ fn sort_batches(
             .iter()
             .map(|column| {
                 take(
-                    column,
+                    column.as_ref(),
                     &indices,
                     // disable bound check overhead since indices are already generated from
                     // the same record batch
