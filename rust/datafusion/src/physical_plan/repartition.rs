@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-///! The repartition operator maps N input partitions to M output partitions based on a
-///! partitioning scheme.
+//! The repartition operator maps N input partitions to M output partitions based on a
+//! partitioning scheme.
+
 use std::any::Any;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ use arrow::record_batch::RecordBatch;
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
-use async_channel::{self, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use futures::stream::Stream;
 use futures::StreamExt;
 use tokio::sync::Mutex;
@@ -94,8 +95,7 @@ impl ExecutionPlan for RepartitionExec {
         if tx.is_empty() {
             // create one channel per *output* partition
             for _ in 0..self.partitioning.partition_count() {
-                let (sender, receiver) =
-                    async_channel::bounded::<ArrowResult<RecordBatch>>(1);
+                let (sender, receiver) = bounded::<ArrowResult<RecordBatch>>(1);
                 tx.push(sender);
                 rx.push(receiver);
             }
@@ -166,23 +166,14 @@ impl Stream for RepartitionStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        // TODO I need help here probably
-
-        //self.input.poll_next()
-        // match self.input.recv() {
-        //     Ok(batch) => Poll::Ready(batch),
-        //     // RecvError means receiver has exited and closed the channel
-        //     Err(RecvError) => Poll::Ready(None),
-        // }
-
-        unimplemented!()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        unimplemented!()
+        match self.input.recv() {
+            Ok(batch) => Poll::Ready(Some(batch)),
+            // RecvError means receiver has exited and closed the channel
+            Err(RecvError) => Poll::Ready(None),
+        }
     }
 }
 
