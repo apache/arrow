@@ -16,8 +16,8 @@
 // under the License.
 
 //! ExecutionContext contains methods for registering data sources and executing queries
-use log::debug;
 use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
+use log::debug;
 use std::fs;
 use std::path::Path;
 use std::string::String;
