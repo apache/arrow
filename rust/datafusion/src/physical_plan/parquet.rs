@@ -30,17 +30,17 @@ use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::RecordBatch;
-use parquet::file::metadata::ParquetMetaData;
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
+use crate::datasource::datasource::Statistics;
 use async_trait::async_trait;
 use futures::stream::Stream;
 
-/// Execution plan for scanning a Parquet file
+/// Execution plan for scanning one or more Parquet files
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
@@ -51,8 +51,8 @@ pub struct ParquetExec {
     projection: Vec<usize>,
     /// Batch size
     batch_size: usize,
-    /// Parquet metadata
-    metadata: ParquetMetaData,
+    /// Statistics for the data set (sum of statistics for all files)
+    statistics: Statistics,
 }
 
 impl ParquetExec {
@@ -67,14 +67,35 @@ impl ParquetExec {
         if filenames.is_empty() {
             Err(DataFusionError::Plan("No files found".to_string()))
         } else {
+            // Calculate statistics for the entire data set. Later, we will probably want to make
+            // statistics available on a per-partition basis.
+            let mut num_rows = 0;
+            let mut total_byte_size = 0;
+            for file in &filenames {
+                let file = File::open(file)?;
+                let file_reader = Arc::new(SerializedFileReader::new(file)?);
+                let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+                let meta_data = arrow_reader.get_metadata();
+                for i in 0..meta_data.num_row_groups() {
+                    let row_group_meta = meta_data.row_group(i);
+                    num_rows += row_group_meta.num_rows();
+                    total_byte_size += row_group_meta.total_byte_size();
+                }
+            }
+            let statistics = Statistics {
+                num_rows: Some(num_rows as usize),
+                total_byte_size: Some(total_byte_size as usize),
+            };
+
+            // we currently get the schema information from the first file rather than do
+            // schema merging and this is a limitation
             let file = File::open(&filenames[0])?;
             let file_reader = Arc::new(SerializedFileReader::new(file)?);
             let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
             let schema = arrow_reader.get_schema()?;
-            let metadata = arrow_reader.get_metadata();
 
             Ok(Self::new(
-                filenames, schema, projection, batch_size, metadata,
+                filenames, schema, projection, batch_size, statistics,
             ))
         }
     }
@@ -85,7 +106,7 @@ impl ParquetExec {
         schema: Schema,
         projection: Option<Vec<usize>>,
         batch_size: usize,
-        metadata: ParquetMetaData,
+        statistics: Statistics,
     ) -> Self {
         let projection = match projection {
             Some(p) => p,
@@ -104,13 +125,13 @@ impl ParquetExec {
             schema: Arc::new(projected_schema),
             projection,
             batch_size,
-            metadata,
+            statistics,
         }
     }
 
-    /// Expose the Parquet specific metadata
-    pub fn metadata(&self) -> ParquetMetaData {
-        self.metadata.clone()
+    /// Provide access to the statistics
+    pub fn statistics(&self) -> &Statistics {
+        &self.statistics
     }
 }
 

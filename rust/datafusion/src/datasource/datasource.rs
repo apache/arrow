@@ -27,7 +27,7 @@ use crate::physical_plan::ExecutionPlan;
 
 /// This table statistics are estimates.
 /// It can not be used directly in the precise compute
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Statistics {
     /// The number of table rows
     pub num_rows: Option<usize>,
