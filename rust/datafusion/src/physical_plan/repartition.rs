@@ -38,6 +38,8 @@ use futures::StreamExt;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+type MaybeBatch = Option<ArrowResult<RecordBatch>>;
+
 /// partition. No guarantees are made about the order of the resulting partition.
 #[derive(Debug)]
 pub struct RepartitionExec {
@@ -45,10 +47,8 @@ pub struct RepartitionExec {
     input: Arc<dyn ExecutionPlan>,
     /// Partitioning scheme to use
     partitioning: Partitioning,
-    /// Receivers for output batches
-    rx: Arc<Mutex<Vec<Receiver<Option<ArrowResult<RecordBatch>>>>>>,
-    /// Senders for output batches
-    tx: Arc<Mutex<Vec<Sender<Option<ArrowResult<RecordBatch>>>>>>,
+    /// Channels for sending batches from input partitions to output partitions
+    channels: Arc<Mutex<Vec<(Sender<MaybeBatch>, Receiver<MaybeBatch>)>>>,
 }
 
 #[async_trait]
@@ -88,14 +88,13 @@ impl ExecutionPlan for RepartitionExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // lock mutexes
-        let mut tx = self.tx.lock().await;
-        let mut rx = self.rx.lock().await;
+        let mut channels = self.channels.lock().await;
 
         let num_input_partitions = self.input.output_partitioning().partition_count();
         let num_output_partitions = self.partitioning.partition_count();
 
         // if this is the first partition to be invoked then we need to set up initial state
-        if tx.is_empty() {
+        if channels.is_empty() {
             // create one channel per *output* partition
             for _ in 0..num_output_partitions {
                 // Note that this operator uses unbounded channels to avoid deadlocks because
@@ -105,13 +104,12 @@ impl ExecutionPlan for RepartitionExec {
                 // reading output partitions in order rather than concurrently. One workaround
                 // for this would be to add spill-to-disk capabilities.
                 let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
-                tx.push(sender);
-                rx.push(receiver);
+                channels.push((sender, receiver));
             }
             // launch one async task per *input* partition
             for i in 0..num_input_partitions {
                 let input = self.input.clone();
-                let mut tx = tx.clone();
+                let mut channels = channels.clone();
                 let partitioning = self.partitioning.clone();
                 let _: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
@@ -120,7 +118,7 @@ impl ExecutionPlan for RepartitionExec {
                         match partitioning {
                             Partitioning::RoundRobinBatch(_) => {
                                 let output_partition = counter % num_output_partitions;
-                                let tx = &mut tx[output_partition];
+                                let tx = &mut channels[output_partition].0;
                                 tx.send(Some(result)).map_err(|e| {
                                     DataFusionError::Execution(e.to_string())
                                 })?;
@@ -139,7 +137,7 @@ impl ExecutionPlan for RepartitionExec {
 
                     // notify each output partition that this input partition has no more data
                     for i in 0..num_output_partitions {
-                        let tx = &mut tx[i];
+                        let tx = &mut channels[i].0;
                         tx.send(None)
                             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
                     }
@@ -154,7 +152,7 @@ impl ExecutionPlan for RepartitionExec {
             num_input_partitions,
             num_input_partitions_processed: 0,
             schema: self.input.schema(),
-            input: rx[partition].clone(),
+            input: channels[partition].1.clone(),
         }))
     }
 }
@@ -169,8 +167,7 @@ impl RepartitionExec {
             Partitioning::RoundRobinBatch(_) => Ok(RepartitionExec {
                 input,
                 partitioning,
-                tx: Arc::new(Mutex::new(vec![])),
-                rx: Arc::new(Mutex::new(vec![])),
+                channels: Arc::new(Mutex::new(vec![])),
             }),
             other => Err(DataFusionError::NotImplemented(format!(
                 "Partitioning scheme not supported yet: {:?}",
