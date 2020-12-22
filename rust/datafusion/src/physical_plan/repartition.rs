@@ -224,10 +224,75 @@ impl RecordBatchStream for RepartitionStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::physical_plan::memory::MemoryExec;
+    use arrow::array::UInt32Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::record_batch::RecordBatch;
 
     #[tokio::test]
-    async fn test() -> Result<()> {
-        // TODO write tests for the physical operator
+    async fn one_to_many_round_robin() -> Result<()> {
+        // define input partitions
+        let schema = test_schema();
+        let partition = create_vec_batches(&schema, 50)?;
+        let single_partition_data = vec![partition];
+
+        // repartition from 1 input to 4 output
+        let output_partitions = repartition(
+            &schema,
+            single_partition_data,
+            Partitioning::RoundRobinBatch(4),
+        )
+        .await?;
+
+        assert_eq!(4, output_partitions.len());
+        assert_eq!(13, output_partitions[0].len());
+        assert_eq!(13, output_partitions[1].len());
+        assert_eq!(12, output_partitions[2].len());
+        assert_eq!(12, output_partitions[3].len());
+
         Ok(())
+    }
+
+    fn test_schema() -> Arc<Schema> {
+        Arc::new(Schema::new(vec![Field::new("c0", DataType::UInt32, false)]))
+    }
+
+    fn create_vec_batches(schema: &Arc<Schema>, n: usize) -> Result<Vec<RecordBatch>> {
+        let batch = create_batch(schema);
+        let mut vec = Vec::with_capacity(n);
+        for _ in 0..n {
+            vec.push(batch.clone());
+        }
+        Ok(vec)
+    }
+
+    fn create_batch(schema: &Arc<Schema>) -> RecordBatch {
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(UInt32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8]))],
+        )
+        .unwrap()
+    }
+
+    async fn repartition(
+        schema: &SchemaRef,
+        input_partitions: Vec<Vec<RecordBatch>>,
+        partitioning_scheme: Partitioning,
+    ) -> Result<Vec<Vec<RecordBatch>>> {
+        // create physical plan
+        let exec = MemoryExec::try_new(&input_partitions, schema.clone(), None)?;
+        let exec = RepartitionExec::try_new(Arc::new(exec), partitioning_scheme)?;
+        // execute and collect results
+        let mut output_partitions = vec![];
+        for i in 0..input_partitions.len() {
+            // execute this *output* partition and collect all batches
+            let mut stream = exec.execute(i).await?;
+            let mut batches = vec![];
+            while let Some(result) = stream.next().await {
+                batches.push(result?);
+            }
+            output_partitions.push(batches);
+        }
+        Ok(output_partitions)
     }
 }
