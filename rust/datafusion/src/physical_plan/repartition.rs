@@ -114,9 +114,18 @@ impl ExecutionPlan for RepartitionExec {
                             Partitioning::RoundRobinBatch(_) => {
                                 let output_partition = counter % num_output_partitions;
                                 let tx = &mut tx[output_partition];
-                                tx.try_send(result).unwrap(); //TODO remove unwrap
+                                tx.send(result).map_err(|e| {
+                                    DataFusionError::Execution(e.to_string())
+                                })?;
                             }
-                            _ => unimplemented!(),
+                            other => {
+                                // this should be unreachable as long as the validation logic
+                                // in the constructor is kept up-to-date
+                                return Err(DataFusionError::NotImplemented(format!(
+                                    "Unsupported repartitioning scheme {:?}",
+                                    other
+                                )));
+                            }
                         }
                         counter += 1;
                     }
