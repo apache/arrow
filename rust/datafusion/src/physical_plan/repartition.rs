@@ -178,7 +178,9 @@ impl RepartitionExec {
 }
 
 struct RepartitionStream {
+    /// Number of input partitions that will be sending batches to this output channel
     num_input_partitions: usize,
+    /// Number of input partitions that have finished sending batches to this output channel
     num_input_partitions_processed: usize,
     /// Schema
     schema: SchemaRef,
@@ -202,6 +204,7 @@ impl Stream for RepartitionStream {
                     // all input partitions have finished sending batches
                     Poll::Ready(None)
                 } else {
+                    // other partitions still have data to send
                     Poll::Pending
                 }
             }
