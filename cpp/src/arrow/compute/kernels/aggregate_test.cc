@@ -1331,13 +1331,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
   using Traits = TypeTraits<ArrowType>;
   using CType = typename ArrowType::c_type;
 
-  union ValueUnion {
-    CType intype_value;
-    double double_value;
-  };
-
   void AssertQuantilesAre(const Datum& array, QuantileOptions options,
-                          const std::vector<std::vector<ValueUnion>>& expected) {
+                          const std::vector<std::vector<Datum>>& expected) {
     ASSERT_EQ(options.q.size(), expected.size());
 
     for (size_t i = 0; i < this->interpolations.size(); ++i) {
@@ -1348,48 +1343,53 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       ASSERT_OK(out_array->ValidateFull());
       ASSERT_EQ(out_array->length(), options.q.size());
       ASSERT_EQ(out_array->null_count(), 0);
+      ASSERT_EQ(out_array->type(), expected[0][i].type());
 
       if (out_array->type() == type_singleton()) {
         const CType* quantiles = out_array->data()->GetValues<CType>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
-          ASSERT_EQ(quantiles[j], expected[j][i].intype_value);
+          const auto& numeric_scalar =
+              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
+          ASSERT_EQ(quantiles[j], numeric_scalar->value);
         }
       } else {
         ASSERT_EQ(out_array->type(), float64());
         const double* quantiles = out_array->data()->GetValues<double>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
-          ASSERT_EQ(quantiles[j], expected[j][i].double_value);
+          const auto& numeric_scalar =
+              std::static_pointer_cast<DoubleScalar>(expected[j][i].scalar());
+          ASSERT_EQ(quantiles[j], numeric_scalar->value);
         }
       }
     }
   }
 
   void AssertQuantilesAre(const std::string& json, const std::vector<double>& q,
-                          const std::vector<std::vector<ValueUnion>>& expected) {
+                          const std::vector<std::vector<Datum>>& expected) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertQuantilesAre(array, QuantileOptions{q}, expected);
   }
 
   void AssertQuantilesAre(const std::vector<std::string>& json,
                           const std::vector<double>& q,
-                          const std::vector<std::vector<ValueUnion>>& expected) {
+                          const std::vector<std::vector<Datum>>& expected) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertQuantilesAre(chunked, QuantileOptions{q}, expected);
   }
 
   void AssertQuantileIs(const Datum& array, double q,
-                        const std::vector<ValueUnion>& expected) {
+                        const std::vector<Datum>& expected) {
     AssertQuantilesAre(array, QuantileOptions{q}, {expected});
   }
 
   void AssertQuantileIs(const std::string& json, double q,
-                        const std::vector<ValueUnion>& expected) {
+                        const std::vector<Datum>& expected) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertQuantileIs(array, q, expected);
   }
 
   void AssertQuantileIs(const std::vector<std::string>& json, double q,
-                        const std::vector<ValueUnion>& expected) {
+                        const std::vector<Datum>& expected) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertQuantileIs(chunked, q, expected);
   }
@@ -1430,11 +1430,8 @@ class TestFloatingQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType>
 template <typename ArrowType>
 class TestInt64QuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
 
-#define ValueUnion (typename TestPrimitiveQuantileKernel<TypeParam>::ValueUnion)
-#define INTYPE(x) \
-  ValueUnion { .intype_value = (x) }
-#define DOUBLE(x) \
-  ValueUnion { .double_value = (x) }
+#define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
+#define DOUBLE(x) Datum(static_cast<double>(x))
 // output type per interplation: linear, lower, higher, nearest, midpoint
 #define O(a, b, c, d, e) \
   { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
@@ -1518,7 +1515,6 @@ TYPED_TEST(TestInt64QuantileKernel, Int64) {
         9223372036854775806, 9.223372036854776e+18));
 }
 
-#undef ValueUnion
 #undef INTYPE
 #undef DOUBLE
 #undef O
@@ -1539,8 +1535,8 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
   }
 
  private:
-  std::vector<std::vector<ValueUnion>> NaiveQuantile(
-      const Array& array, const std::vector<double>& quantiles) {
+  std::vector<std::vector<Datum>> NaiveQuantile(const Array& array,
+                                                const std::vector<double>& quantiles) {
     // copy and sort input array
     std::vector<int32_t> input(array.length() - array.null_count());
     const int32_t* values = array.data()->GetValues<int32_t>(1);
@@ -1553,8 +1549,8 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     }
     std::sort(input.begin(), input.end());
 
-    std::vector<std::vector<ValueUnion>> output(
-        quantiles.size(), std::vector<ValueUnion>(interpolations.size()));
+    std::vector<std::vector<Datum>> output(quantiles.size(),
+                                           std::vector<Datum>(interpolations.size()));
     for (uint64_t i = 0; i < interpolations.size(); ++i) {
       const auto interp = interpolations[i];
       for (uint64_t j = 0; j < quantiles.size(); ++j) {
@@ -1564,37 +1560,36 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     return output;
   }
 
-  ValueUnion GetQuantile(const std::vector<int32_t>& input, double q,
-                         enum QuantileOptions::Interpolation interp) {
+  Datum GetQuantile(const std::vector<int32_t>& input, double q,
+                    enum QuantileOptions::Interpolation interp) {
     const double index = (input.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
     const double fraction = index - lower_index;
 
     switch (interp) {
       case QuantileOptions::LOWER:
-        return ValueUnion{.intype_value = input[lower_index]};
+        return Datum(input[lower_index]);
       case QuantileOptions::HIGHER:
-        return ValueUnion{.intype_value = input[lower_index + (fraction != 0)]};
+        return Datum(input[lower_index + (fraction != 0)]);
       case QuantileOptions::NEAREST:
         if (fraction < 0.5) {
-          return ValueUnion{.intype_value = input[lower_index]};
+          return Datum(input[lower_index]);
         } else if (fraction > 0.5) {
-          return ValueUnion{.intype_value = input[lower_index + 1]};
+          return Datum(input[lower_index + 1]);
         } else {
-          return ValueUnion{.intype_value = input[lower_index + (lower_index & 1)]};
+          return Datum(input[lower_index + (lower_index & 1)]);
         }
       case QuantileOptions::LINEAR:
-        return ValueUnion{.double_value = fraction * input[lower_index + 1] +
-                                          (1 - fraction) * input[lower_index]};
+        return Datum(fraction * input[lower_index + 1] +
+                     (1 - fraction) * input[lower_index]);
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
-          return ValueUnion{.double_value = static_cast<double>(input[lower_index])};
+          return Datum(static_cast<double>(input[lower_index]));
         } else {
-          return ValueUnion{.double_value =
-                                input[lower_index] / 2.0 + input[lower_index + 1] / 2.0};
+          return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
         }
       default:
-        return ValueUnion{.double_value = NAN};
+        return Datum(NAN);
     }
   }
 };
