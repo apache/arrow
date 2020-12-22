@@ -31,7 +31,7 @@ use arrow::record_batch::RecordBatch;
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
-use futures::channel::mpsc::{self, Receiver, Sender};
+use async_channel::{self, Receiver, Sender};
 use futures::stream::Stream;
 use futures::StreamExt;
 use tokio::sync::Mutex;
@@ -86,36 +86,39 @@ impl ExecutionPlan for RepartitionExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        // lock mutexes
         let mut tx = self.tx.lock().await;
         let mut rx = self.rx.lock().await;
+
+        // if this is the first partition to be invoked then we need to set up initial state
         if tx.is_empty() {
             // create one channel per *output* partition
-            let buffer_size = 64; // TODO: configurable?
             for _ in 0..self.partitioning.partition_count() {
                 let (sender, receiver) =
-                    mpsc::channel::<ArrowResult<RecordBatch>>(buffer_size);
+                    async_channel::bounded::<ArrowResult<RecordBatch>>(1);
                 tx.push(sender);
                 rx.push(receiver);
             }
             // launch one async task per *input* partition
-            for i in 0..self.input.output_partitioning().partition_count() {
+            let num_output_partitions =
+                self.input.output_partitioning().partition_count();
+            for i in 0..num_output_partitions {
                 let input = self.input.clone();
                 let mut tx = tx.clone();
                 let partitioning = self.partitioning.clone();
                 let _handle: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
-                    while let Some(batch) = stream.next().await {
-                        //TODO error handling
-                        let batch = batch?;
+                    let mut counter = 0;
+                    while let Some(result) = stream.next().await {
                         match partitioning {
-                            Partitioning::RoundRobinBatch(n) => {
-                                //TODO pick a channel based on round-robin
-                                let output_partition = 0;
-                                let mut tx = &mut tx[output_partition];
-                                tx.try_send(Ok(batch)).unwrap();
+                            Partitioning::RoundRobinBatch(_) => {
+                                let output_partition = counter % num_output_partitions;
+                                let tx = &mut tx[output_partition];
+                                tx.try_send(result).unwrap(); //TODO remove unwrap
                             }
                             _ => unimplemented!(),
                         }
+                        counter += 1;
                     }
                     Ok(())
                 });
@@ -124,13 +127,10 @@ impl ExecutionPlan for RepartitionExec {
 
         // now return stream for the specified *output* partition which will
         // read from the channel
-
-        // Ok(Box::pin(RepartitionStream {
-        //     schema: self.input.schema(),
-        //     input: channels[partition].1.clone()
-        // }))
-
-        unimplemented!()
+        Ok(Box::pin(RepartitionStream {
+            schema: self.input.schema(),
+            input: rx[partition].clone(),
+        }))
     }
 }
 
@@ -153,17 +153,6 @@ impl RepartitionExec {
             ))),
         }
     }
-
-    async fn process_input_partition(&self, partition: usize) -> Result<()> {
-        let input = self.input.execute(partition).await?;
-        // for each input batch {
-        //   compute output partition based on partitioning schema
-        //     send batch to the appropriate output channel, or split batch into
-        //     multiple batches if using row-based partitioning
-        //   }
-        // }
-        Ok(())
-    }
 }
 
 struct RepartitionStream {
@@ -180,6 +169,15 @@ impl Stream for RepartitionStream {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
+        // TODO I need help here probably
+
+        //self.input.poll_next()
+        // match self.input.recv() {
+        //     Ok(batch) => Poll::Ready(batch),
+        //     // RecvError means receiver has exited and closed the channel
+        //     Err(RecvError) => Poll::Ready(None),
+        // }
+
         unimplemented!()
     }
 
