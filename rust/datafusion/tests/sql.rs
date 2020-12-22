@@ -1826,3 +1826,27 @@ async fn csv_between_expr_negated() -> Result<()> {
     assert_eq!(expected, actual);
     Ok(())
 }
+
+#[tokio::test]
+async fn string_expressions() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        char_length('tom') AS char_length
+        ,char_length(NULL) AS char_length_null
+        ,character_length('tom') AS character_length
+        ,character_length(NULL) AS character_length_null
+        ,lower('TOM') AS lower
+        ,lower(NULL) AS lower_null
+        ,upper('tom') AS upper
+        ,upper(NULL) AS upper_null
+        ,trim(' tom ') AS trim
+        ,trim(NULL) AS trim_null
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec![
+        "3", "NULL", "3", "NULL", "tom", "NULL", "TOM", "NULL", "tom", "NULL",
+    ]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
