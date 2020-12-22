@@ -25,6 +25,7 @@ use std::{any::Any, collections::HashSet};
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, TryStreamExt};
 use hashbrown::HashMap;
+use tokio::sync::Mutex;
 
 use arrow::array::{make_array, Array, MutableArrayData};
 use arrow::datatypes::DataType;
@@ -60,7 +61,7 @@ type RightIndex = Option<usize>;
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
 // for rows 3 and 8 from batch 0 and row 6 from batch 1.
 type JoinHashMap = HashMap<Vec<u8>, Vec<Index>, RandomState>;
-type JoinLeftData = (JoinHashMap, Vec<RecordBatch>);
+type JoinLeftData = Arc<(JoinHashMap, Vec<RecordBatch>)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
 /// partitions.
@@ -76,6 +77,8 @@ pub struct HashJoinExec {
     join_type: JoinType,
     /// The schema once the join is applied
     schema: SchemaRef,
+    /// Build-side
+    build_side: Arc<Mutex<Option<JoinLeftData>>>,
 }
 
 impl HashJoinExec {
@@ -110,6 +113,7 @@ impl HashJoinExec {
             on,
             join_type: *join_type,
             schema,
+            build_side: Arc::new(Mutex::new(None)),
         })
     }
 }
@@ -150,48 +154,59 @@ impl ExecutionPlan for HashJoinExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // merge all parts into a single stream
-        // this is currently expensive as we re-compute this for every part from the right
-        // TODO: Fix this issue: we can't share this state across parts on the right.
-        // We need to change this `execute` to allow sharing state across parts...
-        let merge = MergeExec::new(self.left.clone());
-        let stream = merge.execute(0).await?;
+        // we only want to compute the build side once
+        let left_data = {
+            let mut build_side = self.build_side.lock().await;
+            match build_side.as_ref() {
+                Some(stream) => stream.clone(),
+                None => {
+                    // merge all left parts into a single stream
+                    let merge = MergeExec::new(self.left.clone());
+                    let stream = merge.execute(0).await?;
 
-        let on_left = self
-            .on
-            .iter()
-            .map(|on| on.0.clone())
-            .collect::<HashSet<_>>();
+                    let on_left = self
+                        .on
+                        .iter()
+                        .map(|on| on.0.clone())
+                        .collect::<HashSet<_>>();
+
+                    // This operation performs 2 steps at once:
+                    // 1. creates a [JoinHashMap] of all batches from the stream
+                    // 2. stores the batches in a vector.
+                    let initial = (JoinHashMap::default(), Vec::new(), 0);
+                    let left_data = stream
+                        .try_fold(initial, |mut acc, batch| async {
+                            let hash = &mut acc.0;
+                            let values = &mut acc.1;
+                            let index = acc.2;
+                            update_hash(&on_left, &batch, hash, index).unwrap();
+                            values.push(batch);
+                            acc.2 += 1;
+                            Ok(acc)
+                        })
+                        .await?;
+
+                    let left_side = Arc::new((left_data.0, left_data.1));
+                    *build_side = Some(left_side.clone());
+                    left_side
+                }
+            }
+        };
+
+        // we have the batches and the hash map with their keys. We can how create a stream
+        // over the right that uses this information to issue new batches.
+
+        let stream = self.right.execute(partition).await?;
         let on_right = self
             .on
             .iter()
             .map(|on| on.1.clone())
             .collect::<HashSet<_>>();
-
-        // This operation performs 2 steps at once:
-        // 1. creates a [JoinHashMap] of all batches from the stream
-        // 2. stores the batches in a vector.
-        let initial = (JoinHashMap::default(), Vec::new(), 0);
-        let left_data = stream
-            .try_fold(initial, |mut acc, batch| async {
-                let hash = &mut acc.0;
-                let values = &mut acc.1;
-                let index = acc.2;
-                update_hash(&on_left, &batch, hash, index).unwrap();
-                values.push(batch);
-                acc.2 += 1;
-                Ok(acc)
-            })
-            .await?;
-        // we have the batches and the hash map with their keys. We can how create a stream
-        // over the right that uses this information to issue new batches.
-
-        let stream = self.right.execute(partition).await?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
             on_right,
             join_type: self.join_type,
-            left_data: (left_data.0, left_data.1),
+            left_data,
             right: stream,
         }))
     }
