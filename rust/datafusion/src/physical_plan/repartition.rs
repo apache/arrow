@@ -229,7 +229,7 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
 
-    #[tokio::test]
+    #[tokio::test(threaded_scheduler)]
     async fn one_to_many_round_robin() -> Result<()> {
         // define input partitions
         let schema = test_schema();
@@ -282,9 +282,10 @@ mod tests {
         // create physical plan
         let exec = MemoryExec::try_new(&input_partitions, schema.clone(), None)?;
         let exec = RepartitionExec::try_new(Arc::new(exec), partitioning_scheme)?;
+
         // execute and collect results
         let mut output_partitions = vec![];
-        for i in 0..input_partitions.len() {
+        for i in 0..exec.partitioning.partition_count() {
             // execute this *output* partition and collect all batches
             let mut stream = exec.execute(i).await?;
             let mut batches = vec![];
