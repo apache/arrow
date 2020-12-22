@@ -193,7 +193,7 @@ impl Stream for RepartitionStream {
 
     fn poll_next(
         mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
+        cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         match self.input.recv() {
             Ok(Some(batch)) => Poll::Ready(Some(batch)),
@@ -205,7 +205,7 @@ impl Stream for RepartitionStream {
                     Poll::Ready(None)
                 } else {
                     // other partitions still have data to send
-                    Poll::Pending
+                    self.poll_next(cx)
                 }
             }
             // RecvError means receiver has exited and closed the channel
@@ -278,11 +278,11 @@ mod tests {
             repartition(&schema, partitions, Partitioning::RoundRobinBatch(5)).await?;
 
         assert_eq!(5, output_partitions.len());
-        assert_eq!(150, output_partitions[0].len());
-        assert_eq!(150, output_partitions[1].len());
-        assert_eq!(150, output_partitions[2].len());
-        assert_eq!(150, output_partitions[3].len());
-        assert_eq!(150, output_partitions[4].len());
+        assert_eq!(30, output_partitions[0].len());
+        assert_eq!(30, output_partitions[1].len());
+        assert_eq!(30, output_partitions[2].len());
+        assert_eq!(30, output_partitions[3].len());
+        assert_eq!(30, output_partitions[4].len());
 
         Ok(())
     }
