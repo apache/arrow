@@ -303,7 +303,7 @@ fn group_aggregate_batch(
                             .map(|array| {
                                 // 2.3
                                 compute::take(
-                                    array,
+                                    array.as_ref(),
                                     &UInt32Array::from(indices.clone()),
                                     None, // None: no index check
                                 )
