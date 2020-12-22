@@ -519,7 +519,7 @@ class NoopAuthHandler(ServerAuthHandler):
         return ""
 
 
-def CaseInsensitiveHeaderLookup(headers, lookup_key):
+def case_insensitive_header_lookup(headers, lookup_key):
     """Lookup the value of given key in the given headers.
        The key lookup is case insensitive.
     """
@@ -531,11 +531,50 @@ def CaseInsensitiveHeaderLookup(headers, lookup_key):
         'No authorization header found.')
 
 
+class ClientHeaderAuthMiddlewareFactory(ClientMiddlewareFactory):
+    """ClientMiddlewareFactory that creates ClientAuthHeaderMiddleware."""
+
+    def __init__(self):
+        self.call_credential = []
+
+    def start_call(self, info):
+        return ClientHeaderAuthMiddleware(self)
+
+    def set_call_credential(self, call_credential):
+        self.call_credential = call_credential
+
+
+class ClientHeaderAuthMiddleware(ClientMiddleware):
+    """
+    ClientMiddleware that extracts the authorization header
+    from the server.
+
+    This is an example of a ClientMiddleware that can extract
+    the bearer token authorization header from a HTTP header
+    authentication enabled server.
+
+    Parameters
+    ----------
+    factory : ClientHeaderAuthMiddlewareFactory
+        This factory is used to set call credentials if an
+        authorization header is found in the headers from the server.
+    """
+
+    def __init__(self, factory):
+        self.factory = factory
+
+    def received_headers(self, headers):
+        auth_header = case_insensitive_header_lookup(headers, 'Authorization')
+        self.factory.set_call_credential([
+            b'authorization',
+            auth_header[0].encode("utf-8")])
+
+
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
     """Validates incoming username and password."""
 
     def start_call(self, info, headers):
-        auth_header = CaseInsensitiveHeaderLookup(
+        auth_header = case_insensitive_header_lookup(
             headers,
             'Authorization'
         )
@@ -574,7 +613,7 @@ class HeaderAuthFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("auth")
         if middleware:
-            auth_header = CaseInsensitiveHeaderLookup(
+            auth_header = case_insensitive_header_lookup(
                 middleware.sending_headers(),
                 'Authorization'
             )
@@ -608,11 +647,11 @@ class ArbitraryHeadersFlightServer(FlightServerBase):
         middleware = context.get_middleware("arbitrary-headers")
         if middleware:
             headers = middleware.sending_headers()
-            header_1 = CaseInsensitiveHeaderLookup(
+            header_1 = case_insensitive_header_lookup(
                 headers,
                 'test-header-1'
             )
-            header_2 = CaseInsensitiveHeaderLookup(
+            header_2 = case_insensitive_header_lookup(
                 headers,
                 'test-header-2'
             )
@@ -1151,6 +1190,27 @@ def test_authenticate_basic_token_and_action():
         result = list(client.do_action(
             action=flight.Action('test-action', b''), options=options))
         assert result[0].body.to_pybytes() == b'token1234'
+
+
+def test_authenticate_basic_token_with_client_middleware():
+    """Test autheticateBasicToken with bearer token and auth headers."""
+    with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
+        "auth": HeaderAuthServerMiddlewareFactory()
+    }) as server:
+        client_auth_middleware = ClientHeaderAuthMiddlewareFactory()
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[client_auth_middleware]
+        )
+        encoded_credentials = base64.b64encode(b'test:password')
+        options = flight.FlightCallOptions(headers=[
+            (b'authorization', b'Basic ' + encoded_credentials)
+        ])
+        result = list(client.do_action(
+            action=flight.Action('test-action', b''), options=options))
+        assert result[0].body.to_pybytes() == b'token1234'
+        assert client_auth_middleware.call_credential[0] == b'authorization'
+        assert client_auth_middleware.call_credential[1] == b'Bearer ' + b'token1234'
 
 
 def test_arbitrary_headers_in_flight_call_options():
