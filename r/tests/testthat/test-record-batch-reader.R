@@ -75,6 +75,36 @@ test_that("RecordBatchFileReader / Writer", {
   expect_equal(reader$num_record_batches, 3)
 })
 
+test_that("StreamReader read_table", {
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchWriter")
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchStreamReader$create(buf)
+  out <- reader$read_table()
+  expect_identical(dim(out), c(30L, 2L))
+})
+
+test_that("FileReader read_table", {
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchFileWriter$create(sink, batch$schema)
+  expect_is(writer, "RecordBatchWriter")
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchFileReader$create(buf)
+  out <- reader$read_table()
+  expect_identical(dim(out), c(30L, 2L))
+})
+
 test_that("MetadataFormat", {
   expect_identical(get_ipc_metadata_version(5), 4L)
   expect_identical(get_ipc_metadata_version("V4"), 3L)
@@ -96,4 +126,17 @@ test_that("MetadataFormat", {
     get_ipc_metadata_version("45"),
     '"45" is not a valid IPC MetadataVersion'
   )
+})
+
+test_that("reader with 0 batches", {
+  # IPC stream containing only a schema (ARROW-10642)
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(sink, schema(a = int32()))
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchStreamReader$create(buf)
+  tab <- reader$read_table()
+  expect_is(tab, "Table")
+  expect_identical(dim(tab), c(0L, 1L))
 })

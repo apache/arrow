@@ -38,7 +38,7 @@ use TimeUnit::*;
 ///
 pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef> {
     let indices = sort_to_indices(values, options)?;
-    take(values, &indices, None)
+    take(values.as_ref(), &indices, None)
 }
 
 // partition indices into non-NaN and NaN
@@ -626,7 +626,7 @@ pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
     let indices = lexsort_to_indices(columns)?;
     columns
         .iter()
-        .map(|c| take(&c.values, &indices, None))
+        .map(|c| take(c.values.as_ref(), &indices, None))
         .collect()
 }
 

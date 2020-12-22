@@ -183,7 +183,7 @@ impl Buffer {
     /// in larger chunks and starting at arbitrary bit offsets.
     /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self, offset, len)
+        BitChunks::new(&self.data.as_slice()[self.offset..], offset, len)
     }
 
     /// Returns the number of 1-bits in this buffer.
