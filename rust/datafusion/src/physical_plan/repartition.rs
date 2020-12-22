@@ -192,3 +192,14 @@ impl RecordBatchStream for RepartitionStream {
         self.schema.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test() -> Result<()> {
+        // TODO write tests for the physical operator
+        Ok(())
+    }
+}

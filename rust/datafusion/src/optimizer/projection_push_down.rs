@@ -275,6 +275,7 @@ fn optimize_plan(
         // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }
         | LogicalPlan::Filter { .. }
+        | LogicalPlan::Repartition { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
         | LogicalPlan::CreateExternalTable { .. }
