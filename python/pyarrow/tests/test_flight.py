@@ -1157,7 +1157,7 @@ no_op_auth_handler = NoopAuthHandler()
 
 
 def test_authenticate_basic_token():
-    """Test autheticateBasicToken with bearer token and auth headers."""
+    """Test authenticateBasicToken with bearer token and auth headers."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
     }) as server:
@@ -1168,7 +1168,7 @@ def test_authenticate_basic_token():
 
 
 def test_authenticate_basic_token_invalid_password():
-    """Test autheticateBasicToken with an invalid password."""
+    """Test authenticateBasicToken with an invalid password."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
     }) as server:
@@ -1178,7 +1178,7 @@ def test_authenticate_basic_token_invalid_password():
 
 
 def test_authenticate_basic_token_and_action():
-    """Test autheticateBasicToken and doAction after authentication."""
+    """Test authenticateBasicToken and doAction after authentication."""
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
     }) as server:
@@ -1193,7 +1193,10 @@ def test_authenticate_basic_token_and_action():
 
 
 def test_authenticate_basic_token_with_client_middleware():
-    """Test autheticateBasicToken with bearer token and auth headers."""
+    """Test authenticateBasicToken with client middleware
+       to intercept authorization header returned by the
+       HTTP header auth enabled server.
+    """
     with HeaderAuthFlightServer(auth_handler=no_op_auth_handler, middleware={
         "auth": HeaderAuthServerMiddlewareFactory()
     }) as server:
@@ -1209,6 +1212,11 @@ def test_authenticate_basic_token_with_client_middleware():
         result = list(client.do_action(
             action=flight.Action('test-action', b''), options=options))
         assert result[0].body.to_pybytes() == b'token1234'
+        assert client_auth_middleware.call_credential[0] == b'authorization'
+        assert client_auth_middleware.call_credential[1] == b'Bearer ' + b'token1234'
+        result2 = list(client.do_action(
+            action=flight.Action('test-action', b''), options=options))
+        assert result2[0].body.to_pybytes() == b'token1234'
         assert client_auth_middleware.call_credential[0] == b'authorization'
         assert client_auth_middleware.call_credential[1] == b'Bearer ' + b'token1234'
 
