@@ -18,7 +18,6 @@
 //! Benchmark derived from TPC-H. This is not an official TPC-H benchmark.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Instant;
 
 use arrow::datatypes::{DataType, DateUnit, Field, Schema};
@@ -28,7 +27,6 @@ use datafusion::datasource::{CsvFile, MemTable, TableProvider};
 use datafusion::error::{DataFusionError, Result};
 use datafusion::logical_plan::LogicalPlan;
 use datafusion::physical_plan::collect;
-use datafusion::physical_plan::csv::CsvExec;
 use datafusion::prelude::*;
 
 use parquet::basic::Compression;
@@ -87,6 +85,10 @@ struct ConvertOpt {
     /// Compression to use when writing Parquet files
     #[structopt(short = "c", long = "compression", default_value = "snappy")]
     compression: String,
+
+    /// Number of partitions to produce
+    #[structopt(short = "p", long = "partitions", default_value = "1")]
+    partitions: usize,
 }
 
 #[derive(Debug, StructOpt)]
@@ -1017,8 +1019,21 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
             .delimiter(b'|')
             .file_extension(".tbl");
 
-        let ctx = ExecutionContext::new();
-        let csv = Arc::new(CsvExec::try_new(&input_path, options, None, 4096)?);
+        let mut ctx = ExecutionContext::new();
+
+        // build plan to read the TBL file
+        let mut csv = ctx.read_csv(&input_path, options)?;
+
+        // optionally, repartition the file
+        if opt.partitions > 1 {
+            csv = csv.repartition(Partitioning::RoundRobinBatch(opt.partitions))?
+        }
+
+        // create the physical plan
+        let csv = csv.to_logical_plan();
+        let csv = ctx.optimize(&csv)?;
+        let csv = ctx.create_physical_plan(&csv)?;
+
         let output_path = output_root_path.join(table);
         let output_path = output_path.to_str().unwrap().to_owned();
 
