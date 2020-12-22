@@ -92,14 +92,18 @@ impl ExecutionPlan for RepartitionExec {
         let mut rx = self.rx.lock().await;
 
         let num_input_partitions = self.input.output_partitioning().partition_count();
-        let num_output_partition = self.partitioning.partition_count();
+        let num_output_partitions = self.partitioning.partition_count();
 
         // if this is the first partition to be invoked then we need to set up initial state
         if tx.is_empty() {
             // create one channel per *output* partition
-            for _ in 0..num_output_partition {
-                // note that this operator uses unbounded channels to avoid deadlocks because
-                // the output partitions can be read in any order and block the input partitions
+            for _ in 0..num_output_partitions {
+                // Note that this operator uses unbounded channels to avoid deadlocks because
+                // the output partitions can be read in any order and this could cause input
+                // partitions to be blocked when sending data to output receivers that are not
+                // being read yet. This may cause high memory usage if the next operator is
+                // reading output partitions in order rather than concurrently. One workaround
+                // for this would be to add spill-to-disk capabilities.
                 let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
                 tx.push(sender);
                 rx.push(receiver);
@@ -115,7 +119,7 @@ impl ExecutionPlan for RepartitionExec {
                     while let Some(result) = stream.next().await {
                         match partitioning {
                             Partitioning::RoundRobinBatch(_) => {
-                                let output_partition = counter % num_output_partition;
+                                let output_partition = counter % num_output_partitions;
                                 let tx = &mut tx[output_partition];
                                 tx.send(Some(result)).map_err(|e| {
                                     DataFusionError::Execution(e.to_string())
@@ -134,7 +138,7 @@ impl ExecutionPlan for RepartitionExec {
                     }
 
                     // notify each output partition that this input partition has no more data
-                    for i in 0..num_output_partition {
+                    for i in 0..num_output_partitions {
                         let tx = &mut tx[i];
                         tx.send(None)
                             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
