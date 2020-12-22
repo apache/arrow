@@ -234,21 +234,55 @@ mod tests {
         // define input partitions
         let schema = test_schema();
         let partition = create_vec_batches(&schema, 50)?;
-        let single_partition_data = vec![partition];
+        let partitions = vec![partition];
 
         // repartition from 1 input to 4 output
-        let output_partitions = repartition(
-            &schema,
-            single_partition_data,
-            Partitioning::RoundRobinBatch(4),
-        )
-        .await?;
+        let output_partitions =
+            repartition(&schema, partitions, Partitioning::RoundRobinBatch(4)).await?;
 
         assert_eq!(4, output_partitions.len());
         assert_eq!(13, output_partitions[0].len());
         assert_eq!(13, output_partitions[1].len());
         assert_eq!(12, output_partitions[2].len());
         assert_eq!(12, output_partitions[3].len());
+
+        Ok(())
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn many_to_one_round_robin() -> Result<()> {
+        // define input partitions
+        let schema = test_schema();
+        let partition = create_vec_batches(&schema, 50)?;
+        let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
+
+        // repartition from 3 input to 1 output
+        let output_partitions =
+            repartition(&schema, partitions, Partitioning::RoundRobinBatch(1)).await?;
+
+        assert_eq!(1, output_partitions.len());
+        assert_eq!(150, output_partitions[0].len());
+
+        Ok(())
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn many_to_many_round_robin() -> Result<()> {
+        // define input partitions
+        let schema = test_schema();
+        let partition = create_vec_batches(&schema, 50)?;
+        let partitions = vec![partition.clone(), partition.clone(), partition.clone()];
+
+        // repartition from 3 input to 5 output
+        let output_partitions =
+            repartition(&schema, partitions, Partitioning::RoundRobinBatch(5)).await?;
+
+        assert_eq!(5, output_partitions.len());
+        assert_eq!(150, output_partitions[0].len());
+        assert_eq!(150, output_partitions[1].len());
+        assert_eq!(150, output_partitions[2].len());
+        assert_eq!(150, output_partitions[3].len());
+        assert_eq!(150, output_partitions[4].len());
 
         Ok(())
     }
