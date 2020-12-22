@@ -830,8 +830,8 @@ TEST_F(TestProjector, TestToDate) {
   // output fields
   auto field_result = field("res", arrow::date64());
 
-  auto pattern_node =
-      std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(std::string("YYYY-MM-DD")), false);
+  auto pattern_node = std::make_shared<LiteralNode>(
+      arrow::utf8(), LiteralHolder(std::string("YYYY-MM-DD")), false);
 
   // Build expression
   auto fn_node = TreeExprBuilder::MakeFunction("to_date", {field_node, pattern_node},
