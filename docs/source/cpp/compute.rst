@@ -653,10 +653,26 @@ String component extraction
   ``(?P<letter>[ab])(?P<digit>\\d)``.
 
 
+String joining
+~~~~~~~~~~~~~~
+
+This function does the inverse of string splitting.
+
++-----------------+-----------+----------------------+----------------+-------------------+---------+
+| Function name   | Arity     | Input type 1         | Input type 2   | Output type       | Notes   |
++=================+===========+======================+================+===================+=========+
+| binary_join     | Binary    | List of string-like  | String-like    | String-like       | \(1)    |
++-----------------+-----------+----------------------+----------------+-------------------+---------+
+
+* \(1) The first input must be an array, while the second can be a scalar or array.
+  Each list of values in the first input is joined using each second input
+  as separator.
+
+
 Slicing
 ~~~~~~~
 
-These function transform each sequence of the array to a subsequence, according
+This function transforms each sequence of the array to a subsequence, according
 to start and stop indices, and a non-zero step (defaulting to 1).  Slicing
 semantics follow Python slicing semantics: the start index is inclusive,
 the stop index exclusive; if the step is negative, the sequence is followed

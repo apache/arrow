@@ -699,6 +699,17 @@ def test_extract_regex():
         'letter': 'b', 'digit': '2'}]
 
 
+def test_binary_join():
+    ar_list = pa.array([['foo', 'bar'], None, []])
+    expected = pa.array(['foo-bar', None, ''])
+    assert pc.binary_join(ar_list, '-').equals(expected)
+
+    separator_array = pa.array(['1', '2'], type=pa.binary())
+    expected = pa.array(['a1b', 'c2d'], type=pa.binary())
+    ar_list = pa.array([['a', 'b'], ['c', 'd']], type=pa.list_(pa.binary()))
+    assert pc.binary_join(ar_list, separator_array).equals(expected)
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)

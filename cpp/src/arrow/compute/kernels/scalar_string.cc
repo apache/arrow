@@ -2637,6 +2637,145 @@ void AddUtf8Length(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+// binary join
+
+template <typename Type>
+struct BinaryJoin {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ListArrayType = ListArray;
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::SCALAR) {
+      const ListScalar& list = checked_cast<const ListScalar&>(*batch[0].scalar());
+      if (!list.is_valid) {
+        return Status::OK();
+      }
+      if (batch[1].kind() == Datum::SCALAR) {
+        const BaseBinaryScalar& separator_scalar =
+            checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
+        if (!separator_scalar.is_valid) {
+          return Status::OK();
+        }
+        util::string_view separator(*separator_scalar.value);
+
+        TypedBufferBuilder<uint8_t> builder(ctx->memory_pool());
+        auto Append = [&](util::string_view value) {
+          return builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
+                                static_cast<offset_type>(value.size()));
+        };
+
+        const ArrayType* strings = static_cast<const ArrayType*>(list.value.get());
+        if (strings->null_count() > 0) {
+          // since the input list is not null, the out datum needs to be assigned to
+          *out = MakeNullScalar(list.value->type());
+          return Status::OK();
+        }
+        if (strings->length() > 0) {
+          RETURN_NOT_OK(Append(strings->GetView(0)));
+          for (int64_t j = 1; j < strings->length(); j++) {
+            RETURN_NOT_OK(Append(separator));
+            RETURN_NOT_OK(Append(strings->GetView(j)));
+          }
+        }
+        std::shared_ptr<Buffer> string_buffer;
+        RETURN_NOT_OK(builder.Finish(&string_buffer));
+        ARROW_ASSIGN_OR_RAISE(auto scalar_right_type,
+                              MakeScalar<std::shared_ptr<Buffer>>(
+                                  list.value->type(), std::move(string_buffer)));
+        *out = scalar_right_type;
+      }
+      // XXX do we want to support scalar[list[str]] with array[str] ?
+    } else {
+      const ListArrayType list(batch[0].array());
+      ArrayData* output = out->mutable_array();
+
+      BuilderType builder(ctx->memory_pool());
+      RETURN_NOT_OK(builder.Reserve(list.length()));
+      if (batch[1].kind() == Datum::ARRAY) {
+        ArrayType separator_array(batch[1].array());
+        for (int64_t i = 0; i < list.length(); ++i) {
+          const std::shared_ptr<Array> slice = list.value_slice(i);
+          const ArrayType* strings = static_cast<const ArrayType*>(slice.get());
+          if ((strings->null_count() > 0) || (list.IsNull(i)) ||
+              separator_array.IsNull(i)) {
+            RETURN_NOT_OK(builder.AppendNull());
+          } else {
+            const auto separator = separator_array.GetView(i);
+            if (strings->length() > 0) {
+              RETURN_NOT_OK(builder.Append(strings->GetView(0)));
+              for (int64_t j = 1; j < strings->length(); j++) {
+                RETURN_NOT_OK(builder.AppendCurrent(separator));
+                RETURN_NOT_OK(builder.AppendCurrent(strings->GetView(j)));
+              }
+            } else {
+              RETURN_NOT_OK(builder.AppendEmptyValue());
+            }
+          }
+        }
+      } else if (batch[1].kind() == Datum::SCALAR) {
+        const auto& separator_scalar =
+            checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
+        if (!separator_scalar.is_valid) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto nulls,
+              MakeArrayOfNull(list.value_type(), list.length(), ctx->memory_pool()));
+          *output = *nulls->data();
+          output->type = list.value_type();
+          return Status::OK();
+        }
+        util::string_view separator(*separator_scalar.value);
+
+        for (int64_t i = 0; i < list.length(); ++i) {
+          const std::shared_ptr<Array> slice = list.value_slice(i);
+          const ArrayType* strings = static_cast<const ArrayType*>(slice.get());
+          if ((strings->null_count() > 0) || (list.IsNull(i))) {
+            RETURN_NOT_OK(builder.AppendNull());
+          } else {
+            if (strings->length() > 0) {
+              RETURN_NOT_OK(builder.Append(strings->GetView(0)));
+              for (int64_t j = 1; j < strings->length(); j++) {
+                RETURN_NOT_OK(builder.AppendCurrent(separator));
+                RETURN_NOT_OK(builder.AppendCurrent(strings->GetView(j)));
+              }
+            } else {
+              RETURN_NOT_OK(builder.AppendEmptyValue());
+            }
+          }
+        }
+      }
+      std::shared_ptr<Array> string_array;
+      RETURN_NOT_OK(builder.Finish(&string_array));
+      *output = *string_array->data();
+      // correct the output type based on the input
+      output->type = list.value_type();
+    }
+    return Status::OK();
+  }
+};
+
+const FunctionDoc binary_join_doc(
+    "Join a list of strings together with a `separator` to form a single string",
+    ("Insert `separator` between each list element, and concatenate them."),
+    {"list", "separator"});
+
+void AddJoin(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), &binary_join_doc);
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin>(*ty);
+    // TODO add large_list inputs
+    DCHECK_OK(
+        func->AddKernel({InputType::Array(list(ty)), InputType::Scalar(ty)}, ty, exec));
+    DCHECK_OK(
+        func->AddKernel({InputType::Array(list(ty)), InputType::Array(ty)}, ty, exec));
+    DCHECK_OK(
+        func->AddKernel({InputType::Scalar(list(ty)), InputType::Scalar(ty)}, ty, exec));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
@@ -2942,6 +3081,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSlice(registry);
   AddSplit(registry);
   AddStrptime(registry);
+  AddJoin(registry);
 }
 
 }  // namespace internal
