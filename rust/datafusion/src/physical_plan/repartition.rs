@@ -98,9 +98,8 @@ impl ExecutionPlan for RepartitionExec {
         if tx.is_empty() {
             // create one channel per *output* partition
             for _ in 0..num_output_partition {
-                //TODO this operator currently uses unbounded channels to avoid deadlocks and
-                // this is far from ideal
-
+                // note that this operator uses unbounded channels to avoid deadlocks because
+                // the output partitions can be read in any order and block the input partitions
                 let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
                 tx.push(sender);
                 rx.push(receiver);
