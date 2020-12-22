@@ -32,7 +32,7 @@ use arrow::record_batch::RecordBatch;
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
-use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use futures::stream::Stream;
 use futures::StreamExt;
 use tokio::sync::Mutex;
@@ -46,9 +46,9 @@ pub struct RepartitionExec {
     /// Partitioning scheme to use
     partitioning: Partitioning,
     /// Receivers for output batches
-    rx: Arc<Mutex<Vec<Receiver<ArrowResult<RecordBatch>>>>>,
+    rx: Arc<Mutex<Vec<Receiver<Option<ArrowResult<RecordBatch>>>>>>,
     /// Senders for output batches
-    tx: Arc<Mutex<Vec<Sender<ArrowResult<RecordBatch>>>>>,
+    tx: Arc<Mutex<Vec<Sender<Option<ArrowResult<RecordBatch>>>>>>,
 }
 
 #[async_trait]
@@ -91,30 +91,34 @@ impl ExecutionPlan for RepartitionExec {
         let mut tx = self.tx.lock().await;
         let mut rx = self.rx.lock().await;
 
+        let num_input_partitions = self.input.output_partitioning().partition_count();
+        let num_output_partition = self.partitioning.partition_count();
+
         // if this is the first partition to be invoked then we need to set up initial state
         if tx.is_empty() {
             // create one channel per *output* partition
-            for _ in 0..self.partitioning.partition_count() {
-                let (sender, receiver) = bounded::<ArrowResult<RecordBatch>>(1);
+            for _ in 0..num_output_partition {
+                //TODO this operator currently uses unbounded channels to avoid deadlocks and
+                // this is far from ideal
+
+                let (sender, receiver) = unbounded::<Option<ArrowResult<RecordBatch>>>();
                 tx.push(sender);
                 rx.push(receiver);
             }
             // launch one async task per *input* partition
-            let num_output_partitions =
-                self.input.output_partitioning().partition_count();
-            for i in 0..num_output_partitions {
+            for i in 0..num_input_partitions {
                 let input = self.input.clone();
                 let mut tx = tx.clone();
                 let partitioning = self.partitioning.clone();
-                let _handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+                let _: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
                     let mut counter = 0;
                     while let Some(result) = stream.next().await {
                         match partitioning {
                             Partitioning::RoundRobinBatch(_) => {
-                                let output_partition = counter % num_output_partitions;
+                                let output_partition = counter % num_output_partition;
                                 let tx = &mut tx[output_partition];
-                                tx.send(result).map_err(|e| {
+                                tx.send(Some(result)).map_err(|e| {
                                     DataFusionError::Execution(e.to_string())
                                 })?;
                             }
@@ -129,6 +133,13 @@ impl ExecutionPlan for RepartitionExec {
                         }
                         counter += 1;
                     }
+
+                    // notify each output partition that this input partition has no more data
+                    for i in 0..num_output_partition {
+                        let tx = &mut tx[i];
+                        tx.send(None)
+                            .map_err(|e| DataFusionError::Execution(e.to_string()))?;
+                    }
                     Ok(())
                 });
             }
@@ -137,6 +148,8 @@ impl ExecutionPlan for RepartitionExec {
         // now return stream for the specified *output* partition which will
         // read from the channel
         Ok(Box::pin(RepartitionStream {
+            num_input_partitions,
+            num_input_partitions_processed: 0,
             schema: self.input.schema(),
             input: rx[partition].clone(),
         }))
@@ -165,23 +178,35 @@ impl RepartitionExec {
 }
 
 struct RepartitionStream {
+    num_input_partitions: usize,
+    num_input_partitions_processed: usize,
     /// Schema
     schema: SchemaRef,
     /// channel containing the repartitioned batches
-    input: Receiver<ArrowResult<RecordBatch>>,
+    input: Receiver<Option<ArrowResult<RecordBatch>>>,
 }
 
 impl Stream for RepartitionStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         match self.input.recv() {
-            Ok(batch) => Poll::Ready(Some(batch)),
+            Ok(Some(batch)) => Poll::Ready(Some(batch)),
+            // End of results from one input partition
+            Ok(None) => {
+                self.num_input_partitions_processed += 1;
+                if self.num_input_partitions == self.num_input_partitions_processed {
+                    // all input partitions have finished sending batches
+                    Poll::Ready(None)
+                } else {
+                    Poll::Pending
+                }
+            }
             // RecvError means receiver has exited and closed the channel
-            Err(RecvError) => Poll::Ready(None),
+            Err(_) => Poll::Ready(None),
         }
     }
 }
