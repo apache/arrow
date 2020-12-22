@@ -208,6 +208,7 @@ impl ExecutionPlan for HashJoinExec {
             join_type: self.join_type,
             left_data,
             right: stream,
+            visited: HashSet::new(),
         }))
     }
 }
@@ -252,6 +253,8 @@ struct HashJoinStream {
     left_data: JoinLeftData,
     /// right
     right: SendableRecordBatchStream,
+    /// Visited items on the left for left join
+    visited: HashSet<Vec<u8>>,
 }
 
 impl RecordBatchStream for HashJoinStream {
@@ -531,13 +534,17 @@ impl Stream for HashJoinStream {
         self.right
             .poll_next_unpin(cx)
             .map(|maybe_batch| match maybe_batch {
-                Some(Ok(batch)) => Some(build_batch(
-                    &batch,
-                    &self.left_data,
-                    &self.on_right,
-                    &self.join_type,
-                    &self.schema,
-                )),
+                Some(Ok(batch)) => {
+                    let res = build_batch(
+                        &batch,
+                        &self.left_data,
+                        &self.on_right,
+                        &self.join_type,
+                        &self.schema,
+                    );
+                    self.visited.insert(vec![]);
+                    Some(res)
+                }
                 other => other,
             })
     }
