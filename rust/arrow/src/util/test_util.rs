@@ -156,29 +156,29 @@ mod tests {
 
         env::set_var(udf_env, non_existing_str);
         let res = get_data_dir(udf_env, existing_str);
-        debug_assert!(res.is_err());
+        assert!(res.is_err());
 
         env::set_var(udf_env, "");
         let res = get_data_dir(udf_env, existing_str);
-        debug_assert!(res.is_ok());
+        assert!(res.is_ok());
         assert_eq!(res.unwrap(), existing_pb);
 
         env::set_var(udf_env, " ");
         let res = get_data_dir(udf_env, existing_str);
-        debug_assert!(res.is_ok());
+        assert!(res.is_ok());
         assert_eq!(res.unwrap(), existing_pb);
 
         env::set_var(udf_env, existing_str);
         let res = get_data_dir(udf_env, existing_str);
-        debug_assert!(res.is_ok());
+        assert!(res.is_ok());
         assert_eq!(res.unwrap(), existing_pb);
 
         env::remove_var(udf_env);
         let res = get_data_dir(udf_env, non_existing_str);
-        debug_assert!(res.is_err());
+        assert!(res.is_err());
 
         let res = get_data_dir(udf_env, existing_str);
-        debug_assert!(res.is_ok());
+        assert!(res.is_ok());
         assert_eq!(res.unwrap(), existing_pb);
     }
 
