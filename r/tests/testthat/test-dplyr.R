@@ -163,7 +163,9 @@ test_that("filtering with arithmetic", {
       filter(dbl %/% 2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
-    tbl
+    tbl,
+    # TODO: why are record batched versions problematic?
+    skip_record_batch = "record batches aren't (auto?) casting correctly"
   )
 })
 

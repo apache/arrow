@@ -552,18 +552,6 @@ test_that("filter() with expressions", {
       df2[1:2, c("chr", "dbl")]
     )
   )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl / 2L > 3.5 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
 })
 
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {

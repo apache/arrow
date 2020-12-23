@@ -66,3 +66,22 @@ test_that("C++ expressions", {
   # Interprets that as a list type
   expect_is(f == c(1L, 2L), "Expression")
 })
+
+test_that("Can create an expression", {
+  a <- Array$create(as.numeric(1:5))
+  expr <- array_expression("cast", a, options = list(to_type = int32()))
+  expect_is(expr, "array_expression")
+  expect_equal(eval_array_expression(expr), Array$create(1:5))
+
+  b <- Array$create(0.5:4.5)
+  bad_expr <- array_expression("cast", b, options = list(to_type = int32()))
+  expect_is(bad_expr, "array_expression")
+  expect_error(
+    eval_array_expression(bad_expr),
+    "Invalid: Float value .* was truncated converting"
+  )
+  expr <- array_expression("cast", b, options = list(to_type = int32(), allow_float_truncate = TRUE))
+  expect_is(expr, "array_expression")
+  expect_equal(eval_array_expression(expr), Array$create(0:4))
+})
+
