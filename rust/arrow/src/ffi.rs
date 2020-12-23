@@ -329,7 +329,7 @@ impl FFI_ArrowArray {
             .iter()
             .map(|maybe_buffer| match maybe_buffer {
                 // note that `raw_data` takes into account the buffer's offset
-                Some(b) => b.raw_data() as *const std::os::raw::c_void,
+                Some(b) => b.ptr() as *const std::os::raw::c_void,
                 None => std::ptr::null(),
             })
             .collect::<Box<[_]>>();
