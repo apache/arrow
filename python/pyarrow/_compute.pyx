@@ -721,6 +721,23 @@ class ExtractRegexOptions(_ExtractRegexOptions):
         self._set_options(pattern)
 
 
+cdef class _SliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSliceOptions] slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.slice_options.get()
+
+    def _set_options(self, start, stop, step):
+        self.slice_options.reset(
+            new CSliceOptions(start, stop, step))
+
+
+class SliceOptions(_SliceOptions):
+    def __init__(self, start, stop, step=1):
+        self._set_options(start, stop, step)
+
+
 cdef class _FilterOptions(FunctionOptions):
     cdef:
         unique_ptr[CFilterOptions] filter_options

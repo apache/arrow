@@ -124,6 +124,14 @@ struct ARROW_EXPORT TrimOptions : public FunctionOptions {
   std::string characters;
 };
 
+struct ARROW_EXPORT SliceOptions : public FunctionOptions {
+  explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
+                        int64_t step = 1)
+      : start(start), stop(stop), step(step) {}
+
+  int64_t start, stop, step;
+};
+
 enum CompareOperator : int8_t {
   EQUAL,
   NOT_EQUAL,

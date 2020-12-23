@@ -758,6 +758,197 @@ void AddFindSubstring(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+// Slicing
+
+template <typename Type, typename Derived>
+struct SliceBase : StringTransform<Type, Derived> {
+  using Base = StringTransform<Type, Derived>;
+  using offset_type = typename Base::offset_type;
+  using State = OptionsWrapper<SliceOptions>;
+  SliceOptions options;
+
+  explicit SliceBase(SliceOptions options) : options(options) {}
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    SliceOptions options = State::Get(ctx);
+    if (options.step == 0) {
+      ctx->SetStatus(Status::Invalid("Slice step cannot be zero"));
+      return;
+    }
+    Derived(options).Execute(ctx, batch, out);
+  }
+
+  void Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    Base::Execute(ctx, batch, out);
+  }
+};
+
+#define PROPAGATE_FALSE(expr)         \
+  do {                                \
+    if (ARROW_PREDICT_FALSE(!expr)) { \
+      return false;                   \
+    }                                 \
+  } while (0)
+
+bool SliceCodeunitsTransform(const uint8_t* input, int64_t input_string_ncodeunits,
+                             uint8_t* output, int64_t* output_written,
+                             const SliceOptions& options) {
+  const uint8_t* begin = input;
+  const uint8_t* end = input + input_string_ncodeunits;
+  const uint8_t* begin_sliced = begin;
+  const uint8_t* end_sliced = end;
+
+  if (options.step >= 1) {
+    if (options.start >= 0) {
+      // start counting from the left
+      PROPAGATE_FALSE(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, options.start));
+      if (options.stop > options.start) {
+        // continue counting from begin_sliced
+        int64_t length = options.stop - options.start;
+        PROPAGATE_FALSE(
+            arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length));
+      } else if (options.stop < 0) {
+        // or from the end (but we will never need to < begin_sliced)
+        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -options.stop));
+      } else {
+        // zero length slice
+        *output_written = 0;
+        return true;
+      }
+    } else {
+      // start counting from the right
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                                -options.start));
+      if (options.stop > 0) {
+        // continue counting from the left, we cannot start from begin_sliced because we
+        // don't know how many codepoints are between begin and begin_sliced
+        PROPAGATE_FALSE(
+            arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop));
+        // and therefore we also needs this
+        if (end_sliced <= begin_sliced) {
+          // zero length slice
+          *output_written = 0;
+          return true;
+        }
+      } else if ((options.stop < 0) && (options.stop > options.start)) {
+        // stop is negative, but larger than start, so we count again from the right
+        // in some cases we can optimize this, depending on the shortest path (from end
+        // or begin_sliced), but begin_sliced and options.start can be 'out of sync',
+        // for instance when start=-100, when the string length is only 10.
+        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -options.stop));
+      } else {
+        // zero length slice
+        *output_written = 0;
+        return true;
+      }
+    }
+    DCHECK(begin_sliced <= end_sliced);
+    if (options.step == 1) {
+      // fast case, where we simply can finish with a memcpy
+      std::copy(begin_sliced, end_sliced, output);
+      *output_written = end_sliced - begin_sliced;
+    } else {
+      uint8_t* dest = output;
+      const uint8_t* i = begin_sliced;
+
+      while (i < end_sliced) {
+        uint32_t codepoint = 0;
+        // write a single codepoint
+        PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
+        dest = arrow::util::UTF8Encode(dest, codepoint);
+        // and skip the remainder
+        int64_t skips = options.step - 1;
+        while ((skips--) && (i < end_sliced)) {
+          PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
+        }
+      }
+      *output_written = dest - output;
+    }
+    return true;
+  } else {  // step < 0
+    // serious +1 -1 kung fu because now begin_slice and end_slice act like reverse
+    // iterators.
+
+    if (options.start >= 0) {
+      // +1 because begin_sliced acts as as the end of a reverse iterator
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced,
+                                                         options.start + 1));
+      // and make it point at the last codeunit of the previous codeunit
+      begin_sliced--;
+    } else {
+      // -1 because start=-1 means the last codeunit, which is 0 advances
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                                -options.start - 1));
+      // and make it point at the last codeunit of the previous codeunit
+      begin_sliced--;
+    }
+    // similar to options.start
+    if (options.stop >= 0) {
+      PROPAGATE_FALSE(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop + 1));
+      end_sliced--;
+    } else {
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &end_sliced,
+                                                                -options.stop - 1));
+      end_sliced--;
+    }
+
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+
+    while (i > end_sliced) {
+      uint32_t codepoint = 0;
+      // write a single codepoint
+      PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      dest = arrow::util::UTF8Encode(dest, codepoint);
+      // and skip the remainder
+      int64_t skips = -options.step - 1;
+      while ((skips--) && (i > end_sliced)) {
+        PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      }
+    }
+    *output_written = dest - output;
+    return true;
+  }
+}
+
+template <typename Type>
+struct SliceCodeunits : SliceBase<Type, SliceCodeunits<Type>> {
+  using Base = SliceBase<Type, SliceCodeunits<Type>>;
+  using offset_type = typename Base::offset_type;
+  using Base::Base;
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    int64_t output_written_64;
+    bool res = SliceCodeunitsTransform(input, input_string_ncodeunits, output,
+                                       &output_written_64, this->options);
+    *output_written = static_cast<offset_type>(output_written_64);
+    return res;
+  }
+};
+
+const FunctionDoc utf8_slice_codeunits_doc(
+    "Slice string ",
+    ("For each string in `strings`, slice into a substring defined by\n"
+     "`start`, `stop`, `step`) as given by `SliceOptions` where `start` is inclusive\n"
+     "and `stop` is exclusive and are measured in codeunits. If step is negative, the\n"
+     "string will be advanced in reversed order. A `step` of zero is considered an\n"
+     "error.\n"
+     "Null inputs emit null."),
+    {"strings"}, "SliceOptions");
+
+void AddSlice(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
+                                               &utf8_slice_codeunits_doc);
+  using t32 = SliceCodeunits<StringType>;
+  using t64 = SliceCodeunits<LargeStringType>;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), t32::Exec, t32::State::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
 // IsAlpha/Digit etc
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -2716,7 +2907,6 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
 #endif
 
-  AddSplit(registry);
   AddBinaryLength(registry);
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
@@ -2730,6 +2920,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
+  AddSlice(registry);
+  AddSplit(registry);
   AddStrptime(registry);
 }
 
