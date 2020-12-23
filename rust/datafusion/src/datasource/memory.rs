@@ -43,6 +43,41 @@ pub struct MemTable {
     statistics: Statistics,
 }
 
+// Calculates statistics based on partitions
+fn calculate_statistics(
+    schema: &SchemaRef,
+    partitions: &Vec<Vec<RecordBatch>>,
+) -> Statistics {
+    let num_rows: usize = partitions
+        .iter()
+        .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
+        .sum();
+
+    let mut null_count: Vec<usize> = vec![0; schema.fields().len()];
+    for partition in partitions.iter() {
+        for batch in partition {
+            for (i, array) in batch.columns().iter().enumerate() {
+                null_count[i] += array.null_count();
+            }
+        }
+    }
+
+    let column_statistics = Some(
+        null_count
+            .iter()
+            .map(|null_count| ColumnStatistics {
+                null_count: Some(*null_count),
+            })
+            .collect(),
+    );
+
+    return Statistics {
+        num_rows: Some(num_rows),
+        total_byte_size: None,
+        column_statistics,
+    };
+}
+
 impl MemTable {
     /// Create a new in-memory table from the provided schema and record batches
     pub fn try_new(schema: SchemaRef, partitions: Vec<Vec<RecordBatch>>) -> Result<Self> {
@@ -51,35 +86,7 @@ impl MemTable {
             .flatten()
             .all(|batches| batches.schema() == schema)
         {
-            let num_rows: usize = partitions
-                .iter()
-                .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
-                .sum();
-
-            let mut null_count: Vec<usize> = vec![0; schema.fields().len()];
-            for partition in partitions.iter() {
-                for batch in partition {
-                    for (i, array) in batch.columns().iter().enumerate() {
-                        null_count[i] += array.null_count();
-                    }
-                }
-            }
-
-            let column_statistics = Some(
-                null_count
-                    .iter()
-                    .map(|null_count| ColumnStatistics {
-                        null_count: Some(*null_count),
-                    })
-                    .collect(),
-            );
-
-            let statistics = Statistics {
-                num_rows: Some(num_rows),
-                total_byte_size: None,
-                column_statistics,
-            };
-
+            let statistics = calculate_statistics(&schema, &partitions);
             debug!("MemTable statistics: {:?}", statistics);
 
             Ok(Self {
