@@ -23,7 +23,7 @@ use super::{
 };
 
 pub(super) fn build_extend(array: &ArrayData) -> Extend {
-    let values = array.buffers()[0].data();
+    let values = array.buffers()[0].as_slice();
     Box::new(
         move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
             let buffer = &mut mutable.buffer1;

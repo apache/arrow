@@ -92,7 +92,7 @@ impl<'a> _MutableArrayData<'a> {
 
 fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits {
     if let Some(bitmap) = array.null_bitmap() {
-        let bytes = bitmap.bits.data();
+        let bytes = bitmap.bits.as_slice();
         Box::new(move |mutable, start, len| {
             utils::reserve_for_bits(&mut mutable.null_buffer, mutable.len + len);
             mutable.null_count += utils::set_bits(
