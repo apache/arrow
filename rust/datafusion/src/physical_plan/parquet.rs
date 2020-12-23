@@ -43,8 +43,8 @@ use futures::stream::Stream;
 /// Execution plan for scanning one or more Parquet files
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
-    /// Path to directory containing partitioned Parquet files with the same schema
-    filenames: Vec<String>,
+    /// Parquet partitions to read
+    partitions: Vec<ParquetPartition>,
     /// Schema after projection is applied
     schema: SchemaRef,
     /// Projection for which columns to load
@@ -55,6 +55,20 @@ pub struct ParquetExec {
     statistics: Statistics,
 }
 
+/// Represents one partition of a Parquet data set and this currently means one Parquet file.
+///
+/// In the future it would be good to support subsets of files based on ranges of row groups
+/// so that we can better parallelize reads of large files across available cores (see
+/// https://issues.apache.org/jira/browse/ARROW-10995).
+///
+/// We may also want to support reading Parquet files that are partitioned based on a key and
+/// in this case we would want this partition struct to represent multiple files for a given
+/// partition key (see https://issues.apache.org/jira/browse/ARROW-11019).
+#[derive(Debug, Clone)]
+pub struct ParquetPartition {
+    filename: String,
+}
+
 impl ParquetExec {
     /// Create a new Parquet reader execution plan
     pub fn try_new(
@@ -62,10 +76,15 @@ impl ParquetExec {
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
+        // build a list of filenames from the specified path, which could be a single file or
+        // a directory containing one or more parquet files
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, ".parquet")?;
         if filenames.is_empty() {
-            Err(DataFusionError::Plan("No files found".to_string()))
+            Err(DataFusionError::Plan(format!(
+                "No Parquet files found at path {}",
+                path
+            )))
         } else {
             // Calculate statistics for the entire data set. Later, we will probably want to make
             // statistics available on a per-partition basis.
@@ -79,7 +98,7 @@ impl ParquetExec {
                 let meta_data = arrow_reader.get_metadata();
                 // collect all the unique schemas in this data set
                 let schema = arrow_reader.get_schema()?;
-                if schemas.is_empty() || &schema != &schemas[0] {
+                if schemas.is_empty() || schema != schemas[0] {
                     schemas.push(schema);
                 }
                 for i in 0..meta_data.num_row_groups() {
@@ -103,15 +122,23 @@ impl ParquetExec {
             }
             let schema = schemas[0].clone();
 
+            // each file is one partition for now
+            let partitions = filenames
+                .iter()
+                .map(|filename| ParquetPartition {
+                    filename: filename.to_owned(),
+                })
+                .collect();
+
             Ok(Self::new(
-                filenames, schema, projection, batch_size, statistics,
+                partitions, schema, projection, batch_size, statistics,
             ))
         }
     }
 
     /// Create a new Parquet reader execution plan with provided files and schema
     pub fn new(
-        filenames: Vec<String>,
+        partitions: Vec<ParquetPartition>,
         schema: Schema,
         projection: Option<Vec<usize>>,
         batch_size: usize,
@@ -130,7 +157,7 @@ impl ParquetExec {
         );
 
         Self {
-            filenames,
+            partitions,
             schema: Arc::new(projected_schema),
             projection,
             batch_size,
@@ -162,7 +189,7 @@ impl ExecutionPlan for ParquetExec {
 
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
-        Partitioning::UnknownPartitioning(self.filenames.len())
+        Partitioning::UnknownPartitioning(self.partitions.len())
     }
 
     fn with_new_children(
@@ -187,7 +214,7 @@ impl ExecutionPlan for ParquetExec {
             Receiver<Option<ArrowResult<RecordBatch>>>,
         ) = bounded(2);
 
-        let filename = self.filenames[partition].clone();
+        let filename = self.partitions[partition].filename.clone();
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
