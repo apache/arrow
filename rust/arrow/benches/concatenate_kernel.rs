@@ -63,8 +63,9 @@ fn create_strings(size: usize, null_density: f32) -> ArrayRef {
     for _ in 0..size {
         let x = rng.gen::<f32>();
         if x < null_density {
-            let value = rng.sample_iter(&Alphanumeric).take(4).collect::<String>();
-            builder.append_value(&value).unwrap();
+            let str = &rng.sample_iter(&Alphanumeric).take(4).collect::<Vec<u8>>();
+            let value = std::str::from_utf8(str).unwrap();
+            builder.append_value(value).unwrap();
         } else {
             builder.append_null().unwrap()
         }
