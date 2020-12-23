@@ -92,9 +92,12 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-The following Env vars are required to run `cargo test`, examples, etc.
+By default, `cargo test` will look for these directories at their
+standard location. The following Env vars can be used to override the
+location shoud you choose
 
 ```bash
+# Optionaly specify a different location for test data
 export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)
 export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 ```
