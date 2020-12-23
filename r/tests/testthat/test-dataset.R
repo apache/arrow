@@ -523,6 +523,49 @@ test_that("filter() on date32 columns", {
   )
 })
 
+test_that("filter() with expressions", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  # check division's special casing.
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl / 2 > 3.5 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl / 2L > 3.5 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%

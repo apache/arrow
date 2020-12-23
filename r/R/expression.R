@@ -63,15 +63,15 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
     # In Arrow, "divide" is one function, which does integer division on
     # integer inputs and floating-point division on floats
     if (.Generic == "/") {
-      # TODO: cast needs to be an expression
       # TODO: omg so many ways it's wrong to assume these types
-      e1 <- e1$cast(float64())
-      e2 <- e2$cast(float64())
+      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
+      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
     } else if (.Generic == "%/%") {
-      e1 <- e1$cast(int32())
-      e2 <- e2$cast(int32())
+      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
+      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
+      return(array_expression("cast", array_expression(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32())))
     } else if (.Generic == "%%") {
-      # e1 - e1 %/% e2
+      # e1 - e2 * ( e1 %/% e2 )
     }
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
@@ -105,11 +105,11 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "<=" = "less_equal",
   "&" = "and_kleene",
   "|" = "or_kleene",
-  "+" = "add",
-  "-" = "subtract",
-  "*" = "multiply",
-  "/" = "divide",
-  "%/%" = "divide",
+  "+" = "add_checked",
+  "-" = "subtract_checked",
+  "*" = "multiply_checked",
+  "/" = "divide_checked",
+  "%/%" = "divide_checked",
   "%in%" = "is_in_meta_binary"
 )
 
@@ -221,6 +221,20 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
     if (!inherits(e2, "Expression")) {
       e2 <- Expression$scalar(e2)
     }
+
+    # In Arrow, "divide" is one function, which does integer division on
+    # integer inputs and floating-point division on floats
+    if (.Generic == "/") {
+      # TODO: omg so many ways it's wrong to assume these types
+      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
+      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
+    } else if (.Generic == "%/%") {
+      e1 <- array_expression("cast", e1, options = list(to_type = int32()))
+      e2 <- array_expression("cast", e2, options = list(to_type = int32()))
+    } else if (.Generic == "%%") {
+      # e1 - e2 * ( e1 %/% e2 )
+    }
+
     expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr

@@ -185,6 +185,18 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  // hacky attempt to pass through to_type
+  if (func_name == "cast") {
+    using Options = arrow::compute::CastOptions;
+    auto out = std::make_shared<Options>(false);
+    SEXP to_type = options["to_type"];
+    if (!Rf_isNull(to_type) && cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(to_type)) {
+      out->to_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(to_type);
+      }
+    return out;
+
+  }
+
   return nullptr;
 }
 
