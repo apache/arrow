@@ -90,6 +90,10 @@ impl ParquetExec {
                 path
             )))
         } else {
+            let filenames = filenames
+                .iter()
+                .map(|filename| filename.as_str())
+                .collect::<Vec<&str>>();
             Self::try_from_files(&filenames, projection, batch_size)
         }
     }
@@ -97,7 +101,7 @@ impl ParquetExec {
     /// Create a new Parquet reader execution plan based on the specified list of Parquet
     /// files
     pub fn try_from_files(
-        filenames: &[String],
+        filenames: &[&str],
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -127,7 +131,7 @@ impl ParquetExec {
                 total_byte_size: Some(total_byte_size as usize),
             };
             partitions.push(ParquetPartition {
-                filename: filename.to_owned(),
+                filename: filename.to_owned().to_string(),
                 statistics,
             });
         }
