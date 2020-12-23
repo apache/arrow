@@ -71,11 +71,11 @@ fn calculate_statistics(
             .collect(),
     );
 
-    return Statistics {
+    Statistics {
         num_rows: Some(num_rows),
         total_byte_size: None,
         column_statistics,
-    };
+    }
 }
 
 impl MemTable {
