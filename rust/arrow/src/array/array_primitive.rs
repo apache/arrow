@@ -66,7 +66,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    /// # SAFETY
+    /// # Safety
     /// caller must ensure that the passed in offset + len are less than the array len()
     #[deprecated(note = "Please use values() instead")]
     pub unsafe fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
