@@ -73,6 +73,7 @@ impl TableProvider for EmptyTable {
         Statistics {
             num_rows: Some(0),
             total_byte_size: Some(0),
+            column_statistics: None,
         }
     }
 }

@@ -62,6 +62,7 @@ impl ParquetTable {
             statistics: Statistics {
                 num_rows: Some(num_rows as usize),
                 total_byte_size: Some(total_byte_size as usize),
+                column_statistics: None,
             },
         })
     }

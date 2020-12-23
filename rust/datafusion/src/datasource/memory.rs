@@ -19,6 +19,7 @@
 //! queried by DataFusion. This allows data to be pre-loaded into memory and then
 //! repeatedly queried without incurring additional file I/O overhead.
 
+use log::debug;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -32,6 +33,8 @@ use crate::logical_plan::Expr;
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
+
+use super::datasource::ColumnStatistics;
 
 /// In-memory table
 pub struct MemTable {
@@ -52,13 +55,38 @@ impl MemTable {
                 .iter()
                 .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
                 .sum();
+
+            let mut null_count: Vec<usize> =
+                std::iter::repeat(0).take(schema.fields().len()).collect();
+            for partition in partitions.iter() {
+                for batch in partition {
+                    for (i, array) in batch.columns().iter().enumerate() {
+                        null_count[i] += array.null_count();
+                    }
+                }
+            }
+
+            let column_statistics = Some(
+                null_count
+                    .iter()
+                    .map(|null_count| ColumnStatistics {
+                        null_count: Some(*null_count),
+                    })
+                    .collect(),
+            );
+
+            let statistics = Statistics {
+                num_rows: Some(num_rows),
+                total_byte_size: None,
+                column_statistics,
+            };
+
+            debug!("Loaded MemTable with {:?}", statistics);
+
             Ok(Self {
                 schema,
                 batches: partitions,
-                statistics: Statistics {
-                    num_rows: Some(num_rows),
-                    total_byte_size: None,
-                },
+                statistics,
             })
         } else {
             Err(DataFusionError::Plan(
@@ -163,6 +191,7 @@ mod tests {
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
             Field::new("c", DataType::Int32, false),
+            Field::new("d", DataType::Int32, true),
         ]));
 
         let batch = RecordBatch::try_new(
@@ -171,12 +200,19 @@ mod tests {
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
+                Arc::new(Int32Array::from(vec![None, None, Some(9)]))
             ],
         )?;
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         assert_eq!(provider.statistics().num_rows, Some(3));
+        assert_eq!(provider.statistics().column_statistics, Some(vec![
+            ColumnStatistics {null_count: Some(0)},
+            ColumnStatistics {null_count: Some(0)},
+            ColumnStatistics {null_count: Some(0)},
+            ColumnStatistics {null_count: Some(2)},
+        ]));
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024, &[])?;

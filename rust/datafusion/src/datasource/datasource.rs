@@ -27,12 +27,20 @@ use crate::physical_plan::ExecutionPlan;
 
 /// This table statistics are estimates.
 /// It can not be used directly in the precise compute
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Statistics {
     /// The number of table rows
     pub num_rows: Option<usize>,
     /// total byte of the table rows
     pub total_byte_size: Option<usize>,
+    ///
+    pub column_statistics: Option<Vec<ColumnStatistics>>,
+}
+/// This table statistics are estimates about column
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColumnStatistics {
+    /// Number of null values on column
+    pub null_count: Option<usize>,
 }
 
 /// Indicates whether and how a filter expression can be handled by a
