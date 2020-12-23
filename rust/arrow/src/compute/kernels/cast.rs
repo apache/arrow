@@ -882,10 +882,7 @@ where
     R::Native: num::NumCast,
 {
     from.iter()
-        .map(|v| match v {
-            Some(v) => num::cast::cast::<T::Native, R::Native>(v),
-            None => None,
-        })
+        .map(|v| v.and_then(num::cast::cast::<T::Native, R::Native>))
         .collect()
 }
 

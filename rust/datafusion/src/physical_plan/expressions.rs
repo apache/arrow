@@ -473,10 +473,9 @@ impl Accumulator for AvgAccumulator {
 
     fn evaluate(&self) -> Result<ScalarValue> {
         match self.sum {
-            ScalarValue::Float64(e) => Ok(ScalarValue::Float64(match e {
-                Some(f) => Some(f / self.count as f64),
-                None => None,
-            })),
+            ScalarValue::Float64(e) => {
+                Ok(ScalarValue::Float64(e.map(|f| f / self.count as f64)))
+            }
             _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
