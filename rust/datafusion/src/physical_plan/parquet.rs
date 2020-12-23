@@ -73,7 +73,8 @@ pub struct ParquetPartition {
 }
 
 impl ParquetExec {
-    /// Create a new Parquet reader execution plan
+    /// Create a new Parquet reader execution plan based on the specified Parquet filename or
+    /// directory containing Parquet files
     pub fn try_new(
         path: &str,
         projection: Option<Vec<usize>>,
@@ -89,8 +90,8 @@ impl ParquetExec {
                 path
             )))
         } else {
-            // Calculate statistics for the entire data set. Later, we will probably want to make
-            // statistics available on a per-partition basis.
+            // build a list of Parquet partitions with statistics and gather all unique schemas
+            // used in this data set
             let mut schemas: Vec<Schema> = vec![];
             let mut partitions = vec![];
             for filename in &filenames {
@@ -120,20 +121,6 @@ impl ParquetExec {
                 });
             }
 
-            // sum the statistics
-            let mut num_rows = 0;
-            let mut total_byte_size = 0;
-            for part in &partitions {
-                // these unwraps are safe because the code above always creates these values
-                // as Some(_)
-                num_rows += part.statistics.num_rows.unwrap();
-                total_byte_size += part.statistics.total_byte_size.unwrap();
-            }
-            let statistics = Statistics {
-                num_rows: Some(num_rows as usize),
-                total_byte_size: Some(total_byte_size as usize),
-            };
-
             // we currently get the schema information from the first file rather than do
             // schema merging and this is a limitation.
             // See https://issues.apache.org/jira/browse/ARROW-11017
@@ -144,19 +131,16 @@ impl ParquetExec {
             }
             let schema = schemas[0].clone();
 
-            Ok(Self::new(
-                partitions, schema, projection, batch_size, statistics,
-            ))
+            Ok(Self::new(partitions, schema, projection, batch_size))
         }
     }
 
-    /// Create a new Parquet reader execution plan with provided files and schema
+    /// Create a new Parquet reader execution plan with provided partitions and schema
     pub fn new(
         partitions: Vec<ParquetPartition>,
         schema: Schema,
         projection: Option<Vec<usize>>,
         batch_size: usize,
-        statistics: Statistics,
     ) -> Self {
         let projection = match projection {
             Some(p) => p,
@@ -169,6 +153,26 @@ impl ParquetExec {
                 .map(|i| schema.field(*i).clone())
                 .collect(),
         );
+
+        // sum the statistics
+        let mut num_rows = 0;
+        let mut total_byte_size = 0;
+        for part in &partitions {
+            num_rows += part.statistics.num_rows.unwrap_or(0);
+            total_byte_size += part.statistics.total_byte_size.unwrap_or(0);
+        }
+        let statistics = Statistics {
+            num_rows: if num_rows == 0 {
+                None
+            } else {
+                Some(num_rows as usize)
+            },
+            total_byte_size: if total_byte_size == 0 {
+                None
+            } else {
+                Some(total_byte_size as usize)
+            },
+        };
 
         Self {
             partitions,
