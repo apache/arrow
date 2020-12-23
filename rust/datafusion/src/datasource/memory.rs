@@ -56,8 +56,7 @@ impl MemTable {
                 .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
                 .sum();
 
-            let mut null_count: Vec<usize> =
-                std::iter::repeat(0).take(schema.fields().len()).collect();
+            let mut null_count: Vec<usize> = vec![0; schema.fields().len()];
             for partition in partitions.iter() {
                 for batch in partition {
                     for (i, array) in batch.columns().iter().enumerate() {
