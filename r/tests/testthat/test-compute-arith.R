@@ -70,4 +70,8 @@ test_that("Division", {
   # c(1:4) %/% 2.2             == c(0L, 0L, 1L, 1L)
   # c(1:4) %/% as.integer(2.2) == c(0L, 1L, 1L, 2L)
   expect_equal(b %/% 2.2, Array$create(c(0L, 0L, 1L, 1L, NA_integer_)))
+
+  expect_equal(a %% 2, Array$create(c(1L, 0L, 1L, 0L, NA_integer_)))
+
+  expect_equal(b %% 2, Array$create(c(1:4 %% 2, NA_real_)))
 })

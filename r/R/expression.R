@@ -69,9 +69,26 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
     } else if (.Generic == "%/%") {
       e1 <- array_expression("cast", e1, options = list(to_type = float64()))
       e2 <- array_expression("cast", e2, options = list(to_type = float64()))
-      return(array_expression("cast", array_expression(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32())))
+      return(array_expression("cast", array_expression(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32(), allow_float_truncate = TRUE)))
     } else if (.Generic == "%%") {
-      # e1 - e2 * ( e1 %/% e2 )
+      # {e1 - e2 * ( e1 %/% e2 )}
+      # TODO: there has to be a way to use the form ^^^ instead of this.
+      out <- array_expression(
+        "subtract_checked", e1, array_expression(
+          "multiply_checked", e2, array_expression(
+            # this outer cast is to ensure that the result of this and the
+            # result of multiply are the same
+            "cast",
+            array_expression(
+              "cast",
+              array_expression(.binary_function_map[[.Generic]], e1, e2, ...),
+              options = list(to_type = int32(), allow_float_truncate = TRUE)
+            ),
+            options = list(to_type = e2$type, allow_float_truncate = TRUE)
+          )
+        )
+      )
+      return(out)
     }
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
@@ -110,13 +127,13 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "*" = "multiply_checked",
   "/" = "divide_checked",
   "%/%" = "divide_checked",
-  "%in%" = "is_in_meta_binary"
+  "%in%" = "is_in_meta_binary",
+  "%%" = "divide_checked"
 )
 
 
-# ‘"^"’,
-# ‘"%%"’,
-# ‘"%/%"’
+# ‘"^"’
+
 
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
@@ -226,13 +243,31 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
     # integer inputs and floating-point division on floats
     if (.Generic == "/") {
       # TODO: omg so many ways it's wrong to assume these types
-      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
-      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
+      e1 <- Expression$create("cast", e1, options = list(to_type = float64()))
+      e2 <- Expression$create("cast", e2, options = list(to_type = float64()))
     } else if (.Generic == "%/%") {
-      e1 <- array_expression("cast", e1, options = list(to_type = int32()))
-      e2 <- array_expression("cast", e2, options = list(to_type = int32()))
+      e1 <- Expression$create("cast", e1, options = list(to_type = float64()))
+      e2 <- Expression$create("cast", e2, options = list(to_type = float64()))
+      return(Expression$create("cast", Expression$create(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32(), allow_float_truncate = TRUE)))
     } else if (.Generic == "%%") {
-      # e1 - e2 * ( e1 %/% e2 )
+      # {e1 - e2 * ( e1 %/% e2 )}
+      # TODO: there has to be a way to use the form ^^^ instead of this.
+      out <- Expression$create(
+        "subtract_checked", e1, Expression$create(
+          "multiply_checked", e2, Expression$create(
+            # this outer cast is to ensure that the result of this and the
+            # result of multiply are the same
+            "cast",
+            Expression$create(
+              "cast",
+              Expression$create(.binary_function_map[[.Generic]], e1, e2, ...),
+              options = list(to_type = int32(), allow_float_truncate = TRUE)
+            ),
+            options = list(to_type = e2$type, allow_float_truncate = TRUE)
+          )
+        )
+      )
+      return(out)
     }
 
     expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
