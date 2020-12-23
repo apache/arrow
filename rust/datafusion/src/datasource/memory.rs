@@ -81,7 +81,7 @@ impl MemTable {
                 column_statistics,
             };
 
-            debug!("Loaded MemTable with {:?}", statistics);
+            debug!("MemTable statistics: {:?}", statistics);
 
             Ok(Self {
                 schema,
@@ -200,19 +200,30 @@ mod tests {
                 Arc::new(Int32Array::from(vec![1, 2, 3])),
                 Arc::new(Int32Array::from(vec![4, 5, 6])),
                 Arc::new(Int32Array::from(vec![7, 8, 9])),
-                Arc::new(Int32Array::from(vec![None, None, Some(9)]))
+                Arc::new(Int32Array::from(vec![None, None, Some(9)])),
             ],
         )?;
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
         assert_eq!(provider.statistics().num_rows, Some(3));
-        assert_eq!(provider.statistics().column_statistics, Some(vec![
-            ColumnStatistics {null_count: Some(0)},
-            ColumnStatistics {null_count: Some(0)},
-            ColumnStatistics {null_count: Some(0)},
-            ColumnStatistics {null_count: Some(2)},
-        ]));
+        assert_eq!(
+            provider.statistics().column_statistics,
+            Some(vec![
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(0)
+                },
+                ColumnStatistics {
+                    null_count: Some(2)
+                },
+            ])
+        );
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024, &[])?;
