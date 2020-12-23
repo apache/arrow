@@ -104,7 +104,7 @@ impl ParquetExec {
         // build a list of Parquet partitions with statistics and gather all unique schemas
         // used in this data set
         let mut schemas: Vec<Schema> = vec![];
-        let mut partitions = vec![];
+        let mut partitions = Vec::with_capacity(filenames.len());
         for filename in filenames {
             let file = File::open(filename)?;
             let file_reader = Arc::new(SerializedFileReader::new(file)?);
