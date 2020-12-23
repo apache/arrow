@@ -20,6 +20,7 @@
 //! Note that this is a low-level functionality of this crate.
 
 use core::slice;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{fmt::Debug, fmt::Formatter};
 
@@ -56,7 +57,7 @@ impl Debug for Deallocation {
 /// foreign deallocator to deallocate the region when it is no longer needed.
 pub struct Bytes {
     /// The raw pointer to be begining of the region
-    ptr: *const u8,
+    ptr: NonNull<u8>,
 
     /// The number of bytes visible to this region. This is always smaller than its capacity (when avaliable).
     len: usize,
@@ -78,7 +79,11 @@ impl Bytes {
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
-    pub unsafe fn new(ptr: *const u8, len: usize, deallocation: Deallocation) -> Bytes {
+    pub unsafe fn new(
+        ptr: std::ptr::NonNull<u8>,
+        len: usize,
+        deallocation: Deallocation,
+    ) -> Bytes {
         Bytes {
             ptr,
             len,
@@ -101,7 +106,7 @@ impl Bytes {
     }
 
     #[inline]
-    pub fn ptr(&self) -> *const u8 {
+    pub fn ptr(&self) -> NonNull<u8> {
         self.ptr
     }
 
@@ -120,9 +125,7 @@ impl Drop for Bytes {
     fn drop(&mut self) {
         match &self.deallocation {
             Deallocation::Native(capacity) => {
-                if !self.ptr.is_null() {
-                    unsafe { memory::free_aligned(self.ptr as *mut u8, *capacity) };
-                }
+                unsafe { memory::free_aligned(self.ptr, *capacity) };
             }
             // foreign interface knows how to deallocate itself.
             Deallocation::Foreign(_) => (),
@@ -134,7 +137,7 @@ impl std::ops::Deref for Bytes {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 
