@@ -40,7 +40,7 @@ use crate::datasource::datasource::Statistics;
 use async_trait::async_trait;
 use futures::stream::Stream;
 
-/// Execution plan for scanning one or more Parquet files
+/// Execution plan for scanning one or more Parquet partitions
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
     /// Parquet partitions to read
@@ -51,7 +51,7 @@ pub struct ParquetExec {
     projection: Vec<usize>,
     /// Batch size
     batch_size: usize,
-    /// Statistics for the data set (sum of statistics for all files)
+    /// Statistics for the data set (sum of statistics for all partitions)
     statistics: Statistics,
 }
 
@@ -91,8 +91,6 @@ impl ParquetExec {
         } else {
             // Calculate statistics for the entire data set. Later, we will probably want to make
             // statistics available on a per-partition basis.
-            let mut num_rows = 0;
-            let mut total_byte_size = 0;
             let mut schemas: Vec<Schema> = vec![];
             let mut partitions = vec![];
             for filename in &filenames {
@@ -105,6 +103,8 @@ impl ParquetExec {
                 if schemas.is_empty() || schema != schemas[0] {
                     schemas.push(schema);
                 }
+                let mut num_rows = 0;
+                let mut total_byte_size = 0;
                 for i in 0..meta_data.num_row_groups() {
                     let row_group_meta = meta_data.row_group(i);
                     num_rows += row_group_meta.num_rows();
@@ -118,6 +118,16 @@ impl ParquetExec {
                     filename: filename.to_owned(),
                     statistics,
                 });
+            }
+
+            // sum the statistics
+            let mut num_rows = 0;
+            let mut total_byte_size = 0;
+            for part in &partitions {
+                // these unwraps are safe because the code above always creates these values
+                // as Some(_)
+                num_rows += part.statistics.num_rows.unwrap();
+                total_byte_size += part.statistics.total_byte_size.unwrap();
             }
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
