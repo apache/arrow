@@ -669,11 +669,11 @@ mod tests {
     use super::*;
     use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
+    use crate::prelude::ExecutionConfig;
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
         physical_plan::SendableRecordBatchStream,
     };
-    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::datatypes::{DataType, Field, SchemaRef};
     use async_trait::async_trait;
     use fmt::Debug;
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn test_all_operators() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
@@ -736,7 +736,7 @@ mod tests {
 
     #[test]
     fn test_with_csv_plan() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
@@ -754,7 +754,7 @@ mod tests {
 
     #[test]
     fn errors() -> Result<()> {
-        let testdata = arrow_testdata_path();
+        let testdata = arrow::util::test_util::arrow_test_data();
         let path = format!("{}/csv/aggregate_test_100.csv", testdata);
         let options = CsvReadOptions::new().schema_infer_max_records(100);
 

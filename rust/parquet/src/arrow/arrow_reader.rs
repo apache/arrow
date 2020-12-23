@@ -257,7 +257,6 @@ mod tests {
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
     use std::cmp::min;
     use std::convert::TryFrom;
-    use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
     use std::sync::Arc;
@@ -406,8 +405,7 @@ mod tests {
     #[test]
     fn test_read_decimal_file() {
         use arrow::array::DecimalArray;
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        let testdata = arrow::util::test_util::parquet_test_data();
         let path = format!("{}/fixed_length_decimal.parquet", testdata);
         let parquet_reader =
             SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
@@ -607,7 +605,7 @@ mod tests {
 
     fn get_test_file(file_name: &str) -> File {
         let mut path = PathBuf::new();
-        path.push(env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined!"));
+        path.push(arrow::util::test_util::arrow_test_data());
         path.push(file_name);
 
         File::open(path.as_path()).expect("File not found!")

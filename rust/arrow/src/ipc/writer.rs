@@ -739,7 +739,6 @@ mod tests {
     use crate::datatypes::Field;
     use crate::ipc::reader::*;
     use crate::util::integration_util::*;
-    use std::env;
     use std::fs::File;
     use std::io::Read;
     use std::sync::Arc;
@@ -841,7 +840,7 @@ mod tests {
 
     #[test]
     fn read_and_rewrite_generated_files() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -886,7 +885,7 @@ mod tests {
 
     #[test]
     fn read_and_rewrite_generated_streams() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -930,7 +929,7 @@ mod tests {
 
     /// Read gzipped JSON file
     fn read_gzip_json(path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
             "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
             testdata, path

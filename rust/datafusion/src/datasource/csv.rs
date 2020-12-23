@@ -25,7 +25,7 @@
 //! use datafusion::datasource::TableProvider;
 //! use datafusion::datasource::csv::{CsvFile, CsvReadOptions};
 //!
-//! let testdata = std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+//! let testdata = arrow::util::test_util::arrow_test_data();
 //! let csvdata = CsvFile::try_new(
 //!     &format!("{}/csv/aggregate_test_100.csv", testdata),
 //!     CsvReadOptions::new().delimiter(b'|'),
