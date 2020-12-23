@@ -45,13 +45,13 @@ const NANOSECONDS: i64 = 1_000_000_000;
 pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Underlying ArrayData
     /// # Safety
-    ///     must have exactly one buffer, aligned to type T
+    /// must have exactly one buffer, aligned to type T
     data: ArrayDataRef,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     /// # Safety
-    ///     raw_values must have a value equivalent to data.buffers()[0].raw_data()
-    ///     raw_values must have alignment for type T::NativeType
+    /// raw_values must have a value equivalent to data.buffers()[0].raw_data()
+    /// raw_values must have alignment for type T::NativeType
     raw_values: RawPtrBox<T::Native>,
 }
 
