@@ -36,7 +36,7 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, false, 1024, None, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
@@ -56,7 +56,7 @@ use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
 
-use self::csv_crate::{ByteRecord, StringRecord};
+use self::csv_crate::{ByteRecord, StringRecord, Trim};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -102,11 +102,15 @@ fn infer_field_schema(string: &str) -> DataType {
 fn infer_file_schema<R: Read + Seek>(
     reader: &mut R,
     delimiter: u8,
+    trim: bool,
     max_read_records: Option<usize>,
     has_header: bool,
 ) -> Result<(Schema, usize)> {
+    let t = if trim { Trim::All } else { Trim::None };
+
     let mut csv_reader = csv_crate::ReaderBuilder::new()
         .delimiter(delimiter)
+        .trim(t)
         .from_reader(reader);
 
     // get or create header names
@@ -199,6 +203,7 @@ fn infer_file_schema<R: Read + Seek>(
 pub fn infer_schema_from_files(
     files: &[String],
     delimiter: u8,
+    trim: bool,
     max_read_records: Option<usize>,
     has_header: bool,
 ) -> Result<Schema> {
@@ -209,6 +214,7 @@ pub fn infer_schema_from_files(
         let (schema, records_read) = infer_file_schema(
             &mut File::open(fname)?,
             delimiter,
+            trim,
             Some(records_to_read),
             has_header,
         )?;
@@ -270,12 +276,13 @@ impl<R: Read> Reader<R> {
         schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
+        trim: bool,
         batch_size: usize,
         bounds: Bounds,
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self::from_reader(
-            reader, schema, has_header, delimiter, batch_size, bounds, projection,
+            reader, schema, has_header, delimiter, trim, batch_size, bounds, projection,
         )
     }
 
@@ -303,6 +310,7 @@ impl<R: Read> Reader<R> {
         schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
+        trim: bool,
         batch_size: usize,
         bounds: Bounds,
         projection: Option<Vec<usize>>,
@@ -312,6 +320,10 @@ impl<R: Read> Reader<R> {
 
         if let Some(c) = delimiter {
             reader_builder.delimiter(c);
+        }
+
+        if trim {
+            reader_builder.trim(Trim::All);
         }
 
         let mut csv_reader = reader_builder.from_reader(reader);
@@ -635,6 +647,8 @@ pub struct ReaderBuilder {
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
+    /// Whether to trim strings before parsing. Defaults to false.
+    trim: bool,
     /// Optional maximum number of records to read during schema inference
     ///
     /// If a number is not provided, all the records are read.
@@ -655,6 +669,7 @@ impl Default for ReaderBuilder {
             schema: None,
             has_header: false,
             delimiter: None,
+            trim: false,
             max_records: None,
             batch_size: 1024,
             bounds: None,
@@ -729,6 +744,12 @@ impl ReaderBuilder {
         self
     }
 
+    /// Set the reader's trim setting.
+    pub fn with_trim(mut self, trim: bool) -> Self {
+        self.trim = trim;
+        self
+    }
+
     /// Create a new `Reader` from the `ReaderBuilder`
     pub fn build<R: Read + Seek>(self, mut reader: R) -> Result<Reader<R>> {
         // check if schema should be inferred
@@ -739,6 +760,7 @@ impl ReaderBuilder {
                 let (inferred_schema, _) = infer_file_schema(
                     &mut reader,
                     delimiter,
+                    self.trim,
                     self.max_records,
                     self.has_header,
                 )?;
@@ -751,6 +773,7 @@ impl ReaderBuilder {
             schema,
             self.has_header,
             self.delimiter,
+            self.trim,
             self.batch_size,
             None,
             self.projection.clone(),
@@ -784,6 +807,7 @@ mod tests {
             Arc::new(schema.clone()),
             false,
             None,
+            false,
             1024,
             None,
             None,
@@ -830,6 +854,7 @@ mod tests {
             Arc::new(schema),
             true,
             None,
+            false,
             1024,
             None,
             None,
@@ -927,6 +952,7 @@ mod tests {
             Arc::new(schema),
             false,
             None,
+            false,
             1024,
             None,
             Some(vec![0, 1]),
@@ -952,7 +978,8 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None, None);
+        let mut csv =
+            Reader::new(file, Arc::new(schema), true, None, false, 1024, None, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
@@ -1119,6 +1146,7 @@ mod tests {
                 csv4.path().to_str().unwrap().to_string(),
             ],
             b',',
+            false,
             Some(3), // only csv1 and csv2 should be read
             true,
         )?;
@@ -1164,6 +1192,7 @@ mod tests {
             Arc::new(schema),
             false,
             None,
+            false,
             2,
             // starting at row 2 and up to row 6.
             Some((2, 6)),
@@ -1221,5 +1250,39 @@ mod tests {
         assert_eq!(None, parse_item::<Float64Type>(""));
         assert_eq!(None, parse_item::<Float64Type>("dd"));
         assert_eq!(None, parse_item::<Float64Type>("12.34.56"));
+    }
+
+    #[test]
+    fn test_trim() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("int", DataType::UInt32, false)]);
+        // create data with deliberate spaces that will not parse without trim
+        let data = vec![vec!["0"], vec![" 1"], vec!["2 "], vec![" 3 "]];
+
+        let data = data
+            .iter()
+            .map(|x| x.join(","))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let data = data.as_bytes();
+
+        let reader = std::io::Cursor::new(data);
+
+        let mut csv = Reader::new(
+            reader,
+            Arc::new(schema),
+            false,
+            None,
+            true,
+            1024,
+            None,
+            Some(vec![0]),
+        );
+
+        let batch = csv.next().unwrap().unwrap();
+        let a = batch.column(0);
+        let a = a.as_any().downcast_ref::<UInt32Array>().unwrap();
+        assert_eq!(a, &UInt32Array::from(vec![0, 1, 2, 3]));
+
+        Ok(())
     }
 }

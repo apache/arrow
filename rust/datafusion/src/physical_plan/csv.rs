@@ -53,6 +53,9 @@ pub struct CsvReadOptions<'a> {
     /// File extension; only files with this extension are selected for data input.
     /// Defaults to ".csv".
     pub file_extension: &'a str,
+    /// Whether to trim string values before parsing into types.
+    /// Defaults to false.
+    pub trim: bool,
 }
 
 impl<'a> CsvReadOptions<'a> {
@@ -64,6 +67,7 @@ impl<'a> CsvReadOptions<'a> {
             schema_infer_max_records: 1000,
             delimiter: b',',
             file_extension: ".csv",
+            trim: false,
         }
     }
 
@@ -76,6 +80,12 @@ impl<'a> CsvReadOptions<'a> {
     /// Specify delimiter to use for CSV read
     pub fn delimiter(mut self, delimiter: u8) -> Self {
         self.delimiter = delimiter;
+        self
+    }
+
+    /// Configure trim setting
+    pub fn trim(mut self, trim: bool) -> Self {
+        self.trim = trim;
         self
     }
 
@@ -119,6 +129,8 @@ pub struct CsvExec {
     has_header: bool,
     /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
+    /// Trim the string values before parsing into types?
+    trim: bool,
     /// File extension
     file_extension: String,
     /// Optional projection for which columns to load
@@ -161,6 +173,7 @@ impl CsvExec {
             schema: Arc::new(schema),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
+            trim: options.trim,
             file_extension,
             projection,
             projected_schema: Arc::new(projected_schema),
@@ -176,6 +189,7 @@ impl CsvExec {
         Ok(csv::infer_schema_from_files(
             filenames,
             options.delimiter,
+            options.trim,
             Some(options.schema_infer_max_records),
             options.has_header,
         )?)
@@ -224,6 +238,7 @@ impl ExecutionPlan for CsvExec {
             self.schema.clone(),
             self.has_header,
             self.delimiter,
+            self.trim,
             &self.projection,
             self.batch_size,
         )?))
@@ -243,6 +258,7 @@ impl CsvStream {
         schema: SchemaRef,
         has_header: bool,
         delimiter: Option<u8>,
+        trim: bool,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
@@ -252,6 +268,7 @@ impl CsvStream {
             schema,
             has_header,
             delimiter,
+            trim,
             batch_size,
             None,
             projection.clone(),

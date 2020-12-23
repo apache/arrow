@@ -53,6 +53,7 @@ pub struct CsvFile {
     schema: SchemaRef,
     has_header: bool,
     delimiter: u8,
+    trim: bool,
     file_extension: String,
     statistics: Statistics,
 }
@@ -77,6 +78,7 @@ impl CsvFile {
             schema,
             has_header: options.has_header,
             delimiter: options.delimiter,
+            trim: options.trim,
             file_extension: String::from(options.file_extension),
             statistics: Statistics::default(),
         })
@@ -104,6 +106,7 @@ impl TableProvider for CsvFile {
                 .schema(&self.schema)
                 .has_header(self.has_header)
                 .delimiter(self.delimiter)
+                .trim(self.trim)
                 .file_extension(self.file_extension.as_str()),
             projection.clone(),
             batch_size,
