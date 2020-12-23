@@ -71,11 +71,17 @@ impl ParquetExec {
             // statistics available on a per-partition basis.
             let mut num_rows = 0;
             let mut total_byte_size = 0;
+            let mut schemas: Vec<Schema> = vec![];
             for file in &filenames {
                 let file = File::open(file)?;
                 let file_reader = Arc::new(SerializedFileReader::new(file)?);
                 let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
                 let meta_data = arrow_reader.get_metadata();
+                // collect all the unique schemas in this data set
+                let schema = arrow_reader.get_schema()?;
+                if schemas.is_empty() || &schema != &schemas[0] {
+                    schemas.push(schema);
+                }
                 for i in 0..meta_data.num_row_groups() {
                     let row_group_meta = meta_data.row_group(i);
                     num_rows += row_group_meta.num_rows();
@@ -88,11 +94,14 @@ impl ParquetExec {
             };
 
             // we currently get the schema information from the first file rather than do
-            // schema merging and this is a limitation
-            let file = File::open(&filenames[0])?;
-            let file_reader = Arc::new(SerializedFileReader::new(file)?);
-            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-            let schema = arrow_reader.get_schema()?;
+            // schema merging and this is a limitation.
+            // See https://issues.apache.org/jira/browse/ARROW-11017
+            if schemas.len() > 1 {
+                return Err(DataFusionError::Plan(format!(
+                    "The Parquet files in {} have {} different schemas and DataFusion does \
+                    not yet support schema merging", path, schemas.len())));
+            }
+            let schema = schemas[0].clone();
 
             Ok(Self::new(
                 filenames, schema, projection, batch_size, statistics,
