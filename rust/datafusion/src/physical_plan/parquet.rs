@@ -75,7 +75,7 @@ pub struct ParquetPartition {
 impl ParquetExec {
     /// Create a new Parquet reader execution plan based on the specified Parquet filename or
     /// directory containing Parquet files
-    pub fn try_new(
+    pub fn try_from_path(
         path: &str,
         projection: Option<Vec<usize>>,
         batch_size: usize,
@@ -90,49 +90,61 @@ impl ParquetExec {
                 path
             )))
         } else {
-            // build a list of Parquet partitions with statistics and gather all unique schemas
-            // used in this data set
-            let mut schemas: Vec<Schema> = vec![];
-            let mut partitions = vec![];
-            for filename in &filenames {
-                let file = File::open(filename)?;
-                let file_reader = Arc::new(SerializedFileReader::new(file)?);
-                let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-                let meta_data = arrow_reader.get_metadata();
-                // collect all the unique schemas in this data set
-                let schema = arrow_reader.get_schema()?;
-                if schemas.is_empty() || schema != schemas[0] {
-                    schemas.push(schema);
-                }
-                let mut num_rows = 0;
-                let mut total_byte_size = 0;
-                for i in 0..meta_data.num_row_groups() {
-                    let row_group_meta = meta_data.row_group(i);
-                    num_rows += row_group_meta.num_rows();
-                    total_byte_size += row_group_meta.total_byte_size();
-                }
-                let statistics = Statistics {
-                    num_rows: Some(num_rows as usize),
-                    total_byte_size: Some(total_byte_size as usize),
-                };
-                partitions.push(ParquetPartition {
-                    filename: filename.to_owned(),
-                    statistics,
-                });
-            }
-
-            // we currently get the schema information from the first file rather than do
-            // schema merging and this is a limitation.
-            // See https://issues.apache.org/jira/browse/ARROW-11017
-            if schemas.len() > 1 {
-                return Err(DataFusionError::Plan(format!(
-                    "The Parquet files in {} have {} different schemas and DataFusion does \
-                    not yet support schema merging", path, schemas.len())));
-            }
-            let schema = schemas[0].clone();
-
-            Ok(Self::new(partitions, schema, projection, batch_size))
+            Self::try_from_files(&filenames, projection, batch_size)
         }
+    }
+
+    /// Create a new Parquet reader execution plan based on the specified list of Parquet
+    /// files
+    pub fn try_from_files(
+        filenames: &[String],
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        // build a list of Parquet partitions with statistics and gather all unique schemas
+        // used in this data set
+        let mut schemas: Vec<Schema> = vec![];
+        let mut partitions = vec![];
+        for filename in filenames {
+            let file = File::open(filename)?;
+            let file_reader = Arc::new(SerializedFileReader::new(file)?);
+            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+            let meta_data = arrow_reader.get_metadata();
+            // collect all the unique schemas in this data set
+            let schema = arrow_reader.get_schema()?;
+            if schemas.is_empty() || schema != schemas[0] {
+                schemas.push(schema);
+            }
+            let mut num_rows = 0;
+            let mut total_byte_size = 0;
+            for i in 0..meta_data.num_row_groups() {
+                let row_group_meta = meta_data.row_group(i);
+                num_rows += row_group_meta.num_rows();
+                total_byte_size += row_group_meta.total_byte_size();
+            }
+            let statistics = Statistics {
+                num_rows: Some(num_rows as usize),
+                total_byte_size: Some(total_byte_size as usize),
+            };
+            partitions.push(ParquetPartition {
+                filename: filename.to_owned(),
+                statistics,
+            });
+        }
+
+        // we currently get the schema information from the first file rather than do
+        // schema merging and this is a limitation.
+        // See https://issues.apache.org/jira/browse/ARROW-11017
+        if schemas.len() > 1 {
+            return Err(DataFusionError::Plan(format!(
+                "The Parquet files have {} different schemas and DataFusion does \
+                not yet support schema merging",
+                schemas.len()
+            )));
+        }
+        let schema = schemas[0].clone();
+
+        Ok(Self::new(partitions, schema, projection, batch_size))
     }
 
     /// Create a new Parquet reader execution plan with provided partitions and schema
@@ -331,7 +343,8 @@ mod tests {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
-        let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
+        let parquet_exec =
+            ParquetExec::try_from_path(&filename, Some(vec![0, 1, 2]), 1024)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
         let mut results = parquet_exec.execute(0).await?;
