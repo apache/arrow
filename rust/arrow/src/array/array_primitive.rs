@@ -43,17 +43,21 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Array whose elements are of primitive types.
 pub struct PrimitiveArray<T: ArrowPrimitiveType> {
+    /// Underlying ArrayData
+    /// # Safety
+    ///     must have exactly one buffer, aligned to type T
     data: ArrayDataRef,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
-    /// Also note that boolean arrays are bit-packed, so although the underlying pointer
-    /// is of type bool it should be cast back to u8 before being used.
-    /// i.e. `self.raw_values.get() as *const u8`
+    /// # Safety
+    ///     raw_values must have a value equivalent to data.buffers()[0].raw_data()
+    ///     raw_values must have alignment for type T::NativeType
     raw_values: RawPtrBox<T::Native>,
 }
 
 impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Returns the length of this array.
+    #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -70,22 +74,24 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// caller must ensure that the passed in offset + len are less than the array len()
     #[deprecated(note = "Please use values() instead")]
     pub unsafe fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = std::slice::from_raw_parts(
+        std::slice::from_raw_parts(
             self.raw_values.get().add(self.data.offset()).add(offset),
             len,
-        );
-        &raw[..]
+        )
     }
 
     /// Returns a slice of the values of this array
+    #[inline]
     pub fn values(&self) -> &[T::Native] {
-        let raw = unsafe {
+        // Soundness
+        //     raw_values alignment & location is ensured by fn from(ArrayDataRef)
+        //     buffer bounds/offset is ensured by the ArrayData instance.
+        unsafe {
             std::slice::from_raw_parts(
                 self.raw_values.get().add(self.data.offset()),
                 self.len(),
             )
-        };
-        &raw[..]
+        }
     }
 
     // Returns a new primitive array builder
@@ -96,6 +102,8 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
+    /// # Safety
+    /// caller must ensure that the passed in offset is less than the array len()
     pub fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
         unsafe { *self.raw_values.get().add(offset) }
