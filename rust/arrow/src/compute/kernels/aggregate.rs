@@ -478,7 +478,7 @@ mod simd {
             return None;
         }
 
-        let data: &[T::Native] = array.value_slice(0, array.len());
+        let data: &[T::Native] = array.values();
 
         let mut chunk_acc = A::init_accumulator_chunk();
         let mut rem_acc = A::init_accumulator_scalar();
