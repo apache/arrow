@@ -66,7 +66,10 @@ pub struct ParquetExec {
 /// partition key (see https://issues.apache.org/jira/browse/ARROW-11019).
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
+    /// The Parquet filename for this partition
     filename: String,
+    /// Statistics for this partition
+    statistics: Statistics,
 }
 
 impl ParquetExec {
@@ -91,8 +94,9 @@ impl ParquetExec {
             let mut num_rows = 0;
             let mut total_byte_size = 0;
             let mut schemas: Vec<Schema> = vec![];
-            for file in &filenames {
-                let file = File::open(file)?;
+            let mut partitions = vec![];
+            for filename in &filenames {
+                let file = File::open(filename)?;
                 let file_reader = Arc::new(SerializedFileReader::new(file)?);
                 let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
                 let meta_data = arrow_reader.get_metadata();
@@ -106,6 +110,14 @@ impl ParquetExec {
                     num_rows += row_group_meta.num_rows();
                     total_byte_size += row_group_meta.total_byte_size();
                 }
+                let statistics = Statistics {
+                    num_rows: Some(num_rows as usize),
+                    total_byte_size: Some(total_byte_size as usize),
+                };
+                partitions.push(ParquetPartition {
+                    filename: filename.to_owned(),
+                    statistics,
+                });
             }
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
@@ -121,14 +133,6 @@ impl ParquetExec {
                     not yet support schema merging", path, schemas.len())));
             }
             let schema = schemas[0].clone();
-
-            // each file is one partition for now
-            let partitions = filenames
-                .iter()
-                .map(|filename| ParquetPartition {
-                    filename: filename.to_owned(),
-                })
-                .collect();
 
             Ok(Self::new(
                 partitions, schema, projection, batch_size, statistics,
