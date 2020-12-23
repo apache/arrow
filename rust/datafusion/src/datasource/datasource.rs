@@ -33,7 +33,7 @@ pub struct Statistics {
     pub num_rows: Option<usize>,
     /// total byte of the table rows
     pub total_byte_size: Option<usize>,
-    ///
+    /// Statistics on a column level
     pub column_statistics: Option<Vec<ColumnStatistics>>,
 }
 /// This table statistics are estimates about column
