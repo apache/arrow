@@ -2484,7 +2484,7 @@ mod tests {
         let buf2 = builder.finish();
 
         assert_eq!(buf.len(), buf2.len());
-        assert_eq!(buf.data(), buf2.data());
+        assert_eq!(buf.as_slice(), buf2.as_slice());
     }
 
     #[test]
@@ -3144,8 +3144,8 @@ mod tests {
         for i in 0..expected_int_data.len() {
             if !expected_int_data.is_null(i) {
                 assert_eq!(
-                    expected_value_buf.data()[i * 4..(i + 1) * 4],
-                    actual_value_buf.data()[i * 4..(i + 1) * 4]
+                    expected_value_buf.as_slice()[i * 4..(i + 1) * 4],
+                    actual_value_buf.as_slice()[i * 4..(i + 1) * 4]
                 );
             }
         }

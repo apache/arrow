@@ -653,7 +653,7 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
     let bool_slice = bool_buf.as_slice_mut();
@@ -708,7 +708,7 @@ where
             Some(buff) => buff,
             None => new_all_set_buffer(num_bytes),
         };
-    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+    let not_both_null_bitmap = not_both_null_bit_buffer.as_slice();
 
     let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
     let bool_slice = &mut bool_buf;

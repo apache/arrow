@@ -26,8 +26,8 @@ pub(super) fn boolean_equal(
     rhs_start: usize,
     len: usize,
 ) -> bool {
-    let lhs_values = lhs.buffers()[0].data();
-    let rhs_values = rhs.buffers()[0].data();
+    let lhs_values = lhs.buffers()[0].as_slice();
+    let rhs_values = rhs.buffers()[0].as_slice();
 
     // TODO: we can do this more efficiently if all values are not-null
     (0..len).all(|i| {

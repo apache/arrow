@@ -291,7 +291,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         if T::get_physical_type() == PhysicalType::BOOLEAN {
             let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
 
-            for e in record_data.data() {
+            for e in record_data.as_slice() {
                 boolean_buffer.append(*e > 0);
             }
             record_data = boolean_buffer.finish();

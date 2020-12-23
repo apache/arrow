@@ -125,7 +125,7 @@ impl Buffer {
     }
 
     /// Returns the byte slice stored in this buffer
-    pub fn data(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         &self.data[self.offset..]
     }
 
@@ -192,7 +192,7 @@ impl Buffer {
     /// in larger chunks and starting at arbitrary bit offsets.
     /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self.data(), offset, len)
+        BitChunks::new(&self.as_slice(), offset, len)
     }
 
     /// Returns the number of 1-bits in this buffer.
@@ -271,9 +271,9 @@ where
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut right_chunks = right.data()[right_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let mut left_chunks = left.as_slice()[left_offset..].chunks_exact(lanes);
+    let mut right_chunks = right.as_slice()[right_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.as_slice_mut().chunks_exact_mut(lanes);
 
     result_chunks
         .borrow_mut()
@@ -318,8 +318,8 @@ where
     let mut result = MutableBuffer::new(len).with_bitset(len, false);
     let lanes = u8x64::lanes();
 
-    let mut left_chunks = left.data()[left_offset..].chunks_exact(lanes);
-    let mut result_chunks = result.data_mut().chunks_exact_mut(lanes);
+    let mut left_chunks = left.as_slice()[left_offset..].chunks_exact(lanes);
+    let mut result_chunks = result.as_slice_mut().chunks_exact_mut(lanes);
 
     result_chunks
         .borrow_mut()
@@ -428,10 +428,12 @@ pub(super) fn buffer_bin_and(
 
         let mut result = MutableBuffer::new(len).with_bitset(len, false);
 
-        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut left_chunks =
+            left.as_slice()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
         let mut right_chunks =
-            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
-        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+            right.as_slice()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks =
+            result.as_slice_mut().chunks_exact_mut(AVX512_U8X64_LANES);
 
         result_chunks
             .borrow_mut()
@@ -537,10 +539,12 @@ pub(super) fn buffer_bin_or(
 
         let mut result = MutableBuffer::new(len).with_bitset(len, false);
 
-        let mut left_chunks = left.data()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut left_chunks =
+            left.as_slice()[left_offset..].chunks_exact(AVX512_U8X64_LANES);
         let mut right_chunks =
-            right.data()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
-        let mut result_chunks = result.data_mut().chunks_exact_mut(AVX512_U8X64_LANES);
+            right.as_slice()[right_offset..].chunks_exact(AVX512_U8X64_LANES);
+        let mut result_chunks =
+            result.as_slice_mut().chunks_exact_mut(AVX512_U8X64_LANES);
 
         result_chunks
             .borrow_mut()
@@ -961,7 +965,7 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.as_ptr().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.as_slice());
     }
 
     #[test]
@@ -969,7 +973,7 @@ mod tests {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
         assert!(!buf.as_ptr().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.as_slice());
     }
 
     #[test]
@@ -979,7 +983,7 @@ mod tests {
         assert_eq!(5, buf2.len());
         assert_eq!(64, buf2.capacity());
         assert!(!buf2.as_ptr().is_null());
-        assert_eq!([0, 1, 2, 3, 4], buf2.data());
+        assert_eq!([0, 1, 2, 3, 4], buf2.as_slice());
     }
 
     #[test]
@@ -987,21 +991,21 @@ mod tests {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         let buf2 = buf.slice(2);
 
-        assert_eq!([6, 8, 10], buf2.data());
+        assert_eq!([6, 8, 10], buf2.as_slice());
         assert_eq!(3, buf2.len());
         assert_eq!(unsafe { buf.as_ptr().offset(2) }, buf2.as_ptr());
 
         let buf3 = buf2.slice(1);
-        assert_eq!([8, 10], buf3.data());
+        assert_eq!([8, 10], buf3.as_slice());
         assert_eq!(2, buf3.len());
         assert_eq!(unsafe { buf.as_ptr().offset(3) }, buf3.as_ptr());
 
         let buf4 = buf.slice(5);
         let empty_slice: [u8; 0] = [];
-        assert_eq!(empty_slice, buf4.data());
+        assert_eq!(empty_slice, buf4.as_slice());
         assert_eq!(0, buf4.len());
         assert!(buf4.is_empty());
-        assert_eq!(buf2.slice(2).data(), &[10]);
+        assert_eq!(buf2.slice(2).as_slice(), &[10]);
     }
 
     #[test]
@@ -1144,7 +1148,7 @@ mod tests {
         let immutable_buf = buf.freeze();
         assert_eq!(19, immutable_buf.len());
         assert_eq!(64, immutable_buf.capacity());
-        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.as_slice());
     }
 
     #[test]
@@ -1169,7 +1173,7 @@ mod tests {
     fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
         let buffer2 = buffer.clone();
-        assert_eq!([1, 2, 3, 4, 5], buffer.data());
+        assert_eq!([1, 2, 3, 4, 5], buffer.as_slice());
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
