@@ -63,9 +63,20 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         self.data.is_empty()
     }
 
+    /// Returns a slice for the given offset and length
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    /// # SAFETY
+    /// caller must ensure that the passed in offset + len are less than the array len()
+    #[deprecated(note = "Please use values() instead")]
+    pub unsafe fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
+        let raw = std::slice::from_raw_parts(self.raw_values.get().add(self.data.offset()).add(offset),len);
+        &raw[..]
+    }
+
     /// Returns a slice of the values of this array
     pub fn values(&self) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values.get().add(self.data.offset()), self.len()) };
+        let raw = unsafe {std::slice::from_raw_parts(self.raw_values.get().add(self.data.offset()),self.len())};
         &raw[..]
     }
 
