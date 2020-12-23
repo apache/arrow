@@ -261,7 +261,7 @@ mod tests {
         let mut v = HashSet::new();
         let mut rng = seedable_rng();
         for _ in 0..NUM_SETS {
-            let offset = rng.gen_range(0, 8 * NUM_BYTES);
+            let offset = rng.gen_range(0..8 * NUM_BYTES);
             v.insert(offset);
             set_bit(&mut buffer[..], offset);
         }
