@@ -117,7 +117,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
             "ListArray should contain a single child array (values array)"
         );
         let values = make_array(data.child_data()[0].clone());
-        let raw_value_offsets = data.buffers()[0].raw_data();
+        let raw_value_offsets = data.buffers()[0].ptr();
         let value_offsets: *const OffsetSize = as_aligned_pointer(raw_value_offsets);
         unsafe {
             assert!(

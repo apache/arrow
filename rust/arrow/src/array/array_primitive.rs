@@ -442,7 +442,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
             1,
             "PrimitiveArray data should contain a single buffer only (values buffer)"
         );
-        let raw_values = data.buffers()[0].raw_data();
+        let raw_values = data.buffers()[0].ptr();
         assert!(
             memory::is_aligned::<u8>(raw_values, mem::align_of::<T::Native>()),
             "memory is not aligned"

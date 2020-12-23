@@ -71,6 +71,7 @@ impl Buffer {
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes. If the `ptr` and `capacity` come from a `Buffer`, then this is guaranteed.
     pub unsafe fn from_raw_parts(ptr: *const u8, len: usize, capacity: usize) -> Self {
+        assert!(len <= capacity);
         Buffer::build_with_arguments(ptr, len, Deallocation::Native(capacity))
     }
 
@@ -126,7 +127,7 @@ impl Buffer {
 
     /// Returns the byte slice stored in this buffer
     pub fn data(&self) -> &[u8] {
-        &self.data.as_slice()[self.offset..]
+        &self.data[self.offset..]
     }
 
     /// Returns a slice of this buffer, starting from `offset`.
@@ -141,12 +142,12 @@ impl Buffer {
         }
     }
 
-    /// Returns a raw pointer for this buffer.
+    /// Returns a pointer to the start of this buffer.
     ///
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
-    pub fn raw_data(&self) -> *const u8 {
-        unsafe { self.data.raw_data().add(self.offset) }
+    pub fn ptr(&self) -> *const u8 {
+        unsafe { self.data.ptr().add(self.offset) }
     }
 
     /// View buffer as typed slice.
@@ -161,9 +162,9 @@ impl Buffer {
     /// `bool` in Rust.  However, `bool` arrays in Arrow are bit-packed which breaks this condition.
     pub unsafe fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
         assert_eq!(self.len() % mem::size_of::<T>(), 0);
-        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
+        assert!(memory::is_ptr_aligned::<T>(self.data.ptr() as *const T));
         from_raw_parts(
-            self.raw_data() as *const T,
+            self.ptr() as *const T,
             self.len() / mem::size_of::<T>(),
         )
     }
@@ -183,7 +184,7 @@ impl Buffer {
     /// in larger chunks and starting at arbitrary bit offsets.
     /// Note that both `offset` and `length` are measured in bits.
     pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
-        BitChunks::new(&self.data.as_slice()[self.offset..], offset, len)
+        BitChunks::new(&self.data(), offset, len)
     }
 
     /// Returns the number of 1-bits in this buffer.
@@ -923,11 +924,11 @@ mod tests {
         assert_eq!(0, buf.len());
         assert_eq!(0, buf.data().len());
         assert_eq!(0, buf.capacity());
-        assert!(buf.raw_data().is_null());
+        assert!(buf.ptr().is_null());
 
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
-        assert!(!buf.raw_data().is_null());
+        assert!(!buf.ptr().is_null());
         assert_eq!([0, 1, 2, 3, 4], buf.data());
     }
 
@@ -935,7 +936,7 @@ mod tests {
     fn test_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         assert_eq!(5, buf.len());
-        assert!(!buf.raw_data().is_null());
+        assert!(!buf.ptr().is_null());
         assert_eq!([0, 1, 2, 3, 4], buf.data());
     }
 
@@ -945,7 +946,7 @@ mod tests {
         let buf2 = buf;
         assert_eq!(5, buf2.len());
         assert_eq!(64, buf2.capacity());
-        assert!(!buf2.raw_data().is_null());
+        assert!(!buf2.ptr().is_null());
         assert_eq!([0, 1, 2, 3, 4], buf2.data());
     }
 
@@ -956,12 +957,12 @@ mod tests {
 
         assert_eq!([6, 8, 10], buf2.data());
         assert_eq!(3, buf2.len());
-        assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
+        assert_eq!(unsafe { buf.ptr().offset(2) }, buf2.ptr());
 
         let buf3 = buf2.slice(1);
         assert_eq!([8, 10], buf3.data());
         assert_eq!(2, buf3.len());
-        assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
+        assert_eq!(unsafe { buf.ptr().offset(3) }, buf3.ptr());
 
         let buf4 = buf.slice(5);
         let empty_slice: [u8; 0] = [];

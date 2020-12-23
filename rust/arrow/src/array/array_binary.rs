@@ -203,8 +203,8 @@ impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayDataRef>
             2,
             "BinaryArray data should contain 2 buffers only (offsets and values)"
         );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
+        let raw_value_offsets = data.buffers()[0].ptr();
+        let value_data = data.buffers()[1].ptr();
         Self {
             data,
             value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(
@@ -419,7 +419,7 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
             1,
             "FixedSizeBinaryArray data should contain 1 buffer only (values)"
         );
-        let value_data = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[0].ptr();
         let length = match data.data_type() {
             DataType::FixedSizeBinary(len) => *len,
             _ => panic!("Expected data type to be FixedSizeBinary"),
@@ -583,7 +583,7 @@ impl From<ArrayDataRef> for DecimalArray {
             1,
             "DecimalArray data should contain 1 buffer only (values)"
         );
-        let value_data = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[0].ptr();
         let (precision, scale) = match data.data_type() {
             DataType::Decimal(precision, scale) => (*precision, *scale),
             _ => panic!("Expected data type to be Decimal"),

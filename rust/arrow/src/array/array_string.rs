@@ -252,8 +252,8 @@ impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
             2,
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
+        let raw_value_offsets = data.buffers()[0].ptr();
+        let value_data = data.buffers()[1].ptr();
         Self {
             data,
             value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(

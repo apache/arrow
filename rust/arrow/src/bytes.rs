@@ -86,9 +86,8 @@ impl Bytes {
         }
     }
 
-    #[inline]
-    pub fn as_slice(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+    fn as_slice(&self) -> &[u8] {
+        self
     }
 
     #[inline]
@@ -102,13 +101,8 @@ impl Bytes {
     }
 
     #[inline]
-    pub fn raw_data(&self) -> *const u8 {
+    pub fn ptr(&self) -> *const u8 {
         self.ptr
-    }
-
-    #[inline]
-    pub fn raw_data_mut(&mut self) -> *mut u8 {
-        self.ptr as *mut u8
     }
 
     pub fn capacity(&self) -> usize {
@@ -136,6 +130,14 @@ impl Drop for Bytes {
     }
 }
 
+impl std::ops::Deref for Bytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
 impl PartialEq for Bytes {
     fn eq(&self, other: &Bytes) -> bool {
         self.as_slice() == other.as_slice()
@@ -146,7 +148,7 @@ impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "Bytes {{ ptr: {:?}, len: {}, data: ", self.ptr, self.len,)?;
 
-        f.debug_list().entries(self.as_slice().iter()).finish()?;
+        f.debug_list().entries(self.iter()).finish()?;
 
         write!(f, " }}")
     }
