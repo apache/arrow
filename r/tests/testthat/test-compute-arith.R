@@ -16,10 +16,10 @@
 # under the License.
 
 # TODO:
-# * Use _checked variations? See what R does
 # * More tests for edge cases, esp. with division; add test helpers here?
 # * Is there a better "autocasting" solution? See what rules C++ Datasets do
-# * test-dplyr tests
+# * test-dplyr tests (Added one addition, and one summarize, but check to see if
+# we can make summarize route through arrow need more?)
 # * then, dataset tests, special casing for division
 
 test_that("Addition", {
@@ -31,6 +31,12 @@ test_that("Addition", {
   expect_equal(a + 4L, Array$create(c(5:8, NA_integer_)))
   expect_vector(a + 4L, c(5:8, NA_integer_))
   expect_equal(a + NA_integer_, Array$create(rep(NA_integer_, 5)))
+
+  # overflow errors — this is slightly different from R's `NA` coercion when
+  # overflowing, but better than the alternative of silently restarting
+  casted <- a$cast(int8())
+  expect_error(casted + 257)
+
   skip("autocasting should happen in compute kernels; R workaround fails on this")
   expect_type_equal(a + 4.1, float64())
   expect_equal(a + 4.1, Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)))
@@ -50,8 +56,18 @@ test_that("Division", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a / 2, Array$create(c(1:4 / 2, NA_real_)))
   expect_equal(a %/% 2, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+  expect_equal(a / 2 / 2, Array$create(c(1:4 / 2 / 2, NA_real_)))
+  expect_equal(a %/% 2 %/% 2, Array$create(c(0L, 0L, 0L, 1L, NA_integer_)))
 
   b <- a$cast(float64())
   expect_equal(b / 2, Array$create(c(1:4 / 2, NA_real_)))
   expect_equal(b %/% 2, Array$create(c(0L, 1L, 1L, 2L, NA_integer_)))
+
+  # the behavior of %/% matches R's (i.e. the integer of the quotient, not
+  # simply dividing two integers)
+  expect_equal(b / 2.2, Array$create(c(1:4 / 2.2, NA_real_)))
+  # c(1:4) %/% 2.2 != c(1:4) %/% as.integer(2.2)
+  # c(1:4) %/% 2.2             == c(0L, 0L, 1L, 1L)
+  # c(1:4) %/% as.integer(2.2) == c(0L, 1L, 1L, 2L)
+  expect_equal(b %/% 2.2, Array$create(c(0L, 0L, 1L, 1L, NA_integer_)))
 })

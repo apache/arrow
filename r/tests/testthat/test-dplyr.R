@@ -133,6 +133,40 @@ test_that("filtering with expression", {
   )
 })
 
+test_that("filtering with arithmetic", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl / 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl / 2L > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl %/% 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
@@ -238,6 +272,14 @@ test_that("summarize", {
       select(int, chr) %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int) / 2),
     tbl
   )
 })
