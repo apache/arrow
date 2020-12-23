@@ -167,25 +167,20 @@ impl ParquetExec {
         );
 
         // sum the statistics
-        let mut num_rows = 0;
-        let mut total_byte_size = 0;
+        let mut num_rows: Option<usize> = None;
+        let mut total_byte_size: Option<usize> = None;
         for part in &partitions {
-            num_rows += part.statistics.num_rows.unwrap_or(0);
-            total_byte_size += part.statistics.total_byte_size.unwrap_or(0);
+            if let Some(n) = part.statistics.num_rows {
+                num_rows = Some(num_rows.unwrap_or(0) + n)
+            }
+            if let Some(n) = part.statistics.total_byte_size {
+                total_byte_size = Some(total_byte_size.unwrap_or(0) + n)
+            }
         }
         let statistics = Statistics {
-            num_rows: if num_rows == 0 {
-                None
-            } else {
-                Some(num_rows as usize)
-            },
-            total_byte_size: if total_byte_size == 0 {
-                None
-            } else {
-                Some(total_byte_size as usize)
-            },
+            num_rows,
+            total_byte_size,
         };
-
         Self {
             partitions,
             schema: Arc::new(projected_schema),
