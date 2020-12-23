@@ -872,7 +872,7 @@ impl Decoder {
         rows.iter().enumerate().for_each(|(i, v)| {
             if let Value::Array(a) = v {
                 cur_offset = cur_offset + OffsetSize::from_usize(a.len()).unwrap();
-                bit_util::set_bit(list_nulls.data_mut(), i);
+                bit_util::set_bit(list_nulls.as_slice_mut(), i);
             } else if let Value::Null = v {
                 // value is null, not incremented
             } else {
@@ -896,11 +896,17 @@ impl Decoder {
                             if let Value::Bool(child) = value {
                                 // if valid boolean, append value
                                 if *child {
-                                    bit_util::set_bit(bool_values.data_mut(), curr_index);
+                                    bit_util::set_bit(
+                                        bool_values.as_slice_mut(),
+                                        curr_index,
+                                    );
                                 }
                             } else {
                                 // null slot
-                                bit_util::unset_bit(bool_nulls.data_mut(), curr_index);
+                                bit_util::unset_bit(
+                                    bool_nulls.as_slice_mut(),
+                                    curr_index,
+                                );
                             }
                             curr_index += 1;
                         });
@@ -964,7 +970,10 @@ impl Decoder {
                     .flat_map(|row| {
                         if let Value::Array(values) = row {
                             values.iter().for_each(|_| {
-                                bit_util::set_bit(null_buffer.data_mut(), struct_index);
+                                bit_util::set_bit(
+                                    null_buffer.as_slice_mut(),
+                                    struct_index,
+                                );
                                 struct_index += 1;
                             });
                             values.clone()
@@ -1178,7 +1187,7 @@ impl Decoder {
                             .map(|(i, v)| match v {
                                 // we want the field as an object, if it's not, we treat as null
                                 Some(Value::Object(value)) => {
-                                    bit_util::set_bit(null_buffer.data_mut(), i);
+                                    bit_util::set_bit(null_buffer.as_slice_mut(), i);
                                     Value::Object(value.clone())
                                 }
                                 _ => Value::Object(Default::default()),

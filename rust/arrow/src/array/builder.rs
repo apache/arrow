@@ -344,7 +344,7 @@ impl BooleanBufferBuilder {
         if v {
             let data = unsafe {
                 std::slice::from_raw_parts_mut(
-                    self.buffer.raw_data_mut(),
+                    self.buffer.as_mut_ptr(),
                     self.buffer.capacity(),
                 )
             };
@@ -359,7 +359,7 @@ impl BooleanBufferBuilder {
         if n != 0 && v {
             let data = unsafe {
                 std::slice::from_raw_parts_mut(
-                    self.buffer.raw_data_mut(),
+                    self.buffer.as_mut_ptr(),
                     self.buffer.capacity(),
                 )
             };
@@ -379,7 +379,7 @@ impl BooleanBufferBuilder {
                 // updated on each append but is updated in the
                 // `freeze` method instead.
                 unsafe {
-                    bit_util::set_bit_raw(self.buffer.raw_data_mut(), self.len);
+                    bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len);
                 }
             }
             self.len += 1;

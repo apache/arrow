@@ -54,7 +54,7 @@ impl Bitmap {
 
     pub fn is_set(&self, i: usize) -> bool {
         assert!(i < (self.bits.len() << 3));
-        unsafe { bit_util::get_bit_raw(self.bits.ptr(), i) }
+        unsafe { bit_util::get_bit_raw(self.bits.as_ptr(), i) }
     }
 
     pub fn buffer_ref(&self) -> &Buffer {

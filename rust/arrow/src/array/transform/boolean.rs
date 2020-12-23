@@ -29,7 +29,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend {
             let buffer = &mut mutable.buffer1;
             reserve_for_bits(buffer, mutable.len + len);
             set_bits(
-                &mut buffer.data_mut(),
+                &mut buffer.as_slice_mut(),
                 values,
                 mutable.len,
                 array.offset() + start,
