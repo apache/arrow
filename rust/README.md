@@ -94,7 +94,7 @@ This populates data in two git submodules:
 
 By default, `cargo test` will look for these directories at their
 standard location. The following Env vars can be used to override the
-location shoud you choose
+location should you choose
 
 ```bash
 # Optionaly specify a different location for test data
