@@ -107,11 +107,13 @@ pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
 /// Partitioning schemes supported by operators.
 #[derive(Debug, Clone)]
 pub enum Partitioning {
-    /// Allocate batches using a round-robin algorithm
+    /// Allocate batches using a round-robin algorithm and the specified number of partitions
     RoundRobinBatch(usize),
-    /// Allocate rows based on a hash of one of more expressions
+    /// Allocate rows based on a hash of one of more expressions and the specified
+    /// number of partitions
+    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
     Hash(Vec<Arc<dyn PhysicalExpr>>, usize),
-    /// Unknown partitioning scheme
+    /// Unknown partitioning scheme with a known number of partitions
     UnknownPartitioning(usize),
 }
 

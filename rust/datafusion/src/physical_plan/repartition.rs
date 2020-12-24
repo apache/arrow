@@ -40,7 +40,8 @@ use tokio::task::JoinHandle;
 
 type MaybeBatch = Option<ArrowResult<RecordBatch>>;
 
-/// partition. No guarantees are made about the order of the resulting partition.
+/// The repartition operator maps N input partitions to M output partitions based on a
+/// partitioning scheme. No guarantees are made about the order of the resulting partitions.
 #[derive(Debug)]
 pub struct RepartitionExec {
     /// Input execution plan
@@ -312,11 +313,11 @@ mod tests {
     async fn repartition(
         schema: &SchemaRef,
         input_partitions: Vec<Vec<RecordBatch>>,
-        partitioning_scheme: Partitioning,
+        partitioning: Partitioning,
     ) -> Result<Vec<Vec<RecordBatch>>> {
         // create physical plan
         let exec = MemoryExec::try_new(&input_partitions, schema.clone(), None)?;
-        let exec = RepartitionExec::try_new(Arc::new(exec), partitioning_scheme)?;
+        let exec = RepartitionExec::try_new(Arc::new(exec), partitioning)?;
 
         // execute and collect results
         let mut output_partitions = vec![];

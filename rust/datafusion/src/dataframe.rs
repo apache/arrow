@@ -183,7 +183,6 @@ pub trait DataFrame {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     /// let df1 = df.repartition(Partitioning::RoundRobinBatch(4))?;
-    /// let df2 = df.repartition(Partitioning::Hash(vec![col("a")], 4))?;
     /// # Ok(())
     /// # }
     /// ```
