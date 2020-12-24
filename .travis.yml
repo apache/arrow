@@ -14,7 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+# Package             : pyarrow
+# Source Repo         : https://github.com/apache/arrow
+# Travis Job Link     : https://travis-ci.com/github/santosh653/arrow
+# Created travis.yml  : No
+# Maintainer          : Santosh Kulkarni <santoshkulkarni70@gmail.com>
+#
+# Script License      : Apache License, Version 2 or later
 dist: bionic
 
 language: minimal
