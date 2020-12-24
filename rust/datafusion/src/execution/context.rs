@@ -28,6 +28,7 @@ use std::{
 };
 
 use futures::{StreamExt, TryStreamExt};
+use tokio::task::{self, JoinHandle};
 
 use arrow::csv;
 
@@ -352,6 +353,7 @@ impl ExecutionContext {
         let fs_path = Path::new(&path);
         match fs::create_dir(fs_path) {
             Ok(()) => {
+                let mut tasks = vec![];
                 for i in 0..plan.output_partitioning().partition_count() {
                     let plan = plan.clone();
                     let filename = format!("part-{}.csv", i);
@@ -359,13 +361,16 @@ impl ExecutionContext {
                     let file = fs::File::create(path)?;
                     let mut writer = csv::Writer::new(file);
                     let stream = plan.execute(i).await?;
-
-                    stream
-                        .map(|batch| writer.write(&batch?))
-                        .try_collect()
-                        .await
-                        .map_err(DataFusionError::from)?;
+                    let handle: JoinHandle<Result<()>> = task::spawn(async move {
+                        stream
+                            .map(|batch| writer.write(&batch?))
+                            .try_collect()
+                            .await
+                            .map_err(DataFusionError::from)
+                    });
+                    tasks.push(handle);
                 }
+                futures::future::join_all(tasks).await;
                 Ok(())
             }
             Err(e) => Err(DataFusionError::Execution(format!(
@@ -386,6 +391,7 @@ impl ExecutionContext {
         let fs_path = Path::new(&path);
         match fs::create_dir(fs_path) {
             Ok(()) => {
+                let mut tasks = vec![];
                 for i in 0..plan.output_partitioning().partition_count() {
                     let plan = plan.clone();
                     let filename = format!("part-{}.parquet", i);
@@ -397,15 +403,17 @@ impl ExecutionContext {
                         writer_properties.clone(),
                     )?;
                     let stream = plan.execute(i).await?;
-
-                    stream
-                        .map(|batch| writer.write(&batch?))
-                        .try_collect()
-                        .await
-                        .map_err(DataFusionError::from)?;
-
-                    writer.close()?;
+                    let handle: JoinHandle<Result<()>> = task::spawn(async move {
+                        stream
+                            .map(|batch| writer.write(&batch?))
+                            .try_collect()
+                            .await
+                            .map_err(DataFusionError::from)?;
+                        writer.close().map_err(DataFusionError::from)
+                    });
+                    tasks.push(handle);
                 }
+                futures::future::join_all(tasks).await;
                 Ok(())
             }
             Err(e) => Err(DataFusionError::Execution(format!(
