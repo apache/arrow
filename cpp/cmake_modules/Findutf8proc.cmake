@@ -54,8 +54,7 @@ endif()
 
 find_package_handle_standard_args(utf8proc REQUIRED_VARS utf8proc_LIB utf8proc_INCLUDE_DIR)
 
-# CMake 3.2 does uppercase the FOUND variable
-if(UTF8PROC_FOUND OR utf8proc_FOUND)
+if(utf8proc_FOUND)
   set(utf8proc_FOUND TRUE)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
   set_target_properties(utf8proc::utf8proc

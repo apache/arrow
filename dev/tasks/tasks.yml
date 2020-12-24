@@ -1616,12 +1616,6 @@ tasks:
     params:
       run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
 
-  test-ubuntu-18.04-cpp-cmake32:
-    ci: circle
-    template: docker-tests/circle.linux.yml
-    params:
-      run: ubuntu-cpp-cmake32
-
   test-ubuntu-20.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml

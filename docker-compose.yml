@@ -105,7 +105,6 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
-    - ubuntu-cpp-cmake32
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
@@ -586,32 +585,6 @@ services:
     command: *python-command
 
   ##############################  Integration #################################
-
-  ubuntu-cpp-cmake32:
-    # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-cpp-cmake32
-    #   docker-compose run ubuntu-cpp-cmake32
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
-    build:
-      context: .
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2
-      dockerfile: ci/docker/linux-apt-cmake.dockerfile
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        cmake: 3.2.3
-    ulimits: *ulimits
-    environment:
-      <<: *ccache
-      ARROW_ORC: "OFF"
-      ARROW_GANDIVA: "OFF"
-      # uriparser requires cmake 3.3
-      ARROW_FLIGHT: "OFF"
-      # Vendor boost to avoid dealing with stale FindBoost.
-      BOOST_SOURCE: "BUNDLED"
-    volumes: *ubuntu-volumes
-    command: *cpp-command
 
   conda-python-pandas:
     # Possible $PANDAS parameters:
