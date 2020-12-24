@@ -39,8 +39,6 @@ pub struct HashBuildProbeOrder {}
 // Gets exact number of rows, if known by the statistics of the underlying
 fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
     match logical_plan {
-        LogicalPlan::Projection { input, .. } => get_num_rows(input),
-        LogicalPlan::Sort { input, .. } => get_num_rows(input),
         LogicalPlan::TableScan { source, .. } => source.statistics().num_rows,
         LogicalPlan::EmptyRelation {
             produce_one_row, ..
@@ -55,7 +53,14 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
             let num_rows_input = get_num_rows(input);
             num_rows_input.map(|rows| std::cmp::min(*limit, rows))
         }
-        _ => None,
+        _ => {
+            let inputs = utils::inputs(logical_plan);
+            if inputs.len() == 1 {
+                get_num_rows(inputs[0])
+            } else {
+                None
+            }
+        }
     }
 }
 
