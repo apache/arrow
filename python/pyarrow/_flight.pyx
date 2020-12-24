@@ -118,8 +118,8 @@ cdef class FlightCallOptions(_Weakrefable):
         write_options : pyarrow.ipc.IpcWriteOptions, optional
             IPC write options. The default options can be controlled
             by environment variables (see pyarrow.ipc).
-        headers : vector[pair[c_string, c_string]], optional
-            A vector of arbitrary headers as key, value pairs
+        headers : List[Tuple[str, str]], optional
+            A list of arbitrary headers as key, value tuples
         """
         cdef IpcWriteOptions c_write_options
 
@@ -1156,7 +1156,7 @@ cdef class FlightClient(_Weakrefable):
                 self.client.get().Authenticate(deref(c_options),
                                                move(handler)))
 
-    def authenticateBasicToken(self, username, password,
+    def authenticate_basic_token(self, username, password,
                                options: FlightCallOptions = None):
         """Authenticate to the server with HTTP basic authentication.
 
@@ -1171,9 +1171,9 @@ cdef class FlightClient(_Weakrefable):
 
         Returns
         -------
-        pair : pair[string, string]
-            A pair representing the FlightCallOptions header
-            entry of a bearer token.
+        tuple : Tuple[str, str]
+            A tuple representing the FlightCallOptions authorization
+            header entry of a bearer token.
         """
         cdef:
             CResult[pair[c_string, c_string]] result
