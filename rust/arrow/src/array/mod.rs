@@ -75,7 +75,7 @@
 //! assert_eq!(2, array.value(2), "Get the value with index 2");
 //!
 //! assert_eq!(
-//!     array.value_slice(3, 2),
+//!     &array.values()[3..5],
 //!     &[3, 4],
 //!     "Get slice of len 2 starting at idx 3"
 //! )
