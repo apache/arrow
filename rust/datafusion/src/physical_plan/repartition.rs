@@ -48,6 +48,7 @@ pub struct RepartitionExec {
     /// Partitioning scheme to use
     partitioning: Partitioning,
     /// Channels for sending batches from input partitions to output partitions
+    /// there is one entry in this Vec for each output partition
     channels: Arc<Mutex<Vec<(Sender<MaybeBatch>, Receiver<MaybeBatch>)>>>,
 }
 
