@@ -46,6 +46,8 @@ struct _MutableArrayData<'a> {
     pub len: usize,
     pub null_buffer: MutableBuffer,
 
+    // arrow specification only allows up to 3 buffers (2 ignoring the nulls above).
+    // Thus, we place them in the stack to avoid bound checks and greater data locality.
     pub buffer1: MutableBuffer,
     pub buffer2: MutableBuffer,
     pub child_data: Vec<MutableArrayData<'a>>,
@@ -291,7 +293,7 @@ impl<'a> MutableArrayData<'a> {
         };
 
         let empty_buffer = MutableBuffer::new(0);
-        let buffers: [MutableBuffer; 2] = match &data_type {
+        let [buffer1, buffer2] = match &data_type {
             DataType::Boolean => {
                 let bytes = bit_util::ceil(capacity, 8);
                 let buffer = MutableBuffer::new(bytes).with_bitset(bytes, false);
@@ -420,7 +422,6 @@ impl<'a> MutableArrayData<'a> {
                 todo!("Take and filter operations still not supported for this datatype")
             }
         };
-        let [buffer1, buffer2] = buffers;
 
         let child_data = match &data_type {
             DataType::Null

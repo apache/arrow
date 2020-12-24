@@ -184,9 +184,11 @@ impl<'a> Iterator for SlicesIterator<'a> {
     }
 }
 
-/// Returns a function used to filter arbitrary arrays.
-/// This is faster (2x for primitive types) than using [filter] on multiple arrays, but slower
-/// than [filter] when filtering a single array.
+/// Returns a prepared function optimized to filter multiple arrays.
+/// Creating this function requires time, but using it is faster than [filter] when the
+/// same filter needs to be applied to multiple arrays (e.g. a multi-column `RecordBatch`).
+/// WARNING: the nulls of `filter` are ignored and the value on its slot is considered.
+/// Therefore, it is considered undefined behavior to pass `filter` with null values.
 pub fn build_filter(filter: &BooleanArray) -> Result<Filter> {
     let iter = SlicesIterator::new(filter);
     let filter_count = iter.filter_count;
@@ -233,9 +235,9 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
 /// Therefore, it is considered undefined behavior to pass `filter` with null values.
 pub fn filter_record_batch(
     record_batch: &RecordBatch,
-    filter_array: &BooleanArray,
+    filter: &BooleanArray,
 ) -> Result<RecordBatch> {
-    let filter = build_filter(filter_array)?;
+    let filter = build_filter(filter)?;
     let filtered_arrays = record_batch
         .columns()
         .iter()
