@@ -42,8 +42,9 @@ jobs:
           mkdir -p dist
           export CC="gcc-4.9" CXX="g++-4.9"
           ulimit -c unlimited -S
-          docker run -v $PWD:/io -v $PWD:/arrow quay.io/projjal/arrow:gandivadocker /io/dev/tasks/gandiva-jars/build-cpp-linux.sh || exit 1
-          dev/tasks/gandiva-jars/build-java.sh || exit 1
+          set -e
+          docker run -v $PWD:/arrow quay.io/projjal/arrow:gandivadocker /arrow/dev/tasks/gandiva-jars/build-cpp-linux.sh
+          dev/tasks/gandiva-jars/build-java.sh
         env:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
@@ -61,8 +62,8 @@ jobs:
             toolz
       - name: Upload artifacts
         run: |
-          python3 $GITHUB_WORKSPACE/arrow/dev/tasks/crossbow.py \
-            --queue-path $GITHUB_WORKSPACE/arrow \
+          python3 arrow/dev/tasks/crossbow.py \
+            --queue-path arrow \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
             --sha {{ task.branch }} \

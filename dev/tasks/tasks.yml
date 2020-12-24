@@ -43,8 +43,7 @@ groups:
     - centos-*-aarch64
 
   gandiva:
-    - gandiva-jar-ubuntu
-    - gandiva-jar-osx
+    - gandiva-*
 
   homebrew:
     - homebrew-*

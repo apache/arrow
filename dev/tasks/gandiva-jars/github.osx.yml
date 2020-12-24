@@ -39,9 +39,10 @@ jobs:
         run: |
           cd arrow
           mkdir -p dist
-          export ARROW_TEST_DATA=$GITHUB_WORKSPACE/arrow/testing/data
-          dev/tasks/gandiva-jars/build-cpp-osx.sh || exit 1
-          dev/tasks/gandiva-jars/build-java.sh || exit 1
+          export ARROW_TEST_DATA=$PWD/testing/data
+          set -e
+          dev/tasks/gandiva-jars/build-cpp-osx.sh
+          dev/tasks/gandiva-jars/build-java.sh
         env:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
@@ -60,8 +61,8 @@ jobs:
             toolz
       - name: Upload artifacts
         run: |
-          python3 $GITHUB_WORKSPACE/arrow/dev/tasks/crossbow.py \
-            --queue-path $GITHUB_WORKSPACE/arrow \
+          python3 arrow/dev/tasks/crossbow.py \
+            --queue-path arrow \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
             --sha {{ task.branch }} \
