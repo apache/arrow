@@ -29,5 +29,6 @@ pub use crate::dataframe::DataFrame;
 pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
 pub use crate::logical_plan::{
     array, avg, col, concat, count, create_udf, length, lit, max, min, sum, JoinType,
+    Partitioning,
 };
 pub use crate::physical_plan::csv::CsvReadOptions;

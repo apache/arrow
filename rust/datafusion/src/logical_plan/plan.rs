@@ -110,6 +110,13 @@ pub enum LogicalPlan {
         /// The output schema, containing fields from the left and right inputs
         schema: DFSchemaRef,
     },
+    /// Repartition the plan based on a partitioning scheme.
+    Repartition {
+        /// The incoming logical plan
+        input: Arc<LogicalPlan>,
+        /// The partitioning scheme
+        partitioning_scheme: Partitioning,
+    },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
         /// The name of the table
@@ -182,6 +189,7 @@ impl LogicalPlan {
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { input, .. } => input.schema(),
             LogicalPlan::Join { schema, .. } => &schema,
+            LogicalPlan::Repartition { input, .. } => input.schema(),
             LogicalPlan::Limit { input, .. } => input.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
@@ -196,6 +204,17 @@ impl LogicalPlan {
             Field::new("plan", DataType::Utf8, false),
         ]))
     }
+}
+
+/// Logical partitioning schemes supported by the repartition operator.
+#[derive(Debug, Clone)]
+pub enum Partitioning {
+    /// Allocate batches using a round-robin algorithm and the specified number of partitions
+    RoundRobinBatch(usize),
+    /// Allocate rows based on a hash of one of more expressions and the specified number
+    /// of partitions.
+    /// This partitioning scheme is not yet fully supported. See https://issues.apache.org/jira/browse/ARROW-11011
+    Hash(Vec<Expr>, usize),
 }
 
 /// Trait that implements the [Visitor
@@ -261,6 +280,7 @@ impl LogicalPlan {
         let recurse = match self {
             LogicalPlan::Projection { input, .. } => input.accept(visitor)?,
             LogicalPlan::Filter { input, .. } => input.accept(visitor)?,
+            LogicalPlan::Repartition { input, .. } => input.accept(visitor)?,
             LogicalPlan::Aggregate { input, .. } => input.accept(visitor)?,
             LogicalPlan::Sort { input, .. } => input.accept(visitor)?,
             LogicalPlan::Join { left, right, .. } => {
@@ -464,7 +484,7 @@ impl LogicalPlan {
         struct Wrapper<'a>(&'a LogicalPlan);
         impl<'a> fmt::Display for Wrapper<'a> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match *self.0 {
+                match &*self.0 {
                     LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
                     LogicalPlan::TableScan {
                         ref table_name,
@@ -523,6 +543,28 @@ impl LogicalPlan {
                             keys.iter().map(|(l, r)| format!("{} = {}", l, r)).collect();
                         write!(f, "Join: {}", join_expr.join(", "))
                     }
+                    LogicalPlan::Repartition {
+                        partitioning_scheme,
+                        ..
+                    } => match partitioning_scheme {
+                        Partitioning::RoundRobinBatch(n) => {
+                            write!(
+                                f,
+                                "Repartition: RoundRobinBatch partition_count={}",
+                                n
+                            )
+                        }
+                        Partitioning::Hash(expr, n) => {
+                            let hash_expr: Vec<String> =
+                                expr.iter().map(|e| format!("{:?}", e)).collect();
+                            write!(
+                                f,
+                                "Repartition: Hash({}) partition_count={}",
+                                hash_expr.join(", "),
+                                n
+                            )
+                        }
+                    },
                     LogicalPlan::Limit { ref n, .. } => write!(f, "Limit: {}", n),
                     LogicalPlan::CreateExternalTable { ref name, .. } => {
                         write!(f, "CreateExternalTable: {:?}", name)

@@ -117,6 +117,7 @@ impl OptimizerRule for HashBuildProbeOrder {
             | LogicalPlan::TableScan { .. }
             | LogicalPlan::Limit { .. }
             | LogicalPlan::Filter { .. }
+            | LogicalPlan::Repartition { .. }
             | LogicalPlan::EmptyRelation { .. }
             | LogicalPlan::Sort { .. }
             | LogicalPlan::CreateExternalTable { .. }

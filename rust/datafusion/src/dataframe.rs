@@ -19,7 +19,9 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logical_plan::{DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan};
+use crate::logical_plan::{
+    DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, Partitioning,
+};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -170,6 +172,23 @@ pub trait DataFrame {
         join_type: JoinType,
         left_cols: &[&str],
         right_cols: &[&str],
+    ) -> Result<Arc<dyn DataFrame>>;
+
+    /// Repartition a DataFrame based on a logical partitioning scheme.
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df1 = df.repartition(Partitioning::RoundRobinBatch(4))?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn repartition(
+        &self,
+        partitioning_scheme: Partitioning,
     ) -> Result<Arc<dyn DataFrame>>;
 
     /// Executes this DataFrame and collects all results into a vector of RecordBatch.
