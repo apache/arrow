@@ -18,6 +18,9 @@
 dist: bionic
 
 language: minimal
+arch:
+ - amd64
+ - ppc64le
 
 cache:
   directories:
