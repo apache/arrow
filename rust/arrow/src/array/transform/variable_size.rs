@@ -21,8 +21,12 @@ use crate::{
     datatypes::ToByteSlice,
 };
 
-use super::{Extend, _MutableArrayData, utils::extend_offsets};
+use super::{
+    Extend, _MutableArrayData,
+    utils::{extend_offsets, get_last_offset},
+};
 
+#[inline]
 fn extend_offset_values<T: OffsetSizeTrait>(
     buffer: &mut MutableBuffer,
     offsets: &[T],
@@ -43,33 +47,33 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
         // fast case where we can copy regions without null issues
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-                let mutable_offsets = mutable.buffer::<T>(0);
-                let last_offset = mutable_offsets[mutable_offsets.len() - 1];
-                // offsets
-                let buffer = &mut mutable.buffers[0];
+                let offset_buffer = &mut mutable.buffer1;
+                let values_buffer = &mut mutable.buffer2;
+
+                // this is safe due to how offset is built. See details on `get_last_offset`
+                let last_offset = unsafe { get_last_offset(offset_buffer) };
+
                 extend_offsets::<T>(
-                    buffer,
+                    offset_buffer,
                     last_offset,
                     &offsets[start..start + len + 1],
                 );
                 // values
-                let buffer = &mut mutable.buffers[1];
-                extend_offset_values::<T>(buffer, offsets, values, start, len);
+                extend_offset_values::<T>(values_buffer, offsets, values, start, len);
             },
         )
     } else {
         Box::new(
             move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
-                let mutable_offsets = mutable.buffer::<T>(0);
-                let mut last_offset = mutable_offsets[mutable_offsets.len() - 1];
+                let offset_buffer = &mut mutable.buffer1;
+                let values_buffer = &mut mutable.buffer2;
+
+                // this is safe due to how offset is built. See details on `get_last_offset`
+                let mut last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
                 // nulls present: append item by item, ignoring null entries
-                let (offset_buffer, values_buffer) = mutable.buffers.split_at_mut(1);
-                let offset_buffer = &mut offset_buffer[0];
-                let values_buffer = &mut values_buffer[0];
-                offset_buffer.reserve(
-                    offset_buffer.len() + array.len() * std::mem::size_of::<T>(),
-                );
+                offset_buffer
+                    .reserve(offset_buffer.len() + len * std::mem::size_of::<T>());
 
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {
@@ -96,10 +100,10 @@ pub(super) fn extend_nulls<T: OffsetSizeTrait>(
     mutable: &mut _MutableArrayData,
     len: usize,
 ) {
-    let mutable_offsets = mutable.buffer::<T>(0);
-    let last_offset = mutable_offsets[mutable_offsets.len() - 1];
+    let offset_buffer = &mut mutable.buffer1;
 
-    let offset_buffer = &mut mutable.buffers[0];
+    // this is safe due to how offset is built. See details on `get_last_offset`
+    let last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
     let offsets = vec![last_offset; len];
     offset_buffer.extend_from_slice(offsets.to_byte_slice());

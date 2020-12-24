@@ -61,3 +61,18 @@ pub(super) fn extend_offsets<T: OffsetSizeTrait>(
         buffer.extend_from_slice(last_offset.to_byte_slice());
     });
 }
+
+#[inline]
+pub(super) unsafe fn get_last_offset<T: OffsetSizeTrait>(
+    offset_buffer: &MutableBuffer,
+) -> T {
+    // JUSTIFICATION
+    //  Benefit
+    //      20% performance improvement extend of variable sized arrays (see bench `mutable_array`)
+    //  Soundness
+    //      * offset buffer is always extended in slices of T and aligned accordingly.
+    //      * Buffer[0] is initialized with one element, 0, and thus `mutable_offsets.len() - 1` is always valid.
+    let (prefix, offsets, suffix) = offset_buffer.data().align_to::<T>();
+    debug_assert!(prefix.is_empty() && suffix.is_empty());
+    *offsets.get_unchecked(offsets.len() - 1)
+}

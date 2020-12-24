@@ -137,3 +137,7 @@ harness = false
 [[bench]]
 name = "concatenate_kernel"
 harness = false
+
+[[bench]]
+name = "mutable_array"
+harness = false
