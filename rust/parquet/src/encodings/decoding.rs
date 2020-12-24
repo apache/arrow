@@ -301,6 +301,7 @@ impl<T: DataType> Decoder<T> for RleValueDecoder<T> {
         // We still need to remove prefix of i32 from the stream.
         const I32_SIZE: usize = mem::size_of::<i32>();
         let data_size = read_num_bytes!(i32, I32_SIZE, data.as_ref()) as usize;
+        self.decoder = RleDecoder::new(1);
         self.decoder.set_data(data.range(I32_SIZE, data_size));
         self.values_left = num_values;
         Ok(())

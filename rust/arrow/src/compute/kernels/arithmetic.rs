@@ -51,8 +51,10 @@ where
     T::Native: Neg<Output = T::Native>,
     F: Fn(T::Native) -> T::Native,
 {
-    let values = (0..array.len())
-        .map(|i| op(array.value(i)))
+    let values = array
+        .values()
+        .iter()
+        .map(|v| op(*v))
         .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(
@@ -84,7 +86,7 @@ where
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
-    let mut array_chunks = array.value_slice(0, array.len()).chunks_exact(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
 
     result_chunks
         .borrow_mut()
@@ -141,8 +143,11 @@ where
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let values = (0..left.len())
-        .map(|i| op(left.value(i), right.value(i)))
+    let values = left
+        .values()
+        .iter()
+        .zip(right.values().iter())
+        .map(|(l, r)| op(*l, *r))
         .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(
@@ -248,8 +253,8 @@ where
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
 
     let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
-    let mut left_chunks = left.value_slice(0, left.len()).chunks_exact(lanes);
-    let mut right_chunks = right.value_slice(0, left.len()).chunks_exact(lanes);
+    let mut left_chunks = left.values().chunks_exact(lanes);
+    let mut right_chunks = right.values().chunks_exact(lanes);
 
     result_chunks
         .borrow_mut()
@@ -385,8 +390,8 @@ where
 
             // process data in chunks of 64 elements since we also get 64 bits of validity information at a time
             let mut result_chunks = result.typed_data_mut().chunks_exact_mut(64);
-            let mut left_chunks = left.value_slice(0, left.len()).chunks_exact(64);
-            let mut right_chunks = right.value_slice(0, left.len()).chunks_exact(64);
+            let mut left_chunks = left.values().chunks_exact(64);
+            let mut right_chunks = right.values().chunks_exact(64);
 
             valid_chunks
                 .iter()
@@ -430,8 +435,8 @@ where
         }
         None => {
             let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
-            let mut left_chunks = left.value_slice(0, left.len()).chunks_exact(lanes);
-            let mut right_chunks = right.value_slice(0, left.len()).chunks_exact(lanes);
+            let mut left_chunks = left.values().chunks_exact(lanes);
+            let mut right_chunks = right.values().chunks_exact(lanes);
 
             result_chunks
                 .borrow_mut()

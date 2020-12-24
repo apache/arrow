@@ -3344,7 +3344,7 @@ mod tests {
         // Values are polymorphic and so require a downcast.
         let av = array.values();
         let ava: &UInt32Array = av.as_any().downcast_ref::<UInt32Array>().unwrap();
-        let avs: &[u32] = ava.value_slice(0, array.values().len());
+        let avs: &[u32] = ava.values();
 
         assert_eq!(array.is_null(0), false);
         assert_eq!(array.is_null(1), true);

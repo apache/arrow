@@ -43,17 +43,21 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Array whose elements are of primitive types.
 pub struct PrimitiveArray<T: ArrowPrimitiveType> {
+    /// Underlying ArrayData
+    /// # Safety
+    /// must have exactly one buffer, aligned to type T
     data: ArrayDataRef,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
-    /// Also note that boolean arrays are bit-packed, so although the underlying pointer
-    /// is of type bool it should be cast back to u8 before being used.
-    /// i.e. `self.raw_values.get() as *const u8`
+    /// # Safety
+    /// raw_values must have a value equivalent to data.buffers()[0].raw_data()
+    /// raw_values must have alignment for type T::NativeType
     raw_values: RawPtrBox<T::Native>,
 }
 
 impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// Returns the length of this array.
+    #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
     }
@@ -63,18 +67,31 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         self.data.is_empty()
     }
 
-    /// Returns a raw pointer to the values of this array.
-    pub fn raw_values(&self) -> *const T::Native {
-        unsafe { self.raw_values.get().add(self.data.offset()) }
-    }
-
     /// Returns a slice for the given offset and length
     ///
     /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw =
-            unsafe { std::slice::from_raw_parts(self.raw_values().add(offset), len) };
-        &raw[..]
+    /// # Safety
+    /// caller must ensure that the passed in offset + len are less than the array len()
+    #[deprecated(note = "Please use values() instead")]
+    pub unsafe fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
+        std::slice::from_raw_parts(
+            self.raw_values.get().add(self.data.offset()).add(offset),
+            len,
+        )
+    }
+
+    /// Returns a slice of the values of this array
+    #[inline]
+    pub fn values(&self) -> &[T::Native] {
+        // Soundness
+        //     raw_values alignment & location is ensured by fn from(ArrayDataRef)
+        //     buffer bounds/offset is ensured by the ArrayData instance.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.raw_values.get().add(self.data.offset()),
+                self.len(),
+            )
+        }
     }
 
     // Returns a new primitive array builder
@@ -82,16 +99,11 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         PrimitiveBuilder::<T>::new(capacity)
     }
 
-    /// Returns a `Buffer` holding all the values of this array.
-    ///
-    /// Note this doesn't take the offset of this array into account.
-    pub fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
     /// Returns the primitive value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
+    /// # Safety
+    /// caller must ensure that the passed in offset is less than the array len()
     pub fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
         unsafe { *self.raw_values.get().add(offset) }
@@ -455,8 +467,8 @@ mod tests {
     fn test_primitive_array_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
         let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
-        let slice = unsafe { std::slice::from_raw_parts(arr.raw_values(), 5) };
-        assert_eq!(buf, arr.values());
+        let slice = arr.values();
+        assert_eq!(buf, arr.data.buffers()[0]);
         assert_eq!(&[0, 1, 2, 3, 4], slice);
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.offset());
@@ -739,12 +751,6 @@ mod tests {
     }
 
     #[test]
-    fn test_value_slice_no_bounds_check() {
-        let arr = Int32Array::from(vec![2, 3, 4]);
-        let _slice = arr.value_slice(0, 4);
-    }
-
-    #[test]
     fn test_int32_fmt_debug() {
         let arr = Int32Array::from(vec![0, 1, 2, 3, 4]);
         assert_eq!(
@@ -823,7 +829,7 @@ mod tests {
             .add_buffer(buf)
             .build();
         let arr = Int32Array::from(data);
-        assert_eq!(buf2, arr.values());
+        assert_eq!(buf2, arr.data.buffers()[0]);
         assert_eq!(5, arr.len());
         assert_eq!(0, arr.null_count());
         for i in 0..3 {

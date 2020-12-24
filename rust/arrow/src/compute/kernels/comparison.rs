@@ -398,8 +398,8 @@ where
     let rem = len % lanes;
 
     for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(left.value_slice(i, lanes));
-        let simd_right = T::load(right.value_slice(i, lanes));
+        let simd_left = T::load(unsafe { left.value_slice(i, lanes) });
+        let simd_right = T::load(unsafe { right.value_slice(i, lanes) });
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
             result.extend_from_slice(b);
@@ -407,8 +407,10 @@ where
     }
 
     if rem > 0 {
-        let simd_left = T::load(left.value_slice(len - rem, lanes));
-        let simd_right = T::load(right.value_slice(len - rem, lanes));
+        //Soundness
+        //	This is not sound because it can read past the end of PrimitiveArray buffer (lanes is always greater than rem), see ARROW-10990
+        let simd_left = T::load(unsafe { left.value_slice(len - rem, lanes) });
+        let simd_right = T::load(unsafe { right.value_slice(len - rem, lanes) });
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
@@ -451,7 +453,7 @@ where
     let rem = len % lanes;
 
     for i in (0..len - rem).step_by(lanes) {
-        let simd_left = T::load(left.value_slice(i, lanes));
+        let simd_left = T::load(unsafe { left.value_slice(i, lanes) });
         let simd_result = op(simd_left, simd_right);
         T::bitmask(&simd_result, |b| {
             result.extend_from_slice(b);
@@ -459,7 +461,9 @@ where
     }
 
     if rem > 0 {
-        let simd_left = T::load(left.value_slice(len - rem, lanes));
+        //Soundness
+        //	This is not sound because it can read past the end of PrimitiveArray buffer (lanes is always greater than rem), see ARROW-10990
+        let simd_left = T::load(unsafe { left.value_slice(len - rem, lanes) });
         let simd_result = op(simd_left, simd_right);
         let rem_buffer_size = (rem as f32 / 8f32).ceil() as usize;
         T::bitmask(&simd_result, |b| {
