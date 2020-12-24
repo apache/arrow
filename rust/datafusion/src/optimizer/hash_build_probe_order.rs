@@ -53,7 +53,18 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
             let num_rows_input = get_num_rows(input);
             num_rows_input.map(|rows| std::cmp::min(*limit, rows))
         }
+        LogicalPlan::Aggregate { .. } => {
+            // we cannot yet predict how many rows will be produced by an aggregate because
+            // we do not know the cardinality of the grouping keys
+            None
+        }
+        LogicalPlan::Filter { .. } => {
+            // we cannot yet predict how many rows will be produced by a filter because
+            // we don't know how selective it is (how many rows it will filter out)
+            None
+        }
         _ => {
+            // by default, recurse down the plan
             let inputs = utils::inputs(logical_plan);
             if inputs.len() == 1 {
                 get_num_rows(inputs[0])
