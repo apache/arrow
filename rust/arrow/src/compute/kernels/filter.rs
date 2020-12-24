@@ -572,14 +572,14 @@ mod tests {
 
     #[test]
     fn test_slice_iterator_chunk_and_bits() {
-        let filter_values = (0..127).map(|i| i % 62 != 0).collect::<Vec<bool>>();
+        let filter_values = (0..130).map(|i| i % 62 != 0).collect::<Vec<bool>>();
         let filter = BooleanArray::from(filter_values);
 
         let iter = SlicesIterator::new(&filter);
         let filter_count = iter.filter_count;
         let chunks = iter.collect::<Vec<_>>();
 
-        assert_eq!(chunks, vec![(1, 62), (63, 124), (125, 127)]);
-        assert_eq!(filter_count, 61 + 61 + 2);
+        assert_eq!(chunks, vec![(1, 62), (63, 124), (125, 130)]);
+        assert_eq!(filter_count, 61 + 61 + 5);
     }
 }
