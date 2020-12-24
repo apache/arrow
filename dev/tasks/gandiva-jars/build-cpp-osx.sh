@@ -36,16 +36,13 @@ pushd cpp
           -DARROW_FILESYSTEM=OFF \
           -DARROW_DATASET=OFF \
           -DARROW_BOOST_USE_SHARED=OFF \
-          -DARROW_PROTOBUF_USE_SHARED=OFF"
-
-    if [ $TRAVIS_OS_NAME == "osx" ]; then
-      CMAKE_FLAGS="$CMAKE_FLAGS -DARROW_GFLAGS_USE_SHARED=OFF"
-    fi
+          -DARROW_PROTOBUF_USE_SHARED=OFF \
+          -DARROW_GFLAGS_USE_SHARED=OFF"
 
     cmake $CMAKE_FLAGS ..
     make -j4
     ctest
 
-    cp -L release/libgandiva_jni.dylib $TRAVIS_BUILD_DIR/dist
+    cp -L release/libgandiva_jni.dylib $GITHUB_WORKSPACE/arrow/dist
   popd
 popd
