@@ -383,7 +383,7 @@ impl<W: Write> FileWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     #[deprecated(
         since = "2.0.0",
-        note = "This method is deprecated in favour of `new(...)[.with_write_options(...).with_custom_schema()].build()`"
+        note = "This method is deprecated in favour of `let writer = FileWriter::new(writer, schema); writer.write_header_schema().unwrap();`"
     )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
         let mut me = FileWriter::new(writer, schema);
@@ -394,7 +394,7 @@ impl<W: Write> FileWriter<W> {
     /// Try create a new writer with IpcWriteOptions
     #[deprecated(
         since = "2.0.0",
-        note = "This method is deprecated in favour of `new(...).with_write_options(...)`"
+        note = "This method is deprecated in favour of `let writer = FileWriter::new(writer, schema).with_write_options(opt); w.write_header_schema().unwrap();`"
     )]
     pub fn try_new_with_options(
         writer: W,
@@ -549,7 +549,7 @@ impl<W: Write> StreamWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     #[deprecated(
         since = "2.0.0",
-        note = "This method is deprecated in favour of `new(...)[.with_options(...).with_schema()].build()`"
+        note = "This method is deprecated in favour of `let writer = StreamWriter::new(writer, schema); writer.write_schema().unwrap();`"
     )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
         let mut me = StreamWriter::new(writer, schema);
@@ -559,7 +559,7 @@ impl<W: Write> StreamWriter<W> {
 
     #[deprecated(
         since = "2.0.0",
-        note = "This method is deprecated in favour of `new(...)[.with_options(...).with_schema()].build()`"
+        note = "This method is deprecated in favour of `let writer = StreamWriter::new(writer, schema).with_write_options(opt); w.write_schema().unwrap();`"
     )]
     pub fn try_new_with_options(
         writer: W,
