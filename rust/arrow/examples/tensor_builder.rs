@@ -18,7 +18,7 @@
 ///! Tensor builder example
 extern crate arrow;
 
-use arrow::array::*; //{BufferBuilderTrait, Int32BufferBuilder, Float32BufferBuilder};
+use arrow::array::*; //{Int32BufferBuilder, Float32BufferBuilder};
 use arrow::buffer::Buffer;
 use arrow::datatypes::ToByteSlice;
 use arrow::error::Result;
