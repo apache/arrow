@@ -96,11 +96,10 @@ pub fn to_string<N: lexical_core::ToLexical>(n: N) -> String {
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
-    T::Native: std::string::ToString,
     T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    to_string::<T::Native>(c.value(i))
+    to_string(c.value(i))
 }
 
 /// A CSV writer
