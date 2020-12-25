@@ -124,15 +124,19 @@ impl<W: Write> Writer<W> {
     }
 
     /// Convert a record to a string vector
-    fn convert(&self, batch: &RecordBatch, row_index: usize) -> Result<Vec<String>> {
+    fn convert(
+        &self,
+        batch: &RecordBatch,
+        row_index: usize,
+        buffer: &mut [String],
+    ) -> Result<()> {
         // TODO: it'd be more efficient if we could create `record: Vec<&[u8]>
-        let mut record: Vec<String> = Vec::with_capacity(batch.num_columns());
-        for col_index in 0..batch.num_columns() {
+        for (col_index, item) in buffer.iter_mut().enumerate() {
             let col = batch.column(col_index);
             if col.is_null(row_index) {
                 // write an empty value
-                record.push(String::from(""));
-                continue;
+                *item = "".to_string();
+                continue;   
             }
             let string = match col.data_type() {
                 DataType::Float64 => write_primitive_value::<Float64Type>(col, row_index),
@@ -243,10 +247,9 @@ impl<W: Write> Writer<W> {
                     )));
                 }
             };
-
-            record.push(string);
+            *item = string;
         }
-        Ok(record)
+        Ok(())
     }
 
     /// Write a vector of record batches to a writable object
@@ -265,9 +268,11 @@ impl<W: Write> Writer<W> {
             self.beginning = false;
         }
 
+        let mut buffer = vec!["".to_string(); batch.num_columns()];
+
         for row_index in 0..batch.num_rows() {
-            let record = self.convert(batch, row_index)?;
-            self.writer.write_record(&record[..])?;
+            self.convert(batch, row_index, &mut buffer)?;
+            self.writer.write_record(&buffer[..])?;
         }
         self.writer.flush()?;
 
