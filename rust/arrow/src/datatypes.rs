@@ -185,8 +185,8 @@ pub enum IntervalUnit {
 }
 
 /// The `CustomMetaData` is an alias to `BTreeMap` which implements traits: Hash, PartialOrd, Ord.
-/// It contains custom meta data (key-value pairs), defined by flatbuffers structs:
-/// `Field`, `Message`, or file `Footer`.
+/// It contains custom meta data (key-value pairs) defined by Arrow format for: field, file
+/// footer, message and schema.
 pub type CustomMetaData = BTreeMap<String, String>;
 
 /// Contains the meta-data for a single relative type.
