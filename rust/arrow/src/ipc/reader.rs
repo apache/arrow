@@ -1068,9 +1068,9 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
         // create stream writer
         let file = File::create("target/debug/testdata/float.stream").unwrap();
-        let mut stream_writer =
-            crate::ipc::writer::StreamWriter::try_new(file, &schema).unwrap();
-        stream_writer.write(&batch).unwrap();
+        let mut stream_writer = crate::ipc::writer::StreamWriter::new(file, &schema);
+        stream_writer.write_schema().unwrap();
+        stream_writer.write_record_batch(&batch).unwrap();
         stream_writer.finish().unwrap();
 
         // read stream back

@@ -84,10 +84,11 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
     let json_file = read_json_file(json_name)?;
 
     let arrow_file = File::create(arrow_name)?;
-    let mut writer = FileWriter::try_new(arrow_file, &json_file.schema)?;
+    let mut writer = FileWriter::new(arrow_file, &json_file.schema);
+    writer.write_header_schema()?;
 
     for b in json_file.batches {
-        writer.write(&b)?;
+        writer.write_record_batch(&b)?;
     }
 
     Ok(())

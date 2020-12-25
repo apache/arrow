@@ -107,6 +107,7 @@ impl IpcDataGenerator {
         &self,
         schema: &Schema,
         write_options: &IpcWriteOptions,
+        custom_metadata: &Option<CustomMetaData>,
     ) -> EncodedData {
         let mut fbb = FlatBufferBuilder::new();
         let schema = {
@@ -114,13 +115,36 @@ impl IpcDataGenerator {
             fb.as_union_value()
         };
 
-        let mut message = ipc::MessageBuilder::new(&mut fbb);
-        message.add_version(write_options.metadata_version);
-        message.add_header_type(ipc::MessageHeader::Schema);
-        message.add_bodyLength(0);
-        message.add_header(schema);
-        // TODO: custom metadata
-        let data = message.finish();
+        // Optional custom metadata.
+        let mut fb_metadata = None;
+        if let Some(md) = custom_metadata {
+            if !md.is_empty() {
+                let mut kv_vec = vec![];
+                for (k, v) in md {
+                    let kv_args = ipc::KeyValueArgs {
+                        key: Some(fbb.create_string(k.as_str())),
+                        value: Some(fbb.create_string(v.as_str())),
+                    };
+                    let kv_offset = ipc::KeyValue::create(&mut fbb, &kv_args);
+                    kv_vec.push(kv_offset);
+                }
+
+                fb_metadata = Some(fbb.create_vector(&kv_vec));
+            }
+        }
+
+        let message_args = ipc::MessageArgs {
+            version: write_options.metadata_version,
+            header_type: ipc::MessageHeader::Schema,
+            header: Some(schema),
+            bodyLength: 0,
+            custom_metadata: fb_metadata,
+        };
+
+        // NOTE:
+        // As of crate `flatbuffers` 0.8.0, with `Message::new()`, almost no way to fix
+        // compilation error caused by "multiple mutable reference to fbb".
+        let data = ipc::Message::create(&mut fbb, &message_args);
         fbb.finish(data, None);
 
         let data = fbb.finished_data();
@@ -339,6 +363,8 @@ pub struct FileWriter<W: Write> {
     write_options: IpcWriteOptions,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
+    /// Optional custom metadata.
+    custom_metadata: Option<CustomMetaData>,
     /// The number of bytes between each block of bytes, as an offset for random access
     block_offsets: usize,
     /// Dictionary blocks that will be written as part of the IPC footer
@@ -355,41 +381,78 @@ pub struct FileWriter<W: Write> {
 
 impl<W: Write> FileWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `new(...)[.with_write_options(...).with_custom_schema()].build()`"
+    )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
-        let write_options = IpcWriteOptions::default();
-        Self::try_new_with_options(writer, schema, write_options)
+        let mut me = FileWriter::new(writer, schema);
+        me.write_header_schema()?;
+        Ok(me)
     }
 
     /// Try create a new writer with IpcWriteOptions
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `new(...).with_write_options(...)`"
+    )]
     pub fn try_new_with_options(
         writer: W,
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
-        let data_gen = IpcDataGenerator::default();
-        let mut writer = BufWriter::new(writer);
-        // write magic to header
-        writer.write_all(&super::ARROW_MAGIC[..])?;
-        // create an 8-byte boundary after the header
-        writer.write_all(&[0, 0])?;
-        // write the schema, set the written bytes to the schema + header
-        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
-        let (meta, data) = write_message(&mut writer, encoded_message, &write_options)?;
-        Ok(Self {
-            writer,
-            write_options,
+        let mut me = FileWriter::new(writer, schema).with_write_options(write_options);
+        me.write_header_schema()?;
+        Ok(me)
+    }
+
+    pub fn new(writer: W, schema: &Schema) -> Self {
+        FileWriter {
+            writer: BufWriter::new(writer),
+            write_options: IpcWriteOptions::default(),
             schema: schema.clone(),
-            block_offsets: meta + data + 8,
+            custom_metadata: None,
+            block_offsets: 0,
             dictionary_blocks: vec![],
             record_blocks: vec![],
             finished: false,
             dictionary_tracker: DictionaryTracker::new(true),
-            data_gen,
-        })
+            data_gen: IpcDataGenerator::default(),
+        }
+    }
+
+    pub fn with_write_options(mut self, write_options: IpcWriteOptions) -> Self {
+        self.write_options = write_options;
+        self
+    }
+
+    pub fn with_custom_metadata(mut self, metadata: CustomMetaData) -> Self {
+        self.custom_metadata = Some(metadata);
+        self
+    }
+
+    /// Write header and schema.
+    pub fn write_header_schema(&mut self) -> Result<()> {
+        // write magic to header
+        self.writer.write_all(&super::ARROW_MAGIC[..])?;
+        // create an 8-byte boundary after the header
+        self.writer.write_all(&[0, 0])?;
+        // write the schema, set the written bytes to the schema + header
+        let encoded_message = self.data_gen.schema_to_bytes(
+            &self.schema,
+            &self.write_options,
+            &self.custom_metadata,
+        );
+        let (meta, data) =
+            write_message(&mut self.writer, encoded_message, &self.write_options)?;
+
+        self.block_offsets = meta + data + 8;
+
+        Ok(())
     }
 
     /// Write a record batch to the file
-    pub fn write(&mut self, batch: &RecordBatch) -> Result<()> {
+    pub fn write_record_batch(&mut self, batch: &RecordBatch) -> Result<()> {
         if self.finished {
             return Err(ArrowError::IoError(
                 "Cannot write record batch to file writer as it is closed".to_string(),
@@ -472,6 +535,8 @@ pub struct StreamWriter<W: Write> {
     write_options: IpcWriteOptions,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
+    /// Optional custom metadata.
+    custom_metadata: Option<CustomMetaData>,
     /// Whether the writer footer has been written, and the writer is finished
     finished: bool,
     /// Keeps track of dictionaries that have been written
@@ -482,33 +547,64 @@ pub struct StreamWriter<W: Write> {
 
 impl<W: Write> StreamWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `new(...)[.with_options(...).with_schema()].build()`"
+    )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
-        let write_options = IpcWriteOptions::default();
-        Self::try_new_with_options(writer, schema, write_options)
+        let mut me = StreamWriter::new(writer, schema);
+        me.write_schema()?;
+        Ok(me)
     }
 
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `new(...)[.with_options(...).with_schema()].build()`"
+    )]
     pub fn try_new_with_options(
         writer: W,
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
-        let data_gen = IpcDataGenerator::default();
-        let mut writer = BufWriter::new(writer);
-        // write the schema, set the written bytes to the schema
-        let encoded_message = data_gen.schema_to_bytes(schema, &write_options);
-        write_message(&mut writer, encoded_message, &write_options)?;
-        Ok(Self {
-            writer,
-            write_options,
+        let mut me = StreamWriter::new(writer, schema).with_write_options(write_options);
+        me.write_schema()?;
+        Ok(me)
+    }
+
+    pub fn new(writer: W, schema: &Schema) -> Self {
+        StreamWriter {
+            writer: BufWriter::new(writer),
+            write_options: IpcWriteOptions::default(),
             schema: schema.clone(),
+            custom_metadata: None,
             finished: false,
             dictionary_tracker: DictionaryTracker::new(false),
-            data_gen,
-        })
+            data_gen: IpcDataGenerator::default(),
+        }
+    }
+
+    pub fn with_write_options(mut self, write_options: IpcWriteOptions) -> Self {
+        self.write_options = write_options;
+        self
+    }
+
+    pub fn with_custom_metadata(mut self, metadata: CustomMetaData) -> Self {
+        self.custom_metadata = Some(metadata);
+        self
+    }
+
+    pub fn write_schema(&mut self) -> Result<()> {
+        let encoded_message = self.data_gen.schema_to_bytes(
+            &self.schema,
+            &self.write_options,
+            &self.custom_metadata,
+        );
+        write_message(&mut self.writer, encoded_message, &self.write_options)?;
+        Ok(())
     }
 
     /// Write a record batch to the stream
-    pub fn write(&mut self, batch: &RecordBatch) -> Result<()> {
+    pub fn write_record_batch(&mut self, batch: &RecordBatch) -> Result<()> {
         if self.finished {
             return Err(ArrowError::IoError(
                 "Cannot write record batch to stream writer as it is closed".to_string(),
@@ -766,9 +862,10 @@ mod tests {
         .unwrap();
         {
             let file = File::create("target/debug/testdata/arrow.arrow_file").unwrap();
-            let mut writer = FileWriter::try_new(file, &schema).unwrap();
+            let mut writer = FileWriter::new(file, &schema);
+            writer.write_header_schema().unwrap();
 
-            writer.write(&batch).unwrap();
+            writer.write_record_batch(&batch).unwrap();
             // this is inside a block to test the implicit finishing of the file on `Drop`
         }
 
@@ -815,9 +912,9 @@ mod tests {
         .unwrap();
         {
             let file = File::create("target/debug/testdata/nulls.arrow_file").unwrap();
-            let mut writer = FileWriter::try_new(file, &schema).unwrap();
-
-            writer.write(&batch).unwrap();
+            let mut writer = FileWriter::new(file, &schema);
+            writer.write_header_schema().unwrap();
+            writer.write_record_batch(&batch).unwrap();
             // this is inside a block to test the implicit finishing of the file on `Drop`
         }
 
@@ -867,9 +964,10 @@ mod tests {
                 let file =
                     File::create(format!("target/debug/testdata/{}.arrow_file", path))
                         .unwrap();
-                let mut writer = FileWriter::try_new(file, &reader.schema()).unwrap();
+                let mut writer = FileWriter::new(file, &reader.schema());
+                writer.write_header_schema().unwrap();
                 while let Some(Ok(batch)) = reader.next() {
-                    writer.write(&batch).unwrap();
+                    writer.write_record_batch(&batch).unwrap();
                 }
                 writer.finish().unwrap();
             }
@@ -911,9 +1009,10 @@ mod tests {
             {
                 let file = File::create(format!("target/debug/testdata/{}.stream", path))
                     .unwrap();
-                let mut writer = StreamWriter::try_new(file, &reader.schema()).unwrap();
+                let mut writer = StreamWriter::new(file, &reader.schema());
+                writer.write_schema().unwrap();
                 reader.for_each(|batch| {
-                    writer.write(&batch.unwrap()).unwrap();
+                    writer.write_record_batch(&batch.unwrap()).unwrap();
                 });
                 writer.finish().unwrap();
             }

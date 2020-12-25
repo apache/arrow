@@ -22,6 +22,7 @@
 //!  * [`Field`](crate::datatypes::Field) to describe one field within a schema.
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
@@ -182,6 +183,11 @@ pub enum IntervalUnit {
     /// stored as 2 contiguous 32-bit integers (8-bytes in total).
     DayTime,
 }
+
+/// The `CustomMetaData` is an alias to `BTreeMap` which implements traits: Hash, PartialOrd, Ord.
+/// It contains custom meta data (key-value pairs), defined by flatbuffers structs:
+/// `Field`, `Message`, or file `Footer`.
+pub type CustomMetaData = BTreeMap<String, String>;
 
 /// Contains the meta-data for a single relative type.
 ///

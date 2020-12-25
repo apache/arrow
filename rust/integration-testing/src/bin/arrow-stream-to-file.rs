@@ -25,9 +25,10 @@ fn main() -> Result<()> {
     let mut arrow_stream_reader = StreamReader::try_new(io::stdin())?;
     let schema = arrow_stream_reader.schema();
 
-    let mut writer = FileWriter::try_new(io::stdout(), &schema)?;
+    let mut writer = FileWriter::new(io::stdout(), &schema);
+    writer.write_header_schema()?;
 
-    arrow_stream_reader.try_for_each(|batch| writer.write(&batch?))?;
+    arrow_stream_reader.try_for_each(|batch| writer.write_record_batch(&batch?))?;
     writer.finish()?;
 
     Ok(())

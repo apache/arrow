@@ -31,11 +31,11 @@ fn main() -> Result<()> {
     let mut reader = FileReader::try_new(reader)?;
     let schema = reader.schema();
 
-    let mut writer = StreamWriter::try_new(io::stdout(), &schema)?;
-
+    let mut writer = StreamWriter::new(io::stdout(), &schema);
+    writer.write_schema()?;
     reader.try_for_each(|batch| {
         let batch = batch?;
-        writer.write(&batch)
+        writer.write_record_batch(&batch)
     })?;
     writer.finish()?;
 
