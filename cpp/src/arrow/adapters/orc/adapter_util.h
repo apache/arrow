@@ -42,7 +42,8 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, ArrayBuilder* builder);
 
 Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
-                 int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray);
+                 int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray,
+                 std::vector<bool>* incomingMask = NULLPTR);
 
 Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
                  int64_t& arrowIndexOffset, int& arrowChunkOffset, int64_t length,

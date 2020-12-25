@@ -1847,14 +1847,6 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
   EXPECT_EQ(outputTable->num_columns(), numCols);
   EXPECT_EQ(outputTable->num_rows(), numRows);
   EXPECT_TRUE(outputTable->Equals(*tableOut));
-  EXPECT_TRUE(outputTable->column(0)->Equals(*(tableOut->column(0))));
-  EXPECT_TRUE(outputTable->column(1)->Equals(*(tableOut->column(1))));
-  EXPECT_TRUE(outputTable->column(2)->Equals(*(tableOut->column(2))));
-  EXPECT_TRUE(outputTable->column(3)->Equals(*(tableOut->column(3))));
-  EXPECT_TRUE(outputTable->column(4)->Equals(*(tableOut->column(4))));
-  EXPECT_TRUE(outputTable->column(5)->Equals(*(tableOut->column(5))));
-  EXPECT_TRUE(outputTable->column(6)->Equals(*(tableOut->column(6))));
-  EXPECT_TRUE(outputTable->column(7)->Equals(*(tableOut->column(7))));
 }
 TEST(TestAdapterWriteConvert, writeMixed) {
   std::vector<std::shared_ptr<Field>> xFieldsIn{
@@ -2045,996 +2037,1779 @@ TEST(TestAdapterWriteConvert, writeMixed) {
   EXPECT_EQ(outputTable->num_columns(), numCols);
   EXPECT_EQ(outputTable->num_rows(), numRows);
   EXPECT_TRUE(outputTable->Equals(*tableOut));
-  EXPECT_TRUE(outputTable->column(0)->Equals(*(tableOut->column(0))));
-  EXPECT_TRUE(outputTable->column(1)->Equals(*(tableOut->column(1))));
-  EXPECT_TRUE(outputTable->column(2)->Equals(*(tableOut->column(2))));
-  EXPECT_TRUE(outputTable->column(3)->Equals(*(tableOut->column(3))));
-  EXPECT_TRUE(outputTable->column(4)->Equals(*(tableOut->column(4))));
-  EXPECT_TRUE(outputTable->column(5)->Equals(*(tableOut->column(5))));
-  EXPECT_TRUE(outputTable->column(6)->Equals(*(tableOut->column(6))));
-  EXPECT_TRUE(outputTable->column(7)->Equals(*(tableOut->column(7))));
 }
 
 // Nested types
 
+TEST(Test, write) {
+  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
+      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/struct.orc");
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<b:struct<a:int>>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer =
+      liborc::createWriter(*schema, outStream.get(), options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::StructVectorBatch* b =
+      internal::checked_cast<liborc::StructVectorBatch*>(x->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>(b->fields[0]);
+  x->hasNulls = true;
+  a->hasNulls = true;
+  b->hasNulls = true;
+  x->notNull[0] = 0;
+  x->notNull[1] = 1;
+  x->notNull[2] = 0;
+  x->notNull[3] = 1;
+  x->notNull[4] = 1;
+  x->notNull[5] = 1;
+  x->notNull[6] = 0;
+  x->notNull[7] = 1;
+  x->notNull[8] = 0;
+  x->notNull[9] = 1;
+  x->notNull[10] = 0;
+  x->notNull[11] = 1;
+  x->notNull[12] = 1;
+  x->notNull[13] = 1;
+  x->notNull[14] = 0;
+  x->notNull[15] = 1;
+
+  b->notNull[0] = 0;
+  b->notNull[1] = 0;
+  b->notNull[2] = 0;
+  b->notNull[3] = 1;
+  b->notNull[4] = 1;
+  b->notNull[5] = 1;
+  b->notNull[6] = 0;
+  b->notNull[7] = 0;
+  b->notNull[8] = 0;
+  b->notNull[9] = 1;
+  b->notNull[10] = 0;
+  b->notNull[11] = 1;
+  b->notNull[12] = 0;
+  b->notNull[13] = 0;
+  b->notNull[14] = 0;
+  b->notNull[15] = 1;
+
+  a->notNull[0] = 0;
+  a->notNull[1] = 0;
+  a->notNull[2] = 0;
+  a->notNull[3] = 1;
+  a->notNull[4] = 0;
+  a->notNull[5] = 1;
+  a->notNull[6] = 0;
+  a->notNull[7] = 0;
+  a->notNull[8] = 0;
+  a->notNull[9] = 1;
+  a->notNull[10] = 0;
+  a->notNull[11] = 0;
+  a->notNull[12] = 0;
+  a->notNull[13] = 0;
+  a->notNull[14] = 0;
+  a->notNull[15] = 1;
+
+  a->data[3] = 33;
+  a->data[5] = 35;
+  a->data[9] = 39;
+  a->data[15] = 45;
+
+  root->numElements = 16;
+  x->numElements = 16;
+  b->numElements = 16;
+  a->numElements = 16;
+  writer->add(*batch);
+  writer->close();
+}
+
+TEST(Test, write3) {
+  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
+      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/list.orc");
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:array<a:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer =
+      liborc::createWriter(*schema, outStream.get(), options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::ListVectorBatch* x =
+      internal::checked_cast<liborc::ListVectorBatch*>(root->fields[0]);
+  liborc::LongVectorBatch* a =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  x->hasNulls = true;
+  a->hasNulls = true;
+  x->notNull[0] = 0;
+  x->notNull[1] = 1;
+  x->notNull[2] = 0;
+  x->notNull[3] = 1;
+  x->notNull[4] = 1;
+  x->notNull[5] = 1;
+  x->offsets[0] = 0;
+  x->offsets[1] = 0;
+  x->offsets[2] = 2;
+  x->offsets[3] = 2;
+  x->offsets[4] = 4;
+  x->offsets[5] = 4;
+  x->offsets[6] = 7;
+  // b->notNull[0] = 1;
+  // b->notNull[1] = 0;
+  // b->notNull[2] = 1;
+  // b->notNull[3] = 0;
+  // b->notNull[4] = 1;
+  // b->notNull[5] = 1;
+  // b->notNull[6] = 0;
+  // b->notNull[7] = 0;
+  // b->notNull[8] = 1;
+  // b->notNull[9] = 1;
+  a->notNull[0] = 0;
+  a->notNull[1] = 0;
+  a->notNull[2] = 1;
+  a->notNull[3] = 0;
+  a->notNull[4] = 1;
+  a->notNull[5] = 1;
+  a->notNull[6] = 0;
+  // a->notNull[7] = 1;
+  // a->notNull[8] = 0;
+  // a->notNull[9] = 1;
+  // a->data[0] = 30;
+  a->data[0] = 30;
+  a->data[1] = 31;
+  a->data[2] = 32;
+  a->data[3] = 33;
+  a->data[4] = 34;
+  a->data[5] = 35;
+  a->data[6] = 36;
+  // a->data[7] = 37;
+  root->numElements = 6;
+  x->numElements = 6;
+  a->numElements = 7;
+  writer->add(*batch);
+  writer->close();
+}
+
+TEST(Test, write4) {
+  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
+      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/map.orc");
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:map<a:string,b:int>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer =
+      liborc::createWriter(*schema, outStream.get(), options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::MapVectorBatch* x =
+      internal::checked_cast<liborc::MapVectorBatch*>(root->fields[0]);
+  liborc::StringVectorBatch* a =
+      internal::checked_cast<liborc::StringVectorBatch*>((x->keys).get());
+  liborc::LongVectorBatch* b =
+      internal::checked_cast<liborc::LongVectorBatch*>((x->elements).get());
+  x->hasNulls = true;
+  b->hasNulls = true;
+  x->notNull[0] = 0;
+  x->notNull[1] = 1;
+  x->notNull[2] = 0;
+  x->notNull[3] = 1;
+  x->notNull[4] = 1;
+  x->notNull[5] = 0;
+  x->notNull[6] = 1;
+
+  x->offsets[0] = 0;
+  x->offsets[1] = 0;
+  x->offsets[2] = 2;
+  x->offsets[3] = 2;
+  x->offsets[4] = 4;
+  x->offsets[5] = 4;
+  x->offsets[6] = 4;
+  x->offsets[7] = 9;
+
+  char a0[5] = "Meow", a1[4] = "Dog", a2[4] = "Cat", a3[6] = "Chloe", a4[1] = "",
+       a5[5] = "Purr", a6[5] = "Woof", a7[4] = "Mew", a8[5] = "Lucy";
+
+  a->data[0] = a0;
+  a->data[1] = a1;
+  a->data[2] = a2;
+  a->data[3] = a3;
+  a->data[4] = a4;
+  a->data[5] = a5;
+  a->data[6] = a6;
+  a->data[7] = a7;
+  a->data[8] = a8;
+
+  a->length[0] = 4;
+  a->length[1] = 3;
+  a->length[2] = 3;
+  a->length[3] = 5;
+  a->length[4] = 0;
+  a->length[5] = 4;
+  a->length[6] = 4;
+  a->length[7] = 3;
+  a->length[8] = 4;
+
+  b->notNull[0] = 0;
+  b->notNull[1] = 0;
+  b->notNull[2] = 1;
+  b->notNull[3] = 0;
+  b->notNull[4] = 1;
+  b->notNull[5] = 1;
+  b->notNull[6] = 0;
+  b->notNull[7] = 1;
+  b->notNull[8] = 0;
+  // a->notNull[7] = 1;
+  // a->notNull[8] = 0;
+  // a->notNull[9] = 1;
+  // a->data[0] = 30;
+  b->data[0] = 30;
+  b->data[1] = 31;
+  b->data[2] = 32;
+  b->data[3] = 33;
+  b->data[4] = 34;
+  b->data[5] = 35;
+  b->data[6] = 36;
+  b->data[7] = 37;
+  b->data[8] = 38;
+  // a->data[7] = 37;
+  root->numElements = 7;
+  x->numElements = 7;
+  a->numElements = 9;
+  b->numElements = 9;
+  writer->add(*batch);
+  writer->close();
+}
+
+TEST(Test, write5) {
+  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
+      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/mixed1.orc");
+  ORC_UNIQUE_PTR<liborc::Type> schema(
+      liborc::Type::buildTypeFromString("struct<x:struct<a:array<c:int>>>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer =
+      liborc::createWriter(*schema, outStream.get(), options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::StructVectorBatch* x =
+      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+  liborc::ListVectorBatch* a =
+      internal::checked_cast<liborc::ListVectorBatch*>(x->fields[0]);
+  // liborc::StructVectorBatch* b =
+  //     internal::checked_cast<liborc::StructVectorBatch*>((a->elements).get());
+  liborc::LongVectorBatch* c =
+      internal::checked_cast<liborc::LongVectorBatch*>((a->elements).get());
+
+  a->hasNulls = true;
+  x->hasNulls = true;
+  c->hasNulls = true;
+  x->notNull[0] = 0;
+  x->notNull[1] = 1;
+  x->notNull[2] = 0;
+  x->notNull[3] = 1;
+  x->notNull[4] = 1;
+  x->notNull[5] = 0;
+  x->notNull[6] = 1;
+
+  a->offsets[0] = 0;
+  a->offsets[1] = 0;
+  a->offsets[2] = 2;
+  a->offsets[3] = 2;
+  a->offsets[4] = 5;
+  a->offsets[5] = 5;
+  a->offsets[6] = 5;
+  a->offsets[7] = 8;
+
+  a->notNull[0] = 0;
+  a->notNull[1] = 1;
+  a->notNull[2] = 0;
+  a->notNull[3] = 1;
+  a->notNull[4] = 0;
+  a->notNull[5] = 0;
+  a->notNull[6] = 1;
+
+  // b->notNull[0] = 1;
+  // b->notNull[1] = 0;
+  // b->notNull[2] = 1;
+  // b->notNull[3] = 0;
+  // b->notNull[4] = 1;
+
+  c->notNull[0] = 1;
+  c->notNull[1] = 0;
+  c->notNull[2] = 1;
+  c->notNull[3] = 0;
+  c->notNull[4] = 1;
+  c->notNull[5] = 1;
+  c->notNull[6] = 0;
+  c->notNull[7] = 1;
+
+  c->data[0] = 30;
+  c->data[1] = 31;
+  c->data[2] = 32;
+  c->data[3] = 33;
+  c->data[4] = 34;
+  c->data[5] = 35;
+  c->data[6] = 36;
+  c->data[7] = 37;
+
+  root->numElements = 7;
+  x->numElements = 7;
+  a->numElements = 7;
+  // b->numElements = 5;
+  c->numElements = 8;
+  writer->add(*batch);
+  writer->close();
+}
+
+TEST(Test, write2) {
+  ORC_UNIQUE_PTR<liborc::OutputStream> outStream =
+      liborc::writeLocalFile("/Users/karlkatzen/Documents/code/orc-files/struct2.orc");
+  ORC_UNIQUE_PTR<liborc::Type> schema(liborc::Type::buildTypeFromString("struct<x:int>"));
+  liborc::WriterOptions options;
+  ORC_UNIQUE_PTR<liborc::Writer> writer =
+      liborc::createWriter(*schema, outStream.get(), options);
+  uint64_t batchSize = 1024;
+  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
+  liborc::StructVectorBatch* root =
+      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  liborc::LongVectorBatch* x =
+      internal::checked_cast<liborc::LongVectorBatch*>(root->fields[0]);
+  // int64_t length = 1024;
+  // int64_t orcOffset = 0;
+  // int64_t arrowOffset = 0;
+
+  // Int64Builder builder;
+  // std::shared_ptr<Array> parray;
+  // (void)builder.AppendNull();
+  // (void)builder.Append(31);
+  // (void)builder.AppendNull();
+  // (void)builder.Append(33);
+  // ARROW_EXPECT_OK(builder.Finish(&parray));
+  // auto array = std::static_pointer_cast<Int64Array>(parray);
+  // int64_t arrowLength = array->length();
+  // if (array->null_count()) x->hasNulls = true;
+  // for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++)
+  // {
+  //   if (array->IsNull(arrowOffset)) {
+  //     x->notNull[orcOffset] = false;
+  //   } else {
+  //     x->data[orcOffset] = array->Value(arrowOffset);
+  //     x->notNull[orcOffset] = true;
+  //   }
+  // }
+  x->hasNulls = true;
+  x->notNull[0] = 0;
+  x->notNull[1] = 1;
+  x->notNull[2] = 0;
+  x->notNull[3] = 1;
+  x->data[1] = 31;
+  x->data[3] = 33;
+  x->numElements = 4;
+  root->numElements = 4;
+  for (int i = 0; i < 4; i++) {
+    RecordProperty("a" + std ::to_string(i), x->data[i]);
+    RecordProperty("n" + std ::to_string(i), x->notNull[i]);
+  }
+  writer->add(*batch);
+  writer->close();
+}
+
+// TEST(TestAdapterWriteNested, writeZeroRows) {
+//   std::vector<std::shared_ptr<Field>> xFields0{std::make_shared<Field>("a", utf8()),
+//                                                std::make_shared<Field>("b",
+//                                                int32())};
+//   std::vector<std::shared_ptr<Field>> xFields{field("struct", struct_(xFields0))};
+//   std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+//   auto sharedPtrArrowType = xFields[0]->type();
+
+//   int64_t numRows = 0;
+//   int64_t numCols = xFields.size();
+//   uint64_t batchSize = 1078;
+
+//   StringBuilder builder1;
+//   //   Int32Builder builder2;
+//   //   std::shared_ptr<Array> array1;
+//   //   (void)(builder1.Finish(&array1));
+//   //   std::shared_ptr<Array> array2;
+//   //   (void)(builder2.Finish(&array2));
+
+//   //   std::vector<std::shared_ptr<Array>> children;
+//   //   children.push_back(array1);
+//   //   children.push_back(array2);
+
+//   //   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 0, children);
+
+//   ArrayBuilderVector builders(numCols, NULLPTR);
+//   builders[0] =
+//       std::static_pointer_cast<ArrayBuilder>(std::make_shared<BooleanBuilder>());
+//   builders[1] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int8Builder>());
+//   builders[2] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int16Builder>());
+//   builders[3] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>());
+//   builders[4] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int64Builder>());
+//   builders[5] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<FloatBuilder>());
+//   builders[6] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<DoubleBuilder>());
+//   builders[7] = std::static_pointer_cast<ArrayBuilder>(
+//       std::make_shared<Decimal128Builder>(decimal(25, 6)));
+//   builders[8] = std::static_pointer_cast<ArrayBuilder>(
+//       std::make_shared<Decimal128Builder>(decimal(32, 0)));
+//   builders[9] =
+//   std::static_pointer_cast<ArrayBuilder>(std::make_shared<Date32Builder>());
+//   builders[10] =
+//       std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
+//           timestamp(TimeUnit::NANO), default_memory_pool()));
+//   builders[11] =
+//       std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
+//   builders[12] =
+//       std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
+//   std::vector<std::shared_ptr<Array>> arrays(numCols, NULLPTR);
+//   ChunkedArrayVector cv;
+//   cv.reserve(numCols);
+
+//   for (int col = 0; col < numCols; col++) {
+//     ARROW_EXPECT_OK(builders[col]->Finish(&arrays[col]));
+//     cv.push_back(std::make_shared<ChunkedArray>(arrays[col]));
+//   }
+
+//   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   std::shared_ptr<adapters::orc::ORCWriterOptions> options =
+//       std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
+//   std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+//   std::unique_ptr<liborc::OutputStream> out_stream =
+//       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
+//           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+//   ARROW_EXPECT_OK(
+//       adapters::orc::ORCFileWriter::Open(sharedPtrSchema, out_stream, options,
+//       &writer));
+//   ARROW_EXPECT_OK(writer->Write(table));
+//   auto output_mem_stream =
+//   static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
+//   std::shared_ptr<io::RandomAccessFile> in_stream(
+//       new io::BufferReader(std::make_shared<Buffer>(
+//           reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
+//           static_cast<int64_t>(output_mem_stream->getLength()))));
+
+//   std::unique_ptr<adapters::orc::ORCFileReader> reader;
+//   ASSERT_TRUE(
+//       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(),
+//       &reader).ok());
+//   std::shared_ptr<Table> outputTable;
+//   ARROW_EXPECT_OK(reader->Read(&outputTable));
+//   EXPECT_EQ(outputTable->num_columns(), numCols);
+//   EXPECT_EQ(outputTable->num_rows(), numRows);
+//   EXPECT_TRUE(outputTable->Equals(*table));
+// }
+
 // Struct
-TEST(TestAdapterWriteNested, writeStructEmpty) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder1;
-  Int32Builder builder2;
-  std::shared_ptr<Array> array1;
-  (void)(builder1.Finish(&array1));
-  std::shared_ptr<Array> array2;
-  (void)(builder2.Finish(&array2));
-
-  std::vector<std::shared_ptr<Array>> children;
-  children.push_back(array1);
-  children.push_back(array2);
-
-  auto array = std::make_shared<StructArray>(sharedPtrArrowType, 0, children);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 0);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 0);
-  EXPECT_FALSE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 0);
-  EXPECT_FALSE(b->hasNulls);
-
-  EXPECT_EQ(arrowOffset, 0);
-  EXPECT_EQ(orcOffset, 0);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder1;
-  (void)(builder1.Append("A"));
-  (void)(builder1.Append("AB"));
-  (void)(builder1.Append(""));
-  (void)(builder1.Append("ABCD"));
-
-  Int32Builder builder2;
-  (void)(builder2.Append(3));
-  (void)(builder2.Append(-12));
-  (void)(builder2.Append(25));
-  (void)(builder2.Append(76));
-
-  std::shared_ptr<Array> array1;
-  (void)(builder1.Finish(&array1));
-  std::shared_ptr<Array> array2;
-  (void)(builder2.Finish(&array2));
-
-  std::vector<std::shared_ptr<Array>> children;
-  children.push_back(array1);
-  children.push_back(array2);
-
-  auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 4);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 4);
-  EXPECT_FALSE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 4);
-  EXPECT_FALSE(b->hasNulls);
-
-  EXPECT_STREQ(a->data[0], "A");
-  EXPECT_STREQ(a->data[1], "AB");
-  EXPECT_STREQ(a->data[2], "");
-  EXPECT_STREQ(a->data[3], "ABCD");
-  EXPECT_EQ(a->length[0], 1);
-  EXPECT_EQ(a->length[1], 2);
-  EXPECT_EQ(a->length[2], 0);
-  EXPECT_EQ(a->length[3], 4);
-
-  EXPECT_EQ(b->data[0], 3);
-  EXPECT_EQ(b->data[1], -12);
-  EXPECT_EQ(b->data[2], 25);
-  EXPECT_EQ(b->data[3], 76);
-
-  EXPECT_EQ(arrowOffset, 4);
-  EXPECT_EQ(orcOffset, 4);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructMixedParentNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder1;
-  (void)(builder1.Append("A"));
-  (void)(builder1.Append("AB"));
-  (void)(builder1.AppendNull());
-  (void)(builder1.AppendNull());
-
-  Int32Builder builder2;
-  (void)(builder2.Append(3));
-  (void)(builder2.AppendNull());
-  (void)(builder2.Append(25));
-  (void)(builder2.AppendNull());
-
-  std::shared_ptr<Array> array1;
-  (void)(builder1.Finish(&array1));
-  std::shared_ptr<Array> array2;
-  (void)(builder2.Finish(&array2));
-
-  std::vector<std::shared_ptr<Array>> children;
-  children.push_back(array1);
-  children.push_back(array2);
-
-  auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 4);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 4);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 4);
-  EXPECT_TRUE(b->hasNulls);
-
-  EXPECT_STREQ(a->data[0], "A");
-  EXPECT_STREQ(a->data[1], "AB");
-  EXPECT_EQ(a->length[0], 1);
-  EXPECT_EQ(a->length[1], 2);
-  EXPECT_EQ(a->notNull[0], 1);
-  EXPECT_EQ(a->notNull[1], 1);
-  EXPECT_EQ(a->notNull[2], 0);
-  EXPECT_EQ(a->notNull[3], 0);
-
-  EXPECT_EQ(b->data[0], 3);
-  EXPECT_EQ(b->data[2], 25);
-  EXPECT_EQ(b->notNull[0], 1);
-  EXPECT_EQ(b->notNull[1], 0);
-  EXPECT_EQ(b->notNull[2], 1);
-  EXPECT_EQ(b->notNull[3], 0);
-
-  EXPECT_EQ(arrowOffset, 4);
-  EXPECT_EQ(orcOffset, 4);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructMixedParentHasNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder1;
-  (void)(builder1.Append("A"));
-  (void)(builder1.Append("AB"));
-  (void)(builder1.AppendNull());
-  (void)(builder1.AppendNull());
-
-  Int32Builder builder2;
-  (void)(builder2.Append(3));
-  (void)(builder2.AppendNull());
-  (void)(builder2.Append(25));
-  (void)(builder2.AppendNull());
-
-  std::shared_ptr<Array> array1;
-  (void)(builder1.Finish(&array1));
-  std::shared_ptr<Array> array2;
-  (void)(builder2.Finish(&array2));
-
-  std::vector<std::shared_ptr<Array>> children;
-  children.push_back(array1);
-  children.push_back(array2);
-
-  uint8_t bitmap = 14;  // 00001110
-  auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()) {
-    FAIL() << "Buffer not created successfully";
-  }
-  std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
-  uint8_t* bufferData = buffer->mutable_data();
-  std::memcpy(bufferData, &bitmap, 1);
-
-  auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children, buffer);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 4);
-  EXPECT_TRUE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 4);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 4);
-  EXPECT_TRUE(b->hasNulls);
-
-  EXPECT_EQ(x->notNull[0], 0);
-  EXPECT_EQ(x->notNull[1], 1);
-  EXPECT_EQ(x->notNull[2], 1);
-  EXPECT_EQ(x->notNull[3], 1);
-
-  EXPECT_STREQ(a->data[0], "A");
-  EXPECT_STREQ(a->data[1], "AB");
-  EXPECT_EQ(a->length[0], 1);
-  EXPECT_EQ(a->length[1], 2);
-  EXPECT_EQ(a->notNull[0], 1);
-  EXPECT_EQ(a->notNull[1], 1);
-  EXPECT_EQ(a->notNull[2], 0);
-  EXPECT_EQ(a->notNull[3], 0);
-
-  EXPECT_EQ(b->data[0], 3);
-  EXPECT_EQ(b->data[2], 25);
-  EXPECT_EQ(b->notNull[0], 1);
-  EXPECT_EQ(b->notNull[1], 0);
-  EXPECT_EQ(b->notNull[2], 1);
-  EXPECT_EQ(b->notNull[3], 0);
-
-  EXPECT_EQ(arrowOffset, 4);
-  EXPECT_EQ(orcOffset, 4);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructAllNullsParentHasNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder1;
-  (void)(builder1.AppendNull());
-  (void)(builder1.AppendNull());
-  (void)(builder1.AppendNull());
-  (void)(builder1.AppendNull());
-
-  Int32Builder builder2;
-  (void)(builder2.AppendNull());
-  (void)(builder2.AppendNull());
-  (void)(builder2.AppendNull());
-  (void)(builder2.AppendNull());
-
-  std::shared_ptr<Array> array1;
-  (void)(builder1.Finish(&array1));
-  std::shared_ptr<Array> array2;
-  (void)(builder2.Finish(&array2));
-
-  std::vector<std::shared_ptr<Array>> children;
-  children.push_back(array1);
-  children.push_back(array2);
-
-  uint8_t bitmap = 14;  // 00001110
-  auto maybeBuffer = AllocateBuffer(1);
-  if (!maybeBuffer.ok()) {
-    FAIL() << "Buffer not created successfully";
-  }
-  std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
-  uint8_t* bufferData = buffer->mutable_data();
-  std::memcpy(bufferData, &bitmap, 1);
-
-  auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children, buffer);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowOffset = 0;
-  int64_t orcOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset, batchSize,
-                                       array.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 4);
-  EXPECT_TRUE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 4);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 4);
-  EXPECT_TRUE(b->hasNulls);
-
-  EXPECT_EQ(x->notNull[0], 0);
-  EXPECT_EQ(x->notNull[1], 1);
-  EXPECT_EQ(x->notNull[2], 1);
-  EXPECT_EQ(x->notNull[3], 1);
-
-  EXPECT_EQ(a->notNull[0], 0);
-  EXPECT_EQ(a->notNull[1], 0);
-  EXPECT_EQ(a->notNull[2], 0);
-  EXPECT_EQ(a->notNull[3], 0);
-
-  EXPECT_EQ(b->notNull[0], 0);
-  EXPECT_EQ(b->notNull[1], 0);
-  EXPECT_EQ(b->notNull[2], 0);
-  EXPECT_EQ(b->notNull[3], 0);
-
-  EXPECT_EQ(arrowOffset, 4);
-  EXPECT_EQ(orcOffset, 4);
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructChunkedEmpty) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  ArrayVector av;
-  std::shared_ptr<ChunkedArray> carray =
-      std::make_shared<ChunkedArray>(av, sharedPtrArrowType);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowIndexOffset = 0;
-  int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                       batchSize, carray.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 0);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 0);
-  EXPECT_FALSE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 0);
-  EXPECT_FALSE(b->hasNulls);
-
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructChunkedMixed) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  StringBuilder builder10, builder11, builder12, builder13, builder14;
-  (void)(builder11.Append("A"));
-  (void)(builder11.Append("AB"));
-  (void)(builder13.AppendNull());
-  (void)(builder13.AppendNull());
-
-  Int32Builder builder20, builder21, builder22, builder23, builder24;
-  (void)(builder21.Append(3));
-  (void)(builder21.AppendNull());
-  (void)(builder23.Append(25));
-  (void)(builder23.AppendNull());
-
-  std::shared_ptr<Array> array10, array11, array12, array13, array14;
-  std::shared_ptr<Array> array20, array21, array22, array23, array24;
-
-  (void)(builder10.Finish(&array10));
-  (void)(builder11.Finish(&array11));
-  (void)(builder12.Finish(&array12));
-  (void)(builder13.Finish(&array13));
-  (void)(builder14.Finish(&array14));
-  (void)(builder20.Finish(&array20));
-  (void)(builder21.Finish(&array21));
-  (void)(builder22.Finish(&array22));
-  (void)(builder23.Finish(&array23));
-  (void)(builder24.Finish(&array24));
-
-  std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
-      children4;
-  children0.push_back(array10);
-  children0.push_back(array20);
-  children1.push_back(array11);
-  children1.push_back(array21);
-  children2.push_back(array12);
-  children2.push_back(array22);
-  children3.push_back(array13);
-  children3.push_back(array23);
-  children4.push_back(array14);
-  children4.push_back(array24);
-
-  auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
-  auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
-  auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
-
-  uint8_t bitmap1 = 2;  // 00000010
-  auto maybeBuffer1 = AllocateBuffer(1);
-  if (!maybeBuffer1.ok()) {
-    FAIL() << "Buffer not created successfully";
-  }
-  std::shared_ptr<Buffer> buffer1 = *std::move(maybeBuffer1);
-  uint8_t* bufferData1 = buffer1->mutable_data();
-  std::memcpy(bufferData1, &bitmap1, 1);
-
-  auto array1 = std::make_shared<StructArray>(sharedPtrArrowType, 2, children1, buffer1);
-
-  uint8_t bitmap3 = 1;  // 00000001
-  auto maybeBuffer3 = AllocateBuffer(1);
-  if (!maybeBuffer3.ok()) {
-    FAIL() << "Buffer not created successfully";
-  }
-  std::shared_ptr<Buffer> buffer3 = *std::move(maybeBuffer3);
-  uint8_t* bufferData3 = buffer3->mutable_data();
-  std::memcpy(bufferData3, &bitmap3, 1);
-
-  auto array3 = std::make_shared<StructArray>(sharedPtrArrowType, 2, children3, buffer3);
-
-  ArrayVector av;
-  av.push_back(array0);
-  av.push_back(array1);
-  av.push_back(array2);
-  av.push_back(array3);
-  av.push_back(array4);
-  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 1024;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowIndexOffset = 0;
-  int arrowChunkOffset = 0;
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                       batchSize, carray.get());
-  if (!st.ok()) {
-    FAIL() << "ORC ColumnBatch not successfully filled";
-  }
-  EXPECT_EQ(x->numElements, 4);
-  EXPECT_TRUE(x->hasNulls);
-  EXPECT_EQ(a->numElements, 4);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_EQ(b->numElements, 4);
-  EXPECT_TRUE(b->hasNulls);
-
-  EXPECT_EQ(x->notNull[0], 0);
-  EXPECT_EQ(x->notNull[1], 1);
-  EXPECT_EQ(x->notNull[2], 1);
-  EXPECT_EQ(x->notNull[3], 0);
-
-  EXPECT_STREQ(a->data[0], "A");
-  EXPECT_STREQ(a->data[1], "AB");
-  EXPECT_EQ(a->length[0], 1);
-  EXPECT_EQ(a->length[1], 2);
-  EXPECT_EQ(a->notNull[0], 1);
-  EXPECT_EQ(a->notNull[1], 1);
-  EXPECT_EQ(a->notNull[2], 0);
-  EXPECT_EQ(a->notNull[3], 0);
-
-  EXPECT_EQ(b->data[0], 3);
-  EXPECT_EQ(b->data[2], 25);
-  EXPECT_EQ(b->notNull[0], 1);
-  EXPECT_EQ(b->notNull[1], 0);
-  EXPECT_EQ(b->notNull[2], 1);
-  EXPECT_EQ(b->notNull[3], 0);
-
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructChunkedMultibatchParentNoNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  uint64_t totalLength = 100;
-  StringBuilder builder00, builder01, builder02, builder03, builder04;
-  Int32Builder builder10, builder11, builder12, builder13, builder14;
-  for (int i = 0; i < 50; i++) {
-    if (i % 2) {
-      (void)(builder01.Append("Test " + std::to_string(i)));
-      (void)(builder11.AppendNull());
-    } else {
-      (void)(builder01.AppendNull());
-      (void)(builder11.Append(i));
-    }
-  }
-  for (int i = 50; i < 100; i++) {
-    if (i % 2) {
-      (void)(builder03.Append("Test " + std::to_string(i)));
-      (void)(builder13.AppendNull());
-    } else {
-      (void)(builder03.AppendNull());
-      (void)(builder13.Append(i));
-    }
-  }
-
-  std::shared_ptr<Array> array00, array01, array02, array03, array04;
-  std::shared_ptr<Array> array10, array11, array12, array13, array14;
-
-  (void)(builder10.Finish(&array10));
-  (void)(builder11.Finish(&array11));
-  (void)(builder12.Finish(&array12));
-  (void)(builder13.Finish(&array13));
-  (void)(builder14.Finish(&array14));
-  (void)(builder00.Finish(&array00));
-  (void)(builder01.Finish(&array01));
-  (void)(builder02.Finish(&array02));
-  (void)(builder03.Finish(&array03));
-  (void)(builder04.Finish(&array04));
-
-  std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
-      children4;
-  children0.push_back(array00);
-  children0.push_back(array10);
-  children1.push_back(array01);
-  children1.push_back(array11);
-  children2.push_back(array02);
-  children2.push_back(array12);
-  children3.push_back(array03);
-  children3.push_back(array13);
-  children4.push_back(array04);
-  children4.push_back(array14);
-
-  auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
-  auto array1 = std::make_shared<StructArray>(sharedPtrArrowType, 50, children1);
-  auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
-  auto array3 = std::make_shared<StructArray>(sharedPtrArrowType, 50, children3);
-  auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
-  ArrayVector av;
-  av.push_back(array0);
-  av.push_back(array1);
-  av.push_back(array2);
-  av.push_back(array3);
-  av.push_back(array4);
-  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
-
-  // RecordProperty("l", carray->length());
-  // RecordProperty("l0", carray->chunk(0)->length());
-  // RecordProperty("l1", carray->chunk(1)->length());
-  // RecordProperty("l2", carray->chunk(2)->length());
-  // RecordProperty("l3", carray->chunk(3)->length());
-  // RecordProperty("l4", carray->chunk(4)->length());
-
-  // auto a1 = std::static_pointer_cast<StructArray>(carray->chunk(1));
-  // auto a10 = std::static_pointer_cast<StringArray>(a1->field(0));
-  // auto a11 = std::static_pointer_cast<Int32Array>(a1->field(1));
-  // RecordProperty("l10", a10->length());
-  // RecordProperty("l11", a11->length());
-  // auto a3 = std::static_pointer_cast<StructArray>(carray->chunk(3));
-  // auto a30 = std::static_pointer_cast<StringArray>(a3->field(0));
-  // auto a31 = std::static_pointer_cast<Int32Array>(a3->field(1));
-  // RecordProperty("l30", a30->length());
-  // RecordProperty("l31", a31->length());
-
-  // for (int i = 0; i < 50; i++) {
-  //   if (i % 2) {
-  //     RecordProperty("s" + std::to_string(i), a10->GetString(i));
-  //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
-  //   } else {
-  //     RecordProperty("i" + std::to_string(i), a11->Value(i));
-  //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
-  //   }
-  // }
-  // for (int i = 0; i < 50; i++) {
-  //   if (i % 2) {
-  //     RecordProperty("s" + std::to_string(50 + i), a30->GetString(i));
-  //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
-  //   } else {
-  //     RecordProperty("i" + std::to_string(50 + i), a31->Value(i));
-  //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
-  //   }
-  // }
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 25;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowIndexOffset = 0;
-  int arrowChunkOffset = 0;
-  uint64_t resultOffset = 0;
-  while (resultOffset < totalLength - batchSize) {
-    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                         batchSize, carray.get());
-    if (!st.ok()) {
-      FAIL() << "ORC ColumnBatch not successfully filled";
-    }
-    writer->add(*batch);
-    EXPECT_EQ(x->numElements, batchSize);
-    EXPECT_EQ(a->numElements, batchSize);
-    EXPECT_EQ(b->numElements, batchSize);
-    EXPECT_FALSE(x->hasNulls);
-    EXPECT_TRUE(a->hasNulls);
-    EXPECT_TRUE(b->hasNulls);
-    for (uint64_t i = 0; i < batchSize; i++) {
-      if ((i + resultOffset) % 2) {
-        EXPECT_TRUE(a->notNull[i]);
-        EXPECT_FALSE(b->notNull[i]);
-        EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
-        if ((i + resultOffset) >= 10)
-          EXPECT_EQ(a->length[i], 7);
-        else
-          EXPECT_EQ(a->length[i], 6);
-      } else {
-        EXPECT_FALSE(a->notNull[i]);
-        EXPECT_TRUE(b->notNull[i]);
-        EXPECT_EQ(b->data[i], i + resultOffset);
-      }
-    }
-    resultOffset = resultOffset + batchSize;
-    batch->clear();
-  }
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                       batchSize, carray.get());
-  uint64_t lastBatchSize = totalLength - resultOffset;
-  EXPECT_EQ(x->numElements, lastBatchSize);
-  EXPECT_EQ(a->numElements, lastBatchSize);
-  EXPECT_EQ(b->numElements, lastBatchSize);
-  EXPECT_FALSE(x->hasNulls);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_TRUE(b->hasNulls);
-  for (uint64_t i = 0; i < lastBatchSize; i++) {
-    if ((i + resultOffset) % 2) {
-      EXPECT_TRUE(a->notNull[i]);
-      EXPECT_FALSE(b->notNull[i]);
-      EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
-      if ((i + resultOffset) >= 10)
-        EXPECT_EQ(a->length[i], 7);
-      else
-        EXPECT_EQ(a->length[i], 6);
-    } else {
-      EXPECT_FALSE(a->notNull[i]);
-      EXPECT_TRUE(b->notNull[i]);
-      EXPECT_EQ(b->data[i], i + resultOffset);
-    }
-  }
-  writer->add(*batch);
-  writer->close();
-}
-TEST(TestAdapterWriteNested, writeStructChunkedMultibatchParentHasNulls) {
-  std::vector<std::shared_ptr<Field>> xFields;
-  xFields.push_back(std::make_shared<Field>("a", utf8()));
-  xFields.push_back(std::make_shared<Field>("b", int32()));
-  auto sharedPtrArrowType = struct_(xFields);
-  DataType* arrowType = sharedPtrArrowType.get();
-
-  uint64_t totalLength = 100;
-  StringBuilder builder00, builder01, builder02, builder03, builder04;
-  Int32Builder builder10, builder11, builder12, builder13, builder14;
-  for (int i = 0; i < 50; i++) {
-    if (i % 2) {
-      (void)(builder01.Append("Test " + std::to_string(i)));
-      (void)(builder11.AppendNull());
-    } else {
-      (void)(builder01.AppendNull());
-      (void)(builder11.Append(i));
-    }
-  }
-  for (int i = 50; i < 100; i++) {
-    if (i % 2) {
-      (void)(builder03.Append("Test " + std::to_string(i)));
-      (void)(builder13.AppendNull());
-    } else {
-      (void)(builder03.AppendNull());
-      (void)(builder13.Append(i));
-    }
-  }
-
-  // Every third entry has null at struct level
-  uint8_t bitmap1[7] = {
-      182, 109, 219, 182,
-      109, 219, 2};  // 10110110 01101101 11011011 10110110 01101101 11011011 00000010
-  uint8_t bitmap3[7] = {
-      109, 219, 182, 109,
-      219, 182, 1};  // 01101101 11011011 10110110 01101101 11011011 10110110 00000001
-
-  BufferBuilder builder1, builder3;
-  (void)(builder1.Resize(7));
-  (void)(builder1.Append(bitmap1, 7));
-  std::shared_ptr<arrow::Buffer> bitmapBuffer1;
-  if (!builder1.Finish(&bitmapBuffer1).ok()) {
-    FAIL() << "The offsets buffer can not be constructed!";
-  }
-  (void)(builder3.Resize(7));
-  (void)(builder3.Append(bitmap3, 7));
-  std::shared_ptr<arrow::Buffer> bitmapBuffer3;
-  if (!builder3.Finish(&bitmapBuffer3).ok()) {
-    FAIL() << "The offsets buffer can not be constructed!";
-  }
-
-  std::shared_ptr<Array> array00, array01, array02, array03, array04;
-  std::shared_ptr<Array> array10, array11, array12, array13, array14;
-
-  (void)(builder10.Finish(&array10));
-  (void)(builder11.Finish(&array11));
-  (void)(builder12.Finish(&array12));
-  (void)(builder13.Finish(&array13));
-  (void)(builder14.Finish(&array14));
-  (void)(builder00.Finish(&array00));
-  (void)(builder01.Finish(&array01));
-  (void)(builder02.Finish(&array02));
-  (void)(builder03.Finish(&array03));
-  (void)(builder04.Finish(&array04));
-
-  std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
-      children4;
-  children0.push_back(array00);
-  children0.push_back(array10);
-  children1.push_back(array01);
-  children1.push_back(array11);
-  children2.push_back(array02);
-  children2.push_back(array12);
-  children3.push_back(array03);
-  children3.push_back(array13);
-  children4.push_back(array04);
-  children4.push_back(array14);
-
-  auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
-  auto array1 =
-      std::make_shared<StructArray>(sharedPtrArrowType, 50, children1, bitmapBuffer1);
-  auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
-  auto array3 =
-      std::make_shared<StructArray>(sharedPtrArrowType, 50, children3, bitmapBuffer3);
-  auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
-  ArrayVector av;
-  av.push_back(array0);
-  av.push_back(array1);
-  av.push_back(array2);
-  av.push_back(array3);
-  av.push_back(array4);
-  std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
-
-  // RecordProperty("l", carray->length());
-  // RecordProperty("l0", carray->chunk(0)->length());
-  // RecordProperty("l1", carray->chunk(1)->length());
-  // RecordProperty("l2", carray->chunk(2)->length());
-  // RecordProperty("l3", carray->chunk(3)->length());
-  // RecordProperty("l4", carray->chunk(4)->length());
-
-  // auto a1 = std::static_pointer_cast<StructArray>(carray->chunk(1));
-  // auto a10 = std::static_pointer_cast<StringArray>(a1->field(0));
-  // auto a11 = std::static_pointer_cast<Int32Array>(a1->field(1));
-  // RecordProperty("l10", a10->length());
-  // RecordProperty("l11", a11->length());
-  // auto a3 = std::static_pointer_cast<StructArray>(carray->chunk(3));
-  // auto a30 = std::static_pointer_cast<StringArray>(a3->field(0));
-  // auto a31 = std::static_pointer_cast<Int32Array>(a3->field(1));
-  // RecordProperty("l30", a30->length());
-  // RecordProperty("l31", a31->length());
-
-  // for (int i = 0; i < 50; i++) {
-  //   RecordProperty("xn" + std::to_string(i), a1->IsNull(i));
-  //   if (i % 2) {
-  //     RecordProperty("s" + std::to_string(i), a10->GetString(i));
-  //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
-  //   } else {
-  //     RecordProperty("i" + std::to_string(i), a11->Value(i));
-  //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
-  //   }
-  // }
-  // for (int i = 0; i < 50; i++) {
-  //   RecordProperty("xn" + std::to_string(50 + i), a3->IsNull(i));
-  //   if (i % 2) {
-  //     RecordProperty("s" + std::to_string(50 + i), a30->GetString(i));
-  //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
-  //   } else {
-  //     RecordProperty("i" + std::to_string(50 + i), a31->Value(i));
-  //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
-  //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
-  //   }
-  // }
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
-  ORC_UNIQUE_PTR<liborc::Type> schema(
-      liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
-  liborc::WriterOptions options;
-  ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream, options);
-  uint64_t batchSize = 29;
-  ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch = writer->createRowBatch(batchSize);
-  liborc::StructVectorBatch* root =
-      internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-  liborc::StructVectorBatch* x =
-      internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
-  liborc::StringVectorBatch* a =
-      internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
-  liborc::LongVectorBatch* b =
-      internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
-  int64_t arrowIndexOffset = 0;
-  int arrowChunkOffset = 0;
-  uint64_t resultOffset = 0;
-  while (resultOffset < totalLength - batchSize) {
-    Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                         batchSize, carray.get());
-    if (!st.ok()) {
-      FAIL() << "ORC ColumnBatch not successfully filled";
-    }
-    writer->add(*batch);
-    EXPECT_EQ(x->numElements, batchSize);
-    EXPECT_EQ(a->numElements, batchSize);
-    EXPECT_EQ(b->numElements, batchSize);
-    EXPECT_TRUE(x->hasNulls);
-    EXPECT_TRUE(a->hasNulls);
-    EXPECT_TRUE(b->hasNulls);
-    for (uint64_t i = 0; i < batchSize; i++) {
-      if ((i + resultOffset) % 2) {
-        EXPECT_TRUE(a->notNull[i]);
-        EXPECT_FALSE(b->notNull[i]);
-        EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
-        if ((i + resultOffset) >= 10)
-          EXPECT_EQ(a->length[i], 7);
-        else
-          EXPECT_EQ(a->length[i], 6);
-      } else {
-        EXPECT_FALSE(a->notNull[i]);
-        EXPECT_TRUE(b->notNull[i]);
-        EXPECT_EQ(b->data[i], i + resultOffset);
-      }
-      if ((i + resultOffset) % 3) {
-        EXPECT_TRUE(x->notNull[i]);
-      } else {
-        EXPECT_FALSE(x->notNull[i]);
-      }
-    }
-    resultOffset = resultOffset + batchSize;
-    batch->clear();
-  }
-  Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset, arrowChunkOffset,
-                                       batchSize, carray.get());
-  uint64_t lastBatchSize = totalLength - resultOffset;
-  EXPECT_EQ(x->numElements, lastBatchSize);
-  EXPECT_EQ(a->numElements, lastBatchSize);
-  EXPECT_EQ(b->numElements, lastBatchSize);
-  EXPECT_TRUE(x->hasNulls);
-  EXPECT_TRUE(a->hasNulls);
-  EXPECT_TRUE(b->hasNulls);
-  for (uint64_t i = 0; i < lastBatchSize; i++) {
-    if ((i + resultOffset) % 2) {
-      EXPECT_TRUE(a->notNull[i]);
-      EXPECT_FALSE(b->notNull[i]);
-      EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
-      if ((i + resultOffset) >= 10)
-        EXPECT_EQ(a->length[i], 7);
-      else
-        EXPECT_EQ(a->length[i], 6);
-    } else {
-      EXPECT_FALSE(a->notNull[i]);
-      EXPECT_TRUE(b->notNull[i]);
-      EXPECT_EQ(b->data[i], i + resultOffset);
-    }
-    if ((i + resultOffset) % 3) {
-      EXPECT_TRUE(x->notNull[i]);
-    } else {
-      EXPECT_FALSE(x->notNull[i]);
-    }
-  }
-  writer->add(*batch);
-  writer->close();
-}
+// TEST(TestAdapterWriteNested, writeStructEmpty) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder1;
+//   Int32Builder builder2;
+//   std::shared_ptr<Array> array1;
+//   (void)(builder1.Finish(&array1));
+//   std::shared_ptr<Array> array2;
+//   (void)(builder2.Finish(&array2));
+
+//   std::vector<std::shared_ptr<Array>> children;
+//   children.push_back(array1);
+//   children.push_back(array2);
+
+//   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 0, children);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowOffset = 0;
+//   int64_t orcOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset,
+//   batchSize,
+//                                        array.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 0);
+//   EXPECT_FALSE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 0);
+//   EXPECT_FALSE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 0);
+//   EXPECT_FALSE(b->hasNulls);
+
+//   EXPECT_EQ(arrowOffset, 0);
+//   EXPECT_EQ(orcOffset, 0);
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructNoNulls) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder1;
+//   (void)(builder1.Append("A"));
+//   (void)(builder1.Append("AB"));
+//   (void)(builder1.Append(""));
+//   (void)(builder1.Append("ABCD"));
+
+//   Int32Builder builder2;
+//   (void)(builder2.Append(3));
+//   (void)(builder2.Append(-12));
+//   (void)(builder2.Append(25));
+//   (void)(builder2.Append(76));
+
+//   std::shared_ptr<Array> array1;
+//   (void)(builder1.Finish(&array1));
+//   std::shared_ptr<Array> array2;
+//   (void)(builder2.Finish(&array2));
+
+//   std::vector<std::shared_ptr<Array>> children;
+//   children.push_back(array1);
+//   children.push_back(array2);
+
+//   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowOffset = 0;
+//   int64_t orcOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset,
+//   batchSize,
+//                                        array.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 4);
+//   EXPECT_FALSE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 4);
+//   EXPECT_FALSE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 4);
+//   EXPECT_FALSE(b->hasNulls);
+
+//   EXPECT_STREQ(a->data[0], "A");
+//   EXPECT_STREQ(a->data[1], "AB");
+//   EXPECT_STREQ(a->data[2], "");
+//   EXPECT_STREQ(a->data[3], "ABCD");
+//   EXPECT_EQ(a->length[0], 1);
+//   EXPECT_EQ(a->length[1], 2);
+//   EXPECT_EQ(a->length[2], 0);
+//   EXPECT_EQ(a->length[3], 4);
+
+//   EXPECT_EQ(b->data[0], 3);
+//   EXPECT_EQ(b->data[1], -12);
+//   EXPECT_EQ(b->data[2], 25);
+//   EXPECT_EQ(b->data[3], 76);
+
+//   EXPECT_EQ(arrowOffset, 4);
+//   EXPECT_EQ(orcOffset, 4);
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructMixedParentNoNulls) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder1;
+//   (void)(builder1.Append("A"));
+//   (void)(builder1.Append("AB"));
+//   (void)(builder1.AppendNull());
+//   (void)(builder1.AppendNull());
+
+//   Int32Builder builder2;
+//   (void)(builder2.Append(3));
+//   (void)(builder2.AppendNull());
+//   (void)(builder2.Append(25));
+//   (void)(builder2.AppendNull());
+
+//   std::shared_ptr<Array> array1;
+//   (void)(builder1.Finish(&array1));
+//   std::shared_ptr<Array> array2;
+//   (void)(builder2.Finish(&array2));
+
+//   std::vector<std::shared_ptr<Array>> children;
+//   children.push_back(array1);
+//   children.push_back(array2);
+
+//   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowOffset = 0;
+//   int64_t orcOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset,
+//   batchSize,
+//                                        array.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 4);
+//   EXPECT_FALSE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 4);
+//   EXPECT_TRUE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 4);
+//   EXPECT_TRUE(b->hasNulls);
+
+//   EXPECT_STREQ(a->data[0], "A");
+//   EXPECT_STREQ(a->data[1], "AB");
+//   EXPECT_EQ(a->length[0], 1);
+//   EXPECT_EQ(a->length[1], 2);
+//   EXPECT_EQ(a->notNull[0], 1);
+//   EXPECT_EQ(a->notNull[1], 1);
+//   EXPECT_EQ(a->notNull[2], 0);
+//   EXPECT_EQ(a->notNull[3], 0);
+
+//   EXPECT_EQ(b->data[0], 3);
+//   EXPECT_EQ(b->data[2], 25);
+//   EXPECT_EQ(b->notNull[0], 1);
+//   EXPECT_EQ(b->notNull[1], 0);
+//   EXPECT_EQ(b->notNull[2], 1);
+//   EXPECT_EQ(b->notNull[3], 0);
+
+//   EXPECT_EQ(arrowOffset, 4);
+//   EXPECT_EQ(orcOffset, 4);
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructMixedParentHasNulls) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder1;
+//   (void)(builder1.Append("A"));
+//   (void)(builder1.Append("AB"));
+//   (void)(builder1.AppendNull());
+//   (void)(builder1.AppendNull());
+
+//   Int32Builder builder2;
+//   (void)(builder2.Append(3));
+//   (void)(builder2.AppendNull());
+//   (void)(builder2.Append(25));
+//   (void)(builder2.AppendNull());
+
+//   std::shared_ptr<Array> array1;
+//   (void)(builder1.Finish(&array1));
+//   std::shared_ptr<Array> array2;
+//   (void)(builder2.Finish(&array2));
+
+//   std::vector<std::shared_ptr<Array>> children;
+//   children.push_back(array1);
+//   children.push_back(array2);
+
+//   uint8_t bitmap = 14;  // 00001110
+//   auto maybeBuffer = AllocateBuffer(1);
+//   if (!maybeBuffer.ok()) {
+//     FAIL() << "Buffer not created successfully";
+//   }
+//   std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
+//   uint8_t* bufferData = buffer->mutable_data();
+//   std::memcpy(bufferData, &bitmap, 1);
+
+//   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children,
+//   buffer);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowOffset = 0;
+//   int64_t orcOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset,
+//   batchSize,
+//                                        array.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 4);
+//   EXPECT_TRUE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 4);
+//   EXPECT_TRUE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 4);
+//   EXPECT_TRUE(b->hasNulls);
+
+//   EXPECT_EQ(x->notNull[0], 0);
+//   EXPECT_EQ(x->notNull[1], 1);
+//   EXPECT_EQ(x->notNull[2], 1);
+//   EXPECT_EQ(x->notNull[3], 1);
+
+//   EXPECT_STREQ(a->data[0], "A");
+//   EXPECT_STREQ(a->data[1], "AB");
+//   EXPECT_EQ(a->length[0], 1);
+//   EXPECT_EQ(a->length[1], 2);
+//   EXPECT_EQ(a->notNull[0], 1);
+//   EXPECT_EQ(a->notNull[1], 1);
+//   EXPECT_EQ(a->notNull[2], 0);
+//   EXPECT_EQ(a->notNull[3], 0);
+
+//   EXPECT_EQ(b->data[0], 3);
+//   EXPECT_EQ(b->data[2], 25);
+//   EXPECT_EQ(b->notNull[0], 1);
+//   EXPECT_EQ(b->notNull[1], 0);
+//   EXPECT_EQ(b->notNull[2], 1);
+//   EXPECT_EQ(b->notNull[3], 0);
+
+//   EXPECT_EQ(arrowOffset, 4);
+//   EXPECT_EQ(orcOffset, 4);
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructAllNullsParentHasNulls) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder1;
+//   (void)(builder1.AppendNull());
+//   (void)(builder1.AppendNull());
+//   (void)(builder1.AppendNull());
+//   (void)(builder1.AppendNull());
+
+//   Int32Builder builder2;
+//   (void)(builder2.AppendNull());
+//   (void)(builder2.AppendNull());
+//   (void)(builder2.AppendNull());
+//   (void)(builder2.AppendNull());
+
+//   std::shared_ptr<Array> array1;
+//   (void)(builder1.Finish(&array1));
+//   std::shared_ptr<Array> array2;
+//   (void)(builder2.Finish(&array2));
+
+//   std::vector<std::shared_ptr<Array>> children;
+//   children.push_back(array1);
+//   children.push_back(array2);
+
+//   uint8_t bitmap = 14;  // 00001110
+//   auto maybeBuffer = AllocateBuffer(1);
+//   if (!maybeBuffer.ok()) {
+//     FAIL() << "Buffer not created successfully";
+//   }
+//   std::shared_ptr<Buffer> buffer = *std::move(maybeBuffer);
+//   uint8_t* bufferData = buffer->mutable_data();
+//   std::memcpy(bufferData, &bitmap, 1);
+
+//   auto array = std::make_shared<StructArray>(sharedPtrArrowType, 4, children,
+//   buffer);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowOffset = 0;
+//   int64_t orcOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowOffset, orcOffset,
+//   batchSize,
+//                                        array.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 4);
+//   EXPECT_TRUE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 4);
+//   EXPECT_TRUE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 4);
+//   EXPECT_TRUE(b->hasNulls);
+
+//   EXPECT_EQ(x->notNull[0], 0);
+//   EXPECT_EQ(x->notNull[1], 1);
+//   EXPECT_EQ(x->notNull[2], 1);
+//   EXPECT_EQ(x->notNull[3], 1);
+
+//   EXPECT_EQ(a->notNull[0], 0);
+//   EXPECT_EQ(a->notNull[1], 0);
+//   EXPECT_EQ(a->notNull[2], 0);
+//   EXPECT_EQ(a->notNull[3], 0);
+
+//   EXPECT_EQ(b->notNull[0], 0);
+//   EXPECT_EQ(b->notNull[1], 0);
+//   EXPECT_EQ(b->notNull[2], 0);
+//   EXPECT_EQ(b->notNull[3], 0);
+
+//   EXPECT_EQ(arrowOffset, 4);
+//   EXPECT_EQ(orcOffset, 4);
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructChunkedEmpty) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   ArrayVector av;
+//   std::shared_ptr<ChunkedArray> carray =
+//       std::make_shared<ChunkedArray>(av, sharedPtrArrowType);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowIndexOffset = 0;
+//   int arrowChunkOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
+//   arrowChunkOffset,
+//                                        batchSize, carray.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 0);
+//   EXPECT_FALSE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 0);
+//   EXPECT_FALSE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 0);
+//   EXPECT_FALSE(b->hasNulls);
+
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructChunkedMixed) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   StringBuilder builder10, builder11, builder12, builder13, builder14;
+//   (void)(builder11.Append("A"));
+//   (void)(builder11.Append("AB"));
+//   (void)(builder13.AppendNull());
+//   (void)(builder13.AppendNull());
+
+//   Int32Builder builder20, builder21, builder22, builder23, builder24;
+//   (void)(builder21.Append(3));
+//   (void)(builder21.AppendNull());
+//   (void)(builder23.Append(25));
+//   (void)(builder23.AppendNull());
+
+//   std::shared_ptr<Array> array10, array11, array12, array13, array14;
+//   std::shared_ptr<Array> array20, array21, array22, array23, array24;
+
+//   (void)(builder10.Finish(&array10));
+//   (void)(builder11.Finish(&array11));
+//   (void)(builder12.Finish(&array12));
+//   (void)(builder13.Finish(&array13));
+//   (void)(builder14.Finish(&array14));
+//   (void)(builder20.Finish(&array20));
+//   (void)(builder21.Finish(&array21));
+//   (void)(builder22.Finish(&array22));
+//   (void)(builder23.Finish(&array23));
+//   (void)(builder24.Finish(&array24));
+
+//   std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
+//       children4;
+//   children0.push_back(array10);
+//   children0.push_back(array20);
+//   children1.push_back(array11);
+//   children1.push_back(array21);
+//   children2.push_back(array12);
+//   children2.push_back(array22);
+//   children3.push_back(array13);
+//   children3.push_back(array23);
+//   children4.push_back(array14);
+//   children4.push_back(array24);
+
+//   auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
+//   auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
+//   auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
+
+//   uint8_t bitmap1 = 2;  // 00000010
+//   auto maybeBuffer1 = AllocateBuffer(1);
+//   if (!maybeBuffer1.ok()) {
+//     FAIL() << "Buffer not created successfully";
+//   }
+//   std::shared_ptr<Buffer> buffer1 = *std::move(maybeBuffer1);
+//   uint8_t* bufferData1 = buffer1->mutable_data();
+//   std::memcpy(bufferData1, &bitmap1, 1);
+
+//   auto array1 = std::make_shared<StructArray>(sharedPtrArrowType, 2, children1,
+//   buffer1);
+
+//   uint8_t bitmap3 = 1;  // 00000001
+//   auto maybeBuffer3 = AllocateBuffer(1);
+//   if (!maybeBuffer3.ok()) {
+//     FAIL() << "Buffer not created successfully";
+//   }
+//   std::shared_ptr<Buffer> buffer3 = *std::move(maybeBuffer3);
+//   uint8_t* bufferData3 = buffer3->mutable_data();
+//   std::memcpy(bufferData3, &bitmap3, 1);
+
+//   auto array3 = std::make_shared<StructArray>(sharedPtrArrowType, 2, children3,
+//   buffer3);
+
+//   ArrayVector av;
+//   av.push_back(array0);
+//   av.push_back(array1);
+//   av.push_back(array2);
+//   av.push_back(array3);
+//   av.push_back(array4);
+//   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 1024; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch>
+//   batch = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowIndexOffset = 0;
+//   int arrowChunkOffset = 0;
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
+//   arrowChunkOffset,
+//                                        batchSize, carray.get());
+//   if (!st.ok()) {
+//     FAIL() << "ORC ColumnBatch not successfully filled";
+//   }
+//   EXPECT_EQ(x->numElements, 4);
+//   EXPECT_TRUE(x->hasNulls);
+//   EXPECT_EQ(a->numElements, 4);
+//   EXPECT_TRUE(a->hasNulls);
+//   EXPECT_EQ(b->numElements, 4);
+//   EXPECT_TRUE(b->hasNulls);
+
+//   EXPECT_EQ(x->notNull[0], 0);
+//   EXPECT_EQ(x->notNull[1], 1);
+//   EXPECT_EQ(x->notNull[2], 1);
+//   EXPECT_EQ(x->notNull[3], 0);
+
+//   EXPECT_STREQ(a->data[0], "A");
+//   EXPECT_STREQ(a->data[1], "AB");
+//   EXPECT_EQ(a->length[0], 1);
+//   EXPECT_EQ(a->length[1], 2);
+//   EXPECT_EQ(a->notNull[0], 1);
+//   EXPECT_EQ(a->notNull[1], 1);
+//   EXPECT_EQ(a->notNull[2], 0);
+//   EXPECT_EQ(a->notNull[3], 0);
+
+//   EXPECT_EQ(b->data[0], 3);
+//   EXPECT_EQ(b->data[2], 25);
+//   EXPECT_EQ(b->notNull[0], 1);
+//   EXPECT_EQ(b->notNull[1], 0);
+//   EXPECT_EQ(b->notNull[2], 1);
+//   EXPECT_EQ(b->notNull[3], 0);
+
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructChunkedMultibatchParentNoNulls) {
+//   std::vector<std::shared_ptr<Field>> xFields;
+//   xFields.push_back(std::make_shared<Field>("a", utf8()));
+//   xFields.push_back(std::make_shared<Field>("b", int32()));
+//   auto sharedPtrArrowType = struct_(xFields);
+//   DataType* arrowType = sharedPtrArrowType.get();
+
+//   uint64_t totalLength = 100;
+//   StringBuilder builder00, builder01, builder02, builder03, builder04;
+//   Int32Builder builder10, builder11, builder12, builder13, builder14;
+//   for (int i = 0; i < 50; i++) {
+//     if (i % 2) {
+//       (void)(builder01.Append("Test " + std::to_string(i)));
+//       (void)(builder11.AppendNull());
+//     } else {
+//       (void)(builder01.AppendNull());
+//       (void)(builder11.Append(i));
+//     }
+//   }
+//   for (int i = 50; i < 100; i++) {
+//     if (i % 2) {
+//       (void)(builder03.Append("Test " + std::to_string(i)));
+//       (void)(builder13.AppendNull());
+//     } else {
+//       (void)(builder03.AppendNull());
+//       (void)(builder13.Append(i));
+//     }
+//   }
+
+//   std::shared_ptr<Array> array00, array01, array02, array03, array04;
+//   std::shared_ptr<Array> array10, array11, array12, array13, array14;
+
+//   (void)(builder10.Finish(&array10));
+//   (void)(builder11.Finish(&array11));
+//   (void)(builder12.Finish(&array12));
+//   (void)(builder13.Finish(&array13));
+//   (void)(builder14.Finish(&array14));
+//   (void)(builder00.Finish(&array00));
+//   (void)(builder01.Finish(&array01));
+//   (void)(builder02.Finish(&array02));
+//   (void)(builder03.Finish(&array03));
+//   (void)(builder04.Finish(&array04));
+
+//   std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
+//       children4;
+//   children0.push_back(array00);
+//   children0.push_back(array10);
+//   children1.push_back(array01);
+//   children1.push_back(array11);
+//   children2.push_back(array02);
+//   children2.push_back(array12);
+//   children3.push_back(array03);
+//   children3.push_back(array13);
+//   children4.push_back(array04);
+//   children4.push_back(array14);
+
+//   auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
+//   auto array1 = std::make_shared<StructArray>(sharedPtrArrowType, 50, children1);
+//   auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
+//   auto array3 = std::make_shared<StructArray>(sharedPtrArrowType, 50, children3);
+//   auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
+//   ArrayVector av;
+//   av.push_back(array0);
+//   av.push_back(array1);
+//   av.push_back(array2);
+//   av.push_back(array3);
+//   av.push_back(array4);
+//   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+
+//   // RecordProperty("l", carray->length());
+//   // RecordProperty("l0", carray->chunk(0)->length());
+//   // RecordProperty("l1", carray->chunk(1)->length());
+//   // RecordProperty("l2", carray->chunk(2)->length());
+//   // RecordProperty("l3", carray->chunk(3)->length());
+//   // RecordProperty("l4", carray->chunk(4)->length());
+
+//   // auto a1 = std::static_pointer_cast<StructArray>(carray->chunk(1));
+//   // auto a10 = std::static_pointer_cast<StringArray>(a1->field(0));
+//   // auto a11 = std::static_pointer_cast<Int32Array>(a1->field(1));
+//   // RecordProperty("l10", a10->length());
+//   // RecordProperty("l11", a11->length());
+//   // auto a3 = std::static_pointer_cast<StructArray>(carray->chunk(3));
+//   // auto a30 = std::static_pointer_cast<StringArray>(a3->field(0));
+//   // auto a31 = std::static_pointer_cast<Int32Array>(a3->field(1));
+//   // RecordProperty("l30", a30->length());
+//   // RecordProperty("l31", a31->length());
+
+//   // for (int i = 0; i < 50; i++) {
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(i), a10->GetString(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(i), a11->Value(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   }
+//   // }
+//   // for (int i = 0; i < 50; i++) {
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(50 + i), a30->GetString(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(50 + i), a31->Value(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   }
+//   // }
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE);
+//   ORC_UNIQUE_PTR<liborc::Type> schema(
+//       liborc::Type::buildTypeFromString("struct<x:struct<a:string,b:int>>"));
+//   liborc::WriterOptions options;
+//   ORC_UNIQUE_PTR<liborc::Writer> writer = createWriter(*schema, &mem_stream,
+//   options); uint64_t batchSize = 25; ORC_UNIQUE_PTR<liborc::ColumnVectorBatch> batch
+//   = writer->createRowBatch(batchSize); liborc::StructVectorBatch* root =
+//       internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+//   liborc::StructVectorBatch* x =
+//       internal::checked_cast<liborc::StructVectorBatch*>(root->fields[0]);
+//   liborc::StringVectorBatch* a =
+//       internal::checked_cast<liborc::StringVectorBatch*>(x->fields[0]);
+//   liborc::LongVectorBatch* b =
+//       internal::checked_cast<liborc::LongVectorBatch*>(x->fields[1]);
+//   int64_t arrowIndexOffset = 0;
+//   int arrowChunkOffset = 0;
+//   uint64_t resultOffset = 0;
+//   while (resultOffset < totalLength - batchSize) {
+//     Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
+//     arrowChunkOffset,
+//                                          batchSize, carray.get());
+//     if (!st.ok()) {
+//       FAIL() << "ORC ColumnBatch not successfully filled";
+//     }
+//     writer->add(*batch);
+//     EXPECT_EQ(x->numElements, batchSize);
+//     EXPECT_EQ(a->numElements, batchSize);
+//     EXPECT_EQ(b->numElements, batchSize);
+//     EXPECT_FALSE(x->hasNulls);
+//     EXPECT_TRUE(a->hasNulls);
+//     EXPECT_TRUE(b->hasNulls);
+//     for (uint64_t i = 0; i < batchSize; i++) {
+//       if ((i + resultOffset) % 2) {
+//         EXPECT_TRUE(a->notNull[i]);
+//         EXPECT_FALSE(b->notNull[i]);
+//         EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
+//         if ((i + resultOffset) >= 10)
+//           EXPECT_EQ(a->length[i], 7);
+//         else
+//           EXPECT_EQ(a->length[i], 6);
+//       } else {
+//         EXPECT_FALSE(a->notNull[i]);
+//         EXPECT_TRUE(b->notNull[i]);
+//         EXPECT_EQ(b->data[i], i + resultOffset);
+//       }
+//     }
+//     resultOffset = resultOffset + batchSize;
+//     batch->clear();
+//   }
+//   Status st = adapters::orc::FillBatch(arrowType, x, arrowIndexOffset,
+//   arrowChunkOffset,
+//                                        batchSize, carray.get());
+//   uint64_t lastBatchSize = totalLength - resultOffset;
+//   EXPECT_EQ(x->numElements, lastBatchSize);
+//   EXPECT_EQ(a->numElements, lastBatchSize);
+//   EXPECT_EQ(b->numElements, lastBatchSize);
+//   EXPECT_FALSE(x->hasNulls);
+//   EXPECT_TRUE(a->hasNulls);
+//   EXPECT_TRUE(b->hasNulls);
+//   for (uint64_t i = 0; i < lastBatchSize; i++) {
+//     if ((i + resultOffset) % 2) {
+//       EXPECT_TRUE(a->notNull[i]);
+//       EXPECT_FALSE(b->notNull[i]);
+//       EXPECT_EQ(a->data[i], "Test " + std::to_string(i + resultOffset));
+//       if ((i + resultOffset) >= 10)
+//         EXPECT_EQ(a->length[i], 7);
+//       else
+//         EXPECT_EQ(a->length[i], 6);
+//     } else {
+//       EXPECT_FALSE(a->notNull[i]);
+//       EXPECT_TRUE(b->notNull[i]);
+//       EXPECT_EQ(b->data[i], i + resultOffset);
+//     }
+//   }
+//   writer->add(*batch);
+//   writer->close();
+// }
+// TEST(TestAdapterWriteNested, writeStructChunkedMultibatchParentHasNulls0) {
+//   std::vector<std::shared_ptr<Field>> xFields0{std::make_shared<Field>("a", utf8()),
+//                                                std::make_shared<Field>("b",
+//                                                int32())};
+//   std::vector<std::shared_ptr<Field>> xFields{field("struct", struct_(xFields0))};
+//   std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+//   auto sharedPtrArrowType = xFields[0]->type();
+
+//   int64_t numRows = 100;
+//   int64_t numCols = xFields.size();
+//   uint64_t batchSize = 100;
+
+//   StringBuilder builder00, builder01, builder02, builder03, builder04;
+//   Int32Builder builder10, builder11, builder12, builder13, builder14;
+//   for (int i = 0; i < 50; i++) {
+//     if (i % 2) {
+//       (void)(builder01.Append("Test " + std::to_string(i)));
+//       (void)(builder11.AppendNull());
+//     } else {
+//       (void)(builder01.AppendNull());
+//       (void)(builder11.Append(i));
+//     }
+//   }
+//   for (int i = 50; i < 100; i++) {
+//     if (i % 2) {
+//       (void)(builder03.Append("Test " + std::to_string(i)));
+//       (void)(builder13.AppendNull());
+//     } else {
+//       (void)(builder03.AppendNull());
+//       (void)(builder13.Append(i));
+//     }
+//   }
+
+//   // Every third entry has null at struct level
+//   uint8_t bitmap1[7] = {
+//       182, 109, 219, 182,
+//       109, 219, 2};  // 10110110 01101101 11011011 10110110 01101101 11011011
+//       00000010
+//   uint8_t bitmap3[7] = {
+//       109, 219, 182, 109,
+//       219, 182, 1};  // 01101101 11011011 10110110 01101101 11011011 10110110
+//       00000001
+
+//   BufferBuilder builder1, builder3;
+//   (void)(builder1.Resize(7));
+//   (void)(builder1.Append(bitmap1, 7));
+//   std::shared_ptr<arrow::Buffer> bitmapBuffer1;
+//   if (!builder1.Finish(&bitmapBuffer1).ok()) {
+//     FAIL() << "The offsets buffer can not be constructed!";
+//   }
+//   (void)(builder3.Resize(7));
+//   (void)(builder3.Append(bitmap3, 7));
+//   std::shared_ptr<arrow::Buffer> bitmapBuffer3;
+//   if (!builder3.Finish(&bitmapBuffer3).ok()) {
+//     FAIL() << "The offsets buffer can not be constructed!";
+//   }
+
+//   std::shared_ptr<Array> array00, array01, array02, array03, array04;
+//   std::shared_ptr<Array> array10, array11, array12, array13, array14;
+
+//   (void)(builder10.Finish(&array10));
+//   (void)(builder11.Finish(&array11));
+//   (void)(builder12.Finish(&array12));
+//   (void)(builder13.Finish(&array13));
+//   (void)(builder14.Finish(&array14));
+//   (void)(builder00.Finish(&array00));
+//   (void)(builder01.Finish(&array01));
+//   (void)(builder02.Finish(&array02));
+//   (void)(builder03.Finish(&array03));
+//   (void)(builder04.Finish(&array04));
+
+//   std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
+//       children4;
+//   children0.push_back(array00);
+//   children0.push_back(array10);
+//   children1.push_back(array01);
+//   children1.push_back(array11);
+//   children2.push_back(array02);
+//   children2.push_back(array12);
+//   children3.push_back(array03);
+//   children3.push_back(array13);
+//   children4.push_back(array04);
+//   children4.push_back(array14);
+
+//   auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
+//   auto array1 =
+//       std::make_shared<StructArray>(sharedPtrArrowType, 50, children1,
+//       bitmapBuffer1);
+//   auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
+//   auto array3 =
+//       std::make_shared<StructArray>(sharedPtrArrowType, 50, children3,
+//       bitmapBuffer3);
+//   auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
+//   ArrayVector av;
+//   av.push_back(array0);
+//   av.push_back(array1);
+//   av.push_back(array2);
+//   av.push_back(array3);
+//   av.push_back(array4);
+//   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+
+//   // RecordProperty("l", carray->length());
+//   // RecordProperty("l0", carray->chunk(0)->length());
+//   // RecordProperty("l1", carray->chunk(1)->length());
+//   // RecordProperty("l2", carray->chunk(2)->length());
+//   // RecordProperty("l3", carray->chunk(3)->length());
+//   // RecordProperty("l4", carray->chunk(4)->length());
+
+//   // auto a1 = std::static_pointer_cast<StructArray>(carray->chunk(1));
+//   // auto a10 = std::static_pointer_cast<StringArray>(a1->field(0));
+//   // auto a11 = std::static_pointer_cast<Int32Array>(a1->field(1));
+//   // RecordProperty("l10", a10->length());
+//   // RecordProperty("l11", a11->length());
+//   // auto a3 = std::static_pointer_cast<StructArray>(carray->chunk(3));
+//   // auto a30 = std::static_pointer_cast<StringArray>(a3->field(0));
+//   // auto a31 = std::static_pointer_cast<Int32Array>(a3->field(1));
+//   // RecordProperty("l30", a30->length());
+//   // RecordProperty("l31", a31->length());
+
+//   // for (int i = 0; i < 50; i++) {
+//   //   RecordProperty("xn" + std::to_string(i), a1->IsNull(i));
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(i), a10->GetString(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(i), a11->Value(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   }
+//   // }
+//   // for (int i = 0; i < 50; i++) {
+//   //   RecordProperty("xn" + std::to_string(50 + i), a3->IsNull(i));
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(50 + i), a30->GetString(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(50 + i), a31->Value(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   }
+//   // }
+//   ChunkedArrayVector cv{carray};
+//   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE * 50);
+//   std::shared_ptr<adapters::orc::ORCWriterOptions> options =
+//       std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
+//   std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+//   std::unique_ptr<liborc::OutputStream> out_stream =
+//       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
+//           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+//   // std::shared_ptr<io::FileOutputStream> file =
+//   //     std::move(io::FileOutputStream::Open(
+//   //                   "/Users/karlkatzen/Documents/code/orc-files/Structtest.orc",
+//   //                   false))
+//   //         .ValueOrDie();
+//   ARROW_EXPECT_OK(
+//       adapters::orc::ORCFileWriter::Open(sharedPtrSchema, out_stream, options,
+//       &writer));
+//   ARROW_EXPECT_OK(writer->Write(table));
+//   auto output_mem_stream =
+//   static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
+//   std::shared_ptr<io::RandomAccessFile> in_stream(
+//       new io::BufferReader(std::make_shared<Buffer>(
+//           reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
+//           static_cast<int64_t>(output_mem_stream->getLength()))));
+
+//   std::unique_ptr<adapters::orc::ORCFileReader> reader;
+//   ASSERT_TRUE(
+//       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(),
+//       &reader).ok());
+//   std::shared_ptr<Table> outputTable;
+//   ARROW_EXPECT_OK(reader->Read(&outputTable));
+//   EXPECT_EQ(outputTable->num_columns(), numCols);
+//   EXPECT_EQ(outputTable->num_rows(), numRows);
+//   EXPECT_TRUE(outputTable->Equals(*table));
+//   RecordProperty("tab", table->ToString());
+//   RecordProperty("outtab", outputTable->ToString());
+//   for (int i = 0; i < 50; i++) {
+//     RecordProperty(
+//         "1xn" + std::to_string(i),
+//         std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->IsNull(i));
+//     if (i % 2) {
+//       RecordProperty(
+//           "1s" + std::to_string(i),
+//           std::static_pointer_cast<StringArray>(
+//               std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->field(0))
+//               ->GetString(i));
+//       RecordProperty("1an" + std::to_string(i),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                          ->field(0)
+//                          ->IsNull(i));
+//       RecordProperty("1bn" + std::to_string(i),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                          ->field(1)
+//                          ->IsNull(i));
+//     } else {
+//       RecordProperty(
+//           "1i" + std::to_string(i),
+//           std::static_pointer_cast<Int32Array>(
+//               std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->field(1))
+//               ->Value(i));
+//       RecordProperty("1an" + std::to_string(i),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                          ->field(0)
+//                          ->IsNull(i));
+//       RecordProperty("1bn" + std::to_string(i),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                          ->field(1)
+//                          ->IsNull(i));
+//     }
+//   }
+//   for (int i = 0; i < 50; i++) {
+//     RecordProperty(
+//         "1xn" + std::to_string(i + 50),
+//         std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->IsNull(i));
+//     if (i % 2) {
+//       RecordProperty(
+//           "1s" + std::to_string(i + 50),
+//           std::static_pointer_cast<StringArray>(
+//               std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->field(0))
+//               ->GetString(i));
+//       RecordProperty("1an" + std::to_string(i + 50),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                          ->field(0)
+//                          ->IsNull(i));
+//       RecordProperty("1bn" + std::to_string(i + 50),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                          ->field(1)
+//                          ->IsNull(i));
+//     } else {
+//       RecordProperty(
+//           "1i" + std::to_string(i + 50),
+//           std::static_pointer_cast<Int32Array>(
+//               std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->field(1))
+//               ->Value(i));
+//       RecordProperty("1an" + std::to_string(i + 50),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                          ->field(0)
+//                          ->IsNull(i));
+//       RecordProperty("1bn" + std::to_string(i + 50),
+//                      std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                          ->field(1)
+//                          ->IsNull(i));
+//     }
+//   }
+//   for (int i = 0; i < 100; i++) {
+//     RecordProperty("xn" + std::to_string(i),
+//     outputTable->column(0)->chunk(0)->IsNull(i)); if (i % 2) {
+//       RecordProperty(
+//           "s" + std::to_string(i),
+//           std::static_pointer_cast<StringArray>(
+//               std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                   ->field(0))
+//               ->GetString(i));
+//       RecordProperty("an" + std::to_string(i), std::static_pointer_cast<StructArray>(
+//                                                    outputTable->column(0)->chunk(0))
+//                                                    ->field(0)
+//                                                    ->IsNull(i));
+//       RecordProperty("bn" + std::to_string(i), std::static_pointer_cast<StructArray>(
+//                                                    outputTable->column(0)->chunk(0))
+//                                                    ->field(1)
+//                                                    ->IsNull(i));
+//     } else {
+//       RecordProperty(
+//           "i" + std::to_string(i),
+//           std::static_pointer_cast<Int32Array>(
+//               std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                   ->field(1))
+//               ->Value(i));
+//       RecordProperty("an" + std::to_string(i), std::static_pointer_cast<StructArray>(
+//                                                    outputTable->column(0)->chunk(0))
+//                                                    ->field(0)
+//                                                    ->IsNull(i));
+//       RecordProperty("bn" + std::to_string(i), std::static_pointer_cast<StructArray>(
+//                                                    outputTable->column(0)->chunk(0))
+//                                                    ->field(1)
+//                                                    ->IsNull(i));
+//     }
+//   }
+// }
+// TEST(TestAdapterWriteNested, writeStructChunkedMultibatchParentHasNulls1) {
+//   std::vector<std::shared_ptr<Field>> xFields0{std::make_shared<Field>("a", utf8()),
+//                                                std::make_shared<Field>("b",
+//                                                int32())};
+//   std::vector<std::shared_ptr<Field>> xFields{field("struct", struct_(xFields0))};
+//   std::shared_ptr<Schema> sharedPtrSchema = std::make_shared<Schema>(xFields);
+//   auto sharedPtrArrowType = xFields[0]->type();
+
+//   int64_t numRows = 100;
+//   int64_t numCols = xFields.size();
+//   uint64_t batchSize = 100;
+
+//   StringBuilder builder00, builder01, builder02, builder03, builder04;
+//   Int32Builder builder10, builder11, builder12, builder13, builder14;
+//   for (int i = 0; i < 50; i++) {
+//     if (i % 2) {
+//       (void)(builder01.Append("Test " + std::to_string(i)));
+//       (void)(builder11.Append(i + 100));
+//     } else {
+//       (void)(builder01.Append("Test " + std::to_string(i)));
+//       (void)(builder11.Append(i + 100));
+//       // (void)(builder01.AppendNull());
+//       // (void)(builder11.AppendNull());
+//     }
+//   }
+//   for (int i = 50; i < 100; i++) {
+//     if (i % 2) {
+//       (void)(builder03.Append("Test " + std::to_string(i)));
+//       (void)(builder13.Append(i + 100));
+//     } else {
+//       (void)(builder03.Append("Test " + std::to_string(i)));
+//       (void)(builder13.Append(i + 100));
+//       // (void)(builder03.AppendNull());
+//       // (void)(builder13.AppendNull());
+//     }
+//   }
+
+//   // Every third entry has null at struct level
+//   uint8_t bitmap1[7] = {
+//       182, 109, 219, 182,
+//       109, 219, 2};  // 10110110 01101101 11011011 10110110 01101101 11011011
+//       00000010
+//   uint8_t bitmap3[7] = {
+//       109, 219, 182, 109,
+//       219, 182, 1};  // 01101101 11011011 10110110 01101101 11011011 10110110
+//       00000001
+
+//   BufferBuilder builder1, builder3;
+//   (void)(builder1.Resize(7));
+//   (void)(builder1.Append(bitmap1, 7));
+//   std::shared_ptr<arrow::Buffer> bitmapBuffer1;
+//   if (!builder1.Finish(&bitmapBuffer1).ok()) {
+//     FAIL() << "The offsets buffer can not be constructed!";
+//   }
+//   (void)(builder3.Resize(7));
+//   (void)(builder3.Append(bitmap3, 7));
+//   std::shared_ptr<arrow::Buffer> bitmapBuffer3;
+//   if (!builder3.Finish(&bitmapBuffer3).ok()) {
+//     FAIL() << "The offsets buffer can not be constructed!";
+//   }
+
+//   std::shared_ptr<Array> array00, array01, array02, array03, array04;
+//   std::shared_ptr<Array> array10, array11, array12, array13, array14;
+
+//   (void)(builder10.Finish(&array10));
+//   (void)(builder11.Finish(&array11));
+//   (void)(builder12.Finish(&array12));
+//   (void)(builder13.Finish(&array13));
+//   (void)(builder14.Finish(&array14));
+//   (void)(builder00.Finish(&array00));
+//   (void)(builder01.Finish(&array01));
+//   (void)(builder02.Finish(&array02));
+//   (void)(builder03.Finish(&array03));
+//   (void)(builder04.Finish(&array04));
+
+//   std::vector<std::shared_ptr<Array>> children0, children1, children2, children3,
+//       children4;
+//   children0.push_back(array00);
+//   children0.push_back(array10);
+//   children1.push_back(array01);
+//   children1.push_back(array11);
+//   children2.push_back(array02);
+//   children2.push_back(array12);
+//   children3.push_back(array03);
+//   children3.push_back(array13);
+//   children4.push_back(array04);
+//   children4.push_back(array14);
+
+//   auto array0 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children0);
+//   auto array1 =
+//       std::make_shared<StructArray>(sharedPtrArrowType, 50, children1,
+//       bitmapBuffer1);
+//   auto array2 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children2);
+//   auto array3 =
+//       std::make_shared<StructArray>(sharedPtrArrowType, 50, children3,
+//       bitmapBuffer3);
+//   auto array4 = std::make_shared<StructArray>(sharedPtrArrowType, 0, children4);
+//   ArrayVector av;
+//   av.push_back(array0);
+//   av.push_back(array1);
+//   av.push_back(array2);
+//   av.push_back(array3);
+//   av.push_back(array4);
+//   std::shared_ptr<ChunkedArray> carray = std::make_shared<ChunkedArray>(av);
+
+//   // RecordProperty("l", carray->length());
+//   // RecordProperty("l0", carray->chunk(0)->length());
+//   // RecordProperty("l1", carray->chunk(1)->length());
+//   // RecordProperty("l2", carray->chunk(2)->length());
+//   // RecordProperty("l3", carray->chunk(3)->length());
+//   // RecordProperty("l4", carray->chunk(4)->length());
+
+//   // auto a1 = std::static_pointer_cast<StructArray>(carray->chunk(1));
+//   // auto a10 = std::static_pointer_cast<StringArray>(a1->field(0));
+//   // auto a11 = std::static_pointer_cast<Int32Array>(a1->field(1));
+//   // RecordProperty("l10", a10->length());
+//   // RecordProperty("l11", a11->length());
+//   // auto a3 = std::static_pointer_cast<StructArray>(carray->chunk(3));
+//   // auto a30 = std::static_pointer_cast<StringArray>(a3->field(0));
+//   // auto a31 = std::static_pointer_cast<Int32Array>(a3->field(1));
+//   // RecordProperty("l30", a30->length());
+//   // RecordProperty("l31", a31->length());
+
+//   // for (int i = 0; i < 50; i++) {
+//   //   RecordProperty("xn" + std::to_string(i), a1->IsNull(i));
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(i), a10->GetString(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(i), a11->Value(i));
+//   //     RecordProperty("an" + std::to_string(i), a10->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(i), a11->IsNull(i));
+//   //   }
+//   // }
+//   // for (int i = 0; i < 50; i++) {
+//   //   RecordProperty("xn" + std::to_string(50 + i), a3->IsNull(i));
+//   //   if (i % 2) {
+//   //     RecordProperty("s" + std::to_string(50 + i), a30->GetString(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   } else {
+//   //     RecordProperty("i" + std::to_string(50 + i), a31->Value(i));
+//   //     RecordProperty("an" + std::to_string(50 + i), a30->IsNull(i));
+//   //     RecordProperty("bn" + std::to_string(50 + i), a31->IsNull(i));
+//   //   }
+//   // }
+//   ChunkedArrayVector cv{carray};
+//   std::shared_ptr<Table> table = Table::Make(sharedPtrSchema, cv);
+
+//   MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE * 50);
+//   std::shared_ptr<adapters::orc::ORCWriterOptions> options =
+//       std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
+//   std::unique_ptr<adapters::orc::ORCFileWriter> writer;
+//   std::unique_ptr<liborc::OutputStream> out_stream =
+//       std::unique_ptr<liborc::OutputStream>(static_cast<liborc::OutputStream*>(
+//           new MemoryOutputStream(DEFAULT_SMALL_MEM_STREAM_SIZE)));
+//   // std::shared_ptr<io::FileOutputStream> file =
+//   //     std::move(io::FileOutputStream::Open(
+//   //                   "/Users/karlkatzen/Documents/code/orc-files/Structtest.orc",
+//   //                   false))
+//   //         .ValueOrDie();
+//   ARROW_EXPECT_OK(
+//       adapters::orc::ORCFileWriter::Open(sharedPtrSchema, out_stream, options,
+//       &writer));
+//   ARROW_EXPECT_OK(writer->Write(table));
+//   auto output_mem_stream =
+//   static_cast<MemoryOutputStream*>(writer->ReleaseOutStream());
+//   std::shared_ptr<io::RandomAccessFile> in_stream(
+//       new io::BufferReader(std::make_shared<Buffer>(
+//           reinterpret_cast<const uint8_t*>(output_mem_stream->getData()),
+//           static_cast<int64_t>(output_mem_stream->getLength()))));
+
+//   std::unique_ptr<adapters::orc::ORCFileReader> reader;
+//   ASSERT_TRUE(
+//       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(),
+//       &reader).ok());
+//   std::shared_ptr<Table> outputTable;
+//   ARROW_EXPECT_OK(reader->Read(&outputTable));
+//   EXPECT_EQ(outputTable->num_columns(), numCols);
+//   EXPECT_EQ(outputTable->num_rows(), numRows);
+//   EXPECT_TRUE(outputTable->Equals(*table));
+//   RecordProperty("tab", table->ToString());
+//   RecordProperty("outtab", outputTable->ToString());
+//   for (int i = 0; i < 50; i++) {
+//     RecordProperty(
+//         "1xn" + std::to_string(i),
+//         std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->IsNull(i));
+//     RecordProperty(
+//         "1i" + std::to_string(i),
+//         std::static_pointer_cast<Int32Array>(
+//             std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->field(1))
+//             ->Value(i));
+//     RecordProperty(
+//         "1s" + std::to_string(i),
+//         std::static_pointer_cast<StringArray>(
+//             std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))->field(0))
+//             ->GetString(i));
+//     RecordProperty("1an" + std::to_string(i),
+//                    std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                        ->field(0)
+//                        ->IsNull(i));
+//     RecordProperty("1bn" + std::to_string(i),
+//                    std::static_pointer_cast<StructArray>(table->column(0)->chunk(1))
+//                        ->field(1)
+//                        ->IsNull(i));
+//   }
+//   for (int i = 0; i < 50; i++) {
+//     RecordProperty(
+//         "1xn" + std::to_string(i + 50),
+//         std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->IsNull(i));
+//     RecordProperty(
+//         "1s" + std::to_string(i + 50),
+//         std::static_pointer_cast<StringArray>(
+//             std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->field(0))
+//             ->GetString(i));
+//     RecordProperty(
+//         "1i" + std::to_string(i + 50),
+//         std::static_pointer_cast<Int32Array>(
+//             std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))->field(1))
+//             ->Value(i));
+//     RecordProperty("1an" + std::to_string(i + 50),
+//                    std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                        ->field(0)
+//                        ->IsNull(i));
+//     RecordProperty("1bn" + std::to_string(i + 50),
+//                    std::static_pointer_cast<StructArray>(table->column(0)->chunk(3))
+//                        ->field(1)
+//                        ->IsNull(i));
+//   }
+//   for (int i = 0; i < 100; i++) {
+//     RecordProperty("xn" + std::to_string(i),
+//     outputTable->column(0)->chunk(0)->IsNull(i)); RecordProperty(
+//         "s" + std::to_string(i),
+//         std::static_pointer_cast<StringArray>(
+//             std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                 ->field(0))
+//             ->GetString(i));
+//     RecordProperty(
+//         "i" + std::to_string(i),
+//         std::static_pointer_cast<Int32Array>(
+//             std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                 ->field(1))
+//             ->Value(i));
+//     RecordProperty("an" + std::to_string(i),
+//                    std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                        ->field(0)
+//                        ->IsNull(i));
+//     RecordProperty("bn" + std::to_string(i),
+//                    std::static_pointer_cast<StructArray>(outputTable->column(0)->chunk(0))
+//                        ->field(1)
+//                        ->IsNull(i));
+//   }
+// }  // namespace arrow
 
 // List
 TEST(TestAdapterWriteNested, writeListEmpty) {
@@ -11082,183 +11857,6 @@ TEST(TestAdapterWriteNested, writeSparseUnionChunkedMultibatch) {
   }
   writer->add(*batch);
   writer->close();
-}
-
-TEST(TestAdapterWrite, writeMixed) {
-  std::vector<std::shared_ptr<Field>> xFieldsIn{
-      field("date64", date64()),
-      field("ts0", timestamp(TimeUnit::SECOND)),
-      field("ts1", timestamp(TimeUnit::MILLI)),
-      field("ts2", timestamp(TimeUnit::MICRO)),
-      field("large_string", large_utf8()),
-      field("large_binary", large_binary()),
-      field("fixed_size_binary0", fixed_size_binary(0)),
-      field("fixed_size_binary", fixed_size_binary(4))},
-      xFieldsOut{field("date64", timestamp(TimeUnit::NANO)),
-                 field("ts0", timestamp(TimeUnit::NANO)),
-                 field("ts1", timestamp(TimeUnit::NANO)),
-                 field("ts2", timestamp(TimeUnit::NANO)),
-                 field("large_string", utf8()),
-                 field("large_binary", binary()),
-                 field("fixed_size_binary0", binary()),
-                 field("fixed_size_binary", binary())};
-  std::shared_ptr<Schema> sharedPtrSchemaIn = std::make_shared<Schema>(xFieldsIn),
-                          sharedPtrSchemaOut = std::make_shared<Schema>(xFieldsOut);
-
-  int64_t numRows = 10;
-  int64_t numCols = xFieldsIn.size();
-  uint64_t batchSize = 2001;
-
-  ArrayBuilderMatrix buildersIn(numCols, ArrayBuilderVector(5, NULLPTR));
-  ArrayBuilderVector buildersOut(numCols, NULLPTR);
-
-  buildersIn[0] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<Date64Builder>()));
-  buildersIn[1] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-             timestamp(TimeUnit::SECOND), default_memory_pool())));
-  buildersIn[2] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-             timestamp(TimeUnit::MILLI), default_memory_pool())));
-  buildersIn[3] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-             timestamp(TimeUnit::MICRO), default_memory_pool())));
-  buildersIn[4] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<LargeStringBuilder>()));
-  buildersIn[5] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<LargeBinaryBuilder>()));
-  buildersIn[6] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(
-             std::make_shared<FixedSizeBinaryBuilder>(fixed_size_binary(0))));
-  buildersIn[7] = ArrayBuilderVector(
-      5, std::static_pointer_cast<ArrayBuilder>(
-             std::make_shared<FixedSizeBinaryBuilder>(fixed_size_binary(4))));
-
-  for (int col = 0; col < 4; col++) {
-    buildersOut[col] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<TimestampBuilder>(
-            timestamp(TimeUnit::NANO), default_memory_pool()));
-  }
-  buildersOut[4] =
-      std::static_pointer_cast<ArrayBuilder>(std::make_shared<StringBuilder>());
-  for (int col = 5; col < 8; col++) {
-    buildersOut[col] =
-        std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>());
-  }
-
-  char bin1[4], bin2[3], bin3[] = "";
-  for (int i = 0; i < numRows; i++) {
-    int chunk = i < (numRows / 2) ? 1 : 3;
-    if (i % 2) {
-      ARROW_EXPECT_OK(std::static_pointer_cast<Date64Builder>(buildersIn[0][chunk])
-                          ->Append(1605758461555 + 3 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersIn[1][chunk])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersIn[2][chunk])
-                          ->Append(1605758461000 - 14 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersIn[3][chunk])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<LargeStringBuilder>(buildersIn[4][chunk])
-                          ->Append("Arrow " + std::to_string(-4 * i + 8)));
-      ARROW_EXPECT_OK(std::static_pointer_cast<LargeBinaryBuilder>(buildersIn[5][chunk])
-                          ->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<FixedSizeBinaryBuilder>(buildersIn[6][chunk])
-              ->Append(bin3));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<FixedSizeBinaryBuilder>(buildersIn[7][chunk])
-              ->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[0])
-                          ->Append(1605758461555000000 + 3000000 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersOut[1])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[2])
-                          ->Append(1605758461000000000 - 14000000 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersOut[3])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<StringBuilder>(buildersOut[4])
-                          ->Append("Arrow " + std::to_string(-4 * i + 8)));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[5])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[6])->Append(bin3, 0));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[7])->AppendNull());
-    } else {
-      bin1[0] = i % 256;
-      bin1[1] = (i + 1) % 256;
-      bin1[2] = (i - 1) % 256;
-      bin1[3] = (17 * i + 122) % 256;
-      bin2[0] = (2 * i) % 256;
-      bin2[1] = (2 * i + 1) % 256;
-      bin2[2] = (4 * i + 103) % 256;
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<Date64Builder>(buildersIn[0][chunk])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersIn[1][chunk])
-                          ->Append(1605758461 + 61 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersIn[2][chunk])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersIn[3][chunk])
-                          ->Append(1605758461000111 + 1021 * i));
-      ARROW_EXPECT_OK(std::static_pointer_cast<LargeStringBuilder>(buildersIn[4][chunk])
-                          ->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<LargeBinaryBuilder>(buildersIn[5][chunk])
-                          ->Append(bin2, 4));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<FixedSizeBinaryBuilder>(buildersIn[6][chunk])
-              ->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<FixedSizeBinaryBuilder>(buildersIn[7][chunk])
-              ->Append(bin1));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersOut[0])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[1])
-                          ->Append(1605758461000000000 + 61000000000 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<TimestampBuilder>(buildersOut[2])->AppendNull());
-      ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[3])
-                          ->Append(1605758461000111 + 1021 * i));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<StringBuilder>(buildersOut[4])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[5])->Append(bin2, 3));
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[6])->AppendNull());
-      ARROW_EXPECT_OK(
-          std::static_pointer_cast<BinaryBuilder>(buildersOut[7])->Append(bin1, 4));
-    }
-  }
-
-  ArrayMatrix arraysIn(numCols, ArrayVector(5, NULLPTR));
-  ArrayVector arraysOut(numCols, NULLPTR);
-
-  ChunkedArrayVector cvIn, cvOut;
-  cvIn.reserve(numCols);
-  cvOut.reserve(numCols);
-
-  for (int col = 0; col < numCols; col++) {
-    for (int i = 0; i < 5; i++) {
-      ARROW_EXPECT_OK(buildersIn[col][i]->Finish(&arraysIn[col][i]));
-    }
-    ARROW_EXPECT_OK(buildersOut[col]->Finish(&arraysOut[col]));
-    cvIn.push_back(std::make_shared<ChunkedArray>(arraysIn[col]));
-    cvOut.push_back(std::make_shared<ChunkedArray>(arraysOut[col]));
-  }
-
-  std::shared_ptr<Table> tableIn = Table::Make(sharedPtrSchemaIn, cvIn),
-                         tableOut = Table::Make(sharedPtrSchemaOut, cvOut);
-
-  MemoryOutputStream mem_stream(DEFAULT_SMALL_MEM_STREAM_SIZE * 50);
-  std::shared_ptr<adapters::orc::ORCWriterOptions> options =
-      std::make_shared<adapters::orc::ORCWriterOptions>(batchSize);
-  std::unique_ptr<adapters::orc::ORCFileWriter> writer;
-  std::shared_ptr<io::FileOutputStream> file =
-      std::move(io::FileOutputStream::Open(
-                    "/Users/karlkatzen/Documents/code/orc-files/ConvertMixed.orc", false))
-          .ValueOrDie();
-  ARROW_EXPECT_OK(
-      adapters::orc::ORCFileWriter::Open(sharedPtrSchemaIn, file, options, &writer));
-  ARROW_EXPECT_OK(writer->Write(tableIn));
 }
 
 }  // namespace arrow
