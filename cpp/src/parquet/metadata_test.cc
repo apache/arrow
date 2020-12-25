@@ -248,6 +248,34 @@ TEST(Metadata, TestV1Version) {
   ASSERT_EQ(ParquetVersion::PARQUET_1_0, f_accessor->version());
 }
 
+TEST(Metadata, TestKeyValueMetadata) {
+  parquet::schema::NodeVector fields;
+  parquet::schema::NodePtr root;
+  parquet::SchemaDescriptor schema;
+
+  WriterProperties::Builder prop_builder;
+
+  std::shared_ptr<WriterProperties> props =
+      prop_builder.version(ParquetVersion::PARQUET_1_0)->build();
+
+  fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
+  fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
+  root = parquet::schema::GroupNode::Make("schema", Repetition::REPEATED, fields);
+  schema.Init(root);
+
+  auto kvmeta = std::make_shared<KeyValueMetadata>();
+  kvmeta->Append("test_key", "test_value");
+
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props, kvmeta);
+
+  // Read the metadata
+  auto f_accessor = f_builder->Finish();
+
+  // Key value metadata
+  ASSERT_TRUE(f_accessor->key_value_metadata());
+  EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
+}
+
 TEST(ApplicationVersion, Basics) {
   ApplicationVersion version("parquet-mr version 1.7.9");
   ApplicationVersion version1("parquet-mr version 1.8.0");
