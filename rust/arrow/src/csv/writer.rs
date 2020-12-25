@@ -73,18 +73,32 @@ use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-
+use lexical_core;
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
+
+unsafe fn vector_as_slice<'a, T>(buf: &'a mut Vec<T>) -> &'a mut [T] {
+    let first = buf.as_mut_ptr();
+    std::slice::from_raw_parts_mut(first, buf.capacity())
+}
+pub fn to_string<N: lexical_core::ToLexical>(n: N) -> String {
+    let mut buf = Vec::<u8>::with_capacity(N::FORMATTED_SIZE_DECIMAL);
+    unsafe {
+        let len = lexical_core::write(n, vector_as_slice(&mut buf)).len();
+        buf.set_len(len);
+        String::from_utf8_unchecked(buf)
+    }
+}
 
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
     T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    c.value(i).to_string()
+    to_string::<T::Native>(c.value(i))
 }
 
 /// A CSV writer
