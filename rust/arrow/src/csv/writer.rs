@@ -136,7 +136,7 @@ impl<W: Write> Writer<W> {
             if col.is_null(row_index) {
                 // write an empty value
                 *item = "".to_string();
-                continue;   
+                continue;
             }
             let string = match col.data_type() {
                 DataType::Float64 => write_primitive_value::<Float64Type>(col, row_index),

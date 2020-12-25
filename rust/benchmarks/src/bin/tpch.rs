@@ -89,6 +89,10 @@ struct ConvertOpt {
     /// Number of partitions to produce
     #[structopt(short = "p", long = "partitions", default_value = "1")]
     partitions: usize,
+
+    /// Batch size when reading CSV or Parquet files
+    #[structopt(short = "s", long = "batch-size", default_value = "4096")]
+    batch_size: usize,
 }
 
 #[derive(Debug, StructOpt)]
@@ -1019,7 +1023,8 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
             .delimiter(b'|')
             .file_extension(".tbl");
 
-        let mut ctx = ExecutionContext::new();
+        let config = ExecutionConfig::new().with_batch_size(opt.batch_size);
+        let mut ctx = ExecutionContext::with_config(config);
 
         // build plan to read the TBL file
         let mut csv = ctx.read_csv(&input_path, options)?;
