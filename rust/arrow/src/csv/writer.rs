@@ -272,7 +272,7 @@ impl<W: Write> Writer<W> {
 
         for row_index in 0..batch.num_rows() {
             self.convert(batch, row_index, &mut buffer)?;
-            self.writer.write_record(&buffer[..])?;
+            self.writer.write_record(&buffer)?;
         }
         self.writer.flush()?;
 
