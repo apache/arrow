@@ -320,11 +320,10 @@ impl BooleanBufferBuilder {
     }
 
     #[inline]
-    pub fn advance(&mut self, i: usize) -> Result<()> {
+    pub fn advance(&mut self, i: usize) {
         let new_buffer_len = bit_util::ceil(self.len + i, 8);
         self.buffer.resize(new_buffer_len);
         self.len += i;
-        Ok(())
     }
 
     #[inline]
@@ -340,7 +339,7 @@ impl BooleanBufferBuilder {
     }
 
     #[inline]
-    pub fn append(&mut self, v: bool) -> Result<()> {
+    pub fn append(&mut self, v: bool) {
         self.reserve(1);
         if v {
             let data = unsafe {
@@ -352,11 +351,10 @@ impl BooleanBufferBuilder {
             bit_util::set_bit(data, self.len);
         }
         self.len += 1;
-        Ok(())
     }
 
     #[inline]
-    pub fn append_n(&mut self, n: usize, v: bool) -> Result<()> {
+    pub fn append_n(&mut self, n: usize, v: bool) {
         self.reserve(n);
         if n != 0 && v {
             let data = unsafe {
@@ -368,11 +366,10 @@ impl BooleanBufferBuilder {
             (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
         }
         self.len += n;
-        Ok(())
     }
 
     #[inline]
-    pub fn append_slice(&mut self, slice: &[bool]) -> Result<()> {
+    pub fn append_slice(&mut self, slice: &[bool]) {
         let array_slots = slice.len();
         self.reserve(array_slots);
 
@@ -387,7 +384,6 @@ impl BooleanBufferBuilder {
             }
             self.len += 1;
         }
-        Ok(())
     }
 
     #[inline]
@@ -454,15 +450,15 @@ impl BooleanBuilder {
 
     /// Appends a value of type `T` into the builder
     pub fn append_value(&mut self, v: bool) -> Result<()> {
-        self.bitmap_builder.append(true)?;
-        self.values_builder.append(v)?;
+        self.bitmap_builder.append(true);
+        self.values_builder.append(v);
         Ok(())
     }
 
     /// Appends a null slot into the builder
     pub fn append_null(&mut self) -> Result<()> {
-        self.bitmap_builder.append(false)?;
-        self.values_builder.advance(1)?;
+        self.bitmap_builder.append(false);
+        self.values_builder.advance(1);
         Ok(())
     }
 
@@ -477,8 +473,8 @@ impl BooleanBuilder {
 
     /// Appends a slice of type `T` into the builder
     pub fn append_slice(&mut self, v: &[bool]) -> Result<()> {
-        self.bitmap_builder.append_n(v.len(), true)?;
-        self.values_builder.append_slice(v)?;
+        self.bitmap_builder.append_n(v.len(), true);
+        self.values_builder.append_slice(v);
         Ok(())
     }
 
@@ -489,8 +485,9 @@ impl BooleanBuilder {
                 "Value and validity lengths must be equal".to_string(),
             ));
         }
-        self.bitmap_builder.append_slice(is_valid)?;
-        self.values_builder.append_slice(values)
+        self.bitmap_builder.append_slice(is_valid);
+        self.values_builder.append_slice(values);
+        Ok(())
     }
 
     /// Builds the [BooleanArray] and reset this builder.
@@ -598,14 +595,14 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 
     /// Appends a value of type `T` into the builder
     pub fn append_value(&mut self, v: T::Native) -> Result<()> {
-        self.bitmap_builder.append(true)?;
+        self.bitmap_builder.append(true);
         self.values_builder.append(v);
         Ok(())
     }
 
     /// Appends a null slot into the builder
     pub fn append_null(&mut self) -> Result<()> {
-        self.bitmap_builder.append(false)?;
+        self.bitmap_builder.append(false);
         self.values_builder.advance(1);
         Ok(())
     }
@@ -621,7 +618,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 
     /// Appends a slice of type `T` into the builder
     pub fn append_slice(&mut self, v: &[T::Native]) -> Result<()> {
-        self.bitmap_builder.append_n(v.len(), true)?;
+        self.bitmap_builder.append_n(v.len(), true);
         self.values_builder.append_slice(v);
         Ok(())
     }
@@ -637,7 +634,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
                 "Value and validity lengths must be equal".to_string(),
             ));
         }
-        self.bitmap_builder.append_slice(is_valid)?;
+        self.bitmap_builder.append_slice(is_valid);
         self.values_builder.append_slice(values);
         Ok(())
     }
@@ -762,7 +759,7 @@ where
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
         self.offsets_builder
             .append(self.values_builder.len() as i32);
-        self.bitmap_builder.append(is_valid)?;
+        self.bitmap_builder.append(is_valid);
         self.len += 1;
         Ok(())
     }
@@ -880,7 +877,7 @@ where
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
         self.offsets_builder
             .append(self.values_builder.len() as i64);
-        self.bitmap_builder.append(is_valid)?;
+        self.bitmap_builder.append(is_valid);
         self.len += 1;
         Ok(())
     }
@@ -1002,7 +999,7 @@ where
 
     /// Finish the current variable-length list array slot
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
-        self.bitmap_builder.append(is_valid)?;
+        self.bitmap_builder.append(is_valid);
         self.len += 1;
         Ok(())
     }
@@ -1742,7 +1739,7 @@ impl StructBuilder {
     /// Appends an element (either null or non-null) to the struct. The actual elements
     /// should be appended for each child sub-array in a consistent way.
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
-        self.bitmap_builder.append(is_valid)?;
+        self.bitmap_builder.append(is_valid);
         self.len += 1;
         Ok(())
     }
@@ -1836,7 +1833,7 @@ impl FieldData {
 
         self.slots += 1;
         if let Some(b) = &mut self.bitmap_builder {
-            b.append(true)?
+            b.append(true)
         };
         Ok(())
     }
@@ -1855,7 +1852,7 @@ impl FieldData {
             self.values_buffer = Some(mutable_buffer);
             self.slots += 1;
             self.null_count += 1;
-            b.append(false)?;
+            b.append(false);
         };
         Ok(())
     }
@@ -1941,14 +1938,14 @@ impl UnionBuilder {
         if self.bitmap_builder.is_none() {
             let mut builder = BooleanBufferBuilder::new(self.len + 1);
             for _ in 0..self.len {
-                builder.append(true)?;
+                builder.append(true);
             }
             self.bitmap_builder = Some(builder)
         }
         self.bitmap_builder
             .as_mut()
             .expect("Cannot be None")
-            .append(false)?;
+            .append(false);
 
         self.type_id_builder.append(i8::default());
 
@@ -2008,7 +2005,7 @@ impl UnionBuilder {
 
         // Update the bitmap builder if it exists
         if let Some(b) = &mut self.bitmap_builder {
-            b.append(true)?;
+            b.append(true);
         }
         self.len += 1;
         Ok(())
@@ -2439,17 +2436,17 @@ mod tests {
     #[test]
     fn test_write_bytes() {
         let mut b = BooleanBufferBuilder::new(4);
-        b.append(false).unwrap();
-        b.append(true).unwrap();
-        b.append(false).unwrap();
-        b.append(true).unwrap();
+        b.append(false);
+        b.append(true);
+        b.append(false);
+        b.append(true);
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
         assert_eq!(1, buffer.len());
 
         let mut b = BooleanBufferBuilder::new(4);
-        b.append_slice(&[false, true, false, true]).unwrap();
+        b.append_slice(&[false, true, false, true]);
         assert_eq!(4, b.len());
         assert_eq!(512, b.capacity());
         let buffer = b.finish();
@@ -2499,9 +2496,9 @@ mod tests {
 
         for i in 0..10 {
             if i == 3 || i == 6 || i == 9 {
-                builder.append(true).unwrap();
+                builder.append(true);
             } else {
-                builder.append(false).unwrap();
+                builder.append(false);
             }
         }
         let buf2 = builder.finish();
