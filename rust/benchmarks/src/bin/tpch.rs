@@ -105,11 +105,10 @@ const TABLES: &[&str] = &[
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
-    let _ = match TpchOpt::from_args() {
-        TpchOpt::Benchmark(opt) => benchmark(opt).await,
+    match TpchOpt::from_args() {
+        TpchOpt::Benchmark(opt) => benchmark(opt).await.map(|_| ()),
         TpchOpt::Convert(opt) => convert_tbl(opt).await,
-    };
-    Ok(())
+    }
 }
 
 async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordBatch>> {
@@ -1007,7 +1006,7 @@ async fn execute_query(
     Ok(result)
 }
 
-async fn convert_tbl(opt: ConvertOpt) -> Result<Vec<arrow::record_batch::RecordBatch>> {
+async fn convert_tbl(opt: ConvertOpt) -> Result<()> {
     let output_root_path = Path::new(&opt.output_path);
     for table in TABLES {
         let start = Instant::now();
@@ -1074,7 +1073,7 @@ async fn convert_tbl(opt: ConvertOpt) -> Result<Vec<arrow::record_batch::RecordB
         println!("Conversion completed in {} ms", start.elapsed().as_millis());
     }
 
-    Ok(Vec::new())
+    Ok(())
 }
 
 fn get_table(
@@ -1351,9 +1350,7 @@ mod tests {
             return format!("[{}]", r.join(","));
         }
 
-        array_value_to_string(column, row_index)
-            .ok()
-            .unwrap_or_else(|| "???".to_string())
+        array_value_to_string(column, row_index).unwrap()
     }
 
     /// Converts the results into a 2d array of strings, `result[row][column]`
