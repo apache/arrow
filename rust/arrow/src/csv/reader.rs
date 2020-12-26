@@ -51,7 +51,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, BooleanArray, PrimitiveArray, StringBuilder};
+use crate::array::{ArrayRef, BooleanArray, PrimitiveArray, StringArray};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -449,16 +449,9 @@ fn parse(
                 &DataType::Date64(_) => {
                     build_primitive_array::<Date64Type>(line_number, rows, i)
                 }
-                &DataType::Utf8 => {
-                    let mut builder = StringBuilder::new(rows.len());
-                    for row in rows.iter() {
-                        match row.get(i) {
-                            Some(s) => builder.append_value(s).unwrap(),
-                            _ => builder.append(false).unwrap(),
-                        }
-                    }
-                    Ok(Arc::new(builder.finish()) as ArrayRef)
-                }
+                &DataType::Utf8 => Ok(Arc::new(
+                    rows.iter().map(|row| row.get(i)).collect::<StringArray>(),
+                ) as ArrayRef),
                 other => Err(ArrowError::ParseError(format!(
                     "Unsupported data type {:?}",
                     other
