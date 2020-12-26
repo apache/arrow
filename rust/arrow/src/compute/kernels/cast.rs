@@ -43,7 +43,7 @@ use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::{array::*, compute::take};
-
+use lexical_core;
 /// Return true if a value of type `from_type` can be cast into a
 /// value of `to_type`. Note that such as cast may be lossy.
 ///
@@ -923,11 +923,12 @@ where
 }
 
 /// Cast numeric types to Utf8
-fn cast_string_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
+fn cast_string_to_numeric<T>(from: &ArrayRef) -> Result<ArrayRef>
 where
-    TO: ArrowNumericType,
+    T: ArrowNumericType,
+    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical
 {
-    Ok(Arc::new(string_to_numeric_cast::<TO>(
+    Ok(Arc::new(string_to_numeric_cast::<T>(
         from.as_any().downcast_ref::<StringArray>().unwrap(),
     )))
 }
@@ -935,16 +936,14 @@ where
 fn string_to_numeric_cast<T>(from: &StringArray) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
+    <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical
 {
     (0..from.len())
         .map(|i| {
             if from.is_null(i) {
                 None
             } else {
-                match from.value(i).parse::<T::Native>() {
-                    Ok(v) => Some(v),
-                    Err(_) => None,
-                }
+                lexical_core::parse(from.value(i).as_bytes()).ok()
             }
         })
         .collect()
