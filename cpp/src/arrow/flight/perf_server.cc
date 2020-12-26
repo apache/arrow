@@ -40,6 +40,7 @@
 
 DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
+DEFINE_string(server_unix, "", "Unix socket path where the server is running on");
 
 namespace perf = arrow::flight::perf;
 namespace proto = arrow::flight::protocol;
@@ -141,7 +142,11 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
 class FlightPerfServer : public FlightServerBase {
  public:
   FlightPerfServer() : location_() {
-    DCHECK_OK(Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port, &location_));
+    if (FLAGS_server_unix.empty()) {
+      DCHECK_OK(Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port, &location_));
+    } else {
+      DCHECK_OK(Location::ForGrpcUnix(FLAGS_server_unix, &location_));
+    }
     perf_schema_ = schema({field("a", int64()), field("b", int64()), field("c", int64()),
                            field("d", int64())});
   }
@@ -229,14 +234,22 @@ int main(int argc, char** argv) {
   g_server.reset(new arrow::flight::FlightPerfServer);
 
   arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  if (FLAGS_server_unix.empty()) {
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  } else {
+    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
+  }
   arrow::flight::FlightServerOptions options(location);
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
-  std::cout << "Server host: " << FLAGS_server_host << std::endl;
-  std::cout << "Server port: " << FLAGS_port << std::endl;
+  if (FLAGS_server_unix.empty()) {
+    std::cout << "Server host: " << FLAGS_server_host << std::endl;
+    std::cout << "Server port: " << FLAGS_port << std::endl;
+  } else {
+    std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
+  }
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

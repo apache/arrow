@@ -44,6 +44,10 @@ DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
 DEFINE_int32(server_port, 31337, "The port to connect to");
+DEFINE_string(server_unix, "",
+              "An existing performance server listening on Unix socket (leave blank to "
+              "spawn one automatically)");
+DEFINE_bool(test_unix, false, "Test Unix socket instead of TCP");
 DEFINE_int32(num_perf_runs, 1,
              "Number of times to run the perf test to "
              "increase precision");
@@ -342,15 +346,33 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   std::unique_ptr<arrow::flight::TestServer> server;
-  std::string hostname = "localhost";
-  if (FLAGS_server_host == "") {
-    std::cout << "Using standalone server: false" << std::endl;
-    server.reset(
-        new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
-    server->Start();
+  arrow::flight::Location location;
+  if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
+    if (FLAGS_server_unix == "") {
+      FLAGS_server_unix = "/tmp/flight-bench-spawn.sock";
+      std::cout << "Using spawned Unix server" << std::endl;
+      server.reset(
+          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_unix));
+      server->Start();
+    } else {
+      std::cout << "Using standalone Unix server" << std::endl;
+    }
+    std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
+    ABORT_NOT_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
   } else {
-    std::cout << "Using standalone server: true" << std::endl;
-    hostname = FLAGS_server_host;
+    if (FLAGS_server_host == "") {
+      FLAGS_server_host = "localhost";
+      std::cout << "Using spawned TCP server" << std::endl;
+      server.reset(
+          new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
+      server->Start();
+    } else {
+      std::cout << "Using standalone TCP server" << std::endl;
+    }
+    std::cout << "Server host: " << FLAGS_server_host << std::endl
+              << "Server port: " << FLAGS_server_port << std::endl;
+    ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port,
+                                                     &location));
   }
 
   std::cout << "Testing method: ";
@@ -361,13 +383,7 @@ int main(int argc, char** argv) {
   }
   std::cout << std::endl;
 
-  std::cout << "Server host: " << hostname << std::endl
-            << "Server port: " << FLAGS_server_port << std::endl;
-
   std::unique_ptr<arrow::flight::FlightClient> client;
-  arrow::flight::Location location;
-  ABORT_NOT_OK(
-      arrow::flight::Location::ForGrpcTcp(hostname, FLAGS_server_port, &location));
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
   ABORT_NOT_OK(arrow::flight::WaitForReady(client.get()));
 

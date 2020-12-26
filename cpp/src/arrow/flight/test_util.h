@@ -51,8 +51,10 @@ class ARROW_FLIGHT_EXPORT TestServer {
  public:
   explicit TestServer(const std::string& executable_name)
       : executable_name_(executable_name), port_(::arrow::GetListenPort()) {}
-  explicit TestServer(const std::string& executable_name, int port)
+  TestServer(const std::string& executable_name, int port)
       : executable_name_(executable_name), port_(port) {}
+  TestServer(const std::string& executable_name, const std::string& unix_sock)
+      : executable_name_(executable_name), unix_sock_(unix_sock) {}
 
   void Start();
 
@@ -61,10 +63,12 @@ class ARROW_FLIGHT_EXPORT TestServer {
   bool IsRunning();
 
   int port() const;
+  const std::string& unix_sock() const;
 
  private:
   std::string executable_name_;
   int port_;
+  std::string unix_sock_;
   std::shared_ptr<::boost::process::child> server_process_;
 };
 
