@@ -555,9 +555,9 @@ Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   // First fill fields of ColumnVectorBatch
   if (array->null_count() || incomingMask) {
     batch->hasNulls = true;
-    outgoingMask = NULLPTR;
-  } else {
     outgoingMask = std::make_shared<std::vector<bool>>(length, true);
+  } else {
+    outgoingMask = NULLPTR;
   }
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     if (array->IsNull(arrowOffset) || (incomingMask && !(*incomingMask)[orcOffset])) {
@@ -589,27 +589,28 @@ Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   DataType* elementType = array->value_type().get();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  // int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count() || incomingMask) batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
-    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
-                                    array->value_offset(arrowOffset + 1) -
-                                    array->value_offset(arrowOffset);
     if (array->IsNull(arrowOffset) || (incomingMask && !(*incomingMask)[orcOffset])) {
       batch->notNull[orcOffset] = false;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset];
     } else {
       batch->notNull[orcOffset] = true;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
+                                      array->value_offset(arrowOffset + 1) -
+                                      array->value_offset(arrowOffset);
+      elementBatch->resize(batch->offsets[orcOffset + 1]);
+      int64_t subarrayArrowOffset = array->value_offset(arrowOffset),
+              subarrayORCOffset = batch->offsets[orcOffset],
+              subarrayORCLength = batch->offsets[orcOffset + 1];
+      RETURN_NOT_OK(FillBatch(elementType, elementBatch, subarrayArrowOffset,
+                              subarrayORCOffset, subarrayORCLength, array->values().get(),
+                              NULLPTR));
     }
   }
   batch->numElements = orcOffset;
-  int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
-          initSubarrayORCOffset = batch->offsets[initORCOffset];
-  elementBatch->resize(batch->offsets[orcOffset]);
-  // Let the subbatch take care of itself. Don't manipulate it here.
-  RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
-                          initSubarrayORCOffset, batch->offsets[orcOffset],
-                          array->values().get(), NULLPTR));
   return Status::OK();
 }
 
@@ -623,25 +624,27 @@ Status FillFixedSizeListBatch(const DataType* type, liborc::ColumnVectorBatch* c
   int64_t arrowLength = array->length();
   int32_t elementLength = array->value_length();  // Fixed length of each subarray
   if (!arrowLength) return Status::OK();
-  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  // int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count() || incomingMask) batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
     batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
     if (array->IsNull(arrowOffset) || (incomingMask && !(*incomingMask)[orcOffset])) {
       batch->notNull[orcOffset] = false;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset];
     } else {
       batch->notNull[orcOffset] = true;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] + elementLength;
+      int64_t subarrayArrowOffset = array->value_offset(arrowOffset),
+              subarrayORCOffset = batch->offsets[orcOffset],
+              subarrayORCLength = batch->offsets[orcOffset + 1];
+      elementBatch->resize(subarrayORCLength);
+      RETURN_NOT_OK(FillBatch(elementType, elementBatch, subarrayArrowOffset,
+                              subarrayORCOffset, subarrayORCLength, array->values().get(),
+                              NULLPTR));
     }
   }
   batch->numElements = orcOffset;
-  int64_t initSubarrayArrowOffset = array->value_offset(initArrowOffset),
-          initSubarrayORCOffset = batch->offsets[initORCOffset];
-  elementBatch->resize(batch->offsets[orcOffset]);
-  // Let the subbatch take care of itself. Don't manipulate it here.
-  RETURN_NOT_OK(FillBatch(elementType, elementBatch, initSubarrayArrowOffset,
-                          initSubarrayORCOffset, batch->offsets[orcOffset],
-                          array->values().get(), NULLPTR));
   return Status::OK();
 }
 
@@ -658,34 +661,35 @@ Status FillMapBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch,
   DataType* elementType = elementArray->type().get();
   int64_t arrowLength = array->length();
   if (!arrowLength) return Status::OK();
-  int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
+  // int64_t initORCOffset = orcOffset, initArrowOffset = arrowOffset;
   if (orcOffset == 0) batch->offsets[0] = 0;
   if (array->null_count() || incomingMask) batch->hasNulls = true;
   for (; orcOffset < length && arrowOffset < arrowLength; orcOffset++, arrowOffset++) {
-    batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
-                                    array->value_offset(arrowOffset + 1) -
-                                    array->value_offset(arrowOffset);
     if (array->IsNull(arrowOffset) || (incomingMask && !(*incomingMask)[orcOffset])) {
       batch->notNull[orcOffset] = false;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset];
     } else {
       batch->notNull[orcOffset] = true;
+      batch->offsets[orcOffset + 1] = batch->offsets[orcOffset] +
+                                      array->value_offset(arrowOffset + 1) -
+                                      array->value_offset(arrowOffset);
+      int64_t subarrayArrowOffset = array->value_offset(arrowOffset),
+              subarrayORCOffset = batch->offsets[orcOffset],
+              subarrayORCLength = batch->offsets[orcOffset + 1],
+              initSubarrayArrowOffset = subarrayArrowOffset,
+              initSubarrayORCOffset = subarrayORCOffset;
+      keyBatch->resize(subarrayORCLength);
+      elementBatch->resize(subarrayORCLength);
+      RETURN_NOT_OK(FillBatch(keyType, keyBatch, subarrayArrowOffset, subarrayORCOffset,
+                              subarrayORCLength, keyArray, NULLPTR));
+      subarrayArrowOffset = initSubarrayArrowOffset;
+      subarrayORCOffset = initSubarrayORCOffset;
+      RETURN_NOT_OK(FillBatch(elementType, elementBatch, subarrayArrowOffset,
+                              subarrayORCOffset, subarrayORCLength, elementArray,
+                              NULLPTR));
     }
   }
   batch->numElements = orcOffset;
-  int64_t subarrayArrowOffset = array->value_offset(initArrowOffset),
-          subarrayORCOffset = batch->offsets[initORCOffset],
-          initSubarrayArrowSet = subarrayArrowOffset,
-          initSubarrayORCOffset = subarrayORCOffset,
-          subarrayORCLength = batch->offsets[orcOffset];
-  // Let the subbatches take care of itself. Don't manipulate it here.
-  keyBatch->resize(subarrayORCLength);
-  elementBatch->resize(subarrayORCLength);
-  RETURN_NOT_OK(FillBatch(keyType, keyBatch, subarrayArrowOffset, subarrayORCOffset,
-                          subarrayORCLength, keyArray, NULLPTR));
-  subarrayORCOffset = initSubarrayORCOffset;
-  subarrayArrowOffset = initSubarrayArrowSet;
-  RETURN_NOT_OK(FillBatch(elementType, elementBatch, subarrayArrowOffset,
-                          subarrayORCOffset, subarrayORCLength, elementArray, NULLPTR));
   return Status::OK();
 }
 
