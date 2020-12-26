@@ -1513,7 +1513,7 @@ mod tests {
         Schema::new(
             schema
                 .fields()
-                .into_iter()
+                .iter()
                 .map(|field| {
                     Field::new(
                         Field::name(&field),
@@ -1531,7 +1531,7 @@ mod tests {
         Schema::new(
             schema
                 .fields()
-                .into_iter()
+                .iter()
                 .map(|field| {
                     Field::new(
                         Field::name(&field),
@@ -1558,7 +1558,7 @@ mod tests {
             let df = df.select(
                 get_answer_schema(n)
                     .fields()
-                    .into_iter()
+                    .iter()
                     .map(|field| {
                         Expr::Alias(
                             Box::new(Cast {
@@ -1579,7 +1579,7 @@ mod tests {
                 iterations: 1,
                 concurrency: 2,
                 batch_size: 4096,
-                path: PathBuf::from(format!("{}", path)),
+                path: PathBuf::from(path.to_string()),
                 file_format: "tbl".to_string(),
                 mem_table: false,
             };
