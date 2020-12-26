@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     // to match the required size for each buffer
     let mut builder = Int32BufferBuilder::new(16);
     for i in 0..16 {
-        builder.append(i).unwrap();
+        builder.append(i);
     }
     let buf = builder.finish();
 
@@ -43,10 +43,10 @@ fn main() -> Result<()> {
 
     // Creating a tensor using float type buffer builder
     let mut builder = Float32BufferBuilder::new(4);
-    builder.append(1.0).unwrap();
-    builder.append(2.0).unwrap();
-    builder.append(3.0).unwrap();
-    builder.append(4.0).unwrap();
+    builder.append(1.0);
+    builder.append(2.0);
+    builder.append(3.0);
+    builder.append(4.0);
     let buf = builder.finish();
 
     // When building the tensor the buffer and shape are necessary
