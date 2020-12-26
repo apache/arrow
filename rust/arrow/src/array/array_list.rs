@@ -30,7 +30,7 @@ use crate::datatypes::ArrowNativeType;
 use crate::datatypes::DataType;
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
-pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord {
+pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
     fn prefix() -> &'static str;
 
     fn to_isize(&self) -> isize;
