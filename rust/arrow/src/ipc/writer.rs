@@ -382,7 +382,7 @@ pub struct FileWriter<W: Write> {
 impl<W: Write> FileWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     #[deprecated(
-        since = "2.0.0",
+        since = "3.0.0",
         note = "This method is deprecated in favour of `let writer = FileWriter::new(writer, schema); writer.write_header_schema().unwrap();`"
     )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
@@ -393,7 +393,7 @@ impl<W: Write> FileWriter<W> {
 
     /// Try create a new writer with IpcWriteOptions
     #[deprecated(
-        since = "2.0.0",
+        since = "3.0.0",
         note = "This method is deprecated in favour of `let writer = FileWriter::new(writer, schema).with_write_options(opt); w.write_header_schema().unwrap();`"
     )]
     pub fn try_new_with_options(
@@ -401,11 +401,13 @@ impl<W: Write> FileWriter<W> {
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
-        let mut me = FileWriter::new(writer, schema).with_write_options(write_options);
+        let mut me = FileWriter::new(writer, schema);
+        me.write_options = write_options;
         me.write_header_schema()?;
         Ok(me)
     }
 
+    /// Creates the FileWriter.
     pub fn new(writer: W, schema: &Schema) -> Self {
         FileWriter {
             writer: BufWriter::new(writer),
@@ -421,17 +423,20 @@ impl<W: Write> FileWriter<W> {
         }
     }
 
-    pub fn with_write_options(mut self, write_options: IpcWriteOptions) -> Self {
+    /// Set optional write options and return `&Self`.
+    pub fn with_write_options(&mut self, write_options: IpcWriteOptions) -> &mut Self {
         self.write_options = write_options;
         self
     }
 
-    pub fn with_custom_metadata(mut self, metadata: CustomMetaData) -> Self {
+    /// Set optional custom metadata and return `&Self`.
+    pub fn with_custom_metadata(&mut self, metadata: CustomMetaData) -> &mut Self {
         self.custom_metadata = Some(metadata);
         self
     }
 
-    /// Write header and schema.
+    /// Write header and schema to the file.
+    /// Must be called before `write_record_batch`.
     pub fn write_header_schema(&mut self) -> Result<()> {
         // write magic to header
         self.writer.write_all(&super::ARROW_MAGIC[..])?;
@@ -548,7 +553,7 @@ pub struct StreamWriter<W: Write> {
 impl<W: Write> StreamWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     #[deprecated(
-        since = "2.0.0",
+        since = "3.0.0",
         note = "This method is deprecated in favour of `let writer = StreamWriter::new(writer, schema); writer.write_schema().unwrap();`"
     )]
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
@@ -558,7 +563,7 @@ impl<W: Write> StreamWriter<W> {
     }
 
     #[deprecated(
-        since = "2.0.0",
+        since = "3.0.0",
         note = "This method is deprecated in favour of `let writer = StreamWriter::new(writer, schema).with_write_options(opt); w.write_schema().unwrap();`"
     )]
     pub fn try_new_with_options(
@@ -566,7 +571,8 @@ impl<W: Write> StreamWriter<W> {
         schema: &Schema,
         write_options: IpcWriteOptions,
     ) -> Result<Self> {
-        let mut me = StreamWriter::new(writer, schema).with_write_options(write_options);
+        let mut me = StreamWriter::new(writer, schema);
+        me.write_options = write_options;
         me.write_schema()?;
         Ok(me)
     }
@@ -583,16 +589,19 @@ impl<W: Write> StreamWriter<W> {
         }
     }
 
-    pub fn with_write_options(mut self, write_options: IpcWriteOptions) -> Self {
+    /// Set optional write options and return `&Self`.
+    pub fn with_write_options(&mut self, write_options: IpcWriteOptions) -> &Self {
         self.write_options = write_options;
         self
     }
 
-    pub fn with_custom_metadata(mut self, metadata: CustomMetaData) -> Self {
+    /// Set optional custom metadata and return `&Self`.
+    pub fn with_custom_metadata(&mut self, metadata: CustomMetaData) -> &Self {
         self.custom_metadata = Some(metadata);
         self
     }
 
+    /// Write schema to the stream.
     pub fn write_schema(&mut self) -> Result<()> {
         let encoded_message = self.data_gen.schema_to_bytes(
             &self.schema,
