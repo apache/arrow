@@ -1211,6 +1211,7 @@ fn get_schema(table: &str) -> Schema {
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::Arc;
 
     use arrow::array::*;
     use arrow::record_batch::RecordBatch;
