@@ -104,6 +104,20 @@ export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 
 From here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
 
+
+### Running the tests
+
+Run tests using the Rust standard `cargo test` command:
+
+```bash
+# run all tests.
+cargo test
+
+
+# run only tests for the arrow crate
+cargo test -p arrow
+```
+
 ## Code Formatting
 
 Our CI uses `rustfmt` to check code formatting. Before submitting a
