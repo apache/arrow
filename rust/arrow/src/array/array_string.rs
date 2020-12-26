@@ -128,7 +128,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         let mut length_so_far = OffsetSize::zero();
         offsets.push(length_so_far);
         for s in &v {
-            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             offsets.push(length_so_far);
             values.extend_from_slice(s.as_bytes());
         }
@@ -168,7 +168,7 @@ where
                 let null_slice = null_buf.as_slice_mut();
                 bit_util::set_bit(null_slice, i);
 
-                length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                length_so_far += OffsetSize::from_usize(s.len()).unwrap();
                 offsets.push(length_so_far);
                 values.extend_from_slice(s.as_bytes());
             } else {

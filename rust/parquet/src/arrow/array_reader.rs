@@ -913,7 +913,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
                 offsets.push(cur_offset)
             }
             if def_levels[i] > 0 {
-                cur_offset = cur_offset + OffsetSize::one();
+                cur_offset += OffsetSize::one();
             }
         }
         offsets.push(cur_offset);

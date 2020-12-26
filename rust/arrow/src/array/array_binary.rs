@@ -104,7 +104,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         let mut length_so_far: OffsetSize = OffsetSize::zero();
         offsets.push(length_so_far);
         for s in &v {
-            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             offsets.push(length_so_far);
             values.extend_from_slice(s);
         }
@@ -235,8 +235,7 @@ where
                 if let Some(s) = s {
                     let s = s.as_ref();
                     bit_util::set_bit(null_slice, i);
-                    length_so_far =
-                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                    length_so_far += OffsetSize::from_usize(s.len()).unwrap();
                     values.extend_from_slice(s);
                 }
                 // always add an element in offsets

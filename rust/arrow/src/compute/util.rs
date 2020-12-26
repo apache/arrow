@@ -124,7 +124,7 @@ where
             })?;
             let start = offsets[ix];
             let end = offsets[ix + 1];
-            current_offset = current_offset + (end - start);
+            current_offset += end - start;
             new_offsets.push(current_offset);
 
             let mut curr = start;
@@ -132,7 +132,7 @@ where
             // if start == end, this slot is empty
             while curr < end {
                 values.push(Some(curr));
-                curr = curr + OffsetType::Native::one();
+                curr += OffsetType::Native::one();
             }
         } else {
             new_offsets.push(current_offset);

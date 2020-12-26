@@ -79,7 +79,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                     if array.is_valid(i) {
                         // compute the new offset
                         let length = offsets[i + 1] - offsets[i];
-                        last_offset = last_offset + length;
+                        last_offset += length;
                         let length = length.to_usize().unwrap();
 
                         // append value

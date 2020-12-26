@@ -871,12 +871,12 @@ impl Decoder {
         offsets.push(cur_offset);
         rows.iter().enumerate().for_each(|(i, v)| {
             if let Value::Array(a) = v {
-                cur_offset = cur_offset + OffsetSize::from_usize(a.len()).unwrap();
+                cur_offset += OffsetSize::from_usize(a.len()).unwrap();
                 bit_util::set_bit(list_nulls.as_slice_mut(), i);
             } else if let Value::Null = v {
                 // value is null, not incremented
             } else {
-                cur_offset = cur_offset + OffsetSize::one();
+                cur_offset += OffsetSize::one();
             }
             offsets.push(cur_offset);
         });

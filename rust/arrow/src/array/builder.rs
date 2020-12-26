@@ -780,10 +780,10 @@ where
             values_data.data_type().clone(),
             true, // TODO: find a consistent way of getting this
         ));
-        let data_type = if OffsetSize::prefix() == "" {
-            DataType::List(field)
-        } else {
+        let data_type = if OffsetSize::prefix() == "Large" {
             DataType::LargeList(field)
+        } else {
+            DataType::List(field)
         };
         let data = ArrayData::builder(data_type)
             .len(len)
