@@ -107,7 +107,7 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None, write_options=None):
+    def __init__(self, timeout=None, write_options=None, headers=None):
         """Create call options.
 
         Parameters
@@ -118,12 +118,18 @@ cdef class FlightCallOptions(_Weakrefable):
         write_options : pyarrow.ipc.IpcWriteOptions, optional
             IPC write options. The default options can be controlled
             by environment variables (see pyarrow.ipc).
-
+        headers : List[Tuple[str, str]], optional
+            A list of arbitrary headers as key, value tuples
         """
-        cdef IpcWriteOptions options = _get_options(write_options)
+        cdef IpcWriteOptions c_write_options
+
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
-        self.options.write_options = options.c_options
+        if write_options is not None:
+            c_write_options = _get_options(write_options)
+            self.options.write_options = c_write_options.c_options
+        if headers is not None:
+            self.options.headers = headers
 
     @staticmethod
     cdef CFlightCallOptions* unwrap(obj):
@@ -1150,6 +1156,38 @@ cdef class FlightClient(_Weakrefable):
                 self.client.get().Authenticate(deref(c_options),
                                                move(handler)))
 
+    def authenticate_basic_token(self, username, password,
+                                 options: FlightCallOptions = None):
+        """Authenticate to the server with HTTP basic authentication.
+
+        Parameters
+        ----------
+        username : string
+            Username to authenticate with
+        password : string
+            Password to authenticate with
+        options  : FlightCallOptions
+            Options for this call
+
+        Returns
+        -------
+        tuple : Tuple[str, str]
+            A tuple representing the FlightCallOptions authorization
+            header entry of a bearer token.
+        """
+        cdef:
+            CResult[pair[c_string, c_string]] result
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            c_string user = tobytes(username)
+            c_string pw = tobytes(password)
+
+        with nogil:
+            result = self.client.get().AuthenticateBasicToken(deref(c_options),
+                                                              user, pw)
+            check_flight_status(result.status())
+
+        return GetResultValue(result)
+
     def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
         cdef:
@@ -1870,7 +1908,6 @@ cdef CStatus _server_authenticate(void* self, CServerAuthSender* outgoing,
         sender.poison()
         reader.poison()
     return CStatus_OK()
-
 
 cdef CStatus _is_valid(void* self, const c_string& token,
                        c_string* peer_identity) except *:
