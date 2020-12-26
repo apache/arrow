@@ -67,7 +67,7 @@ pub(crate) fn builder_to_mutable_buffer<T: ArrowNativeType>(
 /// # Example:
 ///
 /// ```
-/// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+/// use arrow::array::UInt8BufferBuilder;
 ///
 /// # fn main() -> arrow::error::Result<()> {
 /// let mut builder = UInt8BufferBuilder::new(100);
@@ -91,17 +91,17 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// elements of type `T`.
     ///
     /// The capacity can later be manually adjusted with the
-    /// [`reserve()`](BufferBuilderTrait::reserve) method.
+    /// [`reserve()`](BufferBuilder::reserve) method.
     /// Also the
-    /// [`append()`](BufferBuilderTrait::append),
-    /// [`append_slice()`](BufferBuilderTrait::append_slice) and
-    /// [`advance()`](BufferBuilderTrait::advance)
+    /// [`append()`](BufferBuilder::append),
+    /// [`append_slice()`](BufferBuilder::append_slice) and
+    /// [`advance()`](BufferBuilder::advance)
     /// methods automatically increase the capacity if needed.
     ///
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     ///
@@ -123,7 +123,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append(42);
@@ -139,7 +139,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append(42);
@@ -163,14 +163,14 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// Increases the number of elements in the internal buffer by `n`
     /// and resizes the buffer as needed.
     ///
-    /// The values of the newly added elements are undefined.
+    /// The values of the newly added elements are 0.
     /// This method is usually used when appending `NULL` values to the buffer
     /// as they still require physical memory space.
     ///
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.advance(2);
@@ -189,7 +189,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.reserve(10);
@@ -209,7 +209,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append(42);
@@ -233,7 +233,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append_n(10, 42);
@@ -253,7 +253,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append_slice(&[42, 44, 46]);
@@ -273,7 +273,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// # Example:
     ///
     /// ```
-    /// use arrow::array::{UInt8BufferBuilder, BufferBuilderTrait};
+    /// use arrow::array::UInt8BufferBuilder;
     ///
     /// let mut builder = UInt8BufferBuilder::new(10);
     /// builder.append_slice(&[42, 44, 46]);
