@@ -22,7 +22,7 @@ use std::{any::Any, iter::FromIterator};
 
 use super::{
     array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
-    GenericListArray, GenericStringIter, LargeListArray, ListArray, OffsetSizeTrait,
+    GenericListArray, GenericStringIter, OffsetSizeTrait,
 };
 use crate::util::bit_util;
 use crate::{buffer::Buffer, datatypes::ToByteSlice};
@@ -269,15 +269,9 @@ pub type StringArray = GenericStringArray<i32>;
 /// whose maximum length (in bytes) is represented by a i64.
 pub type LargeStringArray = GenericStringArray<i64>;
 
-impl From<ListArray> for StringArray {
-    fn from(v: ListArray) -> Self {
-        StringArray::from_list(v)
-    }
-}
-
-impl From<LargeListArray> for LargeStringArray {
-    fn from(v: LargeListArray) -> Self {
-        LargeStringArray::from_list(v)
+impl<T: StringOffsetSizeTrait> From<GenericListArray<T>> for GenericStringArray<T> {
+    fn from(v: GenericListArray<T>) -> Self {
+        GenericStringArray::<T>::from_list(v)
     }
 }
 
