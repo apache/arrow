@@ -399,8 +399,7 @@ impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
 
         let data = data
             .into_iter()
-            .map(|e| e.unwrap_or_else(|| vec![0; size]))
-            .flatten()
+            .flat_map(|e| e.unwrap_or_else(|| vec![0; size]))
             .collect::<Vec<_>>();
         let data = ArrayData::new(
             DataType::FixedSizeBinary(size as i32),
