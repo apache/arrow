@@ -345,6 +345,18 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief IsNan returns true for each element of `values` that is NaN,
+/// false otherwise
+///
+/// \param[in] values input to look for NaN
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since X.X.X
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsNan(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief FillNull replaces each null element in `values`
 /// with `fill_value`
 ///
@@ -359,6 +371,22 @@ Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
+
+/// \brief Replace replaces each element in `values` for which mask bit is true
+/// with `fill_value`
+///
+/// \param[in] values input to replace based on mask
+/// \param[in] mask bits
+/// \param[in] replacement scalar
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since X.X.X
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Replace(const Datum& values, const Datum& mask, const Datum& replacement,
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
