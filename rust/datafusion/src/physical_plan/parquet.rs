@@ -129,6 +129,7 @@ impl ParquetExec {
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
                 total_byte_size: Some(total_byte_size as usize),
+                column_statistics: None,
             };
             partitions.push(ParquetPartition {
                 filename: filename.to_owned().to_string(),
@@ -184,6 +185,7 @@ impl ParquetExec {
         let statistics = Statistics {
             num_rows,
             total_byte_size,
+            column_statistics: None,
         };
         Self {
             partitions,

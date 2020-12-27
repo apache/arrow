@@ -188,6 +188,7 @@ mod tests {
             Statistics {
                 num_rows: Some(self.num_rows),
                 total_byte_size: None,
+                column_statistics: None,
             }
         }
     }
