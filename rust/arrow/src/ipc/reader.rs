@@ -950,12 +950,11 @@ mod tests {
     use flate2::read::GzDecoder;
 
     use crate::util::integration_util::*;
-    use std::env;
     use std::fs::File;
 
     #[test]
     fn read_generated_files() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -985,7 +984,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Big Endian is not supported for Decimal!")]
     fn read_decimal_be_file_should_panic() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
                 "{}/arrow-ipc-stream/integration/1.0.0-bigendian/generated_decimal.arrow_file",
                 testdata
@@ -997,7 +996,7 @@ mod tests {
     #[test]
     fn read_generated_be_files_should_work() {
         // complementary to the previous test
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let paths = vec![
             "generated_interval",
             "generated_datetime",
@@ -1020,7 +1019,7 @@ mod tests {
 
     #[test]
     fn read_generated_streams() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             "generated_interval",
@@ -1102,7 +1101,7 @@ mod tests {
 
     /// Read gzipped JSON file
     fn read_gzip_json(path: &str) -> ArrowJson {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let testdata = crate::util::test_util::arrow_test_data();
         let file = File::open(format!(
             "{}/arrow-ipc-stream/integration/0.14.1/{}.json.gz",
             testdata, path

@@ -61,9 +61,13 @@ pub fn get_temp_file(file_name: &str, content: &[u8]) -> fs::File {
     file.unwrap()
 }
 
-/// Gets arrow test data dir, by optional env `ARROW_TEST_DATA` or the default
-/// `../../testing/data`.
-/// It panics when failed to get dir.
+/// Returns the arrow test data directory, which is by default stored
+/// in a git submodule rooted at `arrow/testing/data`.
+///
+/// The default can be overridden by the optional environment
+/// variable `ARROW_TEST_DATA`
+///
+/// panics when the directory can not be found.
 ///
 /// Example:
 /// ```
@@ -78,9 +82,14 @@ pub fn arrow_test_data() -> String {
     }
 }
 
-/// Gets parquet test data dir, by optional env `PARQUET_TEST_DATA` or the default
-/// `../../cpp/submodules/parquet-testing/data`.
-/// It panics when failed to get dir.
+/// Returns the parquest test data directory, which is by default
+/// stored in a git submodule rooted at
+/// `arrow/cpp/submodules/parquest-testing/data`.
+///
+/// The default can be overridden by the optional environment variable
+/// `PARQUET_TEST_DATA`
+///
+/// panics when the directory can not be found.
 ///
 /// Example:
 /// ```
@@ -98,7 +107,15 @@ pub fn parquet_test_data() -> String {
     }
 }
 
-/// get_data_dir is the helper function for `arrow_test_data` and `arrow_test_data`.
+/// Returns a directory path for finding test data.
+///
+/// udf_env: name of an environment variable
+///
+/// submodule_dir: fallback path (relative to CARGO_MANIFEST_DIR)
+///
+///  Returns either:
+/// The path referred to in `udf_env` if that variable is set and refers to a directory
+/// The submodule_data directory relative to CARGO_MANIFEST_PATH
 fn get_data_dir(udf_env: &str, submodule_data: &str) -> Result<PathBuf, Box<dyn Error>> {
     // Try user defined env.
     if let Ok(dir) = env::var(udf_env) {
@@ -130,7 +147,8 @@ fn get_data_dir(udf_env: &str, submodule_data: &str) -> Result<PathBuf, Box<dyn 
         Ok(pb)
     } else {
         Err(format!(
-            "env `{}` is undefined or has empty value, and the pre-defined data dir `{}` not found", 
+            "env `{}` is undefined or has empty value, and the pre-defined data dir `{}` not found\n\
+             HINT: try running `git submodule update --init`",
             udf_env,
             pb.display().to_string(),
         ).into())

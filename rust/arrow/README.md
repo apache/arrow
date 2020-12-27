@@ -25,20 +25,12 @@ This crate contains a native Rust implementation of the [Arrow columnar format](
 
 ## Developer's guide
 
-Refer to [lib.rs](src/lib.rs) for an introduction to this crate and current functionality.
+Common information for all Rust libraries in this project, including
+testing, code formatting, and lints, can be found in the main Arrow
+Rust [README.md](../README.md).
 
-### How to run the tests
-
-The tests of this crate depend on two environment variables to be defined.
-Assuming that you are in this crates' current directory:
-
-```bash
-export PARQUET_TEST_DATA=$(cd ../../cpp/submodules/parquet-testing/data; pwd)
-export ARROW_TEST_DATA=$(cd ../../testing/data; pwd)
-cargo test
-```
-
-runs all the tests.
+Please refer to [lib.rs](src/lib.rs) for an introduction to this
+specific crate and its current functionality.
 
 ### How to check memory allocations
 
@@ -131,7 +123,7 @@ Usage of `unsafe` for the purpose of interpreting bytes in their corresponding t
 #### FFI
 
 The arrow format declares an ABI for zero-copy from and to libraries that implement the specification
-(foreign interfaces). In Rust, receiving and sending pointers via FFI requires usage of `unsafe` due to 
+(foreign interfaces). In Rust, receiving and sending pointers via FFI requires usage of `unsafe` due to
 the impossibility of the compiler to derive the invariants (such as lifetime, null pointers, and pointer alignment) from the source code alone as they are part of the FFI contract.
 
 #### IPC
@@ -147,8 +139,8 @@ The API provided by the `packed_simd` library is currently `unsafe`. However, SI
 Some operations are significantly faster when `unsafe` is used.
 
 A common usage of `unsafe` is to offer an API to access the `i`th element of an array (e.g. `UInt32Array`).
-This requires accessing the values buffer e.g. `array.buffers()[0]`, picking the slice 
-`[i * size_of<i32>(), (i + 1) * size_of<i32>()]`, and then transmuting it to `i32`. In safe Rust, 
+This requires accessing the values buffer e.g. `array.buffers()[0]`, picking the slice
+`[i * size_of<i32>(), (i + 1) * size_of<i32>()]`, and then transmuting it to `i32`. In safe Rust,
 this operation requires boundary checks that are detrimental to performance.
 
 Usage of `unsafe` for performance reasons is justified only when all other alternatives have been exhausted and the performance benefits are sufficiently large (e.g. >~10%).
@@ -159,7 +151,7 @@ Usage of `unsafe` in this crate *must*:
 
 * not expose a public API as `safe` when there are necessary invariants for that API to be defined behavior.
 * have code documentation for why `safe` is not used / possible
-* have code documentation about which invariant the user needs to enforce to ensure [soundness](https://rust-lang.github.io/unsafe-code-guidelines/glossary.html#soundness-of-code--of-a-library), or which 
+* have code documentation about which invariant the user needs to enforce to ensure [soundness](https://rust-lang.github.io/unsafe-code-guidelines/glossary.html#soundness-of-code--of-a-library), or which
 * invariant is being preserved.
 * if applicable, use `debug_assert`s to relevant invariants (e.g. bound checks)
 

@@ -337,12 +337,10 @@ impl RecordBatchStream for ParquetStream {
 mod tests {
     use super::*;
     use futures::StreamExt;
-    use std::env;
 
     #[tokio::test]
     async fn test() -> Result<()> {
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+        let testdata = arrow::util::test_util::parquet_test_data();
         let filename = format!("{}/alltypes_plain.parquet", testdata);
         let parquet_exec =
             ParquetExec::try_from_path(&filename, Some(vec![0, 1, 2]), 1024)?;

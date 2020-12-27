@@ -92,14 +92,31 @@ This populates data in two git submodules:
 - `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-The following Env vars are required to run `cargo test`, examples, etc.
+By default, `cargo test` will look for these directories at their
+standard location. The following Env vars can be used to override the
+location should you choose
 
 ```bash
+# Optionaly specify a different location for test data
 export PARQUET_TEST_DATA=$(cd ../cpp/submodules/parquet-testing/data; pwd)
 export ARROW_TEST_DATA=$(cd ../testing/data; pwd)
 ```
 
 From here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
+
+
+### Running the tests
+
+Run tests using the Rust standard `cargo test` command:
+
+```bash
+# run all tests.
+cargo test
+
+
+# run only tests for the arrow crate
+cargo test -p arrow
+```
 
 ## Code Formatting
 
