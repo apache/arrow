@@ -73,18 +73,33 @@ use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
-
 const DEFAULT_DATE_FORMAT: &str = "%F";
 const DEFAULT_TIME_FORMAT: &str = "%T";
 const DEFAULT_TIMESTAMP_FORMAT: &str = "%FT%H:%M:%S.%9f";
 
+pub fn to_string<N: lexical_core::ToLexical>(n: N) -> String {
+    let mut buf = Vec::<u8>::with_capacity(N::FORMATTED_SIZE_DECIMAL);
+    unsafe {
+        // JUSTIFICATION
+        //  Benefit
+        //      Allows using the faster serializer lexical core and convert to string
+        //  Soundness
+        //      Length of buf is set as written length afterwards. lexical_core
+        //      creates a valid string, so doesn't need to be checked.
+        let slice = std::slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.capacity());
+        let len = lexical_core::write(n, slice).len();
+        buf.set_len(len);
+        String::from_utf8_unchecked(buf)
+    }
+}
+
 fn write_primitive_value<T>(array: &ArrayRef, i: usize) -> String
 where
     T: ArrowNumericType,
-    T::Native: std::string::ToString,
+    T::Native: lexical_core::ToLexical,
 {
     let c = array.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    c.value(i).to_string()
+    to_string(c.value(i))
 }
 
 /// A CSV writer
@@ -124,14 +139,18 @@ impl<W: Write> Writer<W> {
     }
 
     /// Convert a record to a string vector
-    fn convert(&self, batch: &RecordBatch, row_index: usize) -> Result<Vec<String>> {
+    fn convert(
+        &self,
+        batch: &RecordBatch,
+        row_index: usize,
+        buffer: &mut [String],
+    ) -> Result<()> {
         // TODO: it'd be more efficient if we could create `record: Vec<&[u8]>
-        let mut record: Vec<String> = Vec::with_capacity(batch.num_columns());
-        for col_index in 0..batch.num_columns() {
+        for (col_index, item) in buffer.iter_mut().enumerate() {
             let col = batch.column(col_index);
             if col.is_null(row_index) {
                 // write an empty value
-                record.push(String::from(""));
+                *item = "".to_string();
                 continue;
             }
             let string = match col.data_type() {
@@ -243,10 +262,9 @@ impl<W: Write> Writer<W> {
                     )));
                 }
             };
-
-            record.push(string);
+            *item = string;
         }
-        Ok(record)
+        Ok(())
     }
 
     /// Write a vector of record batches to a writable object
@@ -265,9 +283,11 @@ impl<W: Write> Writer<W> {
             self.beginning = false;
         }
 
+        let mut buffer = vec!["".to_string(); batch.num_columns()];
+
         for row_index in 0..batch.num_rows() {
-            let record = self.convert(batch, row_index)?;
-            self.writer.write_record(&record[..])?;
+            self.convert(batch, row_index, &mut buffer)?;
+            self.writer.write_record(&buffer)?;
         }
         self.writer.flush()?;
 
