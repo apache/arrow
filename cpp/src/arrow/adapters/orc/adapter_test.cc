@@ -525,7 +525,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
     bin[0] = i % 128;
     bin[1] = bin[0];
     str = "Arrow " + std::to_string(2 * i);
-    strcpy(string_, str.c_str());
+    snprintf(string_, 12, "%s", str.c_str());
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BooleanBuilder>(builders[0][1])->Append(true));
     ARROW_EXPECT_OK(
@@ -550,7 +550,7 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
     bin[0] = i % 256;
     bin[1] = (i / 256) % 256;
     str = "Arrow " + std::to_string(3 - 4 * i);
-    strcpy(string_, str.c_str());
+    snprintf(string_, 13, "%s", str.c_str());
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BooleanBuilder>(builders[0][3])->Append(false));
     ARROW_EXPECT_OK(
@@ -682,7 +682,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
           std::static_pointer_cast<BinaryBuilder>(builders[10][1])->Append(bin1, 2));
     } else {
       str = "Arrow " + std::to_string(2 * i);
-      strcpy(string_, str.c_str());
+      snprintf(string_, 12, "%s", str.c_str());
       ARROW_EXPECT_OK(
           std::static_pointer_cast<BooleanBuilder>(builders[0][1])->AppendNull());
       ARROW_EXPECT_OK(
@@ -730,7 +730,7 @@ TEST(TestAdapterWriteGeneral, writeMixed) {
           std::static_pointer_cast<BinaryBuilder>(builders[10][3])->Append(bin2, 0));
     } else {
       str = "Arrow " + std::to_string(2 * i);
-      strcpy(string_, str.c_str());
+      snprintf(string_, 12, "%s", str.c_str());
       ARROW_EXPECT_OK(
           std::static_pointer_cast<BooleanBuilder>(builders[0][3])->AppendNull());
       ARROW_EXPECT_OK(
@@ -1410,7 +1410,7 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
     bin2[1] = (2 * i + 1) % 256;
     bin2[2] = (i - 1) % 256;
     str = "Arrow " + std::to_string(2 * i);
-    strcpy(string_, str.c_str());
+    snprintf(string_, 12, "%s", str.c_str());
     ARROW_EXPECT_OK(std::static_pointer_cast<Date64Builder>(buildersIn[0][1])
                         ->Append(INT64_C(1605758461555) + i));
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersIn[1][1])
@@ -1435,7 +1435,7 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
     bin2[1] = (2 * i + 1) % 256;
     bin2[2] = (i - 1) % 256;
     str = "Arrow " + std::to_string(2 * i);
-    strcpy(string_, str.c_str());
+    snprintf(string_, 12, "%s", str.c_str());
     ARROW_EXPECT_OK(std::static_pointer_cast<Date64Builder>(buildersIn[0][3])
                         ->Append(INT64_C(1605758461555) + i));
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersIn[1][3])
@@ -1460,7 +1460,7 @@ TEST(TestAdapterWriteConvert, writeNoNulls) {
     bin2[1] = (2 * i + 1) % 256;
     bin2[2] = (i - 1) % 256;
     str = "Arrow " + std::to_string(2 * i);
-    strcpy(string_, str.c_str());
+    snprintf(string_, 12, "%s", str.c_str());
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[0])
                         ->Append(INT64_C(1605758461555000000) + INT64_C(1000000) * i));
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(buildersOut[1])
@@ -1591,7 +1591,7 @@ TEST(TestAdapterWriteConvert, writeMixed) {
     int chunk = i < (numRows / 2) ? 1 : 3;
     if (i % 2) {
       str = "Arrow " + std::to_string(-4 * i + 8);
-      strcpy(string_, str.c_str());
+      snprintf(string_, 13, "%s", str.c_str());
       ARROW_EXPECT_OK(std::static_pointer_cast<Date64Builder>(buildersIn[0][chunk])
                           ->Append(INT64_C(1605758461555) + 3 * i));
       ARROW_EXPECT_OK(
