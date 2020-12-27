@@ -1483,7 +1483,7 @@ mod tests {
         // build a record batch
         let batch = RecordBatch::try_new(
             Arc::new(schema),
-            vec![Arc::new(a), Arc::new(b) /* Arc::new(c) */],
+            vec![Arc::new(a), Arc::new(b), Arc::new(c)],
         )
         .unwrap();
 
@@ -1550,5 +1550,7 @@ mod tests {
             is_nullable: true,
         };
         assert_eq!(list_level, &expected_level);
+
+        todo!("levels for arrays 3-5 not yet tested")
     }
 }
