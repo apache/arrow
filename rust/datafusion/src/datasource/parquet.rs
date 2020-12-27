@@ -40,7 +40,7 @@ pub struct ParquetTable {
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path.
     pub fn try_new(path: &str) -> Result<Self> {
-        let parquet_exec = ParquetExec::try_from_path(path, None, 0)?;
+        let parquet_exec = ParquetExec::try_from_path(path, None, 0, 1)?;
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
@@ -72,6 +72,7 @@ impl TableProvider for ParquetTable {
             &self.path,
             projection.clone(),
             batch_size,
+            num_cpus::get() //TODO
         )?))
     }
 
