@@ -558,9 +558,9 @@ class ORCFileWriter::Impl {
   int num_cols_;
 };
 
-ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
-
 ORCFileWriter::~ORCFileWriter() {}
+
+ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
                            const std::shared_ptr<io::FileOutputStream>& file,
