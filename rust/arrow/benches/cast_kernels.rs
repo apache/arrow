@@ -120,6 +120,8 @@ fn add_benchmark(c: &mut Criterion) {
     let i32_array = build_array::<Int32Type>(512);
     let i64_array = build_array::<Int64Type>(512);
     let f32_array = build_array::<Float32Type>(512);
+    let f32_utf8_array = cast(&build_array::<Float32Type>(512), &DataType::Utf8).unwrap();
+
     let f64_array = build_array::<Float64Type>(512);
     let date64_array = build_array::<Date64Type>(512);
     let date32_array = build_array::<Date32Type>(512);
@@ -188,6 +190,10 @@ fn add_benchmark(c: &mut Criterion) {
             )
         })
     });
+    c.bench_function("cast utf8 to f32", |b| {
+        b.iter(|| cast_array(&f32_utf8_array, DataType::Float32))
+    });
+
     c.bench_function("cast timestamp_ms to i64 512", |b| {
         b.iter(|| cast_array(&time_ms_array, DataType::Int64))
     });
