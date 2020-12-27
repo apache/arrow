@@ -40,7 +40,6 @@ constexpr int DEFAULT_SMALL_MEM_STREAM_SIZE = 16384 * 5;
 using ArrayBuilderVector = std::vector<std::shared_ptr<ArrayBuilder>>;
 using ArrayBuilderMatrix = std::vector<ArrayBuilderVector>;
 using ArrayMatrix = std::vector<ArrayVector>;
-using ArrayTensor = std::vector<ArrayMatrix>;
 
 // Used in testing of FillBatch functions for nested types
 int64_t testListOffsetGenerator(int64_t index) {
@@ -55,20 +54,6 @@ int64_t testListOffsetGenerator(int64_t index) {
   }
 }
 
-// Used in testing of FillBatch functions for union types
-// begin is included, end is not
-void testDenseUnionStringOffsetGenerator(int32_t begin, int32_t end, int32_t* out) {
-  out[0] = 0;
-  out[1] = 0;
-  int32_t res;
-  for (int32_t i = begin; i < end; i++) {
-    res = i % 5;
-    if (res >= 3)
-      out[1]++;
-    else
-      out[0]++;
-  }
-}
 class MemoryOutputStream : public liborc::OutputStream {
  public:
   explicit MemoryOutputStream(ssize_t capacity)
@@ -534,10 +519,13 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
   builders[10] = ArrayBuilderVector(
       5, std::static_pointer_cast<ArrayBuilder>(std::make_shared<BinaryBuilder>()));
 
-  char bin[2];
+  char bin[2], string_[13];
+  std::string str;
   for (int64_t i = 0; i < numRows / 2; i++) {
     bin[0] = i % 128;
     bin[1] = bin[0];
+    str = "Arrow " + std::to_string(2 * i);
+    strcpy(string_, str.c_str());
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BooleanBuilder>(builders[0][1])->Append(true));
     ARROW_EXPECT_OK(
@@ -553,14 +541,16 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
         std::static_pointer_cast<Date32Builder>(builders[7][1])->Append(18600 + i));
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(builders[8][1])
                         ->Append(INT64_C(1605547718999999999) + i));
-    ARROW_EXPECT_OK(std::static_pointer_cast<StringBuilder>(builders[9][1])
-                        ->Append("Arrow " + std::to_string(2 * i)));
+    ARROW_EXPECT_OK(
+        std::static_pointer_cast<StringBuilder>(builders[9][1])->Append(string_));
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BinaryBuilder>(builders[10][1])->Append(bin, 2));
   }
   for (int64_t i = numRows / 2; i < numRows; i++) {
     bin[0] = i % 256;
     bin[1] = (i / 256) % 256;
+    str = "Arrow " + std::to_string(3 - 4 * i);
+    strcpy(string_, str.c_str());
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BooleanBuilder>(builders[0][3])->Append(false));
     ARROW_EXPECT_OK(
@@ -577,8 +567,8 @@ TEST(TestAdapterWriteGeneral, writeNoNulls) {
         std::static_pointer_cast<Date32Builder>(builders[7][3])->Append(18600 - i));
     ARROW_EXPECT_OK(std::static_pointer_cast<TimestampBuilder>(builders[8][3])
                         ->Append(INT64_C(1605557718999999999) - i));
-    ARROW_EXPECT_OK(std::static_pointer_cast<StringBuilder>(builders[9][3])
-                        ->Append("Arrow " + std::to_string(3 - 4 * i)));
+    ARROW_EXPECT_OK(
+        std::static_pointer_cast<StringBuilder>(builders[9][3])->Append(string_));
     ARROW_EXPECT_OK(
         std::static_pointer_cast<BinaryBuilder>(builders[10][3])->Append(bin, 2));
   }
