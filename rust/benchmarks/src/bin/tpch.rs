@@ -52,7 +52,7 @@ struct BenchmarkOpt {
     concurrency: usize,
 
     /// Batch size when reading CSV or Parquet files
-    #[structopt(short = "s", long = "batch-size", default_value = "4096")]
+    #[structopt(short = "s", long = "batch-size", default_value = "32768")]
     batch_size: usize,
 
     /// Path to data files

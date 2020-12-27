@@ -492,7 +492,7 @@ impl ExecutionConfig {
     pub fn new() -> Self {
         Self {
             concurrency: num_cpus::get(),
-            batch_size: 4096,
+            batch_size: 32768,
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
