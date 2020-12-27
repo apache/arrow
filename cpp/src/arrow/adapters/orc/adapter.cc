@@ -524,22 +524,6 @@ class ORCFileWriter::Impl {
     num_cols_ = schema->num_fields();
     return Status::OK();
   }
-  Status Open(const std::shared_ptr<Schema>& schema,
-              ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
-              const std::shared_ptr<ORCWriterOptions>& options) {
-    orc_options_ = std::make_shared<liborc::WriterOptions>();
-    outStream_ = std::move(outStream);
-    ORC_THROW_NOT_OK(GetORCType(schema.get(), &orcSchema_));
-    try {
-      writer_ = createWriter(*orcSchema_, outStream_.get(), *orc_options_);
-    } catch (const liborc::ParseError& e) {
-      return Status::IOError(e.what());
-    }
-    schema_ = schema;
-    options_ = options;
-    num_cols_ = schema->num_fields();
-    return Status::OK();
-  }
   Status Write(const std::shared_ptr<Table> table) {
     int64_t numRows = table->num_rows();
     int64_t batch_size = static_cast<int64_t>(options_->get_batch_size());
@@ -564,8 +548,6 @@ class ORCFileWriter::Impl {
     return Status::OK();
   }
 
-  liborc::OutputStream* ReleaseOutStream() { return outStream_.release(); }
-
  private:
   ORC_UNIQUE_PTR<liborc::Writer> writer_;
   std::shared_ptr<ORCWriterOptions> options_;
@@ -589,22 +571,9 @@ Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
   *writer = std::move(result);
   return Status::OK();
 }
-Status ORCFileWriter::Open(const std::shared_ptr<Schema>& schema,
-                           ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
-                           const std::shared_ptr<ORCWriterOptions>& options,
-                           std::unique_ptr<ORCFileWriter>* writer) {
-  auto result = std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  ORC_THROW_NOT_OK(result->impl_->Open(schema, outStream, options));
-  *writer = std::move(result);
-  return Status::OK();
-}
 
 Status ORCFileWriter::Write(const std::shared_ptr<Table> table) {
   return impl_->Write(table);
-}
-
-liborc::OutputStream* ORCFileWriter::ReleaseOutStream() {
-  return impl_->ReleaseOutStream();
 }
 
 }  // namespace orc

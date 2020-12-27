@@ -31,9 +31,6 @@
 #include "arrow/table_builder.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
-#include "orc/OrcFile.hh"
-
-namespace liborc = orc;
 
 namespace arrow {
 
@@ -177,22 +174,17 @@ class ARROW_EXPORT ORCFileWriter {
                      const std::shared_ptr<ORCWriterOptions>& options,
                      std::unique_ptr<ORCFileWriter>* writer);
 
-  static Status Open(const std::shared_ptr<Schema>& schema,
-                     ORC_UNIQUE_PTR<liborc::OutputStream>& outStream,
-                     const std::shared_ptr<ORCWriterOptions>& options,
-                     std::unique_ptr<ORCFileWriter>* writer);
-
   /// \brief Write a table
   ///
   /// \param[in] table the Arrow table from which data is extracted
   /// \return Status
   Status Write(const std::shared_ptr<Table> table);
 
-  liborc::OutputStream* ReleaseOutStream();
-
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
+
+ private:
   ORCFileWriter();
 };
 
