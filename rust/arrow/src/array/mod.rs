@@ -179,18 +179,17 @@ pub use self::array_string::StringOffsetSizeTrait;
 
 pub use self::builder::BooleanBufferBuilder;
 pub use self::builder::BufferBuilder;
-pub use self::builder::BufferBuilderTrait;
 
-pub type Int8BufferBuilder = BufferBuilder<Int8Type>;
-pub type Int16BufferBuilder = BufferBuilder<Int16Type>;
-pub type Int32BufferBuilder = BufferBuilder<Int32Type>;
-pub type Int64BufferBuilder = BufferBuilder<Int64Type>;
-pub type UInt8BufferBuilder = BufferBuilder<UInt8Type>;
-pub type UInt16BufferBuilder = BufferBuilder<UInt16Type>;
-pub type UInt32BufferBuilder = BufferBuilder<UInt32Type>;
-pub type UInt64BufferBuilder = BufferBuilder<UInt64Type>;
-pub type Float32BufferBuilder = BufferBuilder<Float32Type>;
-pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
+pub type Int8BufferBuilder = BufferBuilder<i8>;
+pub type Int16BufferBuilder = BufferBuilder<i16>;
+pub type Int32BufferBuilder = BufferBuilder<i32>;
+pub type Int64BufferBuilder = BufferBuilder<i64>;
+pub type UInt8BufferBuilder = BufferBuilder<u8>;
+pub type UInt16BufferBuilder = BufferBuilder<u16>;
+pub type UInt32BufferBuilder = BufferBuilder<u32>;
+pub type UInt64BufferBuilder = BufferBuilder<u64>;
+pub type Float32BufferBuilder = BufferBuilder<f32>;
+pub type Float64BufferBuilder = BufferBuilder<f64>;
 
 pub type TimestampSecondBufferBuilder = BufferBuilder<TimestampSecondType>;
 pub type TimestampMillisecondBufferBuilder = BufferBuilder<TimestampMillisecondType>;

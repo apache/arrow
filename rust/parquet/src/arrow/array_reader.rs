@@ -25,10 +25,10 @@ use std::vec::Vec;
 
 use arrow::array::{
     Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait,
-    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
-    ListBuilder, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray,
-    StringBuilder, StructArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, FixedSizeBinaryArray,
+    FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder, ListBuilder,
+    OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray, StringBuilder,
+    StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -292,7 +292,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
             let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
 
             for e in record_data.data() {
-                boolean_buffer.append(*e > 0)?;
+                boolean_buffer.append(*e > 0);
             }
             record_data = boolean_buffer.finish();
         }
@@ -1082,7 +1082,7 @@ impl ArrayReader for StructArrayReader {
             if !not_null {
                 null_count += 1;
             }
-            bitmap_builder.append(not_null)?;
+            bitmap_builder.append(not_null);
         }
 
         // Now we can build array data
@@ -1110,7 +1110,7 @@ impl ArrayReader for StructArrayReader {
             .get_rep_levels()
             .map(|data| -> Result<Buffer> {
                 let mut buffer = Int16BufferBuilder::new(children_array_len);
-                buffer.append_slice(data)?;
+                buffer.append_slice(data);
                 Ok(buffer.finish())
             })
             .transpose()?;
