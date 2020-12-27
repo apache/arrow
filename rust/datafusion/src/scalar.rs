@@ -163,20 +163,23 @@ impl ScalarValue {
 
     /// whether this value is null or not.
     pub fn is_null(&self) -> bool {
-        matches!(*self, ScalarValue::Boolean(None)
-            | ScalarValue::UInt8(None)
-            | ScalarValue::UInt16(None)
-            | ScalarValue::UInt32(None)
-            | ScalarValue::UInt64(None)
-            | ScalarValue::Int8(None)
-            | ScalarValue::Int16(None)
-            | ScalarValue::Int32(None)
-            | ScalarValue::Int64(None)
-            | ScalarValue::Float32(None)
-            | ScalarValue::Float64(None)
-            | ScalarValue::Utf8(None)
-            | ScalarValue::LargeUtf8(None)
-            | ScalarValue::List(None, _))
+        matches!(
+            *self,
+            ScalarValue::Boolean(None)
+                | ScalarValue::UInt8(None)
+                | ScalarValue::UInt16(None)
+                | ScalarValue::UInt32(None)
+                | ScalarValue::UInt64(None)
+                | ScalarValue::Int8(None)
+                | ScalarValue::Int16(None)
+                | ScalarValue::Int32(None)
+                | ScalarValue::Int64(None)
+                | ScalarValue::Float32(None)
+                | ScalarValue::Float64(None)
+                | ScalarValue::Utf8(None)
+                | ScalarValue::LargeUtf8(None)
+                | ScalarValue::List(None, _)
+        )
     }
 
     /// Converts a scalar value into an 1-row array.
