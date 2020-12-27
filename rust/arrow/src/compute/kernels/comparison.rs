@@ -807,38 +807,57 @@ fn new_all_set_buffer(len: usize) -> Buffer {
     buffer.freeze()
 }
 
+// disable wrapping inside literal vectors used for test data and assertions
+#[rustfmt::skip::macros(vec)]
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::datatypes::{Int8Type, ToByteSlice};
     use crate::{array::Int32Array, array::Int64Array, datatypes::Field};
 
+    /// Evaluate `KERNEL` with two vectors as inputs and assert against the expected output.
+    /// `A_VEC` and `B_VEC` can be of type `Vec<i64>` or `Vec<Option<i64>>`.
+    /// `EXPECTED` can be either `Vec<bool>` or `Vec<Option<bool>>`.
+    /// The main reason for this macro is that inputs and outputs align nicely after `cargo fmt`.
+    macro_rules! cmp_i64 {
+        ($KERNEL:ident, $A_VEC:expr, $B_VEC:expr, $EXPECTED:expr) => {
+            let a = Int64Array::from($A_VEC);
+            let b = Int64Array::from($B_VEC);
+            let c = $KERNEL(&a, &b).unwrap();
+            assert_eq!(BooleanArray::from($EXPECTED), c);
+        };
+    }
+
+    /// Evaluate `KERNEL` with one vectors and one scalar as inputs and assert against the expected output.
+    /// `A_VEC` can be of type `Vec<i64>` or `Vec<Option<i64>>`.
+    /// `EXPECTED` can be either `Vec<bool>` or `Vec<Option<bool>>`.
+    /// The main reason for this macro is that inputs and outputs align nicely after `cargo fmt`.
+    macro_rules! cmp_i64_scalar {
+        ($KERNEL:ident, $A_VEC:expr, $B:literal, $EXPECTED:expr) => {
+            let a = Int64Array::from($A_VEC);
+            let c = $KERNEL(&a, $B).unwrap();
+            assert_eq!(BooleanArray::from($EXPECTED), c);
+        };
+    }
+
     #[test]
     fn test_primitive_array_eq() {
-        let a = Int64Array::from(vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8]);
-        let b = Int64Array::from(vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10]);
-        let c = eq(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
-        assert_eq!(false, c.value(5));
-        assert_eq!(false, c.value(6));
-        assert_eq!(true, c.value(7));
-        assert_eq!(false, c.value(8));
-        assert_eq!(false, c.value(9));
+        cmp_i64!(
+            eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, true, false, false, false, false, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = eq_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, true, false, false, false, false, true, false, false]
+        );
     }
 
     #[test]
@@ -857,193 +876,182 @@ mod tests {
 
     #[test]
     fn test_primitive_array_neq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = neq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            neq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, false, true, true, true, true, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_neq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = neq_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            neq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, false, true, true, true, true, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            lt,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, false, true, true, false, false, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            lt_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, false, false, false, true, true, false, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = lt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64!(
+            lt,
+            vec![None, None, Some(1), Some(1), None, None, Some(2), Some(2),],
+            vec![None, Some(1), None, Some(1), None, Some(3), None, Some(3),],
+            vec![None, None, None, Some(false), None, None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = lt_scalar(&a, 2).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64_scalar!(
+            lt_scalar,
+            vec![None, Some(1), Some(2), Some(3), None, Some(1), Some(2), Some(3), Some(2), None],
+            2,
+            vec![None, Some(true), Some(false), Some(false), None, Some(true), Some(false), Some(false), Some(false), None]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_eq(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64!(
+            lt_eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![false, false, true, true, true, false, false, true, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = lt_eq_scalar(&a, 8).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64_scalar!(
+            lt_eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![true, true, true, false, false, true, true, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = lt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64!(
+            lt_eq,
+            vec![None, None, Some(1), None, None, Some(1), None, None, Some(1)],
+            vec![None, Some(1), Some(0), None, Some(1), Some(2), None, None, Some(3)],
+            vec![None, None, Some(false), None, None, Some(true), None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_lt_eq_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = lt_eq_scalar(&a, 1).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
+        cmp_i64_scalar!(
+            lt_eq_scalar,
+            vec![None, Some(1), Some(2), None, Some(1), Some(2), None, Some(1), Some(2)],
+            1,
+            vec![None, Some(true), Some(false), None, Some(true), Some(false), None, Some(true), Some(false)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64!(
+            gt,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, false, false, false, true, true, false, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            gt_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, false, true, true, false, false, false, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = gt(&a, &b).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64!(
+            gt,
+            vec![None, None, Some(1), None, None, Some(2), None, None, Some(3)],
+            vec![None, Some(1), Some(1), None, Some(1), Some(1), None, Some(1), Some(1)],
+            vec![None, None, Some(false), None, None, Some(true), None, None, Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = gt_scalar(&a, 1).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64_scalar!(
+            gt_scalar,
+            vec![None, Some(1), Some(2), None, Some(1), Some(2), None, Some(1), Some(2)],
+            1,
+            vec![None, Some(false), Some(true), None, Some(false), Some(true), None, Some(false), Some(true)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq() {
-        let a = Int32Array::from(vec![8, 8, 8, 8, 8]);
-        let b = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(false, c.value(3));
-        assert_eq!(false, c.value(4));
+        cmp_i64!(
+            gt_eq,
+            vec![8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            vec![true, true, true, false, false, true, true, true, false, false]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_scalar() {
-        let a = Int32Array::from(vec![6, 7, 8, 9, 10]);
-        let c = gt_eq_scalar(&a, 8).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
-        assert_eq!(true, c.value(3));
-        assert_eq!(true, c.value(4));
+        cmp_i64_scalar!(
+            gt_eq_scalar,
+            vec![6, 7, 8, 9, 10, 6, 7, 8, 9, 10],
+            8,
+            vec![false, false, true, true, true, false, false, true, true, true]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_nulls() {
-        let a = Int32Array::from(vec![None, None, Some(1)]);
-        let b = Int32Array::from(vec![None, Some(1), None]);
-        let c = gt_eq(&a, &b).unwrap();
-        assert_eq!(true, c.value(0));
-        assert_eq!(false, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64!(
+            gt_eq,
+            vec![None, None, Some(1), None, Some(1), Some(2), None, None, Some(1)],
+            vec![None, Some(1), None, None, Some(1), Some(1), None, Some(2), Some(2)],
+            vec![None, None, None, None, Some(true), Some(true), None, None, Some(false)]
+        );
     }
 
     #[test]
     fn test_primitive_array_gt_eq_scalar_nulls() {
-        let a = Int32Array::from(vec![None, Some(1), Some(2)]);
-        let c = gt_eq_scalar(&a, 1).unwrap();
-        assert_eq!(false, c.value(0));
-        assert_eq!(true, c.value(1));
-        assert_eq!(true, c.value(2));
+        cmp_i64_scalar!(
+            gt_eq_scalar,
+            vec![None, Some(1), Some(2), None, Some(2), Some(3), None, Some(3), Some(4)],
+            2,
+            vec![None, Some(false), Some(true), None, Some(true), Some(true), None, Some(true), Some(true)]
+        );
     }
 
     #[test]
