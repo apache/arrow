@@ -20,7 +20,7 @@
 //! These utilities define structs that read the integration JSON format for integration testing purposes.
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{Number as VNumber, Value};
+use serde_json::{Map as VMap, Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
@@ -60,13 +60,22 @@ pub struct ArrowJsonField {
 
 impl From<&Field> for ArrowJsonField {
     fn from(field: &Field) -> Self {
+        let mut metadata_value = None;
+        if let Some(kv_list) = field.metadata() {
+            let mut json_map = VMap::new();
+            for (k, v) in kv_list {
+                json_map.insert(k.clone(), Value::String(v.clone()));
+            }
+            metadata_value = Some(Value::Object(json_map));
+        }
+
         Self {
             name: field.name().to_string(),
             field_type: field.data_type().to_json(),
             nullable: field.is_nullable(),
             children: vec![],
-            dictionary: None, // TODO: not enough info
-            metadata: None,   // TODO(ARROW-10259)
+            dictionary: None,         // TODO: not enough info
+            metadata: metadata_value, // TODO(ARROW-10259): metadata is not used.
         }
     }
 }

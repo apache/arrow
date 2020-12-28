@@ -1312,7 +1312,7 @@ impl Field {
         if let Some(v) = metadata {
             if !v.is_empty() {
                 self.metadata = Some(v);
-                return
+                return;
             }
         }
         self.metadata = None;
@@ -2754,7 +2754,7 @@ mod tests {
         let md = metadata.as_ref().unwrap();
         assert_eq!(md.len(), 1);
         let key = md.get("k");
-        assert!(md.get("k").is_some());
+        assert!(key.is_some());
         assert_eq!(key.unwrap(), "v");
 
         let interests = &schema.fields()[3];
