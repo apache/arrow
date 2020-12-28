@@ -20,7 +20,7 @@
 //! Declares a SQL parser based on sqlparser that handles custom formats that we need.
 
 use sqlparser::{
-    ast::{ColumnDef, Statement as SQLStatement, TableConstraint},
+    ast::{ColumnDef, ColumnOptionDef, Statement as SQLStatement, TableConstraint},
     dialect::{keywords::Keyword, Dialect, GenericDialect},
     parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer},
@@ -59,15 +59,6 @@ pub struct CreateExternalTable {
     pub location: String,
 }
 
-/// DataFusion extension DDL for `EXPLAIN` and `EXPLAIN VERBOSE`
-#[derive(Debug, Clone, PartialEq)]
-pub struct ExplainPlan {
-    /// If true, dumps more intermediate plans and results of optimizaton passes
-    pub verbose: bool,
-    /// The statement for which to generate an planning explanation
-    pub statement: Box<Statement>,
-}
-
 /// DataFusion Statement representations.
 ///
 /// Tokens parsed by `DFParser` are converted into these values.
@@ -77,16 +68,14 @@ pub enum Statement {
     Statement(SQLStatement),
     /// Extension: `CREATE EXTERNAL TABLE`
     CreateExternalTable(CreateExternalTable),
-    /// Extension: `EXPLAIN <SQL>`
-    Explain(ExplainPlan),
 }
 
 /// SQL Parser
-pub struct DFParser {
-    parser: Parser,
+pub struct DFParser<'a> {
+    parser: Parser<'a>,
 }
 
-impl DFParser {
+impl<'a> DFParser<'a> {
     /// Parse the specified tokens
     pub fn new(sql: &str) -> Result<Self, ParserError> {
         let dialect = &GenericDialect {};
@@ -96,12 +85,13 @@ impl DFParser {
     /// Parse the specified tokens with dialect
     pub fn new_with_dialect(
         sql: &str,
-        dialect: &dyn Dialect,
+        dialect: &'a dyn Dialect,
     ) -> Result<Self, ParserError> {
         let mut tokenizer = Tokenizer::new(dialect, sql);
         let tokens = tokenizer.tokenize()?;
+
         Ok(DFParser {
-            parser: Parser::new(tokens),
+            parser: Parser::new(tokens, dialect),
         })
     }
 
@@ -155,10 +145,6 @@ impl DFParser {
                         // use custom parsing
                         self.parse_create()
                     }
-                    Keyword::NoKeyword if w.value.to_uppercase() == "EXPLAIN" => {
-                        self.parser.next_token();
-                        self.parse_explain()
-                    }
                     _ => {
                         // use the native parser
                         Ok(Statement::Statement(self.parser.parse_statement()?))
@@ -179,26 +165,6 @@ impl DFParser {
         } else {
             Ok(Statement::Statement(self.parser.parse_create()?))
         }
-    }
-
-    /// Parse an SQL EXPLAIN statement.
-    pub fn parse_explain(&mut self) -> Result<Statement, ParserError> {
-        // Parser is at the token immediately after EXPLAIN
-        // Check for EXPLAIN VERBOSE
-        let verbose = match self.parser.peek_token() {
-            Token::Word(w) => match w.keyword {
-                Keyword::NoKeyword if w.value.to_uppercase() == "VERBOSE" => {
-                    self.parser.next_token();
-                    true
-                }
-                _ => false,
-            },
-            _ => false,
-        };
-
-        let statement = Box::new(self.parse_statement()?);
-        let explain_plan = ExplainPlan { statement, verbose };
-        Ok(Statement::Explain(explain_plan))
     }
 
     // This is a copy of the equivalent implementation in sqlparser.
@@ -250,10 +216,21 @@ impl DFParser {
         };
         let mut options = vec![];
         loop {
-            match self.parser.peek_token() {
-                Token::EOF | Token::Comma | Token::RParen => break,
-                _ => options.push(self.parser.parse_column_option_def()?),
-            }
+            if self.parser.parse_keyword(Keyword::CONSTRAINT) {
+                let name = Some(self.parser.parse_identifier()?);
+                if let Some(option) = self.parser.parse_optional_column_option()? {
+                    options.push(ColumnOptionDef { name, option });
+                } else {
+                    return self.expected(
+                        "constraint details after CONSTRAINT <name>",
+                        self.parser.peek_token(),
+                    );
+                }
+            } else if let Some(option) = self.parser.parse_optional_column_option()? {
+                options.push(ColumnOptionDef { name: None, option });
+            } else {
+                break;
+            };
         }
         Ok(ColumnDef {
             name,
