@@ -51,7 +51,7 @@ In a different R process, let's connect to it and put some data in it.
 library(arrow)
 client <- flight_connect(port = 8089)
 # Upload some data to our server so there's something to demo
-push_data(client, iris, path = "test_data/iris")
+flight_put(client, iris, path = "test_data/iris")
 ```
 
 Now, in a new R process, let's connect to the server and pull the data we

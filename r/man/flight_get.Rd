@@ -9,10 +9,10 @@ flight_get(client, path)
 \arguments{
 \item{client}{\code{pyarrow.flight.FlightClient}, as returned by \code{\link[=flight_connect]{flight_connect()}}}
 
-\item{path}{string identifier under which the data is stored}
+\item{path}{string identifier under which data is stored}
 }
 \value{
-A \link{RecordBatch}
+A \link{Table}
 }
 \description{
 Get data from a Flight server
