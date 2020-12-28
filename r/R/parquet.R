@@ -150,7 +150,7 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  if (is.data.frame(x)) {
+  if (!inherits(x, "Table")) {
     x <- Table$create(x)
   }
 
