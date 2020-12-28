@@ -1306,9 +1306,16 @@ impl Field {
     }
 
     /// Sets the `Field`'s optional custom metadata.
+    /// If the map is empty, then the metadata is set as none.
     #[inline]
     pub fn set_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) {
-        self.metadata = metadata;
+        if let Some(v) = metadata {
+            if !v.is_empty() {
+                self.metadata = Some(v);
+                return
+            }
+        }
+        self.metadata = None;
     }
 
     /// Returns the immutable reference to the `Field`'s optional custom metadata.
@@ -1992,9 +1999,20 @@ mod tests {
 
     #[test]
     fn serde_struct_type() {
+        let kv_array = [("k".to_string(), "v".to_string())];
+        let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
+
+        // Non-empty map: should be converted as JSON obj { ... }
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
+
+        // Empty map: should be omitted.
+        let mut last_name = Field::new("last_name", DataType::Utf8, false);
+        last_name.set_metadata(Some(BTreeMap::default()));
+
         let person = DataType::Struct(vec![
-            Field::new("first_name", DataType::Utf8, false),
-            Field::new("last_name", DataType::Utf8, false),
+            first_name,
+            last_name,
             Field::new(
                 "address",
                 DataType::Struct(vec![
@@ -2012,7 +2030,7 @@ mod tests {
 
         assert_eq!(
             "{\"Struct\":[\
-             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
+             {\"name\":\"first_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"k\":\"v\"}},\
              {\"name\":\"last_name\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
              {\"name\":\"address\",\"data_type\":{\"Struct\":\
              [{\"name\":\"street\",\"data_type\":\"Utf8\",\"nullable\":false,\"dict_id\":0,\"dict_is_ordered\":false},\
