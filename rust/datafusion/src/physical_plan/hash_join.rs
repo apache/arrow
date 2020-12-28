@@ -20,8 +20,8 @@
 
 use arrow::array::ArrayRef;
 use std::sync::Arc;
-use std::{any::Any, collections::HashSet};
 use std::time::Instant;
+use std::{any::Any, collections::HashSet};
 
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -279,7 +279,7 @@ struct HashJoinStream {
     num_output_batches: usize,
     /// number of rows produced
     num_output_rows: usize,
-    /// total time for joining stream-side batches to the build-side batches
+    /// total time for joining probe-side batches to the build-side batches
     join_time: usize,
 }
 
@@ -583,7 +583,7 @@ impl Stream for HashJoinStream {
                 }
                 other => {
                     debug!(
-                        "Processed {} stream-side input batches containing {} rows and \
+                        "Processed {} probe-side input batches containing {} rows and \
                         produced {} output batches containing {} rows in {} ms",
                         self.num_input_batches,
                         self.num_input_rows,
