@@ -140,5 +140,9 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext
   return CallFunction("fill_null", {values, fill_value}, ctx);
 }
 
+Result<Datum> Replace(const Datum& values, const Datum& mask, const Datum& replacement, ExecContext* ctx) {
+  return CallFunction("replace", {values, mask, replacement}, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow
