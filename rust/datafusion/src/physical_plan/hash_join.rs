@@ -300,6 +300,7 @@ fn build_batch_from_indices(
     right: &RecordBatch,
     join_type: &JoinType,
     indices: &[(JoinIndex, RightIndex)],
+    capacity: usize,
 ) -> ArrowResult<RecordBatch> {
     if left.is_empty() {
         todo!("Create empty record batch");
@@ -336,7 +337,6 @@ fn build_batch_from_indices(
             .iter()
             .map(|array| array.as_ref())
             .collect::<Vec<_>>();
-        let capacity = arrays.iter().map(|array| array.len()).sum();
         let mut mutable = MutableArrayData::new(arrays, true, capacity);
 
         let is_left =
@@ -431,10 +431,11 @@ fn build_batch(
     on_right: &HashSet<String>,
     join_type: &JoinType,
     schema: &Schema,
+    capacity: usize,
 ) -> ArrowResult<RecordBatch> {
     let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
-    build_batch_from_indices(schema, &left_data.1, &batch, join_type, &indices)
+    build_batch_from_indices(schema, &left_data.1, &batch, join_type, &indices, capacity)
 }
 
 /// returns a vector with (index from left, index from right).
@@ -562,12 +563,18 @@ impl Stream for HashJoinStream {
             .map(|maybe_batch| match maybe_batch {
                 Some(Ok(batch)) => {
                     let start = Instant::now();
+                    let capacity = if self.num_output_batches == 0 {
+                        1024
+                    } else {
+                        self.num_output_rows / self.num_output_batches + 1024
+                    };
                     let result = build_batch(
                         &batch,
                         &self.left_data,
                         &self.on_right,
                         &self.join_type,
                         &self.schema,
+                        capacity,
                     );
                     self.num_input_batches += 1;
                     self.num_input_rows += batch.num_rows();
