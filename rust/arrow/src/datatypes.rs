@@ -22,6 +22,7 @@
 //!  * [`Field`](crate::datatypes::Field) to describe one field within a schema.
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
@@ -193,6 +194,9 @@ pub struct Field {
     nullable: bool,
     dict_id: i64,
     dict_is_ordered: bool,
+    /// A map of key-value pairs containing additional custom meta data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata: Option<BTreeMap<String, String>>,
 }
 
 pub trait ArrowNativeType:
@@ -1279,6 +1283,7 @@ impl Field {
             nullable,
             dict_id: 0,
             dict_is_ordered: false,
+            metadata: None,
         }
     }
 
@@ -1296,7 +1301,20 @@ impl Field {
             nullable,
             dict_id,
             dict_is_ordered,
+            metadata: None,
         }
+    }
+
+    /// Sets the `Field`'s optional custom metadata.
+    #[inline]
+    pub fn set_metadata(&mut self, metadata: Option<BTreeMap<String, String>>) {
+        self.metadata = metadata;
+    }
+
+    /// Returns the immutable reference to the `Field`'s optional custom metadata.
+    #[inline]
+    pub const fn metadata(&self) -> &Option<BTreeMap<String, String>> {
+        &self.metadata
     }
 
     /// Returns an immutable reference to the `Field`'s name
@@ -1461,6 +1479,7 @@ impl Field {
                     data_type,
                     dict_id,
                     dict_is_ordered,
+                    metadata: None,
                 })
             }
             _ => Err(ArrowError::ParseError(
@@ -1616,7 +1635,7 @@ impl Field {
 
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.data_type)
+        write!(f, "{:?}", self)
     }
 }
 
@@ -2687,12 +2706,14 @@ mod tests {
     #[test]
     fn create_schema_string() {
         let schema = person_schema();
-        assert_eq!(schema.to_string(), "first_name: Utf8, \
-        last_name: Utf8, \
-        address: Struct([\
-        Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false }, \
-        Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false }]), \
-        interests: Dictionary(Int32, Utf8)")
+        assert_eq!(schema.to_string(),
+        "Field { name: \"first_name\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: Some({\"k\": \"v\"}) }, \
+        Field { name: \"last_name\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+        Field { name: \"address\", data_type: Struct([\
+            Field { name: \"street\", data_type: Utf8, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+            Field { name: \"zip\", data_type: UInt16, nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }\
+        ]), nullable: false, dict_id: 0, dict_is_ordered: false, metadata: None }, \
+        Field { name: \"interests\", data_type: Dictionary(Int32, Utf8), nullable: true, dict_id: 123, dict_is_ordered: true, metadata: None }")
     }
 
     #[test]
@@ -2709,6 +2730,14 @@ mod tests {
         assert_eq!(first_name.is_nullable(), false);
         assert_eq!(first_name.dict_id(), None);
         assert_eq!(first_name.dict_is_ordered(), None);
+
+        let metadata = first_name.metadata();
+        assert!(metadata.is_some());
+        let md = metadata.as_ref().unwrap();
+        assert_eq!(md.len(), 1);
+        let key = md.get("k");
+        assert!(md.get("k").is_some());
+        assert_eq!(key.unwrap(), "v");
 
         let interests = &schema.fields()[3];
         assert_eq!(interests.name(), "interests");
@@ -2816,8 +2845,14 @@ mod tests {
     }
 
     fn person_schema() -> Schema {
+        let kv_array = [("k".to_string(), "v".to_string())];
+        let field_metadata: BTreeMap<String, String> = kv_array.iter().cloned().collect();
+
+        let mut first_name = Field::new("first_name", DataType::Utf8, false);
+        first_name.set_metadata(Some(field_metadata));
+
         Schema::new(vec![
-            Field::new("first_name", DataType::Utf8, false),
+            first_name,
             Field::new("last_name", DataType::Utf8, false),
             Field::new(
                 "address",

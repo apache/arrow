@@ -24,7 +24,7 @@ use crate::ipc;
 use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use DataType::*;
 
@@ -72,7 +72,7 @@ pub fn schema_to_fb_offset<'a>(
 /// Convert an IPC Field to Arrow Field
 impl<'a> From<ipc::Field<'a>> for Field {
     fn from(field: ipc::Field) -> Field {
-        if let Some(dictionary) = field.dictionary() {
+        let mut arrow_field = if let Some(dictionary) = field.dictionary() {
             Field::new_dict(
                 field.name().unwrap(),
                 get_data_type(field, true),
@@ -86,7 +86,23 @@ impl<'a> From<ipc::Field<'a>> for Field {
                 get_data_type(field, true),
                 field.nullable(),
             )
+        };
+
+        let mut metadata = None;
+        if let Some(list) = field.custom_metadata() {
+            let mut metadata_map = BTreeMap::default();
+            for kv in list {
+                if let (Some(k), Some(v)) = (kv.key(), kv.value()) {
+                    metadata_map.insert(k.to_string(), v.to_string());
+                }
+            }
+            if !metadata_map.is_empty() {
+                metadata = Some(metadata_map);
+            }
         }
+
+        arrow_field.set_metadata(metadata);
+        arrow_field
     }
 }
 

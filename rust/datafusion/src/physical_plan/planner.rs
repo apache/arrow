@@ -860,7 +860,8 @@ mod tests {
                 data_type: Int32, \
                 nullable: false, \
                 dict_id: 0, \
-                dict_is_ordered: false } }\
+                dict_is_ordered: false, \
+                metadata: None } }\
         ] }, \
         ExecutionPlan schema: Schema { fields: [\
             Field { \
@@ -868,7 +869,8 @@ mod tests {
                 data_type: Int32, \
                 nullable: false, \
                 dict_id: 0, \
-                dict_is_ordered: false }\
+                dict_is_ordered: false, \
+                metadata: None }\
         ], metadata: {} }";
         match plan {
             Ok(_) => panic!("Expected planning failure"),
