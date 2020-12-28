@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! The main type in the module is `Buffer`, a contiguous immutable memory region of
-//! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
-//! be mutated and grown.
+//! This module contains two main structs: [Buffer] and [MutableBuffer]. A buffer represents
+//! a contiguous memory region that can be shared via `offsets`.
+
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
@@ -28,10 +28,9 @@ use crate::{
 
 use std::convert::AsRef;
 use std::fmt::Debug;
-use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
+use std::ptr::NonNull;
 use std::sync::Arc;
-use std::{cmp, ptr::NonNull};
 
 #[cfg(feature = "avx512")]
 use crate::arch::avx512::*;
@@ -44,11 +43,11 @@ use crate::util::bit_util::ceil;
 #[cfg(any(feature = "simd", feature = "avx512"))]
 use std::borrow::BorrowMut;
 
-/// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
-/// boundary. Buffer is immutable.
+/// Buffer represents a contiguous memory region that can be shared with other buffers and across
+/// thread boundaries.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Buffer {
-    /// Reference-counted pointer to the internal byte buffer.
+    /// the internal byte buffer.
     data: Arc<Bytes>,
 
     /// The offset into the buffer.
@@ -162,19 +161,17 @@ impl Buffer {
     ///
     /// Also `typed_data::<bool>` is unsafe as `0x00` and `0x01` are the only valid values for
     /// `bool` in Rust.  However, `bool` arrays in Arrow are bit-packed which breaks this condition.
+    /// View buffer as typed slice.
     pub unsafe fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
-        assert_eq!(self.len() % mem::size_of::<T>(), 0);
-        assert!(memory::is_ptr_aligned::<T>(self.data.ptr().cast()));
         // JUSTIFICATION
         //  Benefit
         //      Many of the buffers represent specific types, and consumers of `Buffer` often need to re-interpret them.
         //  Soundness
         //      * The pointer is non-null by construction
-        //      * alignment asserted above
-        std::slice::from_raw_parts(
-            self.as_ptr() as *const T,
-            self.len() / mem::size_of::<T>(),
-        )
+        //      * alignment asserted below.
+        let (prefix, offsets, suffix) = self.as_slice().align_to::<T>();
+        assert!(prefix.is_empty() && suffix.is_empty());
+        offsets
     }
 
     /// Returns a slice of this buffer starting at a certain bit offset.
@@ -219,25 +216,10 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     fn from(p: T) -> Self {
         // allocate aligned memory buffer
         let slice = p.as_ref();
-        let len = slice.len() * mem::size_of::<u8>();
-        let capacity = bit_util::round_upto_multiple_of_64(len);
-        let buffer = memory::allocate_aligned(capacity);
-        // JUSTIFICATION
-        //  Benefit
-        //      It is often useful to create a buffer from bytes, typically when they are allocated by external sources
-        //  Soundness
-        //      * The pointers are non-null by construction
-        //      * alignment asserted above
-        //  Unsoundness
-        //      * There is no guarantee that the memory regions do are non-overalling, but `memcpy` requires this.
-        unsafe {
-            memory::memcpy(
-                buffer,
-                NonNull::new_unchecked(slice.as_ptr() as *mut u8),
-                len,
-            );
-            Buffer::build_with_arguments(buffer, len, Deallocation::Native(capacity))
-        }
+        let len = slice.len();
+        let mut buffer = MutableBuffer::new(len);
+        buffer.extend_from_slice(slice);
+        buffer.freeze()
     }
 }
 
@@ -700,21 +682,16 @@ unsafe impl Send for Buffer {}
 /// converted into a immutable buffer via the `freeze` method.
 #[derive(Debug)]
 pub struct MutableBuffer {
-    // dangling iff capacity = 0
-    data: NonNull<u8>,
+    data: memory::RawBytes,
     len: usize,
-    capacity: usize,
 }
 
 impl MutableBuffer {
     /// Allocate a new mutable buffer with initial capacity to be `capacity`.
     pub fn new(capacity: usize) -> Self {
-        let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
-        let ptr = memory::allocate_aligned(new_capacity);
         Self {
-            data: ptr,
+            data: memory::RawBytes::with_capacity(capacity),
             len: 0,
-            capacity: new_capacity,
         }
     }
 
@@ -731,10 +708,10 @@ impl MutableBuffer {
     /// the buffer directly (e.g., modifying the buffer by holding a mutable reference
     /// from `data_mut()`).
     pub fn with_bitset(mut self, end: usize, val: bool) -> Self {
-        assert!(end <= self.capacity);
+        assert!(end <= self.data.capacity());
         let v = if val { 255 } else { 0 };
         unsafe {
-            std::ptr::write_bytes(self.data.as_ptr(), v, end);
+            std::ptr::write_bytes(self.data.ptr().as_ptr(), v, end);
             self.len = end;
         }
         self
@@ -746,25 +723,15 @@ impl MutableBuffer {
     /// `len` of the buffer and so can be used to initialize the memory region from
     /// `len` to `capacity`.
     pub fn set_null_bits(&mut self, start: usize, count: usize) {
-        assert!(start + count <= self.capacity);
+        assert!(start + count <= self.capacity());
         unsafe {
-            std::ptr::write_bytes(self.data.as_ptr().add(start), 0, count);
+            std::ptr::write_bytes(self.data.ptr().as_ptr().add(start), 0, count);
         }
     }
 
-    /// Ensures that this buffer has at least `capacity` slots in this buffer. This will
-    /// also ensure the new capacity will be a multiple of 64 bytes.
-    ///
-    /// Returns the new capacity for this buffer.
-    pub fn reserve(&mut self, capacity: usize) -> usize {
-        if capacity > self.capacity {
-            let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
-            let new_capacity = cmp::max(new_capacity, self.capacity * 2);
-            self.data =
-                unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
-            self.capacity = new_capacity;
-        }
-        self.capacity
+    /// Ensures that this buffer has at least `self.len + additional` bytes.
+    pub fn reserve(&mut self, additional: usize) {
+        self.data.reserve(self.len, additional)
     }
 
     /// Resizes the buffer so that the `len` will equal to the `new_len`.
@@ -774,18 +741,28 @@ impl MutableBuffer {
     /// `new_len` will be zeroed out.
     ///
     /// If `new_len` is less than `len`, the buffer will be truncated.
-    pub fn resize(&mut self, new_len: usize) {
-        if new_len > self.len {
-            self.reserve(new_len);
-        } else {
-            let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
-            if new_capacity < self.capacity {
-                self.data =
-                    unsafe { memory::reallocate(self.data, self.capacity, new_capacity) };
-                self.capacity = new_capacity;
+    pub fn resize(&mut self, new_len: usize, value: u8) {
+        if new_len > self.len() {
+            let additional = new_len - self.len();
+            self.reserve(additional);
+            unsafe {
+                let mut ptr = self.as_mut_ptr().add(self.len());
+                for _ in 0..additional {
+                    std::ptr::write(ptr, value);
+                    ptr = ptr.offset(1);
+                }
+                self.len += additional;
             }
+        } else {
+            self.truncate(new_len);
         }
-        self.len = new_len;
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        if len > self.len {
+            return;
+        }
+        self.len = len;
     }
 
     /// Returns whether this buffer is empty or not.
@@ -803,7 +780,7 @@ impl MutableBuffer {
     /// Returns the total capacity in this buffer.
     #[inline]
     pub const fn capacity(&self) -> usize {
-        self.capacity
+        self.data.capacity()
     }
 
     /// Clear all existing data from this buffer.
@@ -826,19 +803,23 @@ impl MutableBuffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     #[inline]
-    pub const fn as_ptr(&self) -> *const u8 {
-        self.data.as_ptr()
+    pub fn as_ptr(&self) -> *const u8 {
+        self.data.ptr().as_ptr()
     }
 
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.data.as_ptr()
+        self.data.ptr().as_ptr()
     }
 
     /// Freezes this buffer and return an immutable version of it.
     pub fn freeze(self) -> Buffer {
         let buffer_data = unsafe {
-            Bytes::new(self.data, self.len, Deallocation::Native(self.capacity))
+            Bytes::new(
+                self.data.ptr(),
+                self.len,
+                Deallocation::Native(self.capacity()),
+            )
         };
         std::mem::forget(self);
         Buffer {
@@ -849,44 +830,34 @@ impl MutableBuffer {
 
     /// View buffer as typed slice.
     pub fn typed_data_mut<T: ArrowNativeType>(&mut self) -> &mut [T] {
-        assert_eq!(self.len() % mem::size_of::<T>(), 0);
-        assert!(memory::is_ptr_aligned::<T>(self.data.cast()));
-        // JUSTIFICATION
-        //  Benefit
-        //      Many of the buffers represent specific types, and consumers of `Buffer` often need to re-interpret them.
-        //  Soundness
-        //      * The pointer is non-null by construction
-        //      * alignment asserted above
         unsafe {
-            std::slice::from_raw_parts_mut(
-                self.as_ptr() as *mut T,
-                self.len() / mem::size_of::<T>(),
-            )
+            let (prefix, offsets, suffix) = self.as_slice_mut().align_to_mut::<T>();
+            assert!(prefix.is_empty() && suffix.is_empty());
+            offsets
         }
     }
 
     /// Extends the buffer from a byte slice, incrementing its capacity if needed.
     #[inline]
     pub fn extend_from_slice(&mut self, bytes: &[u8]) {
-        let new_len = self.len + bytes.len();
-        if new_len > self.capacity {
-            self.reserve(new_len);
-        }
-        unsafe {
-            let dst = NonNull::new_unchecked(self.data.as_ptr().add(self.len));
-            let src = NonNull::new_unchecked(bytes.as_ptr() as *mut u8);
-            memory::memcpy(dst, src, bytes.len());
-        }
-        self.len = new_len;
+        let additional = bytes.len();
+        let len = self.len();
+        self.extend(additional);
+
+        let slice = &mut self.as_slice_mut()[len..];
+        slice.copy_from_slice(bytes);
     }
 
-    /// Extends the buffer by `len` with all bytes equal to `0u8`, incrementing its capacity if needed.
-    pub fn extend(&mut self, len: usize) {
-        let remaining_capacity = self.capacity - self.len;
-        if len > remaining_capacity {
-            self.reserve(self.len + len);
-        }
-        self.len += len;
+    /// Extends the buffer by `additional` with all bytes equal to `0u8`, incrementing its capacity if needed.
+    #[inline]
+    pub fn extend(&mut self, additional: usize) {
+        self.reserve(additional);
+        self.len += additional;
+    }
+
+    pub fn set_len(&mut self, len: usize) {
+        assert!(len <= self.capacity());
+        self.len = len;
     }
 }
 
@@ -904,18 +875,12 @@ impl std::ops::DerefMut for MutableBuffer {
     }
 }
 
-impl Drop for MutableBuffer {
-    fn drop(&mut self) {
-        unsafe { memory::free_aligned(self.data, self.capacity) };
-    }
-}
-
 impl PartialEq for MutableBuffer {
     fn eq(&self, other: &MutableBuffer) -> bool {
         if self.len != other.len {
             return false;
         }
-        if self.capacity != other.capacity {
+        if self.capacity() != other.capacity() {
             return false;
         }
         self.as_slice() == other.as_slice()
@@ -1101,13 +1066,14 @@ mod tests {
         assert_eq!(64, buf.capacity());
 
         // Reserving a smaller capacity should have no effect.
-        let mut new_cap = buf.reserve(10);
-        assert_eq!(64, new_cap);
+        buf.reserve(10);
         assert_eq!(64, buf.capacity());
 
-        new_cap = buf.reserve(100);
-        assert_eq!(128, new_cap);
+        buf.reserve(80);
         assert_eq!(128, buf.capacity());
+
+        buf.reserve(129);
+        assert_eq!(256, buf.capacity());
     }
 
     #[test]
@@ -1116,24 +1082,24 @@ mod tests {
         assert_eq!(64, buf.capacity());
         assert_eq!(0, buf.len());
 
-        buf.resize(20);
+        buf.resize(20, 0);
         assert_eq!(64, buf.capacity());
         assert_eq!(20, buf.len());
 
-        buf.resize(10);
+        buf.resize(10, 0);
         assert_eq!(64, buf.capacity());
         assert_eq!(10, buf.len());
 
-        buf.resize(100);
+        buf.resize(100, 0);
         assert_eq!(128, buf.capacity());
         assert_eq!(100, buf.len());
 
-        buf.resize(30);
-        assert_eq!(64, buf.capacity());
+        buf.resize(30, 0);
+        assert_eq!(128, buf.capacity());
         assert_eq!(30, buf.len());
 
-        buf.resize(0);
-        assert_eq!(0, buf.capacity());
+        buf.resize(0, 0);
+        assert_eq!(128, buf.capacity());
         assert_eq!(0, buf.len());
     }
 

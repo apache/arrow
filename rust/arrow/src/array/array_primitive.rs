@@ -313,15 +313,13 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
             data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
         );
 
-        let null = vec![0; mem::size_of::<<T as ArrowPrimitiveType>::Native>()];
-
         let null_slice = null_buf.as_slice_mut();
         iter.enumerate().for_each(|(i, item)| {
             if let Some(a) = item.borrow() {
                 bit_util::set_bit(null_slice, i);
                 val_buf.extend_from_slice(a.to_byte_slice());
             } else {
-                val_buf.extend_from_slice(&null);
+                val_buf.extend(mem::size_of::<<T as ArrowPrimitiveType>::Native>());
             }
         });
 
@@ -411,14 +409,13 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
         let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
 
         {
-            let null = vec![0; mem::size_of::<i64>()];
             let null_slice = null_buf.as_slice_mut();
             for (i, v) in data.iter().enumerate() {
                 if let Some(n) = v {
                     bit_util::set_bit(null_slice, i);
                     val_buf.extend_from_slice(&n.to_byte_slice());
                 } else {
-                    val_buf.extend_from_slice(&null);
+                    val_buf.extend(mem::size_of::<i64>());
                 }
             }
         }

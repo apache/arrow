@@ -72,8 +72,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 let mut last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
                 // nulls present: append item by item, ignoring null entries
-                offset_buffer
-                    .reserve(offset_buffer.len() + len * std::mem::size_of::<T>());
+                offset_buffer.reserve(len * std::mem::size_of::<T>());
 
                 (start..start + len).for_each(|i| {
                     if array.is_valid(i) {

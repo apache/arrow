@@ -178,9 +178,9 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// assert_eq!(builder.len(), 2);
     /// ```
     #[inline]
-    pub fn advance(&mut self, i: usize) {
+    fn advance(&mut self, i: usize) {
         let new_buffer_len = (self.len + i) * mem::size_of::<T>();
-        self.buffer.resize(new_buffer_len);
+        self.buffer.resize(new_buffer_len, 0);
         self.len += i;
     }
 
@@ -198,9 +198,7 @@ impl<T: ArrowNativeType> BufferBuilder<T> {
     /// ```
     #[inline]
     pub fn reserve(&mut self, n: usize) {
-        let new_capacity = self.len + n;
-        let byte_capacity = mem::size_of::<T>() * new_capacity;
-        self.buffer.reserve(byte_capacity);
+        self.buffer.reserve(n * mem::size_of::<T>());
     }
 
     /// Appends a value of type `T` into the builder,
@@ -300,10 +298,7 @@ impl BooleanBufferBuilder {
     #[inline]
     pub fn new(capacity: usize) -> Self {
         let byte_capacity = bit_util::ceil(capacity, 8);
-        let actual_capacity = bit_util::round_upto_multiple_of_64(byte_capacity);
-        let mut buffer = MutableBuffer::new(actual_capacity);
-        buffer.set_null_bits(0, actual_capacity);
-
+        let buffer = MutableBuffer::new(byte_capacity);
         Self { buffer, len: 0 }
     }
 
@@ -320,21 +315,26 @@ impl BooleanBufferBuilder {
     }
 
     #[inline]
-    pub fn advance(&mut self, i: usize) {
-        let new_buffer_len = bit_util::ceil(self.len + i, 8);
-        self.buffer.resize(new_buffer_len);
-        self.len += i;
+    fn set_len(&mut self, new: usize) {
+        self.len = new;
+        self.buffer.set_len(bit_util::ceil(self.len, 8));
     }
 
     #[inline]
-    pub fn reserve(&mut self, n: usize) {
-        let new_capacity = self.len + n;
-        if new_capacity > self.capacity() {
-            let new_byte_capacity = bit_util::ceil(new_capacity, 8);
-            let existing_capacity = self.buffer.capacity();
-            let new_capacity = self.buffer.reserve(new_byte_capacity);
-            self.buffer
-                .set_null_bits(existing_capacity, new_capacity - existing_capacity);
+    pub fn advance(&mut self, additional: usize) {
+        self.reserve(additional);
+        self.set_len(self.len + additional);
+    }
+
+    /// Reserve space to at least `additional` new bits.
+    /// Capacity will be `>= self.len() + additional`.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        let capacity = self.len + additional;
+        if capacity > self.capacity() {
+            // convert differential to bytes
+            let additional = bit_util::ceil(capacity, 8) - self.buffer.len();
+            self.buffer.reserve(additional);
         }
     }
 
@@ -342,58 +342,39 @@ impl BooleanBufferBuilder {
     pub fn append(&mut self, v: bool) {
         self.reserve(1);
         if v {
-            let data = unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.buffer.as_mut_ptr(),
-                    self.buffer.capacity(),
-                )
-            };
-            bit_util::set_bit(data, self.len);
+            unsafe { bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len) };
         }
-        self.len += 1;
+        self.set_len(self.len + 1);
     }
 
     #[inline]
-    pub fn append_n(&mut self, n: usize, v: bool) {
-        self.reserve(n);
-        if n != 0 && v {
-            let data = unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.buffer.as_mut_ptr(),
-                    self.buffer.capacity(),
-                )
-            };
-            (self.len..self.len + n).for_each(|i| bit_util::set_bit(data, i))
+    pub fn append_n(&mut self, additional: usize, v: bool) {
+        self.reserve(additional);
+        if additional > 0 && v {
+            (self.len..self.len + additional).for_each(|i| unsafe {
+                bit_util::set_bit_raw(self.buffer.as_mut_ptr(), i)
+            })
         }
-        self.len += n;
+        self.set_len(self.len + additional);
     }
 
     #[inline]
     pub fn append_slice(&mut self, slice: &[bool]) {
-        let array_slots = slice.len();
-        self.reserve(array_slots);
+        let additional = slice.len();
+        self.reserve(additional);
 
-        for v in slice {
+        for (i, v) in slice.iter().enumerate() {
             if *v {
-                // For performance the `len` of the buffer is not
-                // updated on each append but is updated in the
-                // `freeze` method instead.
-                unsafe {
-                    bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len);
-                }
+                unsafe { bit_util::set_bit_raw(self.buffer.as_mut_ptr(), self.len + i) }
             }
-            self.len += 1;
         }
+        self.set_len(self.len + additional);
     }
 
     #[inline]
     pub fn finish(&mut self) -> Buffer {
-        // `append` does not update the buffer's `len` so do it before `freeze` is called.
-        let new_buffer_len = bit_util::ceil(self.len, 8);
-        debug_assert!(new_buffer_len >= self.buffer.len());
-        let mut buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
-        self.len = 0;
-        buf.resize(new_buffer_len);
+        let buf = std::mem::replace(&mut self.buffer, MutableBuffer::new(0));
+        self.set_len(0);
         buf.freeze()
     }
 }
@@ -2476,16 +2457,18 @@ mod tests {
         builder.append_value(false).unwrap();
         let arr2 = builder.finish();
 
-        assert_eq!(arr1.len(), arr2.len());
-        assert_eq!(arr1.offset(), arr2.offset());
-        assert_eq!(arr1.null_count(), arr2.null_count());
-        for i in 0..5 {
-            assert_eq!(arr1.is_null(i), arr2.is_null(i));
-            assert_eq!(arr1.is_valid(i), arr2.is_valid(i));
-            if arr1.is_valid(i) {
-                assert_eq!(arr1.value(i), arr2.value(i));
-            }
-        }
+        assert_eq!(arr1, arr2);
+    }
+
+    #[test]
+    fn test_boolean_array_builder_append_slice_large() {
+        let arr1 = BooleanArray::from(vec![true; 513]);
+
+        let mut builder = BooleanArray::builder(512);
+        builder.append_slice(&[true; 513]).unwrap();
+        let arr2 = builder.finish();
+
+        assert_eq!(arr1, arr2);
     }
 
     #[test]

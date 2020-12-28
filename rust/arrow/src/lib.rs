@@ -135,11 +135,12 @@
 // introduced to ignore lint errors when upgrading from 2020-04-22 to 2020-11-14
 #![allow(clippy::float_equality_without_abs, clippy::type_complexity)]
 
+pub(crate) mod alloc;
 mod arch;
 pub mod array;
 pub mod bitmap;
 pub mod buffer;
-pub mod bytes;
+mod bytes;
 pub mod compute;
 pub mod csv;
 pub mod datatypes;
@@ -147,7 +148,7 @@ pub mod error;
 pub mod ffi;
 pub mod ipc;
 pub mod json;
-pub mod memory;
+mod memory;
 pub mod record_batch;
 pub mod tensor;
 pub mod util;

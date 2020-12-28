@@ -125,7 +125,7 @@ impl Drop for Bytes {
     fn drop(&mut self) {
         match &self.deallocation {
             Deallocation::Native(capacity) => {
-                unsafe { memory::free_aligned(self.ptr, *capacity) };
+                unsafe { memory::dealloc(self.ptr, *capacity) };
             }
             // foreign interface knows how to deallocate itself.
             Deallocation::Foreign(_) => (),
@@ -154,18 +154,5 @@ impl Debug for Bytes {
         f.debug_list().entries(self.iter()).finish()?;
 
         write!(f, " }}")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dealloc_native() {
-        let capacity = 5;
-        let a = memory::allocate_aligned(capacity);
-        // create Bytes and release it. This will make `a` be an invalid pointer, but it is defined behavior
-        unsafe { Bytes::new(a, 3, Deallocation::Native(capacity)) };
     }
 }

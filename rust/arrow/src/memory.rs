@@ -15,17 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines memory-related functions, such as allocate/deallocate/reallocate memory
-//! regions, cache and allocation alignments.
+//! This module is built on top of [arrow::alloc] and its main responsibility is to offer an API
+//! to allocate/reallocate and deallocate memory aligned with cache-lines.
 
-use std::mem::align_of;
+use std::alloc::Layout;
 use std::ptr::NonNull;
-use std::{
-    alloc::{handle_alloc_error, Layout},
-    sync::atomic::AtomicIsize,
-};
 
-// NOTE: Below code is written for spatial/temporal prefetcher optimizations. Memory allocation
+use crate::{alloc, util::bit_util};
+
+// NOTE: Below code (`ALIGNMENT`) is written for spatial/temporal prefetcher optimizations. Memory allocation
 // should align well with usage pattern of cache access and block sizes on layers of storage levels from
 // registers to non-volatile memory. These alignments are all cache aware alignments incorporated
 // from [cuneiform](https://crates.io/crates/cuneiform) crate. This approach mimicks Intel TBB's
@@ -132,153 +130,171 @@ pub const ALIGNMENT: usize = 1 << 6;
 /// Fallback cache and allocation multiple alignment size
 const FALLBACK_ALIGNMENT: usize = 1 << 6;
 
-///
-/// As you can see this is global and lives as long as the program lives.
-/// Be careful to not write anything to this pointer in any scenario.
-/// If you use allocation methods shown here you won't have any problems.
-const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
-
-// If this number is not zero after all objects have been `drop`, there is a memory leak
-pub static mut ALLOCATIONS: AtomicIsize = AtomicIsize::new(0);
-
-pub fn allocate_aligned(size: usize) -> NonNull<u8> {
-    unsafe {
-        if size == 0 {
-            // In a perfect world, there is no need to request zero size allocation.
-            // Currently, passing zero sized layout to alloc is UB.
-            // This will dodge allocator api for any type.
-            BYPASS_PTR
-        } else {
-            ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
-
-            let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-            let raw_ptr = std::alloc::alloc_zeroed(layout);
-            NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
-        }
-    }
-}
-
-/// # Safety
-///
-/// This function is unsafe because undefined behavior can result if the caller does not ensure all
-/// of the following:
-///
-/// * ptr must denote a block of memory currently allocated via this allocator,
-///
-/// * size must be the same size that was used to allocate that block of memory,
-pub unsafe fn free_aligned(ptr: NonNull<u8>, size: usize) {
-    if ptr != BYPASS_PTR {
-        ALLOCATIONS.fetch_sub(size as isize, std::sync::atomic::Ordering::SeqCst);
-        std::alloc::dealloc(
-            ptr.as_ptr(),
-            Layout::from_size_align_unchecked(size, ALIGNMENT),
-        );
-    }
-}
-
-/// # Safety
-///
-/// This function is unsafe because undefined behavior can result if the caller does not ensure all
-/// of the following:
-///
-/// * ptr must be currently allocated via this allocator,
-///
-/// * new_size must be greater than zero.
-///
-/// * new_size, when rounded up to the nearest multiple of [ALIGNMENT], must not overflow (i.e.,
-/// the rounded value must be less than usize::MAX).
-pub unsafe fn reallocate(
+/// A struct to keep track of cache-aligned contiguous memory regions.
+/// Similar to `std::alloc::RawVec<u8>`, with the following differences:
+/// * (re)allocates along (arch-specific) cache lines
+/// * (re)allocates in multiples of 64 bytes.
+/// * (re)allocates initialized with zeros.
+#[derive(Debug)]
+pub struct RawBytes {
+    // pointer is dangling iff cap == 0
     ptr: NonNull<u8>,
-    old_size: usize,
-    new_size: usize,
-) -> NonNull<u8> {
-    if ptr == BYPASS_PTR {
-        return allocate_aligned(new_size);
-    }
-
-    if new_size == 0 {
-        free_aligned(ptr, old_size);
-        return BYPASS_PTR;
-    }
-
-    ALLOCATIONS.fetch_add(
-        new_size as isize - old_size as isize,
-        std::sync::atomic::Ordering::SeqCst,
-    );
-    let raw_ptr = std::alloc::realloc(
-        ptr.as_ptr(),
-        Layout::from_size_align_unchecked(old_size, ALIGNMENT),
-        new_size,
-    );
-    let ptr = NonNull::new(raw_ptr).unwrap_or_else(|| {
-        handle_alloc_error(Layout::from_size_align_unchecked(new_size, ALIGNMENT))
-    });
-
-    if new_size > old_size {
-        ptr.as_ptr()
-            .add(old_size)
-            .write_bytes(0, new_size - old_size);
-    }
-    ptr
+    cap: usize,
 }
 
-/// # Safety
-///
-/// Behavior is undefined if any of the following conditions are violated:
-///
-/// * `src` must be valid for reads of `len * size_of::<u8>()` bytes.
-///
-/// * `dst` must be valid for writes of `len * size_of::<u8>()` bytes.
-///
-/// * Both `src` and `dst` must be properly aligned.
-///
-/// `memcpy` creates a bitwise copy of `T`, regardless of whether `T` is [`Copy`]. If `T` is not
-/// [`Copy`], using both the values in the region beginning at `*src` and the region beginning at
-/// `*dst` can [violate memory safety][read-ownership].
-pub unsafe fn memcpy(dst: NonNull<u8>, src: NonNull<u8>, count: usize) {
-    if src != BYPASS_PTR {
-        std::ptr::copy_nonoverlapping(src.as_ptr(), dst.as_ptr(), count)
-    }
-}
-
-/// Check if the pointer `p` is aligned to offset `a`.
-pub fn is_aligned<T>(p: NonNull<T>, a: usize) -> bool {
-    let a_minus_one = a.wrapping_sub(1);
-    let pmoda = p.as_ptr() as usize & a_minus_one;
-    pmoda == 0
-}
-
-pub fn is_ptr_aligned<T>(p: NonNull<T>) -> bool {
-    p.as_ptr().align_offset(align_of::<T>()) == 0
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allocate() {
-        for _ in 0..10 {
-            let p = allocate_aligned(1024);
-            // make sure this is 64-byte aligned
-            assert_eq!(0, (p.as_ptr() as usize) % 64);
-            unsafe { free_aligned(p, 1024) };
+impl RawBytes {
+    /// Creates a [RawBytes] without allocations.
+    pub fn new() -> Self {
+        Self {
+            // safe: ALIGNMENT > 0
+            ptr: alloc::dangling(unsafe {
+                Layout::from_size_align_unchecked(0, ALIGNMENT)
+            }),
+            cap: 0,
         }
     }
 
-    #[test]
-    fn test_is_aligned() {
-        // allocate memory aligned to 64-byte
-        let ptr = allocate_aligned(10);
-        assert_eq!(true, is_aligned::<u8>(ptr, 1));
-        assert_eq!(true, is_aligned::<u8>(ptr, 2));
-        assert_eq!(true, is_aligned::<u8>(ptr, 4));
-
-        // now make the memory aligned to 63-byte
-        let ptr = unsafe { NonNull::new_unchecked(ptr.as_ptr().offset(1)) };
-        assert_eq!(true, is_aligned::<u8>(ptr, 1));
-        assert_eq!(false, is_aligned::<u8>(ptr, 2));
-        assert_eq!(false, is_aligned::<u8>(ptr, 4));
-        unsafe { free_aligned(NonNull::new_unchecked(ptr.as_ptr().offset(-1)), 10) };
+    /// Creates a [RawBytes] with at least `capacity` bytes initialized to zero.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the requested capacity exceeds `isize::MAX` bytes.
+    ///
+    /// # Aborts
+    ///
+    /// Aborts on OOM.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self::allocate(capacity)
     }
+
+    /// Gets the capacity of the allocation.
+    #[inline(always)]
+    pub const fn capacity(&self) -> usize {
+        self.cap
+    }
+
+    #[inline]
+    fn allocate(capacity: usize) -> Self {
+        let capacity = bit_util::round_upto_multiple_of_64(capacity);
+        let layout = Layout::from_size_align(capacity, ALIGNMENT)
+            .unwrap_or_else(|_| capacity_overflow());
+        alloc_guard(layout.size());
+
+        let memory = alloc::alloc(layout);
+        Self {
+            ptr: memory.ptr,
+            cap: memory.size,
+        }
+    }
+
+    /// Returns if the buffer needs to grow to fulfill the needed extra capacity.
+    #[inline]
+    fn needs_to_grow(&self, len: usize, additional: usize) -> bool {
+        additional > self.capacity().wrapping_sub(len)
+    }
+
+    /// reserves `additional` bytes assuming that the underlying container has size `len`,
+    /// guaranteeing that [RawBytes] has at least `len + additional` bytes.
+    #[inline]
+    pub fn reserve(&mut self, len: usize, additional: usize) {
+        if self.needs_to_grow(len, additional) {
+            self.grow(len, additional)
+        }
+    }
+
+    #[inline]
+    fn set_memory(&mut self, memory: alloc::MemoryBlock) {
+        self.ptr = memory.ptr;
+        self.cap = memory.size;
+    }
+
+    // equivalent to `RawVec::grow_amortized(); RawVec::finish()` with the following differences:
+    // * panics instead of `Result` (i.e. overflows crash)
+    // * capacity changes are always multiples of 64
+    // * alignment is constant and equal to `ALIGNMENT`
+    #[inline]
+    fn grow(&mut self, len: usize, additional: usize) {
+        let capacity = len
+            .checked_add(additional)
+            .unwrap_or_else(|| capacity_overflow());
+        let capacity = bit_util::round_upto_multiple_of_64(capacity);
+        let capacity = std::cmp::max(self.cap * 2, capacity);
+
+        let new_layout = Layout::from_size_align(capacity, ALIGNMENT)
+            .unwrap_or_else(|_| capacity_overflow());
+
+        alloc_guard(new_layout.size());
+
+        let memory = if let Some((ptr, old_capacity)) = self.current_memory() {
+            let old_layout =
+                unsafe { Layout::from_size_align_unchecked(old_capacity, ALIGNMENT) };
+            debug_assert_eq!(old_layout.align(), new_layout.align());
+            unsafe { alloc::grow(ptr, old_layout, new_layout.size()) }
+        } else {
+            alloc::alloc(new_layout)
+        };
+
+        self.set_memory(memory);
+    }
+
+    #[inline]
+    fn current_memory(&self) -> Option<(NonNull<u8>, usize)> {
+        if self.cap == 0 {
+            // the pointer is not even valid, so we do not even expose it.
+            None
+        } else {
+            Some((self.ptr, self.cap))
+        }
+    }
+
+    /// Returns the pointer to the start of the allocation. Note that this is
+    /// a dangling pointer iff `capacity == 0`.
+    #[inline(always)]
+    pub fn ptr(&self) -> NonNull<u8> {
+        self.ptr
+    }
+}
+
+impl Drop for RawBytes {
+    fn drop(&mut self) {
+        if let Some((ptr, capacity)) = self.current_memory() {
+            // this is safe because we own `ptr` and it is allocated (the invariant that ptr is valid iff cap > 0)
+            unsafe { dealloc(ptr, capacity) }
+        }
+    }
+}
+
+/// Deallocates a memory region previously allocated by [RawBytes].
+/// # Safety
+/// Do not use if the pointer was not allocated via `RawBytes`.
+pub(super) unsafe fn dealloc(ptr: NonNull<u8>, capacity: usize) {
+    alloc::dealloc(ptr, Layout::from_size_align_unchecked(capacity, ALIGNMENT))
+}
+
+// We need to guarantee the following:
+// * We don't ever allocate `> isize::MAX` byte-size objects.
+// * We don't overflow `usize::MAX` and actually allocate too little.
+//
+// On 64-bit we just need to check for overflow since trying to allocate
+// `> isize::MAX` bytes will surely fail. On 32-bit and 16-bit we need to add
+// an extra guard for this in case we're running on a platform which can use
+// all 4GB in user-space, e.g., PAE or x32.
+#[inline]
+fn alloc_guard(alloc_size: usize) {
+    if std::mem::size_of::<usize>() < 8 && alloc_size > isize::MAX as usize {
+        panic!("capacity overflow");
+    }
+}
+
+// One central function responsible for reporting capacity overflows. This'll
+// ensure that the code generation related to these panics is minimal as there's
+// only one location which panics rather than a bunch throughout the module.
+fn capacity_overflow() -> ! {
+    panic!("capacity overflow");
+}
+
+/// Check if the pointer `p` is aligned with `T`
+pub fn is_ptr_aligned<T>(p: NonNull<u8>) -> bool {
+    p.as_ptr().align_offset(std::mem::align_of::<T>()) == 0
 }
