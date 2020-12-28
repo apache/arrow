@@ -16,7 +16,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
-	Rf_error("Cannot call Array__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__Slice1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -33,7 +33,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("Cannot call Array__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__Slice2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -49,7 +49,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Array__IsNull(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__IsNull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -65,7 +65,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Array__IsValid(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__IsValid(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -80,7 +80,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__length(SEXP x_sexp){
-	Rf_error("Cannot call Array__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -95,7 +95,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__offset(SEXP x_sexp){
-	Rf_error("Cannot call Array__offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__offset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -110,7 +110,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__null_count(SEXP x_sexp){
-	Rf_error("Cannot call Array__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__null_count(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -125,7 +125,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__type(SEXP x_sexp){
-	Rf_error("Cannot call Array__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -140,7 +140,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__ToString(SEXP x_sexp){
-	Rf_error("Cannot call Array__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -155,7 +155,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__type_id(SEXP x_sexp){
-	Rf_error("Cannot call Array__type_id(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__type_id(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -171,7 +171,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call Array__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -187,7 +187,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call Array__ApproxEquals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__ApproxEquals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -202,7 +202,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__data(SEXP array_sexp){
-	Rf_error("Cannot call Array__data(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__data(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -221,7 +221,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
-	Rf_error("Cannot call Array__RangeEquals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__RangeEquals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -237,7 +237,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
-	Rf_error("Cannot call Array__View(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__View(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -253,7 +253,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__Validate(SEXP array_sexp){
-	Rf_error("Cannot call Array__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__Validate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -268,7 +268,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
-	Rf_error("Cannot call DictionaryArray__indices(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryArray__indices(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -283,7 +283,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
-	Rf_error("Cannot call DictionaryArray__dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryArray__dictionary(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -299,7 +299,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructArray__field(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call StructArray__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructArray__field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -315,7 +315,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_sexp){
-	Rf_error("Cannot call StructArray__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructArray__GetFieldByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -330,7 +330,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
-	Rf_error("Cannot call StructArray__Flatten(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructArray__Flatten(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -345,7 +345,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListArray__value_type(SEXP array_sexp){
-	Rf_error("Cannot call ListArray__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListArray__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -360,7 +360,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListArray__value_type(SEXP array_sexp){
-	Rf_error("Cannot call LargeListArray__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListArray__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -375,7 +375,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListArray__values(SEXP array_sexp){
-	Rf_error("Cannot call ListArray__values(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListArray__values(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -390,7 +390,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListArray__values(SEXP array_sexp){
-	Rf_error("Cannot call LargeListArray__values(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListArray__values(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -406,7 +406,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListArray__value_length(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ListArray__value_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListArray__value_length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -422,7 +422,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call LargeListArray__value_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListArray__value_length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -438,7 +438,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call FixedSizeListArray__value_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeListArray__value_length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -454,7 +454,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListArray__value_offset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -470,7 +470,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call LargeListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListArray__value_offset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -486,7 +486,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call FixedSizeListArray__value_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeListArray__value_offset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -501,7 +501,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
-	Rf_error("Cannot call ListArray__raw_value_offsets(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListArray__raw_value_offsets(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -516,7 +516,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
-	Rf_error("Cannot call LargeListArray__raw_value_offsets(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListArray__raw_value_offsets(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -531,7 +531,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
-	Rf_error("Cannot call Array__infer_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__infer_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -547,7 +547,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call Array__from_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__from_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -563,7 +563,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-	Rf_error("Cannot call ChunkedArray__from_list(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__from_list(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -580,7 +580,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
-	Rf_error("Cannot call DictionaryArray__FromArrays(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryArray__FromArrays(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -595,7 +595,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
-	Rf_error("Cannot call Array__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__as_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -610,7 +610,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__as_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -626,7 +626,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call RecordBatch__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__to_dataframe(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -642,7 +642,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call Table__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__to_dataframe(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -657,7 +657,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ArrayData__get_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -672,7 +672,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ArrayData__get_length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -687,7 +687,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ArrayData__get_null_count(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -702,7 +702,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__get_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ArrayData__get_offset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -717,7 +717,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-	Rf_error("Cannot call ArrayData__buffers(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ArrayData__buffers(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -732,7 +732,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
-	Rf_error("Cannot call Buffer__is_mutable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__is_mutable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -748,7 +748,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
-	Rf_error("Cannot call Buffer__ZeroPadding(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__ZeroPadding(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -763,7 +763,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
-	Rf_error("Cannot call Buffer__capacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__capacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -778,7 +778,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__size(SEXP buffer_sexp){
-	Rf_error("Cannot call Buffer__size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -793,7 +793,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
-	Rf_error("Cannot call r___RBuffer__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call r___RBuffer__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -808,7 +808,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__data(SEXP buffer_sexp){
-	Rf_error("Cannot call Buffer__data(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__data(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -824,7 +824,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Buffer__Equals(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call Buffer__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Buffer__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -839,7 +839,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -854,7 +854,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__null_count(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -869,7 +869,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__num_chunks(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__num_chunks(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -885,7 +885,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ChunkedArray__chunk(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__chunk(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -900,7 +900,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__chunks(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__chunks(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -915,7 +915,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -931,7 +931,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
-	Rf_error("Cannot call ChunkedArray__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__Slice1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -948,7 +948,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("Cannot call ChunkedArray__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__Slice2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -964,7 +964,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
-	Rf_error("Cannot call ChunkedArray__View(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__View(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -980,7 +980,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
-	Rf_error("Cannot call ChunkedArray__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__Validate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -996,7 +996,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call ChunkedArray__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1011,7 +1011,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
-	Rf_error("Cannot call ChunkedArray__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1027,7 +1027,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
-	Rf_error("Cannot call util___Codec__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call util___Codec__Create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1042,7 +1042,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_util___Codec__name(SEXP codec_sexp){
-	Rf_error("Cannot call util___Codec__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call util___Codec__name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1057,7 +1057,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
-	Rf_error("Cannot call util___Codec__IsAvailable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call util___Codec__IsAvailable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1073,7 +1073,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-	Rf_error("Cannot call io___CompressedOutputStream__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___CompressedOutputStream__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1089,7 +1089,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-	Rf_error("Cannot call io___CompressedInputStream__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___CompressedInputStream__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1106,7 +1106,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
-	Rf_error("Cannot call compute___CastOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call compute___CastOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1123,7 +1123,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-	Rf_error("Cannot call Array__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__cast(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1140,7 +1140,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-	Rf_error("Cannot call ChunkedArray__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ChunkedArray__cast(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1157,7 +1157,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
-	Rf_error("Cannot call RecordBatch__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__cast(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1174,7 +1174,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
-	Rf_error("Cannot call Table__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__cast(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1191,7 +1191,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
-	Rf_error("Cannot call compute__CallFunction(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call compute__CallFunction(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1206,7 +1206,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
-	Rf_error("Cannot call csv___ReadOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___ReadOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1221,7 +1221,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
-	Rf_error("Cannot call csv___ParseOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___ParseOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1236,7 +1236,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
-	Rf_error("Cannot call csv___ReadOptions__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___ReadOptions__column_names(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1251,7 +1251,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
-	Rf_error("Cannot call csv___ConvertOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___ConvertOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1269,7 +1269,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
-	Rf_error("Cannot call csv___TableReader__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___TableReader__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1284,7 +1284,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
-	Rf_error("Cannot call csv___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call csv___TableReader__Read(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1299,7 +1299,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampParser__kind(SEXP parser_sexp){
-	Rf_error("Cannot call TimestampParser__kind(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampParser__kind(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1314,7 +1314,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampParser__format(SEXP parser_sexp){
-	Rf_error("Cannot call TimestampParser__format(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampParser__format(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1329,7 +1329,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampParser__MakeStrptime(SEXP format_sexp){
-	Rf_error("Cannot call TimestampParser__MakeStrptime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampParser__MakeStrptime(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1343,7 +1343,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
-	Rf_error("Cannot call TimestampParser__MakeISO8601(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampParser__MakeISO8601(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1358,7 +1358,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
-	Rf_error("Cannot call dataset___Dataset__NewScan(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Dataset__NewScan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1373,7 +1373,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Dataset__schema(SEXP dataset_sexp){
-	Rf_error("Cannot call dataset___Dataset__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Dataset__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1388,7 +1388,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Dataset__type_name(SEXP dataset_sexp){
-	Rf_error("Cannot call dataset___Dataset__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Dataset__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1404,7 +1404,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP schm_sexp){
-	Rf_error("Cannot call dataset___Dataset__ReplaceSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Dataset__ReplaceSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1420,7 +1420,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP schm_sexp){
-	Rf_error("Cannot call dataset___UnionDataset__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___UnionDataset__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1435,7 +1435,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
-	Rf_error("Cannot call dataset___InMemoryDataset__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___InMemoryDataset__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1450,7 +1450,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___UnionDataset__children(SEXP ds_sexp){
-	Rf_error("Cannot call dataset___UnionDataset__children(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___UnionDataset__children(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1465,7 +1465,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDataset__format(SEXP dataset_sexp){
-	Rf_error("Cannot call dataset___FileSystemDataset__format(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDataset__format(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1480,7 +1480,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDataset__filesystem(SEXP dataset_sexp){
-	Rf_error("Cannot call dataset___FileSystemDataset__filesystem(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDataset__filesystem(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1495,7 +1495,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDataset__files(SEXP dataset_sexp){
-	Rf_error("Cannot call dataset___FileSystemDataset__files(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDataset__files(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1511,7 +1511,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp, SEXP unify_schemas_sexp){
-	Rf_error("Cannot call dataset___DatasetFactory__Finish1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___DatasetFactory__Finish1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1527,7 +1527,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___DatasetFactory__Finish2(SEXP factory_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call dataset___DatasetFactory__Finish2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___DatasetFactory__Finish2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1543,7 +1543,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp, SEXP unify_schemas_sexp){
-	Rf_error("Cannot call dataset___DatasetFactory__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___DatasetFactory__Inspect(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1558,7 +1558,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
-	Rf_error("Cannot call dataset___UnionDatasetFactory__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___UnionDatasetFactory__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1576,7 +1576,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1593,7 +1593,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1611,7 +1611,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
-	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make3(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make3(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1626,7 +1626,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
-	Rf_error("Cannot call dataset___FileFormat__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileFormat__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1641,7 +1641,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
-	Rf_error("Cannot call dataset___FileFormat__DefaultWriteOptions(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileFormat__DefaultWriteOptions(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1658,7 +1658,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
-	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1673,7 +1673,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___FileWriteOptions__type_name(SEXP options_sexp){
-	Rf_error("Cannot call dataset___FileWriteOptions__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___FileWriteOptions__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1691,7 +1691,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_sexp, SEXP writer_props_sexp, SEXP arrow_writer_props_sexp){
-	Rf_error("Cannot call dataset___ParquetFileWriteOptions__update(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ParquetFileWriteOptions__update(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1710,7 +1710,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
-	Rf_error("Cannot call dataset___IpcFileWriteOptions__update2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1728,7 +1728,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
-	Rf_error("Cannot call dataset___IpcFileWriteOptions__update1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1742,7 +1742,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
-	Rf_error("Cannot call dataset___IpcFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___IpcFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1757,7 +1757,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
-	Rf_error("Cannot call dataset___CsvFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___CsvFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1772,7 +1772,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
-	Rf_error("Cannot call dataset___DirectoryPartitioning(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___DirectoryPartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1787,7 +1787,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
-	Rf_error("Cannot call dataset___DirectoryPartitioning__MakeFactory(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___DirectoryPartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1802,7 +1802,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
-	Rf_error("Cannot call dataset___HivePartitioning(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___HivePartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1816,7 +1816,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(){
-	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1833,7 +1833,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__Project(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__Project(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1850,7 +1850,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__Filter(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1867,7 +1867,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__UseThreads(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__UseThreads(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1884,7 +1884,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__BatchSize(SEXP sb_sexp, SEXP batch_size_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__BatchSize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__BatchSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1899,7 +1899,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1914,7 +1914,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScannerBuilder__Finish(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1929,7 +1929,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
-	Rf_error("Cannot call dataset___Scanner__ToTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Scanner__ToTable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1945,7 +1945,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
-	Rf_error("Cannot call dataset___Scanner__head(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Scanner__head(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1960,7 +1960,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
-	Rf_error("Cannot call dataset___Scanner__Scan(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Scanner__Scan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1975,7 +1975,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
-	Rf_error("Cannot call dataset___Scanner__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Scanner__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1990,7 +1990,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
-	Rf_error("Cannot call dataset___ScanTask__get_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___ScanTask__get_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2011,7 +2011,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp){
-	Rf_error("Cannot call dataset___Dataset__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___Dataset__Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2025,7 +2025,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Int8__initialize(){
-	Rf_error("Cannot call Int8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Int8__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2039,7 +2039,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Int16__initialize(){
-	Rf_error("Cannot call Int16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Int16__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2053,7 +2053,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Int32__initialize(){
-	Rf_error("Cannot call Int32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Int32__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2067,7 +2067,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Int64__initialize(){
-	Rf_error("Cannot call Int64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Int64__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2081,7 +2081,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_UInt8__initialize(){
-	Rf_error("Cannot call UInt8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call UInt8__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2095,7 +2095,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_UInt16__initialize(){
-	Rf_error("Cannot call UInt16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call UInt16__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2109,7 +2109,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_UInt32__initialize(){
-	Rf_error("Cannot call UInt32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call UInt32__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2123,7 +2123,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_UInt64__initialize(){
-	Rf_error("Cannot call UInt64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call UInt64__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2137,7 +2137,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Float16__initialize(){
-	Rf_error("Cannot call Float16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Float16__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2151,7 +2151,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Float32__initialize(){
-	Rf_error("Cannot call Float32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Float32__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2165,7 +2165,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Float64__initialize(){
-	Rf_error("Cannot call Float64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Float64__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2179,7 +2179,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Boolean__initialize(){
-	Rf_error("Cannot call Boolean__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Boolean__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2193,7 +2193,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Utf8__initialize(){
-	Rf_error("Cannot call Utf8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Utf8__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2207,7 +2207,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeUtf8__initialize(){
-	Rf_error("Cannot call LargeUtf8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeUtf8__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2221,7 +2221,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Binary__initialize(){
-	Rf_error("Cannot call Binary__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Binary__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2235,7 +2235,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeBinary__initialize(){
-	Rf_error("Cannot call LargeBinary__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeBinary__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2249,7 +2249,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Date32__initialize(){
-	Rf_error("Cannot call Date32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Date32__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2263,7 +2263,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Date64__initialize(){
-	Rf_error("Cannot call Date64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Date64__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2277,7 +2277,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Null__initialize(){
-	Rf_error("Cannot call Null__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Null__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2293,7 +2293,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
-	Rf_error("Cannot call Decimal128Type__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Decimal128Type__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2308,7 +2308,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
-	Rf_error("Cannot call FixedSizeBinary__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeBinary__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2324,7 +2324,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Timestamp__initialize(SEXP unit_sexp, SEXP timezone_sexp){
-	Rf_error("Cannot call Timestamp__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Timestamp__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2339,7 +2339,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Time32__initialize(SEXP unit_sexp){
-	Rf_error("Cannot call Time32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Time32__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2354,7 +2354,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Time64__initialize(SEXP unit_sexp){
-	Rf_error("Cannot call Time64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Time64__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2369,7 +2369,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_list__(SEXP x_sexp){
-	Rf_error("Cannot call list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call list__(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2384,7 +2384,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_large_list__(SEXP x_sexp){
-	Rf_error("Cannot call large_list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call large_list__(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2400,7 +2400,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
-	Rf_error("Cannot call fixed_size_list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fixed_size_list__(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2415,7 +2415,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_struct__(SEXP fields_sexp){
-	Rf_error("Cannot call struct__(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call struct__(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2430,7 +2430,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__ToString(SEXP type_sexp){
-	Rf_error("Cannot call DataType__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2445,7 +2445,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__name(SEXP type_sexp){
-	Rf_error("Cannot call DataType__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2461,7 +2461,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call DataType__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2476,7 +2476,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__num_fields(SEXP type_sexp){
-	Rf_error("Cannot call DataType__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__num_fields(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2491,7 +2491,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__fields(SEXP type_sexp){
-	Rf_error("Cannot call DataType__fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__fields(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2506,7 +2506,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DataType__id(SEXP type_sexp){
-	Rf_error("Cannot call DataType__id(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DataType__id(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2521,7 +2521,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListType__ToString(SEXP type_sexp){
-	Rf_error("Cannot call ListType__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListType__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2536,7 +2536,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
-	Rf_error("Cannot call FixedWidthType__bit_width(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedWidthType__bit_width(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2551,7 +2551,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DateType__unit(SEXP type_sexp){
-	Rf_error("Cannot call DateType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DateType__unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2566,7 +2566,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimeType__unit(SEXP type_sexp){
-	Rf_error("Cannot call TimeType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimeType__unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2581,7 +2581,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DecimalType__precision(SEXP type_sexp){
-	Rf_error("Cannot call DecimalType__precision(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DecimalType__precision(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2596,7 +2596,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DecimalType__scale(SEXP type_sexp){
-	Rf_error("Cannot call DecimalType__scale(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DecimalType__scale(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2611,7 +2611,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
-	Rf_error("Cannot call TimestampType__timezone(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampType__timezone(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2626,7 +2626,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_TimestampType__unit(SEXP type_sexp){
-	Rf_error("Cannot call TimestampType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call TimestampType__unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2643,7 +2643,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
-	Rf_error("Cannot call DictionaryType__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryType__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2658,7 +2658,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
-	Rf_error("Cannot call DictionaryType__index_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryType__index_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2673,7 +2673,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
-	Rf_error("Cannot call DictionaryType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryType__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2688,7 +2688,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryType__name(SEXP type_sexp){
-	Rf_error("Cannot call DictionaryType__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryType__name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2703,7 +2703,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
-	Rf_error("Cannot call DictionaryType__ordered(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call DictionaryType__ordered(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2719,7 +2719,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructType__GetFieldByName(SEXP type_sexp, SEXP name_sexp){
-	Rf_error("Cannot call StructType__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructType__GetFieldByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2735,7 +2735,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructType__GetFieldIndex(SEXP type_sexp, SEXP name_sexp){
-	Rf_error("Cannot call StructType__GetFieldIndex(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructType__GetFieldIndex(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2750,7 +2750,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListType__value_field(SEXP type_sexp){
-	Rf_error("Cannot call ListType__value_field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListType__value_field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2765,7 +2765,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ListType__value_type(SEXP type_sexp){
-	Rf_error("Cannot call ListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ListType__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2780,7 +2780,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListType__value_field(SEXP type_sexp){
-	Rf_error("Cannot call LargeListType__value_field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListType__value_field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2795,7 +2795,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
-	Rf_error("Cannot call LargeListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call LargeListType__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2810,7 +2810,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeListType__value_field(SEXP type_sexp){
-	Rf_error("Cannot call FixedSizeListType__value_field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeListType__value_field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2825,7 +2825,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeListType__value_type(SEXP type_sexp){
-	Rf_error("Cannot call FixedSizeListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeListType__value_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2840,7 +2840,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
-	Rf_error("Cannot call FixedSizeListType__list_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call FixedSizeListType__list_size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2855,7 +2855,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
-	Rf_error("Cannot call dataset___expr__field_ref(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2871,7 +2871,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2887,7 +2887,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__not_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__not_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2903,7 +2903,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__greater(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__greater(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2919,7 +2919,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__greater_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__greater_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2935,7 +2935,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__less(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__less(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2951,7 +2951,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__less_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__less_equal(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2967,7 +2967,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__in(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__in(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2983,7 +2983,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__and(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__and(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2999,7 +2999,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("Cannot call dataset___expr__or(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__or(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3014,7 +3014,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
-	Rf_error("Cannot call dataset___expr__not(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__not(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3029,7 +3029,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
-	Rf_error("Cannot call dataset___expr__is_valid(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__is_valid(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3044,7 +3044,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__scalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__scalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3059,7 +3059,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call dataset___expr__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3080,7 +3080,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
-	Rf_error("Cannot call ipc___WriteFeather__Table(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___WriteFeather__Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3095,7 +3095,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___feather___Reader__version(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___Reader__version(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___feather___Reader__version(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3111,7 +3111,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
-	Rf_error("Cannot call ipc___feather___Reader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___feather___Reader__Read(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3126,7 +3126,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___feather___Reader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___feather___Reader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3141,7 +3141,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___feather___Reader__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___feather___Reader__column_names(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3158,7 +3158,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
-	Rf_error("Cannot call Field__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3173,7 +3173,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__ToString(SEXP field_sexp){
-	Rf_error("Cannot call Field__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3188,7 +3188,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__name(SEXP field_sexp){
-	Rf_error("Cannot call Field__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3204,7 +3204,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
-	Rf_error("Cannot call Field__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3219,7 +3219,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
-	Rf_error("Cannot call Field__nullable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__nullable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3234,7 +3234,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
-	Rf_error("Cannot call Field__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Field__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3249,7 +3249,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__type(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3266,7 +3266,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__set_type(SEXP x_sexp, SEXP type_sexp){
-	Rf_error("Cannot call fs___FileInfo__set_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__set_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3281,7 +3281,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__path(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__path(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3298,7 +3298,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__set_path(SEXP x_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileInfo__set_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__set_path(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3313,7 +3313,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__size(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3330,7 +3330,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__set_size(SEXP x_sexp, SEXP size_sexp){
-	Rf_error("Cannot call fs___FileInfo__set_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__set_size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3345,7 +3345,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__base_name(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__base_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__base_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3360,7 +3360,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__extension(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__extension(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__extension(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3375,7 +3375,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__mtime(SEXP x_sexp){
-	Rf_error("Cannot call fs___FileInfo__mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__mtime(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3392,7 +3392,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileInfo__set_mtime(SEXP x_sexp, SEXP time_sexp){
-	Rf_error("Cannot call fs___FileInfo__set_mtime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileInfo__set_mtime(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3407,7 +3407,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSelector__base_dir(SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSelector__base_dir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSelector__base_dir(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3422,7 +3422,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSelector__allow_not_found(SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSelector__allow_not_found(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSelector__allow_not_found(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3437,7 +3437,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSelector__recursive(SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSelector__recursive(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSelector__recursive(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3454,7 +3454,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_not_found_sexp, SEXP recursive_sexp){
-	Rf_error("Cannot call fs___FileSelector__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSelector__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3470,7 +3470,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_sexp, SEXP paths_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_Paths(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_Paths(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3486,7 +3486,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
-	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_FileSelector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__GetTargetInfos_FileSelector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3504,7 +3504,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP path_sexp, SEXP recursive_sexp){
-	Rf_error("Cannot call fs___FileSystem__CreateDir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__CreateDir(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3521,7 +3521,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__DeleteDir(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__DeleteDir(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3538,7 +3538,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__DeleteDirContents(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__DeleteDirContents(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3555,7 +3555,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__DeleteFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__DeleteFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3572,7 +3572,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP paths_sexp){
-	Rf_error("Cannot call fs___FileSystem__DeleteFiles(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__DeleteFiles(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3590,7 +3590,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
-	Rf_error("Cannot call fs___FileSystem__Move(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__Move(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3608,7 +3608,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
-	Rf_error("Cannot call fs___FileSystem__CopyFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__CopyFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3624,7 +3624,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__OpenInputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__OpenInputStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3640,7 +3640,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__OpenInputFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__OpenInputFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3656,7 +3656,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__OpenOutputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__OpenOutputStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3672,7 +3672,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystem__OpenAppendStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__OpenAppendStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3687,7 +3687,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
-	Rf_error("Cannot call fs___FileSystem__type_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystem__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3701,7 +3701,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___LocalFileSystem__create(){
-	Rf_error("Cannot call fs___LocalFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___LocalFileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3717,7 +3717,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
-	Rf_error("Cannot call fs___SubTreeFileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___SubTreeFileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3732,7 +3732,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
-	Rf_error("Cannot call fs___SubTreeFileSystem__base_fs(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_fs(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3747,7 +3747,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
-	Rf_error("Cannot call fs___SubTreeFileSystem__base_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_path(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3762,7 +3762,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
-	Rf_error("Cannot call fs___FileSystemFromUri(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___FileSystemFromUri(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3783,7 +3783,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___CopyFiles(SEXP source_fs_sexp, SEXP source_sel_sexp, SEXP destination_fs_sexp, SEXP destination_base_dir_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call fs___CopyFiles(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___CopyFiles(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3809,7 +3809,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
-	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___S3FileSystem__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3824,7 +3824,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
-	Rf_error("Cannot call fs___S3FileSystem__region(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call fs___S3FileSystem__region(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3840,7 +3840,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
-	Rf_error("Cannot call io___Readable__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___Readable__Read(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3856,7 +3856,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
-	Rf_error("Cannot call io___InputStream__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___InputStream__Close(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3872,7 +3872,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
-	Rf_error("Cannot call io___OutputStream__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___OutputStream__Close(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3887,7 +3887,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__GetSize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__GetSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3902,7 +3902,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__supports_zero_copy(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__supports_zero_copy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3919,7 +3919,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__Seek(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__Seek(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3934,7 +3934,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__Tell(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3949,7 +3949,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__Read0(SEXP x_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__Read0(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__Read0(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3966,7 +3966,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_sexp, SEXP nbytes_sexp){
-	Rf_error("Cannot call io___RandomAccessFile__ReadAt(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___RandomAccessFile__ReadAt(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3982,7 +3982,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
-	Rf_error("Cannot call io___MemoryMappedFile__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___MemoryMappedFile__Create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3998,7 +3998,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
-	Rf_error("Cannot call io___MemoryMappedFile__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___MemoryMappedFile__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4015,7 +4015,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
-	Rf_error("Cannot call io___MemoryMappedFile__Resize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___MemoryMappedFile__Resize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4030,7 +4030,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
-	Rf_error("Cannot call io___ReadableFile__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___ReadableFile__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4045,7 +4045,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
-	Rf_error("Cannot call io___BufferReader__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferReader__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4062,7 +4062,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
-	Rf_error("Cannot call io___Writable__write(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___Writable__write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4077,7 +4077,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
-	Rf_error("Cannot call io___OutputStream__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___OutputStream__Tell(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4092,7 +4092,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
-	Rf_error("Cannot call io___FileOutputStream__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___FileOutputStream__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4107,7 +4107,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
-	Rf_error("Cannot call io___BufferOutputStream__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferOutputStream__Create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4122,7 +4122,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
-	Rf_error("Cannot call io___BufferOutputStream__capacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferOutputStream__capacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4137,7 +4137,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
-	Rf_error("Cannot call io___BufferOutputStream__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferOutputStream__Finish(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4152,7 +4152,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
-	Rf_error("Cannot call io___BufferOutputStream__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferOutputStream__Tell(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4169,7 +4169,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
-	Rf_error("Cannot call io___BufferOutputStream__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call io___BufferOutputStream__Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4185,7 +4185,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEXP block_size_sexp){
-	Rf_error("Cannot call json___ReadOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call json___ReadOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4200,7 +4200,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_sexp){
-	Rf_error("Cannot call json___ParseOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call json___ParseOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4217,7 +4217,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
-	Rf_error("Cannot call json___TableReader__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call json___TableReader__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4232,7 +4232,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
-	Rf_error("Cannot call json___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call json___TableReader__Read(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4246,7 +4246,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_MemoryPool__default(){
-	Rf_error("Cannot call MemoryPool__default(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call MemoryPool__default(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4261,7 +4261,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
-	Rf_error("Cannot call MemoryPool__bytes_allocated(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call MemoryPool__bytes_allocated(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4276,7 +4276,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
-	Rf_error("Cannot call MemoryPool__max_memory(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call MemoryPool__max_memory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4291,7 +4291,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
-	Rf_error("Cannot call ipc___Message__body_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__body_length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4306,7 +4306,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
-	Rf_error("Cannot call ipc___Message__metadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__metadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4321,7 +4321,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__body(SEXP message_sexp){
-	Rf_error("Cannot call ipc___Message__body(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__body(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4336,7 +4336,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
-	Rf_error("Cannot call ipc___Message__Verify(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__Verify(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4351,7 +4351,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__type(SEXP message_sexp){
-	Rf_error("Cannot call ipc___Message__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4367,7 +4367,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("Cannot call ipc___Message__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___Message__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4383,7 +4383,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ipc___ReadRecordBatch__Message__Schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___ReadRecordBatch__Message__Schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4398,7 +4398,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___ReadSchema_InputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___ReadSchema_InputStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4413,7 +4413,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
-	Rf_error("Cannot call ipc___ReadSchema_Message(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___ReadSchema_Message(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4428,7 +4428,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___MessageReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___MessageReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4443,7 +4443,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___MessageReader__ReadNextMessage(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___MessageReader__ReadNextMessage(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4458,7 +4458,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___ReadMessage(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___ReadMessage(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4473,7 +4473,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__Make(SEXP use_threads_sexp){
-	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4490,7 +4490,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_use_threads(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_use_threads(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4506,7 +4506,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
-	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_use_threads(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_use_threads(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4522,7 +4522,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary(SEXP properties_sexp, SEXP column_index_sexp){
-	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_read_dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_read_dictionary(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4540,7 +4540,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary(SEXP properties_sexp, SEXP column_index_sexp, SEXP read_dict_sexp){
-	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_read_dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_read_dictionary(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4556,7 +4556,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__OpenFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__OpenFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4571,7 +4571,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable1(SEXP reader_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadTable1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadTable1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4587,7 +4587,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp, SEXP column_indices_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadTable2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadTable2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4603,7 +4603,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup1(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4620,7 +4620,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup2(SEXP reader_sexp, SEXP i_sexp, SEXP column_indices_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4636,7 +4636,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups1(SEXP reader_sexp, SEXP row_groups_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4653,7 +4653,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups2(SEXP reader_sexp, SEXP row_groups_sexp, SEXP column_indices_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4668,7 +4668,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__num_rows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4683,7 +4683,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__num_columns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4698,7 +4698,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__num_row_groups(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__num_row_groups(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4714,7 +4714,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__ReadColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadColumn(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4731,7 +4731,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___create(SEXP allow_truncated_timestamps_sexp, SEXP use_deprecated_int96_timestamps_sexp, SEXP timestamp_unit_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4745,7 +4745,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___WriterProperties___Builder__create(){
-	Rf_error("Cannot call parquet___WriterProperties___Builder__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___WriterProperties___Builder__create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4762,7 +4762,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builder_sexp, SEXP version_sexp){
-	Rf_error("Cannot call parquet___WriterProperties___Builder__version(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___WriterProperties___Builder__version(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4780,7 +4780,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressions(SEXP builder_sexp, SEXP paths_sexp, SEXP types_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_compressions(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_compressions(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4798,7 +4798,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_compression_levels(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_compression_levels(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4816,7 +4816,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_use_dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_use_dictionary(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4834,7 +4834,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_write_statistics(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_write_statistics(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4851,7 +4851,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size(SEXP builder_sexp, SEXP data_page_size_sexp){
-	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__data_page_size(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__data_page_size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4866,7 +4866,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___WriterProperties___Builder__build(SEXP builder_sexp){
-	Rf_error("Cannot call parquet___WriterProperties___Builder__build(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___WriterProperties___Builder__build(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4884,7 +4884,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
-	Rf_error("Cannot call parquet___arrow___ParquetFileWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___ParquetFileWriter__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4902,7 +4902,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp, SEXP table_sexp, SEXP chunk_size_sexp){
-	Rf_error("Cannot call parquet___arrow___FileWriter__WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileWriter__WriteTable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4918,7 +4918,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
-	Rf_error("Cannot call parquet___arrow___FileWriter__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileWriter__Close(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4937,7 +4937,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
-	Rf_error("Cannot call parquet___arrow___WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___WriteTable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4952,7 +4952,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp){
-	Rf_error("Cannot call parquet___arrow___FileReader__GetSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call parquet___arrow___FileReader__GetSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4968,7 +4968,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ImportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4984,7 +4984,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ImportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5013,7 +5013,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_allocate_arrow_schema(){
-	Rf_error("Cannot call allocate_arrow_schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call allocate_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5029,7 +5029,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
-	Rf_error("Cannot call delete_arrow_schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call delete_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5043,7 +5043,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_allocate_arrow_array(){
-	Rf_error("Cannot call allocate_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call allocate_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5059,7 +5059,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
-	Rf_error("Cannot call delete_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call delete_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5076,7 +5076,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
-	Rf_error("Cannot call ExportType(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ExportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5093,7 +5093,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
-	Rf_error("Cannot call ExportSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ExportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5111,7 +5111,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
-	Rf_error("Cannot call ExportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ExportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5129,7 +5129,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
-	Rf_error("Cannot call ExportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ExportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5144,7 +5144,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
-	Rf_error("Cannot call RecordBatch__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__num_columns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5159,7 +5159,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
-	Rf_error("Cannot call RecordBatch__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__num_rows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5174,7 +5174,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
-	Rf_error("Cannot call RecordBatch__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5190,7 +5190,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__RenameColumns(SEXP batch_sexp, SEXP names_sexp){
-	Rf_error("Cannot call RecordBatch__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__RenameColumns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5206,7 +5206,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
-	Rf_error("Cannot call RecordBatch__ReplaceSchemaMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__ReplaceSchemaMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5221,7 +5221,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
-	Rf_error("Cannot call RecordBatch__columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__columns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5237,7 +5237,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("Cannot call RecordBatch__column(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__column(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5253,7 +5253,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_sexp){
-	Rf_error("Cannot call RecordBatch__GetColumnByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__GetColumnByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5269,7 +5269,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__SelectColumns(SEXP batch_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call RecordBatch__SelectColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__SelectColumns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5286,7 +5286,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
-	Rf_error("Cannot call RecordBatch__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5302,7 +5302,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("Cannot call RecordBatch__RemoveColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__RemoveColumn(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5318,7 +5318,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("Cannot call RecordBatch__column_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__column_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5333,7 +5333,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
-	Rf_error("Cannot call RecordBatch__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__names(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5349,7 +5349,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
-	Rf_error("Cannot call RecordBatch__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__Slice1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5366,7 +5366,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("Cannot call RecordBatch__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__Slice2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5381,7 +5381,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
-	Rf_error("Cannot call ipc___SerializeRecordBatch__Raw(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___SerializeRecordBatch__Raw(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5397,7 +5397,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ipc___ReadRecordBatch__InputStream__Schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___ReadRecordBatch__InputStream__Schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5413,7 +5413,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
-	Rf_error("Cannot call RecordBatch__from_arrays(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatch__from_arrays(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5428,7 +5428,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
-	Rf_error("Cannot call RecordBatchReader__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatchReader__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5443,7 +5443,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
-	Rf_error("Cannot call RecordBatchReader__ReadNext(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call RecordBatchReader__ReadNext(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5458,7 +5458,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5473,7 +5473,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5488,7 +5488,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5503,7 +5503,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__num_record_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__num_record_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5519,7 +5519,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__ReadRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__ReadRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5534,7 +5534,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5549,7 +5549,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5564,7 +5564,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchFileReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__from_RecordBatchFileReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5579,7 +5579,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5596,7 +5596,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
-	Rf_error("Cannot call ipc___RecordBatchWriter__WriteRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__WriteRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5613,7 +5613,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
-	Rf_error("Cannot call ipc___RecordBatchWriter__WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__WriteTable(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5629,7 +5629,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
-	Rf_error("Cannot call ipc___RecordBatchWriter__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__Close(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5647,7 +5647,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchFileWriter__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5665,7 +5665,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call ipc___RecordBatchStreamWriter__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5681,7 +5681,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Array__GetScalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Array__GetScalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5696,7 +5696,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__ToString(SEXP s_sexp){
-	Rf_error("Cannot call Scalar__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5712,7 +5712,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
-	Rf_error("Cannot call Scalar__CastTo(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__CastTo(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5728,7 +5728,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
-	Rf_error("Cannot call StructScalar__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructScalar__field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5744,7 +5744,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
-	Rf_error("Cannot call StructScalar__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call StructScalar__GetFieldByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5759,7 +5759,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
-	Rf_error("Cannot call Scalar__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__as_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5774,7 +5774,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
-	Rf_error("Cannot call Scalar__is_valid(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__is_valid(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5789,7 +5789,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Scalar__type(SEXP s_sexp){
-	Rf_error("Cannot call Scalar__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Scalar__type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5804,7 +5804,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_schema_(SEXP fields_sexp){
-	Rf_error("Cannot call schema_(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call schema_(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5819,7 +5819,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__ToString(SEXP s_sexp){
-	Rf_error("Cannot call Schema__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5834,7 +5834,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-	Rf_error("Cannot call Schema__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__num_fields(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5850,7 +5850,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Schema__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5866,7 +5866,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
-	Rf_error("Cannot call Schema__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__GetFieldByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5881,7 +5881,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__fields(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__fields(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5896,7 +5896,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__field_names(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__field_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__field_names(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5911,7 +5911,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__HasMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__HasMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5926,7 +5926,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__metadata(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__metadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__metadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5942,7 +5942,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__WithMetadata(SEXP schema_sexp, SEXP metadata_sexp){
-	Rf_error("Cannot call Schema__WithMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__WithMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5957,7 +5957,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__serialize(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__serialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__serialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5974,7 +5974,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
-	Rf_error("Cannot call Schema__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Schema__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5989,7 +5989,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_arrow__UnifySchemas(SEXP schemas_sexp){
-	Rf_error("Cannot call arrow__UnifySchemas(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call arrow__UnifySchemas(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6004,7 +6004,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__num_columns(SEXP x_sexp){
-	Rf_error("Cannot call Table__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__num_columns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6019,7 +6019,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__num_rows(SEXP x_sexp){
-	Rf_error("Cannot call Table__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__num_rows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6034,7 +6034,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__schema(SEXP x_sexp){
-	Rf_error("Cannot call Table__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6050,7 +6050,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
-	Rf_error("Cannot call Table__ReplaceSchemaMetadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__ReplaceSchemaMetadata(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6066,7 +6066,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Table__column(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__column(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6082,7 +6082,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Table__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6097,7 +6097,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__columns(SEXP table_sexp){
-	Rf_error("Cannot call Table__columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__columns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6112,7 +6112,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
-	Rf_error("Cannot call Table__ColumnNames(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__ColumnNames(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6128,7 +6128,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__RenameColumns(SEXP table_sexp, SEXP names_sexp){
-	Rf_error("Cannot call Table__RenameColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__RenameColumns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6144,7 +6144,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
-	Rf_error("Cannot call Table__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__Slice1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6161,7 +6161,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("Cannot call Table__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__Slice2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6178,7 +6178,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_metadata_sexp){
-	Rf_error("Cannot call Table__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__Equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6193,7 +6193,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__Validate(SEXP table_sexp){
-	Rf_error("Cannot call Table__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__Validate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6208,7 +6208,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__ValidateFull(SEXP table_sexp){
-	Rf_error("Cannot call Table__ValidateFull(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__ValidateFull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6224,7 +6224,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
-	Rf_error("Cannot call Table__GetColumnByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__GetColumnByName(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6240,7 +6240,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__RemoveColumn(SEXP table_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Table__RemoveColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__RemoveColumn(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6258,7 +6258,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__AddColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
-	Rf_error("Cannot call Table__AddColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__AddColumn(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6276,7 +6276,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__SetColumn(SEXP table_sexp, SEXP i_sexp, SEXP field_sexp, SEXP column_sexp){
-	Rf_error("Cannot call Table__SetColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__SetColumn(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6292,7 +6292,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__SelectColumns(SEXP table_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Table__SelectColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__SelectColumns(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6307,7 +6307,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_all_record_batches(SEXP lst_sexp){
-	Rf_error("Cannot call all_record_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call all_record_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6323,7 +6323,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__from_record_batches(SEXP batches_sexp, SEXP schema_sxp_sexp){
-	Rf_error("Cannot call Table__from_record_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__from_record_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6339,7 +6339,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-	Rf_error("Cannot call Table__from_dots(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call Table__from_dots(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6353,7 +6353,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_GetCpuThreadPoolCapacity(){
-	Rf_error("Cannot call GetCpuThreadPoolCapacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call GetCpuThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6369,7 +6369,7 @@ END_CPP11
 }
 #else
 extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
-	Rf_error("Cannot call SetCpuThreadPoolCapacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
+	Rf_error("Cannot call SetCpuThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6382,7 +6382,7 @@ extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
 }
 # else
 extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
-  Rf_error("Cannot call _arrow_Table__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+  Rf_error("Cannot call _arrow_Table__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 # endif
 # if defined(ARROW_R_WITH_ARROW)
@@ -6394,7 +6394,7 @@ extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
 }
 # else
 extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
-  Rf_error("Cannot call _arrow_RecordBatch__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+  Rf_error("Cannot call _arrow_RecordBatch__Reset(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 # endif
 
