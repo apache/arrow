@@ -291,7 +291,6 @@ fn read_files(
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     for filename in filenames {
-
         let file = File::open(&filename)?;
         let file_reader = Arc::new(SerializedFileReader::new(file)?);
         let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
