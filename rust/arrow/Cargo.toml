@@ -141,3 +141,7 @@ harness = false
 [[bench]]
 name = "mutable_array"
 harness = false
+
+[[bench]]
+name = "buffer_create"
+harness = false
