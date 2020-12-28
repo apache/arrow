@@ -75,10 +75,10 @@ struct IsNullOperator {
 };
 
 struct IsNanOperator {
-    template <typename OutType, typename InType>
-    static constexpr OutType Call(KernelContext*, const InType& value) {
-        return std::isnan(value);
-    }
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value) {
+    return std::isnan(value);
+  }
 };
 
 void MakeFunction(std::string name, const FunctionDoc* doc,
@@ -99,17 +99,19 @@ void MakeFunction(std::string name, const FunctionDoc* doc,
 
 template <typename InType>
 void AddIsNanKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-    DCHECK_OK(func->AddKernel({ty}, boolean(),
-                            applicator::ScalarUnary<BooleanType, InType, IsNanOperator>::Exec));
+  DCHECK_OK(
+      func->AddKernel({ty}, boolean(),
+                      applicator::ScalarUnary<BooleanType, InType, IsNanOperator>::Exec));
 }
 
-std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, const FunctionDoc* doc) {
-    auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
+                                                  const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
-    AddIsNanKernel<FloatType>(float32(), func.get());
-    AddIsNanKernel<DoubleType>(float64(), func.get());
+  AddIsNanKernel<FloatType>(float32(), func.get());
+  AddIsNanKernel<DoubleType>(float64(), func.get());
 
-    return func;
+  return func;
 }
 
 void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -148,14 +150,15 @@ void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 const FunctionDoc is_valid_doc(
     "Return true if non-null",
-    ("For each input value, emit true if the value is valid (non-null)."), {"values"});
+    ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
 
 const FunctionDoc is_null_doc("Return true if null",
-                              ("For each input value, emit true if the value is null."),
+                              ("For each input value, emit true iff the value is null."),
                               {"values"});
 
 const FunctionDoc is_nan_doc("Return true if NaN",
-                             ("For each input value, emit true if the value is NaN."),
+                             ("For each input value, emit true iff the value is NaN "
+                              "(according to std::isnan(value))."),
                              {"values"});
 
 }  // namespace

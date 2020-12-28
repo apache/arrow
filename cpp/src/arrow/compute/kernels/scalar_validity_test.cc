@@ -89,43 +89,40 @@ TEST_F(TestBooleanValidityKernels, ScalarIsNull) {
 }
 
 TEST_F(TestFloatValidityKernels, FloatArrayIsNan) {
-    CheckScalarUnary("is_nan",
-                     ArrayFromJSON(float32(), "[NaN, NaN, NaN, NaN, NaN]"),
-                     ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
-
-    CheckScalarUnary("is_nan",
-    ArrayFromJSON(float32(), "[0.0, 1.0, 2.0, 3.0, 4.0]"),
-    ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
-
-    CheckScalarUnary("is_nan",
-    ArrayFromJSON(float32(), "[0.0, NaN, 2.0, NaN, 4.0]"),
-    ArrayFromJSON(boolean(), "[false, true, false, true, false]"));
+  // All NaN
+  CheckScalarUnary("is_nan", ArrayFromJSON(float32(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
+  // No NaN
+  CheckScalarUnary("is_nan", ArrayFromJSON(float32(), "[0.0, 1.0, 2.0, 3.0, 4.0, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, null]"));
+  // Some NaNs
+  CheckScalarUnary("is_nan", ArrayFromJSON(float32(), "[0.0, NaN, 2.0, NaN, 4.0, null]"),
+                   ArrayFromJSON(boolean(), "[false, true, false, true, false, null]"));
 }
 
 TEST_F(TestDoubleValidityKernels, DoubleArrayIsNan) {
-    CheckScalarUnary("is_nan",
-    ArrayFromJSON(float64(), "[NaN, NaN, NaN, NaN, NaN]"),
-    ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
-
-    CheckScalarUnary("is_nan",
-    ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, 3.0, 4.0]"),
-    ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
-
-    CheckScalarUnary("is_nan",
-    ArrayFromJSON(float64(), "[0.0, NaN, 2.0, NaN, 4.0]"),
-    ArrayFromJSON(boolean(), "[false, true, false, true, false]"));
+  // All NaN
+  CheckScalarUnary("is_nan", ArrayFromJSON(float64(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
+  // No NaN
+  CheckScalarUnary("is_nan", ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, 3.0, 4.0, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, null]"));
+  // Some NaNs
+  CheckScalarUnary("is_nan", ArrayFromJSON(float64(), "[0.0, NaN, 2.0, NaN, 4.0, null]"),
+                   ArrayFromJSON(boolean(), "[false, true, false, true, false, null]"));
 }
 
 TEST_F(TestFloatValidityKernels, FloatScalarIsNan) {
-    CheckScalarUnary("is_nan", MakeScalar(42.0), MakeScalar(false));
-    CheckScalarUnary("is_nan", MakeScalar(std::nanf("")), MakeScalar(true));
+  CheckScalarUnary("is_nan", MakeNullScalar(float32()), MakeNullScalar(boolean()));
+  CheckScalarUnary("is_nan", MakeScalar(42.0), MakeScalar(false));
+  CheckScalarUnary("is_nan", MakeScalar(std::nanf("")), MakeScalar(true));
 }
 
 TEST_F(TestDoubleValidityKernels, DoubleScalarIsNan) {
-    CheckScalarUnary("is_nan", MakeScalar(42.0), MakeScalar(false));
-    CheckScalarUnary("is_nan", MakeScalar(std::nan("")), MakeScalar(true));
+  CheckScalarUnary("is_nan", MakeNullScalar(float64()), MakeNullScalar(boolean()));
+  CheckScalarUnary("is_nan", MakeScalar(42.0), MakeScalar(false));
+  CheckScalarUnary("is_nan", MakeScalar(std::nan("")), MakeScalar(true));
 }
-
 
 }  // namespace compute
 }  // namespace arrow
