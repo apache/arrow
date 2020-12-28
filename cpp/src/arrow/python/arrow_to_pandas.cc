@@ -167,6 +167,9 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::DECIMAL16:
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::BINARY:
@@ -1021,7 +1024,7 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value,
+  enable_if_t<(is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value) && !is_decimal_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const util::string_view& view, PyObject** out) {
@@ -1094,7 +1097,8 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& type) {
+  template <uint32_t width>
+  Status Visit(const BaseDecimalType<width>& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
     RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
@@ -1102,32 +1106,7 @@ struct ObjectWriterVisitor {
     PyObject* decimal_constructor = Decimal.obj();
 
     for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal128Array&>(*data.chunk(c));
-
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsNull(i)) {
-          Py_INCREF(Py_None);
-          *out_values++ = Py_None;
-        } else {
-          *out_values++ =
-              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
-          RETURN_IF_PYERROR();
-        }
-      }
-    }
-
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& type) {
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
-    PyObject* decimal_constructor = Decimal.obj();
-
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
+      const auto& arr = checked_cast<const arrow::BaseDecimalArray<width>&>(*data.chunk(c));
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         if (arr.IsNull(i)) {
@@ -1871,6 +1850,9 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::STRUCT:             // fall through
     case Type::TIME32:             // fall through
     case Type::TIME64:             // fall through
+    case Type::DECIMAL16:          // fall through
+    case Type::DECIMAL32:          // fall through
+    case Type::DECIMAL64:          // fall through
     case Type::DECIMAL128:         // fall through
     case Type::DECIMAL256:         // fall through
       *output_type = PandasWriter::OBJECT;

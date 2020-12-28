@@ -260,7 +260,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
 
 template<uint32_t width>
-class DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
+class ARROW_EXPORT DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
   public:
 
   using _DecimalType = typename DecimalTypeTraits<width>::ValueType;
@@ -308,7 +308,7 @@ class DecimalAnyWidth : public BasicDecimalAnyWidth<width> {
     return std::move(out);
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
+  friend std::ostream& operator<<(std::ostream& os,
                                                const DecimalAnyWidth& decimal) {
     os << decimal.ToIntegerString();
     return os;

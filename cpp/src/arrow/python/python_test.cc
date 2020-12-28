@@ -28,6 +28,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/optional.h"
 
 #include "arrow/python/arrow_to_pandas.h"
@@ -358,6 +359,12 @@ void DecimalTestFromPythonDecimalRescale(std::shared_ptr<DataType> type,
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
   // We fail when truncating values that would lose data if cast to a decimal type with
   // lower scale
+  DecimalTestFromPythonDecimalRescale<Decimal16>(::arrow::decimal16(5, 2),
+                                                  this->CreatePythonDecimal("1.001"), {});
+  DecimalTestFromPythonDecimalRescale<Decimal32>(::arrow::decimal32(10, 2),
+                                                  this->CreatePythonDecimal("1.001"), {});
+  DecimalTestFromPythonDecimalRescale<Decimal64>(::arrow::decimal64(10, 2),
+                                                  this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal128>(::arrow::decimal128(10, 2),
                                                   this->CreatePythonDecimal("1.001"), {});
   DecimalTestFromPythonDecimalRescale<Decimal256>(::arrow::decimal256(10, 2),
@@ -367,6 +374,12 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
 TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
   // We allow truncation of values that do not lose precision when dividing by 10 * the
   // difference between the scales, e.g., 1.000 -> 1.00
+  DecimalTestFromPythonDecimalRescale<Decimal16>(
+      ::arrow::decimal16(5, 2), this->CreatePythonDecimal("1.000"), 100);
+  DecimalTestFromPythonDecimalRescale<Decimal32>(
+      ::arrow::decimal32(10, 2), this->CreatePythonDecimal("1.000"), 100);
+  DecimalTestFromPythonDecimalRescale<Decimal64>(
+      ::arrow::decimal64(10, 2), this->CreatePythonDecimal("1.000"), 100);
   DecimalTestFromPythonDecimalRescale<Decimal128>(
       ::arrow::decimal128(10, 2), this->CreatePythonDecimal("1.000"), 100);
   DecimalTestFromPythonDecimalRescale<Decimal256>(
@@ -375,24 +388,30 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
 
 TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
   DecimalTestFromPythonDecimalRescale<Decimal128>(
+      ::arrow::decimal16(5, 4), this->CreatePythonDecimal("-1.000"), -10000);
+  DecimalTestFromPythonDecimalRescale<Decimal32>(
+      ::arrow::decimal32(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
+  DecimalTestFromPythonDecimalRescale<Decimal64>(
+      ::arrow::decimal64(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
+  DecimalTestFromPythonDecimalRescale<Decimal128>(
       ::arrow::decimal128(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
   DecimalTestFromPythonDecimalRescale<Decimal256>(
       ::arrow::decimal256(10, 9), this->CreatePythonDecimal("-1.000"), -1000000000);
 }
 
-TEST_F(DecimalTest, Decimal128FromPythonInteger) {
-  Decimal128 value;
-  OwnedRef python_long(PyLong_FromLong(42));
-  auto type = ::arrow::decimal128(10, 2);
-  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
-  ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
-  ASSERT_EQ(4200, value);
-}
+template<typename T>
+class DecimalTestConversion : public testing::Test {};
+using DecimalTypes = ::testing::Types<DecimalTypeTraits<16>, DecimalTypeTraits<32>, DecimalTypeTraits<64>, DecimalTypeTraits<128>, DecimalTypeTraits<256>>; 
 
-TEST_F(DecimalTest, Decimal256FromPythonInteger) {
-  Decimal256 value;
+TYPED_TEST_SUITE(DecimalTestConversion, DecimalTypes);
+
+TYPED_TEST(DecimalTestConversion, Basics) {
+  using TypeClass = typename TypeParam::TypeClass;
+  using ValueType = typename TypeParam::ValueType;
+
+  ValueType value;
   OwnedRef python_long(PyLong_FromLong(42));
-  auto type = ::arrow::decimal256(10, 2);
+  auto type = std::make_shared<TypeClass>(5, 2);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
   ASSERT_EQ(4200, value);

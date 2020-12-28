@@ -24,6 +24,12 @@
 
 namespace arrow {
 
+template<uint32_t width>
+class DecimalAnyWidth;
+
+using Decimal16 = DecimalAnyWidth<16>;
+using Decimal32 = DecimalAnyWidth<32>;
+using Decimal64 = DecimalAnyWidth<64>;
 class Decimal128;
 class Decimal256;
 
@@ -55,6 +61,57 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
 ARROW_PYTHON_EXPORT
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string);
+
+// \brief Convert a Python decimal to an Arrow Decimal16 object
+// \param[in] python_decimal A Python decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal16
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal16* out);
+
+// \brief Convert a Python object to an Arrow Decimal16 object
+// \param[in] python_decimal A Python int or decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal16
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal16* out);
+
+// \brief Convert a Python decimal to an Arrow Decimal32 object
+// \param[in] python_decimal A Python decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal32
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal32* out);
+
+// \brief Convert a Python object to an Arrow Decimal32 object
+// \param[in] python_decimal A Python int or decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal32
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal32* out);
+
+// \brief Convert a Python decimal to an Arrow Decimal64 object
+// \param[in] python_decimal A Python decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal64
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal64* out);
+
+// \brief Convert a Python object to an Arrow Decimal64 object
+// \param[in] python_decimal A Python int or decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal64
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal64* out);
 
 // \brief Convert a Python decimal to an Arrow Decimal128 object
 // \param[in] python_decimal A Python decimal.Decimal instance
