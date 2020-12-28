@@ -2152,10 +2152,10 @@ mod tests {
             let mut values = Vec::with_capacity(values_per_page);
 
             for _ in 0..values_per_page {
-                let def_level = rng.gen_range(0, max_def_level + 1);
-                let rep_level = rng.gen_range(0, max_rep_level + 1);
+                let def_level = rng.gen_range(0..max_def_level + 1);
+                let rep_level = rng.gen_range(0..max_rep_level + 1);
                 if def_level == max_def_level {
-                    let len = rng.gen_range(1, str_base.len());
+                    let len = rng.gen_range(1..str_base.len());
                     let slice = &str_base[..len];
                     values.push(ByteArray::from(slice));
                     all_values.push(Some(slice.to_string()));

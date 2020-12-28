@@ -814,7 +814,7 @@ mod tests {
 
             let mut parity = false;
             for _ in 0..ngroups {
-                let mut group_size = gen.gen_range(1, 20);
+                let mut group_size = gen.gen_range(1..20);
                 if group_size > max_group_size {
                     group_size = 1;
                 }

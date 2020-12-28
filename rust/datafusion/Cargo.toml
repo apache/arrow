@@ -51,7 +51,7 @@ arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT", features = ["prettyprin
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT", features = ["arrow"] }
 sqlparser = "0.6.1"
 clap = "2.33"
-rustyline = {version = "6.0", optional = true}
+rustyline = {version = "7.0", optional = true}
 crossbeam = "0.8"
 paste = "^1.0"
 num_cpus = "1.13.0"
@@ -63,7 +63,7 @@ tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded", "sync
 log = "^0.4"
 
 [dev-dependencies]
-rand = "0.7"
+rand = "0.8"
 criterion = "0.3"
 tempfile = "3"
 prost = "0.6"

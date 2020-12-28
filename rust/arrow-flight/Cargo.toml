@@ -28,7 +28,7 @@ license = "Apache-2.0"
 [dependencies]
 arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
 tonic = "0.3"
-bytes = "0.5"
+bytes = "1"
 prost = "0.6"
 prost-derive = "0.6"
 tokio = { version = "0.2", features = ["macros"] }
