@@ -476,11 +476,6 @@ where
 
     let len = left.len();
 
-    let null_bit_buffer = left
-        .data_ref()
-        .null_buffer()
-        .map(|b| b.bit_slice(left.offset(), left.len()));
-
     let lanes = T::lanes();
     let buffer_size = bit_util::ceil(len, 8);
     let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
@@ -526,10 +521,18 @@ where
         &remainder_bitmask.to_le_bytes()[0..bit_util::ceil(left_remainder.len(), 8)];
     result_remainder.copy_from_slice(remainder_mask_as_bytes);
 
+    let null_bit_buffer = left
+        .data_ref()
+        .null_buffer()
+        .map(|b| b.bit_slice(left.offset(), left.len()));
+
+    // null count is the same as in the input since the right side of the scalar comparison cannot be null
+    let null_count = left.null_count();
+
     let data = ArrayData::new(
         DataType::Boolean,
         len,
-        None,
+        Some(null_count),
         null_bit_buffer,
         0,
         vec![result.freeze()],
