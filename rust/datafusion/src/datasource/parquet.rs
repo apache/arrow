@@ -35,17 +35,19 @@ pub struct ParquetTable {
     path: String,
     schema: SchemaRef,
     statistics: Statistics,
+    max_concurrency: usize,
 }
 
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path.
-    pub fn try_new(path: &str) -> Result<Self> {
+    pub fn try_new(path: &str, max_concurrency: usize) -> Result<Self> {
         let parquet_exec = ParquetExec::try_from_path(path, None, 0, 1)?;
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
             schema,
             statistics: parquet_exec.statistics().to_owned(),
+            max_concurrency,
         })
     }
 }
@@ -72,7 +74,7 @@ impl TableProvider for ParquetTable {
             &self.path,
             projection.clone(),
             batch_size,
-            num_cpus::get() //TODO
+            self.max_concurrency,
         )?))
     }
 
@@ -311,7 +313,7 @@ mod tests {
     fn load_table(name: &str) -> Result<Box<dyn TableProvider>> {
         let testdata = arrow::util::test_util::parquet_test_data();
         let filename = format!("{}/{}", testdata, name);
-        let table = ParquetTable::try_new(&filename)?;
+        let table = ParquetTable::try_new(&filename, 2)?;
         Ok(Box::new(table))
     }
 

@@ -125,8 +125,12 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<()> {
 
     // register tables
     for table in TABLES {
-        let table_provider =
-            get_table(opt.path.to_str().unwrap(), table, opt.file_format.as_str())?;
+        let table_provider = get_table(
+            opt.path.to_str().unwrap(),
+            table,
+            opt.file_format.as_str(),
+            opt.concurrency,
+        )?;
         if opt.mem_table {
             println!("Loading table '{}' into memory", table);
             let start = Instant::now();
@@ -1086,6 +1090,7 @@ fn get_table(
     path: &str,
     table: &str,
     table_format: &str,
+    max_concurrency: usize,
 ) -> Result<Box<dyn TableProvider + Send + Sync>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files
@@ -1108,7 +1113,7 @@ fn get_table(
         }
         "parquet" => {
             let path = format!("{}/{}", path, table);
-            Ok(Box::new(ParquetTable::try_new(&path)?))
+            Ok(Box::new(ParquetTable::try_new(&path, max_concurrency)?))
         }
         other => {
             unimplemented!("Invalid file format '{}'", other);

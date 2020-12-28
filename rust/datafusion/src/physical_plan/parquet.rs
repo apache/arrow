@@ -115,7 +115,6 @@ impl ParquetExec {
         let chunks = split_files(&filenames, max_concurrency);
         let mut num_rows = 0;
         let mut total_byte_size = 0;
-        println!("creating {} partitions", chunks.len());
         for chunk in chunks {
             let filenames: Vec<String> = chunk.iter().map(|x| x.to_string()).collect();
             for filename in &filenames {
@@ -139,7 +138,6 @@ impl ParquetExec {
                 total_byte_size: Some(total_byte_size as usize),
                 column_statistics: None,
             };
-            println!("creating partition with {} files", filenames.len());
             partitions.push(ParquetPartition {
                 filenames,
                 statistics,
@@ -259,7 +257,12 @@ impl ExecutionPlan for ParquetExec {
         let batch_size = self.batch_size;
 
         thread::spawn(move || {
-            if let Err(e) = read_files(&filenames, projection.clone(), batch_size, response_tx.clone()) {
+            if let Err(e) = read_files(
+                &filenames,
+                projection.clone(),
+                batch_size,
+                response_tx.clone(),
+            ) {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
@@ -288,7 +291,6 @@ fn read_files(
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     for filename in filenames {
-        println!("ParquetExec reading {}", filename);
 
         let file = File::open(&filename)?;
         let file_reader = Arc::new(SerializedFileReader::new(file)?);
@@ -300,13 +302,16 @@ fn read_files(
                 Some(Ok(batch)) => {
                     //println!("ParquetExec got new batch from {}", filename);
                     send_result(&response_tx, Some(Ok(batch)))?
-                },
+                }
                 None => {
                     break;
                 }
                 Some(Err(e)) => {
-                    let err_msg =
-                        format!("Error reading batch from {}: {}", filename, e.to_string());
+                    let err_msg = format!(
+                        "Error reading batch from {}: {}",
+                        filename,
+                        e.to_string()
+                    );
                     // send error to operator
                     send_result(
                         &response_tx,
@@ -317,7 +322,6 @@ fn read_files(
                 }
             }
         }
-        println!("ParquetExec finished reading {}", filename);
     }
 
     // finished reading files
@@ -367,7 +371,13 @@ mod tests {
 
     #[test]
     fn test_split_files() {
-        let filenames = vec!["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string(), "e".to_string()];
+        let filenames = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        ];
 
         let chunks = split_files(&filenames, 1);
         assert_eq!(1, chunks.len());
