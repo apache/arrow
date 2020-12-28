@@ -25,6 +25,7 @@ repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 keywords = [ "parquet" ]
 edition = "2018"
+publish = false
 
 [dependencies]
 parquet = { path = "../parquet", version = "3.0.0-SNAPSHOT" }

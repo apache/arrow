@@ -24,6 +24,7 @@ repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 license = "Apache-2.0"
 edition = "2018"
+publish = false
 
 [features]
 logging = ["tracing-subscriber"]
