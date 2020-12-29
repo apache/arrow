@@ -289,12 +289,12 @@ fn build_batch_from_indices(
     let mut columns: Vec<Arc<dyn Array>> = Vec::with_capacity(schema.fields().len());
     for field in schema.fields() {
         // pick the column (left or right) based on the field name.
-        // Note that we take `.data()` to gather the [ArrayData] of each array.
+        // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
         let (is_primary, arrays) = match primary[0].schema().index_of(field.name()) {
-            Ok(i) => Ok((true, primary.iter().map(|batch| batch.column(i).data()).collect::<Vec<_>>())),
+            Ok(i) => Ok((true, primary.iter().map(|batch| batch.column(i).data_ref().as_ref()).collect::<Vec<_>>())),
             Err(_) => {
                 match secondary[0].schema().index_of(field.name()) {
-                    Ok(i) => Ok((false, secondary.iter().map(|batch| batch.column(i).data()).collect::<Vec<_>>())),
+                    Ok(i) => Ok((false, secondary.iter().map(|batch| batch.column(i).data_ref().as_ref()).collect::<Vec<_>>())),
                     _ => Err(DataFusionError::Internal(
                         format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
                     ))
@@ -302,11 +302,6 @@ fn build_batch_from_indices(
             }
         }.map_err(DataFusionError::into_arrow_external_error)?;
 
-        // create a vector of references to be passed to [MutableArrayData]
-        let arrays = arrays
-            .iter()
-            .map(|array| array.as_ref())
-            .collect::<Vec<_>>();
         let capacity = arrays.iter().map(|array| array.len()).sum();
         let mut mutable = MutableArrayData::new(arrays, true, capacity);
 
