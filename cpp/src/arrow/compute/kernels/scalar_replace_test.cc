@@ -31,34 +31,28 @@ using internal::InvertBitmap;
 
 namespace compute {
 
-void CheckReplace(const Array& input,
-                  const Array& mask,
-                  const Datum& replacement,
+void CheckReplace(const Array& input, const Array& mask, const Datum& replacement,
                   const Array& expected) {
-    auto Check = [&](const Array& input, const Array& mask, const Array& expected) {
-        ASSERT_OK_AND_ASSIGN(Datum datum_out, Replace(input, mask, replacement));
-        std::shared_ptr<Array> result = datum_out.make_array();
-        ASSERT_OK(result->ValidateFull());
-        AssertArraysEqual(expected, *result, /*verbose=*/true);
-    };
+  auto Check = [&](const Array& input, const Array& mask, const Array& expected) {
+    ASSERT_OK_AND_ASSIGN(Datum datum_out, Replace(input, mask, replacement));
+    std::shared_ptr<Array> result = datum_out.make_array();
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(expected, *result, /*verbose=*/true);
+  };
 
-    Check(input, mask, expected);
-    if (input.length() > 0) {
-        Check(*input.Slice(1),
-              *mask.Slice(1),
-              *expected.Slice(1));
-    }
+  Check(input, mask, expected);
+  if (input.length() > 0) {
+    Check(*input.Slice(1), *mask.Slice(1), *expected.Slice(1));
+  }
 }
 
-void CheckReplace(const std::shared_ptr<DataType>& type,
-                  const std::string& in_values,
-                  const std::string& in_mask,
-                  const Datum& replacement,
+void CheckReplace(const std::shared_ptr<DataType>& type, const std::string& in_values,
+                  const std::string& in_mask, const Datum& replacement,
                   const std::string& out_values) {
-    std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
-    std::shared_ptr<Array> mask = ArrayFromJSON(boolean(), in_mask);
-    std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
-    CheckReplace(*input, *mask, replacement, *expected);
+  std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
+  std::shared_ptr<Array> mask = ArrayFromJSON(boolean(), in_mask);
+  std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
+  CheckReplace(*input, *mask, replacement, *expected);
 }
 
 class TestReplaceKernel : public ::testing::Test {};
@@ -72,153 +66,128 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
     PrimitiveTypes;
 
 TEST_F(TestReplaceKernel, ReplaceInvalidScalar) {
-    auto scalar = std::make_shared<Int8Scalar>(3);
-    scalar->is_valid = false;
-    CheckReplace(int8(),
-                 "[2, 4, 7, 9]",
-                 "[true, false, false, false]",
-                 Datum(scalar),
-                 "[2, 4, 7, 9]");
+  auto scalar = std::make_shared<Int8Scalar>(3);
+  scalar->is_valid = false;
+  CheckReplace(int8(), "[2, 4, 7, 9]", "[true, false, false, false]", Datum(scalar),
+               "[2, 4, 7, 9]");
 }
 
 TYPED_TEST_SUITE(TestReplacePrimitive, PrimitiveTypes);
 
 TYPED_TEST(TestReplacePrimitive, Replace) {
-    using T = typename TypeParam::c_type;
-    using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
-    using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-    auto type = TypeTraits<TypeParam>::type_singleton();
-    auto scalar = std::make_shared<ScalarType>(static_cast<T>(42));
+  using T = typename TypeParam::c_type;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  auto scalar = std::make_shared<ScalarType>(static_cast<T>(42));
 
-    // No replacement
-    CheckReplace(type, "[2, 4, 7, 9]", "[false, false, false, false]", Datum(scalar), "[2, 4, 7, 9]");
-    // Some replacements
-    CheckReplace(type, "[2, 4, 7, 9]", "[true, false, true, false]", Datum(scalar), "[42, 4, 42, 9]");
-    // Empty Array
-    CheckReplace(type, "[]", "[]", Datum(scalar), "[]");
+  // No replacement
+  CheckReplace(type, "[2, 4, 7, 9]", "[false, false, false, false]", Datum(scalar),
+               "[2, 4, 7, 9]");
+  // Some replacements
+  CheckReplace(type, "[2, 4, 7, 9]", "[true, false, true, false]", Datum(scalar),
+               "[42, 4, 42, 9]");
+  // Empty Array
+  CheckReplace(type, "[]", "[]", Datum(scalar), "[]");
 
-    random::RandomArrayGenerator rand(/*seed=*/0);
-    auto arr = std::static_pointer_cast<ArrayType>(rand.ArrayOf(type, 1000, /*null_probability=*/0.01));
-    // use arr inverted null bits as mask, so expect to replace all null values...
-    auto mask_data = std::make_shared<ArrayData>(boolean(), arr->length(), 0);
-    mask_data->null_count = 0;
-    mask_data->buffers.resize(2);
-    mask_data->buffers[0] = nullptr;
-    mask_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
-    InvertBitmap(arr->data()->buffers[0]->data(), arr->offset(), arr->length(),
-                 mask_data->buffers[1]->mutable_data(), mask_data->offset);
-    std::shared_ptr<ArrayData> expected_data = arr->data()->Copy();
-    expected_data->null_count = 0;
-    expected_data->buffers[0] = nullptr;
-    expected_data->buffers[1] = *AllocateBuffer(arr->length() * sizeof(T));
-    T* out_data = expected_data->GetMutableValues<T>(1);
-    for (int64_t i = 0 ; i < arr->length() ; ++i) {
-        if (arr->IsValid(i)) {
-            out_data[i] = arr->Value(i);
-        } else {
-            out_data[i] = scalar->value;
-        }
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto arr = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, 1000, /*null_probability=*/0.01));
+  // use arr inverted null bits as mask, so expect to replace all null values...
+  auto mask_data = std::make_shared<ArrayData>(boolean(), arr->length(), 0);
+  mask_data->null_count = 0;
+  mask_data->buffers.resize(2);
+  mask_data->buffers[0] = nullptr;
+  mask_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
+  InvertBitmap(arr->data()->buffers[0]->data(), arr->offset(), arr->length(),
+               mask_data->buffers[1]->mutable_data(), mask_data->offset);
+  std::shared_ptr<ArrayData> expected_data = arr->data()->Copy();
+  expected_data->null_count = 0;
+  expected_data->buffers[0] = nullptr;
+  expected_data->buffers[1] = *AllocateBuffer(arr->length() * sizeof(T));
+  T* out_data = expected_data->GetMutableValues<T>(1);
+  for (int64_t i = 0; i < arr->length(); ++i) {
+    if (arr->IsValid(i)) {
+      out_data[i] = arr->Value(i);
+    } else {
+      out_data[i] = scalar->value;
     }
-    CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar), ArrayType(expected_data));
+  }
+  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar), ArrayType(expected_data));
 }
 
 TEST_F(TestReplaceKernel, ReplaceNull) {
-    auto datum = Datum(std::make_shared<NullScalar>());
-    CheckReplace(null(),
-                 "[null, null, null, null]",
-                 "[true, true, true, true]",
-                 /*replacement=*/datum,
-                 "[null, null, null, null]");
+  auto datum = Datum(std::make_shared<NullScalar>());
+  CheckReplace(null(), "[null, null, null, null]", "[true, true, true, true]",
+               /*replacement=*/datum, "[null, null, null, null]");
 }
 
 TEST_F(TestReplaceKernel, ReplaceBoolean) {
-    auto scalar1 = std::make_shared<BooleanScalar>(false);
-    auto scalar2 = std::make_shared<BooleanScalar>(true);
+  auto scalar1 = std::make_shared<BooleanScalar>(false);
+  auto scalar2 = std::make_shared<BooleanScalar>(true);
 
-    // No replacement
-    CheckReplace(boolean(),
-                 "[true, false, true, false]",
-                 "[false, false, false, false]",
-                 Datum(scalar1),
-                 "[true, false, true, false]");
-    // Some replacements
-    CheckReplace(boolean(),
-                 "[true, false, true, false]",
-                 "[true, false, true, false]",
-                 Datum(scalar1),
-                 "[false, false, false, false]");
+  // No replacement
+  CheckReplace(boolean(), "[true, false, true, false]", "[false, false, false, false]",
+               Datum(scalar1), "[true, false, true, false]");
+  // Some replacements
+  CheckReplace(boolean(), "[true, false, true, false]", "[true, false, true, false]",
+               Datum(scalar1), "[false, false, false, false]");
 
-    random::RandomArrayGenerator rand(/*seed=*/0);
-    auto arr = std::static_pointer_cast<BooleanArray>(rand.Boolean(1000,
-                                                      /*true_probability=*/0.5,
-                                                      /*null_probability=*/0.01));
-    // use arr inverted null bits as mask, so expect to replace all null values...
-    auto mask_data = std::make_shared<ArrayData>(boolean(), arr->length(), 0);
-    mask_data->null_count = 0;
-    mask_data->buffers.resize(2);
-    mask_data->buffers[0] = nullptr;
-    mask_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
-    InvertBitmap(arr->data()->buffers[0]->data(), arr->offset(), arr->length(),
-                 mask_data->buffers[1]->mutable_data(), mask_data->offset);
-    auto expected_data = arr->data()->Copy();
-    expected_data->null_count = 0;
-    expected_data->buffers[0] = nullptr;
-    expected_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
-    uint8_t* out_data = expected_data->buffers[1]->mutable_data();
-    for (int64_t i = 0 ; i < arr->length() ; ++i) {
-        if (arr->IsValid(i)) {
-            BitUtil::SetBitTo(out_data, i, arr->Value(i));
-        } else {
-            BitUtil::SetBitTo(out_data, i, scalar1->value);
-        }
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto arr =
+      std::static_pointer_cast<BooleanArray>(rand.Boolean(1000,
+                                                          /*true_probability=*/0.5,
+                                                          /*null_probability=*/0.01));
+  // use arr inverted null bits as mask, so expect to replace all null values...
+  auto mask_data = std::make_shared<ArrayData>(boolean(), arr->length(), 0);
+  mask_data->null_count = 0;
+  mask_data->buffers.resize(2);
+  mask_data->buffers[0] = nullptr;
+  mask_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
+  InvertBitmap(arr->data()->buffers[0]->data(), arr->offset(), arr->length(),
+               mask_data->buffers[1]->mutable_data(), mask_data->offset);
+  auto expected_data = arr->data()->Copy();
+  expected_data->null_count = 0;
+  expected_data->buffers[0] = nullptr;
+  expected_data->buffers[1] = *AllocateEmptyBitmap(arr->length());
+  uint8_t* out_data = expected_data->buffers[1]->mutable_data();
+  for (int64_t i = 0; i < arr->length(); ++i) {
+    if (arr->IsValid(i)) {
+      BitUtil::SetBitTo(out_data, i, arr->Value(i));
+    } else {
+      BitUtil::SetBitTo(out_data, i, scalar1->value);
     }
-    CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar1), BooleanArray(expected_data));
+  }
+  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar1),
+               BooleanArray(expected_data));
 }
 
 TEST_F(TestReplaceKernel, ReplaceTimestamp) {
-    auto time32_type = time32(TimeUnit::SECOND);
-    auto time64_type = time64(TimeUnit::NANO);
-    auto scalar1 = std::make_shared<Time32Scalar>(5, time32_type);
-    auto scalar2 = std::make_shared<Time64Scalar>(6, time64_type);
-    // No replacement
-    CheckReplace(time32_type,
-                 "[2, 1, 6, 9]",
-                 "[false, false, false, false]",
-                 Datum(scalar1),
-                 "[2, 1, 6, 9]");
-    CheckReplace(time64_type,
-                 "[2, 1, 6, 9]",
-                 "[false, false, false, false]",
-                 Datum(scalar2),
-                 "[2, 1, 6, 9]");
-    // Some replacements
-    CheckReplace(time32_type,
-                 "[2, 1, 6, 9]",
-                 "[true, false, true, false]",
-                 Datum(scalar1),
-                 "[5, 1, 5, 9]");
-    CheckReplace(time64_type,
-                 "[2, 1, 6, 9]",
-                 "[false, true, false, true]",
-                 Datum(scalar2),
-                 "[2, 6, 6, 6]");
+  auto time32_type = time32(TimeUnit::SECOND);
+  auto time64_type = time64(TimeUnit::NANO);
+  auto scalar1 = std::make_shared<Time32Scalar>(5, time32_type);
+  auto scalar2 = std::make_shared<Time64Scalar>(6, time64_type);
+  // No replacement
+  CheckReplace(time32_type, "[2, 1, 6, 9]", "[false, false, false, false]",
+               Datum(scalar1), "[2, 1, 6, 9]");
+  CheckReplace(time64_type, "[2, 1, 6, 9]", "[false, false, false, false]",
+               Datum(scalar2), "[2, 1, 6, 9]");
+  // Some replacements
+  CheckReplace(time32_type, "[2, 1, 6, 9]", "[true, false, true, false]", Datum(scalar1),
+               "[5, 1, 5, 9]");
+  CheckReplace(time64_type, "[2, 1, 6, 9]", "[false, true, false, true]", Datum(scalar2),
+               "[2, 6, 6, 6]");
 }
 
 TEST_F(TestReplaceKernel, ReplaceString) {
-    auto type = large_utf8();
-    auto scalar = std::make_shared<LargeStringScalar>("arrow");
-    // No replacement
-    CheckReplace(type,
-                 R"(["foo", "bar"])",
-                 "[false, false]",
-                 Datum(scalar),
-                 R"(["foo", "bar"])");
-    // Some replacements
-    CheckReplace(type,
-                 R"(["foo", "bar"])",
-                 "[true, false]",
-                 Datum(scalar),
-                 R"(["arrow", "bar"])");
+  auto type = large_utf8();
+  auto scalar = std::make_shared<LargeStringScalar>("arrow");
+  // No replacement
+  CheckReplace(type, R"(["foo", "bar"])", "[false, false]", Datum(scalar),
+               R"(["foo", "bar"])");
+  // Some replacements
+  CheckReplace(type, R"(["foo", "bar"])", "[true, false]", Datum(scalar),
+               R"(["arrow", "bar"])");
 }
 
 }  // namespace compute
