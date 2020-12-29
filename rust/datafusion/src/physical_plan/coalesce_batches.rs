@@ -28,6 +28,7 @@ use crate::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
 };
 
+use arrow::array::{make_array, MutableArrayData};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -94,6 +95,8 @@ impl ExecutionPlan for CoalesceBatchesExec {
             input: self.input.execute(partition).await?,
             schema: self.input.schema().clone(),
             target_batch_size: self.target_batch_size.clone(),
+            buffer: Vec::new(),
+            buffered_rows: 0,
         }))
     }
 }
@@ -105,6 +108,10 @@ struct CoalesceBatchesStream {
     schema: SchemaRef,
     /// Minimum number of rows for coalesces batches
     target_batch_size: usize,
+    /// Buffered batches
+    buffer: Vec<RecordBatch>,
+    /// Buffered row count
+    buffered_rows: usize,
 }
 
 impl Stream for CoalesceBatchesStream {
@@ -114,15 +121,62 @@ impl Stream for CoalesceBatchesStream {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => {
-                unimplemented!()
+        loop {
+            let input_batch = self.input.poll_next_unpin(cx);
+            match input_batch {
+                Poll::Ready(x) => match x {
+                    Some(Ok(ref batch)) => {
+                        if batch.num_rows() >= self.target_batch_size
+                            && self.buffer.is_empty()
+                        {
+                            return Poll::Ready(Some(Ok(batch.clone())));
+                        } else {
+                            // add to the buffered batches
+                            self.buffer.push(batch.clone());
+                            self.buffered_rows += batch.num_rows();
+                            // check to see if we have enough batches yet
+                            if self.buffered_rows >= self.target_batch_size {
+                                // combine the batches and return
+                                let mut arrays =
+                                    Vec::with_capacity(self.schema.fields().len());
+                                for i in 0..self.schema.fields().len() {
+                                    let source_arrays = self
+                                        .buffer
+                                        .iter()
+                                        .map(|batch| batch.column(i).data_ref().as_ref())
+                                        .collect();
+                                    let mut array_data = MutableArrayData::new(
+                                        source_arrays,
+                                        true,
+                                        self.buffered_rows,
+                                    );
+                                    for j in 0..self.buffer.len() {
+                                        array_data.extend(
+                                            j,
+                                            0,
+                                            self.buffer[j].num_rows(),
+                                        );
+                                    }
+                                    let data = array_data.freeze();
+                                    arrays.push(make_array(Arc::new(data)));
+                                }
+                                let batch =
+                                    RecordBatch::try_new(self.schema.clone(), arrays)?;
+                                self.buffer.clear();
+                                self.buffered_rows = 0;
+                                return Poll::Ready(Some(Ok(batch)));
+                            }
+                        }
+                    }
+                    other => return Poll::Ready(other),
+                },
+                Poll::Pending => return Poll::Pending,
             }
-            other => other,
-        })
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
+        //TODO need to do something here?
         // same number of record batches
         self.input.size_hint()
     }
