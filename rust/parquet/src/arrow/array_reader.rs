@@ -927,6 +927,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
                 null_list_indices.push(i);
             }
         }
+        dbg!(&null_list_indices);
         let batch_values = match null_list_indices.len() {
             0 => next_batch_array.clone(),
             _ => remove_indices(next_batch_array.clone(), item_type, null_list_indices)?,

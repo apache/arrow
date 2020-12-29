@@ -100,6 +100,8 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
         // reverse levels so we can use Vec::pop(&mut self)
         levels.reverse();
 
+        dbg!(&levels);
+
         let mut row_group_writer = self.writer.next_row_group()?;
 
         // write leaves
@@ -846,7 +848,7 @@ mod tests {
         roundtrip("test_arrow_writer_2_level_struct_mixed_null.parquet", batch);
     }
 
-    const SMALL_SIZE: usize = 100;
+    const SMALL_SIZE: usize = 4;
 
     fn roundtrip(filename: &str, expected_batch: RecordBatch) {
         let file = get_temp_file(filename, &[]);
