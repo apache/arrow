@@ -134,54 +134,45 @@ impl Stream for CoalesceBatchesStream {
                             && self.buffer.is_empty()
                         {
                             return Poll::Ready(Some(Ok(batch.clone())));
+                        } else if batch.num_rows() == 0 {
+                            // discard empty batches
                         } else {
-                            // add to the buffered batches (if non-empty)
-                            if batch.num_rows() > 0 {
-                                self.buffer.push(batch.clone());
-                                self.buffered_rows += batch.num_rows();
-                            }
+                            // add to the buffered batches
+                            self.buffer.push(batch.clone());
+                            self.buffered_rows += batch.num_rows();
                             // check to see if we have enough batches yet
                             if self.buffered_rows >= self.target_batch_size {
                                 // combine the batches and return
-                                let mut arrays =
-                                    Vec::with_capacity(self.schema.fields().len());
-                                for i in 0..self.schema.fields().len() {
-                                    let source_arrays = self
-                                        .buffer
-                                        .iter()
-                                        .map(|batch| batch.column(i).data_ref().as_ref())
-                                        .collect();
-                                    let mut array_data = MutableArrayData::new(
-                                        source_arrays,
-                                        true,
-                                        self.buffered_rows,
-                                    );
-                                    for j in 0..self.buffer.len() {
-                                        array_data.extend(
-                                            j,
-                                            0,
-                                            self.buffer[j].num_rows(),
-                                        );
-                                    }
-                                    let data = array_data.freeze();
-                                    arrays.push(make_array(Arc::new(data)));
-                                }
-                                let batch =
-                                    RecordBatch::try_new(self.schema.clone(), arrays)?;
-
-                                debug!(
-                                    "Combined {} batches containing {} rows",
-                                    self.buffer.len(),
-                                    self.buffered_rows
-                                );
-
+                                let batch = concat_batches(
+                                    &self.schema,
+                                    &self.buffer,
+                                    self.buffered_rows,
+                                )?;
                                 // reset buffer state
                                 self.buffer.clear();
                                 self.buffered_rows = 0;
-
                                 // return batch
                                 return Poll::Ready(Some(Ok(batch)));
                             }
+                        }
+                    }
+                    None => {
+                        // we have reached the end of the input stream but there could still
+                        // be buffered batches
+                        if self.buffer.is_empty() {
+                            return Poll::Ready(None);
+                        } else {
+                            // combine the batches and return
+                            let batch = concat_batches(
+                                &self.schema,
+                                &self.buffer,
+                                self.buffered_rows,
+                            )?;
+                            // reset buffer state
+                            self.buffer.clear();
+                            self.buffered_rows = 0;
+                            // return batch
+                            return Poll::Ready(Some(Ok(batch)));
                         }
                     }
                     other => return Poll::Ready(other),
@@ -201,4 +192,34 @@ impl RecordBatchStream for CoalesceBatchesStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
+}
+
+fn concat_batches(
+    schema: &SchemaRef,
+    batches: &[RecordBatch],
+    row_count: usize,
+) -> ArrowResult<RecordBatch> {
+    let mut arrays = Vec::with_capacity(schema.fields().len());
+    for i in 0..schema.fields().len() {
+        let source_arrays = batches
+            .iter()
+            .map(|batch| batch.column(i).data_ref().as_ref())
+            .collect();
+        let mut array_data = MutableArrayData::new(
+            source_arrays,
+            true, //TODO
+            row_count,
+        );
+        for j in 0..batches.len() {
+            array_data.extend(j, 0, batches[j].num_rows());
+        }
+        let data = array_data.freeze();
+        arrays.push(make_array(Arc::new(data)));
+    }
+    debug!(
+        "Combined {} batches containing {} rows",
+        batches.len(),
+        row_count
+    );
+    RecordBatch::try_new(schema.clone(), arrays)
 }
