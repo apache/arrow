@@ -135,9 +135,11 @@ impl Stream for CoalesceBatchesStream {
                         {
                             return Poll::Ready(Some(Ok(batch.clone())));
                         } else {
-                            // add to the buffered batches
-                            self.buffer.push(batch.clone());
-                            self.buffered_rows += batch.num_rows();
+                            // add to the buffered batches (if non-empty)
+                            if batch.num_rows() > 0 {
+                                self.buffer.push(batch.clone());
+                                self.buffered_rows += batch.num_rows();
+                            }
                             // check to see if we have enough batches yet
                             if self.buffered_rows >= self.target_batch_size {
                                 // combine the batches and return
@@ -190,8 +192,7 @@ impl Stream for CoalesceBatchesStream {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        //TODO need to do something here?
-        // same number of record batches
+        // we can't predict the size of incoming batches so re-use the size hint from the input
         self.input.size_hint()
     }
 }
