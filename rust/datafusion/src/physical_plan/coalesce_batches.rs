@@ -216,3 +216,80 @@ fn concat_batches(
     );
     RecordBatch::try_new(schema.clone(), arrays)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::physical_plan::memory::MemoryExec;
+    use arrow::array::UInt32Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+
+    #[tokio::test(threaded_scheduler)]
+    async fn test_concat_batches() -> Result<()> {
+        let schema = test_schema();
+        let partition = create_vec_batches(&schema, 10)?;
+        let partitions = vec![partition];
+
+        let output_partitions = coalesce_batches(&schema, partitions, 20).await?;
+        assert_eq!(1, output_partitions.len());
+
+        // input is 10 batches x 8 rows (80 rows)
+        // expected output is batches of at least 20 rows (except for the final batch)
+        let batches = &output_partitions[0];
+        assert_eq!(4, batches.len());
+        assert_eq!(24, batches[0].num_rows());
+        assert_eq!(24, batches[1].num_rows());
+        assert_eq!(24, batches[2].num_rows());
+        assert_eq!(8, batches[3].num_rows());
+
+        Ok(())
+    }
+
+    fn test_schema() -> Arc<Schema> {
+        Arc::new(Schema::new(vec![Field::new("c0", DataType::UInt32, false)]))
+    }
+
+    fn create_vec_batches(
+        schema: &Arc<Schema>,
+        num_batches: usize,
+    ) -> Result<Vec<RecordBatch>> {
+        let batch = create_batch(schema);
+        let mut vec = Vec::with_capacity(num_batches);
+        for _ in 0..num_batches {
+            vec.push(batch.clone());
+        }
+        Ok(vec)
+    }
+
+    fn create_batch(schema: &Arc<Schema>) -> RecordBatch {
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(UInt32Array::from(vec![1, 2, 3, 4, 5, 6, 7, 8]))],
+        )
+        .unwrap()
+    }
+
+    async fn coalesce_batches(
+        schema: &SchemaRef,
+        input_partitions: Vec<Vec<RecordBatch>>,
+        target_batch_size: usize,
+    ) -> Result<Vec<Vec<RecordBatch>>> {
+        // create physical plan
+        let exec = MemoryExec::try_new(&input_partitions, schema.clone(), None)?;
+        let exec: Arc<dyn ExecutionPlan> =
+            Arc::new(CoalesceBatchesExec::new(Arc::new(exec), target_batch_size));
+
+        // execute and collect results
+        let mut output_partitions = vec![];
+        for i in 0..exec.output_partitioning().partition_count() {
+            // execute this *output* partition and collect all batches
+            let mut stream = exec.execute(i).await?;
+            let mut batches = vec![];
+            while let Some(result) = stream.next().await {
+                batches.push(result?);
+            }
+            output_partitions.push(batches);
+        }
+        Ok(output_partitions)
+    }
+}
