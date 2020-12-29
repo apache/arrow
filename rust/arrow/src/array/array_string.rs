@@ -116,9 +116,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
             .add_buffer(v.data_ref().buffers()[0].clone())
             .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
         if let Some(bitmap) = v.data().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
+            builder = builder.null_bit_buffer(bitmap.bits.clone())
         }
 
         let data = builder.build();
