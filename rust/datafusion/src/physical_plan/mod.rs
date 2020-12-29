@@ -104,6 +104,26 @@ pub async fn collect(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
     }
 }
 
+/// Execute the [ExecutionPlan] and collect the results in memory
+pub async fn collect_partitioned(
+    plan: Arc<dyn ExecutionPlan>,
+) -> Result<Vec<Vec<RecordBatch>>> {
+    match plan.output_partitioning().partition_count() {
+        0 => Ok(vec![]),
+        1 => {
+            let it = plan.execute(0).await?;
+            Ok(vec![common::collect(it).await?])
+        }
+        _ => {
+            let mut partitions = vec![];
+            for i in 0..plan.output_partitioning().partition_count() {
+                partitions.push(common::collect(plan.execute(i).await?).await?)
+            }
+            Ok(partitions)
+        }
+    }
+}
+
 /// Partitioning schemes supported by operators.
 #[derive(Debug, Clone)]
 pub enum Partitioning {
