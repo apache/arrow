@@ -248,6 +248,7 @@ pub trait Accumulator: Send + Sync + Debug {
 
 pub mod aggregates;
 pub mod array_expressions;
+pub mod coalesce_batches;
 pub mod common;
 pub mod csv;
 pub mod datetime_expressions;
