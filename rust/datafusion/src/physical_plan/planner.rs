@@ -26,6 +26,7 @@ use crate::logical_plan::{
     DFSchema, Expr, LogicalPlan, Operator, Partitioning as LogicalPartitioning, PlanType,
     StringifiedPlan, UserDefinedLogicalNode,
 };
+use crate::physical_plan::coalesce_batches::CoalesceBatchesExec;
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
@@ -100,6 +101,7 @@ impl DefaultPhysicalPlanner {
         plan: Arc<dyn ExecutionPlan>,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+
         let children = plan
             .children()
             .iter()
@@ -110,6 +112,16 @@ impl DefaultPhysicalPlanner {
             // leaf node, children cannot be replaced
             Ok(plan.clone())
         } else {
+            // wrap filter in coalesce batches
+            let plan = if plan.as_any().downcast_ref::<FilterExec>().is_some() {
+                let target_batch_size = ctx_state.config.batch_size;
+                Arc::new(CoalesceBatchesExec::new(plan.clone(), target_batch_size))
+            } else {
+                plan.clone()
+            };
+
+            let children = plan.children().clone();
+
             match plan.required_child_distribution() {
                 Distribution::UnspecifiedDistribution => plan.with_new_children(children),
                 Distribution::SinglePartition => plan.with_new_children(

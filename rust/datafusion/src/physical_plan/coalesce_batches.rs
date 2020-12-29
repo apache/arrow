@@ -34,9 +34,12 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
+use log::debug;
 
+/// CoalesceBatchesExec combines small batches into larger batches for more efficient use of
+/// vectorized processing by upstream operators.
 #[derive(Debug)]
-struct CoalesceBatchesExec {
+pub struct CoalesceBatchesExec {
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
     /// Minimum number of rows for coalesces batches
@@ -44,7 +47,8 @@ struct CoalesceBatchesExec {
 }
 
 impl CoalesceBatchesExec {
-    fn new(input: Arc<dyn ExecutionPlan>, target_batch_size: usize) -> Self {
+    /// Create a new CoalesceBatchesExec
+    pub fn new(input: Arc<dyn ExecutionPlan>, target_batch_size: usize) -> Self {
         Self {
             input,
             target_batch_size,
@@ -162,8 +166,18 @@ impl Stream for CoalesceBatchesStream {
                                 }
                                 let batch =
                                     RecordBatch::try_new(self.schema.clone(), arrays)?;
+
+                                debug!(
+                                    "Combined {} batches containing {} rows",
+                                    self.buffer.len(),
+                                    self.buffered_rows
+                                );
+
+                                // reset buffer state
                                 self.buffer.clear();
                                 self.buffered_rows = 0;
+
+                                // return batch
                                 return Poll::Ready(Some(Ok(batch)));
                             }
                         }
