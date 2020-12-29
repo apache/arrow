@@ -90,7 +90,7 @@ py_to_r.pyarrow.lib.ChunkedArray <- function(x, ...) {
 r_to_py.Table <- function(x, convert = FALSE) {
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
-  out <- pa$Table$from_arrays(x$columns, names = names(x), metadata = x$metadata)
+  out <- pa$Table$from_arrays(x$columns, schema = x$schema)
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
