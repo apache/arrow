@@ -290,14 +290,14 @@ mod tests {
     use std::sync::Arc;
 
     use crate::array::{
-        array::Array, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait,
-        BooleanArray, DecimalBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder,
-        GenericBinaryArray, Int32Builder, ListBuilder, NullArray, PrimitiveBuilder,
-        StringArray, StringDictionaryBuilder, StringOffsetSizeTrait, StructArray,
+        array::Array, ArrayDataRef, ArrayRef, BinaryOffsetSizeTrait, BooleanArray,
+        DecimalBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, GenericBinaryArray,
+        Int32Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
+        StringDictionaryBuilder, StringOffsetSizeTrait, StructArray,
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::buffer::Buffer;
-    use crate::datatypes::{Field, Int16Type, ToByteSlice};
+    use crate::datatypes::{Field, Int16Type};
 
     use super::*;
 
