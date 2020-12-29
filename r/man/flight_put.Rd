@@ -13,7 +13,7 @@ flight_put(client, data, path, overwrite = TRUE)
 
 \item{path}{string identifier to store the data under}
 
-\item{overwrite:}{logical: if \code{path} exists on \code{client} already, should we
+\item{overwrite}{logical: if \code{path} exists on \code{client} already, should we
 replace it with the contents of \code{data}? Default is \code{TRUE}; if \code{FALSE} and
 \code{path} exists, the function will error.}
 }

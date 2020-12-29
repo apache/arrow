@@ -43,7 +43,7 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
 #' @param client `pyarrow.flight.FlightClient`, as returned by [flight_connect()]
 #' @param data `data.frame`, [RecordBatch], or [Table] to upload
 #' @param path string identifier to store the data under
-#' @param overwrite: logical: if `path` exists on `client` already, should we
+#' @param overwrite logical: if `path` exists on `client` already, should we
 #' replace it with the contents of `data`? Default is `TRUE`; if `FALSE` and
 #' `path` exists, the function will error.
 #' @return `client`, invisibly.
