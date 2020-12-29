@@ -1089,26 +1089,16 @@ mod tests {
 
         let results = plan_and_collect(
             &mut ctx,
-            "SELECT date_trunc(t1, 'day') as day, SUM(c2) FROM test GROUP BY date_trunc(t1, 'day')"
+            "SELECT date_trunc(t1, 'week') as week, SUM(c2) FROM test GROUP BY date_trunc(t1, 'week')"
         ).await?;
         assert_eq!(results.len(), 1);
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["day", "SUM(c2)"]);
+        assert_eq!(field_names(batch), vec!["week", "SUM(c2)"]);
 
-        let expected: Vec<&str> = vec![
-            "2020-12-10T00:00:00,0",
-            "2020-12-11T00:00:00,4",
-            "2020-12-12T00:00:00,8",
-            "2020-12-13T00:00:00,12",
-            "2020-12-14T00:00:00,16",
-            "2020-12-15T00:00:00,20",
-            "2020-12-16T00:00:00,24",
-            "2020-12-17T00:00:00,28",
-            "2020-12-18T00:00:00,32",
-            "2020-12-19T00:00:00,36",
-        ];
+        let expected: Vec<&str> =
+            vec!["2020-12-07T00:00:00,24", "2020-12-14T00:00:00,156"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
