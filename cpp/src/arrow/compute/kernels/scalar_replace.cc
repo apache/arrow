@@ -45,6 +45,10 @@ struct ReplaceFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
     const Scalar& replacement = *batch[2].scalar();
     ArrayData* output = out->mutable_array();
 
+    // Ensure the kernel is configured properly to have no validity bitmap /
+    // null count 0 unless we explicitly propagate it below.
+    DCHECK(output->buffers[0] == nullptr);
+
     if (replacement.is_valid) {
       KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
                              ctx->Allocate(data.length * sizeof(T)));
@@ -87,8 +91,16 @@ struct ReplaceFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
     const Scalar& replacement = *batch[2].scalar();
     ArrayData* output = out->mutable_array();
 
+    // Ensure the kernel is configured properly to have no validity bitmap /
+    // null count 0 unless we explicitly propagate it below.
+    DCHECK(output->buffers[0] == nullptr);
+
     bool value = UnboxScalar<BooleanType>::Unbox(replacement);
     if (replacement.is_valid) {
+
+      // TODO: Allocate bitmap and compute data.buffers[0] | (mask.buffers[0] & mask.buffers[1])
+      //       Then factor the code in a function to reuse in all ReplaceFunctors...
+
       KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
                              ctx->AllocateBitmap(data.length));
 
@@ -149,6 +161,10 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
         checked_cast<const BaseBinaryScalar&>(*batch[2].scalar());
     util::string_view replacement(*replacement_scalar.value);
     ArrayData* output = out->mutable_array();
+
+    // Ensure the kernel is configured properly to have no validity bitmap /
+    // null count 0 unless we explicitly propagate it below.
+    DCHECK(output->buffers[0] == nullptr);
 
     const uint8_t* to_replace = mask.buffers[1]->data();
     uint64_t replace_count = 0;

@@ -117,9 +117,20 @@ TYPED_TEST(TestReplacePrimitive, Replace) {
 }
 
 TEST_F(TestReplaceKernel, ReplaceNull) {
-  auto datum = Datum(std::make_shared<NullScalar>());
-  CheckReplace(null(), "[null, null, null, null]", "[true, true, true, true]",
-               /*replacement=*/datum, "[null, null, null, null]");
+  auto null_scalar = Datum(MakeNullScalar(boolean()));
+  auto true_scalar = Datum(MakeScalar(true));
+  // Replace with invalid null value
+  CheckReplace(boolean(), "[null, null, null, null]", "[true, true, true, true]",
+               /*replacement=*/null_scalar, "[null, null, null, null]");
+  // No replacement
+  CheckReplace(boolean(), "[null, null, null, null]", "[false, false, false, false]",
+               /*replacement=*/true_scalar, "[null, null, null, null]");
+  // Some replacements
+  CheckReplace(boolean(), "[null, null, null, null]", "[true, false, true, false]",
+               /*replacement=*/true_scalar, "[true, null, true, null]");
+  // Replace all
+  CheckReplace(boolean(), "[null, null, null, null]", "[true, true, true, true]",
+               /*replacement=*/true_scalar, "[true, true, true, true]");
 }
 
 TEST_F(TestReplaceKernel, ReplaceBoolean) {
