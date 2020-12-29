@@ -100,37 +100,12 @@ py_to_r.pyarrow.lib.Table <- function(x, ...) {
   colnames <- maybe_py_to_r(x$column_names)
   r_cols <- maybe_py_to_r(x$columns)
   names(r_cols) <- colnames
-  out <- Table$create(!!!r_cols)
-  out$metadata <- maybe_fix_dict_bytestrings(x$schema$metadata)
-  out
-}
+  # TODO: make this a py_to_r method
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+  x$schema$`_export_to_c`(schema_ptr)
 
-maybe_fix_dict_bytestrings <- function(pydict) {
-  # This is tailored to the case of the schema metadata, a key-value string mapping,
-  # which seems to fail to convert in a couple of different ways
-  if (inherits(pydict, "python.builtin.dict")) {
-    # First iterate over items and safely convert to R strings
-    # This results in a list of length-2 strings, key + value
-    r_strings <- reticulate::iterate(pydict$items(), function(x) {
-      # This seems to convert the tuple into a length-2 list of Python bytestrings
-      list_item <- reticulate::py_to_r(x)
-      # as.character on bytestring seems to make regular (unicode string)
-      map_chr(list_item, ~ maybe_py_to_r(as.character(.)))
-    })
-    # Now zip those together
-    out <- map(r_strings, ~.[2])
-    names(out) <- map_chr(r_strings, ~.[1])
-    out
-  } else if (inherits(pydict, "list")) {
-    # It has been converted to R, but it may still have b'stuff' on the strings
-    stripper <- function(x) sub("^b'(.*)'$", "\\1", x)
-    pydict <- lapply(pydict, stripper)
-    names(pydict) <- stripper(names(pydict))
-    pydict
-  } else {
-    # Other stuff that could be in $metadata, like NoneType
-    maybe_py_to_r(pydict)
-  }
+  Table$create(!!!r_cols, schema = ImportSchema(schema_ptr))
 }
 
 maybe_py_to_r <- function(x) {

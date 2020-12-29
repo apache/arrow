@@ -1272,6 +1272,10 @@ ImportRecordBatch <- function(array, schema){
     .Call(`_arrow_ImportRecordBatch` , array, schema)
 }
 
+ImportSchema <- function(schema){
+    .Call(`_arrow_ImportSchema` , schema)
+}
+
 allocate_arrow_schema <- function(){
     .Call(`_arrow_allocate_arrow_schema` )
 }
