@@ -1947,14 +1947,12 @@ mod tests {
         // build expected output
         let d = StringArray::from(vec![Some("text"), None, Some("text"), None]);
         let c = ArrayDataBuilder::new(c_field.data_type().clone())
-            .null_count(2)
             .len(4)
             .add_child_data(d.data())
             .null_bit_buffer(Buffer::from(vec![0b00000101]))
             .build();
         let b = BooleanArray::from(vec![Some(true), Some(false), Some(true), None]);
         let a = ArrayDataBuilder::new(a_field.data_type().clone())
-            .null_count(1)
             .len(4)
             .add_child_data(b.data())
             .add_child_data(c)
@@ -2010,7 +2008,6 @@ mod tests {
             None,
         ]);
         let c = ArrayDataBuilder::new(c_field.data_type().clone())
-            .null_count(2)
             .len(7)
             .add_child_data(d.data())
             .null_bit_buffer(Buffer::from(vec![0b00111011]))
@@ -2031,7 +2028,6 @@ mod tests {
             .null_bit_buffer(Buffer::from(vec![0b00111111]))
             .build();
         let a_list = ArrayDataBuilder::new(a_field.data_type().clone())
-            .null_count(1)
             .len(5)
             .add_buffer(Buffer::from(vec![0i32, 2, 3, 6, 6, 6].to_byte_slice()))
             .add_child_data(a)

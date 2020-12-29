@@ -154,8 +154,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             .len(len)
             .child_data(child_data);
         if let Some(null_buffer) = null {
-            let null_count = len - null_buffer.count_set_bits();
-            builder = builder.null_count(null_count).null_bit_buffer(null_buffer);
+            builder = builder.null_bit_buffer(null_buffer);
         }
 
         Ok(StructArray::from(builder.build()))
@@ -237,9 +236,9 @@ impl fmt::Debug for StructArray {
     }
 }
 
-impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
-    fn from(triple: (Vec<(Field, ArrayRef)>, Buffer, usize)) -> Self {
-        let (field_types, field_values): (Vec<_>, Vec<_>) = triple.0.into_iter().unzip();
+impl From<(Vec<(Field, ArrayRef)>, Buffer)> for StructArray {
+    fn from(pair: (Vec<(Field, ArrayRef)>, Buffer)) -> Self {
+        let (field_types, field_values): (Vec<_>, Vec<_>) = pair.0.into_iter().unzip();
 
         // Check the length of the child arrays
         let length = field_values[0].len();
@@ -257,10 +256,9 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
-            .null_bit_buffer(triple.1)
+            .null_bit_buffer(pair.1)
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
             .len(length)
-            .null_count(triple.2)
             .build();
         Self::from(data)
     }
@@ -358,7 +356,6 @@ mod tests {
 
         let expected_string_data = ArrayData::builder(DataType::Utf8)
             .len(4)
-            .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
             .add_buffer(Buffer::from(b"joemark"))
@@ -366,7 +363,6 @@ mod tests {
 
         let expected_int_data = ArrayData::builder(DataType::Int32)
             .len(4)
-            .null_count(1)
             .null_bit_buffer(Buffer::from(&[11_u8]))
             .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
             .build();

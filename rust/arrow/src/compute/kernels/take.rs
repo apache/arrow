@@ -559,7 +559,6 @@ where
     // create a new list with taken data and computed null information
     let list_data = ArrayDataBuilder::new(values.data_type().clone())
         .len(indices.len())
-        .null_count(null_count)
         .null_bit_buffer(null_buf.freeze())
         .offset(0)
         .add_child_data(taken.data())
@@ -586,7 +585,6 @@ where
     let taken = take_impl::<UInt32Type>(values.values().as_ref(), &list_indices, None)?;
 
     // determine null count and null buffer, which are a function of `values` and `indices`
-    let mut null_count = 0;
     let num_bytes = bit_util::ceil(indices.len(), 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     let null_slice = null_buf.data_mut();
@@ -597,13 +595,11 @@ where
         })?;
         if !indices.is_valid(i) || values.is_null(index) {
             bit_util::unset_bit(null_slice, i);
-            null_count += 1;
         }
     }
 
     let list_data = ArrayDataBuilder::new(values.data_type().clone())
         .len(indices.len())
-        .null_count(null_count)
         .null_bit_buffer(null_buf.freeze())
         .offset(0)
         .add_child_data(taken.data())
@@ -701,7 +697,6 @@ mod tests {
         field_types.push(Field::new("b", DataType::Int32, true));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(4)
-            .null_count(0)
             .add_child_data(boolean_data)
             .add_child_data(int_data)
             .build();
@@ -1009,7 +1004,6 @@ mod tests {
             // construct list array from the two
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
-                .null_count(1)
                 // null buffer remains the same as only the indices have nulls
                 .null_bit_buffer(
                     index.data().null_bitmap().as_ref().unwrap().bits.clone(),
@@ -1050,7 +1044,6 @@ mod tests {
             let list_data = ArrayData::builder(list_data_type.clone())
                 .len(4)
                 .add_buffer(value_offsets)
-                .null_count(0)
                 .null_bit_buffer(Buffer::from([0b10111101, 0b00000000]))
                 .add_child_data(value_data)
                 .build();
@@ -1083,7 +1076,6 @@ mod tests {
             // construct list array from the two
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
-                .null_count(1)
                 // null buffer remains the same as only the indices have nulls
                 .null_bit_buffer(
                     index.data().null_bitmap().as_ref().unwrap().bits.clone(),
@@ -1123,7 +1115,6 @@ mod tests {
             let list_data = ArrayData::builder(list_data_type.clone())
                 .len(4)
                 .add_buffer(value_offsets)
-                .null_count(1)
                 .null_bit_buffer(Buffer::from([0b01111101]))
                 .add_child_data(value_data)
                 .build();
@@ -1159,7 +1150,6 @@ mod tests {
             bit_util::set_bit(&mut null_bits, 4);
             let expected_list_data = ArrayData::builder(list_data_type)
                 .len(5)
-                .null_count(2)
                 // null buffer must be recalculated as both values and indices have nulls
                 .null_bit_buffer(Buffer::from(null_bits))
                 .add_buffer(expected_offsets)
@@ -1319,7 +1309,6 @@ mod tests {
         field_types.push(Field::new("b", DataType::Int32, true));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(5)
-            .null_count(0)
             .add_child_data(expected_bool_data)
             .add_child_data(expected_int_data)
             .build();
@@ -1350,7 +1339,6 @@ mod tests {
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
             .len(5)
             // TODO: see https://issues.apache.org/jira/browse/ARROW-5408 for why count != 2
-            .null_count(0)
             .add_child_data(expected_bool_data)
             .add_child_data(expected_int_data)
             .build();
