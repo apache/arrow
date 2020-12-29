@@ -21,7 +21,7 @@ use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use arrow::array::{self, Int32Array};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use arrow::record_batch::RecordBatch;
 use std::fs::File;
 use std::io::prelude::*;
@@ -209,6 +209,24 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
                         .downcast_ref::<array::Float64Array>()
                         .unwrap()
                         .value(row_index)
+                )),
+                DataType::Timestamp(TimeUnit::Microsecond, _) => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::TimestampMicrosecondArray>()
+                        .unwrap()
+                        .value_as_datetime(row_index)
+                        .unwrap()
+                )),
+                DataType::Timestamp(TimeUnit::Nanosecond, _) => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::TimestampNanosecondArray>()
+                        .unwrap()
+                        .value_as_datetime(row_index)
+                        .unwrap()
                 )),
                 _ => s.push('?'),
             }

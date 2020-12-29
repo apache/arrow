@@ -206,24 +206,6 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
     Ok(TimestampNanosecondArray::from(Arc::new(data)))
 }
 
-/// date_trunc granularities
-pub enum DateTruncGranularity {
-    /// Seconds
-    Second,
-    /// Minutes
-    Minute,
-    /// Hours
-    Hour,
-    /// Days
-    Day,
-    /// ISO Weeks
-    Week,
-    /// Months
-    Month,
-    /// Years
-    Year,
-}
-
 /// date_trunc SQL function
 pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
     let array = &args[0]
