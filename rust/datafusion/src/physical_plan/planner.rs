@@ -101,7 +101,6 @@ impl DefaultPhysicalPlanner {
         plan: Arc<dyn ExecutionPlan>,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-
         let children = plan
             .children()
             .iter()
