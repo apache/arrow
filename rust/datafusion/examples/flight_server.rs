@@ -64,7 +64,7 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<SchemaResult>, Status> {
         let request = request.into_inner();
 
-        let table = ParquetTable::try_new(&request.path[0]).unwrap();
+        let table = ParquetTable::try_new(&request.path[0], num_cpus::get()).unwrap();
 
         let options = arrow::ipc::writer::IpcWriteOptions::default();
         let schema_result = arrow_flight::utils::flight_schema_from_arrow_schema(

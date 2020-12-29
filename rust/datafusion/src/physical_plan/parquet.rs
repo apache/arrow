@@ -67,7 +67,7 @@ pub struct ParquetExec {
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
     /// The Parquet filename for this partition
-    filename: String,
+    filenames: Vec<String>,
     /// Statistics for this partition
     statistics: Statistics,
 }
@@ -79,6 +79,7 @@ impl ParquetExec {
         path: &str,
         projection: Option<Vec<usize>>,
         batch_size: usize,
+        max_concurrency: usize,
     ) -> Result<Self> {
         // build a list of filenames from the specified path, which could be a single file or
         // a directory containing one or more parquet files
@@ -94,7 +95,7 @@ impl ParquetExec {
                 .iter()
                 .map(|filename| filename.as_str())
                 .collect::<Vec<&str>>();
-            Self::try_from_files(&filenames, projection, batch_size)
+            Self::try_from_files(&filenames, projection, batch_size, max_concurrency)
         }
     }
 
@@ -104,27 +105,33 @@ impl ParquetExec {
         filenames: &[&str],
         projection: Option<Vec<usize>>,
         batch_size: usize,
+        max_concurrency: usize,
     ) -> Result<Self> {
         // build a list of Parquet partitions with statistics and gather all unique schemas
         // used in this data set
         let mut schemas: Vec<Schema> = vec![];
-        let mut partitions = Vec::with_capacity(filenames.len());
-        for filename in filenames {
-            let file = File::open(filename)?;
-            let file_reader = Arc::new(SerializedFileReader::new(file)?);
-            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-            let meta_data = arrow_reader.get_metadata();
-            // collect all the unique schemas in this data set
-            let schema = arrow_reader.get_schema()?;
-            if schemas.is_empty() || schema != schemas[0] {
-                schemas.push(schema);
-            }
-            let mut num_rows = 0;
-            let mut total_byte_size = 0;
-            for i in 0..meta_data.num_row_groups() {
-                let row_group_meta = meta_data.row_group(i);
-                num_rows += row_group_meta.num_rows();
-                total_byte_size += row_group_meta.total_byte_size();
+        let mut partitions = Vec::with_capacity(max_concurrency);
+        let filenames: Vec<String> = filenames.iter().map(|s| s.to_string()).collect();
+        let chunks = split_files(&filenames, max_concurrency);
+        let mut num_rows = 0;
+        let mut total_byte_size = 0;
+        for chunk in chunks {
+            let filenames: Vec<String> = chunk.iter().map(|x| x.to_string()).collect();
+            for filename in &filenames {
+                let file = File::open(filename)?;
+                let file_reader = Arc::new(SerializedFileReader::new(file)?);
+                let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+                let meta_data = arrow_reader.get_metadata();
+                // collect all the unique schemas in this data set
+                let schema = arrow_reader.get_schema()?;
+                if schemas.is_empty() || schema != schemas[0] {
+                    schemas.push(schema);
+                }
+                for i in 0..meta_data.num_row_groups() {
+                    let row_group_meta = meta_data.row_group(i);
+                    num_rows += row_group_meta.num_rows();
+                    total_byte_size += row_group_meta.total_byte_size();
+                }
             }
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
@@ -132,7 +139,7 @@ impl ParquetExec {
                 column_statistics: None,
             };
             partitions.push(ParquetPartition {
-                filename: filename.to_owned().to_string(),
+                filenames,
                 statistics,
             });
         }
@@ -245,12 +252,17 @@ impl ExecutionPlan for ParquetExec {
             Receiver<Option<ArrowResult<RecordBatch>>>,
         ) = bounded(2);
 
-        let filename = self.partitions[partition].filename.clone();
+        let filenames = self.partitions[partition].filenames.clone();
         let projection = self.projection.clone();
         let batch_size = self.batch_size;
 
         thread::spawn(move || {
-            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
+            if let Err(e) = read_files(
+                &filenames,
+                projection.clone(),
+                batch_size,
+                response_tx.clone(),
+            ) {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
@@ -272,39 +284,57 @@ fn send_result(
     Ok(())
 }
 
-fn read_file(
-    filename: &str,
+fn read_files(
+    filenames: &[String],
     projection: Vec<usize>,
     batch_size: usize,
     response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
-    let file = File::open(&filename)?;
-    let file_reader = Arc::new(SerializedFileReader::new(file)?);
-    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-    let mut batch_reader =
-        arrow_reader.get_record_reader_by_columns(projection, batch_size)?;
-    loop {
-        match batch_reader.next() {
-            Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,
-            None => {
-                // finished reading file
-                send_result(&response_tx, None)?;
-                break;
-            }
-            Some(Err(e)) => {
-                let err_msg =
-                    format!("Error reading batch from {}: {}", filename, e.to_string());
-                // send error to operator
-                send_result(
-                    &response_tx,
-                    Some(Err(ArrowError::ParquetError(err_msg.clone()))),
-                )?;
-                // terminate thread with error
-                return Err(DataFusionError::Execution(err_msg));
+    for filename in filenames {
+        let file = File::open(&filename)?;
+        let file_reader = Arc::new(SerializedFileReader::new(file)?);
+        let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+        let mut batch_reader =
+            arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+        loop {
+            match batch_reader.next() {
+                Some(Ok(batch)) => {
+                    //println!("ParquetExec got new batch from {}", filename);
+                    send_result(&response_tx, Some(Ok(batch)))?
+                }
+                None => {
+                    break;
+                }
+                Some(Err(e)) => {
+                    let err_msg = format!(
+                        "Error reading batch from {}: {}",
+                        filename,
+                        e.to_string()
+                    );
+                    // send error to operator
+                    send_result(
+                        &response_tx,
+                        Some(Err(ArrowError::ParquetError(err_msg.clone()))),
+                    )?;
+                    // terminate thread with error
+                    return Err(DataFusionError::Execution(err_msg));
+                }
             }
         }
     }
+
+    // finished reading files
+    send_result(&response_tx, None)?;
+
     Ok(())
+}
+
+fn split_files(filenames: &[String], n: usize) -> Vec<&[String]> {
+    let mut chunk_size = filenames.len() / n;
+    if filenames.len() % n > 0 {
+        chunk_size += 1;
+    }
+    filenames.chunks(chunk_size).collect()
 }
 
 struct ParquetStream {
@@ -338,12 +368,48 @@ mod tests {
     use super::*;
     use futures::StreamExt;
 
+    #[test]
+    fn test_split_files() {
+        let filenames = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        ];
+
+        let chunks = split_files(&filenames, 1);
+        assert_eq!(1, chunks.len());
+        assert_eq!(5, chunks[0].len());
+
+        let chunks = split_files(&filenames, 2);
+        assert_eq!(2, chunks.len());
+        assert_eq!(3, chunks[0].len());
+        assert_eq!(2, chunks[1].len());
+
+        let chunks = split_files(&filenames, 5);
+        assert_eq!(5, chunks.len());
+        assert_eq!(1, chunks[0].len());
+        assert_eq!(1, chunks[1].len());
+        assert_eq!(1, chunks[2].len());
+        assert_eq!(1, chunks[3].len());
+        assert_eq!(1, chunks[4].len());
+
+        let chunks = split_files(&filenames, 123);
+        assert_eq!(5, chunks.len());
+        assert_eq!(1, chunks[0].len());
+        assert_eq!(1, chunks[1].len());
+        assert_eq!(1, chunks[2].len());
+        assert_eq!(1, chunks[3].len());
+        assert_eq!(1, chunks[4].len());
+    }
+
     #[tokio::test]
     async fn test() -> Result<()> {
         let testdata = arrow::util::test_util::parquet_test_data();
         let filename = format!("{}/alltypes_plain.parquet", testdata);
         let parquet_exec =
-            ParquetExec::try_from_path(&filename, Some(vec![0, 1, 2]), 1024)?;
+            ParquetExec::try_from_path(&filename, Some(vec![0, 1, 2]), 1024, 4)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
         let mut results = parquet_exec.execute(0).await?;

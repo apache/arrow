@@ -80,8 +80,12 @@ impl LogicalPlanBuilder {
     }
 
     /// Scan a Parquet data source
-    pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
-        let provider = Arc::new(ParquetTable::try_new(path)?);
+    pub fn scan_parquet(
+        path: &str,
+        projection: Option<Vec<usize>>,
+        max_concurrency: usize,
+    ) -> Result<Self> {
+        let provider = Arc::new(ParquetTable::try_new(path, max_concurrency)?);
         Self::scan("", provider, projection)
     }
 
