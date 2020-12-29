@@ -28,7 +28,7 @@ use crate::physical_plan::{
     ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream,
 };
 
-use arrow::array::{make_array, MutableArrayData};
+use arrow::compute::kernels::concat::concat;
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -201,20 +201,13 @@ fn concat_batches(
 ) -> ArrowResult<RecordBatch> {
     let mut arrays = Vec::with_capacity(schema.fields().len());
     for i in 0..schema.fields().len() {
-        let source_arrays = batches
-            .iter()
-            .map(|batch| batch.column(i).data_ref().as_ref())
-            .collect();
-        let mut array_data = MutableArrayData::new(
-            source_arrays,
-            true, //TODO
-            row_count,
-        );
-        for j in 0..batches.len() {
-            array_data.extend(j, 0, batches[j].num_rows());
-        }
-        let data = array_data.freeze();
-        arrays.push(make_array(Arc::new(data)));
+        let array = concat(
+            &batches
+                .iter()
+                .map(|batch| batch.column(i).as_ref())
+                .collect::<Vec<_>>(),
+        )?;
+        arrays.push(array);
     }
     debug!(
         "Combined {} batches containing {} rows",
