@@ -626,11 +626,13 @@ test_that("Handling string data with embedded nuls", {
     class = c("arrow_binary", "vctrs_vctr", "list"))
   expect_error(rawToChar(raws[[3]]), "nul") # See?
   array_with_nul <- Array$create(raws)$cast(utf8())
-  # In version 1.0.1, as.vector(array_with_nul) errors:
-  # Error in Array__as_vector(self) : embedded nul in string: 'ma\0n'
-  # On master (presumably this is a cpp11 thing) it does not error,
-  # but it terminates the string early:
-  # [1] "person" "woman"  "ma"     "camera" "tv"
+  expect_error(as.vector(array_with_nul), "nul")
+
+  options(arrow.skip_nul = TRUE)
+  expect_identical(
+    as.vector(array_with_nul),
+    c("person", "woman", "man", "camera", "tv")
+  )
 })
 
 test_that("Array$create() should have helpful error", {
@@ -779,4 +781,3 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
   tab <- Table$create(x = a)
   expect_true(inherits(as.data.frame(batch)$x, "integer64"))
 })
-

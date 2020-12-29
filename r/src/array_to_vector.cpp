@@ -316,7 +316,19 @@ struct Converter_String : public Converter {
 
  private:
   static SEXP r_string_from_view(const arrow::util::string_view& view) {
-    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+    if (GetBoolOption("arrow.skip_nul", false)) {
+      auto old_string = view.data();
+      char* new_string = strdup(old_string);
+      R_xlen_t new_len = 0;
+      for (int i = 0; i < view.size(); i++) {
+        if (old_string[i] != 0) {
+          new_string[new_len++] = old_string[i];
+        }
+      }
+      return Rf_mkCharLenCE(new_string, new_len, CE_UTF8);
+    } else {
+      return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+    }
   }
 };
 
