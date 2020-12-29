@@ -26,6 +26,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -266,6 +267,8 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
+bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
+
 size_t Expression::hash() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
@@ -279,11 +282,18 @@ size_t Expression::hash() const {
   }
 
   auto call = CallNotNull(*this);
+  if (call->hash != nullptr) {
+    return call->hash->load();
+  }
 
   size_t out = std::hash<std::string>{}(call->function_name);
   for (const auto& arg : call->arguments) {
     out ^= arg.hash();
   }
+
+  std::shared_ptr<std::atomic<size_t>> expected = nullptr;
+  internal::atomic_compare_exchange_strong(&const_cast<Call*>(call)->hash, &expected,
+                                           std::make_shared<std::atomic<size_t>>(out));
   return out;
 }
 
@@ -381,9 +391,10 @@ Result<std::unique_ptr<compute::KernelState>> InitKernelState(
   if (!call.kernel->init) return nullptr;
 
   compute::KernelContext kernel_context(exec_context);
-  auto kernel_state = call.kernel->init(
-      &kernel_context, {call.kernel, GetDescriptors(call.arguments), call.options.get()});
+  compute::KernelInitArgs kernel_init_args{call.kernel, GetDescriptors(call.arguments),
+                                           call.options.get()};
 
+  auto kernel_state = call.kernel->init(&kernel_context, kernel_init_args);
   RETURN_NOT_OK(kernel_context.status());
   return std::move(kernel_state);
 }

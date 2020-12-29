@@ -27,6 +27,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"

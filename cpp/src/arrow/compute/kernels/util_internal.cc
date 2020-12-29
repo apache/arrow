@@ -68,15 +68,14 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec) {
       return;
     }
 
-    Datum array_in, array_out;
-    KERNEL_RETURN_IF_ERROR(
-        ctx, MakeArrayFromScalar(*batch[0].scalar(), 1).As<Datum>().Value(&array_in));
-    KERNEL_RETURN_IF_ERROR(
-        ctx, MakeArrayFromScalar(*out->scalar(), 1).As<Datum>().Value(&array_out));
+    KERNEL_ASSIGN_OR_RAISE(Datum array_in, ctx,
+                           MakeArrayFromScalar(*batch[0].scalar(), 1));
+
+    KERNEL_ASSIGN_OR_RAISE(Datum array_out, ctx, MakeArrayFromScalar(*out->scalar(), 1));
 
     exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out);
-    KERNEL_RETURN_IF_ERROR(ctx,
-                           array_out.make_array()->GetScalar(0).As<Datum>().Value(out));
+
+    KERNEL_ASSIGN_OR_RAISE(*out, ctx, array_out.make_array()->GetScalar(0));
   };
 }
 

@@ -252,6 +252,11 @@ struct ARROW_EXPORT Datum {
   /// \return nullptr if no type
   std::shared_ptr<DataType> type() const;
 
+  /// \brief The schema of the variant, if any
+  ///
+  /// \return nullptr if no schema
+  std::shared_ptr<Schema> schema() const;
+
   /// \brief The value length of the variant, if any
   ///
   /// \return kUnknownLength if no type

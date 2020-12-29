@@ -50,6 +50,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                                vector[CExpression] arguments,
                                shared_ptr[CFunctionOptions] options)
 
+    cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
+        "arrow::dataset::Serialize"(const CExpression&)
+    cdef CResult[CExpression] CDeserializeExpression \
+        "arrow::dataset::Deserialize"(const CBuffer&)
+
     cdef cppclass CRecordBatchProjector "arrow::dataset::RecordBatchProjector":
         pass
 
@@ -95,7 +100,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                  shared_ptr[CScanContext])
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
-        CFragmentIterator GetFragments()
+        CResult[CFragmentIterator] GetFragments()
         const shared_ptr[CScanOptions]& options()
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
@@ -115,8 +120,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         const shared_ptr[CSchema] & schema()
-        CFragmentIterator GetFragments()
-        CFragmentIterator GetFragments(CExpression predicate)
+        CResult[CFragmentIterator] GetFragments()
+        CResult[CFragmentIterator] GetFragments(CExpression predicate)
         const CExpression & partition_expression()
         c_string type_name()
 
@@ -301,9 +306,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             const CExpression& partition_expression,
             CRecordBatchProjector* projector)
 
-    cdef CResult[unordered_map[c_string, shared_ptr[CScalar]]] \
-        CGetPartitionKeys "arrow::dataset::KeyValuePartitioning::GetKeys"(
-        const CExpression& partition_expression)
+    cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
+        CExtractKnownFieldValues "arrow::dataset::ExtractKnownFieldValues"(
+            const CExpression& partition_expression)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":

@@ -89,12 +89,24 @@ std::shared_ptr<Array> Datum::make_array() const {
 std::shared_ptr<DataType> Datum::type() const {
   if (this->kind() == Datum::ARRAY) {
     return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
-  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
+  }
+  if (this->kind() == Datum::CHUNKED_ARRAY) {
     return util::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
-  } else if (this->kind() == Datum::SCALAR) {
+  }
+  if (this->kind() == Datum::SCALAR) {
     return util::get<std::shared_ptr<Scalar>>(this->value)->type;
   }
-  return NULLPTR;
+  return nullptr;
+}
+
+std::shared_ptr<Schema> Datum::schema() const {
+  if (this->kind() == Datum::RECORD_BATCH) {
+    return util::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
+  }
+  if (this->kind() == Datum::TABLE) {
+    return util::get<std::shared_ptr<Table>>(this->value)->schema();
+  }
+  return nullptr;
 }
 
 int64_t Datum::length() const {

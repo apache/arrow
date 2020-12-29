@@ -21,7 +21,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "arrow/compute/api_vector.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -32,8 +33,6 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace dataset {
-
-bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
 
 const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
@@ -92,11 +91,11 @@ inline Result<Datum> GetDatumField(const FieldRef& ref, const Datum& input) {
 
   FieldPath path;
   if (auto type = input.type()) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*input.type()));
-  } else if (input.kind() == Datum::RECORD_BATCH) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*input.record_batch()->schema()));
-  } else if (input.kind() == Datum::TABLE) {
-    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*input.table()->schema()));
+    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*type));
+  } else if (auto schema = input.schema()) {
+    ARROW_ASSIGN_OR_RAISE(path, ref.FindOneOrNone(*schema));
+  } else {
+    return Status::NotImplemented("retrieving fields from datum ", input.ToString());
   }
 
   if (path) {
@@ -123,14 +122,14 @@ struct Comparison {
   };
 
   static const type* Get(const std::string& function) {
-    static std::unordered_map<std::string, type> flipped_comparisons{
+    static std::unordered_map<std::string, type> map{
         {"equal", EQUAL},     {"not_equal", NOT_EQUAL},
         {"less", LESS},       {"less_equal", LESS_EQUAL},
         {"greater", GREATER}, {"greater_equal", GREATER_EQUAL},
     };
 
-    auto it = flipped_comparisons.find(function);
-    return it != flipped_comparisons.end() ? &it->second : nullptr;
+    auto it = map.find(function);
+    return it != map.end() ? &it->second : nullptr;
   }
 
   static const type* Get(const Expression& expr) {
@@ -262,13 +261,12 @@ inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call
   return checked_cast<const compute::StrptimeOptions*>(call.options.get());
 }
 
-inline const std::shared_ptr<DataType>& GetDictionaryValueType(
+inline std::shared_ptr<DataType> GetDictionaryValueType(
     const std::shared_ptr<DataType>& type) {
   if (type && type->id() == Type::DICTIONARY) {
     return checked_cast<const DictionaryType&>(*type).value_type();
   }
-  static std::shared_ptr<DataType> null;
-  return null;
+  return nullptr;
 }
 
 inline Status EnsureNotDictionary(ValueDescr* descr) {
@@ -410,7 +408,10 @@ struct FlattenedAssociativeChain {
 
       exprs.push_back(std::move(*it));
       it = fringe.erase(it);
-      it = fringe.insert(it, sub_call->arguments.begin(), sub_call->arguments.end());
+
+      auto index = it - fringe.begin();
+      fringe.insert(it, sub_call->arguments.begin(), sub_call->arguments.end());
+      it = fringe.begin() + index;
       // NB: no increment so we hit sub_call's first argument next iteration
     }
 
