@@ -100,12 +100,28 @@ py_to_r.pyarrow.lib.Table <- function(x, ...) {
   colnames <- maybe_py_to_r(x$column_names)
   r_cols <- maybe_py_to_r(x$columns)
   names(r_cols) <- colnames
-  # TODO: make this a py_to_r method
+  Table$create(!!!r_cols, schema = maybe_py_to_r(x$schema))
+}
+
+py_to_r.pyarrow.lib.Schema <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
-  x$schema$`_export_to_c`(schema_ptr)
 
-  Table$create(!!!r_cols, schema = ImportSchema(schema_ptr))
+  x$`_export_to_c`(schema_ptr)
+  ImportSchema(schema_ptr)
+}
+
+r_to_py.Schema <- function(x, convert = FALSE) {
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  ExportSchema(x, schema_ptr)
+  out <- pa$Schema$`_import_from_c`(schema_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
 }
 
 maybe_py_to_r <- function(x) {
