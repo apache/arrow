@@ -226,15 +226,15 @@ pub enum DateTruncGranularity {
 
 /// date_trunc SQL function
 pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
-    let array =
-        &args[0]
-            .as_any()
-            .downcast_ref::<TimestampNanosecondArray>()
-            .ok_or_else(|| {
-                DataFusionError::Execution(
-                    "Could not cast date_trunc array input to TimestampNanosecondArray".to_string()
-                )
-            })?;
+    let array = &args[0]
+        .as_any()
+        .downcast_ref::<TimestampNanosecondArray>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(
+                "Could not cast date_trunc array input to TimestampNanosecondArray"
+                    .to_string(),
+            )
+        })?;
 
     let granularity_array =
         &args[1]
@@ -242,7 +242,8 @@ pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
             .downcast_ref::<StringArray>()
             .ok_or_else(|| {
                 DataFusionError::Execution(
-                    "Could not cast date_trunc granularity input to StringArray".to_string()
+                    "Could not cast date_trunc granularity input to StringArray"
+                        .to_string(),
                 )
             })?;
 
@@ -302,12 +303,12 @@ pub fn date_trunc(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
                         )))
                     }
                 };
-                date_time
-                    .map(|d| d.timestamp_nanos())
-                    .ok_or_else(|| DataFusionError::Execution(format!(
+                date_time.map(|d| d.timestamp_nanos()).ok_or_else(|| {
+                    DataFusionError::Execution(format!(
                         "Can't truncate date time: {:?}",
                         array.value_as_datetime(i)
-                    )))
+                    ))
+                })
             }
         })
         .collect::<Result<Vec<_>>>()?;
