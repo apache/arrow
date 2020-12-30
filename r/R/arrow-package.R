@@ -38,16 +38,13 @@
       s3_register(m, cl)
     }
   }
-
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.Array")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.RecordBatch")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.ChunkedArray")
-  s3_register("reticulate::py_to_r", "pyarrow.lib.Table")
-  s3_register("reticulate::r_to_py", "Array")
-  s3_register("reticulate::r_to_py", "RecordBatch")
-  s3_register("reticulate::r_to_py", "ChunkedArray")
-  s3_register("reticulate::r_to_py", "Table")
+
+  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema")) {
+    s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
+    s3_register("reticulate::r_to_py", cl)
+  }
+
   invisible()
 }
 
@@ -128,4 +125,3 @@ ArrowObject <- R6Class("ArrowObject",
 all.equal.ArrowObject <- function(target, current, ..., check.attributes = TRUE) {
   target$Equals(current, check_metadata = check.attributes)
 }
-

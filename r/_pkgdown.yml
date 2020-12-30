@@ -122,8 +122,9 @@ reference:
   contents:
   - load_flight_server
   - flight_connect
-  - push_data
   - flight_get
+  - flight_put
+  - list_flights
 - title: File systems
   contents:
   - s3_bucket

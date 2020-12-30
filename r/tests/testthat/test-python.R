@@ -38,7 +38,7 @@ test_that("Array from Python", {
 
 test_that("Array to Python", {
   skip_if_no_pyarrow()
-  pa <- reticulate::import("pyarrow", convert=FALSE)
+  pa <- reticulate::import("pyarrow", convert = FALSE)
   r <- Array$create(c(1, 2, 3))
   py <- pa$concat_arrays(list(r))
   expect_is(py, "pyarrow.lib.Array")
@@ -47,8 +47,8 @@ test_that("Array to Python", {
 
 test_that("RecordBatch to/from Python", {
   skip_if_no_pyarrow()
-  pa <- reticulate::import("pyarrow", convert=FALSE)
-  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   py <- reticulate::r_to_py(batch)
   expect_is(py, "pyarrow.lib.RecordBatch")
   expect_equal(reticulate::py_to_r(py), batch)
@@ -56,8 +56,8 @@ test_that("RecordBatch to/from Python", {
 
 test_that("Table and ChunkedArray from Python", {
   skip_if_no_pyarrow()
-  pa <- reticulate::import("pyarrow", convert=FALSE)
-  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   tab <- Table$create(batch, batch)
   pybatch <- reticulate::r_to_py(batch)
   pytab <- pa$Table$from_batches(list(pybatch, pybatch))
@@ -69,8 +69,7 @@ test_that("Table and ChunkedArray from Python", {
 
 test_that("Table and ChunkedArray to Python", {
   skip_if_no_pyarrow()
-  pa <- reticulate::import("pyarrow", convert=FALSE)
-  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   tab <- Table$create(batch, batch)
 
   pychunked <- reticulate::r_to_py(tab$col1)
@@ -80,4 +79,22 @@ test_that("Table and ChunkedArray to Python", {
   pytab <- reticulate::r_to_py(tab)
   expect_is(pytab, "pyarrow.lib.Table")
   expect_equal(reticulate::py_to_r(pytab), tab)
+})
+
+test_that("RecordBatch with metadata roundtrip", {
+  skip_if_no_pyarrow()
+  batch <- RecordBatch$create(example_with_times)
+  pybatch <- reticulate::r_to_py(batch)
+  expect_is(pybatch, "pyarrow.lib.RecordBatch")
+  expect_equal(reticulate::py_to_r(pybatch), batch)
+  expect_identical(as.data.frame(reticulate::py_to_r(pybatch)), example_with_times)
+})
+
+test_that("Table with metadata roundtrip", {
+  skip_if_no_pyarrow()
+  tab <- Table$create(example_with_times)
+  pytab <- reticulate::r_to_py(tab)
+  expect_is(pytab, "pyarrow.lib.Table")
+  expect_equal(reticulate::py_to_r(pytab), tab)
+  expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_times)
 })

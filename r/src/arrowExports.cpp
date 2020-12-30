@@ -4990,6 +4990,21 @@ extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> ImportSchema(arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportSchema(schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+	Rf_error("Cannot call ImportSchema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
 extern "C" SEXP _arrow_allocate_arrow_schema(){
 BEGIN_CPP11
@@ -6724,6 +6739,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
 		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
 		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
+		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
 		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
 		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
 		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
