@@ -180,7 +180,6 @@ test_that("filtering with arithmetic", {
     tbl
   )
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
   expect_dplyr_equal(
     input %>%
       filter(dbl %/% 2 > 3) %>%
@@ -191,7 +190,6 @@ test_that("filtering with arithmetic", {
 })
 
 test_that("filtering with expression + autocasting", {
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
   expect_dplyr_equal(
     input %>%
       filter(dbl + 1 > 3L) %>% # test autocasting with comparison to 3L
@@ -243,7 +241,7 @@ test_that("Print method", {
 int: int32
 chr: string
 
-* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5L))
+* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )

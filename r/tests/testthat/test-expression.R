@@ -29,7 +29,7 @@ test_that("array_expression print method", {
   expect_output(
     print(build_array_expression(">", Array$create(1:5), 4)),
     # Not ideal but it is informative
-    "greater(<Array>, 4L)",
+    "greater(<Array>, 4)",
     fixed = TRUE
   )
 })
@@ -84,4 +84,3 @@ test_that("Can create an expression", {
   expect_is(expr, "array_expression")
   expect_equal(eval_array_expression(expr), Array$create(0:4))
 })
-

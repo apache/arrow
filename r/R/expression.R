@@ -57,38 +57,28 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   if (.Generic %in% names(.unary_function_map)) {
     expr <- array_expression(.unary_function_map[[.Generic]], e1)
   } else {
-    e1 <- .wrap_arrow(e1, .Generic, e2$type)
-    e2 <- .wrap_arrow(e2, .Generic, e1$type)
+    e1 <- .wrap_arrow(e1, .Generic)
+    e2 <- .wrap_arrow(e2, .Generic)
 
     # In Arrow, "divide" is one function, which does integer division on
     # integer inputs and floating-point division on floats
     if (.Generic == "/") {
       # TODO: omg so many ways it's wrong to assume these types
-      e1 <- e1$cast(float64())
-      e2 <- e2$cast(float64())
+      e1 <- cast_array_expression(e1, float64())
+      e2 <- cast_array_expression(e2, float64())
     } else if (.Generic == "%/%") {
-      return(array_expression("cast", array_expression(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32(), allow_float_truncate = TRUE)))
+      # In R, integer division works like floor(float division)
+      out <- build_array_expression("/", e1, e2)
+      return(cast_array_expression(out, int32(), allow_float_truncate = TRUE))
     } else if (.Generic == "%%") {
       # {e1 - e2 * ( e1 %/% e2 )}
-      # TODO: there has to be a way to use the form ^^^ instead of this.
-      # with return(e1 - e2 * (e1 %/% e2)) we get:
-      # "cannot add bindings to a locked environment"
-      out <- array_expression(
-        "subtract_checked", e1, array_expression(
-          "multiply_checked", e2, array_expression(
-            # this outer cast is to ensure that the result of this and the
-            # result of multiply are the same
-            "cast",
-            array_expression(
-              "cast",
-              array_expression(.binary_function_map[[.Generic]], e1, e2, ...),
-              options = list(to_type = int32(), allow_float_truncate = TRUE)
-            ),
-            options = list(to_type = e2$type, allow_float_truncate = TRUE)
-          )
-        )
-      )
-      return(out)
+      # ^^^ form doesn't work because Ops.Array evaluates eagerly,
+      # but we can build that up
+      quotient <- build_array_expression("%/%", e1, e2)
+      # this cast is to ensure that the result of this and e1 are the same
+      # (autocasting only applies to scalars)
+      base <- cast_array_expression(quotient * e2, e1$type)
+      return(build_array_expression("-", e1, base))
     }
 
     # hack to use subtract instead of subtract_checked for timestamps
@@ -102,14 +92,24 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   expr
 }
 
-.wrap_arrow <- function(arg, fun, type) {
+cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
+  opts <- list(
+    to_type = to_type,
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
+  )
+  array_expression("cast", x, options = modifyList(opts, list(...)))
+}
+
+.wrap_arrow <- function(arg, fun) {
   if (!inherits(arg, c("ArrowObject", "array_expression"))) {
     # TODO: Array$create if lengths are equal?
     # TODO: these kernels should autocast like the dataset ones do (e.g. int vs. float)
     if (fun == "%in%") {
-      arg <- Array$create(arg, type = type)
+      arg <- Array$create(arg)
     } else {
-      arg <- Scalar$create(arg, type = type)
+      arg <- Scalar$create(arg)
     }
   }
   arg
@@ -151,6 +151,16 @@ eval_array_expression <- function(x) {
       a
     }
   })
+  if (length(x$args) == 2L) {
+    # Insert implicit casts
+    if (inherits(x$args[[1]], "Scalar")) {
+      x$args[[1]] <- x$args[[1]]$cast(x$args[[2]]$type)
+    } else if (inherits(x$args[[2]], "Scalar")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    } else if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Array")) {
+      x$args[[2]] <- x$args[[2]]$cast(x$args[[1]]$type)
+    }
+  }
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
@@ -208,8 +218,14 @@ print.array_expression <- function(x, ...) {
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() dataset___expr__ToString(self),
-    cast = function(to_type, ...) {
-      Expression$create("cast", self, options = list(to_type = to_type, ...))
+    cast = function(to_type, safe = TRUE, ...) {
+      opts <- list(
+        to_type = to_type,
+        allow_int_overflow = !safe,
+        allow_time_truncate = !safe,
+        allow_float_truncate = !safe
+      )
+      Expression$create("cast", self, options = modifyList(opts, list(...)))
     }
   )
 )
@@ -258,8 +274,6 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
       out <- build_dataset_expression("/", e1, e2)
       return(out$cast(int32(), allow_float_truncate = TRUE))
     } else if (.Generic == "%%") {
-      # TODO: need to do something with types to ensure that e2 is compatible
-      # with e1 %/% e2 and e1.
       return(e1 - e2 * ( e1 %/% e2 ))
     }
 

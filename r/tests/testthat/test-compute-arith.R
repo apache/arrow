@@ -28,7 +28,8 @@ test_that("Addition", {
   # overflow errors — this is slightly different from R's `NA` coercion when
   # overflowing, but better than the alternative of silently restarting
   casted <- a$cast(int8())
-  expect_error(casted + 257)
+  expect_error(casted + 127)
+  expect_error(casted + 200)
 
   skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
   expect_type_equal(a + 4.1, float64())

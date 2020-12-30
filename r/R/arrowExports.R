@@ -1412,10 +1412,6 @@ Scalar__ToString <- function(s){
     .Call(`_arrow_Scalar__ToString` , s)
 }
 
-Scalar__CastTo <- function(s, t){
-    .Call(`_arrow_Scalar__CastTo` , s, t)
-}
-
 StructScalar__field <- function(s, i){
     .Call(`_arrow_StructScalar__field` , s, i)
 }

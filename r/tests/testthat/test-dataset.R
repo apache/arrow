@@ -589,7 +589,20 @@ test_that("filter() with expressions", {
     )
   )
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("Implicit casts aren't being inserted everywhere they need to be")
+  # Error: NotImplemented: Function multiply_checked has no kernel matching input types (scalar[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
@@ -602,6 +615,8 @@ test_that("filter() with expressions", {
     )
   )
 
+  skip("Implicit casts are only inserted for scalars")
+  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[double], array[int32])
   expect_equivalent(
     ds %>%
       select(chr, dbl, int) %>%
