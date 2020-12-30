@@ -63,15 +63,22 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
             // we don't know how selective it is (how many rows it will filter out)
             None
         }
-        _ => {
-            // by default, recurse down the plan
-            let inputs = utils::inputs(logical_plan);
-            if inputs.len() == 1 {
-                get_num_rows(inputs[0])
-            } else {
-                None
-            }
+        LogicalPlan::Join { .. } => {
+            // we cannot predict the cardinality of the join output
+            None
         }
+        LogicalPlan::Repartition { .. } => {
+            // we cannot predict how rows will be repartitioned
+            None
+        }
+        // the following operators are special cases and not querying data
+        LogicalPlan::CreateExternalTable { .. } => None,
+        LogicalPlan::Explain { .. } => None,
+        // we do not support estimating rows with extensions yet
+        LogicalPlan::Extension { .. } => None,
+        // the following operators do not modify row count in any way
+        LogicalPlan::Projection { input, .. } => get_num_rows(input),
+        LogicalPlan::Sort { input, .. } => get_num_rows(input),
     }
 }
 
