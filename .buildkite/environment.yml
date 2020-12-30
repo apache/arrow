@@ -1,0 +1,6 @@
+name: pyarrow-{{PYARROW_VERSION}}
+dependencies:
+  - python=3.8
+  - pip
+  - pip:
+    - -e dev/archery

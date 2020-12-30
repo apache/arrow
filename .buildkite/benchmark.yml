@@ -3,4 +3,7 @@ steps:
     key: "build"
     command:
       - set -x
-      - docker images
+      - export PATH="/home/ursa/miniforge3/bin:$PATH"
+      - eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
+      - conda env update -f .buildkite/environment.yml
+      - conda env list
