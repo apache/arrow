@@ -1,6 +1,6 @@
-name: pyarrow-{{PYARROW_VERSION}}
+name: archery
 dependencies:
   - python=3.8
   - pip
   - pip:
-    - dev/archery
+    - /var/lib/buildkite-agent/builds/ursa-thunderx-1/ursa-computing/arrow-benchmark/dev/archery
