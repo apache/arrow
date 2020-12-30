@@ -9,4 +9,5 @@ steps:
       - conda env list
       - conda activate archery
       - export COMPOSE_DOCKER_CLI_BUILD=1
+      - export ARCH=arm64v8
       - archery docker run --no-pull debian-python
