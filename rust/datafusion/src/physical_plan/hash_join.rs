@@ -311,8 +311,7 @@ fn build_batch_from_indices(
                 .map(|batch| batch.column(column_index).data_ref().as_ref())
                 .collect::<Vec<_>>();
 
-            let capacity = arrays.iter().map(|array| array.len()).sum();
-            let mut mutable = MutableArrayData::new(arrays, true, capacity);
+            let mut mutable = MutableArrayData::new(arrays, true, indices.len());
             // use the left indices
             for (join_index, _) in indices {
                 match join_index {
