@@ -276,11 +276,10 @@ fn build_batch_from_indices(
         todo!("Create empty record batch");
     }
     // this is just for symmetry of the code below.
-    let right_batches = vec![right.clone()];
 
-    let (primary_is_left, primary, secondary) = match join_type {
-        JoinType::Inner | JoinType::Left => (true, left, &right_batches),
-        JoinType::Right => (false, &right_batches, left),
+    let (primary_is_left, primary_schema, secondary_schema) = match join_type {
+        JoinType::Inner | JoinType::Left => (true, left[0].schema(), right.schema()),
+        JoinType::Right => (false, right.schema(), left[0].schema()),
     };
 
     // build the columns of the new [RecordBatch]:
@@ -292,10 +291,10 @@ fn build_batch_from_indices(
 
     for field in schema.fields() {
         // pick the column (left or right) based on the field name.
-        let (is_primary, column_index) = match primary[0].schema().index_of(field.name()) {
+        let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
             Ok(i) => Ok((true, i)),
             Err(_) => {
-                match secondary[0].schema().index_of(field.name()) {
+                match secondary_schema.index_of(field.name()) {
                     Ok(i) => Ok((false, i)),
                     _ => Err(DataFusionError::Internal(
                         format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
@@ -403,7 +402,7 @@ fn build_batch(
 ) -> ArrowResult<RecordBatch> {
     let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
-    build_batch_from_indices(schema, &left_data.1, &batch, join_type, &indices)
+    build_batch_from_indices(schema, &left_data.1, batch, join_type, &indices)
 }
 
 /// returns a vector with (index from left, index from right).
