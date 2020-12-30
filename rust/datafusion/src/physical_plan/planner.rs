@@ -111,9 +111,27 @@ impl DefaultPhysicalPlanner {
             // leaf node, children cannot be replaced
             Ok(plan.clone())
         } else {
-            // wrap filter in coalesce batches
-            let plan = if plan.as_any().downcast_ref::<FilterExec>().is_some() {
-                let target_batch_size = ctx_state.config.batch_size;
+            // wrap operators in CoalesceBatches to avoid lots of tiny batches when we have
+            // highly selective filters
+            let plan_any = plan.as_any();
+            //TODO we should do this in a more generic way either by wrapping all operators
+            // or having an API so that operators can declare when their inputs or outputs
+            // need to be wrapped in a coalesce batches operator.
+            // See https://issues.apache.org/jira/browse/ARROW-11068
+            let wrap_in_coalesce = plan_any.downcast_ref::<FilterExec>().is_some()
+                || plan_any.downcast_ref::<HashJoinExec>().is_some()
+                || plan_any.downcast_ref::<RepartitionExec>().is_some();
+
+            //TODO we should also do this for HashAggregateExec but we need to update tests
+            // as part of this work - see https://issues.apache.org/jira/browse/ARROW-11068
+            // || plan_any.downcast_ref::<HashAggregateExec>().is_some();
+
+            let plan = if wrap_in_coalesce {
+                //TODO we should add specific configuration settings for coalescing batches and
+                // we should do that once https://issues.apache.org/jira/browse/ARROW-11059 is
+                // implemented. For now, we choose half the configured batch size to avoid copies
+                // when a small number of rows are removed from a batch
+                let target_batch_size = ctx_state.config.batch_size / 2;
                 Arc::new(CoalesceBatchesExec::new(plan.clone(), target_batch_size))
             } else {
                 plan.clone()

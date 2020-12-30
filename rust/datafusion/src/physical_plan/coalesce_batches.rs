@@ -280,8 +280,9 @@ mod tests {
             Arc::new(CoalesceBatchesExec::new(Arc::new(exec), target_batch_size));
 
         // execute and collect results
-        let mut output_partitions = vec![];
-        for i in 0..exec.output_partitioning().partition_count() {
+        let output_partition_count = exec.output_partitioning().partition_count();
+        let mut output_partitions = Vec::with_capacity(output_partition_count);
+        for i in 0..output_partition_count {
             // execute this *output* partition and collect all batches
             let mut stream = exec.execute(i).await?;
             let mut batches = vec![];
