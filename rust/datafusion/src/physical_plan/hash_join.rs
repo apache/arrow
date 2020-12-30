@@ -276,11 +276,11 @@ fn build_batch_from_indices(
         todo!("Create empty record batch");
     }
     // this is just for symmetry of the code below.
-    let right = vec![right.clone()];
+    let right_batches = vec![right.clone()];
 
     let (primary_is_left, primary, secondary) = match join_type {
-        JoinType::Inner | JoinType::Left => (true, left, &right),
-        JoinType::Right => (false, &right, left),
+        JoinType::Inner | JoinType::Left => (true, left, &right_batches),
+        JoinType::Right => (false, &right_batches, left),
     };
 
     // build the columns of the new [RecordBatch]:
@@ -321,7 +321,7 @@ fn build_batch_from_indices(
             }
             make_array(Arc::new(mutable.freeze()))
         } else {
-            let array = right[0].column(column_index);
+            let array = right.column(column_index);
             let ind = indices
                 .iter()
                 .map(|(_, join_index)| join_index)
