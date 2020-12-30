@@ -275,7 +275,6 @@ fn build_batch_from_indices(
     if left.is_empty() {
         todo!("Create empty record batch");
     }
-    // this is just for symmetry of the code below.
 
     let (primary_is_left, primary_schema, secondary_schema) = match join_type {
         JoinType::Inner | JoinType::Left => (true, left[0].schema(), right.schema()),
