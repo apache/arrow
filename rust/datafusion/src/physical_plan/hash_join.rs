@@ -321,12 +321,13 @@ fn build_batch_from_indices(
             }
             make_array(Arc::new(mutable.freeze()))
         } else {
+            // use the right indices
             let array = right.column(column_index);
-            let ind = indices
+            let right_indices = indices
                 .iter()
                 .map(|(_, join_index)| join_index)
                 .collect::<UInt32Array>();
-            compute::take(array.as_ref(), &ind, None)?
+            compute::take(array.as_ref(), &right_indices, None)?
         };
         columns.push(array);
     }
