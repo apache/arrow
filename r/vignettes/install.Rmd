@@ -193,7 +193,8 @@ on all Linux distributions, so you should not see this message. If you do,
 please check the "Known installation issues" below to see if any apply.
 If none apply, retry the installation with `arrow::install_arrow(verbose = TRUE)`
 so that details on what failed are shown, then
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+and include the full verbose installation output.
 
 ## Using system libraries
 
