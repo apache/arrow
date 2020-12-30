@@ -11,4 +11,5 @@ steps:
       - export COMPOSE_DOCKER_CLI_BUILD=1
       - export ARCH=arm64v8
       - export LLVM=10
+      - export UBUNTU=20.04
       - archery docker run --no-pull ubuntu-python
