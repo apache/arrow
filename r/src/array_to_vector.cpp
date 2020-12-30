@@ -320,7 +320,7 @@ struct Converter_String : public Converter {
       auto old_string = view.data();
       char* new_string = strdup(old_string);
       R_xlen_t new_len = 0;
-      for (int i = 0; i < view.size(); i++) {
+      for (R_xlen_t i = 0; i < view.size(); i++) {
         if (old_string[i] != 0) {
           new_string[new_len++] = old_string[i];
         }
