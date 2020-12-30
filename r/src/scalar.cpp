@@ -48,12 +48,6 @@ std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
-                                              const std::shared_ptr<arrow::DataType>& t) {
-  return ValueOrStop(s->CastTo(t));
-}
-
-// [[arrow::export]]
 std::shared_ptr<arrow::Scalar> StructScalar__field(
     const std::shared_ptr<arrow::StructScalar>& s, int i) {
   return ValueOrStop(s->field(i));
