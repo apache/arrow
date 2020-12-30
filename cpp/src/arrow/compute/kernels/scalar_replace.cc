@@ -101,9 +101,40 @@ struct ReplaceFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
       // TODO: Allocate bitmap and compute data.buffers[0] | (mask.buffers[0] & mask.buffers[1])
       //       Then factor the code in a function to reuse in all ReplaceFunctors...
 
+      if (data.MayHaveNulls()) {
+        KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_nulls, ctx,
+                               ctx->AllocateBitmap(data.length));
+
+        if (mask.MayHaveNulls()) {
+          ::arrow::internal::BitmapAnd(mask.buffers[0]->data(),
+                                       mask.offset,
+                                       mask.buffers[1]->data(),
+                                       mask.offset,
+                                       mask.length,
+                                       output->offset,
+                                       out_nulls->mutable_data());
+          ::arrow::internal::BitmapOr(data.buffers[0]->data(),
+                                      data.offset,
+                                      out_nulls->data(),
+                                      output->offset,
+                                      data.length,
+                                      output->offset,
+                                      out_nulls->mutable_data());
+        } else {
+          ::arrow::internal::BitmapOr(data.buffers[0]->data(),
+                                      data.offset,
+                                      mask.buffers[1]->data(),
+                                      mask.offset,
+                                      mask.length,
+                                      output->offset,
+                                      out_nulls->mutable_data());
+        }
+
+        output->buffers[0] = out_nulls;
+      }
+
       KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
                              ctx->AllocateBitmap(data.length));
-
       const uint8_t* to_replace = mask.buffers[1]->data();
       const uint8_t* data_bitmap = data.buffers[1]->data();
       uint8_t* out_bitmap = out_buf->mutable_data();
