@@ -3,4 +3,4 @@ dependencies:
   - python=3.8
   - pip
   - pip:
-    - /var/lib/buildkite-agent/builds/ursa-thunderx-1/ursa-computing/arrow-benchmark/dev/archery
+    - /var/lib/buildkite-agent/builds/ursa-thunderx-1/ursa-computing/arrow-benchmark/dev/archery\[docker\]
