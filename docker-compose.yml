@@ -802,12 +802,12 @@ services:
     command: *manylinux-command
 
   centos-python-manylinux2014:
-    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
+    image: ${REPO}:${ARCH}-centos-7.7-python-manylinux2014
     build:
       context: python/manylinux201x
-      dockerfile: Dockerfile-x86_64_base_2014
+      dockerfile: Dockerfile-${ARCH}_base_2014
       cache_from:
-        - ${REPO}:amd64-centos-7.7-python-manylinux2014
+        - ${REPO}:${ARCH}-centos-7.7-python-manylinux2014
       args:
         llvm: ${LLVM}
     shm_size: *shm-size

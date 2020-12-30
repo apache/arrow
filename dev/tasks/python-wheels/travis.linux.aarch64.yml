@@ -1,0 +1,69 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+os: linux
+language: generic
+arch: arm64-graviton2
+virt: vm
+group: edge
+dist: focal
+
+# don't build twice
+if: tag IS blank
+
+env:
+  global:
+    - PLAT=aarch64
+    - TRAVIS_TAG={{ task.tag }}
+    - PYARROW_VERSION={{ arrow.no_rc_version }}
+    - PYARROW_BUILD_VERBOSE=1
+    - MB_PYTHON_VERSION={{ python_version }}
+    - REPO=apache/arrow-dev
+    - ARCH=aarch64
+    - ULIMIT_CORE=-1
+    - DOCKER_BUILDKIT=0
+    - COMPOSE_DOCKER_CLI_BUILD=1
+
+before_install:
+  - sudo apt-get update && sudo apt-get install -y python3-pygit2
+  - sudo pip3 install click github3.py jinja2 jira ruamel.yaml setuptools_scm toolz docker-compose
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+  - git -C arrow checkout FETCH_HEAD
+  - git -C arrow submodule update --init
+  - sudo pip3 install -e arrow/dev/archery[docker]
+
+install:
+  - |
+    cd arrow
+    BUILD_IMAGE=centos-python-{{ wheel_tag }}
+    archery docker run \
+      -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+      -e PYTHON_VERSION="{{ python_version }}" \
+      -e UNICODE_WIDTH="{{ unicode_width }}" \
+      ${BUILD_IMAGE}
+    docker run \
+      -v $(pwd):/arrow quay.io/pypa/{{ wheel_tag }}_aarch64 \
+      /bin/bash -c \
+        "auditwheel show /arrow/python/{{ wheel_dir }}/dist/*.whl"
+  - cd ..
+  - path=$(ls arrow/python/dist/*.whl) && echo "wheels:" $path
+
+  {% if arrow.branch == 'master' %}
+  # upload to gemfury pypi repository, there should be a single wheel
+  - path=$(ls arrow/python/dist/*.whl)
+  - curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+  {% endif %}

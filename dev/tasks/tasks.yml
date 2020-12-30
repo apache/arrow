@@ -477,6 +477,20 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
+  wheel-manylinux2014-cp38-aarch64:
+    ci: travis
+    template: python-wheels/travis.linux.aarch64.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_aarch64.whl
+
   wheel-manylinux2014-cp39:
     ci: azure
     template: python-wheels/azure.linux.yml

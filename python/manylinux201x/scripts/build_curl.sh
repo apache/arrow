@@ -42,6 +42,7 @@ pushd curl-${CURL_VERSION}
     --disable-shared \
     --without-ca-bundle \
     --without-ca-path \
+    --with-pic \
     --with-ssl=${PREFIX} \
     --with-zlib=${PREFIX}
 
