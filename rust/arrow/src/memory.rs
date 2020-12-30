@@ -152,7 +152,7 @@ pub fn allocate_aligned(size: usize) -> NonNull<u8> {
             ALLOCATIONS.fetch_add(size as isize, std::sync::atomic::Ordering::SeqCst);
 
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-            let raw_ptr = std::alloc::alloc_zeroed(layout);
+            let raw_ptr = std::alloc::alloc(layout);
             NonNull::new(raw_ptr).unwrap_or_else(|| handle_alloc_error(layout))
         }
     }
@@ -210,16 +210,9 @@ pub unsafe fn reallocate(
         Layout::from_size_align_unchecked(old_size, ALIGNMENT),
         new_size,
     );
-    let ptr = NonNull::new(raw_ptr).unwrap_or_else(|| {
+    NonNull::new(raw_ptr).unwrap_or_else(|| {
         handle_alloc_error(Layout::from_size_align_unchecked(new_size, ALIGNMENT))
-    });
-
-    if new_size > old_size {
-        ptr.as_ptr()
-            .add(old_size)
-            .write_bytes(0, new_size - old_size);
-    }
-    ptr
+    })
 }
 
 /// # Safety
@@ -241,14 +234,7 @@ pub unsafe fn memcpy(dst: NonNull<u8>, src: NonNull<u8>, count: usize) {
     }
 }
 
-/// Check if the pointer `p` is aligned to offset `a`.
-pub fn is_aligned<T>(p: NonNull<T>, a: usize) -> bool {
-    let a_minus_one = a.wrapping_sub(1);
-    let pmoda = p.as_ptr() as usize & a_minus_one;
-    pmoda == 0
-}
-
-pub fn is_ptr_aligned<T>(p: NonNull<T>) -> bool {
+pub fn is_ptr_aligned<T>(p: NonNull<u8>) -> bool {
     p.as_ptr().align_offset(align_of::<T>()) == 0
 }
 
@@ -264,21 +250,5 @@ mod tests {
             assert_eq!(0, (p.as_ptr() as usize) % 64);
             unsafe { free_aligned(p, 1024) };
         }
-    }
-
-    #[test]
-    fn test_is_aligned() {
-        // allocate memory aligned to 64-byte
-        let ptr = allocate_aligned(10);
-        assert_eq!(true, is_aligned::<u8>(ptr, 1));
-        assert_eq!(true, is_aligned::<u8>(ptr, 2));
-        assert_eq!(true, is_aligned::<u8>(ptr, 4));
-
-        // now make the memory aligned to 63-byte
-        let ptr = unsafe { NonNull::new_unchecked(ptr.as_ptr().offset(1)) };
-        assert_eq!(true, is_aligned::<u8>(ptr, 1));
-        assert_eq!(false, is_aligned::<u8>(ptr, 2));
-        assert_eq!(false, is_aligned::<u8>(ptr, 4));
-        unsafe { free_aligned(NonNull::new_unchecked(ptr.as_ptr().offset(-1)), 10) };
     }
 }
