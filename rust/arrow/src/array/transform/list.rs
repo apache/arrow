@@ -66,8 +66,7 @@ pub(super) fn build_extend<T: OffsetSizeTrait>(array: &ArrayData) -> Extend {
                 let mut last_offset: T = unsafe { get_last_offset(offset_buffer) };
 
                 let delta_len = array.len() - array.null_count();
-                offset_buffer
-                    .reserve(offset_buffer.len() + delta_len * std::mem::size_of::<T>());
+                offset_buffer.reserve(delta_len * std::mem::size_of::<T>());
 
                 let child = &mut mutable.child_data[0];
                 (start..start + len).for_each(|i| {

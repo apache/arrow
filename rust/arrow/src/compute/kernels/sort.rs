@@ -292,7 +292,7 @@ fn sort_boolean(
     // collect results directly into a buffer instead of a vec to avoid another aligned allocation
     let mut result = MutableBuffer::new(values.len() * std::mem::size_of::<u32>());
     // sets len to capacity so we can access the whole buffer as a typed slice
-    result.resize(values.len() * std::mem::size_of::<u32>());
+    result.resize(values.len() * std::mem::size_of::<u32>(), 0);
     let result_slice: &mut [u32] = result.typed_data_mut();
 
     debug_assert_eq!(result_slice.len(), nulls_len + valids_len);
@@ -357,7 +357,7 @@ where
     // collect results directly into a buffer instead of a vec to avoid another aligned allocation
     let mut result = MutableBuffer::new(values.len() * std::mem::size_of::<u32>());
     // sets len to capacity so we can access the whole buffer as a typed slice
-    result.resize(values.len() * std::mem::size_of::<u32>());
+    result.resize(values.len() * std::mem::size_of::<u32>(), 0);
     let result_slice: &mut [u32] = result.typed_data_mut();
 
     debug_assert_eq!(result_slice.len(), nulls_len + valids_len);
