@@ -39,24 +39,6 @@ installation will also build necessary C++ dependencies. For a faster,
 more complete installation, set the environment variable `NOT_CRAN=true`.
 See `vignette("install", package = "arrow")` for details.
 
-If you install the `arrow` package from source and the C++ library is
-not found, the R package functions will notify you that Arrow is not
-available. Call
-
-```r
-arrow::install_arrow()
-```
-
-to retry installation with dependencies.
-
-Note that `install_arrow()` is available as a standalone script, so you can
-access it for convenience without first installing the package:
-
-```r
-source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")
-install_arrow()
-```
-
 ## Installing a development version
 
 Development versions of the package (binary and source) are built daily and hosted at
@@ -69,7 +51,7 @@ install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 Or
 
 ```r
-install_arrow(nightly = TRUE)
+arrow::install_arrow(nightly = TRUE)
 ```
 
 Conda users can install `arrow` nightlies from our nightlies channel using:
