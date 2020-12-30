@@ -1388,6 +1388,7 @@ impl Field {
                         ));
                     }
                 };
+                // Referenced example file: testing/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_custom_metadata.json.gz
                 let metadata = match map.get("metadata") {
                     Some(&Value::Array(ref values)) => {
                         let mut res: BTreeMap<String, String> = BTreeMap::new();
@@ -1417,6 +1418,21 @@ impl Field {
                                         "Field 'metadata' contains non-object key-value pair".to_string(),
                                     ));
                                 }
+                            }
+                        }
+                        Some(res)
+                    }
+                    // We also support map format, because Schema's metadata supports this.
+                    // See https://github.com/apache/arrow/pull/5907
+                    Some(&Value::Object(ref values)) => {
+                        let mut res: BTreeMap<String, String> = BTreeMap::new();
+                        for (k, v) in values {
+                            if let Some(str_value) = v.as_str() {
+                                res.insert(k.clone(), str_value.to_string().clone());
+                            } else {
+                                return Err(ArrowError::ParseError(
+                                    format!("Field 'metadata' contains non-string value for key {}", k),
+                                ));
                             }
                         }
                         Some(res)
