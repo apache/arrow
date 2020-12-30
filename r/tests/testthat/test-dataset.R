@@ -552,6 +552,67 @@ test_that("filter() with expressions", {
       df2[1:2, c("chr", "dbl")]
     )
   )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2L > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %/% 2 > 3 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2L > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(int %% 2 > 0 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")]
+    )
+  )
+
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl + int > 15 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    )
+  )
 })
 
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {

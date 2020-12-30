@@ -15,13 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# TODO:
-# * More tests for edge cases, esp. with division; add test helpers here?
-# * Is there a better "autocasting" solution? See what rules C++ Datasets do
-# * test-dplyr tests (Added one addition, and one summarize, but check to see if
-# we can make summarize route through arrow need more?)
-# * then, dataset tests, special casing for division
-
 test_that("Addition", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_type_equal(a, int32())
@@ -37,7 +30,7 @@ test_that("Addition", {
   casted <- a$cast(int8())
   expect_error(casted + 257)
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this")
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
   expect_type_equal(a + 4.1, float64())
   expect_equal(a + 4.1, Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)))
 })
@@ -74,4 +67,19 @@ test_that("Division", {
   expect_equal(a %% 2, Array$create(c(1L, 0L, 1L, 0L, NA_integer_)))
 
   expect_equal(b %% 2, Array$create(c(1:4 %% 2, NA_real_)))
+})
+
+test_that("Dates casting", {
+  a <- Array$create(c(Sys.Date() + 1:4, NA_integer_))
+
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
+})
+
+test_that("Datetimes", {
+  a <- Array$create(c(Sys.time() + 1:4, NA_integer_))
+  b <- Scalar$create(Sys.time())
+  result <- a - b
+  expect_is(result$type, "DataType")
+  expect_identical(result$type$ToString(), "duration[us]")
 })
