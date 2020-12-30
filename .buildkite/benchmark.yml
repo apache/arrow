@@ -1,0 +1,6 @@
+steps:
+  - label: "Build"
+    key: "build"
+    command:
+      - set -x
+      - docker images
