@@ -596,8 +596,8 @@ mod tests {
 
     use super::*;
     use crate::logical_plan::{col, create_udf, sum};
-    use crate::physical_plan::collect;
     use crate::physical_plan::functions::ScalarFunctionImplementation;
+    use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
     use crate::{
@@ -683,14 +683,25 @@ mod tests {
         let logical_plan = ctx.optimize(&logical_plan)?;
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
+        println!("{:?}", physical_plan);
 
-        let results = collect(physical_plan).await?;
-
-        // there should be one batch per partition
+        let results = collect_partitioned(physical_plan).await?;
         assert_eq!(results.len(), partition_count);
 
-        let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
-        assert_eq!(row_count, 20);
+        // there should be a total of 2 batches with 20 rows because the where clause filters
+        // out results from 2 partitions
+
+        // note that the order of partitions is not deterministic
+        let mut num_batches = 0;
+        let mut num_rows = 0;
+        for partition in &results {
+            for batch in partition {
+                num_batches += 1;
+                num_rows += batch.num_rows();
+            }
+        }
+        assert_eq!(2, num_batches);
+        assert_eq!(20, num_rows);
 
         Ok(())
     }
