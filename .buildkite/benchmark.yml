@@ -3,11 +3,12 @@ steps:
     key: "build"
     command:
       - set -x
-      - export PATH="/Users/ursa/miniconda3/bin:$PATH"
+      - export PATH="/home/ursa/miniforge3/bin:$PATH"
       - eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
       - conda env update -f .buildkite/environment.yml
       - conda env list
       - conda activate archery
       - export COMPOSE_DOCKER_CLI_BUILD=1
-#      - export ARCH=arm64v8
-      - archery docker run --no-pull debian-python
+      - export ARCH=arm64v8
+      - export LLVM=10
+      - archery docker run --no-pull ubuntu-python
