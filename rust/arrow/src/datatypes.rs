@@ -939,6 +939,7 @@ pub trait ToByteSlice {
 }
 
 impl<T: ArrowNativeType> ToByteSlice for [T] {
+    #[inline]
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self.as_ptr() as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, self.len() * size_of::<T>()) }
@@ -946,6 +947,7 @@ impl<T: ArrowNativeType> ToByteSlice for [T] {
 }
 
 impl<T: ArrowNativeType> ToByteSlice for T {
+    #[inline]
     fn to_byte_slice(&self) -> &[u8] {
         let raw_ptr = self as *const T as *const u8;
         unsafe { from_raw_parts(raw_ptr, size_of::<T>()) }
