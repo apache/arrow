@@ -18,10 +18,7 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::{
-    array::{ArrayRef, UInt32Builder},
-    compute,
-};
+use arrow::{array::ArrayRef, compute};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -58,7 +55,7 @@ type Index = (usize, usize);
 // as a left join may issue None indices, in which case
 type JoinIndex = Option<(usize, usize)>;
 // An index of row uniquely identifying a row in a batch
-type RightIndex = Option<usize>;
+type RightIndex = Option<u32>;
 
 // Maps ["on" value] -> [list of indices with this key's value]
 // E.g. [1, 2] -> [(0, 3), (1, 6), (0, 8)] indicates that (column1, column2) = [1, 2] is true
@@ -309,7 +306,8 @@ fn build_batch_from_indices(
 
         let array = if is_left {
             // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
-            let arrays = left.iter()
+            let arrays = left
+                .iter()
                 .map(|batch| batch.column(column_index).data_ref().as_ref())
                 .collect::<Vec<_>>();
 
@@ -324,19 +322,12 @@ fn build_batch_from_indices(
             }
             make_array(Arc::new(mutable.freeze()))
         } else {
-            // use the right indices
-
             let array = right[0].column(column_index);
-            let mut builder = UInt32Builder::new(indices.len());
-            for (_, join_index) in indices {
-                match join_index {
-                    Some(row) => builder.append_value(*row as u32)?,
-                    None => {
-                        builder.append_null()?;
-                    }
-                }
-            }
-            compute::take(array.as_ref(), &builder.finish(), None)?
+            let ind = indices
+                .iter()
+                .map(|(_, join_index)| join_index)
+                .collect::<UInt32Array>();
+            compute::take(array.as_ref(), &ind, None)?
         };
         columns.push(array);
     }
@@ -469,7 +460,7 @@ fn build_join_indexes(
                 // for every item on the left and right with this key, add the respective pair
                 left_indexes.unwrap_or(&vec![]).iter().for_each(|x| {
                     // on an inner join, left and right indices are present
-                    indexes.push((Some(*x), Some(row)));
+                    indexes.push((Some(*x), Some(row as u32)));
                 })
             }
             Ok(indexes)
@@ -490,7 +481,7 @@ fn build_join_indexes(
                     is_visited.insert(key.clone());
 
                     indices.iter().for_each(|x| {
-                        indexes.push((Some(*x), Some(row)));
+                        indexes.push((Some(*x), Some(row as u32)));
                     })
                 };
             }
@@ -515,12 +506,12 @@ fn build_join_indexes(
                 match left_indices {
                     Some(indices) => {
                         indices.iter().for_each(|x| {
-                            indexes.push((Some(*x), Some(row)));
+                            indexes.push((Some(*x), Some(row as u32)));
                         });
                     }
                     None => {
                         // when no match, add the row with None for the left side
-                        indexes.push((None, Some(row)));
+                        indexes.push((None, Some(row as u32)));
                     }
                 }
             }
