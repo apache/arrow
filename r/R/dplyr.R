@@ -251,12 +251,14 @@ filter_mask <- function(.data) {
       function(e1, e2) make_expression(operator, e1, e2)
     }
     var_binder <- function(x) Expression$field_ref(x)
+    data_pronoun <- lapply(.data$selected_columns, function(x) Expression$field_ref(x))
   } else {
     comp_func <- function(operator) {
       force(operator)
       function(e1, e2) build_array_expression(operator, e1, e2)
     }
     var_binder <- function(x) .data$.data[[x]]
+    data_pronoun <- .data$.data
   }
 
   # First add the functions
@@ -265,6 +267,8 @@ filter_mask <- function(.data) {
   # Then add the column references
   # Renaming is handled automatically by the named list
   env_bind(f_env, !!!lapply(.data$selected_columns, var_binder))
+  # Then bind the data pronoun
+  env_bind(f_env, .data = data_pronoun)
   new_data_mask(f_env)
 }
 
