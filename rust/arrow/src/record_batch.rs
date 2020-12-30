@@ -80,6 +80,10 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
+    /// Creates a [RecordBatch` from a schema and columns, with additional options,
+    /// such as whether to strictly validate field names.
+    ///
+    /// See [`RecordBatch::try_new`] for the expected conditions.
     pub fn try_new_with_options(
         schema: SchemaRef,
         columns: Vec<ArrayRef>,
@@ -89,6 +93,8 @@ impl RecordBatch {
         Ok(RecordBatch { schema, columns })
     }
 
+    /// Validate the schema and columns using [`RecordBatchOptions`]. Returns an error
+    /// if any validation check fails.
     fn validate_new_batch(
         schema: &SchemaRef,
         columns: &[ArrayRef],
@@ -229,8 +235,10 @@ impl RecordBatch {
     }
 }
 
+/// Options that control the behaviour used when creating a [`RecordBatch`].
 #[derive(Debug)]
 pub struct RecordBatchOptions {
+    /// Match field names of structs and lists. If set to `true`, the names must match.
     pub match_field_names: bool,
 }
 
