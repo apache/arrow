@@ -3,4 +3,4 @@ dependencies:
   - python=3.8
   - pip
   - pip:
-    - -e dev/archery
+    - dev/archery
