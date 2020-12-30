@@ -7,3 +7,6 @@ steps:
       - eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
       - conda env update -f .buildkite/environment.yml
       - conda env list
+      - conda activate archery
+      - export COMPOSE_DOCKER_CLI_BUILD=1
+      - archery docker run --no-pull debian-python
