@@ -27,6 +27,8 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
 
+  skip_msg <- NULL
+
   if (is.null(skip_record_batch)) {
     via_batch <- rlang::eval_tidy(
       expr,
@@ -34,7 +36,7 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
     )
     expect_equivalent(via_batch, expected, ...)
   } else {
-    skip(skip_record_batch)
+    skip_msg <- c(skip_msg, skip_record_batch)
   }
 
   if (is.null(skip_table)) {
@@ -44,7 +46,11 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
     )
     expect_equivalent(via_table, expected, ...)
   } else {
-    skip(skip_table)
+    skip_msg <- c(skip_msg, skip_table)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
   }
 }
 
@@ -160,12 +166,46 @@ test_that("filtering with arithmetic", {
 
   expect_dplyr_equal(
     input %>%
+      filter(int / 2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int / 2L > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  expect_dplyr_equal(
+    input %>%
       filter(dbl %/% 2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
-    tbl,
-    # TODO: why are record batched versions problematic?
-    skip_record_batch = "record batches aren't (auto?) casting correctly"
+    tbl
+  )
+})
+
+test_that("filtering with expression + autocasting", {
+  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl + 1 > 3L) %>% # test autocasting with comparison to 3L
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
   )
 })
 

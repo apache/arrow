@@ -64,15 +64,15 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
     # integer inputs and floating-point division on floats
     if (.Generic == "/") {
       # TODO: omg so many ways it's wrong to assume these types
-      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
-      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
+      e1 <- e1$cast(float64())
+      e2 <- e2$cast(float64())
     } else if (.Generic == "%/%") {
-      e1 <- array_expression("cast", e1, options = list(to_type = float64()))
-      e2 <- array_expression("cast", e2, options = list(to_type = float64()))
       return(array_expression("cast", array_expression(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32(), allow_float_truncate = TRUE)))
     } else if (.Generic == "%%") {
       # {e1 - e2 * ( e1 %/% e2 )}
       # TODO: there has to be a way to use the form ^^^ instead of this.
+      # with return(e1 - e2 * (e1 %/% e2)) we get:
+      # "cannot add bindings to a locked environment"
       out <- array_expression(
         "subtract_checked", e1, array_expression(
           "multiply_checked", e2, array_expression(
@@ -90,6 +90,13 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
       )
       return(out)
     }
+
+    # hack to use subtract instead of subtract_checked for timestamps
+    if (inherits(e1$type, "Timestamp") && inherits(e2$type, "Timestamp") && .Generic == "-"){
+      # don't use the checked variant for timestamp
+      return(array_expression("subtract", e1, e2, ...))
+    }
+
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
@@ -127,14 +134,12 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
   "*" = "multiply_checked",
   "/" = "divide_checked",
   "%/%" = "divide_checked",
-  "%in%" = "is_in_meta_binary",
-  "%%" = "divide_checked"
+  # we don't actually use divide_checked with `%%`, rather it is rewritten to
+  # use %/% above.
+  "%%" = "divide_checked",
+  # TODO: "^"  (ARROW-11070)
+  "%in%" = "is_in_meta_binary"
 )
-
-
-# ‘"^"’
-
-
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
@@ -202,7 +207,10 @@ print.array_expression <- function(x, ...) {
 #' @export
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
-    ToString = function() dataset___expr__ToString(self)
+    ToString = function() dataset___expr__ToString(self),
+    cast = function(to_type, ...) {
+      Expression$create("cast", self, options = list(to_type = to_type, ...))
+    }
   )
 )
 Expression$create <- function(function_name,
@@ -243,31 +251,16 @@ build_dataset_expression <- function(.Generic, e1, e2, ...) {
     # integer inputs and floating-point division on floats
     if (.Generic == "/") {
       # TODO: omg so many ways it's wrong to assume these types
-      e1 <- Expression$create("cast", e1, options = list(to_type = float64()))
-      e2 <- Expression$create("cast", e2, options = list(to_type = float64()))
+      e1 <- e1$cast(float64())
+      e2 <- e2$cast(float64())
     } else if (.Generic == "%/%") {
-      e1 <- Expression$create("cast", e1, options = list(to_type = float64()))
-      e2 <- Expression$create("cast", e2, options = list(to_type = float64()))
-      return(Expression$create("cast", Expression$create(.binary_function_map[[.Generic]], e1, e2, ...), options = list(to_type = int32(), allow_float_truncate = TRUE)))
+      # In R, integer division works like floor(float division)
+      out <- build_dataset_expression("/", e1, e2)
+      return(out$cast(int32(), allow_float_truncate = TRUE))
     } else if (.Generic == "%%") {
-      # {e1 - e2 * ( e1 %/% e2 )}
-      # TODO: there has to be a way to use the form ^^^ instead of this.
-      out <- Expression$create(
-        "subtract_checked", e1, Expression$create(
-          "multiply_checked", e2, Expression$create(
-            # this outer cast is to ensure that the result of this and the
-            # result of multiply are the same
-            "cast",
-            Expression$create(
-              "cast",
-              Expression$create(.binary_function_map[[.Generic]], e1, e2, ...),
-              options = list(to_type = int32(), allow_float_truncate = TRUE)
-            ),
-            options = list(to_type = e2$type, allow_float_truncate = TRUE)
-          )
-        )
-      )
-      return(out)
+      # TODO: need to do something with types to ensure that e2 is compatible
+      # with e1 %/% e2 and e1.
+      return(e1 - e2 * ( e1 %/% e2 ))
     }
 
     expr <- Expression$create(.binary_function_map[[.Generic]], e1, e2, ...)
