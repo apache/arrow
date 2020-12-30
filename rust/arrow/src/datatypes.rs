@@ -1388,6 +1388,46 @@ impl Field {
                         ));
                     }
                 };
+                let metadata = match map.get("metadata") {
+                    Some(&Value::Array(ref values)) => {
+                        let mut res: BTreeMap<String, String> = BTreeMap::new();
+                        for value in values {
+                            match value.as_object() {
+                                Some(value) => {
+                                    if value.len() != 1 {
+                                        return Err(ArrowError::ParseError(
+                                            "Field 'metadata' must have exact one json map for a key-value pair".to_string(),
+                                        ));
+                                    }
+                                    for (k, v) in value {
+                                        if let Some(str_value) = v.as_str() {
+                                            res.insert(
+                                                k.clone(),
+                                                str_value.to_string().clone(),
+                                            );
+                                        } else {
+                                            return Err(ArrowError::ParseError(
+                                                format!("Field 'metadata' contains non-string value for key {}", k),
+                                            ));
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(ArrowError::ParseError(
+                                        "Field 'metadata' contains non-object key-value pair".to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                        Some(res)
+                    }
+                    Some(_) => {
+                        return Err(ArrowError::ParseError(
+                            "Field `metadata` is not json array".to_string(),
+                        ));
+                    }
+                    _ => None,
+                };
                 // if data_type is a struct or list, get its children
                 let data_type = match data_type {
                     DataType::List(_)
@@ -1486,7 +1526,7 @@ impl Field {
                     data_type,
                     dict_id,
                     dict_is_ordered,
-                    metadata: None,
+                    metadata,
                 })
             }
             _ => Err(ArrowError::ParseError(
@@ -1640,6 +1680,7 @@ impl Field {
     }
 }
 
+// TODO: improve display with crate https://crates.io/crates/derive_more ?
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)

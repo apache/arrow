@@ -2,6 +2,17 @@
   "schema": {
     "fields": [
       {
+        "name": "bools-with-metadata",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "metadata": [
+          {"k": "v"}
+        ],
+        "children": []
+      },
+      {
         "name": "bools",
         "type": {
           "name": "bool"
@@ -301,6 +312,20 @@
     {
       "count": 3,
       "columns": [
+        {
+          "name": "bools-with-metadata",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false
+          ]
+        },
         {
           "name": "bools",
           "count": 3,
