@@ -954,7 +954,7 @@ fn int32_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef
     for v in array.iter() {
         match v {
             Some(n) => builder.append_value(n as i128)?,
-            None => builder.append_null()?
+            None => builder.append_null()?,
         };
     }
     Ok(Arc::new(builder.finish()) as ArrayRef)
@@ -966,7 +966,7 @@ fn int64_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef
     for v in array.iter() {
         match v {
             Some(n) => builder.append_value(n as i128)?,
-            None => builder.append_null()?
+            None => builder.append_null()?,
         };
     }
     Ok(Arc::new(builder.finish()) as ArrayRef)
@@ -2325,6 +2325,23 @@ mod tests {
             u8_expected,
             get_cast_values::<UInt8Type>(&i64_array, &DataType::UInt8)
         );
+
+        let decimal_expected = vec![
+            "-9223372036854775808",
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "127",
+            "32767",
+            "2147483647",
+            "9223372036854775807",
+        ];
+        let arr = cast(&i64_array, &DataType::Decimal(25, 0)).unwrap();
+        let decimal_actual = arr.as_any().downcast_ref::<DecimalArray>().unwrap();
+        for (i, expected) in decimal_expected.iter().enumerate() {
+            assert_eq!(format!("{:?}", decimal_actual.value(i)), *expected);
+        }
     }
 
     #[test]
@@ -2405,6 +2422,21 @@ mod tests {
             u8_expected,
             get_cast_values::<UInt8Type>(&i32_array, &DataType::UInt8)
         );
+
+        let decimal_expected = vec![
+            "-2147483648",
+            "-32768",
+            "-128",
+            "0",
+            "127",
+            "32767",
+            "2147483647",
+        ];
+        let arr = cast(&i32_array, &DataType::Decimal(25, 0)).unwrap();
+        let decimal_actual = arr.as_any().downcast_ref::<DecimalArray>().unwrap();
+        for (i, expected) in decimal_expected.iter().enumerate() {
+            assert_eq!(format!("{:?}", decimal_actual.value(i)), *expected);
+        }
     }
 
     #[test]
