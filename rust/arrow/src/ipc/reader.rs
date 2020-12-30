@@ -160,10 +160,7 @@ fn create_array(
             let null_count = struct_node.null_count() as usize;
             let struct_array = if null_count > 0 {
                 // create struct array from fields, arrays and null data
-                StructArray::from((
-                    struct_arrays,
-                    null_buffer,
-                ))
+                StructArray::from((struct_arrays, null_buffer))
             } else {
                 StructArray::from(struct_arrays)
             };
