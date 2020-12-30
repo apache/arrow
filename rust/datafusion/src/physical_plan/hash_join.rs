@@ -18,7 +18,10 @@
 //! Defines the join plan for executing partitions in parallel and then joining the results
 //! into a set of partitions.
 
-use arrow::array::ArrayRef;
+use arrow::{
+    array::{ArrayRef, UInt32Builder},
+    compute,
+};
 use std::sync::Arc;
 use std::{any::Any, collections::HashSet};
 
@@ -289,12 +292,11 @@ fn build_batch_from_indices(
     let mut columns: Vec<Arc<dyn Array>> = Vec::with_capacity(schema.fields().len());
     for field in schema.fields() {
         // pick the column (left or right) based on the field name.
-        // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
-        let (is_primary, arrays) = match primary[0].schema().index_of(field.name()) {
-            Ok(i) => Ok((true, primary.iter().map(|batch| batch.column(i).data_ref().as_ref()).collect::<Vec<_>>())),
+        let (is_primary, column_index) = match primary[0].schema().index_of(field.name()) {
+            Ok(i) => Ok((true, i)),
             Err(_) => {
                 match secondary[0].schema().index_of(field.name()) {
-                    Ok(i) => Ok((false, secondary.iter().map(|batch| batch.column(i).data_ref().as_ref()).collect::<Vec<_>>())),
+                    Ok(i) => Ok((false, i)),
                     _ => Err(DataFusionError::Internal(
                         format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
                     ))
@@ -302,12 +304,17 @@ fn build_batch_from_indices(
             }
         }.map_err(DataFusionError::into_arrow_external_error)?;
 
-        let capacity = arrays.iter().map(|array| array.len()).sum();
-        let mut mutable = MutableArrayData::new(arrays, true, capacity);
-
         let is_left =
             (is_primary && primary_is_left) || (!is_primary && !primary_is_left);
-        if is_left {
+
+        let array = if is_left {
+            // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
+            let arrays = left.iter()
+                .map(|batch| batch.column(column_index).data_ref().as_ref())
+                .collect::<Vec<_>>();
+
+            let capacity = arrays.iter().map(|array| array.len()).sum();
+            let mut mutable = MutableArrayData::new(arrays, true, capacity);
             // use the left indices
             for (join_index, _) in indices {
                 match join_index {
@@ -315,16 +322,22 @@ fn build_batch_from_indices(
                     None => mutable.extend_nulls(1),
                 }
             }
+            make_array(Arc::new(mutable.freeze()))
         } else {
             // use the right indices
+
+            let array = right[0].column(column_index);
+            let mut builder = UInt32Builder::new(indices.len());
             for (_, join_index) in indices {
                 match join_index {
-                    Some(row) => mutable.extend(0, *row, *row + 1),
-                    None => mutable.extend_nulls(1),
+                    Some(row) => builder.append_value(*row as u32)?,
+                    None => {
+                        builder.append_null()?;
+                    }
                 }
             }
+            compute::take(array.as_ref(), &builder.finish(), None)?
         };
-        let array = make_array(Arc::new(mutable.freeze()));
         columns.push(array);
     }
     Ok(RecordBatch::try_new(Arc::new(schema.clone()), columns)?)
