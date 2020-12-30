@@ -522,6 +522,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int32, Int64) => cast_numeric_arrays::<Int32Type, Int64Type>(array),
         (Int32, Float32) => cast_numeric_arrays::<Int32Type, Float32Type>(array),
         (Int32, Float64) => cast_numeric_arrays::<Int32Type, Float64Type>(array),
+        (Int32, Decimal(p, s)) => int32_to_decimal_cast(array, *p, *s),
 
         (Int64, UInt8) => cast_numeric_arrays::<Int64Type, UInt8Type>(array),
         (Int64, UInt16) => cast_numeric_arrays::<Int64Type, UInt16Type>(array),
@@ -532,6 +533,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int64, Int32) => cast_numeric_arrays::<Int64Type, Int32Type>(array),
         (Int64, Float32) => cast_numeric_arrays::<Int64Type, Float32Type>(array),
         (Int64, Float64) => cast_numeric_arrays::<Int64Type, Float64Type>(array),
+        (Int64, Decimal(p, s)) => int64_to_decimal_cast(array, *p, *s),
 
         (Float32, UInt8) => cast_numeric_arrays::<Float32Type, UInt8Type>(array),
         (Float32, UInt16) => cast_numeric_arrays::<Float32Type, UInt16Type>(array),
@@ -944,6 +946,30 @@ where
             }
         })
         .collect()
+}
+
+fn int32_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef> {
+    let mut builder = DecimalBuilder::new(from.len(), p, s);
+    let array = from.as_any().downcast_ref::<Int32Array>().unwrap();
+    for v in array.iter() {
+        match v {
+            Some(n) => builder.append_value(n as i128)?,
+            None => builder.append_null()?
+        };
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
+}
+
+fn int64_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef> {
+    let mut builder = DecimalBuilder::new(from.len(), p, s);
+    let array = from.as_any().downcast_ref::<Int64Array>().unwrap();
+    for v in array.iter() {
+        match v {
+            Some(n) => builder.append_value(n as i128)?,
+            None => builder.append_null()?
+        };
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
 /// Cast numeric types to Boolean

@@ -580,6 +580,13 @@ impl DecimalArray {
         let data = builder.build();
         Self::from(data)
     }
+    pub fn precision(&self) -> usize {
+        self.precision
+    }
+
+    pub fn scale(&self) -> usize {
+        self.scale
+    }
 }
 
 impl From<ArrayDataRef> for DecimalArray {
