@@ -45,7 +45,7 @@ public class SchemaResult {
   private final IpcOption option;
 
   public SchemaResult(Schema schema) {
-    this(schema, new IpcOption());
+    this(schema, IpcOption.DEFAULT);
   }
 
   /**
