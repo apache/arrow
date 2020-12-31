@@ -57,11 +57,11 @@ jobs:
           # and thus are specific for a particular OS, arch and rust version.
           path: /github/home/target
           key: ${{ runner.os }}-${{ matrix.arch }}-target-cache-${{ matrix.rust }}-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt
       - name: Build
         run: |
           export CARGO_HOME="/github/home/.cargo"
@@ -99,11 +99,11 @@ jobs:
           path: /github/home/target
           # this key equals the ones on `linux-build-lib` for re-use
           key: ${{ runner.os }}-${{ matrix.arch }}-target-cache-${{ matrix.rust }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt
       - name: Run tests
         run: |
           export CARGO_HOME="/github/home/.cargo"
@@ -150,11 +150,11 @@ jobs:
           path: /github/home/target
           # this key equals the ones on `linux-build-lib` for re-use
           key: ${{ runner.os }}-${{ matrix.arch }}-target-cache-${{ matrix.rust }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt
       - name: Run tests
         run: |
           export CARGO_HOME="/github/home/.cargo"
@@ -173,14 +173,13 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      # this particular action (and not cache@v2) is necessary to avoid build errors on mac due to caching
-      # (see its README)
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
+      # TODO: this won't cache anything, which is expensive. Setup this action
+      # with a OS-dependent path.
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt
       - name: Run tests
         shell: bash
         run: |
@@ -215,11 +214,11 @@ jobs:
           path: /github/home/target
           # this key equals the ones on `linux-build-lib` for re-use
           key: ${{ runner.os }}-${{ matrix.arch }}-target-cache-${{ matrix.rust }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt, clippy
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt clippy
       - name: Run clippy
         run: |
           export CARGO_HOME="/github/home/.cargo"
@@ -278,11 +277,11 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          components: rustfmt
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+          rustup component add rustfmt clippy
       - name: Cache Cargo
         uses: actions/cache@v2
         with:
@@ -341,13 +340,12 @@ jobs:
         with:
           path: /github/home/target
           key: ${{ runner.os }}-${{ matrix.arch }}-target-wasm32-cache-${{ matrix.rust }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          override: true
-          components: rustfmt
-          target: wasm32-unknown-unknown
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup override set ${{ matrix.rust }}
+          rustup component add rustfmt
+          rustup target add wasm32-unknown-unknown
       - name: Build arrow crate
         run: |
           export CARGO_HOME="/github/home/.cargo"
