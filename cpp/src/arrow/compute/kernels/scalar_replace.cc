@@ -30,6 +30,41 @@ namespace internal {
 
 namespace {
 
+void handle_nulls(KernelContext* ctx, const ArrayData& data, const ArrayData& mask, ArrayData* output) {
+  if (data.MayHaveNulls()) {
+    KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_nulls, ctx,
+                           ctx->AllocateBitmap(data.length));
+
+    if (mask.MayHaveNulls()) {
+      ::arrow::internal::BitmapAnd(mask.buffers[0]->data(),
+                                   mask.offset,
+                                   mask.buffers[1]->data(),
+                                   mask.offset,
+                                   mask.length,
+                                   output->offset,
+                                   out_nulls->mutable_data());
+      ::arrow::internal::BitmapOr(data.buffers[0]->data(),
+                                  data.offset,
+                                  out_nulls->data(),
+                                  output->offset,
+                                  data.length,
+                                  output->offset,
+                                  out_nulls->mutable_data());
+    } else {
+      ::arrow::internal::BitmapOr(data.buffers[0]->data(),
+                                  data.offset,
+                                  mask.buffers[1]->data(),
+                                  mask.offset,
+                                  mask.length,
+                                  output->offset,
+                                  out_nulls->mutable_data());
+    }
+
+    if (::arrow::internal::CountSetBits(out_nulls->data(), output->offset, data.length) < data.length)
+      output->buffers[0] = out_nulls;
+  }
+}
+
 template <typename Type, typename Enable = void>
 struct ReplaceFunctor {};
 
@@ -50,6 +85,8 @@ struct ReplaceFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
     DCHECK(output->buffers[0] == nullptr);
 
     if (replacement.is_valid) {
+      handle_nulls(ctx, data, mask, output);
+
       KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
                              ctx->Allocate(data.length * sizeof(T)));
       T value = UnboxScalar<Type>::Unbox(replacement);
@@ -97,41 +134,7 @@ struct ReplaceFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
 
     bool value = UnboxScalar<BooleanType>::Unbox(replacement);
     if (replacement.is_valid) {
-
-      // TODO: Allocate bitmap and compute data.buffers[0] | (mask.buffers[0] & mask.buffers[1])
-      //       Then factor the code in a function to reuse in all ReplaceFunctors...
-
-      if (data.MayHaveNulls()) {
-        KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_nulls, ctx,
-                               ctx->AllocateBitmap(data.length));
-
-        if (mask.MayHaveNulls()) {
-          ::arrow::internal::BitmapAnd(mask.buffers[0]->data(),
-                                       mask.offset,
-                                       mask.buffers[1]->data(),
-                                       mask.offset,
-                                       mask.length,
-                                       output->offset,
-                                       out_nulls->mutable_data());
-          ::arrow::internal::BitmapOr(data.buffers[0]->data(),
-                                      data.offset,
-                                      out_nulls->data(),
-                                      output->offset,
-                                      data.length,
-                                      output->offset,
-                                      out_nulls->mutable_data());
-        } else {
-          ::arrow::internal::BitmapOr(data.buffers[0]->data(),
-                                      data.offset,
-                                      mask.buffers[1]->data(),
-                                      mask.offset,
-                                      mask.length,
-                                      output->offset,
-                                      out_nulls->mutable_data());
-        }
-
-        output->buffers[0] = out_nulls;
-      }
+      handle_nulls(ctx, data, mask, output);
 
       KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
                              ctx->AllocateBitmap(data.length));
@@ -197,10 +200,22 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     // null count 0 unless we explicitly propagate it below.
     DCHECK(output->buffers[0] == nullptr);
 
-    const uint8_t* to_replace = mask.buffers[1]->data();
+    const uint8_t* mask_validities = mask.buffers[0] == nullptr ? nullptr : mask.buffers[0]->data();
+    const std::shared_ptr<Buffer> to_replace = mask.buffers[1];
+    std::shared_ptr<Buffer> to_replace_valid = nullptr;
     uint64_t replace_count = 0;
     {
-      BitBlockCounter bit_counter(to_replace, input.offset, input.length);
+      if (mask_validities == nullptr) {
+        to_replace_valid = to_replace;
+      } else {
+        KERNEL_ASSIGN_OR_RAISE(to_replace_valid,
+                               ctx,
+                               ::arrow::internal::BitmapAnd(ctx->memory_pool(),
+                                                            mask_validities, mask.offset,
+                                                            to_replace->data(), mask.offset,
+                                                            mask.length, output->offset));
+      }
+      BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
       int64_t out_offset = 0;
       while (out_offset < input.length) {
         BitBlockCount block = bit_counter.NextWord();
@@ -210,27 +225,33 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     }
 
     if (replace_count > 0 && replacement_scalar.is_valid) {
-      auto input_offsets = input.GetValues<OffsetType>(1);
-      auto input_values = input.GetValues<char>(2, input.offset);
+      const uint8_t* input_validities = input.buffers[0] == nullptr ? nullptr : input.buffers[0]->data();
+      const auto input_offsets = input.GetValues<OffsetType>(1);
+      const auto input_values = input.GetValues<char>(2, input.offset);
       BuilderType builder(input.type, ctx->memory_pool());
       KERNEL_RETURN_IF_ERROR(ctx,
                              builder.ReserveData(input.buffers[2]->size() +
                                                  replacement.length() * replace_count));
       KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
-      BitBlockCounter bit_counter(to_replace, input.offset, input.length);
+      BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
       int64_t input_offset = 0;
       while (input_offset < input.length) {
         BitBlockCount block = bit_counter.NextWord();
         for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(to_replace, input_offset + i)) {
+
+          if (BitUtil::GetBit(to_replace_valid->data(), input_offset + i)) {
             builder.UnsafeAppend(replacement);
           } else {
-            auto current_offset = input_offsets[input_offset + i];
-            auto next_offset = input_offsets[input_offset + i + 1];
-            auto string_value = util::string_view(input_values + current_offset,
-                                                  next_offset - current_offset);
-            builder.UnsafeAppend(string_value);
+            if (input_validities == nullptr || BitUtil::GetBit(input_validities, input_offset + i)) {
+              auto current_offset = input_offsets[input_offset + i];
+              auto next_offset = input_offsets[input_offset + i + 1];
+              auto string_value = util::string_view(input_values + current_offset,
+                                                    next_offset - current_offset);
+              builder.UnsafeAppend(string_value);
+            } else {
+              builder.UnsafeAppendNull();
+            }
           }
         }
         input_offset += block.length;

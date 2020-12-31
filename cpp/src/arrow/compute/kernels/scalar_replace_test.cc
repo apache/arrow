@@ -31,13 +31,20 @@ using internal::InvertBitmap;
 
 namespace compute {
 
-void CheckReplace(const Array& input, const Array& mask, const Datum& replacement,
-                  const Array& expected) {
+void CheckReplace(const Array& input,
+                  const Array& mask,
+                  const Datum& replacement,
+                  const Array& expected,
+                  const bool ensure_no_nulls = false) {
   auto Check = [&](const Array& input, const Array& mask, const Array& expected) {
     ASSERT_OK_AND_ASSIGN(Datum datum_out, Replace(input, mask, replacement));
     std::shared_ptr<Array> result = datum_out.make_array();
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(expected, *result, /*verbose=*/true);
+    if (ensure_no_nulls) {
+      if (result->null_count() != 0 || result->data()->buffers[0] != nullptr)
+        FAIL() << "Result shall have null_count == 0 and validity bitmap == nullptr!";
+    }
   };
 
   Check(input, mask, expected);
@@ -48,11 +55,12 @@ void CheckReplace(const Array& input, const Array& mask, const Datum& replacemen
 
 void CheckReplace(const std::shared_ptr<DataType>& type, const std::string& in_values,
                   const std::string& in_mask, const Datum& replacement,
-                  const std::string& out_values) {
+                  const std::string& out_values,
+                  const bool ensure_no_nulls = false) {
   std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
   std::shared_ptr<Array> mask = ArrayFromJSON(boolean(), in_mask);
   std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
-  CheckReplace(*input, *mask, replacement, *expected);
+  CheckReplace(*input, *mask, replacement, *expected, ensure_no_nulls);
 }
 
 class TestReplaceKernel : public ::testing::Test {};
@@ -82,11 +90,11 @@ TYPED_TEST(TestReplacePrimitive, Replace) {
   auto scalar = std::make_shared<ScalarType>(static_cast<T>(42));
 
   // No replacement
-  CheckReplace(type, "[2, 4, 7, 9]", "[false, false, false, false]", Datum(scalar),
-               "[2, 4, 7, 9]");
+  CheckReplace(type, "[2, 4, 7, 9, null]", "[false, false, false, false, false]", Datum(scalar),
+               "[2, 4, 7, 9, null]");
   // Some replacements
-  CheckReplace(type, "[2, 4, 7, 9]", "[true, false, true, false]", Datum(scalar),
-               "[42, 4, 42, 9]");
+  CheckReplace(type, "[2, 4, 7, 9, null]", "[true, false, true, false, true]", Datum(scalar),
+               "[42, 4, 42, 9, 42]", true);
   // Empty Array
   CheckReplace(type, "[]", "[]", Datum(scalar), "[]");
 
@@ -113,7 +121,7 @@ TYPED_TEST(TestReplacePrimitive, Replace) {
       out_data[i] = scalar->value;
     }
   }
-  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar), ArrayType(expected_data));
+  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar), ArrayType(expected_data), true);
 }
 
 TEST_F(TestReplaceKernel, ReplaceNull) {
@@ -128,9 +136,12 @@ TEST_F(TestReplaceKernel, ReplaceNull) {
   // Some replacements
   CheckReplace(boolean(), "[null, null, null, null]", "[true, false, true, false]",
                /*replacement=*/true_scalar, "[true, null, true, null]");
+  // Some replacements with some nulls in mask
+  CheckReplace(boolean(), "[null, null, null, null]", "[true, null, true, false]",
+  /*replacement=*/true_scalar, "[true, null, true, null]");
   // Replace all
   CheckReplace(boolean(), "[null, null, null, null]", "[true, true, true, true]",
-               /*replacement=*/true_scalar, "[true, true, true, true]");
+               /*replacement=*/true_scalar, "[true, true, true, true]", true);
 }
 
 TEST_F(TestReplaceKernel, ReplaceBoolean) {
@@ -143,6 +154,15 @@ TEST_F(TestReplaceKernel, ReplaceBoolean) {
   // Some replacements
   CheckReplace(boolean(), "[true, false, true, false]", "[true, false, true, false]",
                Datum(scalar1), "[false, false, false, false]");
+  // Some replacements with nulls in input
+  CheckReplace(boolean(), "[true, null, true, null]", "[true, false, true, false]",
+  Datum(scalar1), "[false, null, false, null]");
+  // Some replacements with nulls in mask
+  CheckReplace(boolean(), "[true, false, true, null]", "[true, null, null, false]",
+  Datum(scalar1), "[false, false, true, null]");
+  // Replace all
+  CheckReplace(boolean(), "[true, false, true, null]", "[true, true, true, true]",
+  Datum(scalar1), "[false, false, false, false]", true);
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   auto arr =
@@ -169,8 +189,7 @@ TEST_F(TestReplaceKernel, ReplaceBoolean) {
       BitUtil::SetBitTo(out_data, i, scalar1->value);
     }
   }
-  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar1),
-               BooleanArray(expected_data));
+  CheckReplace(*arr, BooleanArray(mask_data), Datum(scalar1), BooleanArray(expected_data), true);
 }
 
 TEST_F(TestReplaceKernel, ReplaceTimestamp) {
@@ -179,26 +198,26 @@ TEST_F(TestReplaceKernel, ReplaceTimestamp) {
   auto scalar1 = std::make_shared<Time32Scalar>(5, time32_type);
   auto scalar2 = std::make_shared<Time64Scalar>(6, time64_type);
   // No replacement
-  CheckReplace(time32_type, "[2, 1, 6, 9]", "[false, false, false, false]",
-               Datum(scalar1), "[2, 1, 6, 9]");
-  CheckReplace(time64_type, "[2, 1, 6, 9]", "[false, false, false, false]",
-               Datum(scalar2), "[2, 1, 6, 9]");
+  CheckReplace(time32_type, "[2, 1, 6, null]", "[false, false, false, false]",
+               Datum(scalar1), "[2, 1, 6, null]");
+  CheckReplace(time64_type, "[2, 1, 6, null]", "[false, false, false, false]",
+               Datum(scalar2), "[2, 1, 6, null]");
   // Some replacements
-  CheckReplace(time32_type, "[2, 1, 6, 9]", "[true, false, true, false]", Datum(scalar1),
-               "[5, 1, 5, 9]");
-  CheckReplace(time64_type, "[2, 1, 6, 9]", "[false, true, false, true]", Datum(scalar2),
-               "[2, 6, 6, 6]");
+  CheckReplace(time32_type, "[2, 1, null, 9]", "[true, false, true, false]", Datum(scalar1),
+               "[5, 1, 5, 9]", true);
+  CheckReplace(time64_type, "[2, 1, 6, null]", "[false, true, false, true]", Datum(scalar2),
+               "[2, 6, 6, 6]", true);
 }
 
 TEST_F(TestReplaceKernel, ReplaceString) {
   auto type = large_utf8();
   auto scalar = std::make_shared<LargeStringScalar>("arrow");
   // No replacement
-  CheckReplace(type, R"(["foo", "bar"])", "[false, false]", Datum(scalar),
-               R"(["foo", "bar"])");
+  CheckReplace(type, R"(["foo", "bar", null])", "[false, false, false]", Datum(scalar),
+               R"(["foo", "bar", null])");
   // Some replacements
-  CheckReplace(type, R"(["foo", "bar"])", "[true, false]", Datum(scalar),
-               R"(["arrow", "bar"])");
+  CheckReplace(type, R"(["foo", "bar", null, null])", "[true, false, true, false]", Datum(scalar),
+               R"(["arrow", "bar", "arrow", null])");
 }
 
 }  // namespace compute
