@@ -81,12 +81,6 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
       return(build_array_expression("-", e1, base))
     }
 
-    # hack to use subtract instead of subtract_checked for timestamps
-    if (inherits(e1$type, "Timestamp") && inherits(e2$type, "Timestamp") && .Generic == "-"){
-      # don't use the checked variant for timestamp
-      return(array_expression("subtract", e1, e2, ...))
-    }
-
     expr <- array_expression(.binary_function_map[[.Generic]], e1, e2, ...)
   }
   expr
