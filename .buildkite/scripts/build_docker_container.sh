@@ -25,8 +25,6 @@ git clone git@github.com:ursacomputing/ursa-qa.git
 # to write into these dirs
 cd ..
 chmod -R a+rwx .
-# Do we need this?
-chmod +x .buildkite/scripts/run_benchmarks.sh
 
 # Build docker image and container
-archery docker run -v "$(pwd)"/.:/arrow -v "$(pwd)"/workspace:/workspace --no-pull ubuntu-python /arrow/.buildkite/scripts/run_benchmarks.sh
+archery docker run -v "$(pwd)"/workspace:/workspace --no-pull ubuntu-python /arrow/.buildkite/scripts/run_benchmarks.sh
