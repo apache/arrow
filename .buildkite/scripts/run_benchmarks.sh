@@ -1,3 +1,5 @@
+#!/bin/bash
+
 /arrow/ci/scripts/cpp_build.sh /arrow /build &&
 /arrow/ci/scripts/python_build.sh /arrow /build &&
 /arrow/ci/scripts/python_test.sh /arrow
