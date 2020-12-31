@@ -25,10 +25,10 @@ use std::vec::Vec;
 
 use arrow::array::{
     Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, FixedSizeBinaryArray,
-    FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder, ListBuilder,
-    OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder, StringArray, StringBuilder,
-    StructArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, DecimalBuilder,
+    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
+    Int64Array, ListBuilder, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder,
+    StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -349,6 +349,18 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 // this is cheap as it internally reinterprets the data
                 let a = arrow::compute::cast(&array, &ArrowType::Date32(DateUnit::Day))?;
                 arrow::compute::cast(&a, target_type)?
+            }
+            ArrowType::Decimal(p, s) => {
+                let to_int64 = arrow::compute::cast(&array, &ArrowType::Int64)?;
+                let mut builder = DecimalBuilder::new(to_int64.len(), *p, *s);
+                let values = to_int64.as_any().downcast_ref::<Int64Array>().unwrap();
+                for maybe_value in values.iter() {
+                    match maybe_value {
+                        Some(value) => builder.append_value(value as i128)?,
+                        None => builder.append_null()?,
+                    }
+                }
+                Arc::new(builder.finish()) as ArrayRef
             }
             _ => arrow::compute::cast(&array, target_type)?,
         };

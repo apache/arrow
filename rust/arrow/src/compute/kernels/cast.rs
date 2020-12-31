@@ -522,7 +522,6 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int32, Int64) => cast_numeric_arrays::<Int32Type, Int64Type>(array),
         (Int32, Float32) => cast_numeric_arrays::<Int32Type, Float32Type>(array),
         (Int32, Float64) => cast_numeric_arrays::<Int32Type, Float64Type>(array),
-        (Int32, Decimal(p, s)) => int32_to_decimal_cast(array, *p, *s),
 
         (Int64, UInt8) => cast_numeric_arrays::<Int64Type, UInt8Type>(array),
         (Int64, UInt16) => cast_numeric_arrays::<Int64Type, UInt16Type>(array),
@@ -533,7 +532,6 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Int64, Int32) => cast_numeric_arrays::<Int64Type, Int32Type>(array),
         (Int64, Float32) => cast_numeric_arrays::<Int64Type, Float32Type>(array),
         (Int64, Float64) => cast_numeric_arrays::<Int64Type, Float64Type>(array),
-        (Int64, Decimal(p, s)) => int64_to_decimal_cast(array, *p, *s),
 
         (Float32, UInt8) => cast_numeric_arrays::<Float32Type, UInt8Type>(array),
         (Float32, UInt16) => cast_numeric_arrays::<Float32Type, UInt16Type>(array),
@@ -946,30 +944,6 @@ where
             }
         })
         .collect()
-}
-
-fn int32_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef> {
-    let mut builder = DecimalBuilder::new(from.len(), p, s);
-    let array = from.as_any().downcast_ref::<Int32Array>().unwrap();
-    for v in array.iter() {
-        match v {
-            Some(n) => builder.append_value(n as i128)?,
-            None => builder.append_null()?,
-        };
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
-}
-
-fn int64_to_decimal_cast(from: &ArrayRef, p: usize, s: usize) -> Result<ArrayRef> {
-    let mut builder = DecimalBuilder::new(from.len(), p, s);
-    let array = from.as_any().downcast_ref::<Int64Array>().unwrap();
-    for v in array.iter() {
-        match v {
-            Some(n) => builder.append_value(n as i128)?,
-            None => builder.append_null()?,
-        };
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
 /// Cast numeric types to Boolean
@@ -2325,23 +2299,6 @@ mod tests {
             u8_expected,
             get_cast_values::<UInt8Type>(&i64_array, &DataType::UInt8)
         );
-
-        let decimal_expected = vec![
-            "-9223372036854775808",
-            "-2147483648",
-            "-32768",
-            "-128",
-            "0",
-            "127",
-            "32767",
-            "2147483647",
-            "9223372036854775807",
-        ];
-        let arr = cast(&i64_array, &DataType::Decimal(25, 0)).unwrap();
-        let decimal_actual = arr.as_any().downcast_ref::<DecimalArray>().unwrap();
-        for (i, expected) in decimal_expected.iter().enumerate() {
-            assert_eq!(format!("{:?}", decimal_actual.value(i)), *expected);
-        }
     }
 
     #[test]
@@ -2422,21 +2379,6 @@ mod tests {
             u8_expected,
             get_cast_values::<UInt8Type>(&i32_array, &DataType::UInt8)
         );
-
-        let decimal_expected = vec![
-            "-2147483648",
-            "-32768",
-            "-128",
-            "0",
-            "127",
-            "32767",
-            "2147483647",
-        ];
-        let arr = cast(&i32_array, &DataType::Decimal(25, 0)).unwrap();
-        let decimal_actual = arr.as_any().downcast_ref::<DecimalArray>().unwrap();
-        for (i, expected) in decimal_expected.iter().enumerate() {
-            assert_eq!(format!("{:?}", decimal_actual.value(i)), *expected);
-        }
     }
 
     #[test]

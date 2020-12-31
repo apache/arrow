@@ -646,19 +646,16 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn to_decimal(&self) -> Result<DataType> {
-        let (precision, scale) = match self.schema {
+        match self.schema {
             Type::PrimitiveType {
                 ref precision,
                 ref scale,
                 ..
-            } => (*precision, *scale),
-            _ => {
-                return Err(ArrowError(
-                    "Expected a physical type, not a group type".to_string(),
-                ))
-            }
-        };
-        Ok(DataType::Decimal(precision as usize, scale as usize))
+            } => Ok(DataType::Decimal(*precision as usize, *scale as usize)),
+            _ => Err(ArrowError(
+                "Expected a physical type, not a group type".to_string(),
+            )),
+        }
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
