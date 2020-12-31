@@ -216,36 +216,39 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
                                                             mask.length, output->offset));
       }
       BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
-      int64_t out_offset = 0;
-      while (out_offset < input.length) {
+      int64_t i = 0;
+      while (i < input.length) {
         BitBlockCount block = bit_counter.NextWord();
         replace_count += block.popcount;
-        out_offset += block.length;
+        i += block.length;
       }
     }
 
     if (replace_count > 0 && replacement_scalar.is_valid) {
       const uint8_t* input_validities = input.buffers[0] == nullptr ? nullptr : input.buffers[0]->data();
-      const auto input_offsets = input.GetValues<OffsetType>(1);
-      const auto input_values = input.GetValues<char>(2, input.offset);
+      const auto input_offsets = input.GetValues<OffsetType>(1, input.offset);
+      // offset is 0 otherwise GetValue() will "shift" the buffer by input.offset bytes
+      // (should it rather shift by the lengths of the first input.offset string values ?)
+      const auto input_values = input.GetValues<char>(2, 0);
       BuilderType builder(input.type, ctx->memory_pool());
       KERNEL_RETURN_IF_ERROR(ctx,
-                             builder.ReserveData(input.buffers[2]->size() +
-                                                 replacement.length() * replace_count));
+                             builder.ReserveData(input.buffers[2]->size()
+                             - input_offsets[0]
+                             + replace_count * replacement.length()));
       KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
       BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
-      int64_t input_offset = 0;
-      while (input_offset < input.length) {
+      int64_t j = 0;
+      while (j < input.length) {
         BitBlockCount block = bit_counter.NextWord();
         for (int64_t i = 0; i < block.length; ++i) {
 
-          if (BitUtil::GetBit(to_replace_valid->data(), input_offset + i)) {
+          if (BitUtil::GetBit(to_replace_valid->data(), input.offset + j + i)) {
             builder.UnsafeAppend(replacement);
           } else {
-            if (input_validities == nullptr || BitUtil::GetBit(input_validities, input_offset + i)) {
-              auto current_offset = input_offsets[input_offset + i];
-              auto next_offset = input_offsets[input_offset + i + 1];
+            if (input_validities == nullptr || BitUtil::GetBit(input_validities, input.offset + j + i)) {
+              auto current_offset = input_offsets[j + i];
+              auto next_offset = input_offsets[j + i + 1];
               auto string_value = util::string_view(input_values + current_offset,
                                                     next_offset - current_offset);
               builder.UnsafeAppend(string_value);
@@ -254,7 +257,7 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
             }
           }
         }
-        input_offset += block.length;
+        j += block.length;
       }
       std::shared_ptr<Array> string_array;
       KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));

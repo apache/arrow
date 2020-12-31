@@ -36,6 +36,7 @@ void CheckReplace(const Array& input,
                   const Datum& replacement,
                   const Array& expected,
                   const bool ensure_no_nulls = false) {
+
   auto Check = [&](const Array& input, const Array& mask, const Array& expected) {
     ASSERT_OK_AND_ASSIGN(Datum datum_out, Replace(input, mask, replacement));
     std::shared_ptr<Array> result = datum_out.make_array();
@@ -48,6 +49,7 @@ void CheckReplace(const Array& input,
   };
 
   Check(input, mask, expected);
+
   if (input.length() > 0) {
     Check(*input.Slice(1), *mask.Slice(1), *expected.Slice(1));
   }
