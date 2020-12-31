@@ -1,0 +1,139 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'format/Flight.proto'
+  pull_request:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'format/Flight.proto'
+
+env:
+  DOCKER_BUILDKIT: 0
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+  windows-mingw:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mingw-n-bits:
+          - 32
+          - 64
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: OFF
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_JEMALLOC: OFF
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: ON
+      ARROW_S3: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT and
+      # -DBoost_NO_BOOST_CMAKE=ON
+      BOOST_ROOT: ""
+      CMAKE_ARGS: >-
+        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DBoost_NO_BOOST_CMAKE=ON
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW${{ matrix.mingw-n-bits }}
+          update: true
+      - name: Setup MSYS2
+        shell: msys2 {0}
+        run: |
+          ci/scripts/msys2_setup.sh cpp
+      - name: Cache ccache
+        uses: actions/cache@v1
+        with:
+          path: ccache
+          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
+          ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download MinIO
+        shell: msys2 {0}
+        run: |
+          mkdir -p /usr/local/bin
+          wget \
+            --output-document /usr/local/bin/minio.exe \
+            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+          chmod +x /usr/local/bin/minio.exe
+      - name: Test
+        shell: msys2 {0}
+        run: |
+          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
+          PYTHONPATH="${PYTHONHOME}"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\site-packages"
+          export PYTHONPATH
+          ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
