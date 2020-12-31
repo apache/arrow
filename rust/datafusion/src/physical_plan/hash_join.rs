@@ -202,12 +202,20 @@ impl ExecutionPlan for HashJoinExec {
             .iter()
             .map(|on| on.1.clone())
             .collect::<HashSet<_>>();
+
+        let column_indices = column_indices_from_schema(
+            &self.left.schema(),
+            &self.right.schema(),
+            &self.schema(),
+            self.join_type,
+        )?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
             on_right,
             join_type: self.join_type,
             left_data,
             right: stream,
+            column_indices,
         }))
     }
 }
@@ -252,12 +260,47 @@ struct HashJoinStream {
     left_data: JoinLeftData,
     /// right
     right: SendableRecordBatchStream,
+    /// Information of index and left / right placement of columns
+    column_indices: Vec<(usize, bool)>,
 }
 
 impl RecordBatchStream for HashJoinStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
+}
+
+/// Calculates column index based on input / output schemas and jointype  
+fn column_indices_from_schema(
+    left: &Schema,
+    right: &Schema,
+    output_schema: &Schema,
+    join_type: JoinType,
+) -> ArrowResult<Vec<(usize, bool)>> {
+    let (primary_is_left, primary_schema, secondary_schema) = match join_type {
+        JoinType::Inner | JoinType::Left => (true, left, right),
+        JoinType::Right => (false, right, left),
+    };
+    let mut column_indices = vec![];
+    for field in output_schema.fields() {
+        let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
+                    Ok(i) => Ok((true, i)),
+                    Err(_) => {
+                        match secondary_schema.index_of(field.name()) {
+                            Ok(i) => Ok((false, i)),
+                            _ => Err(DataFusionError::Internal(
+                                format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
+                            ))
+                        }
+                    }
+                }.map_err(DataFusionError::into_arrow_external_error)?;
+
+        let is_left =
+            (is_primary && primary_is_left) || (!is_primary && !primary_is_left);
+        column_indices.push((column_index, is_left));
+    }
+
+    Ok(column_indices)
 }
 
 /// Returns a new [RecordBatch] by combining the `left` and `right` according to `indices`.
@@ -269,17 +312,12 @@ fn build_batch_from_indices(
     schema: &Schema,
     left: &Vec<RecordBatch>,
     right: &RecordBatch,
-    join_type: &JoinType,
     indices: &[(JoinIndex, RightIndex)],
+    column_indices: &Vec<(usize, bool)>,
 ) -> ArrowResult<RecordBatch> {
     if left.is_empty() {
         todo!("Create empty record batch");
     }
-
-    let (primary_is_left, primary_schema, secondary_schema) = match join_type {
-        JoinType::Inner | JoinType::Left => (true, left[0].schema(), right.schema()),
-        JoinType::Right => (false, right.schema(), left[0].schema()),
-    };
 
     // build the columns of the new [RecordBatch]:
     // 1. pick whether the column is from the left or right
@@ -288,28 +326,12 @@ fn build_batch_from_indices(
 
     let right_indices = indices.iter().map(|(_, join_index)| join_index).collect();
 
-    for field in schema.fields() {
-        // pick the column (left or right) based on the field name.
-        let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
-            Ok(i) => Ok((true, i)),
-            Err(_) => {
-                match secondary_schema.index_of(field.name()) {
-                    Ok(i) => Ok((false, i)),
-                    _ => Err(DataFusionError::Internal(
-                        format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
-                    ))
-                }
-            }
-        }.map_err(DataFusionError::into_arrow_external_error)?;
-
-        let is_left =
-            (is_primary && primary_is_left) || (!is_primary && !primary_is_left);
-
-        let array = if is_left {
+    for (column_index, is_left) in column_indices {
+        let array = if *is_left {
             // Note that we take `.data_ref()` to gather the [ArrayData] of each array.
             let arrays = left
                 .iter()
-                .map(|batch| batch.column(column_index).data_ref().as_ref())
+                .map(|batch| batch.column(*column_index).data_ref().as_ref())
                 .collect::<Vec<_>>();
 
             let mut mutable = MutableArrayData::new(arrays, true, indices.len());
@@ -323,7 +345,7 @@ fn build_batch_from_indices(
             make_array(Arc::new(mutable.freeze()))
         } else {
             // use the right indices
-            let array = right.column(column_index);
+            let array = right.column(*column_index);
             compute::take(array.as_ref(), &right_indices, None)?
         };
         columns.push(array);
@@ -396,12 +418,13 @@ fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
     on_right: &HashSet<String>,
-    join_type: &JoinType,
+    join_type: JoinType,
     schema: &Schema,
+    column_indices: &Vec<(usize, bool)>,
 ) -> ArrowResult<RecordBatch> {
     let indices = build_join_indexes(&left_data.0, &batch, join_type, on_right).unwrap();
 
-    build_batch_from_indices(schema, &left_data.1, batch, join_type, &indices)
+    build_batch_from_indices(schema, &left_data.1, batch, &indices, column_indices)
 }
 
 /// returns a vector with (index from left, index from right).
@@ -434,7 +457,7 @@ fn build_batch(
 fn build_join_indexes(
     left: &JoinHashMap,
     right: &RecordBatch,
-    join_type: &JoinType,
+    join_type: JoinType,
     right_on: &HashSet<String>,
 ) -> Result<Vec<(JoinIndex, RightIndex)>> {
     let keys_values = right_on
@@ -531,8 +554,9 @@ impl Stream for HashJoinStream {
                     &batch,
                     &self.left_data,
                     &self.on_right,
-                    &self.join_type,
+                    self.join_type,
                     &self.schema,
+                    &self.column_indices,
                 )),
                 other => other,
             })
