@@ -2918,6 +2918,20 @@ mod tests {
         assert!(schema2 != schema3);
         assert!(schema2 != schema4);
         assert!(schema3 != schema4);
+
+        let mut f = Field::new("c1", DataType::Utf8, false);
+        f.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let schema5 = Schema::new(vec![
+            f,
+            Field::new("c2", DataType::Float64, true),
+            Field::new("c3", DataType::LargeBinary, true),
+        ]);
+        assert!(schema1 != schema5);
     }
 
     #[test]
