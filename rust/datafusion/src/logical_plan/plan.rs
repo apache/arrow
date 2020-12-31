@@ -839,7 +839,7 @@ mod tests {
     #[test]
     fn early_stoping_pre_visit() {
         let mut visitor = StoppingVisitor {
-            return_false_from_post_in: OptionalCounter::new(2),
+            return_false_from_pre_in: OptionalCounter::new(2),
             ..Default::default()
         };
         let plan = test_plan();
@@ -912,7 +912,7 @@ mod tests {
     #[test]
     fn error_pre_visit() {
         let mut visitor = ErrorVisitor {
-            return_error_from_post_in: OptionalCounter::new(2),
+            return_error_from_pre_in: OptionalCounter::new(2),
             ..Default::default()
         };
         let plan = test_plan();
