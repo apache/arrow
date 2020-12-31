@@ -264,7 +264,10 @@ filter_mask <- function(.data) {
   env_bind(f_env, !!!lapply(func_names, comp_func))
   # Then add the column references
   # Renaming is handled automatically by the named list
-  env_bind(f_env, !!!lapply(.data$selected_columns, var_binder))
+  data_pronoun <- lapply(.data$selected_columns, var_binder)
+  env_bind(f_env, !!!data_pronoun)
+  # Then bind the data pronoun
+  env_bind(f_env, .data = data_pronoun)
   new_data_mask(f_env)
 }
 
