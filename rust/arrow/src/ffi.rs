@@ -619,7 +619,7 @@ impl ArrowArray {
 mod tests {
     use super::*;
     use crate::array::{
-        make_array, Array, ArrayData, GenericStringArray, Int32Array,
+        make_array, Array, ArrayData, BooleanArray, GenericStringArray, Int32Array,
         StringOffsetSizeTrait,
     };
     use crate::compute::kernels;
@@ -650,7 +650,7 @@ mod tests {
     }
     // case with nulls is tested in the docs, through the example on this module.
 
-    fn test_genetic_string<Offset: StringOffsetSizeTrait>() -> Result<()> {
+    fn test_generic_string<Offset: StringOffsetSizeTrait>() -> Result<()> {
         // create an array natively
         let array =
             GenericStringArray::<Offset>::from(vec![Some("a"), None, Some("aaa")]);
@@ -686,11 +686,37 @@ mod tests {
 
     #[test]
     fn test_string() -> Result<()> {
-        test_genetic_string::<i32>()
+        test_generic_string::<i32>()
     }
 
     #[test]
     fn test_large_string() -> Result<()> {
-        test_genetic_string::<i64>()
+        test_generic_string::<i64>()
+    }
+
+    #[test]
+    fn test_bool() -> Result<()> {
+        // create an array natively
+        let array = BooleanArray::from(vec![None, Some(true), Some(false)]);
+
+        // export it
+        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+
+        // (simulate consumer) import it
+        let data = Arc::new(ArrayData::try_from(array)?);
+        let array = make_array(data);
+
+        // perform some operation
+        let array = array.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let array = kernels::boolean::not(&array)?;
+
+        // verify
+        assert_eq!(
+            array,
+            BooleanArray::from(vec![None, Some(false), Some(true)])
+        );
+
+        // (drop/release)
+        Ok(())
     }
 }
