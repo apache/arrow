@@ -116,6 +116,36 @@ impl HashJoinExec {
             build_side: Arc::new(Mutex::new(None)),
         })
     }
+
+    /// Calculates column indices and left/right placement on input / output schemas and jointype
+    fn column_indices_from_schema(&self) -> ArrowResult<Vec<(usize, bool)>> {
+        let (primary_is_left, primary_schema, secondary_schema) = match self.join_type {
+            JoinType::Inner | JoinType::Left => {
+                (true, self.left.schema(), self.right.schema())
+            }
+            JoinType::Right => (false, self.right.schema(), self.left.schema()),
+        };
+        let mut column_indices = vec![];
+        for field in self.schema.fields() {
+            let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
+                    Ok(i) => Ok((true, i)),
+                    Err(_) => {
+                        match secondary_schema.index_of(field.name()) {
+                            Ok(i) => Ok((false, i)),
+                            _ => Err(DataFusionError::Internal(
+                                format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
+                            ))
+                        }
+                    }
+                }.map_err(DataFusionError::into_arrow_external_error)?;
+
+            let is_left =
+                is_primary && primary_is_left || !is_primary && !primary_is_left;
+            column_indices.push((column_index, is_left));
+        }
+
+        Ok(column_indices)
+    }
 }
 
 #[async_trait]
@@ -203,12 +233,7 @@ impl ExecutionPlan for HashJoinExec {
             .map(|on| on.1.clone())
             .collect::<HashSet<_>>();
 
-        let column_indices = column_indices_from_schema(
-            &self.left.schema(),
-            &self.right.schema(),
-            &self.schema(),
-            self.join_type,
-        )?;
+        let column_indices = self.column_indices_from_schema()?;
         Ok(Box::pin(HashJoinStream {
             schema: self.schema.clone(),
             on_right,
@@ -268,39 +293,6 @@ impl RecordBatchStream for HashJoinStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
-}
-
-/// Calculates column index based on input / output schemas and jointype  
-fn column_indices_from_schema(
-    left: &Schema,
-    right: &Schema,
-    output_schema: &Schema,
-    join_type: JoinType,
-) -> ArrowResult<Vec<(usize, bool)>> {
-    let (primary_is_left, primary_schema, secondary_schema) = match join_type {
-        JoinType::Inner | JoinType::Left => (true, left, right),
-        JoinType::Right => (false, right, left),
-    };
-    let mut column_indices = vec![];
-    for field in output_schema.fields() {
-        let (is_primary, column_index) = match primary_schema.index_of(field.name()) {
-                    Ok(i) => Ok((true, i)),
-                    Err(_) => {
-                        match secondary_schema.index_of(field.name()) {
-                            Ok(i) => Ok((false, i)),
-                            _ => Err(DataFusionError::Internal(
-                                format!("During execution, the column {} was not found in neither the left or right side of the join", field.name()).to_string()
-                            ))
-                        }
-                    }
-                }.map_err(DataFusionError::into_arrow_external_error)?;
-
-        let is_left =
-            (is_primary && primary_is_left) || (!is_primary && !primary_is_left);
-        column_indices.push((column_index, is_left));
-    }
-
-    Ok(column_indices)
 }
 
 /// Returns a new [RecordBatch] by combining the `left` and `right` according to `indices`.
