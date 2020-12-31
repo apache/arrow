@@ -137,6 +137,19 @@ impl<R: 'static + ChunkReader> SerializedFileReader<R> {
             metadata,
         })
     }
+
+    pub fn filter_row_groups(&mut self, predicate: &dyn Fn(&RowGroupMetaData, usize) -> bool) {
+        let mut filtered_row_groups = Vec::<RowGroupMetaData>::new();
+        for (i, row_group_metadata) in self.metadata.row_groups().iter().enumerate() {
+            if predicate(row_group_metadata, i) {
+                filtered_row_groups.push(row_group_metadata.clone());
+            }
+        }
+        self.metadata = ParquetMetaData::new(
+            self.metadata.file_metadata().clone(),
+            filtered_row_groups
+        );    
+    }
 }
 
 impl<R: 'static + ChunkReader> FileReader for SerializedFileReader<R> {

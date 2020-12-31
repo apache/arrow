@@ -30,6 +30,8 @@ use crate::logical_plan::Expr;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::ExecutionPlan;
 
+use super::datasource::TableProviderFilterPushDown;
+
 /// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {
     path: String,
@@ -41,7 +43,7 @@ pub struct ParquetTable {
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path.
     pub fn try_new(path: &str, max_concurrency: usize) -> Result<Self> {
-        let parquet_exec = ParquetExec::try_from_path(path, None, 0, 1)?;
+        let parquet_exec = ParquetExec::try_from_path(path, None, None, 0, 1)?;
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
@@ -62,17 +64,36 @@ impl TableProvider for ParquetTable {
         self.schema.clone()
     }
 
+    fn supports_filter_pushdown(
+        &self,
+        _filter: &Expr,
+    ) -> Result<TableProviderFilterPushDown> {
+        Ok(TableProviderFilterPushDown::Inexact)
+    }
+
     /// Scan the file(s), using the provided projection, and return one BatchIterator per
     /// partition.
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-        _filters: &[Expr],
+        filters: &[Expr],
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        let predicate = if filters.is_empty() {
+            None
+        }
+        else {
+            Some(filters.iter()
+                .skip(1)
+                .fold(filters[0].clone(), |acc, filter| {
+                    crate::logical_plan::and(acc, (*filter).to_owned())
+                })
+            )
+        };
         Ok(Arc::new(ParquetExec::try_from_path(
             &self.path,
             projection.clone(),
+            predicate,
             batch_size,
             self.max_concurrency,
         )?))

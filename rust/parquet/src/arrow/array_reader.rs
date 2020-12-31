@@ -405,16 +405,6 @@ where
     }
 
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        // Try to initialized column reader
-        if self.column_reader.is_none() {
-            let init_result = self.next_column_reader()?;
-            if !init_result {
-                return Err(general_err!("No page left!"));
-            }
-        }
-
-        assert!(self.column_reader.is_some());
-
         let mut data_buffer: Vec<T::T> = Vec::with_capacity(batch_size);
         data_buffer.resize_with(batch_size, T::T::default);
 
@@ -436,7 +426,10 @@ where
 
         let mut num_read = 0;
 
-        while num_read < batch_size {
+        // Try to initialize column reader
+        self.next_column_reader()?;
+
+        while self.column_reader.is_some() && num_read < batch_size {
             let num_to_read = batch_size - num_read;
             let cur_data_buf = &mut data_buffer[num_read..];
             let cur_def_levels_buf =
