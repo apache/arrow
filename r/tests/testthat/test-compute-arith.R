@@ -76,11 +76,3 @@ test_that("Dates casting", {
   skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-11078")
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
 })
-
-test_that("Datetimes", {
-  a <- Array$create(c(Sys.time() + 1:4, NA_integer_))
-  b <- Scalar$create(Sys.time())
-  result <- a - b
-  expect_is(result$type, "DataType")
-  expect_identical(result$type$ToString(), "duration[us]")
-})
