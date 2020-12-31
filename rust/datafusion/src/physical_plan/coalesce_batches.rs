@@ -97,8 +97,8 @@ impl ExecutionPlan for CoalesceBatchesExec {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         Ok(Box::pin(CoalesceBatchesStream {
             input: self.input.execute(partition).await?,
-            schema: self.input.schema().clone(),
-            target_batch_size: self.target_batch_size.clone(),
+            schema: self.input.schema(),
+            target_batch_size: self.target_batch_size,
             buffer: Vec::new(),
             buffered_rows: 0,
         }))
