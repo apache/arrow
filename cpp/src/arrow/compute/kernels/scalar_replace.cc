@@ -30,37 +30,27 @@ namespace internal {
 
 namespace {
 
-void handle_nulls(KernelContext* ctx, const ArrayData& data, const ArrayData& mask, ArrayData* output) {
+void handle_nulls(KernelContext* ctx, const ArrayData& data, const ArrayData& mask,
+                  ArrayData* output) {
   if (data.MayHaveNulls()) {
     KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_nulls, ctx,
                            ctx->AllocateBitmap(data.length));
 
     if (mask.MayHaveNulls()) {
-      ::arrow::internal::BitmapAnd(mask.buffers[0]->data(),
-                                   mask.offset,
-                                   mask.buffers[1]->data(),
-                                   mask.offset,
-                                   mask.length,
-                                   output->offset,
-                                   out_nulls->mutable_data());
-      ::arrow::internal::BitmapOr(data.buffers[0]->data(),
-                                  data.offset,
-                                  out_nulls->data(),
-                                  output->offset,
-                                  data.length,
-                                  output->offset,
+      ::arrow::internal::BitmapAnd(mask.buffers[0]->data(), mask.offset,
+                                   mask.buffers[1]->data(), mask.offset, mask.length,
+                                   output->offset, out_nulls->mutable_data());
+      ::arrow::internal::BitmapOr(data.buffers[0]->data(), data.offset, out_nulls->data(),
+                                  output->offset, data.length, output->offset,
                                   out_nulls->mutable_data());
     } else {
-      ::arrow::internal::BitmapOr(data.buffers[0]->data(),
-                                  data.offset,
-                                  mask.buffers[1]->data(),
-                                  mask.offset,
-                                  mask.length,
-                                  output->offset,
-                                  out_nulls->mutable_data());
+      ::arrow::internal::BitmapOr(data.buffers[0]->data(), data.offset,
+                                  mask.buffers[1]->data(), mask.offset, mask.length,
+                                  output->offset, out_nulls->mutable_data());
     }
 
-    if (::arrow::internal::CountSetBits(out_nulls->data(), output->offset, data.length) < data.length)
+    if (::arrow::internal::CountSetBits(out_nulls->data(), output->offset, data.length) <
+        data.length)
       output->buffers[0] = out_nulls;
   }
 }
@@ -200,7 +190,8 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     // null count 0 unless we explicitly propagate it below.
     DCHECK(output->buffers[0] == nullptr);
 
-    const uint8_t* mask_validities = mask.buffers[0] == nullptr ? nullptr : mask.buffers[0]->data();
+    const uint8_t* mask_validities =
+        mask.buffers[0] == nullptr ? nullptr : mask.buffers[0]->data();
     const std::shared_ptr<Buffer> to_replace = mask.buffers[1];
     std::shared_ptr<Buffer> to_replace_valid = nullptr;
     uint64_t replace_count = 0;
@@ -208,12 +199,11 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
       if (mask_validities == nullptr) {
         to_replace_valid = to_replace;
       } else {
-        KERNEL_ASSIGN_OR_RAISE(to_replace_valid,
-                               ctx,
-                               ::arrow::internal::BitmapAnd(ctx->memory_pool(),
-                                                            mask_validities, mask.offset,
-                                                            to_replace->data(), mask.offset,
-                                                            mask.length, output->offset));
+        KERNEL_ASSIGN_OR_RAISE(
+            to_replace_valid, ctx,
+            ::arrow::internal::BitmapAnd(ctx->memory_pool(), mask_validities, mask.offset,
+                                         to_replace->data(), mask.offset, mask.length,
+                                         output->offset));
       }
       BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
       int64_t i = 0;
@@ -225,16 +215,16 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     }
 
     if (replace_count > 0 && replacement_scalar.is_valid) {
-      const uint8_t* input_validities = input.buffers[0] == nullptr ? nullptr : input.buffers[0]->data();
+      const uint8_t* input_validities =
+          input.buffers[0] == nullptr ? nullptr : input.buffers[0]->data();
       const auto input_offsets = input.GetValues<OffsetType>(1, input.offset);
       // offset is 0 otherwise GetValue() will "shift" the buffer by input.offset bytes
       // (should it rather shift by the lengths of the first input.offset string values ?)
       const auto input_values = input.GetValues<char>(2, 0);
       BuilderType builder(input.type, ctx->memory_pool());
-      KERNEL_RETURN_IF_ERROR(ctx,
-                             builder.ReserveData(input.buffers[2]->size()
-                             - input_offsets[0]
-                             + replace_count * replacement.length()));
+      KERNEL_RETURN_IF_ERROR(
+          ctx, builder.ReserveData(input.buffers[2]->size() - input_offsets[0] +
+                                   replace_count * replacement.length()));
       KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
       BitBlockCounter bit_counter(to_replace_valid->data(), input.offset, input.length);
@@ -242,11 +232,11 @@ struct ReplaceFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
       while (j < input.length) {
         BitBlockCount block = bit_counter.NextWord();
         for (int64_t i = 0; i < block.length; ++i) {
-
           if (BitUtil::GetBit(to_replace_valid->data(), input.offset + j + i)) {
             builder.UnsafeAppend(replacement);
           } else {
-            if (input_validities == nullptr || BitUtil::GetBit(input_validities, input.offset + j + i)) {
+            if (input_validities == nullptr ||
+                BitUtil::GetBit(input_validities, input.offset + j + i)) {
               auto current_offset = input_offsets[j + i];
               auto next_offset = input_offsets[j + i + 1];
               auto string_value = util::string_view(input_values + current_offset,
