@@ -1582,6 +1582,7 @@ impl Field {
     }
 
     /// Merge field into self if it is compatible. Struct will be merged recursively.
+    /// NOTE: `self` may be updated to unexpected state in case of merge failure.
     ///
     /// Example:
     ///
@@ -1593,6 +1594,28 @@ impl Field {
     /// assert!(field.is_nullable());
     /// ```
     pub fn try_merge(&mut self, from: &Field) -> Result<()> {
+        // merge metadata
+        match (self.metadata(), from.metadata()) {
+            (Some(self_metadata), Some(from_metadata)) => {
+                let mut merged = self_metadata.clone();
+                for (key, from_value) in from_metadata {
+                    if let Some(self_value) = self_metadata.get(key) {
+                        if self_value != from_value {
+                            return Err(ArrowError::SchemaError(format!(
+                                "Fail to merge field due to conflicting metadata data value for key {}", key),
+                            ));
+                        }
+                    } else {
+                        merged.insert(key.clone(), from_value.clone());
+                    }
+                }
+                self.set_metadata(Some(merged));
+            }
+            (None, Some(from_metadata)) => {
+                self.set_metadata(Some(from_metadata.clone()));
+            }
+            _ => {}
+        }
         if from.dict_id != self.dict_id {
             return Err(ArrowError::SchemaError(
                 "Fail to merge schema Field due to conflicting dict_id".to_string(),
@@ -2945,6 +2968,98 @@ mod tests {
                 true,
             ),
         ])
+    }
+
+    #[test]
+    fn test_try_merge_field_with_metadata() {
+        // 1. Different values for the same key should cause error.
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        let metadata1: BTreeMap<String, String> =
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        f1.set_metadata(Some(metadata1));
+
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        let metadata2: BTreeMap<String, String> =
+            [("foo".to_string(), "baz".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        f2.set_metadata(Some(metadata2));
+
+        assert!(
+            Schema::try_merge(&[Schema::new(vec![f1]), Schema::new(vec![f2])]).is_err()
+        );
+
+        // 2. None + Some
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        let metadata2: BTreeMap<String, String> =
+            [("missing".to_string(), "value".to_string())]
+                .iter()
+                .cloned()
+                .collect();
+        f2.set_metadata(Some(metadata2));
+
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(f1.metadata.unwrap(), f2.metadata.unwrap());
+
+        // 3. Some + Some
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let mut f2 = Field::new("first_name", DataType::Utf8, false);
+        f2.set_metadata(Some(
+            [("foo2".to_string(), "bar2".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(
+            f1.metadata.unwrap(),
+            [
+                ("foo".to_string(), "bar".to_string()),
+                ("foo2".to_string(), "bar2".to_string())
+            ]
+            .iter()
+            .cloned()
+            .collect()
+        );
+
+        // 4. Some + None.
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        f1.set_metadata(Some(
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+        ));
+        let f2 = Field::new("first_name", DataType::Utf8, false);
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_some());
+        assert_eq!(
+            f1.metadata.unwrap(),
+            [("foo".to_string(), "bar".to_string())]
+                .iter()
+                .cloned()
+                .collect()
+        );
+
+        // 5. None + None.
+        let mut f1 = Field::new("first_name", DataType::Utf8, false);
+        let f2 = Field::new("first_name", DataType::Utf8, false);
+        assert!(f1.try_merge(&f2).is_ok());
+        assert!(f1.metadata.is_none());
     }
 
     #[test]
